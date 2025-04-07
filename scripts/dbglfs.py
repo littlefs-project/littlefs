@@ -2723,18 +2723,6 @@ class Lfs:
         # is the filesystem corrupt?
         self.corrupt = corrupt
 
-        # check mroot
-        if not self.corrupt and not self.ckmroot():
-            self.corrupt = True
-
-        # check magic
-        if not self.corrupt and not self.ckmagic():
-            self.corrupt = True
-
-        # check gcksum
-        if not self.corrupt and not self.ckcksum():
-            self.corrupt = True
-
         # create the root directory, this is a bit of a special case
         self.root = self.Root(self)
 
@@ -2827,11 +2815,41 @@ class Lfs:
 
     @classmethod
     def fetch(cls, bd, blocks=None, trunk=None, *,
-            depth=None):
+            depth=None,
+            no_ck=False,
+            no_ckmroot=False,
+            no_ckmagic=False,
+            no_ckgcksum=False):
         # Mtree does most of the work here
         mtree = Mtree.fetch(bd, blocks, trunk,
                 depth=depth)
-        return cls(bd, mtree)
+
+        # create lfs object
+        lfs = cls(bd, mtree)
+
+        # don't check anything?
+        if no_ck:
+            return lfs
+
+        # check mroot
+        if (not no_ckmroot
+                and not lfs.corrupt
+                and not lfs.ckmroot()):
+            lfs.corrupt = True
+
+        # check magic
+        if (not no_ckmagic
+                and not lfs.corrupt
+                and not lfs.ckmagic()):
+            lfs.corrupt = True
+
+        # check gcksum
+        if (not no_ckgcksum
+                and not lfs.corrupt
+                and not lfs.ckgcksum()):
+            lfs.corrupt = True
+
+        return lfs
 
     # check that the mroot is valid
     def ckmroot(self):
@@ -2844,7 +2862,7 @@ class Lfs:
         return self.config.magic.data == b'littlefs'
 
     # check that the gcksum checks out
-    def ckcksum(self):
+    def ckgcksum(self):
         return crc32ccube(self.cksum) == int(self.gstate.gcksum)
 
     # read custom attrs
@@ -4531,7 +4549,7 @@ def main(disk, mroots=None, paths=None, *,
                         lfs.mbweightrepr(), lfs.mrweightrepr(),
                         lfs.rev,
                         lfs.cksum,
-                        '' if lfs.ckcksum() else '?'))
+                        '' if lfs.ckgcksum() else '?'))
 
         # dynamically size the id field
         w_width = max(

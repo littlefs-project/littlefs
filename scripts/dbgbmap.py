@@ -2733,6 +2733,7 @@ class Gstate:
         locals()[g.__name__.lower()] = ft.cached_property(_parser(g))
 
 
+# TODO sync
 # high-level littlefs representation
 class Lfs:
     def __init__(self, bd, mtree, config=None, gstate=None, cksum=None, *,
@@ -2765,18 +2766,6 @@ class Lfs:
 
         # is the filesystem corrupt?
         self.corrupt = corrupt
-
-        # check mroot
-        if not self.corrupt and not self.ckmroot():
-            self.corrupt = True
-
-        # check magic
-        if not self.corrupt and not self.ckmagic():
-            self.corrupt = True
-
-        # check gcksum
-        if not self.corrupt and not self.ckcksum():
-            self.corrupt = True
 
         # create the root directory, this is a bit of a special case
         self.root = self.Root(self)
@@ -2870,11 +2859,41 @@ class Lfs:
 
     @classmethod
     def fetch(cls, bd, blocks=None, trunk=None, *,
-            depth=None):
+            depth=None,
+            no_ck=False,
+            no_ckmroot=False,
+            no_ckmagic=False,
+            no_ckgcksum=False):
         # Mtree does most of the work here
         mtree = Mtree.fetch(bd, blocks, trunk,
                 depth=depth)
-        return cls(bd, mtree)
+
+        # create lfs object
+        lfs = cls(bd, mtree)
+
+        # don't check anything?
+        if no_ck:
+            return lfs
+
+        # check mroot
+        if (not no_ckmroot
+                and not lfs.corrupt
+                and not lfs.ckmroot()):
+            lfs.corrupt = True
+
+        # check magic
+        if (not no_ckmagic
+                and not lfs.corrupt
+                and not lfs.ckmagic()):
+            lfs.corrupt = True
+
+        # check gcksum
+        if (not no_ckgcksum
+                and not lfs.corrupt
+                and not lfs.ckgcksum()):
+            lfs.corrupt = True
+
+        return lfs
 
     # check that the mroot is valid
     def ckmroot(self):
@@ -2887,7 +2906,7 @@ class Lfs:
         return self.config.magic.data == b'littlefs'
 
     # check that the gcksum checks out
-    def ckcksum(self):
+    def ckgcksum(self):
         return crc32ccube(self.cksum) == int(self.gstate.gcksum)
 
     # read custom attrs
@@ -4367,7 +4386,9 @@ def main_(f, disk, mroots=None, *,
 
         # fetch the filesystem
         bd = Bd(f_, block_size, block_count)
-        lfs = Lfs.fetch(bd, mroots, trunk)
+        lfs = Lfs.fetch(bd, mroots, trunk,
+                # don't bother to check things if we're not reporting errors
+                no_ck=not args.get('error_on_corrupt'))
         corrupted = not bool(lfs)
 
         # if we can't figure out the block_count, guess
@@ -4676,7 +4697,7 @@ def main_(f, disk, mroots=None, *,
                 'mrweight': lfs.mrweightrepr(),
                 'cksum': '%08x%s' % (
                     lfs.cksum,
-                    '' if lfs.ckcksum() else '?'),
+                    '' if lfs.ckgcksum() else '?'),
                 'mdir_count': mdir_count,
                 'mdir_percent': '%.1f%%' % (100*(mdir_count / len(bmap))),
                 'btree_count': btree_count,
@@ -4694,7 +4715,7 @@ def main_(f, disk, mroots=None, *,
                     lfs.addr(),
                     lfs.mbweightrepr(), lfs.mrweightrepr(),
                     lfs.cksum,
-                    '' if lfs.ckcksum() else '?'))
+                    '' if lfs.ckgcksum() else '?'))
         else:
             f.writeln('bd %sx%s, %6s mdir, %6s btree, %6s data' % (
                     lfs.block_size if lfs.block_size is not None else '?',
