@@ -4451,9 +4451,8 @@ def main_(f, disk, mroots=None, *,
         mdir_count = 0
         btree_count = 0
         data_count = 0
-        for child, path in lfs.traverse(
-                mtree_only=mtree_only,
-                path=True):
+        for child in lfs.traverse(
+                mtree_only=mtree_only):
             # track each block in our window
             for b in child.blocks:
                 if b not in bmap:
@@ -4506,20 +4505,6 @@ def main_(f, disk, mroots=None, *,
                 # normal block
                 else:
                     bmap[b] = BmapBlock(b, type, child, usage)
-
-                # keep track of siblings
-                bmap[b].siblings.update(
-                        b_ for b_ in child.blocks
-                            if b_ != b and b_ in bmap)
-
-            # update parents with children
-            if path:
-                parent = path[-1][1]
-                for b in parent.blocks:
-                    if b in bmap:
-                        bmap[b].children.update(
-                                b_ for b_ in child.blocks
-                                    if b_ in bmap)
 
     # scale width/height if requested
     if (to_scale is not None
