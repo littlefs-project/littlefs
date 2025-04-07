@@ -59,12 +59,15 @@ BENCH_PERF  := $(BENCH_RUNNER:%=%.perf)
 BENCH_TRACE := $(BENCH_RUNNER:%=%.trace)
 BENCH_CSV   := $(BENCH_RUNNER:%=%.csv)
 
-CFLAGS += -fcallgraph-info=su
 CFLAGS += -g3
 CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -Wextra -pedantic
 CFLAGS += -Wmissing-prototypes
+ifeq ($(shell $(CC) --version | grep clang),)
 CFLAGS += -ftrack-macro-expansion=0
+CFLAGS += -fcallgraph-info=su
+endif
+
 ifdef DEBUG
 CFLAGS += -O0
 else
