@@ -1089,7 +1089,7 @@ def main(paths, output, *,
             # partition ctx
             if not no_ctx:
                 ctx = ctxs[k]
-                ctx.x = code.x + code.width + 2
+                ctx.x = code.x + code.width + 1
                 ctx.y = y__
                 ctx.width = width__ - ctx.x
                 ctx.height = ctx_split
@@ -1100,8 +1100,8 @@ def main(paths, output, *,
             # partition stack
             if not no_frames:
                 stack = stacks[k]
-                stack.x = code.x + code.width + 2
-                stack.y = ctx.y + ctx.height + 2 if ctx_split > 0 else y__
+                stack.x = code.x + code.width + 1
+                stack.y = ctx.y + ctx.height + 1 if ctx_split > 0 else y__
                 stack.width = width__ - stack.x
                 stack.height = height___ - (stack.y - y__)
                 partition(stack, dice=True)
@@ -1279,22 +1279,23 @@ def main(paths, output, *,
                                         else "hidden")
                                 if not no_javascript else ''))
 
-            # add a line between code/stack
+            # add a separator between code/stack
             f.write('<rect '
                     'x="%(x)d" '
                     'y="%(y)d" '
                     'width="%(width)d" '
                     'height="%(height)d" '
-                    'fill="#7f7f7f">' % dict(
+                    'fill="%(color)s">' % dict(
                         x=code.x + code.width,
                         y=code.y,
-                        width=2,
+                        width=1,
                         height=max(
                                 stacks[k].y + stacks[k].height
                                     if not no_frames else 0,
                                 ctxs[k].y + ctxs[k].height
                                     if not no_ctx else 0)
-                            - code.y - padding))
+                            - code.y - padding,
+                        color='#7f7f7f' if dark else '#555555'))
             f.write('</rect>')
 
             # create ctx tiles
@@ -1378,18 +1379,19 @@ def main(paths, output, *,
                     f.write('</text>')
                 f.write('</g>')
 
-            # add a line between ctx/stack
+            # add a separator between ctx/stack
             if not no_ctx and not no_frames:
               f.write('<rect '
                       'x="%(x)d" '
                       'y="%(y)d" '
                       'width="%(width)d" '
                       'height="%(height)d" '
-                      'fill="#7f7f7f">' % dict(
+                      'fill="%(color)s">' % dict(
                           x=ctxs[k].x,
                           y=ctxs[k].y + ctxs[k].height,
                           width=ctxs[k].width - padding,
-                          height=2))
+                          height=1,
+                          color='#7f7f7f' if dark else '#555555'))
               f.write('</rect>')
 
             # create stack tiles
