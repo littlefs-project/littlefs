@@ -600,6 +600,15 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
 // Returns a negative error code on failure.
 int lfs_file_close(lfs_t *lfs, lfs_file_t *file);
 
+// Close a file
+//
+// Any pending writes are withdrawn.
+// If desired a previous sync call is necesarry to write pending writes out to the storage.
+// Releases any allocated resources.
+//
+// Returns a negative error code on failure.
+int lfs_file_uncommitted_close(lfs_t *lfs, lfs_file_t *file);
+
 // Synchronize a file on storage
 //
 // Any pending writes are written out to storage.
