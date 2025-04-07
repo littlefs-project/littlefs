@@ -791,18 +791,6 @@ class Rbyd:
         else:
             return rattr_
 
-    def __getitem__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key)
-
-    def __contains__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key) is not None
-
     def rids(self, *,
             path=False):
         rid = -1
@@ -868,9 +856,6 @@ class Rbyd:
                 else:
                     yield rattr_
                 tag_ = rattr_.tag
-
-    def __iter__(self):
-        return self.rattrs()
 
     # lookup by name
     def namelookup(self, did, name):
@@ -1647,7 +1632,7 @@ def dbg_tree(rbyd, *,
     # dynamically size the id field
     w_width = mt.ceil(mt.log10(max(1, rbyd.weight)+1))
 
-    for i, (rid, rattr) in enumerate(rbyd):
+    for i, (rid, rattr) in enumerate(rbyd.rattrs()):
         # show human-readable tag representation
         print('%08x: %s%*s %-*s  %s' % (
                 rattr.toff,

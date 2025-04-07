@@ -808,18 +808,6 @@ class Rbyd:
         else:
             return rattr_
 
-    def __getitem__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key)
-
-    def __contains__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key) is not None
-
     def rids(self, *,
             path=False):
         rid = -1
@@ -885,9 +873,6 @@ class Rbyd:
                 else:
                     yield rattr_
                 tag_ = rattr_.tag
-
-    def __iter__(self):
-        return self.rattrs()
 
     # lookup by name
     def namelookup(self, did, name):
@@ -1093,18 +1078,6 @@ class Btree:
         else:
             return rattr_
 
-    def __getitem__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key)
-
-    def __contains__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key) is not None
-
     # note leaves only iterates over leaf rbyds, whereas traverse
     # traverses all rbyds
     def leaves(self, *,
@@ -1234,9 +1207,6 @@ class Btree:
                         yield rattr, path_
                     else:
                         yield rattr
-
-    def __iter__(self):
-        return self.rattrs()
 
     # lookup by name
     def namelookupleaf(self, did, name, *,

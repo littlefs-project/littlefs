@@ -900,18 +900,6 @@ class Rbyd:
         else:
             return rattr_
 
-    def __getitem__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key)
-
-    def __contains__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key) is not None
-
     def rids(self, *,
             path=False):
         rid = -1
@@ -977,9 +965,6 @@ class Rbyd:
                 else:
                     yield rattr_
                 tag_ = rattr_.tag
-
-    def __iter__(self):
-        return self.rattrs()
 
     # lookup by name
     def namelookup(self, did, name):
@@ -1185,18 +1170,6 @@ class Btree:
         else:
             return rattr_
 
-    def __getitem__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key)
-
-    def __contains__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key) is not None
-
     # note leaves only iterates over leaf rbyds, whereas traverse
     # traverses all rbyds
     def leaves(self, *,
@@ -1326,9 +1299,6 @@ class Btree:
                         yield rattr, path_
                     else:
                         yield rattr
-
-    def __iter__(self):
-        return self.rattrs()
 
     # lookup by name
     def namelookupleaf(self, did, name, *,
@@ -1581,18 +1551,6 @@ class Mdir:
         return self.rbyd.lookup(mid.mrid, tag, mask,
                 path=path)
 
-    def __getitem__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key)
-
-    def __contains__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key) is not None
-
     def mids(self, *,
             path=False):
         for r in self.rbyd.rids(
@@ -1628,9 +1586,6 @@ class Mdir:
                 mid = Mid(mid, mbits=self.mbits)
             yield from self.rbyd.rattrs(mid.mrid, tag, mask,
                     path=path)
-
-    def __iter__(self):
-        return self.rattrs()
 
     # lookup by name
     def namelookup(self, did, name):
@@ -1929,18 +1884,6 @@ class Mtree:
         else:
             return mdir, name
 
-    def __getitem__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key)
-
-    def __contains__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        return self.lookup(*key) is not None
-
     # iterate over all mdirs, this includes the mrootchain
     def _leaves(self, *,
             path=False,
@@ -2171,9 +2114,6 @@ class Mtree:
                         yield rattr, path_
                     else:
                         yield rattr
-
-    def __iter__(self):
-        return self.mids()
 
     # lookup by name
     def _namelookupleaf(self, did, name, *,
@@ -3156,9 +3096,6 @@ class Lfs:
                 break
             mid = self.mid(mbid, mrid)
 
-    def __iter__(self):
-        return self.files()
-
     def orphans(self,
             all=False):
         all_ = all; del all
@@ -3535,9 +3472,6 @@ class Lfs:
                     data_only=data_only,
                     path=path,
                     depth=depth)
-
-        def __iter__(self):
-            return self.datas()
 
         # some convience operations for reading data
         def bytes(self, *,
