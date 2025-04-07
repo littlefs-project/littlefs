@@ -4249,6 +4249,8 @@ def main_(f, disk, mroots=None, *,
         block_size=None,
         block_count=None,
         blocks=None,
+        no_ckmeta=False,
+        no_ckdata=False,
         mtree_only=False,
         chars=[],
         colors=[],
@@ -4427,8 +4429,17 @@ def main_(f, disk, mroots=None, *,
                                 range(block_size))
                     corrupted = True
 
-                # corrupt block?
-                elif not child:
+                # corrupt metadata?
+                elif (not no_ckmeta
+                        and isinstance(child, (Mdir, Rbyd))
+                        and not child):
+                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size))
+                    corrupted = True
+
+                # corrupt data?
+                elif (not no_ckdata
+                        and isinstance(child, Bptr)
+                        and not child):
                     bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size))
                     corrupted = True
 
@@ -4778,6 +4789,14 @@ if __name__ == "__main__":
                     if ',' in x
                     else int(x, 0)),
             help="Show a specific block, may be a range.")
+    parser.add_argument(
+            '--no-ckmeta',
+            action='store_true',
+            help="Don't check metadata blocks for errors.")
+    parser.add_argument(
+            '--no-ckdata',
+            action='store_true',
+            help="Don't check metadata + data blocks for errors.")
     parser.add_argument(
             '--mtree-only',
             action='store_true',
