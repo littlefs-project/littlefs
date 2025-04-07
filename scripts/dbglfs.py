@@ -522,7 +522,7 @@ class Rbyd:
     def __init__(self, blocks, trunk, weight, rev, eoff, cksum, data, *,
             shrub=False,
             gcksumdelta=None,
-            corrupt=False):
+            redund=0):
         if isinstance(blocks, int):
             self.blocks = (blocks,)
         else:
@@ -536,11 +536,16 @@ class Rbyd:
 
         self.shrub = shrub
         self.gcksumdelta = gcksumdelta
-        self.corrupt = corrupt
+        self.redund = redund
 
     @property
     def block(self):
         return self.blocks[0]
+
+    @property
+    def corrupt(self):
+        # use redund=-1 to indicate corrupt rbyds
+        return self.redund >= 0
 
     def addr(self):
         if len(self.blocks) == 1:
@@ -557,7 +562,8 @@ class Rbyd:
         return 'rbyd %s w%s' % (self.addr(), self.weight)
 
     def __bool__(self):
-        return not self.corrupt
+        # use redund=-1 to indicate corrupt rbyds
+        return self.redund >= 0
 
     def __eq__(self, other):
         return ((frozenset(self.blocks), self.trunk)
@@ -665,7 +671,7 @@ class Rbyd:
 
         return cls(block, trunk_, weight, rev, eoff, cksum, data,
                 gcksumdelta=gcksumdelta,
-                corrupt=not trunk_)
+                redund=0 if trunk_ else -1)
 
     @classmethod
     def fetch(cls, bd, blocks, trunk=None):
@@ -673,21 +679,31 @@ class Rbyd:
         if not isinstance(blocks, int):
             # fetch all blocks
             rbyds = [cls.fetch(bd, block, trunk) for block in blocks]
-            # determine most recent revision
-            i = 0
-            for i_, rbyd in enumerate(rbyds):
+
+            # determine most recent revision/trunk
+            rev, trunk = None, None
+            for rbyd in rbyds:
                 # compare with sequence arithmetic
                 if rbyd and (
-                        not rbyds[i]
-                            or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
-                            or (rbyd.rev == rbyds[i].rev
-                                and rbyd.trunk > rbyds[i].trunk)):
-                    i = i_
+                        rev is None
+                            or not ((rbyd.rev - rev) & 0x80000000)
+                            or (rbyd.rev == rev and rbyd.trunk > trunk)):
+                    rev, trunk = rbyd.rev, rbyd.trunk
+            # sort for reproducibility
+            rbyds.sort(key=lambda rbyd: (
+                    # prioritize valid redund blocks
+                    0 if rbyd and rbyd.rev == rev and rbyd.trunk == trunk
+                        else 1,
+                    # default to sorting by block
+                    rbyd.block))
+
+            # choose an active rbyd
+            rbyd = rbyds[0]
             # keep track of the other blocks
-            rbyd = rbyds[i]
-            rbyd.blocks += tuple(
-                    rbyds[(i+1+j) % len(rbyds)].block
-                        for j in range(len(rbyds)-1))
+            rbyd.blocks = tuple(rbyd.block for rbyd in rbyds)
+            # keep track of how many redund blocks are valid
+            rbyd.redund = -1 + sum(1 for rbyd in rbyds
+                    if rbyd and rbyd.rev == rev and rbyd.trunk == trunk)
             # and patch the gcksumdelta if we have one
             if rbyd.gcksumdelta is not None:
                 rbyd.gcksumdelta.blocks = rbyd.blocks
@@ -710,7 +726,7 @@ class Rbyd:
                 or rbyd.trunk != trunk
                 or rbyd.weight != weight):
             # mark as corrupt and keep track of expected trunk/weight
-            rbyd.corrupt = True
+            rbyd.redund = -1
             rbyd.trunk = trunk
             rbyd.weight = weight
 
@@ -973,10 +989,6 @@ class Btree:
     @property
     def rev(self):
         return self.rbyd.rev
-
-    @property
-    def eoff(self):
-        return self.rbyd.eoff
 
     @property
     def cksum(self):
@@ -1421,8 +1433,7 @@ class Mid:
 # implicit mbid associated with the mdir
 class Mdir:
     def __init__(self, mid, rbyd, *,
-            mbits=None,
-            corrupt=False):
+            mbits=None):
         # we need one of these to figure out mbits
         if mbits is not None:
             self.mbits = mbits
@@ -1439,10 +1450,8 @@ class Mdir:
         # accept either another mdir or rbyd
         if isinstance(rbyd, Mdir):
             self.rbyd = rbyd.rbyd
-            self.corrupt = corrupt or rbyd.corrupt
         else:
             self.rbyd = rbyd
-            self.corrupt = corrupt or rbyd.corrupt
 
     @property
     def data(self):
@@ -1480,6 +1489,14 @@ class Mdir:
     def gcksumdelta(self):
         return self.rbyd.gcksumdelta
 
+    @property
+    def corrupt(self):
+        return self.rbyd.corrupt
+
+    @property
+    def redund(self):
+        return self.rbyd.redund
+
     def addr(self):
         if len(self.blocks) == 1:
             return '0x%x' % self.block
@@ -1497,7 +1514,7 @@ class Mdir:
                 self.weight)
 
     def __bool__(self):
-        return not self.corrupt
+        return bool(self.rbyd)
 
     # we _don't_ care about mid for equality, or trunk even
     def __eq__(self, other):
@@ -1650,10 +1667,6 @@ class Mtree:
     @property
     def rev(self):
         return self.mroot.rev
-
-    @property
-    def eoff(self):
-        return self.mroot.eoff
 
     @property
     def cksum(self):
@@ -2297,6 +2310,10 @@ class Bptr:
     def corrupt(self):
         cksum_ = crc32c(self.ckdata)
         return (cksum_ != self.cksum)
+
+    @property
+    def redund(self):
+        return -1 if self.corrupt else 0
 
     def __bool__(self):
         return not self.corrupt
@@ -3319,16 +3336,16 @@ class Lfs:
             # corrupt btree node?
             if not rbyd:
                 if path:
-                    return bid-(rbyd.weight-1), (bid, rbyd, rid), path_
+                    return bid-(rbyd.weight-1), rbyd, path_
                 else:
-                    return bid-(rbyd.weight-1), (bid, rbyd, rid)
+                    return bid-(rbyd.weight-1), rbyd
 
             # stop here?
             if depth and len(path_) >= depth:
                 if path:
-                    return bid-(rattr.weight-1), (bid, rbyd, rid), path_
+                    return bid-(rattr.weight-1), rbyd, path_
                 else:
-                    return bid-(rattr.weight-1), (bid, rbyd, rid)
+                    return bid-(rattr.weight-1), rbyd
 
             # inlined data?
             if (rattr.tag & ~0x1003) == TAG_DATA:
@@ -3400,13 +3417,13 @@ class Lfs:
                     pos += data.weight
                 # btree node?
                 else:
-                    bid, rbyd, rid = data
+                    rbyd = data
                     if path:
-                        yield (pos, (bid-rid + (rbyd.weight-1), rbyd),
+                        yield (pos, rbyd,
                                 # path tail is usually redundant unless corrupt
                                 path_[:-1] if rbyd else path_)
                     else:
-                        yield pos, (bid-rid + (rbyd.weight-1), rbyd)
+                        yield pos, rbyd
                     pos += rbyd.weight
 
         def leaves(self, *,
@@ -4427,7 +4444,9 @@ def dbg_files(lfs, paths, *,
 
             # btree node?
             else:
-                bid, rbyd = data
+                rbyd = data
+                bid = pos + (rbyd.weight-1)
+
                 # corrupted? try to keep printing the tree
                 if not rbyd:
                     print('%s%11s: %*s %*s%s%s' % (

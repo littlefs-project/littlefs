@@ -827,7 +827,11 @@ def main(paths, output, *,
     # before tile generation, we want code and stack tiles to have the
     # same color if they're in the same subsystem
     for i, (k, s) in enumerate(subsystems.items()):
-        s['color'] = punescape(colors_[i, k], s['attrs'] | s)
+        color__ = colors_[i, k]
+        # don't punescape unless we have to
+        if '%' in color__:
+            color__ = punescape(color__, s['attrs'] | s)
+        s['color'] = color__
 
 
     # build code heirarchy
@@ -844,9 +848,11 @@ def main(paths, output, *,
     for i, t in enumerate(code.leaves()):
         t.color = subsystems[t.attrs['subsystem']]['color']
         if (i, t.attrs['name']) in labels_:
-            t.label = punescape(
-                    labels_[i, t.attrs['name']],
-                    t.attrs['attrs'] | t.attrs)
+            label__ = labels_[i, t.attrs['name']]
+            # don't punescape unless we have to
+            if '%' in label__:
+                label__ = punescape(label__, t.attrs['attrs'] | t.attrs)
+            t.label = label__
         else:
             t.label = '%s%s%s%s' % (
                     t.attrs['name'],
@@ -888,9 +894,12 @@ def main(paths, output, *,
             for i, t in enumerate(stacks[k].leaves()):
                 t.color = subsystems[t.attrs['subsystem']]['color']
                 if (i, t.attrs['name']) in labels_:
-                    t.label = punescape(
-                            labels_[i, t.attrs['name']],
-                            t.attrs['attrs'] | t.attrs)
+                    label__ = labels_[i, t.attrs['name']]
+                    # don't punescape unless we have to
+                    if '%' in label__:
+                        label__ = punescape(label__,
+                                t.attrs['attrs'] | t.attrs)
+                    t.label = label__
                 else:
                     t.label = '%s\nframe %d' % (
                             t.attrs['name'],
@@ -919,9 +928,12 @@ def main(paths, output, *,
             for i, t in enumerate(ctxs[k].leaves()):
                 t.color = subsystems[t.attrs['subsystem']]['color']
                 if (i, t.attrs['name']) in labels_:
-                    t.label = punescape(
-                            labels_[i, t.attrs['name']],
-                            t.attrs['attrs'] | t.attrs)
+                    label__ = labels_[i, t.attrs['name']]
+                    # don't punescape unless we have to
+                    if '%' in label__:
+                        label__ = punescape(label__,
+                                t.attrs['attrs'] | t.attrs)
+                    t.label = label__
                 else:
                     t.label = '%s\nctx %d' % (
                             t.attrs['name'],

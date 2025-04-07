@@ -64,8 +64,12 @@ TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
 TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
 
 
+
+# assign colors to specific filesystem objects
+#
 # some nicer colors borrowed from Seaborn
 # note these include a non-opaque alpha
+#
 # COLORS = [
 #     '#7995c4', # was '#4c72b0bf', # blue
 #     '#e6a37d', # was '#dd8452bf', # orange
@@ -90,8 +94,7 @@ TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
 #     '#bfbe7a', # was '#fffea3bf', # yellow
 #     '#8bb5b4', # was '#b9f2f0bf', # cyan
 # ]
-
-# assign colors to specific filesystem objects
+#
 COLORS = {
     'mdir':     '#d9cb97', # was '#ccb974bf', # yellow
     'btree':    '#7995c4', # was '#4c72b0bf', # blue
@@ -591,7 +594,7 @@ class Rbyd:
     def __init__(self, blocks, trunk, weight, rev, eoff, cksum, data, *,
             shrub=False,
             gcksumdelta=None,
-            corrupt=False):
+            redund=0):
         if isinstance(blocks, int):
             self.blocks = (blocks,)
         else:
@@ -605,11 +608,16 @@ class Rbyd:
 
         self.shrub = shrub
         self.gcksumdelta = gcksumdelta
-        self.corrupt = corrupt
+        self.redund = redund
 
     @property
     def block(self):
         return self.blocks[0]
+
+    @property
+    def corrupt(self):
+        # use redund=-1 to indicate corrupt rbyds
+        return self.redund >= 0
 
     def addr(self):
         if len(self.blocks) == 1:
@@ -626,7 +634,8 @@ class Rbyd:
         return 'rbyd %s w%s' % (self.addr(), self.weight)
 
     def __bool__(self):
-        return not self.corrupt
+        # use redund=-1 to indicate corrupt rbyds
+        return self.redund >= 0
 
     def __eq__(self, other):
         return ((frozenset(self.blocks), self.trunk)
@@ -734,7 +743,7 @@ class Rbyd:
 
         return cls(block, trunk_, weight, rev, eoff, cksum, data,
                 gcksumdelta=gcksumdelta,
-                corrupt=not trunk_)
+                redund=0 if trunk_ else -1)
 
     @classmethod
     def fetch(cls, bd, blocks, trunk=None):
@@ -742,21 +751,31 @@ class Rbyd:
         if not isinstance(blocks, int):
             # fetch all blocks
             rbyds = [cls.fetch(bd, block, trunk) for block in blocks]
-            # determine most recent revision
-            i = 0
-            for i_, rbyd in enumerate(rbyds):
+
+            # determine most recent revision/trunk
+            rev, trunk = None, None
+            for rbyd in rbyds:
                 # compare with sequence arithmetic
                 if rbyd and (
-                        not rbyds[i]
-                            or not ((rbyd.rev - rbyds[i].rev) & 0x80000000)
-                            or (rbyd.rev == rbyds[i].rev
-                                and rbyd.trunk > rbyds[i].trunk)):
-                    i = i_
+                        rev is None
+                            or not ((rbyd.rev - rev) & 0x80000000)
+                            or (rbyd.rev == rev and rbyd.trunk > trunk)):
+                    rev, trunk = rbyd.rev, rbyd.trunk
+            # sort for reproducibility
+            rbyds.sort(key=lambda rbyd: (
+                    # prioritize valid redund blocks
+                    0 if rbyd and rbyd.rev == rev and rbyd.trunk == trunk
+                        else 1,
+                    # default to sorting by block
+                    rbyd.block))
+
+            # choose an active rbyd
+            rbyd = rbyds[0]
             # keep track of the other blocks
-            rbyd = rbyds[i]
-            rbyd.blocks += tuple(
-                    rbyds[(i+1+j) % len(rbyds)].block
-                        for j in range(len(rbyds)-1))
+            rbyd.blocks = tuple(rbyd.block for rbyd in rbyds)
+            # keep track of how many redund blocks are valid
+            rbyd.redund = -1 + sum(1 for rbyd in rbyds
+                    if rbyd and rbyd.rev == rev and rbyd.trunk == trunk)
             # and patch the gcksumdelta if we have one
             if rbyd.gcksumdelta is not None:
                 rbyd.gcksumdelta.blocks = rbyd.blocks
@@ -779,7 +798,7 @@ class Rbyd:
                 or rbyd.trunk != trunk
                 or rbyd.weight != weight):
             # mark as corrupt and keep track of expected trunk/weight
-            rbyd.corrupt = True
+            rbyd.redund = -1
             rbyd.trunk = trunk
             rbyd.weight = weight
 
@@ -1042,10 +1061,6 @@ class Btree:
     @property
     def rev(self):
         return self.rbyd.rev
-
-    @property
-    def eoff(self):
-        return self.rbyd.eoff
 
     @property
     def cksum(self):
@@ -1490,8 +1505,7 @@ class Mid:
 # implicit mbid associated with the mdir
 class Mdir:
     def __init__(self, mid, rbyd, *,
-            mbits=None,
-            corrupt=False):
+            mbits=None):
         # we need one of these to figure out mbits
         if mbits is not None:
             self.mbits = mbits
@@ -1508,10 +1522,8 @@ class Mdir:
         # accept either another mdir or rbyd
         if isinstance(rbyd, Mdir):
             self.rbyd = rbyd.rbyd
-            self.corrupt = corrupt or rbyd.corrupt
         else:
             self.rbyd = rbyd
-            self.corrupt = corrupt or rbyd.corrupt
 
     @property
     def data(self):
@@ -1549,6 +1561,14 @@ class Mdir:
     def gcksumdelta(self):
         return self.rbyd.gcksumdelta
 
+    @property
+    def corrupt(self):
+        return self.rbyd.corrupt
+
+    @property
+    def redund(self):
+        return self.rbyd.redund
+
     def addr(self):
         if len(self.blocks) == 1:
             return '0x%x' % self.block
@@ -1566,7 +1586,7 @@ class Mdir:
                 self.weight)
 
     def __bool__(self):
-        return not self.corrupt
+        return bool(self.rbyd)
 
     # we _don't_ care about mid for equality, or trunk even
     def __eq__(self, other):
@@ -1719,10 +1739,6 @@ class Mtree:
     @property
     def rev(self):
         return self.mroot.rev
-
-    @property
-    def eoff(self):
-        return self.mroot.eoff
 
     @property
     def cksum(self):
@@ -2366,6 +2382,10 @@ class Bptr:
     def corrupt(self):
         cksum_ = crc32c(self.ckdata)
         return (cksum_ != self.cksum)
+
+    @property
+    def redund(self):
+        return -1 if self.corrupt else 0
 
     def __bool__(self):
         return not self.corrupt
@@ -3388,16 +3408,16 @@ class Lfs:
             # corrupt btree node?
             if not rbyd:
                 if path:
-                    return bid-(rbyd.weight-1), (bid, rbyd, rid), path_
+                    return bid-(rbyd.weight-1), rbyd, path_
                 else:
-                    return bid-(rbyd.weight-1), (bid, rbyd, rid)
+                    return bid-(rbyd.weight-1), rbyd
 
             # stop here?
             if depth and len(path_) >= depth:
                 if path:
-                    return bid-(rattr.weight-1), (bid, rbyd, rid), path_
+                    return bid-(rattr.weight-1), rbyd, path_
                 else:
-                    return bid-(rattr.weight-1), (bid, rbyd, rid)
+                    return bid-(rattr.weight-1), rbyd
 
             # inlined data?
             if (rattr.tag & ~0x1003) == TAG_DATA:
@@ -3469,13 +3489,13 @@ class Lfs:
                     pos += data.weight
                 # btree node?
                 else:
-                    bid, rbyd, rid = data
+                    rbyd = data
                     if path:
-                        yield (pos, (bid-rid + (rbyd.weight-1), rbyd),
+                        yield (pos, rbyd,
                                 # path tail is usually redundant unless corrupt
                                 path_[:-1] if rbyd else path_)
                     else:
-                        yield pos, (bid-rid + (rbyd.weight-1), rbyd)
+                        yield pos, rbyd
                     pos += rbyd.weight
 
         def leaves(self, *,
@@ -3837,118 +3857,98 @@ def punescape(s, attrs=None):
 # TODO sync these
 
 # naive space filling curve (the default)
-@ft.lru_cache(1)
 def naive_curve(width, height):
-    def naive_(width, height):
-        for y in range(height):
-            for x in range(width):
-                yield x, y
-
-    # we need to make this a list to cache correctly
-    return list(naive_(width, height))
+    for y in range(height):
+        for x in range(width):
+            yield x, y
 
 # space filling Hilbert-curve
-#
-# we memoize the last curve since this is a bit expensive
-#
-@ft.lru_cache(1)
 def hilbert_curve(width, height):
-    def hilbert_(width, height):
-        # based on generalized Hilbert curves:
-        # https://github.com/jakubcerveny/gilbert
-        #
-        def hilbert_(x, y, a_x, a_y, b_x, b_y):
-            w = abs(a_x+a_y)
-            h = abs(b_x+b_y)
-            a_dx = -1 if a_x < 0 else +1 if a_x > 0 else 0
-            a_dy = -1 if a_y < 0 else +1 if a_y > 0 else 0
-            b_dx = -1 if b_x < 0 else +1 if b_x > 0 else 0
-            b_dy = -1 if b_y < 0 else +1 if b_y > 0 else 0
+    # based on generalized Hilbert curves:
+    # https://github.com/jakubcerveny/gilbert
+    #
+    def hilbert_(x, y, a_x, a_y, b_x, b_y):
+        w = abs(a_x+a_y)
+        h = abs(b_x+b_y)
+        a_dx = -1 if a_x < 0 else +1 if a_x > 0 else 0
+        a_dy = -1 if a_y < 0 else +1 if a_y > 0 else 0
+        b_dx = -1 if b_x < 0 else +1 if b_x > 0 else 0
+        b_dy = -1 if b_y < 0 else +1 if b_y > 0 else 0
 
-            # trivial row
-            if h == 1:
-                for _ in range(w):
-                    yield x, y
-                    x, y = x+a_dx, y+a_dy
-                return
+        # trivial row
+        if h == 1:
+            for _ in range(w):
+                yield x, y
+                x, y = x+a_dx, y+a_dy
+            return
 
-            # trivial column
-            if w == 1:
-                for _ in range(h):
-                    yield x, y
-                    x, y = x+b_dx, y+b_dy
-                return
+        # trivial column
+        if w == 1:
+            for _ in range(h):
+                yield x, y
+                x, y = x+b_dx, y+b_dy
+            return
 
-            a_x_, a_y_ = a_x//2, a_y//2
-            b_x_, b_y_ = b_x//2, b_y//2
-            w_ = abs(a_x_+a_y_)
-            h_ = abs(b_x_+b_y_)
+        a_x_, a_y_ = a_x//2, a_y//2
+        b_x_, b_y_ = b_x//2, b_y//2
+        w_ = abs(a_x_+a_y_)
+        h_ = abs(b_x_+b_y_)
 
-            if 2*w > 3*h:
-                # prefer even steps
-                if w_ % 2 != 0 and w > 2:
-                    a_x_, a_y_ = a_x_+a_dx, a_y_+a_dy
+        if 2*w > 3*h:
+            # prefer even steps
+            if w_ % 2 != 0 and w > 2:
+                a_x_, a_y_ = a_x_+a_dx, a_y_+a_dy
 
-                # split in two
-                yield from hilbert_(
-                        x, y,
-                        a_x_, a_y_, b_x, b_y)
-                yield from hilbert_(
-                        x+a_x_, y+a_y_,
-                        a_x-a_x_, a_y-a_y_, b_x, b_y)
-            else:
-                # prefer even steps
-                if h_ % 2 != 0 and h > 2:
-                    b_x_, b_y_ = b_x_+b_dx, b_y_+b_dy
-
-                # split in three
-                yield from hilbert_(
-                        x, y,
-                        b_x_, b_y_, a_x_, a_y_)
-                yield from hilbert_(
-                        x+b_x_, y+b_y_,
-                        a_x, a_y, b_x-b_x_, b_y-b_y_)
-                yield from hilbert_(
-                        x+(a_x-a_dx)+(b_x_-b_dx), y+(a_y-a_dy)+(b_y_-b_dy),
-                        -b_x_, -b_y_, -(a_x-a_x_), -(a_y-a_y_))
-
-        if width >= height:
-            yield from hilbert_(0, 0, +width, 0, 0, +height)
+            # split in two
+            yield from hilbert_(
+                    x, y,
+                    a_x_, a_y_, b_x, b_y)
+            yield from hilbert_(
+                    x+a_x_, y+a_y_,
+                    a_x-a_x_, a_y-a_y_, b_x, b_y)
         else:
-            yield from hilbert_(0, 0, 0, +height, +width, 0)
+            # prefer even steps
+            if h_ % 2 != 0 and h > 2:
+                b_x_, b_y_ = b_x_+b_dx, b_y_+b_dy
 
-    # we need to make this a list to cache correctly
-    return list(hilbert_(width, height))
+            # split in three
+            yield from hilbert_(
+                    x, y,
+                    b_x_, b_y_, a_x_, a_y_)
+            yield from hilbert_(
+                    x+b_x_, y+b_y_,
+                    a_x, a_y, b_x-b_x_, b_y-b_y_)
+            yield from hilbert_(
+                    x+(a_x-a_dx)+(b_x_-b_dx), y+(a_y-a_dy)+(b_y_-b_dy),
+                    -b_x_, -b_y_, -(a_x-a_x_), -(a_y-a_y_))
+
+    if width >= height:
+        yield from hilbert_(0, 0, +width, 0, 0, +height)
+    else:
+        yield from hilbert_(0, 0, 0, +height, +width, 0)
 
 # space filling Z-curve/Lebesgue-curve
-#
-# we memoize the last curve since this is a bit expensive
-#
-@ft.lru_cache(1)
 def lebesgue_curve(width, height):
-    def lebesgue_(width, height):
-        # we create a truncated Z-curve by simply filtering out the
-        # points that are outside our region
-        for i in range(2**(2*mt.ceil(mt.log2(max(width, height))))):
-            # we just operate on binary strings here because it's easier
-            b = '{:0{}b}'.format(i, 2*mt.ceil(mt.log2(i+1)/2))
-            x = int(b[1::2], 2) if b[1::2] else 0
-            y = int(b[0::2], 2) if b[0::2] else 0
-            if x < width and y < height:
-                yield x, y
-
-    # we need to make this a list to cache correctly
-    return list(lebesgue_(width, height))
+    # we create a truncated Z-curve by simply filtering out the
+    # points that are outside our region
+    for i in range(2**(2*mt.ceil(mt.log2(max(width, height))))):
+        # we just operate on binary strings here because it's easier
+        b = '{:0{}b}'.format(i, 2*mt.ceil(mt.log2(i+1)/2))
+        x = int(b[1::2], 2) if b[1::2] else 0
+        y = int(b[0::2], 2) if b[0::2] else 0
+        if x < width and y < height:
+            yield x, y
 
 
 # an abstract block representation
-class Block:
-    def __init__(self, block, type='unused', value=None, *,
+class BmapBlock:
+    def __init__(self, block, type='unused', value=None, usage=range(0), *,
             siblings=None, children=None,
             x=None, y=None, width=None, height=None):
         self.block = block
         self.type = type
         self.value = value
+        self.usage = usage
         self.siblings = siblings if siblings is not None else set()
         self.children = children if children is not None else set()
         self.x = x
@@ -3957,7 +3957,7 @@ class Block:
         self.height = height
 
     def __repr__(self):
-        return 'Block(0x%x, %r, x=%s, y=%s, width=%s, height=%s)' % (
+        return 'BmapBlock(0x%x, %r, x=%s, y=%s, width=%s, height=%s)' % (
                 self.block,
                 self.type,
                 self.x, self.y, self.width, self.height)
@@ -4037,6 +4037,7 @@ class Block:
                 'trunk': self.value.trunk,
                 'weight': self.value.weight,
                 'cksum': self.value.cksum,
+                'usage': len(self.usage),
             }
         elif self.type == 'btree':
             return {
@@ -4046,6 +4047,7 @@ class Block:
                 'trunk': self.value.trunk,
                 'weight': self.value.weight,
                 'cksum': self.value.cksum,
+                'usage': len(self.usage),
             }
         elif self.type == 'data':
             return {
@@ -4056,11 +4058,13 @@ class Block:
                 'size': self.value.size,
                 'cksize': self.value.cksize,
                 'cksum': self.value.cksum,
+                'usage': len(self.usage),
             }
         else:
             return {
                 'block': self.block,
                 'type': self.type,
+                'usage': len(self.usage),
             }
 
 
@@ -4774,58 +4778,39 @@ def main(disk, output, mroots=None, *,
                     if blocks
                     else range(block_count))
 
-        # scale width/height if requested
-        if (to_scale is not None
-                and (width is None or height is None)):
-            # scale width only
-            if height is not None:
-                width_ = mt.ceil((len(blocks) * to_scale) / height_)
-            # scale height only
-            elif width is not None:
-                height_ = mt.ceil((len(blocks) * to_scale) / width_)
-            # scale based on aspect-ratio
-            else:
-                width_ = mt.ceil(mt.sqrt(len(blocks) * to_scale)
-                        * (aspect_ratio[0] / aspect_ratio[1]))
-                height_ = mt.ceil((len(blocks) * to_scale) / width_)
-
-        # figure out block_cols/block_rows
-        if block_cols is not None and block_rows is not None:
-            pass
-        elif block_rows is not None:
-            block_cols = mt.ceil(len(blocks) / block_rows)
-        elif block_cols is not None:
-            block_rows = mt.ceil(len(blocks) / block_cols)
-        else:
-            # divide by 2 until we hit our target ratio, this works
-            # well for things that are often powers-of-two
-            block_cols = 1
-            block_rows = mt.ceil(len(blocks) / block_cols)
-            while (width_/block_cols) / (height_/block_rows) > block_ratio:
-                block_cols *= 2
-                block_rows = mt.ceil(len(blocks) / block_cols)
-
         # traverse the filesystem and create a block map
-        bmap = {b: Block(b, 'unused') for b in blocks}
+        bmap = {b: BmapBlock(b, 'unused') for b in blocks}
         for child, path in lfs.traverse(
                 mtree_only=mtree_only,
                 path=True):
-            # mdir?
-            if isinstance(child, Mdir):
-                type = 'mdir'
-            # btree node?
-            elif isinstance(child, Rbyd):
-                type = 'btree'
-            # bptr?
-            elif isinstance(child, Bptr):
-                type = 'data'
-            else:
-                assert False, "%r?" % b
-
             # track each block in our window
             for b in child.blocks:
                 if b not in bmap:
                     continue
+
+                # mdir?
+                if isinstance(child, Mdir):
+                    type = 'mdir'
+                    if b in child.blocks[:1+child.redund]:
+                        usage = range(child.eoff)
+                    else:
+                        usage = range(0)
+
+                # btree node?
+                elif isinstance(child, Rbyd):
+                    type = 'btree'
+                    if b in child.blocks[:1+child.redund]:
+                        usage = range(child.eoff)
+                    else:
+                        usage = range(0)
+
+                # bptr?
+                elif isinstance(child, Bptr):
+                    type = 'data'
+                    usage = range(child.off, child.off+child.size)
+
+                else:
+                    assert False, "%r?" % b
 
                 # check for some common issues
 
@@ -4834,19 +4819,19 @@ def main(disk, output, mroots=None, *,
                     if bmap[b].type == 'conflict':
                         bmap[b].value.append(child)
                     else:
-                        bmap[b] = Block(b, 'conflict', [
-                                bmap[b].value,
-                                child])
+                        bmap[b] = BmapBlock(b, 'conflict',
+                                [bmap[b].value, child],
+                                range(block_size))
                     corrupted = True
 
                 # corrupt block?
                 elif not child:
-                    bmap[b] = Block(b, 'corrupt', child)
+                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size))
                     corrupted = True
 
                 # normal block
                 else:
-                    bmap[b] = Block(b, type, child)
+                    bmap[b] = BmapBlock(b, type, child, usage)
 
                 # keep track of siblings
                 bmap[b].siblings.update(
@@ -4862,6 +4847,21 @@ def main(disk, output, mroots=None, *,
                                 b_ for b_ in child.blocks
                                     if b_ in bmap)
 
+    # scale width/height if requested
+    if (to_scale is not None
+            and (width is None or height is None)):
+        # scale width only
+        if height is not None:
+            width_ = mt.ceil((len(bmap) * to_scale) / height_)
+        # scale height only
+        elif width is not None:
+            height_ = mt.ceil((len(bmap) * to_scale) / width_)
+        # scale based on aspect-ratio
+        else:
+            width_ = mt.ceil(mt.sqrt(len(bmap) * to_scale)
+                    * (aspect_ratio[0] / aspect_ratio[1]))
+            height_ = mt.ceil((len(bmap) * to_scale) / width_)
+
     # create space for header
     x__ = 0
     y__ = 0
@@ -4870,6 +4870,27 @@ def main(disk, output, mroots=None, *,
     if not no_header:
         y__ += mt.ceil(FONT_SIZE * 1.3)
         height__ -= min(mt.ceil(FONT_SIZE * 1.3), height__)
+
+    # figure out block_cols/block_rows
+    if block_cols is not None and block_rows is not None:
+        pass
+    elif block_rows is not None:
+        block_cols = mt.ceil(len(bmap) / block_rows)
+    elif block_cols is not None:
+        block_rows = mt.ceil(len(bmap) / block_cols)
+    else:
+        # divide by 2 until we hit our target ratio, this works
+        # well for things that are often powers-of-two
+        block_cols = 1
+        block_rows = len(bmap)
+        while (abs(((width__/(block_cols * 2))
+                        / (height__/mt.ceil(block_rows / 2)))
+                    - block_ratio)
+                < abs(((width__/block_cols)
+                        / (height__/block_rows)))
+                    - block_ratio):
+            block_cols *= 2
+            block_rows = mt.ceil(block_rows / 2)
 
     block_width = width__ / block_cols
     block_height = height__ / block_rows
@@ -4900,17 +4921,25 @@ def main(disk, output, mroots=None, *,
         # align to pixel boundaries
         b.align()
 
+        # bump up to at least one pixel for every block
+        b.width = max(b.width, 1)
+        b.height = max(b.height, 1)
+
     # assign colors based on block type
     for b in bmap.values():
         color__ = colors_[b.block, (b.type, '0x%x' % b.block)]
         if color__ is not None:
-            b.color = punescape(color__, b.attrs)
+            if '%' in color__:
+                color__ = punescape(color__, b.attrs)
+            b.color = color__
 
     # assign labels
     for b in bmap.values():
         label__ = labels_[b.block, (b.type, '0x%x' % b.block)]
         if label__ is not None:
-            b.label = punescape(label__, b.attrs)
+            if '%' in label__:
+                label__ = punescape(label__, b.attrs)
+            b.label = label__
 
 
     # create svg file
@@ -4992,7 +5021,6 @@ def main(disk, output, mroots=None, *,
                     'cksum': '%08x%s' % (
                         lfs.cksum,
                         '' if lfs.ckcksum() else '?'),
-
                 }))
             else:
                 f.write('littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
@@ -5789,7 +5817,7 @@ if __name__ == "__main__":
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a label to use. Can be assigned to a specific "
-                "function/subsystem. Accepts %% modifiers.")
+                "block type/block. Accepts %% modifiers.")
     parser.add_argument(
             '-C', '--add-color',
             dest='colors',
@@ -5801,7 +5829,7 @@ if __name__ == "__main__":
                 )(*x.split('=', 1))
                     if '=' in x else x.strip(),
             help="Add a color to use. Can be assigned to a specific "
-                "function/subsystem. Accepts %% modifiers.")
+                "block type/block. Accepts %% modifiers.")
     parser.add_argument(
             '-W', '--width',
             type=lambda x: int(x, 0),
@@ -5871,7 +5899,7 @@ if __name__ == "__main__":
                     if ':' in x else float(x)),
             const=1,
             help="Scale the resulting treemap such that 1 pixel ~= 1/scale "
-                "units. Defaults to scale=1. ")
+                "blocks. Defaults to scale=1. ")
     parser.add_argument(
             '-R', '--aspect-ratio',
             type=lambda x: (
@@ -5889,7 +5917,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--padding',
             type=float,
-            help="Padding to add to each level of the treemap. Defaults to 1.")
+            help="Padding to add to each block. Defaults to 1.")
     parser.add_argument(
             '--no-label',
             action='store_true',

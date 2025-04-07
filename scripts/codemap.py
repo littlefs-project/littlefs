@@ -1080,7 +1080,11 @@ def main_(f, paths, *,
     # before tile generation, we want code and stack tiles to have the
     # same color if they're in the same subsystem
     for i, (k, s) in enumerate(subsystems.items()):
-        s['color'] = punescape(colors_[i, k], s['attrs'] | s)
+        color__ = colors_[i, k]
+        # don't punescape unless we have to
+        if '%' in color__:
+            color__ = punescape(color__, s['attrs'] | s)
+        s['color'] = color__
 
 
     # build code heirarchy
@@ -1097,9 +1101,11 @@ def main_(f, paths, *,
     for i, t in enumerate(code.leaves()):
         t.color = subsystems[t.attrs['subsystem']]['color']
         if (i, t.attrs['name']) in chars_:
-            t.char = punescape(
-                    chars_[i, t.attrs['name']],
-                    t.attrs['attrs'] | t.attrs)[0] # limit to 1 char
+            char__ = chars_[i, t.attrs['name']]
+            # don't punescape unless we have to
+            if '%' in char__:
+                char__ = punescape(char__, t.attrs['attrs'] | t.attrs)
+            t.char = char__[0] # limit to 1 char
         elif len(t.attrs['subsystem']) < len(t.attrs['name']):
             t.char = (t.attrs['name'][len(t.attrs['subsystem']):].lstrip('_')
                     or '')[0]
@@ -1107,9 +1113,11 @@ def main_(f, paths, *,
             t.char = (t.attrs['subsystem'].rstrip('_').rsplit('_', 1)[-1]
                     or '')[0]
         if (i, t.attrs['name']) in labels_:
-            t.label = punescape(
-                    labels_[i, t.attrs['name']],
-                    t.attrs['attrs'] | t.attrs)
+            label__ = labels_[i, t.attrs['name']]
+            # don't punescape unless we have to
+            if '%' in label__:
+                label__ = punescape(label__, t.attrs['attrs'] | t.attrs)
+            t.label = label__
         else:
             t.label = t.attrs['name']
 

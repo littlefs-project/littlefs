@@ -978,14 +978,26 @@ def main_(f, csv_paths, *,
     # use colors for top of tree
     for i, t in enumerate(tile.children):
         for t_ in t.tiles():
-            t_.color = punescape(colors_[i, t.key], t_.attrs)
+            color__ = colors_[i, t_.key]
+            # don't punescape unless we have to
+            if '%' in color__:
+                color__ = punescape(color__, t_.attrs)
+            t_.color = color__
 
     # and chars/labels for bottom of tree
     for i, t in enumerate(tile.leaves()):
         if (i, t.key) in chars_:
-            t.char = punescape(chars_[i, t.key], t.attrs)[0] # limit to 1 char
+            char__ = chars_[i, t.key]
+            # don't punescape unless we have to
+            if '%' in char__:
+                char__ = punescape(char__, t.attrs)
+            t.char = char__[0] # limit to 1 char
         if (i, t.key) in labels_:
-            t.label = punescape(labels_[i, t.key], t.attrs)
+            label__ = labels_[i, t.key]
+            # don't punescape unless we have to
+            if '%' in label__:
+                label__ = punescape(label__, t.attrs)
+            t.label = label__
 
     # scale width/height if requested now that we have our data
     if (to_scale

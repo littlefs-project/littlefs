@@ -1086,8 +1086,9 @@ if __name__ == "__main__":
             '--block-count',
             type=lambda x: int(x, 0),
             help="Block count in blocks.")
+    # TODO implies --wear?
     parser.add_argument(
-            '-c', '--block-cycles',
+            '-W', '--block-cycles',
             type=lambda x: int(x, 0),
             help="Assumed maximum number of erase cycles when measuring "
                 "wear.")
@@ -1136,7 +1137,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Render erases.")
     parser.add_argument(
-            '--wear',
+            '-w', '--wear',
             action='store_true',
             help="Render wear.")
     parser.add_argument(
