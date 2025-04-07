@@ -11,6 +11,11 @@ import sys
 import functools as ft
 import operator as op
 
+try:
+    import crc32c as crc32c_lib
+except ModuleNotFoundError:
+    crc32c_lib = None
+
 
 def openio(path, mode='r', buffering=-1):
     # allow '-' for stdin/stdout
@@ -23,6 +28,17 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
+def crc32c(data, crc=0):
+    if crc32c_lib is not None:
+        return crc32c_lib.crc32c(data, crc)
+    else:
+        crc ^= 0xffffffff
+        for b in data:
+            crc ^= b
+            for j in range(8):
+                crc = (crc >> 1) ^ ((crc & 1) * 0x82f63b78)
+        return 0xffffffff ^ crc
+
 def popc(x):
     return bin(x).count('1')
 
@@ -34,18 +50,12 @@ def main(paths, **args):
     # interpret as sequence of hex bytes
     if args.get('hex'):
         bytes_ = [b for path in paths for b in path.split()]
-        print('%01x' % parity(ft.reduce(
-                op.xor,
-                bytes(int(b, 16) for b in bytes_),
-                0)))
+        print('%01x' % parity(crc32c(bytes(int(b, 16) for b in bytes_))))
 
     # interpret as strings
     elif args.get('string'):
         for path in paths:
-            print('%01x' % parity(ft.reduce(
-                    op.xor,
-                    path.encode('utf8'),
-                    0)))
+            print('%01x' % parity(crc32c(path.encode('utf8'))))
 
     # default to interpreting as paths
     else:
@@ -54,20 +64,20 @@ def main(paths, **args):
 
         for path in paths:
             with openio(path or '-', 'rb') as f:
-                # calculate parity
-                xor = 0
+                # calculate crc, crc32c preserves parity
+                crc = 0
                 while True:
                     block = f.read(io.DEFAULT_BUFFER_SIZE)
                     if not block:
                         break
 
-                    xor = ft.reduce(op.xor, block, xor)
+                    crc = crc32c(block, crc)
 
                 # print what we found
                 if path is not None:
-                    print('%01x  %s' % (parity(xor), path))
+                    print('%01x  %s' % (parity(crc), path))
                 else:
-                    print('%01x' % parity(xor))
+                    print('%01x' % parity(crc))
 
 
 if __name__ == "__main__":
