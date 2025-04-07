@@ -341,12 +341,9 @@ class Bd:
     def repr(self):
         return 'bd %sx%s' % (self.block_size, self.block_count)
 
-    def read(self, size=-1):
+    def read(self, block, off, size):
+        self.f.seek(block*self.block_size + off)
         return self.f.read(size)
-
-    def seek(self, block, off=0, whence=0):
-        pos = self.f.seek(block*self.block_size + off, whence)
-        return pos // self.block_size, pos % self.block_size
 
     def readblock(self, block):
         self.f.seek(block*self.block_size)

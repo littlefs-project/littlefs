@@ -447,12 +447,9 @@ class Bd:
     def repr(self):
         return 'bd %sx%s' % (self.block_size, self.block_count)
 
-    def read(self, size=-1):
+    def read(self, block, off, size):
+        self.f.seek(block*self.block_size + off)
         return self.f.read(size)
-
-    def seek(self, block, off=0, whence=0):
-        pos = self.f.seek(block*self.block_size + off, whence)
-        return pos // self.block_size, pos % self.block_size
 
     def readblock(self, block):
         self.f.seek(block*self.block_size)
@@ -2334,8 +2331,7 @@ class Bptr:
     def fetch(cls, bd, rattr, block, off, size, cksize, cksum):
         # seek/read cksize bytes from the block, the actual data should
         # always be a subset of cksize
-        bd.seek(block)
-        ckdata = bd.read(cksize)
+        ckdata = bd.read(block, 0, cksize)
 
         return cls(rattr, block, off, size, cksize, cksum, ckdata)
 
