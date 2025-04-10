@@ -2511,13 +2511,13 @@ def main(path='-', *,
                     # other scripts?
                     width=width,
                     # make space for shell prompt
-                    height=height if height is not False else -1)
+                    height=-1 if height is ... else height)
         # not cat? write to a bounded ring
         else:
             ring_ = RingIO(head=head)
             draw__(ring_,
                     width=width,
-                    height=height if height is not False else 0)
+                    height=0 if height is ... else height)
             # no history? draw immediately
             if lines is None:
                 ring_.draw()
@@ -2704,7 +2704,7 @@ if __name__ == "__main__":
             '-H', '--height',
             nargs='?',
             type=lambda x: int(x, 0),
-            const=False,
+            const=..., # handles shell prompt spacing, which is a bit subtle
             help="Height in rows. <=0 uses the terminal height. Defaults "
                 "to 1.")
     parser.add_argument(

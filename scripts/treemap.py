@@ -1238,8 +1238,11 @@ def main_(f, csv_paths, *,
 
 
 def main(csv_paths, *,
+        width=None,
         height=None,
+        no_header=None,
         keep_open=False,
+        lines=None,
         head=False,
         cat=False,
         sleep=False,
@@ -1247,23 +1250,47 @@ def main(csv_paths, *,
     # keep-open?
     if keep_open:
         try:
+            # keep track of history if lines specified
+            if lines is not None:
+                ring = RingIO(lines+1
+                        if not no_header and lines > 0
+                        else lines)
             while True:
                 # register inotify before running the command, this avoids
                 # modification race conditions
                 if Inotify:
                     inotify = Inotify(csv_paths)
 
+                # cat? write directly to stdout
                 if cat:
                     main_(sys.stdout, csv_paths,
+                            width=width,
                             # make space for shell prompt
-                            height=height if height is not False else -1,
+                            height=-1 if height is ... else height,
+                            no_header=no_header,
                             **args)
+                # not cat? write to a bounded ring
                 else:
-                    ring = RingIO(head=head)
-                    main_(ring, csv_paths,
-                            height=height if height is not False else 0,
+                    ring_ = RingIO(head=head)
+                    main_(ring_, csv_paths,
+                            width=width,
+                            height=0 if height is ... else height,
+                            no_header=no_header,
                             **args)
-                    ring.draw()
+                    # no history? draw immediately
+                    if lines is None:
+                        ring_.draw()
+                    # history? merge with previous lines
+                    else:
+                        # write header separately?
+                        if not no_header:
+                            if not ring.lines:
+                                ring.lines.append('')
+                            ring.lines.extend(it.islice(ring_.lines, 1, None))
+                            ring.lines[0] = ring_.lines[0]
+                        else:
+                            ring.lines.extend(ring_.lines)
+                        ring.draw()
 
                 # try to inotifywait
                 if Inotify:
@@ -1283,8 +1310,10 @@ def main(csv_paths, *,
     # single-pass?
     else:
         main_(sys.stdout, csv_paths,
+                width=width,
                 # make space for shell prompt
-                height=height if height is not False else -1,
+                height=-1 if height is ... else height,
+                no_header=no_header,
                 **args)
 
 
@@ -1381,7 +1410,7 @@ if __name__ == "__main__":
             '-H', '--height',
             nargs='?',
             type=lambda x: int(x, 0),
-            const=False,
+            const=..., # handles shell prompt spacing, which is a bit subtle
             help="Height in rows. <=0 uses the terminal height. Defaults "
                 "to 1.")
     parser.add_argument(
@@ -1475,6 +1504,13 @@ if __name__ == "__main__":
             '-k', '--keep-open',
             action='store_true',
             help="Continue to open and redraw the CSV files in a loop.")
+    parser.add_argument(
+            '-n', '--lines',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Show this many lines of history. <=0 uses the terminal "
+                "height. Defaults to 1.")
     parser.add_argument(
             '-^', '--head',
             action='store_true',

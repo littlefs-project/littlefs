@@ -1801,6 +1801,7 @@ def main_(f, csv_paths, *,
 
 
 def main(csv_paths, *,
+        width=None,
         height=None,
         keep_open=False,
         head=False,
@@ -1816,15 +1817,19 @@ def main(csv_paths, *,
                 if Inotify:
                     inotify = Inotify(csv_paths)
 
+                # cat? write directly to stdout
                 if cat:
                     main_(sys.stdout, csv_paths,
+                            width=width,
                             # make space for shell prompt
-                            height=height if height is not False else -1,
+                            height=-1 if height is ... else height,
                             **args)
+                # not cat? write to a bounded ring
                 else:
                     ring = RingIO(head=head)
                     main_(ring, csv_paths,
-                            height=height if height is not False else 0,
+                            width=width,
+                            height=0 if height is ... else height,
                             **args)
                     ring.draw()
 
@@ -1846,8 +1851,9 @@ def main(csv_paths, *,
     # single-pass?
     else:
         main_(sys.stdout, csv_paths,
+                width=width,
                 # make space for shell prompt
-                height=height if height is not False else -1,
+                height=-1 if height is ... else height,
                 **args)
 
 
@@ -1969,7 +1975,7 @@ if __name__ == "__main__":
             '-H', '--height',
             nargs='?',
             type=lambda x: int(x, 0),
-            const=False,
+            const=..., # handles shell prompt spacing, which is a bit subtle
             help="Height in rows. <=0 uses the terminal height. Defaults "
                 "to 17.")
     parser.add_argument(

@@ -4821,7 +4821,9 @@ def main_(f, disk, mroots=None, *,
 
 
 def main(disk, mroots=None, *,
+        width=None,
         height=None,
+        no_header=None,
         keep_open=False,
         lines=None,
         head=False,
@@ -4834,7 +4836,7 @@ def main(disk, mroots=None, *,
             # keep track of history if lines specified
             if lines is not None:
                 ring = RingIO(lines+1
-                        if not args.get('no_header') and lines > 0
+                        if not no_header and lines > 0
                         else lines)
             while True:
                 # register inotify before running the command, this avoids
@@ -4842,18 +4844,21 @@ def main(disk, mroots=None, *,
                 if Inotify:
                     inotify = Inotify([disk])
 
-                # TODO sync these comments
                 # cat? write directly to stdout
                 if cat:
                     main_(sys.stdout, disk, mroots,
+                            width=width,
                             # make space for shell prompt
-                            height=height if height is not False else -1,
+                            height=-1 if height is ... else height,
+                            no_header=no_header,
                             **args)
                 # not cat? write to a bounded ring
                 else:
                     ring_ = RingIO(head=head)
                     main_(ring_, disk, mroots,
-                            height=height if height is not False else 0,
+                            width=width,
+                            height=0 if height is ... else height,
+                            no_header=no_header,
                             **args)
                     # no history? draw immediately
                     if lines is None:
@@ -4861,7 +4866,7 @@ def main(disk, mroots=None, *,
                     # history? merge with previous lines
                     else:
                         # write header separately?
-                        if not args.get('no_header'):
+                        if not no_header:
                             if not ring.lines:
                                 ring.lines.append('')
                             ring.lines.extend(it.islice(ring_.lines, 1, None))
@@ -4888,8 +4893,10 @@ def main(disk, mroots=None, *,
     # single-pass?
     else:
         main_(sys.stdout, disk, mroots,
+                width=width,
                 # make space for shell prompt
-                height=height if height is not False else -1,
+                height=-1 if height is ... else height,
+                no_header=no_header,
                 **args)
 
 
@@ -4996,7 +5003,7 @@ if __name__ == "__main__":
             '-H', '--height',
             nargs='?',
             type=lambda x: int(x, 0),
-            const=False,
+            const=..., # handles shell prompt spacing, which is a bit subtle
             help="Height in rows. <=0 uses the terminal height. Defaults "
                 "to 1.")
     parser.add_argument(
@@ -5079,7 +5086,6 @@ if __name__ == "__main__":
             '-k', '--keep-open',
             action='store_true',
             help="Continue to open and redraw the CSV files in a loop.")
-    # TODO drop this?
     parser.add_argument(
             '-n', '--lines',
             nargs='?',
