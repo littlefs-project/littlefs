@@ -1665,7 +1665,7 @@ def main(path='-', *,
             if block not in bmap:
                 return False
             else:
-                bmap[block].erase(0, block_count_,
+                bmap[block].erase(0, block_size_,
                         wear=+1 if wear else 0)
                 erased += block_count_
                 return True
@@ -1690,6 +1690,25 @@ def main(path='-', *,
         # still waiting on bd init
         if bmap is None:
             return
+
+        # compute total ops
+        total = readed + proged + erased
+
+        # if we're showing wear, find min/max/avg/etc
+        if wear:
+            wear_min = min(b.wear for b in bmap.values())
+            wear_max = max(b.wear for b in bmap.values())
+            wear_avg = (sum(b.wear for b in bmap.values())
+                    / max(len(bmap), 1))
+            wear_stddev = mt.sqrt(
+                    sum((b.wear - wear_avg)**2 for b in bmap.values())
+                        / max(len(bmap), 1))
+
+            # if block_cycles isn't provide, scale based on max wear
+            if block_cycles is not None:
+                block_cycles_ = block_cycles
+            else:
+                block_cycles_ = wear_max
 
         # give ring a writeln function
         def writeln(s=''):
@@ -1799,10 +1818,14 @@ def main(path='-', *,
                 b.height = max(b.height, 1)
 
         # TODO chars should probably take priority over braille/dots
+        # TODO limit these based on requested ops?
         # assign chars based on op + block
         for b in bmap.values():
             b.chars = {}
-            for op in ['read', 'prog', 'erase', 'noop']:
+            for op in ((['read'] if reads else [])
+                    + (['prog'] if progs else [])
+                    + (['erase'] if erases else [])
+                    + ['noop']):
                 char__ = chars_.get((b.block, (op, '0x%x' % b.block)))
                 if char__ is not None:
                     # don't punescape unless we have to
@@ -1813,7 +1836,10 @@ def main(path='-', *,
         # assign colors based on op + block
         for b in bmap.values():
             b.colors = {}
-            for op in ['read', 'prog', 'erase', 'noop']:
+            for op in ((['read'] if reads else [])
+                    + (['prog'] if progs else [])
+                    + (['erase'] if erases else [])
+                    + ['noop']):
                 color__ = colors_.get((b.block, (op, '0x%x' % b.block)))
                 if color__ is not None:
                     # don't punescape unless we have to
@@ -1822,41 +1848,24 @@ def main(path='-', *,
                     b.colors[op] = color__
 
         # assign wear chars based on block
-        for b in bmap.values():
-            b.wear_chars = []
-            for char__ in wear_chars_.getall((b.block, '0x%x' % b.block)):
-                # don't punescape unless we have to
-                if '%' in char__:
-                    char__ = punescape(char__, b.attrs)
-                b.wear_chars.append(char__[0]) # limit to 1 char
+        if wear:
+            for b in bmap.values():
+                b.wear_chars = []
+                for char__ in wear_chars_.getall((b.block, '0x%x' % b.block)):
+                    # don't punescape unless we have to
+                    if '%' in char__:
+                        char__ = punescape(char__, b.attrs)
+                    b.wear_chars.append(char__[0]) # limit to 1 char
 
         # assign wear colors based on block
-        for b in bmap.values():
-            b.wear_colors = []
-            for color__ in wear_colors_.getall((b.block, '0x%x' % b.block)):
-                # don't punescape unless we have to
-                if '%' in color__:
-                    color__ = punescape(color__, b.attrs)
-                b.wear_colors.append(color__)
-
-        # compute total ops
-        total = readed + proged + erased
-
-        # if we're showing wear, find min/max/avg/etc
         if wear:
-            wear_min = min(b.wear for b in bmap.values())
-            wear_max = max(b.wear for b in bmap.values())
-            wear_avg = (sum(b.wear for b in bmap.values())
-                    / max(len(bmap), 1))
-            wear_stddev = mt.sqrt(
-                    sum((b.wear - wear_avg)**2 for b in bmap.values())
-                        / max(len(bmap), 1))
-
-            # if block_cycles isn't provide, scale based on max wear
-            if block_cycles is not None:
-                block_cycles_ = block_cycles
-            else:
-                block_cycles_ = wear_max
+            for b in bmap.values():
+                b.wear_colors = []
+                for color__ in wear_colors_.getall((b.block, '0x%x' % b.block)):
+                    # don't punescape unless we have to
+                    if '%' in color__:
+                        color__ = punescape(color__, b.attrs)
+                    b.wear_colors.append(color__)
 
         # render to canvas in a specific z-order that prioritizes
         # interesting ops
@@ -1957,7 +1966,6 @@ def main(path='-', *,
 
         # print some summary info
         if not no_header:
-
 # TODO
 #            # compute stddev of wear using our bmap, this is a bit different
 #            # from reads/progs/erases which ignores any bmap window, but it's

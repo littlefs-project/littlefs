@@ -16,6 +16,7 @@ import functools as ft
 import itertools as it
 import json
 import math as mt
+import os
 import re
 import shlex
 import struct
@@ -4628,6 +4629,8 @@ def main(disk, output, mroots=None, *,
         aspect_ratio=(1,1),
         tiny=False,
         title=None,
+        title_littlefs=False,
+        title_usage=False,
         padding=None,
         no_label=False,
         dark=False,
@@ -4728,7 +4731,7 @@ def main(disk, output, mroots=None, *,
                 block_count_ = lfs.config.geometry.block_count
             else:
                 f.seek(0, os.SEEK_END)
-                block_count_ = mt.ceil(f_.tell() / block_size)
+                block_count_ = mt.ceil(f.tell() / block_size)
 
         # flatten blocks, default to all blocks
         blocks_ = list(
@@ -4740,6 +4743,10 @@ def main(disk, output, mroots=None, *,
 
         # traverse the filesystem and create a block map
         bmap = {b: BmapBlock(b, 'unused') for b in blocks_}
+        mdir_count = 0
+        btree_count = 0
+        data_count = 0
+        total_count = 0
         for child, path in lfs.traverse(
                 mtree_only=mtree_only,
                 path=True):
@@ -4755,6 +4762,8 @@ def main(disk, output, mroots=None, *,
                         usage = range(child.eoff)
                     else:
                         usage = range(0)
+                    mdir_count += 1
+                    total_count += 1
 
                 # btree node?
                 elif isinstance(child, Rbyd):
@@ -4763,11 +4772,15 @@ def main(disk, output, mroots=None, *,
                         usage = range(child.eoff)
                     else:
                         usage = range(0)
+                    btree_count += 1
+                    total_count += 1
 
                 # bptr?
                 elif isinstance(child, Bptr):
                     type = 'data'
                     usage = range(child.off, child.off+child.size)
+                    data_count += 1
+                    total_count += 1
 
                 else:
                     assert False, "%r?" % b
@@ -4993,8 +5006,18 @@ def main(disk, output, mroots=None, *,
                     'cksum': '%08x%s' % (
                         lfs.cksum,
                         '' if lfs.ckgcksum() else '?'),
+                    'total': total_count,
+                    'mdir': mdir_count,
+                    'mdir_percent': '%.1f%%' % (
+                            100*(mdir_count / max(total_count, 1))),
+                    'btree': btree_count,
+                    'btree_percent': '%.1f%%' % (
+                            100*(btree_count / max(total_count, 1))),
+                    'data': data_count,
+                    'data_percent': '%.1f%%' % (
+                            100*(data_count / max(total_count, 1))),
                 }))
-            else:
+            elif not title_usage:
                 f.write('littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
                         '' if lfs.ckmagic() else '?',
                         lfs.version.major if lfs.version is not None else '?',
@@ -5005,6 +5028,13 @@ def main(disk, output, mroots=None, *,
                         lfs.mbweightrepr(), lfs.mrweightrepr(),
                         lfs.cksum,
                         '' if lfs.ckgcksum() else '?'))
+            else:
+                f.writeln('bd %sx%s, %s mdir, %s btree, %s data' % (
+                        lfs.block_size if lfs.block_size is not None else '?',
+                        lfs.block_count if lfs.block_count is not None else '?',
+                        '%.1f%%' % (100*(mdir_count / max(total_count, 1))),
+                        '%.1f%%' % (100*(btree_count / max(total_count, 1))),
+                        '%.1f%%' % (100*(data_count / max(total_count, 1)))))
             f.write('</tspan>')
             if not no_mode and not no_javascript:
                 f.write('<tspan id="mode" x="%(x)d" y="1.1em" '
@@ -5894,6 +5924,15 @@ if __name__ == "__main__":
     parser.add_argument(
             '--title',
             help="Add a title. Accepts %% modifiers.")
+    parser.add_argument(
+            '--title-littlefs',
+            action='store_true',
+            help="Use the littlefs mount string as the title. This is the "
+                "default.")
+    parser.add_argument(
+            '--title-usage',
+            action='store_true',
+            help="Use the mdir/btree/data usage as the title.")
     parser.add_argument(
             '--padding',
             type=float,

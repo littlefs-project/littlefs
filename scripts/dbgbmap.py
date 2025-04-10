@@ -4299,6 +4299,7 @@ def main_(f, disk, mroots=None, *,
         tiny=False,
         title=None,
         title_littlefs=False,
+        title_usage=False,
         padding=0,
         **args):
     # give f an writeln function
@@ -4415,6 +4416,7 @@ def main_(f, disk, mroots=None, *,
         mdir_count = 0
         btree_count = 0
         data_count = 0
+        total_count = 0
         for child in lfs.traverse(
                 mtree_only=mtree_only):
             # track each block in our window
@@ -4430,6 +4432,7 @@ def main_(f, disk, mroots=None, *,
                     else:
                         usage = range(0)
                     mdir_count += 1
+                    total_count += 1
 
                 # btree node?
                 elif isinstance(child, Rbyd):
@@ -4439,12 +4442,14 @@ def main_(f, disk, mroots=None, *,
                     else:
                         usage = range(0)
                     btree_count += 1
+                    total_count += 1
 
                 # bptr?
                 elif isinstance(child, Bptr):
                     type = 'data'
                     usage = range(child.off, child.off+child.size)
                     data_count += 1
+                    total_count += 1
 
                 else:
                     assert False, "%r?" % b
@@ -4575,21 +4580,25 @@ def main_(f, disk, mroots=None, *,
 
     # assign chars based on block type
     for b in bmap.values():
-        char__ = chars_[b.block, (b.type, '0x%x' % b.block)]
-        if char__ is not None:
-            # don't punescape unless we have to
-            if '%' in char__:
-                char__ = punescape(char__, b.attrs)
-            b.char = char__[0] # limit to 1 char
+        b.chars = {}
+        for type in [b.type] + (['unused'] if args.get('usage') else []):
+            char__ = chars_[b.block, (type, '0x%x' % b.block)]
+            if char__ is not None:
+                # don't punescape unless we have to
+                if '%' in char__:
+                    char__ = punescape(char__, b.attrs)
+                b.chars[type] = char__[0] # limit to 1 char
 
     # assign colors based on block type
     for b in bmap.values():
-        color__ = colors_[b.block, (b.type, '0x%x' % b.block)]
-        if color__ is not None:
-            # don't punescape unless we have to
-            if '%' in color__:
-                color__ = punescape(color__, b.attrs)
-            b.color = color__
+        b.colors = {}
+        for type in [b.type] + (['unused'] if args.get('usage') else []):
+            color__ = colors_[b.block, (type, '0x%x' % b.block)]
+            if color__ is not None:
+                # don't punescape unless we have to
+                if '%' in color__:
+                    color__ = punescape(color__, b.attrs)
+                b.colors[type] = color__
 
     # render to canvas in a specific z-order that prioritizes
     # interesting blocks
@@ -4599,7 +4608,16 @@ def main_(f, disk, mroots=None, *,
             continue
 
         for b in bmap.values():
-            if b.type != type:
+            # a bit of a hack, but render all blocks as unused
+            # in the first pass in usage mode
+            if args.get('usage') and type == 'unused':
+                type__ = 'unused'
+                usage__ = range(block_size_)
+            else:
+                type__ = b.type
+                usage__ = b.usage
+
+            if type__ != type:
                 continue
 
             # contiguous?
@@ -4607,14 +4625,14 @@ def main_(f, disk, mroots=None, *,
                 # where are we in the curve?
                 if args.get('usage'):
                     # skip blocks with no usage
-                    if not b.usage:
+                    if not usage__:
                         continue
                     block__ = b.block - global_block
                     usage__ = range(
-                            mt.floor(((block__*block_size_ + b.usage.start)
+                            mt.floor(((block__*block_size_ + usage__.start)
                                     / (block_size_ * len(bmap)))
                                 * len(global_curve)),
-                            mt.ceil(((block__*block_size_ + b.usage.stop)
+                            mt.ceil(((block__*block_size_ + usage__.stop)
                                     / (block_size_ * len(bmap)))
                                 * len(global_curve)))
                 else:
@@ -4633,8 +4651,8 @@ def main_(f, disk, mroots=None, *,
                     y__ = canvas.height - (y__+1)
 
                     canvas.point(x__, y__,
-                            char=True if braille or dots else b.char,
-                            color=b.color)
+                            char=True if braille or dots else b.chars[type],
+                            color=b.colors[type])
 
             # blocky?
             else:
@@ -4649,27 +4667,28 @@ def main_(f, disk, mroots=None, *,
                 # render byte-level usage?
                 if args.get('usage'):
                     # skip blocks with no usage
-                    if not b.usage:
+                    if not usage__:
                         continue
                     # scale from bytes -> pixels
                     usage__ = range(
-                            mt.floor((b.usage.start/block_size_)
+                            mt.floor((usage__.start/block_size_)
                                 * (width__*height__)),
-                            mt.ceil((b.usage.stop/block_size_)
+                            mt.ceil((usage__.stop/block_size_)
                                 * (width__*height__)))
                     # map to in-block curve
                     for i, (dx, dy) in enumerate(curve(width__, height__)):
                         if i in usage__:
                             # flip y
                             canvas.point(x__+dx, y__+(height__-(dy+1)),
-                                    char=True if braille or dots else b.char,
-                                    color=b.color)
+                                    char=True if braille or dots
+                                        else b.chars[type],
+                                    color=b.colors[type])
 
                 # render simple blocks
                 else:
                     canvas.rect(x__, y__, width__, height__,
-                            char=True if braille or dots else b.char,
-                            color=b.color)
+                            char=True if braille or dots else b.chars[type],
+                            color=b.colors[type])
 
     # print some summary info
     if not no_header:
@@ -4704,12 +4723,16 @@ def main_(f, disk, mroots=None, *,
                 'cksum': '%08x%s' % (
                     lfs.cksum,
                     '' if lfs.ckgcksum() else '?'),
-                'mdir_count': mdir_count,
-                'mdir_percent': '%.1f%%' % (100*(mdir_count / len(bmap))),
-                'btree_count': btree_count,
-                'btree_percent': '%.1f%%' % (100*(btree_count / len(bmap))),
-                'data_count': data_count,
-                'data_percent': '%.1f%%' % (100*(data_count / len(bmap))),
+                'total': total_count,
+                'mdir': mdir_count,
+                'mdir_percent': '%.1f%%' % (
+                        100*(mdir_count / max(total_count, 1))),
+                'btree': btree_count,
+                'btree_percent': '%.1f%%' % (
+                        100*(btree_count / max(total_count, 1))),
+                'data': data_count,
+                'data_percent': '%.1f%%' % (
+                        100*(data_count / max(total_count, 1))),
             }))
         elif title_littlefs:
             f.writeln('littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
@@ -4726,9 +4749,9 @@ def main_(f, disk, mroots=None, *,
             f.writeln('bd %sx%s, %6s mdir, %6s btree, %6s data' % (
                     lfs.block_size if lfs.block_size is not None else '?',
                     lfs.block_count if lfs.block_count is not None else '?',
-                    '%.1f%%' % (100*(mdir_count / len(bmap))),
-                    '%.1f%%' % (100*(btree_count / len(bmap))),
-                    '%.1f%%' % (100*(data_count / len(bmap)))))
+                    '%.1f%%' % (100*(mdir_count / max(total_count, 1))),
+                    '%.1f%%' % (100*(btree_count / max(total_count, 1))),
+                    '%.1f%%' % (100*(data_count / max(total_count, 1)))))
 
     # draw canvas
     for row in range(canvas.height//canvas.yscale):
@@ -4980,6 +5003,11 @@ if __name__ == "__main__":
             '--title-littlefs',
             action='store_true',
             help="Use the littlefs mount string as the title.")
+    parser.add_argument(
+            '--title-usage',
+            action='store_true',
+            help="Use the mdir/btree/data usage as the title. This is the "
+                "default.")
     # TODO drop padding in ascii scripts, no one is ever going to use this
     parser.add_argument(
             '--padding',
