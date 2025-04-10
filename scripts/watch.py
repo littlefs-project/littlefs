@@ -76,12 +76,36 @@ class RingIO:
     def __init__(self, maxlen=None, head=False):
         self.maxlen = maxlen
         self.head = head
-        self.lines = co.deque(maxlen=maxlen)
+        self.lines = co.deque(
+                maxlen=max(maxlen, 0) if maxlen is not None else None)
         self.tail = io.StringIO()
 
         # trigger automatic sizing
-        if maxlen == 0:
-            self.resize(0)
+        self.resize(self.maxlen)
+
+    @property
+    def width(self):
+        # just fetch this on demand, we don't actually use width
+        return shutil.get_terminal_size((80, 5))[0]
+
+    @property
+    def height(self):
+        # calculate based on terminal height?
+        if self.maxlen is None or self.maxlen <= 0:
+            return max(
+                    shutil.get_terminal_size((80, 5))[1]
+                        + (self.maxlen or 0),
+                    0)
+        # limit to maxlen
+        else:
+            return self.maxlen
+
+    def resize(self, maxlen):
+        self.maxlen = maxlen
+        if maxlen is not None and maxlen <= 0:
+            maxlen = self.height
+        if maxlen != self.lines.maxlen:
+            self.lines = co.deque(self.lines, maxlen=maxlen)
 
     def __len__(self):
         return len(self.lines)
@@ -100,18 +124,10 @@ class RingIO:
         if lines[-1]:
             self.tail.write(lines[-1])
 
-    def resize(self, maxlen):
-        self.maxlen = maxlen
-        if maxlen == 0:
-            maxlen = shutil.get_terminal_size((80, 5))[1]
-        if maxlen != self.lines.maxlen:
-            self.lines = co.deque(self.lines, maxlen=maxlen)
-
     canvas_lines = 1
     def draw(self):
         # did terminal size change?
-        if self.maxlen == 0:
-            self.resize(0)
+        self.resize(self.maxlen)
 
         # copy lines
         lines = self.lines.copy()
@@ -200,9 +216,10 @@ def main(command, *,
                 mpty, spty = pty.openpty()
 
                 # forward terminal size
-                w, h = shutil.get_terminal_size((80, 5))
-                if lines:
-                    h = lines
+                if cat:
+                    w, h = shutil.get_terminal_size((80, 5))
+                else:
+                    w, h = ring.width, ring.height
                 fcntl.ioctl(spty, termios.TIOCSWINSZ,
                         struct.pack('HHHH', h, w, 0, 0))
 
@@ -278,7 +295,7 @@ if __name__ == "__main__":
             nargs='?',
             type=lambda x: int(x, 0),
             const=0,
-            help="Show this many lines of history. 0 uses the terminal "
+            help="Show this many lines of history. <=0 uses the terminal "
                 "height. Defaults to 0.")
     parser.add_argument(
             '-^', '--head',
@@ -295,13 +312,14 @@ if __name__ == "__main__":
     parser.add_argument(
             '-k', '--keep-open',
             action='store_true',
-            help="Try to use inotify to wait for changes.")
+            help="Try to use inotify to wait for changes. Defaults to "
+                "guessing, or explicit paths can be provided with "
+                "-K/--keep-open-path.")
     parser.add_argument(
             '-K', '--keep-open-path',
             dest='keep_open_paths',
             action='append',
-            help="Use this path for inotify. Defaults to guessing. Implies "
-                "--keep-open.")
+            help="Use this path for inotify. Implies --keep-open.")
     parser.add_argument(
             '-b', '--buffer',
             action='store_true',

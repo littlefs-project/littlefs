@@ -38,12 +38,36 @@ class RingIO:
     def __init__(self, maxlen=None, head=False):
         self.maxlen = maxlen
         self.head = head
-        self.lines = co.deque(maxlen=maxlen)
+        self.lines = co.deque(
+                maxlen=max(maxlen, 0) if maxlen is not None else None)
         self.tail = io.StringIO()
 
         # trigger automatic sizing
-        if maxlen == 0:
-            self.resize(0)
+        self.resize(self.maxlen)
+
+    @property
+    def width(self):
+        # just fetch this on demand, we don't actually use width
+        return shutil.get_terminal_size((80, 5))[0]
+
+    @property
+    def height(self):
+        # calculate based on terminal height?
+        if self.maxlen is None or self.maxlen <= 0:
+            return max(
+                    shutil.get_terminal_size((80, 5))[1]
+                        + (self.maxlen or 0),
+                    0)
+        # limit to maxlen
+        else:
+            return self.maxlen
+
+    def resize(self, maxlen):
+        self.maxlen = maxlen
+        if maxlen is not None and maxlen <= 0:
+            maxlen = self.height
+        if maxlen != self.lines.maxlen:
+            self.lines = co.deque(self.lines, maxlen=maxlen)
 
     def __len__(self):
         return len(self.lines)
@@ -62,18 +86,10 @@ class RingIO:
         if lines[-1]:
             self.tail.write(lines[-1])
 
-    def resize(self, maxlen):
-        self.maxlen = maxlen
-        if maxlen == 0:
-            maxlen = shutil.get_terminal_size((80, 5))[1]
-        if maxlen != self.lines.maxlen:
-            self.lines = co.deque(self.lines, maxlen=maxlen)
-
     canvas_lines = 1
     def draw(self):
         # did terminal size change?
-        if self.maxlen == 0:
-            self.resize(0)
+        self.resize(self.maxlen)
 
         # copy lines
         lines = self.lines.copy()
@@ -191,7 +207,7 @@ if __name__ == "__main__":
             nargs='?',
             type=lambda x: int(x, 0),
             const=0,
-            help="Show this many lines of history. 0 uses the terminal "
+            help="Show this many lines of history. <=0 uses the terminal "
                 "height. Defaults to 5.")
     parser.add_argument(
             '-c', '--cat',
