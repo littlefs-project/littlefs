@@ -1382,7 +1382,7 @@ if __name__ == "__main__":
             action=AppendPath,
             help="Input *.json files.")
     parser.add_argument(
-            '-n', '--namespace-depth',
+            '-_', '--namespace-depth',
             nargs='?',
             type=lambda x: int(x, 0),
             const=0,

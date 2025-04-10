@@ -1855,7 +1855,7 @@ if __name__ == "__main__":
                 "specific group where a group is the comma-separated "
                 "'by' fields. Accepts %% modifiers.")
     parser.add_argument(
-            '-_', '--add-line-char', '--line-chars',
+            '-,', '--add-line-char', '--line-chars',
             dest='line_chars',
             action='append',
             type=lambda x: (

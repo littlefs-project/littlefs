@@ -112,17 +112,48 @@ class RingIO:
 def main(path='-', *,
         lines=5,
         cat=False,
+        coalesce=None,
         sleep=None,
         keep_open=False):
+    lock = th.Lock()
+    event = th.Event()
+
+    # TODO adopt f -> ring name in all scripts?
+    def main_(ring):
+        try:
+            while True:
+                with openio(path) as f:
+                    count = 0
+                    for line in f:
+                        with lock:
+                            ring.write(line)
+                            count += 1
+
+                            # wait for coalesce number of lines
+                            if count >= (coalesce or 1):
+                                event.set()
+                                count = 0
+
+                if not keep_open:
+                    break
+                # don't just flood open calls
+                time.sleep(sleep or 2)
+
+        except FileNotFoundError as e:
+            print("error: file not found %r" % path,
+                    file=sys.stderr)
+            sys.exit(-1)
+
+        except KeyboardInterrupt:
+            pass
+
+    # cat? let main_ write directly to stdout
     if cat:
-        ring = sys.stdout
+        main_(sys.stdout)
+
+    # not cat? print in a background thread
     else:
         ring = RingIO(lines)
-
-    # if sleep print in background thread to avoid getting stuck in a read call
-    event = th.Event()
-    lock = th.Lock()
-    if not cat:
         done = False
         def background():
             while not done:
@@ -134,28 +165,13 @@ def main(path='-', *,
                 time.sleep(sleep or 0.01)
         th.Thread(target=background, daemon=True).start()
 
-    try:
-        while True:
-            with openio(path) as f:
-                for line in f:
-                    with lock:
-                        ring.write(line)
-                        event.set()
+        main_(ring)
 
-            if not keep_open:
-                break
-            # don't just flood open calls
-            time.sleep(sleep or 2)
-    except FileNotFoundError as e:
-        print("error: file not found %r" % path,
-                file=sys.stderr)
-        sys.exit(-1)
-    except KeyboardInterrupt:
-        pass
-
-    if not cat:
         done = True
         lock.acquire() # avoids https://bugs.python.org/issue42717
+        # give ourselves one last draw, helps if background is
+        # never triggered
+        ring.draw()
         sys.stdout.write('\n')
 
 
@@ -182,9 +198,14 @@ if __name__ == "__main__":
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(
+            '-S', '--coalesce',
+            type=lambda x: int(x, 0),
+            help="Number of lines to coalesce together.")
+    parser.add_argument(
             '-s', '--sleep',
             type=float,
-            help="Seconds to sleep between reads.")
+            help="Seconds to sleep between draws, coalescing lines in "
+                "between.")
     parser.add_argument(
             '-k', '--keep-open',
             action='store_true',

@@ -2090,7 +2090,7 @@ if __name__ == "__main__":
             required=True,
             help="Output *.svg file.")
     parser.add_argument(
-            '-n', '--namespace-depth',
+            '-_', '--namespace-depth',
             nargs='?',
             type=lambda x: int(x, 0),
             const=0,

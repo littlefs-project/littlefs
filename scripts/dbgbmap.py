@@ -3645,6 +3645,7 @@ else:
                 else:
                     self.add_watch(path, flags)
 
+# TODO negative maxlen from terminal height? like -H nowadays?
 class RingIO:
     def __init__(self, maxlen=None, head=False):
         self.maxlen = maxlen
@@ -4392,23 +4393,25 @@ def main_(f, disk, mroots=None, *,
         corrupted = not bool(lfs)
 
         # if we can't figure out the block_count, guess
+        block_size_ = block_size
+        block_count_ = block_count
         if block_count is None:
             if lfs.config.geometry is not None:
-                block_count = lfs.config.geometry.block_count
+                block_count_ = lfs.config.geometry.block_count
             else:
                 f_.seek(0, os.SEEK_END)
-                block_count = mt.ceil(f_.tell() / block_size)
+                block_count_ = mt.ceil(f_.tell() / block_size)
 
         # flatten blocks, default to all blocks
-        blocks = list(
-                range(blocks.start or 0, blocks.stop or block_count)
+        blocks_ = list(
+                range(blocks.start or 0, blocks.stop or block_count_)
                         if isinstance(blocks, slice)
                         else range(blocks, blocks+1)
                     if blocks
-                    else range(block_count))
+                    else range(block_count_))
 
         # traverse the filesystem and create a block map
-        bmap = {b: BmapBlock(b, 'unused') for b in blocks}
+        bmap = {b: BmapBlock(b, 'unused') for b in blocks_}
         mdir_count = 0
         btree_count = 0
         data_count = 0
@@ -4455,21 +4458,21 @@ def main_(f, disk, mroots=None, *,
                     else:
                         bmap[b] = BmapBlock(b, 'conflict',
                                 [bmap[b].value, child],
-                                range(block_size))
+                                range(block_size_))
                     corrupted = True
 
                 # corrupt metadata?
                 elif (not no_ckmeta
                         and isinstance(child, (Mdir, Rbyd))
                         and not child):
-                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size))
+                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size_))
                     corrupted = True
 
                 # corrupt data?
                 elif (not no_ckdata
                         and isinstance(child, Bptr)
                         and not child):
-                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size))
+                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size_))
                     corrupted = True
 
                 # normal block
@@ -4509,44 +4512,47 @@ def main_(f, disk, mroots=None, *,
 
     # if contiguous, compute the global curve
     if contiguous:
-        min__ = min(bmap.keys(), default=0)
-        curve__ = list(curve(canvas.width, canvas.height))
+        global_block = min(bmap.keys(), default=0)
+        global_curve = list(curve(canvas.width, canvas.height))
 
     # if blocky, figure out block sizes/locations
     else:
-        # figure out block_cols/block_rows
+        # figure out block_cols_/block_rows_
         if block_cols is not None and block_rows is not None:
-            pass
+            block_cols_ = block_cols
+            block_rows_ = block_rows
         elif block_rows is not None:
-            block_cols = mt.ceil(len(bmap) / block_rows)
+            block_cols_ = mt.ceil(len(bmap) / block_rows)
+            block_rows_ = block_rows
         elif block_cols is not None:
-            block_rows = mt.ceil(len(bmap) / block_cols)
+            block_cols_ = block_cols
+            block_rows_ = mt.ceil(len(bmap) / block_cols)
         else:
             # divide by 2 until we hit our target ratio, this works
             # well for things that are often powers-of-two
-            block_cols = 1
-            block_rows = len(bmap)
-            while (abs(((canvas.width/(block_cols * 2))
-                            / (canvas.height/mt.ceil(block_rows / 2)))
+            block_cols_ = 1
+            block_rows_ = len(bmap)
+            while (abs(((canvas.width/(block_cols_ * 2))
+                            / (canvas.height/mt.ceil(block_rows_ / 2)))
                         - block_ratio)
-                    < abs(((canvas.width/block_cols)
-                            / (canvas.height/block_rows)))
+                    < abs(((canvas.width/block_cols_)
+                            / (canvas.height/block_rows_)))
                         - block_ratio):
-                block_cols *= 2
-                block_rows = mt.ceil(block_rows / 2)
+                block_cols_ *= 2
+                block_rows_ = mt.ceil(block_rows_ / 2)
 
-        block_width = canvas.width / block_cols
-        block_height = canvas.height / block_rows
+        block_width_ = canvas.width / block_cols_
+        block_height_ = canvas.height / block_rows_
 
-        # assign block locations based on block_rows/block_cols and the
-        # requested space filling curve
+        # assign block locations based on block_rows_/block_cols_ and
+        # the requested space filling curve
         for (x, y), b in zip(
-                curve(block_cols, block_rows),
+                curve(block_cols_, block_rows_),
                 sorted(bmap.values())):
-            b.x = x * block_width
-            b.y = y * block_height
-            b.width = block_width
-            b.height = block_height
+            b.x = x * block_width_
+            b.y = y * block_height_
+            b.width = block_width_
+            b.height = block_height_
 
             # apply top padding
             if x == 0:
@@ -4603,25 +4609,25 @@ def main_(f, disk, mroots=None, *,
                     # skip blocks with no usage
                     if not b.usage:
                         continue
-                    block__ = b.block - min__
+                    block__ = b.block - global_block
                     usage__ = range(
-                            mt.floor(((block__*block_size + b.usage.start)
-                                    / (block_size * len(bmap)))
-                                * len(curve__)),
-                            mt.ceil(((block__*block_size + b.usage.stop)
-                                    / (block_size * len(bmap)))
-                                * len(curve__)))
+                            mt.floor(((block__*block_size_ + b.usage.start)
+                                    / (block_size_ * len(bmap)))
+                                * len(global_curve)),
+                            mt.ceil(((block__*block_size_ + b.usage.stop)
+                                    / (block_size_ * len(bmap)))
+                                * len(global_curve)))
                 else:
-                    block__ = b.block - min__
+                    block__ = b.block - global_block
                     usage__ = range(
-                            mt.floor((block__/len(bmap)) * len(curve__)),
-                            mt.ceil((block__/len(bmap)) * len(curve__)))
+                            mt.floor((block__/len(bmap)) * len(global_curve)),
+                            mt.ceil((block__/len(bmap)) * len(global_curve)))
 
                 # map to global curve
                 for i in usage__:
-                    if i >= len(curve__):
+                    if i >= len(global_curve):
                         continue
-                    x__, y__ = curve__[i]
+                    x__, y__ = global_curve[i]
 
                     # flip y
                     y__ = canvas.height - (y__+1)
@@ -4647,9 +4653,9 @@ def main_(f, disk, mroots=None, *,
                         continue
                     # scale from bytes -> pixels
                     usage__ = range(
-                            mt.floor((b.usage.start/block_size)
+                            mt.floor((b.usage.start/block_size_)
                                 * (width__*height__)),
-                            mt.ceil((b.usage.stop/block_size)
+                            mt.ceil((b.usage.stop/block_size_)
                                 * (width__*height__)))
                     # map to in-block curve
                     for i, (dx, dy) in enumerate(curve(width__, height__)):
@@ -4736,6 +4742,7 @@ def main_(f, disk, mroots=None, *,
 def main(disk, mroots=None, *,
         height=None,
         keep_open=False,
+        lines=None,
         head=False,
         cat=False,
         sleep=False,
@@ -4743,23 +4750,44 @@ def main(disk, mroots=None, *,
     # keep-open?
     if keep_open:
         try:
+            # keep track of history if lines specified
+            if lines is not None:
+                ring = RingIO(lines+1
+                        if not args.get('no_header') and lines > 0
+                        else lines)
             while True:
                 # register inotify before running the command, this avoids
                 # modification race conditions
                 if Inotify:
                     inotify = Inotify([disk])
 
+                # TODO sync these comments
+                # cat? write directly to stdout
                 if cat:
                     main_(sys.stdout, disk, mroots,
                             # make space for shell prompt
                             height=height if height is not False else -1,
                             **args)
+                # not cat? write to a bounded ring
                 else:
-                    ring = RingIO(head=head)
-                    main_(ring, disk, mroots,
+                    ring_ = RingIO(head=head)
+                    main_(ring_, disk, mroots,
                             height=height if height is not False else 0,
                             **args)
-                    ring.draw()
+                    # no history? draw immediately
+                    if lines is None:
+                        ring_.draw()
+                    # history? merge with previous lines
+                    else:
+                        # write header separately?
+                        if not args.get('no_header'):
+                            if not ring.lines:
+                                ring.lines.append('')
+                            ring.lines.extend(it.islice(ring_.lines, 1, None))
+                            ring.lines[0] = ring_.lines[0]
+                        else:
+                            ring.lines.extend(ring_.lines)
+                        ring.draw()
 
                 # try to inotifywait
                 if Inotify:
@@ -4952,7 +4980,7 @@ if __name__ == "__main__":
             '--title-littlefs',
             action='store_true',
             help="Use the littlefs mount string as the title.")
-    # TODO drop padding, no one is ever going to use this
+    # TODO drop padding in ascii scripts, no one is ever going to use this
     parser.add_argument(
             '--padding',
             type=float,
@@ -4965,6 +4993,14 @@ if __name__ == "__main__":
             '-k', '--keep-open',
             action='store_true',
             help="Continue to open and redraw the CSV files in a loop.")
+    # TODO drop this?
+    parser.add_argument(
+            '-n', '--lines',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Show this many lines of history. 0 uses the terminal "
+                "height. Defaults to 1.")
     parser.add_argument(
             '-^', '--head',
             action='store_true',

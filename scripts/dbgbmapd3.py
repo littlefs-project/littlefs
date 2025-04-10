@@ -4721,23 +4721,25 @@ def main(disk, output, mroots=None, *,
         corrupted = not bool(lfs)
 
         # if we can't figure out the block_count, guess
+        block_size_ = block_size
+        block_count_ = block_count
         if block_count is None:
             if lfs.config.geometry is not None:
-                block_count = lfs.config.geometry.block_count
+                block_count_ = lfs.config.geometry.block_count
             else:
                 f.seek(0, os.SEEK_END)
-                block_count = mt.ceil(f.tell() / block_size)
+                block_count_ = mt.ceil(f_.tell() / block_size)
 
         # flatten blocks, default to all blocks
-        blocks = list(
-                range(blocks.start or 0, blocks.stop or block_count)
+        blocks_ = list(
+                range(blocks.start or 0, blocks.stop or block_count_)
                         if isinstance(blocks, slice)
                         else range(blocks, blocks+1)
                     if blocks
-                    else range(block_count))
+                    else range(block_count_))
 
         # traverse the filesystem and create a block map
-        bmap = {b: BmapBlock(b, 'unused') for b in blocks}
+        bmap = {b: BmapBlock(b, 'unused') for b in blocks_}
         for child, path in lfs.traverse(
                 mtree_only=mtree_only,
                 path=True):
@@ -4779,21 +4781,21 @@ def main(disk, output, mroots=None, *,
                     else:
                         bmap[b] = BmapBlock(b, 'conflict',
                                 [bmap[b].value, child],
-                                range(block_size))
+                                range(block_size_))
                     corrupted = True
 
                 # corrupt metadata?
                 elif (not no_ckmeta
                         and isinstance(child, (Mdir, Rbyd))
                         and not child):
-                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size))
+                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size_))
                     corrupted = True
 
                 # corrupt data?
                 elif (not no_ckdata
                         and isinstance(child, Bptr)
                         and not child):
-                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size))
+                    bmap[b] = BmapBlock(b, 'corrupt', child, range(block_size_))
                     corrupted = True
 
                 # normal block
@@ -4838,41 +4840,44 @@ def main(disk, output, mroots=None, *,
         y__ += mt.ceil(FONT_SIZE * 1.3)
         height__ -= min(mt.ceil(FONT_SIZE * 1.3), height__)
 
-    # figure out block_cols/block_rows
+    # figure out block_cols_/block_rows_
     if block_cols is not None and block_rows is not None:
-        pass
+        block_cols_ = block_cols
+        block_rows_ = block_rows
     elif block_rows is not None:
-        block_cols = mt.ceil(len(bmap) / block_rows)
+        block_cols_ = mt.ceil(len(bmap) / block_rows)
+        block_rows_ = block_rows
     elif block_cols is not None:
-        block_rows = mt.ceil(len(bmap) / block_cols)
+        block_cols_ = block_cols
+        block_rows_ = mt.ceil(len(bmap) / block_cols)
     else:
         # divide by 2 until we hit our target ratio, this works
         # well for things that are often powers-of-two
-        block_cols = 1
-        block_rows = len(bmap)
-        while (abs(((width__/(block_cols * 2))
-                        / (height__/mt.ceil(block_rows / 2)))
+        block_cols_ = 1
+        block_rows_ = len(bmap)
+        while (abs(((width__/(block_cols_ * 2))
+                        / (height__/mt.ceil(block_rows_ / 2)))
                     - block_ratio)
-                < abs(((width__/block_cols)
-                        / (height__/block_rows)))
+                < abs(((width__/block_cols_)
+                        / (height__/block_rows_)))
                     - block_ratio):
-            block_cols *= 2
-            block_rows = mt.ceil(block_rows / 2)
+            block_cols_ *= 2
+            block_rows_ = mt.ceil(block_rows_ / 2)
 
-    block_width = width__ / block_cols
-    block_height = height__ / block_rows
+    block_width_ = width__ / block_cols_
+    block_height_ = height__ / block_rows_
 
-    # assign block locations based on block_rows/block_cols and the
-    # requested space filling curve
+    # assign block locations based on block_rows_/block_cols_ and
+    # the requested space filling curve
     for (x, y), b in zip(
             (hilbert_curve if hilbert
                 else lebesgue_curve if lebesgue
-                else naive_curve)(block_cols, block_rows),
+                else naive_curve)(block_cols_, block_rows_),
             sorted(bmap.values())):
-        b.x = x__ + (x * block_width)
-        b.y = y__ + (y * block_height)
-        b.width = block_width
-        b.height = block_height
+        b.x = x__ + (x * block_width_)
+        b.y = y__ + (y * block_height_)
+        b.width = block_width_
+        b.height = block_height_
 
         # apply top padding
         if x == 0:
