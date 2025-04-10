@@ -4339,7 +4339,7 @@ def main_(f, disk, mroots=None, *,
             chars_.extend((char[0], c) for c in psplit(char[1]))
         else:
             chars_.extend(psplit(char))
-    chars_ = Attr(chars_, defaults=CHARS)
+    chars_ = Attr(chars_, defaults=[True] if braille or dots else CHARS)
 
     colors_ = Attr(colors, defaults=COLORS)
 
@@ -4584,10 +4584,12 @@ def main_(f, disk, mroots=None, *,
         for type in [b.type] + (['unused'] if args.get('usage') else []):
             char__ = chars_[b.block, (type, '0x%x' % b.block)]
             if char__ is not None:
-                # don't punescape unless we have to
-                if '%' in char__:
-                    char__ = punescape(char__, b.attrs)
-                b.chars[type] = char__[0] # limit to 1 char
+                if isinstance(char__, str):
+                    # don't punescape unless we have to
+                    if '%' in char__:
+                        char__ = punescape(char__, b.attrs)
+                    char__ = char__[0] # limit to 1 char
+                b.chars[type] = char__
 
     # assign colors based on block type
     for b in bmap.values():
@@ -4651,7 +4653,7 @@ def main_(f, disk, mroots=None, *,
                     y__ = canvas.height - (y__+1)
 
                     canvas.point(x__, y__,
-                            char=True if braille or dots else b.chars[type],
+                            char=b.chars[type],
                             color=b.colors[type])
 
             # blocky?
@@ -4680,14 +4682,13 @@ def main_(f, disk, mroots=None, *,
                         if i in usage__:
                             # flip y
                             canvas.point(x__+dx, y__+(height__-(dy+1)),
-                                    char=True if braille or dots
-                                        else b.chars[type],
+                                    char=b.chars[type],
                                     color=b.colors[type])
 
                 # render simple blocks
                 else:
                     canvas.rect(x__, y__, width__, height__,
-                            char=True if braille or dots else b.chars[type],
+                            char=b.chars[type],
                             color=b.colors[type])
 
     # print some summary info

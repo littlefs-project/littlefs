@@ -1457,7 +1457,8 @@ def main(path='-', *,
             chars_.extend((char[0], c) for c in psplit(char[1]))
         else:
             chars_.extend(psplit(char))
-    chars_ = Attr(chars_, defaults=CHARS)
+    chars_ = Attr(chars_,
+            defaults=[True] if braille or dots else CHARS)
 
     wear_chars_ = []
     for char in wear_chars:
@@ -1465,7 +1466,8 @@ def main(path='-', *,
             wear_chars_.extend((char[0], c) for c in psplit(char[1]))
         else:
             wear_chars_.extend(psplit(char))
-    wear_chars_ = Attr(wear_chars_, defaults=WEAR_CHARS)
+    wear_chars_ = Attr(wear_chars_,
+            defaults=[True] if braille or dots else WEAR_CHARS)
 
     colors_ = Attr(colors, defaults=COLORS)
 
@@ -1828,10 +1830,12 @@ def main(path='-', *,
                     + ['noop']):
                 char__ = chars_.get((b.block, (op, '0x%x' % b.block)))
                 if char__ is not None:
-                    # don't punescape unless we have to
-                    if '%' in char__:
-                        char__ = punescape(char__, b.attrs)
-                    b.chars[op] = char__[0] # limit to 1 char
+                    if isinstance(char__, str):
+                        # don't punescape unless we have to
+                        if '%' in char__:
+                            char__ = punescape(char__, b.attrs)
+                        char__ = char__[0] # limit to 1 char
+                    b.chars[op] = char__
 
         # assign colors based on op + block
         for b in bmap.values():
@@ -1852,10 +1856,12 @@ def main(path='-', *,
             for b in bmap.values():
                 b.wear_chars = []
                 for char__ in wear_chars_.getall((b.block, '0x%x' % b.block)):
-                    # don't punescape unless we have to
-                    if '%' in char__:
-                        char__ = punescape(char__, b.attrs)
-                    b.wear_chars.append(char__[0]) # limit to 1 char
+                    if isinstance(char__, str):
+                        # don't punescape unless we have to
+                        if '%' in char__:
+                            char__ = punescape(char__, b.attrs)
+                        char__ = char__[0] # limit to 1 char
+                    b.wear_chars.append(char__)
 
         # assign wear colors based on block
         if wear:
@@ -1939,7 +1945,7 @@ def main(path='-', *,
                             y__ = canvas.height - (y__+1)
 
                             canvas.point(x__, y__,
-                                    char=True if braille or dots else char__,
+                                    char=char__,
                                     color=color__)
 
                 # blocky?
@@ -1964,8 +1970,7 @@ def main(path='-', *,
                             if i in range__:
                                 # flip y
                                 canvas.point(x__+dx, y__+(height__-(dy+1)),
-                                        char=True if braille or dots
-                                            else char__,
+                                        char=char__,
                                         color=color__)
 
         # print some summary info

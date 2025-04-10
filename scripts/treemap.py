@@ -988,10 +988,13 @@ def main_(f, csv_paths, *,
     for i, t in enumerate(tile.leaves()):
         if (i, t.key) in chars_:
             char__ = chars_[i, t.key]
-            # don't punescape unless we have to
-            if '%' in char__:
-                char__ = punescape(char__, t.attrs)
-            t.char = char__[0] # limit to 1 char
+            if isinstance(char__, str):
+                # don't punescape unless we have to
+                if '%' in char__:
+                    char__ = punescape(char__, t.attrs)
+                char__ = char__[0] # limit to 1 char
+            t.char = char__
+
         if (i, t.key) in labels_:
             label__ = labels_[i, t.key]
             # don't punescape unless we have to
@@ -1133,8 +1136,8 @@ def main_(f, csv_paths, *,
 
         canvas.rect(x__, y__, width__, height__,
                 # default to first letter of the last part of the key
-                char=(True if braille or dots
-                    else t.char if getattr(t, 'char', None)
+                char=(t.char if getattr(t, 'char', None) is not None
+                    else True if braille or dots
                     else t.key[len(by)-1][0] if t.key and t.key[len(by)-1]
                     else chars_[0]),
                 color=t.color if t.color is not None else colors_[0])

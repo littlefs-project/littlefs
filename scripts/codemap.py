@@ -1100,18 +1100,24 @@ def main_(f, paths, *,
     # assign colors/chars/labels to code tiles
     for i, t in enumerate(code.leaves()):
         t.color = subsystems[t.attrs['subsystem']]['color']
+
         if (i, t.attrs['name']) in chars_:
             char__ = chars_[i, t.attrs['name']]
-            # don't punescape unless we have to
-            if '%' in char__:
-                char__ = punescape(char__, t.attrs['attrs'] | t.attrs)
-            t.char = char__[0] # limit to 1 char
+            if isinstance(char__, str):
+                # don't punescape unless we have to
+                if '%' in char__:
+                    char__ = punescape(char__, t.attrs['attrs'] | t.attrs)
+                char__ = char__[0] # limit to 1 char
+            t.char = char__
+        elif braille or dots:
+            t.char = True
         elif len(t.attrs['subsystem']) < len(t.attrs['name']):
             t.char = (t.attrs['name'][len(t.attrs['subsystem']):].lstrip('_')
                     or '')[0]
         else:
             t.char = (t.attrs['subsystem'].rstrip('_').rsplit('_', 1)[-1]
                     or '')[0]
+
         if (i, t.attrs['name']) in labels_:
             label__ = labels_[i, t.attrs['name']]
             # don't punescape unless we have to
@@ -1254,8 +1260,8 @@ def main_(f, paths, *,
 
         canvas.rect(x__, y__, width__, height__,
                 # default to first letter of the last part of the key
-                char=(True if braille or dots
-                    else t.char if getattr(t, 'char', None)
+                char=(t.char if getattr(t, 'char', None) is not None
+                    else True if braille or dots
                     else t.key[len(by)-1][0] if t.key and t.key[len(by)-1]
                     else chars_[0]),
                 color=t.color if t.color is not None else colors_[0])
