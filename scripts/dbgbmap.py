@@ -87,7 +87,7 @@ COLORS = {
     'data':     '32',
     'corrupt':  '31',
     'conflict': '30;41',
-    'unused':   '90',
+    'unused':   '1;30',
 }
 
 # give more interesting objects a higher priority

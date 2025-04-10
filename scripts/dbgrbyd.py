@@ -970,7 +970,7 @@ class JumpArt:
             c_start = (
                 '\x1b[33m' if color and c == 'y'
                     else '\x1b[31m' if color and c == 'r'
-                    else '\x1b[90m' if color
+                    else '\x1b[1;30m' if color
                     else '')
             c_stop = '\x1b[m' if color else ''
 
@@ -1451,7 +1451,7 @@ class TreeArt:
             trunk.append('%s%s%s%s' % (
                     '\x1b[33m' if color and c == 'y'
                         else '\x1b[31m' if color and c == 'r'
-                        else '\x1b[90m' if color and c == 'b'
+                        else '\x1b[1;30m' if color and c == 'b'
                         else '',
                     t,
                     ('>' if was else ' ') if d == self.depth-1 else '',
@@ -1575,13 +1575,13 @@ def dbg_log(rbyd, *,
 
         # show human-readable tag representation
         print('%s%08x:%s %*s%s%*s %-*s%s%s%s' % (
-                '\x1b[90m' if color and j >= rbyd.eoff else '',
+                '\x1b[1;30m' if color and j >= rbyd.eoff else '',
                 j,
                 '\x1b[m' if color and j >= rbyd.eoff else '',
                 l_width, lifetimeart.repr(j, color)
                     if args.get('lifetimes')
                     else '',
-                '\x1b[90m' if color and j >= rbyd.eoff else '',
+                '\x1b[1;30m' if color and j >= rbyd.eoff else '',
                 2*w_width+1, '' if (tag & 0xe000) != 0x0000
                     else '%d-%d' % (rid-(w-1), rid) if w > 1
                     else rid,
@@ -1602,7 +1602,7 @@ def dbg_log(rbyd, *,
         if args.get('raw'):
             for o, line in enumerate(xxd(data[j:j+d])):
                 print('%s%8s: %*s%*s %s%s' % (
-                        '\x1b[90m' if color and j >= rbyd.eoff else '',
+                        '\x1b[1;30m' if color and j >= rbyd.eoff else '',
                         '%04x' % (j + o*16),
                         l_width, '',
                         2*w_width+1, '',
@@ -1612,7 +1612,7 @@ def dbg_log(rbyd, *,
             if not tag & TAG_ALT:
                 for o, line in enumerate(xxd(data[j+d:j+d+size])):
                     print('%s%8s: %*s%*s %s%s' % (
-                            '\x1b[90m' if color and j >= rbyd.eoff else '',
+                            '\x1b[1;30m' if color and j >= rbyd.eoff else '',
                             '%04x' % (j+d + o*16),
                             l_width, '',
                             2*w_width+1, '',

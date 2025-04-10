@@ -40,13 +40,12 @@ COLORS = {
     'read':  '32',
     'prog':  '35',
     'erase': '34',
-    'noop':  '90',
+    'noop':  '1;30',
 }
 
 # assign chars/colors to varying levels of wear
 WEAR_CHARS = '0123456789'
-# TODO adopt 9x for all of these?
-WEAR_COLORS = ['90', '90', '90', '', '', '', '', '31', '31', '91']
+WEAR_COLORS = ['1;30', '1;30', '1;30', '', '', '', '', '31', '31', '1;31']
 
 # give more interesting operations a higher priority
 #

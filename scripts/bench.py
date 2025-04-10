@@ -156,7 +156,7 @@ class BenchCase:
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
-                        '\x1b[01;33m' if args['color'] else '',
+                        '\x1b[1;33m' if args['color'] else '',
                         '\x1b[m' if args['color'] else '',
                         self.name,
                         k),
@@ -264,7 +264,7 @@ class BenchSuite:
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
-                        '\x1b[01;33m' if args['color'] else '',
+                        '\x1b[1;33m' if args['color'] else '',
                         '\x1b[m' if args['color'] else '',
                         self.name,
                         k),
@@ -305,7 +305,7 @@ def compile(bench_paths, **args):
 
         if len(pending_) == len(pending):
             print('%serror:%s cycle detected in suite ordering: {%s}' % (
-                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[1;31m' if args['color'] else '',
                         '\x1b[m' if args['color'] else '',
                         ', '.join(suite.name for suite in pending.values())),
                     file=sys.stderr)
@@ -319,7 +319,7 @@ def compile(bench_paths, **args):
     for suite in suites:
         if suite.name in seen:
             print('%swarning:%s conflicting suite %r, %s and %s' % (
-                        '\x1b[01;33m' if args['color'] else '',
+                        '\x1b[1;33m' if args['color'] else '',
                         '\x1b[m' if args['color'] else '',
                         suite.name,
                         suite.path,
@@ -333,7 +333,7 @@ def compile(bench_paths, **args):
                     isinstance(seen[case.name], BenchSuite)
                         and seen[case.name].cases == [case]):
                 print('%swarning:%s conflicting case %r, %s and %s' % (
-                            '\x1b[01;33m' if args['color'] else '',
+                            '\x1b[1;33m' if args['color'] else '',
                             '\x1b[m' if args['color'] else '',
                             case.name,
                             case.path,
@@ -345,7 +345,7 @@ def compile(bench_paths, **args):
     if not args.get('source'):
         if len(suites) > 1:
             print('%serror:%s compiling more than one bench suite? (%r)' % (
-                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[1;31m' if args['color'] else '',
                         '\x1b[m' if args['color'] else '',
                         bench_paths),
                     file=sys.stderr)
@@ -893,7 +893,7 @@ def find_ids(runner, bench_ids=[], **args):
         # no suite/case found? error
         if not bench_ids__:
             print('%serror:%s no benches match id %r?' % (
-                        '\x1b[01;31m' if args['color'] else '',
+                        '\x1b[1;31m' if args['color'] else '',
                         '\x1b[m' if args['color'] else '',
                         id),
                     file=sys.stderr)
@@ -1409,7 +1409,7 @@ def run(runner, bench_ids=[], **args):
         print('%s%s:%d:%sfailure:%s %s%s failed' % (
                 '\x1b[01m' if args['color'] else '',
                 path, lineno,
-                '\x1b[01;31m' if args['color'] else '',
+                '\x1b[1;31m' if args['color'] else '',
                 '\x1b[m' if args['color'] else '',
                 failure.id,
                 ' (%s)' % ', '.join('%s=%s' % (k,v)
@@ -1428,7 +1428,7 @@ def run(runner, bench_ids=[], **args):
             print('%s%s:%d:%sassert:%s %s' % (
                     '\x1b[01m' if args['color'] else '',
                     path, lineno,
-                    '\x1b[01;31m' if args['color'] else '',
+                    '\x1b[1;31m' if args['color'] else '',
                     '\x1b[m' if args['color'] else '',
                     message))
             with open(path) as f:

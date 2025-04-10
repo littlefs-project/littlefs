@@ -3800,7 +3800,7 @@ class TreeArt:
             trunk.append('%s%s%s%s' % (
                     '\x1b[33m' if color and c == 'y'
                         else '\x1b[31m' if color and c == 'r'
-                        else '\x1b[90m' if color and c == 'b'
+                        else '\x1b[1;30m' if color and c == 'b'
                         else '',
                     t,
                     ('>' if was else ' ') if d == self.depth-1 else '',
@@ -4066,7 +4066,7 @@ def dbg_gstate(lfs, *,
         if args.get('gdelta'):
             for mid, gdelta in gstate.gdeltas:
                 print('%s%12s %*s %-*s  %s%s' % (
-                        '\x1b[90m' if color else '',
+                        '\x1b[1;30m' if color else '',
                         '{%s}:' % ','.join('%04x' % block
                             for block in gdelta.blocks),
                         2*w_width+1, mid.repr(),
@@ -4185,7 +4185,7 @@ def dbg_files(lfs, paths, *,
             print('%s%12s %*s %-*s  %s%s%s' % (
                     '\x1b[31m'
                         if color and not file.grmed and notes
-                        else '\x1b[90m'
+                        else '\x1b[1;30m'
                         if color and (file.grmed or file.internal)
                         else '',
                     '{%s}:' % ','.join('%04x' % block

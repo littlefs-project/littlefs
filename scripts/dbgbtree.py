@@ -1504,7 +1504,7 @@ class TreeArt:
             trunk.append('%s%s%s%s' % (
                     '\x1b[33m' if color and c == 'y'
                         else '\x1b[31m' if color and c == 'r'
-                        else '\x1b[90m' if color and c == 'b'
+                        else '\x1b[1;30m' if color and c == 'b'
                         else '',
                     t,
                     ('>' if was else ' ') if d == self.depth-1 else '',
