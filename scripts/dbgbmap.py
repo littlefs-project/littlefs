@@ -3898,13 +3898,9 @@ class Attr:
         return len(self.keyed)
 
 # parse %-escaped strings
+#
+# attrs can override __getitem__ for lazy attr generation
 def punescape(s, attrs=None):
-    if attrs is None:
-        attrs = {}
-    if isinstance(attrs, dict):
-        attrs_ = attrs
-        attrs = lambda k: attrs_[k]
-
     pattern = re.compile(
         '%[%n]'
             '|' '%x..'
@@ -3919,9 +3915,12 @@ def punescape(s, attrs=None):
         elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
         elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
         elif m.group()[1] == '(':
-            try:
-                v = attrs(m.group('field'))
-            except KeyError:
+            if attrs is not None:
+                try:
+                    v = attrs[m.group('field')]
+                except KeyError:
+                    return m.group()
+            else:
                 return m.group()
             f = m.group('format')
             if f[-1] in 'dboxX':
@@ -3938,6 +3937,7 @@ def punescape(s, attrs=None):
             # note we need Python's new format syntax for binary
             return ('{:%s}' % f).format(v)
         else: assert False
+
     return re.sub(pattern, unescape, s)
 
 # split %-escaped strings into chars
