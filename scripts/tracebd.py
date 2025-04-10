@@ -46,7 +46,7 @@ COLORS = {
 # assign chars/colors to varying levels of wear
 WEAR_CHARS = '0123456789'
 # TODO adopt 9x for all of these?
-WEAR_COLORS = ['36', '36', '36', '', '', '', '', '31', '31', '91']
+WEAR_COLORS = ['90', '90', '90', '', '', '', '', '31', '31', '91']
 
 # give more interesting operations a higher priority
 #
@@ -1900,8 +1900,12 @@ def main(path='-', *,
                     if b.wear == 0:
                         continue
                     ranges__ = RangeSet([range(block_size_)])
-                    # scale char/color based on max_wear/block_cycles
-                    wear__ = b.wear / max(block_cycles_, 1)
+                    # scale char/color based on either block_cycles
+                    # or wear_avg
+                    if block_cycles is not None:
+                        wear__ = min(b.wear / max(block_cycles, 1), 1.0)
+                    else:
+                        wear__ = min(b.wear / max(2*wear_avg, 1), 1.0)
                     char__ = b.wear_chars[int(wear__*(len(b.wear_chars)-1))]
                     color__ = b.wear_colors[int(wear__*(len(b.wear_colors)-1))]
                 else:
@@ -1995,23 +1999,18 @@ def main(path='-', *,
                     'erase': erased,
                     'erase_percent': 100*erased / max(total, 1),
                     'wear_min': wear_min if wear else '?',
-                    'wear_min_percent': 100*wear_min / max(wear_max, 1)
+                    'wear_min_percent': 100*wear_min / max(block_cycles_, 1)
                             if wear else '?',
-#                    'wear_min_stddev': (wear_min-wear_avg) / max(wear_stddev, 1)
-#                            if wear else '?',
                     'wear_max': wear_max if wear else '?',
-                    'wear_max_percent': 100*wear_max / max(wear_max, 1)
+                    'wear_max_percent': 100*wear_max / max(block_cycles_, 1)
                             if wear else '?',
-#                    'wear_max_stddev': (wear_max-wear_avg) / max(wear_stddev, 1)
-#                            if wear else '?',
                     'wear_avg': wear_avg if wear else '?',
-                    'wear_avg_percent': 100*wear_avg / max(wear_max, 1)
+                    'wear_avg_percent': 100*wear_avg / max(block_cycles_, 1)
                             if wear else '?',
                     'wear_stddev': wear_stddev if wear else '?',
-                    'wear_stddev_percent': 100*wear_stddev / max(wear_max, 1)
-                            if wear else '?',
-#                    'wear_stddev_percent': 100*(wear_stddev) / max(wear_max, 1)
-#                            if wear else '?',
+                    'wear_stddev_percent':
+                            100*wear_stddev / max(block_cycles_, 1)
+                                if wear else '?',
                 }))
             else:
 #                ring.writeln('curve: %s' % (curve.cache_info(),))
@@ -2028,8 +2027,8 @@ def main(path='-', *,
                             if erases else '',
                         ', %15s wear' % (
                                 '%.1f%% +-%.1fσ' % (
-                                    100*wear_avg / max(wear_max, 1),
-                                    100*wear_stddev / max(wear_max, 1)))
+                                    100*wear_avg / max(block_cycles_, 1),
+                                    100*wear_stddev / max(block_cycles_, 1)))
                             if wear else ''))
 
         # draw canvas
@@ -2606,12 +2605,9 @@ if __name__ == "__main__":
             '--wear-only',
             action='store_true',
             help="Only render wear, don't render bd ops. Implies --wear.")
-    # TODO implies --wear?
     parser.add_argument(
             '-w', '--block-cycles',
-            nargs='?',
             type=lambda x: int(x, 0),
-            const=0,
             help="Assumed maximum number of erase cycles when measuring "
                 "wear. Implies --wear.")
     parser.add_argument(

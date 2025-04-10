@@ -5007,15 +5007,17 @@ def main(disk, output, mroots=None, *,
                         lfs.cksum,
                         '' if lfs.ckgcksum() else '?'),
                     'total': total_count,
+                    'total_percent': '%.1f%%' % (
+                            100*total_count / max(len(bmap), 1)),
                     'mdir': mdir_count,
                     'mdir_percent': '%.1f%%' % (
-                            100*(mdir_count / max(total_count, 1))),
+                            100*mdir_count / max(len(bmap), 1)),
                     'btree': btree_count,
                     'btree_percent': '%.1f%%' % (
-                            100*(btree_count / max(total_count, 1))),
+                            100*btree_count / max(len(bmap), 1)),
                     'data': data_count,
                     'data_percent': '%.1f%%' % (
-                            100*(data_count / max(total_count, 1))),
+                            100*data_count / max(len(bmap), 1)),
                 }))
             elif not title_usage:
                 f.write('littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
@@ -5032,9 +5034,9 @@ def main(disk, output, mroots=None, *,
                 f.writeln('bd %sx%s, %s mdir, %s btree, %s data' % (
                         lfs.block_size if lfs.block_size is not None else '?',
                         lfs.block_count if lfs.block_count is not None else '?',
-                        '%.1f%%' % (100*(mdir_count / max(total_count, 1))),
-                        '%.1f%%' % (100*(btree_count / max(total_count, 1))),
-                        '%.1f%%' % (100*(data_count / max(total_count, 1)))))
+                        '%.1f%%' % (100*mdir_count / max(len(bmap), 1)),
+                        '%.1f%%' % (100*btree_count / max(len(bmap), 1)),
+                        '%.1f%%' % (100*data_count / max(len(bmap), 1))))
             f.write('</tspan>')
             if not no_mode and not no_javascript:
                 f.write('<tspan id="mode" x="%(x)d" y="1.1em" '
