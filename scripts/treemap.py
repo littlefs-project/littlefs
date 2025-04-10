@@ -339,13 +339,14 @@ class Attr:
         if isinstance(key, tuple):
             if len(key) > 0 and not isinstance(key[0], str):
                 i, key = key
+                if not isinstance(key, tuple):
+                    key = (key,)
             else:
                 i, key = 0, key
+        elif isinstance(key, str):
+            i, key = 0, (key,)
         else:
             i, key = key, ()
-
-        if not isinstance(key, tuple):
-            key = (key,)
 
         # try to lookup by key
         best = None
@@ -370,10 +371,49 @@ class Attr:
         if self.defaults is not None:
             return self.defaults[i, key]
 
-        return None
+        raise KeyError(i, key)
+
+    def get(self, key, default=None):
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default
 
     def __contains__(self, key):
-        return self.__getitem__(key) is not None
+        try:
+            self.__getitem__(key)
+            return True
+        except KeyError:
+            return False
+
+    # get all results for a given key
+    def getall(self, key, default=None):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        # try to lookup by key
+        best = None
+        for ks, vs in self.keyed.items():
+            prefix = []
+            for j, k in enumerate(ks):
+                if j < len(key) and fnmatch.fnmatchcase(key[j], k):
+                    prefix.append(k)
+                else:
+                    prefix = None
+                    break
+
+            if prefix is not None and (
+                    best is None or len(prefix) >= len(best[0])):
+                best = (prefix, vs)
+
+        if best is not None:
+            return best[1]
+
+        # fallback to defaults?
+        if self.defaults is not None:
+            return self.defaults.getall(key, default)
+
+        raise default
 
     # a key function for sorting by key order
     def key(self, key):
@@ -1155,8 +1195,8 @@ def main_(f, csv_paths, *,
                 char=(t.char if getattr(t, 'char', None) is not None
                     else True if braille or dots
                     else t.key[len(by)-1][0] if t.key and t.key[len(by)-1]
-                    else chars_[0]),
-                color=t.color if t.color is not None else colors_[0])
+                    else chars_.get(0)),
+                color=t.color if t.color is not None else colors_.get(0))
 
         if label or (labels and not no_label):
             if t.label is not None:

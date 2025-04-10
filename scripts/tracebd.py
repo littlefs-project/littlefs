@@ -234,7 +234,6 @@ class RingIO:
                 sys.stdout.write('\x1b[%dB' % (len(lines)-1-i))
         sys.stdout.flush()
 
-# TODO sync, espcially the getitem vs get changes
 # a representation of optionally key-mapped attrs
 class Attr:
     def __init__(self, attrs, defaults=None):
