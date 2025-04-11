@@ -1722,6 +1722,50 @@ def main(path='-', *,
             else:
                 block_cycles_ = wear_max
 
+        # build a title
+        if title:
+            title_ = punescape(title, {
+                'geometry': '%sx%s' % (block_size_, block_count_),
+                'block_size': block_size_,
+                'block_count': block_count_,
+                'total': total,
+                'read': readed,
+                'read_percent': 100*readed / max(total, 1),
+                'prog': proged,
+                'prog_percent': 100*proged / max(total, 1),
+                'erase': erased,
+                'erase_percent': 100*erased / max(total, 1),
+                'wear_min': wear_min if wear else '?',
+                'wear_min_percent':
+                    100*wear_min / max(block_cycles_, 1) if wear else '?',
+                'wear_max': wear_max if wear else '?',
+                'wear_max_percent':
+                    100*wear_max / max(block_cycles_, 1) if wear else '?',
+                'wear_avg': wear_avg if wear else '?',
+                'wear_avg_percent':
+                    100*wear_avg / max(block_cycles_, 1) if wear else '?',
+                'wear_stddev': wear_stddev if wear else '?',
+                'wear_stddev_percent':
+                    100*wear_stddev / max(block_cycles_, 1) if wear else '?',
+            })
+        else:
+            title_ = ('bd %dx%d%s%s%s%s' % (
+                    block_size_, block_count_,
+                    ', %6s read' % (
+                        '%.1f%%' % (100*readed / max(total, 1)))
+                            if reads else '',
+                    ', %6s prog' % (
+                        '%.1f%%' % (100*proged / max(total, 1)))
+                            if progs else '',
+                    ', %6s erase' % (
+                        '%.1f%%' % (100*erased / max(total, 1)))
+                            if erases else '',
+                    ', %15s wear' % (
+                        '%.1f%% +-%.1fσ' % (
+                                100*wear_avg / max(block_cycles_, 1),
+                                100*wear_stddev / max(block_cycles_, 1)))
+                            if wear else ''))
+
         # give ring a writeln function
         def writeln(s=''):
             ring.write(s)
@@ -1991,66 +2035,7 @@ def main(path='-', *,
 
         # print some summary info
         if not no_header:
-# TODO
-#            # compute stddev of wear using our bmap, this is a bit different
-#            # from reads/progs/erases which ignores any bmap window, but it's
-#            # what we have
-#            if wear:
-#                mean = (sum(p.wear for p in bmap.pixels)
-#                        / max(len(bmap.pixels), 1))
-#                stddev = mt.sqrt(sum((p.wear - mean)**2 for p in bmap.pixels)
-#                        / max(len(bmap.pixels), 1))
-#                worst = max((p.wear for p in bmap.pixels), default=0)
-
-            if title:
-                ring.writeln(punescape(title, {
-                    # TODO simplify this in other scripts
-                    # geometry -> just block_size/block_count, don't eagerly
-                    # format percents, etc
-                    'block_size': block_size_,
-                    'block_count': block_count_,
-                    'total': total,
-                    'read': readed,
-                    # TODO if we're showing percentage of total ops here,
-                    # should we should percentage of in-use blocks in
-                    # dbgbmap.py?
-                    'read_percent': 100*readed / max(total, 1),
-                    'prog': proged,
-                    'prog_percent': 100*proged / max(total, 1),
-                    'erase': erased,
-                    'erase_percent': 100*erased / max(total, 1),
-                    'wear_min': wear_min if wear else '?',
-                    'wear_min_percent': 100*wear_min / max(block_cycles_, 1)
-                            if wear else '?',
-                    'wear_max': wear_max if wear else '?',
-                    'wear_max_percent': 100*wear_max / max(block_cycles_, 1)
-                            if wear else '?',
-                    'wear_avg': wear_avg if wear else '?',
-                    'wear_avg_percent': 100*wear_avg / max(block_cycles_, 1)
-                            if wear else '?',
-                    'wear_stddev': wear_stddev if wear else '?',
-                    'wear_stddev_percent':
-                            100*wear_stddev / max(block_cycles_, 1)
-                                if wear else '?',
-                }))
-            else:
-#                ring.writeln('curve: %s' % (curve.cache_info(),))
-                ring.writeln('bd %dx%d%s%s%s%s' % (
-                        block_size_, block_count_,
-                        ', %6s read' % (
-                                '%.1f%%' % (100*readed / max(total, 1)))
-                            if reads else '',
-                        ', %6s prog' % (
-                                '%.1f%%' % (100*proged / max(total, 1)))
-                            if progs else '',
-                        ', %6s erase' % (
-                                '%.1f%%' % (100*erased / max(total, 1)))
-                            if erases else '',
-                        ', %15s wear' % (
-                                '%.1f%% +-%.1fσ' % (
-                                    100*wear_avg / max(block_cycles_, 1),
-                                    100*wear_stddev / max(block_cycles_, 1)))
-                            if wear else ''))
+            ring.writeln(title_)
 
         # draw canvas
         for row in range(canvas.height//canvas.yscale):

@@ -4869,6 +4869,64 @@ def main(disk, output, mroots=None, *,
                                 b_ for b_ in child.blocks
                                     if b_ in bmap)
 
+        # one last thing, build a title
+        if title:
+            title_ = punescape(title, {
+                'magic': 'littlefs%s' % (
+                    '' if lfs.ckmagic() else '?'),
+                'version': 'v%s.%s' % (
+                    lfs.version.major if lfs.version is not None else '?',
+                    lfs.version.minor if lfs.version is not None else '?'),
+                'version_major':
+                    lfs.version.major if lfs.version is not None else '?',
+                'version_minor':
+                    lfs.version.minor if lfs.version is not None else '?',
+                'geometry': '%sx%s' % (
+                    lfs.block_size if lfs.block_size is not None else '?',
+                    lfs.block_count if lfs.block_count is not None else '?'),
+                'block_size':
+                    lfs.block_size if lfs.block_size is not None else '?',
+                'block_count':
+                    lfs.block_count if lfs.block_count is not None else '?',
+                'addr': lfs.addr(),
+                'weight': 'w%s.%s' % (lfs.mbweightrepr(), lfs.mrweightrepr()),
+                'mbweight': lfs.mbweightrepr(),
+                'mrweight': lfs.mrweightrepr(),
+                'rev': '%08x' % lfs.rev,
+                'cksum': '%08x%s' % (
+                    lfs.cksum,
+                    '' if lfs.ckgcksum() else '?'),
+                'total': total_count,
+                'total_percent': 100*total_count / max(len(bmap), 1),
+                'mdir': mdir_count,
+                'mdir_percent': 100*mdir_count / max(len(bmap), 1),
+                'btree': btree_count,
+                'btree_percent': 100*btree_count / max(len(bmap), 1),
+                'data': data_count,
+                'data_percent': 100*data_count / max(len(bmap), 1),
+            })
+        elif not title_usage:
+            title_ = ('littlefs%s v%s.%s %sx%s %s w%s.%s, '
+                    'rev %08x, '
+                    'cksum %08x%s' % (
+                        '' if lfs.ckmagic() else '?',
+                        lfs.version.major if lfs.version is not None else '?',
+                        lfs.version.minor if lfs.version is not None else '?',
+                        lfs.block_size if lfs.block_size is not None else '?',
+                        lfs.block_count if lfs.block_count is not None else '?',
+                        lfs.addr(),
+                        lfs.mbweightrepr(), lfs.mrweightrepr(),
+                        lfs.rev,
+                        lfs.cksum,
+                        '' if lfs.ckgcksum() else '?'))
+        else:
+            title_ = ('bd %sx%s, %s mdir, %s btree, %s data' % (
+                    lfs.block_size if lfs.block_size is not None else '?',
+                    lfs.block_count if lfs.block_count is not None else '?',
+                    '%.1f%%' % (100*mdir_count / max(len(bmap), 1)),
+                    '%.1f%%' % (100*btree_count / max(len(bmap), 1)),
+                    '%.1f%%' % (100*data_count / max(len(bmap), 1))))
+
     # scale width/height if requested
     if (to_scale is not None
             and (width is None or height is None)):
@@ -5025,68 +5083,7 @@ def main(disk, output, mroots=None, *,
             f.write('<text fill="%(color)s">' % dict(
                     color='#ffffff' if dark else '#000000'))
             f.write('<tspan x="3" y="1.1em">')
-            if title:
-                f.write(punescape(title, {
-                    'magic': 'littlefs%s' % (
-                        '' if lfs.ckmagic() else '?'),
-                    'version': 'v%s.%s' % (
-                        lfs.version.major
-                            if lfs.version is not None else '?',
-                        lfs.version.minor
-                            if lfs.version is not None else '?'),
-                    'version_major': lfs.version.major
-                            if lfs.version is not None else '?',
-                    'version_minor': lfs.version.minor
-                            if lfs.version is not None else '?',
-                    'geometry': '%sx%s' % (
-                        lfs.block_size
-                            if lfs.block_size is not None else '?',
-                        lfs.block_count
-                            if lfs.block_count is not None else '?'),
-                    'block_size': lfs.block_size
-                            if lfs.block_size is not None else '?',
-                    'block_count': lfs.block_count
-                            if lfs.block_count is not None else '?',
-                    'addr': lfs.addr(),
-                    'weight': 'w%s.%s' % (
-                        lfs.mbweightrepr(),
-                        lfs.mrweightrepr()),
-                    'mbweight': lfs.mbweightrepr(),
-                    'mrweight': lfs.mrweightrepr(),
-                    'cksum': '%08x%s' % (
-                        lfs.cksum,
-                        '' if lfs.ckgcksum() else '?'),
-                    'total': total_count,
-                    'total_percent': '%.1f%%' % (
-                            100*total_count / max(len(bmap), 1)),
-                    'mdir': mdir_count,
-                    'mdir_percent': '%.1f%%' % (
-                            100*mdir_count / max(len(bmap), 1)),
-                    'btree': btree_count,
-                    'btree_percent': '%.1f%%' % (
-                            100*btree_count / max(len(bmap), 1)),
-                    'data': data_count,
-                    'data_percent': '%.1f%%' % (
-                            100*data_count / max(len(bmap), 1)),
-                }))
-            elif not title_usage:
-                f.write('littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
-                        '' if lfs.ckmagic() else '?',
-                        lfs.version.major if lfs.version is not None else '?',
-                        lfs.version.minor if lfs.version is not None else '?',
-                        lfs.block_size if lfs.block_size is not None else '?',
-                        lfs.block_count if lfs.block_count is not None else '?',
-                        lfs.addr(),
-                        lfs.mbweightrepr(), lfs.mrweightrepr(),
-                        lfs.cksum,
-                        '' if lfs.ckgcksum() else '?'))
-            else:
-                f.writeln('bd %sx%s, %s mdir, %s btree, %s data' % (
-                        lfs.block_size if lfs.block_size is not None else '?',
-                        lfs.block_count if lfs.block_count is not None else '?',
-                        '%.1f%%' % (100*mdir_count / max(len(bmap), 1)),
-                        '%.1f%%' % (100*btree_count / max(len(bmap), 1)),
-                        '%.1f%%' % (100*data_count / max(len(bmap), 1))))
+            f.write(title_)
             f.write('</tspan>')
             if not no_mode and not no_javascript:
                 f.write('<tspan id="mode" x="%(x)d" y="1.1em" '
