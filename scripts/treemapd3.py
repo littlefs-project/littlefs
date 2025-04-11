@@ -570,7 +570,7 @@ def partition_dice(children, total, x, y, width, height):
         y_ += t.height
 
 def partition_squarify(children, total, x, y, width, height, *,
-        aspect_ratio=(1,1)):
+        aspect_ratio=1/1):
     # this algorithm is described here:
     # https://www.win.tue.nl/~vanwijk/stm.pdf
     i = 0
@@ -581,8 +581,7 @@ def partition_squarify(children, total, x, y, width, height, *,
     height_ = height
     # note we don't really care about width vs height until
     # actually slicing
-    ratio = max(aspect_ratio[0] / aspect_ratio[1],
-            aspect_ratio[1] / aspect_ratio[0])
+    ratio = max(aspect_ratio, 1/aspect_ratio)
 
     while i < len(children):
         # calculate initial aspect ratio
@@ -641,7 +640,7 @@ def main(csv_paths, output, *,
         no_header=False,
         no_stats=False,
         to_scale=None,
-        aspect_ratio=(1,1),
+        to_ratio=1/1,
         tiny=False,
         nested=False,
         title=None,
@@ -658,6 +657,10 @@ def main(csv_paths, output, *,
             to_scale = 1
         no_header = True
         no_label = True
+
+    # no title + no_stats implies no_header
+    if title is None and no_stats:
+        no_header = True
 
     # what colors/labels to use?
     colors_ = Attr(colors, defaults=COLORS_DARK if dark else COLORS)
@@ -753,17 +756,27 @@ def main(csv_paths, output, *,
     if (to_scale is not None
             and (width is None or height is None)
             and tile.value != 0):
+        # don't include header in scale
+        width__ = width_
+        height__ = height_
+        if not no_header:
+            height__ -= mt.ceil(FONT_SIZE * 1.3)
+
         # scale width only
         if height is not None:
-            width_ = mt.ceil((tile.value * to_scale) / height_)
+            width__ = mt.ceil((tile.value * to_scale) / max(height__, 1))
         # scale height only
         elif width is not None:
-            height_ = mt.ceil((tile.value * to_scale) / width_)
+            height__ = mt.ceil((tile.value * to_scale) / max(width__, 1))
         # scale based on aspect-ratio
         else:
-            width_ = mt.ceil(mt.sqrt(tile.value * to_scale)
-                    * (aspect_ratio[0] / aspect_ratio[1]))
-            height_ = mt.ceil((tile.value * to_scale) / width_)
+            width__ = mt.ceil(mt.sqrt(tile.value * to_scale * to_ratio))
+            height__ = mt.ceil((tile.value * to_scale) / max(width__, 1))
+
+        if not no_header:
+            height__ += mt.ceil(FONT_SIZE * 1.3)
+        width_ = width__
+        height_ = height__
 
     # sort
     tile.sort()
@@ -791,7 +804,7 @@ def main(csv_paths, output, *,
             height__ = tile.height
 
             # create space for header
-            if not no_header and (title is not None or not no_stats):
+            if not no_header:
                 y__ += mt.ceil(FONT_SIZE * 1.3)
                 height__ -= min(mt.ceil(FONT_SIZE * 1.3), height__)
 
@@ -837,11 +850,12 @@ def main(csv_paths, output, *,
                     or args.get('rectify')):
                 partition_squarify(tile.children, tile.value,
                         x__, y__, width__, height__,
-                        aspect_ratio=(args['squarify_ratio'], 1)
+                        aspect_ratio=(
+                            args['squarify_ratio']
                                 if args.get('squarify_ratio')
-                            else (width_, height_)
+                                else width_/height_
                                 if args.get('rectify')
-                            else (1, 1))
+                                else 1/1))
             else:
                 # default to binary partitioning
                 partition_binary(tile.children, tile.value,
@@ -880,7 +894,7 @@ def main(csv_paths, output, *,
                     background=background_))
 
         # create header
-        if not no_header and (title is not None or not no_stats):
+        if not no_header:
             f.write('<text fill="%(color)s">' % dict(
                     color='#ffffff' if dark else '#000000'))
             if not no_stats:
@@ -1114,8 +1128,8 @@ if __name__ == "__main__":
             type=lambda x: (
                 (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
                     if ':' in x else float(x)),
-            help="Specify an explicit ratio for the squarify algorithm. "
-                "Implies --squarify.")
+            help="Specify an explicit aspect ratio for the squarify "
+                "algorithm. Implies --squarify.")
     parser.add_argument(
             '--to-scale',
             nargs='?',
@@ -1126,10 +1140,10 @@ if __name__ == "__main__":
             help="Scale the resulting treemap such that 1 pixel ~= 1/scale "
                 "units. Defaults to scale=1. ")
     parser.add_argument(
-            '-R', '--aspect-ratio',
+            '--to-ratio',
             type=lambda x: (
-                tuple(float(v) for v in x.split(':', 1))
-                    if ':' in x else (float(x), 1)),
+                (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
+                    if ':' in x else float(x)),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
     parser.add_argument(
             '-t', '--tiny',

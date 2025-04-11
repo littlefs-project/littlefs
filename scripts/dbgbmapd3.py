@@ -4666,7 +4666,7 @@ def main(disk, output, mroots=None, *,
         mode_references=False,
         mode_redund=False,
         to_scale=None,
-        aspect_ratio=(1,1),
+        to_ratio=1/1,
         tiny=False,
         title=None,
         title_littlefs=False,
@@ -4872,17 +4872,27 @@ def main(disk, output, mroots=None, *,
     # scale width/height if requested
     if (to_scale is not None
             and (width is None or height is None)):
+        # don't include header in scale
+        width__ = width_
+        height__ = height_
+        if not no_header:
+            height__ -= mt.ceil(FONT_SIZE * 1.3)
+
         # scale width only
         if height is not None:
-            width_ = mt.ceil((len(bmap) * to_scale) / height_)
+            width__ = mt.ceil((len(bmap) * to_scale) / max(height__, 1))
         # scale height only
         elif width is not None:
-            height_ = mt.ceil((len(bmap) * to_scale) / width_)
+            height__ = mt.ceil((len(bmap) * to_scale) / max(width__, 1))
         # scale based on aspect-ratio
         else:
-            width_ = mt.ceil(mt.sqrt(len(bmap) * to_scale)
-                    * (aspect_ratio[0] / aspect_ratio[1]))
-            height_ = mt.ceil((len(bmap) * to_scale) / width_)
+            width__ = mt.ceil(mt.sqrt(len(bmap) * to_scale * to_ratio))
+            height__ = mt.ceil((len(bmap) * to_scale) / max(width__, 1))
+
+        if not no_header:
+            height__ += mt.ceil(FONT_SIZE * 1.3)
+        width_ = width__
+        height_ = height__
 
     # create space for header
     x__ = 0
@@ -5953,10 +5963,10 @@ if __name__ == "__main__":
             help="Scale the resulting treemap such that 1 pixel ~= 1/scale "
                 "blocks. Defaults to scale=1. ")
     parser.add_argument(
-            '-R', '--aspect-ratio',
+            '--to-ratio',
             type=lambda x: (
-                tuple(float(v) for v in x.split(':', 1))
-                    if ':' in x else (float(x), 1)),
+                (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
+                    if ':' in x else float(x)),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
     parser.add_argument(
             '-t', '--tiny',

@@ -4350,7 +4350,7 @@ def main_(f, disk, mroots=None, *,
         lebesgue=False,
         contiguous=False,
         to_scale=None,
-        aspect_ratio=(1,1),
+        to_ratio=1/1,
         tiny=False,
         title=None,
         title_littlefs=False,
@@ -4542,17 +4542,23 @@ def main_(f, disk, mroots=None, *,
     # scale width/height if requested
     if (to_scale is not None
             and (width is None or height is None)):
+        # don't include header in scale
+        width__ = width_
+        height__ = height_ - (1 if not no_header else 0)
+
         # scale width only
         if height is not None:
-            width_ = mt.ceil((len(bmap) * to_scale) / height_)
+            width__ = mt.ceil((len(bmap) * to_scale) / max(height__, 1))
         # scale height only
         elif width is not None:
-            height_ = mt.ceil((len(bmap) * to_scale) / width_)
+            height__ = mt.ceil((len(bmap) * to_scale) / max(width__, 1))
         # scale based on aspect-ratio
         else:
-            width_ = mt.ceil(mt.sqrt(len(bmap) * to_scale)
-                    * (aspect_ratio[0] / aspect_ratio[1]))
-            height_ = mt.ceil((len(bmap) * to_scale) / width_)
+            width__ = mt.ceil(mt.sqrt(len(bmap) * to_scale * to_ratio))
+            height__ = mt.ceil((len(bmap) * to_scale) / max(width__, 1))
+
+        width_ = width__
+        height_ = height__ + (1 if not no_header else 0)
 
     # create a canvas
     canvas = Canvas(
@@ -5048,13 +5054,13 @@ if __name__ == "__main__":
                 (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
                     if ':' in x else float(x)),
             const=1,
-            help="Scale the resulting map such that 1 pixel ~= 1/scale "
+            help="Scale the resulting map such that 1 char ~= 1/scale "
                 "blocks. Defaults to scale=1. ")
     parser.add_argument(
-            '-R', '--aspect-ratio',
+            '--to-ratio',
             type=lambda x: (
-                tuple(float(v) for v in x.split(':', 1))
-                    if ':' in x else (float(x), 1)),
+                (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
+                    if ':' in x else float(x)),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
     parser.add_argument(
             '-t', '--tiny',
