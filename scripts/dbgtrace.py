@@ -3,7 +3,7 @@
 # Render operations on block devices based on trace output
 #
 # Example:
-# ./scripts/tracebd.py trace
+# ./scripts/dbgtrace.py trace
 #
 # Copyright (c) 2022, The littlefs authors.
 # SPDX-License-Identifier: BSD-3-Clause
