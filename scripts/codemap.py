@@ -912,7 +912,6 @@ def main_(ring, paths, *,
         to_ratio=1/1,
         tiny=False,
         title=None,
-        padding=0,
         label=False,
         no_label=False,
         **args):
@@ -1220,32 +1219,10 @@ def main_(ring, paths, *,
 
     # our general purpose partition function
     def partition(tile, **args):
-        if tile.depth == 0:
-            # apply top padding
-            tile.x += padding
-            tile.y += padding
-            tile.width  -= min(padding, tile.width)
-            tile.height -= min(padding, tile.height)
-            # apply bottom padding
-            if not tile.children:
-                tile.width  -= min(padding, tile.width)
-                tile.height -= min(padding, tile.height)
-
-            x__ = tile.x
-            y__ = tile.y
-            width__ = tile.width
-            height__ = tile.height
-
-        else:
-            # apply bottom padding
-            if not tile.children:
-                tile.width  -= min(padding, tile.width)
-                tile.height -= min(padding, tile.height)
-
-            x__ = tile.x
-            y__ = tile.y
-            width__ = tile.width
-            height__ = tile.height
+        x__ = tile.x
+        y__ = tile.y
+        width__ = tile.width
+        height__ = tile.height
 
         # partition via requested scheme
         if tile.children:
@@ -1622,10 +1599,6 @@ if __name__ == "__main__":
     parser.add_argument(
             '--title',
             help="Add a title. Accepts %% modifiers.")
-    parser.add_argument(
-            '--padding',
-            type=float,
-            help="Padding to add to each level of the treemap. Defaults to 0.")
     parser.add_argument(
             '-l', '--label',
             action='store_true',

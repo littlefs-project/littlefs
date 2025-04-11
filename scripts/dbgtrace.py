@@ -941,7 +941,6 @@ def main(path='-', *,
         to_ratio=1/1,
         tiny=False,
         title=None,
-        padding=0,
         lines=None,
         head=False,
         cat=False,
@@ -1355,17 +1354,6 @@ def main(path='-', *,
                 b.y = y * block_height_
                 b.width = block_width_
                 b.height = block_height_
-
-                # apply top padding
-                if x == 0:
-                    b.x += padding
-                    b.width -= min(padding, b.width)
-                if y == 0:
-                    b.y += padding
-                    b.height -= min(padding, b.height)
-                # apply bottom padding
-                b.width  -= min(padding, b.width)
-                b.height -= min(padding, b.height)
 
                 # align to pixel boundaries
                 b.align()
@@ -1816,11 +1804,6 @@ if __name__ == "__main__":
     parser.add_argument(
             '--title',
             help="Add a title. Accepts %% modifiers.")
-    # TODO drop padding in ascii scripts, no one is ever going to use this
-    parser.add_argument(
-            '--padding',
-            type=float,
-            help="Padding to add to each block. Defaults to 0.")
     parser.add_argument(
             '-n', '--lines',
             nargs='?',
