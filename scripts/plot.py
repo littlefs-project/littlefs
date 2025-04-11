@@ -1152,7 +1152,7 @@ class Grid:
         return grid
 
 
-def main_(f, csv_paths, *,
+def main_(ring, csv_paths, *,
         by=None,
         x=None,
         y=None,
@@ -1187,11 +1187,11 @@ def main_(f, csv_paths, *,
         subplot={},
         subplots=[],
         **args):
-    # give f an writeln function
+    # give ring an writeln function
     def writeln(s=''):
-        f.write(s)
-        f.write('\n')
-    f.writeln = writeln
+        ring.write(s)
+        ring.write('\n')
+    ring.writeln = writeln
 
     # figure out what color should be
     if color == 'auto':
@@ -1643,14 +1643,14 @@ def main_(f, csv_paths, *,
 
     # draw title?
     for line in title_:
-        f.writeln('%*s%s' % (
+        ring.writeln('%*s%s' % (
                 sum(xmargin[:2]), '',
                 line.center(width_-xmargin[1])))
 
     # draw legend_above?
     if legend_above and legend_:
         for i in range(0, len(legend_), legend_cols):
-            f.writeln('%*s%s' % (
+            ring.writeln('%*s%s' % (
                     max(
                         sum(xmargin[:2])
                             + (width_-xmargin[1]
@@ -1665,7 +1665,7 @@ def main_(f, csv_paths, *,
 
     for row in range(height_):
         # draw ylabel?
-        f.write('%s ' % ''.join(
+        ring.write('%s ' % ''.join(
                     ('%*s%s%*s' % (
                             ymargin[-1], '',
                             line.center(height_-sum(ymargin)),
@@ -1688,11 +1688,11 @@ def main_(f, csv_paths, *,
             if subrow < s.ymargin[-1]:
                 # draw subtitle?
                 if subrow < len(s.title_):
-                    f.write('%*s%s' % (
+                    ring.write('%*s%s' % (
                             sum(s.xmargin[:2]), '',
                             s.title_[subrow].center(s.width_)))
                 else:
-                    f.write('%*s%*s' % (
+                    ring.write('%*s%*s' % (
                             sum(s.xmargin[:2]), '',
                             s.width_, ''))
             # draw plot?
@@ -1700,7 +1700,7 @@ def main_(f, csv_paths, *,
                 subrow = subrow-s.ymargin[-1]
 
                 # draw ysublabel?
-                f.write('%-*s' % (
+                ring.write('%-*s' % (
                         s.xmargin[0],
                         '%s ' % ''.join(
                             line.center(s.height_)[subrow]
@@ -1709,25 +1709,25 @@ def main_(f, csv_paths, *,
 
                 # draw yunits?
                 if subrow == 0 and s.yticklabels_ != []:
-                    f.write('%*s' % (
+                    ring.write('%*s' % (
                             s.xmargin[1],
                             ((si2 if s.y2 else si)(s.ylim_[1]) + s.yunits
                                     if s.yticklabels_ is None
                                     else s.yticklabels_[1])
                                 + ' '))
                 elif subrow == s.height_-1 and s.yticklabels_ != []:
-                    f.write('%*s' % (
+                    ring.write('%*s' % (
                             s.xmargin[1],
                             ((si2 if s.y2 else si)(s.ylim_[0]) + s.yunits
                                     if s.yticklabels_ is None
                                     else s.yticklabels_[0])
                                 + ' '))
                 else:
-                    f.write('%*s' % (
+                    ring.write('%*s' % (
                             s.xmargin[1], ''))
 
                 # draw plot!
-                f.write(s.plot_.draw(subrow))
+                ring.write(s.plot_.draw(subrow))
 
             # footer
             else:
@@ -1735,7 +1735,7 @@ def main_(f, csv_paths, *,
 
                 # draw xunits?
                 if subrow < (1 if s.xticklabels_ != [] else 0):
-                    f.write('%*s%-*s%*s%*s' % (
+                    ring.write('%*s%-*s%*s%*s' % (
                             sum(s.xmargin[:2]), '',
                             (5 if s.x2 else 4) + len(s.xunits)
                                 if s.xticklabels_ is None
@@ -1756,11 +1756,11 @@ def main_(f, csv_paths, *,
                 # draw xsublabel?
                 elif (subrow < s.ymargin[1]
                         or subrow-s.ymargin[1] >= len(s.xlabel_)):
-                    f.write('%*s%*s' % (
+                    ring.write('%*s%*s' % (
                             sum(s.xmargin[:2]), '',
                             s.width_, ''))
                 else:
-                    f.write('%*s%s' % (
+                    ring.write('%*s%s' % (
                             sum(s.xmargin[:2]), '',
                             s.xlabel_[subrow-s.ymargin[1]]
                                 .center(s.width_)))
@@ -1770,23 +1770,23 @@ def main_(f, csv_paths, *,
                 and row >= ymargin[-1]
                 and row-ymargin[-1] < len(legend_)):
             j = row-ymargin[-1]
-            f.write(' %s%s%s' % (
+            ring.write(' %s%s%s' % (
                     '\x1b[%sm' % legend_[j][1] if color else '',
                     legend_[j][0],
                     '\x1b[m' if color else ''))
 
-        f.writeln()
+        ring.writeln()
 
     # draw xlabel?
     for line in xlabel_:
-        f.writeln('%*s%s' % (
+        ring.writeln('%*s%s' % (
                 sum(xmargin[:2]), '',
                 line.center(width_-xmargin[1])))
 
     # draw legend below?
     if legend_below and legend_:
         for i in range(0, len(legend_), legend_cols):
-            f.writeln('%*s%s' % (
+            ring.writeln('%*s%s' % (
                     max(
                         sum(xmargin[:2])
                             + (width_-xmargin[1]

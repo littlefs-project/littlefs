@@ -908,7 +908,7 @@ def partition_squarify(children, total, x, y, width, height, *,
         i = j
 
 
-def main_(f, csv_paths, *,
+def main_(ring, csv_paths, *,
         by=None,
         fields=None,
         defines=[],
@@ -930,11 +930,11 @@ def main_(f, csv_paths, *,
         label=False,
         no_label=False,
         **args):
-    # give f an writeln function
+    # give ring an writeln function
     def writeln(s=''):
-        f.write(s)
-        f.write('\n')
-    f.writeln = writeln
+        ring.write(s)
+        ring.write('\n')
+    ring.writeln = writeln
 
     # figure out what color should be
     if color == 'auto':
@@ -1215,19 +1215,19 @@ def main_(f, csv_paths, *,
                     stat['mean'], stat['stddev'],
                     stat['min'], stat['max'])
         if title and not no_stats:
-            f.writeln('%s%*s%s' % (
+            ring.writeln('%s%*s%s' % (
                     title_,
                     max(width_-len(stat_)-len(title_), 0), ' ',
                     stat_))
         elif title:
-            f.writeln(title_)
+            ring.writeln(title_)
         elif not no_stats:
-            f.writeln(stat_)
+            ring.writeln(stat_)
 
     # draw canvas
     for row in range(canvas.height//canvas.yscale):
         line = canvas.draw(row)
-        f.writeln(line)
+        ring.writeln(line)
 
 
 def main(csv_paths, *,

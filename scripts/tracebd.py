@@ -1697,7 +1697,6 @@ def main(path='-', *,
     else:
         curve = ft.lru_cache(16)(lambda w, h: list(naive_curve(w, h)))
 
-    # TODO adopt f -> ring name in all scripts?
     def draw__(ring, width, height):
         nonlocal bmap
         # still waiting on bd init

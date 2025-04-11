@@ -134,7 +134,6 @@ def main(path='-', *,
     lock = th.Lock()
     event = th.Event()
 
-    # TODO adopt f -> ring name in all scripts?
     def main_(ring):
         try:
             while True:

@@ -4327,7 +4327,7 @@ class BmapBlock:
             }
 
 
-def main_(f, disk, mroots=None, *,
+def main_(ring, disk, mroots=None, *,
         trunk=None,
         block_size=None,
         block_count=None,
@@ -4357,11 +4357,11 @@ def main_(f, disk, mroots=None, *,
         title_usage=False,
         padding=0,
         **args):
-    # give f an writeln function
+    # give ring an writeln function
     def writeln(s=''):
-        f.write(s)
-        f.write('\n')
-    f.writeln = writeln
+        ring.write(s)
+        ring.write('\n')
+    ring.writeln = writeln
 
     # figure out what color should be
     if color == 'auto':
@@ -4435,14 +4435,14 @@ def main_(f, disk, mroots=None, *,
                     None))
 
     # we seek around a bunch, so just keep the disk open
-    with open(disk, 'rb') as f_:
+    with open(disk, 'rb') as f:
         # if block_size is omitted, assume the block device is one big block
         if block_size is None:
-            f_.seek(0, os.SEEK_END)
-            block_size = f_.tell()
+            f.seek(0, os.SEEK_END)
+            block_size = f.tell()
 
         # fetch the filesystem
-        bd = Bd(f_, block_size, block_count)
+        bd = Bd(f, block_size, block_count)
         lfs = Lfs.fetch(bd, mroots, trunk,
                 # don't bother to check things if we're not reporting errors
                 no_ck=not args.get('error_on_corrupt'))
@@ -4455,8 +4455,8 @@ def main_(f, disk, mroots=None, *,
             if lfs.config.geometry is not None:
                 block_count_ = lfs.config.geometry.block_count
             else:
-                f_.seek(0, os.SEEK_END)
-                block_count_ = mt.ceil(f_.tell() / block_size)
+                f.seek(0, os.SEEK_END)
+                block_count_ = mt.ceil(f.tell() / block_size)
 
         # flatten blocks, default to all blocks
         blocks_ = list(
@@ -4755,7 +4755,7 @@ def main_(f, disk, mroots=None, *,
     # print some summary info
     if not no_header:
         if title:
-            f.writeln(punescape(title, {
+            ring.writeln(punescape(title, {
                 'magic': 'littlefs%s' % (
                     '' if lfs.ckmagic() else '?'),
                 'version': 'v%s.%s' % (
@@ -4799,7 +4799,7 @@ def main_(f, disk, mroots=None, *,
                         100*data_count / max(len(bmap), 1)),
             }))
         elif title_littlefs:
-            f.writeln('littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
+            ring.writeln('littlefs%s v%s.%s %sx%s %s w%s.%s, cksum %08x%s' % (
                     '' if lfs.ckmagic() else '?',
                     lfs.version.major if lfs.version is not None else '?',
                     lfs.version.minor if lfs.version is not None else '?',
@@ -4810,7 +4810,7 @@ def main_(f, disk, mroots=None, *,
                     lfs.cksum,
                     '' if lfs.ckgcksum() else '?'))
         else:
-            f.writeln('bd %sx%s, %6s mdir, %6s btree, %6s data' % (
+            ring.writeln('bd %sx%s, %6s mdir, %6s btree, %6s data' % (
                     lfs.block_size if lfs.block_size is not None else '?',
                     lfs.block_count if lfs.block_count is not None else '?',
                     '%.1f%%' % (100*mdir_count / max(len(bmap), 1)),
@@ -4820,7 +4820,7 @@ def main_(f, disk, mroots=None, *,
     # draw canvas
     for row in range(canvas.height//canvas.yscale):
         line = canvas.draw(row)
-        f.writeln(line)
+        ring.writeln(line)
 
     if args.get('error_on_corrupt') and corrupted:
         sys.exit(2)

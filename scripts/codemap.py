@@ -897,7 +897,7 @@ def collect_ctx(obj_paths, *,
     return ctx
 
 
-def main_(f, paths, *,
+def main_(ring, paths, *,
         namespace_depth=2,
         labels=[],
         chars=[],
@@ -916,11 +916,11 @@ def main_(f, paths, *,
         label=False,
         no_label=False,
         **args):
-    # give f an writeln function
+    # give ring an writeln function
     def writeln(s=''):
-        f.write(s)
-        f.write('\n')
-    f.writeln = writeln
+        ring.write(s)
+        ring.write('\n')
+    ring.writeln = writeln
 
     # figure out what color should be
     if color == 'auto':
@@ -971,25 +971,25 @@ def main_(f, paths, *,
         # elf/callgraph files
         fs = []
         for path in paths:
-            f_ = openio(path)
-            if f_.buffer.peek(4)[:4] == b'\x7fELF':
-                for f_ in fs:
-                    f_.close()
+            f = openio(path)
+            if f.buffer.peek(4)[:4] == b'\x7fELF':
+                for f in fs:
+                    f.close()
                 raise StopIteration()
-            fs.append(f_)
+            fs.append(f)
 
-        for f_ in fs:
-            with f_:
+        for f in fs:
+            with f:
                 # csv or json? assume json starts with [
-                is_json = (f_.buffer.peek(1)[:1] == b'[')
+                is_json = (f.buffer.peek(1)[:1] == b'[')
 
                 # read csv?
                 if not is_json:
-                    results.extend(csv.DictReader(f_, restval=''))
+                    results.extend(csv.DictReader(f, restval=''))
 
                 # read json?
                 else:
-                    results.extend(json.load(f_))
+                    results.extend(json.load(f))
 
     # fall back to extracting code/stack/ctx info from elf/callgraph files
     except StopIteration:
@@ -1069,29 +1069,29 @@ def main_(f, paths, *,
 
         return f['frame'] + limit
 
-    for k, f_ in functions.items():
-        if 'stack' in f_:
-            if mt.isinf(f_['stack']):
-                f_['limit'] = limitof(k, f_)
+    for k, f in functions.items():
+        if 'stack' in f:
+            if mt.isinf(f['stack']):
+                f['limit'] = limitof(k, f)
             else:
-                f_['limit'] = f_['stack']
+                f['limit'] = f['stack']
 
     # organize into subsystems
     namespace_pattern = re.compile('_*[^_]+(?:_*$)?')
     namespace_slice = slice(namespace_depth if namespace_depth else None)
     subsystems = {}
-    for k, f_ in functions.items():
+    for k, f in functions.items():
         # ignore leading/trailing underscores
-        f_['subsystem'] = ''.join(
+        f['subsystem'] = ''.join(
                 namespace_pattern.findall(k)[
                     namespace_slice])
 
-        if f_['subsystem'] not in subsystems:
-            subsystems[f_['subsystem']] = {'name': f_['subsystem']}
+        if f['subsystem'] not in subsystems:
+            subsystems[f['subsystem']] = {'name': f['subsystem']}
 
     # include ctx in subsystems to give them different colors
-    for _, f_ in functions.items():
-        for a in f_.get('args', []):
+    for _, f in functions.items():
+        for a in f.get('args', []):
             a['subsystem'] = a['name']
 
             if a['subsystem'] not in subsystems:
@@ -1339,9 +1339,9 @@ def main_(f, paths, *,
     # print some summary info
     if not no_header:
         if title:
-            f.writeln(punescape(title, totals['attrs'] | totals))
+            ring.writeln(punescape(title, totals['attrs'] | totals))
         else:
-            f.writeln('code %d stack %s ctx %d' % (
+            ring.writeln('code %d stack %s ctx %d' % (
                         totals.get('code', 0),
                         (lambda s: '∞' if mt.isinf(s) else s)(
                             totals.get('stack', 0)),
@@ -1350,7 +1350,7 @@ def main_(f, paths, *,
     # draw canvas
     for row in range(canvas.height//canvas.yscale):
         line = canvas.draw(row)
-        f.writeln(line)
+        ring.writeln(line)
 
     if (args.get('error_on_recursion')
             and mt.isinf(totals.get('stack', 0))):
