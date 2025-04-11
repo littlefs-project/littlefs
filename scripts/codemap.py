@@ -1019,6 +1019,8 @@ def main_(f, paths, *,
     # merge code/stack/ctx results
     functions = co.OrderedDict()
     for r in results:
+        if 'function' not in r:
+            continue
         if r['function'] not in functions:
             functions[r['function']] = {'name': r['function']}
         # code things
@@ -1155,6 +1157,10 @@ def main_(f, paths, *,
 
     # assign colors/chars/labels to code tiles
     for i, t in enumerate(code.leaves()):
+        # skip the top tile, yes this can happen if we have no code
+        if t.depth == 0:
+            continue
+
         t.color = subsystems[t.attrs['subsystem']]['color']
 
         if (i, t.attrs['name']) in chars_:
@@ -1217,6 +1223,11 @@ def main_(f, paths, *,
                 height_ = mt.ceil(
                         ((total_value * to_scale) / (width_*xscale))
                             / yscale)
+
+    # as a special case, if height is implicit and we have nothing to
+    # show, don't print anything
+    if height is None and nil_code and nil_frames and nil_ctx:
+        height_ = 1 if not no_header else 0
 
     # our general purpose partition function
     def partition(tile, **args):

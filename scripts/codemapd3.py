@@ -750,6 +750,8 @@ def main(paths, output, *,
     # merge code/stack/ctx results
     functions = co.OrderedDict()
     for r in results:
+        if 'function' not in r:
+            continue
         if r['function'] not in functions:
             functions[r['function']] = {'name': r['function']}
         # code things
@@ -886,7 +888,12 @@ def main(paths, output, *,
 
     # assign colors/labels to code tiles
     for i, t in enumerate(code.leaves()):
+        # skip the top tile, yes this can happen if we have no code
+        if t.depth == 0:
+            continue
+
         t.color = subsystems[t.attrs['subsystem']]['color']
+
         if (i, t.attrs['name']) in labels_:
             label__ = labels_[i, t.attrs['name']]
             # don't punescape unless we have to
@@ -1221,6 +1228,9 @@ def main(paths, output, *,
 
         # create code tiles
         for i, t in enumerate(code.leaves()):
+            # skip the top tile, yes this can happen if we have no code
+            if t.depth == 0:
+                continue
             # skip anything with zero weight/height after aligning things
             if t.width == 0 or t.height == 0:
                 continue

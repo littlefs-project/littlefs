@@ -1090,6 +1090,11 @@ def main_(f, csv_paths, *,
                     ((tile.value * to_scale) / (width_*xscale))
                         / yscale)
 
+    # as a special case, if height is implicit and we have nothing to
+    # show, don't print anything
+    if height is None and tile.value == 0:
+        height_ = 1 if not no_header else 0
+
     # create a canvas
     canvas = Canvas(
             width_,
