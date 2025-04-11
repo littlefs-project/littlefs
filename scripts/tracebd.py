@@ -1399,7 +1399,6 @@ def main(path='-', *,
         wear_chars=[],
         colors=[],
         wear_colors=[],
-        # TODO this should be color='auto' in all scripts
         color='auto',
         dots=False,
         braille=False,
