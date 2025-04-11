@@ -2733,7 +2733,6 @@ class Gstate:
         locals()[g.__name__.lower()] = ft.cached_property(_parser(g))
 
 
-# TODO sync
 # high-level littlefs representation
 class Lfs:
     def __init__(self, bd, mtree, config=None, gstate=None, cksum=None, *,
