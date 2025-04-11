@@ -4918,11 +4918,11 @@ def main(disk, output, mroots=None, *,
         # well for things that are often powers-of-two
         block_cols_ = 1
         block_rows_ = len(bmap)
-        while (abs(((width__/(block_cols_ * 2))
-                        / (height__/mt.ceil(block_rows_ / 2)))
+        while (abs(((width__/(block_cols_*2))
+                        / max(height__/mt.ceil(block_rows_/2), 1))
                     - block_ratio)
                 < abs(((width__/block_cols_)
-                        / (height__/block_rows_)))
+                        / max(height__/block_rows_, 1)))
                     - block_ratio):
             block_cols_ *= 2
             block_rows_ = mt.ceil(block_rows_ / 2)

@@ -1794,11 +1794,11 @@ def main(path='-', *,
                 # well for things that are often powers-of-two
                 block_cols_ = 1
                 block_rows_ = len(bmap)
-                while (abs(((canvas.width/(block_cols_ * 2))
-                                / (canvas.height/mt.ceil(block_rows_ / 2)))
+                while (abs(((canvas.width/(block_cols_*2))
+                                / max(canvas.height/mt.ceil(block_rows_/2), 1))
                             - block_ratio)
                         < abs(((canvas.width/block_cols_)
-                                / (canvas.height/block_rows_)))
+                                / max(canvas.height/block_rows_, 1)))
                             - block_ratio):
                     block_cols_ *= 2
                     block_rows_ = mt.ceil(block_rows_ / 2)
