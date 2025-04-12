@@ -597,8 +597,7 @@ def table(Result, results, diff_results=None, *,
         labels=None,
         depth=1,
         hot=None,
-        diff=None,
-        percent=None,
+        percent=False,
         all=False,
         compare=None,
         no_header=False,
@@ -649,10 +648,10 @@ def table(Result, results, diff_results=None, *,
                     ' (%d added, %d removed)' % (
                             sum(1 for n in table if n not in diff_table),
                             sum(1 for n in diff_table if n not in table))
-                        if diff else '')
+                        if diff_results is not None and not percent else '')
                 if not small_header and not small_table and not summary
                     else '']
-        if not diff:
+        if diff_results is None or percent:
             for k in fields:
                 header.append(k)
         else:
@@ -676,8 +675,7 @@ def table(Result, results, diff_results=None, *,
 
         # normal entry?
         if ((compare is None or r == compare_r)
-                and not percent
-                and not diff):
+                and diff_results is None):
             for k in fields:
                 entry.append(
                         (getattr(r, k).table(),
@@ -685,7 +683,7 @@ def table(Result, results, diff_results=None, *,
                             if getattr(r, k, None) is not None
                             else types[k].none)
         # compare entry?
-        elif not percent and not diff:
+        elif diff_results is None:
             for k in fields:
                 entry.append(
                         (getattr(r, k).table()
@@ -698,7 +696,7 @@ def table(Result, results, diff_results=None, *,
                                     getattr(r, k, None),
                                     getattr(compare_r, k, None)))))
         # percent entry?
-        elif not diff:
+        elif percent:
             for k in fields:
                 entry.append(
                         (getattr(r, k).table()
@@ -789,7 +787,7 @@ def table(Result, results, diff_results=None, *,
                             getattr(table_.get(n), k, None),
                             getattr(diff_table_.get(n), k, None))
                         for k in fields))
-                    if diff or percent
+                    if diff_results is not None
                     else (),
                 # move compare entry to the top, note this can be
                 # overridden by explicitly sorting by fields
@@ -1083,10 +1081,10 @@ def main(ci_paths,
 
     # find previous results?
     diff_results = None
-    if args.get('diff') or args.get('percent'):
+    if args.get('diff'):
         try:
             diff_results = read_csv(
-                    args.get('diff') or args.get('percent'),
+                    args.get('diff'),
                     StackResult,
                     depth=depth,
                     **args)
@@ -1168,8 +1166,8 @@ if __name__ == "__main__":
             help="Specify CSV/JSON file to diff against.")
     parser.add_argument(
             '-p', '--percent',
-            help="Specify CSV/JSON file to diff against, but only show "
-                "percentage change, not a full diff.")
+            action='store_true',
+            help="Only show percentage change, not a full diff.")
     parser.add_argument(
             '-c', '--compare',
             type=lambda x: tuple(v.strip() for v in x.split(',')),
