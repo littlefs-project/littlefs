@@ -169,7 +169,12 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         return '%11s' % (self,)
 
     def notes(self):
-        t = self.a.x/self.b.x if self.b.x else 1.0
+        if self.b.x == 0 and self.a.x == 0:
+            t = 1.0
+        elif self.b.x == 0:
+            t = mt.copysign(mt.inf, self.a.x)
+        else:
+            t = self.a.x / self.b.x
         return ['∞%' if t == +mt.inf
                 else '-∞%' if t == -mt.inf
                 else '%.1f%%' % (100*t)]
