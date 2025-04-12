@@ -27,10 +27,10 @@ import sys
 # various field types
 
 # integer fields
-class RInt(co.namedtuple('RInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, RInt):
+        if isinstance(x, CsvInt):
             return x
         if isinstance(x, str):
             try:
@@ -129,10 +129,10 @@ class RInt(co.namedtuple('RInt', 'x')):
         return self.__class__(self.x % other.x)
 
 # float fields
-class RFloat(co.namedtuple('RFloat', 'x')):
+class CsvFloat(co.namedtuple('CsvFloat', 'x')):
     __slots__ = ()
     def __new__(cls, x=0.0):
-        if isinstance(x, RFloat):
+        if isinstance(x, CsvFloat):
             return x
         if isinstance(x, str):
             try:
@@ -230,16 +230,16 @@ class RFloat(co.namedtuple('RFloat', 'x')):
         return self.__class__(self.x % other.x)
 
 # fractional fields, a/b
-class RFrac(co.namedtuple('RFrac', 'a,b')):
+class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
     __slots__ = ()
     def __new__(cls, a=0, b=None):
-        if isinstance(a, RFrac) and b is None:
+        if isinstance(a, CsvFrac) and b is None:
             return a
         if isinstance(a, str) and b is None:
             a, b = a.split('/', 1)
         if b is None:
             b = a
-        return super().__new__(cls, RInt(a), RInt(b))
+        return super().__new__(cls, CsvInt(a), CsvInt(b))
 
     def __repr__(self):
         return '%s(%r, %r)' % (self.__class__.__name__, self.a.x, self.b.x)
@@ -272,15 +272,15 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
                 else '%.1f%%' % (100*t)]
 
     def diff(self, other):
-        new_a, new_b = self if self else (RInt(0), RInt(0))
-        old_a, old_b = other if other else (RInt(0), RInt(0))
+        new_a, new_b = self if self else (CsvInt(0), CsvInt(0))
+        old_a, old_b = other if other else (CsvInt(0), CsvInt(0))
         return '%11s' % ('%s/%s' % (
                 new_a.diff(old_a).strip(),
                 new_b.diff(old_b).strip()))
 
     def ratio(self, other):
-        new_a, new_b = self if self else (RInt(0), RInt(0))
-        old_a, old_b = other if other else (RInt(0), RInt(0))
+        new_a, new_b = self if self else (CsvInt(0), CsvInt(0))
+        old_a, old_b = other if other else (CsvInt(0), CsvInt(0))
         new = new_a.x/new_b.x if new_b.x else 1.0
         old = old_a.x/old_b.x if old_b.x else 1.0
         return new - old
@@ -310,16 +310,16 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         return self.__class__(self.a % other.a, self.b % other.b)
 
     def __eq__(self, other):
-        self_a, self_b = self if self.b.x else (RInt(1), RInt(1))
-        other_a, other_b = other if other.b.x else (RInt(1), RInt(1))
+        self_a, self_b = self if self.b.x else (CsvInt(1), CsvInt(1))
+        other_a, other_b = other if other.b.x else (CsvInt(1), CsvInt(1))
         return self_a * other_b == other_a * self_b
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        self_a, self_b = self if self.b.x else (RInt(1), RInt(1))
-        other_a, other_b = other if other.b.x else (RInt(1), RInt(1))
+        self_a, self_b = self if self.b.x else (CsvInt(1), CsvInt(1))
+        other_a, other_b = other if other.b.x else (CsvInt(1), CsvInt(1))
         return self_a * other_b < other_a * self_b
 
     def __gt__(self, other):
@@ -333,39 +333,40 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
 
 
 # various fold operations
-class RSum:
+class CsvSum:
     def __call__(self, xs):
         return sum(xs[1:], start=xs[0])
 
-class RProd:
+class CsvProd:
     def __call__(self, xs):
         return mt.prod(xs[1:], start=xs[0])
 
-class RMin:
+class CsvMin:
     def __call__(self, xs):
         return min(xs)
 
-class RMax:
+class CsvMax:
     def __call__(self, xs):
         return max(xs)
 
-class RAvg:
+class CsvAvg:
     def __call__(self, xs):
-        return RFloat(sum(float(x) for x in xs) / len(xs))
+        return CsvFloat(sum(float(x) for x in xs) / len(xs))
 
-class RStddev:
+class CsvStddev:
     def __call__(self, xs):
         avg = sum(float(x) for x in xs) / len(xs)
-        return RFloat(mt.sqrt(sum((float(x) - avg)**2 for x in xs) / len(xs)))
+        return CsvFloat(mt.sqrt(
+                sum((float(x) - avg)**2 for x in xs) / len(xs)))
 
-class RGMean:
+class CsvGMean:
     def __call__(self, xs):
-        return RFloat(mt.prod(float(x) for x in xs)**(1/len(xs)))
+        return CsvFloat(mt.prod(float(x) for x in xs)**(1/len(xs)))
 
-class RGStddev:
+class CsvGStddev:
     def __call__(self, xs):
         gmean = mt.prod(float(x) for x in xs)**(1/len(xs))
-        return RFloat(
+        return CsvFloat(
                 mt.exp(mt.sqrt(
                         sum(mt.log(float(x)/gmean)**2 for x in xs) / len(xs)))
                     if gmean else mt.inf)
@@ -450,7 +451,7 @@ class Parser:
             self.discard()
 
 # a lazily-evaluated field expression
-class RExpr:
+class CsvExpr:
     # expr parsing/typechecking/etc errors
     class Error(Exception):
         pass
@@ -481,7 +482,7 @@ class RExpr:
         def type(self, types={}):
             t = self.a.type(types)
             if not all(t == v.type(types) for v in it.islice(self, 1, None)):
-                raise RExpr.Error("mismatched types? %r" % self)
+                raise CsvExpr.Error("mismatched types? %r" % self)
             return t
 
         def fold(self, types={}):
@@ -498,10 +499,10 @@ class RExpr:
             return set()
 
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def fold(self, types={}):
-            return RSum, RInt
+            return CsvSum, CsvInt
 
         def eval(self, fields={}):
             return self.a
@@ -511,10 +512,10 @@ class RExpr:
             return set()
 
         def type(self, types={}):
-            return RFloat
+            return CsvFloat
 
         def fold(self, types={}):
-            return RSum, RFloat
+            return CsvSum, CsvFloat
 
         def eval(self, fields={}):
             return self.a
@@ -526,17 +527,17 @@ class RExpr:
 
         def type(self, types={}):
             if self.a not in types:
-                raise RExpr.Error("untyped field? %s" % self.a)
+                raise CsvExpr.Error("untyped field? %s" % self.a)
             return types[self.a]
 
         def fold(self, types={}):
             if self.a not in types:
-                raise RExpr.Error("unfoldable field? %s" % self.a)
-            return RSum, types[self.a]
+                raise CsvExpr.Error("unfoldable field? %s" % self.a)
+            return CsvSum, types[self.a]
 
         def eval(self, fields={}):
             if self.a not in fields:
-                raise RExpr.Error("unknown field? %s" % self.a)
+                raise CsvExpr.Error("unknown field? %s" % self.a)
             return fields[self.a]
 
     # func expr helper
@@ -560,31 +561,31 @@ class RExpr:
     class Int(Expr):
         """Convert to an integer"""
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def eval(self, fields={}):
-            return RInt(self.a.eval(fields))
+            return CsvInt(self.a.eval(fields))
 
     @func('float', 'a')
     class Float(Expr):
         """Convert to a float"""
         def type(self, types={}):
-            return RFloat
+            return CsvFloat
 
         def eval(self, fields={}):
-            return RFloat(self.a.eval(fields))
+            return CsvFloat(self.a.eval(fields))
 
     @func('frac', 'a[, b]')
     class Frac(Expr):
         """Convert to a fraction"""
         def type(self, types={}):
-            return RFrac
+            return CsvFrac
 
         def eval(self, fields={}):
             if len(self) == 1:
-                return RFrac(self.a.eval(fields))
+                return CsvFrac(self.a.eval(fields))
             else:
-                return RFrac(self.a.eval(fields), self.b.eval(fields))
+                return CsvFrac(self.a.eval(fields), self.b.eval(fields))
 
     # fold exprs
     @func('sum', 'a[, ...]')
@@ -592,7 +593,7 @@ class RExpr:
         """Find the sum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return RSum, self.a.type(types)
+                return CsvSum, self.a.type(types)
             else:
                 return self.a.fold(types)
 
@@ -600,7 +601,7 @@ class RExpr:
             if len(self) == 1:
                 return self.a.eval(fields)
             else:
-                return RSum()([v.eval(fields) for v in self])
+                return CsvSum()([v.eval(fields) for v in self])
 
     @func('prod', 'a[, ...]')
     class Prod(Expr):
@@ -622,7 +623,7 @@ class RExpr:
         """Find the minimum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return RMin, self.a.type(types)
+                return CsvMin, self.a.type(types)
             else:
                 return self.a.fold(types)
 
@@ -630,14 +631,14 @@ class RExpr:
             if len(self) == 1:
                 return self.a.eval(fields)
             else:
-                return RMin()([v.eval(fields) for v in self])
+                return CsvMin()([v.eval(fields) for v in self])
 
     @func('max', 'a[, ...]')
     class Max(Expr):
         """Find the maximum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return RMax, self.a.type(types)
+                return CsvMax, self.a.type(types)
             else:
                 return self.a.fold(types)
 
@@ -645,7 +646,7 @@ class RExpr:
             if len(self) == 1:
                 return self.a.eval(fields)
             else:
-                return RMax()([v.eval(fields) for v in self])
+                return CsvMax()([v.eval(fields) for v in self])
 
     @func('avg', 'a[, ...]')
     class Avg(Expr):
@@ -654,11 +655,11 @@ class RExpr:
             if len(self) == 1:
                 return self.a.type(types)
             else:
-                return RFloat
+                return CsvFloat
 
         def fold(self, types={}):
             if len(self) == 1:
-                return RAvg, RFloat
+                return CsvAvg, CsvFloat
             else:
                 return self.a.fold(types)
 
@@ -666,7 +667,7 @@ class RExpr:
             if len(self) == 1:
                 return self.a.eval(fields)
             else:
-                return RAvg()([v.eval(fields) for v in self])
+                return CsvAvg()([v.eval(fields) for v in self])
 
     @func('stddev', 'a[, ...]')
     class Stddev(Expr):
@@ -675,11 +676,11 @@ class RExpr:
             if len(self) == 1:
                 return self.a.type(types)
             else:
-                return RFloat
+                return CsvFloat
 
         def fold(self, types={}):
             if len(self) == 1:
-                return RStddev, RFloat
+                return CsvStddev, CsvFloat
             else:
                 return self.a.fold(types)
 
@@ -687,7 +688,7 @@ class RExpr:
             if len(self) == 1:
                 return self.a.eval(fields)
             else:
-                return RStddev()([v.eval(fields) for v in self])
+                return CsvStddev()([v.eval(fields) for v in self])
 
     @func('gmean', 'a[, ...]')
     class GMean(Expr):
@@ -696,11 +697,11 @@ class RExpr:
             if len(self) == 1:
                 return self.a.type(types)
             else:
-                return RFloat
+                return CsvFloat
 
         def fold(self, types={}):
             if len(self) == 1:
-                return RGMean, RFloat
+                return CsvGMean, CsvFloat
             else:
                 return self.a.fold(types)
 
@@ -708,7 +709,7 @@ class RExpr:
             if len(self) == 1:
                 return self.a.eval(fields)
             else:
-                return RGMean()([v.eval(fields) for v in self])
+                return CsvGMean()([v.eval(fields) for v in self])
 
     @func('gstddev', 'a[, ...]')
     class GStddev(Expr):
@@ -717,11 +718,11 @@ class RExpr:
             if len(self) == 1:
                 return self.a.type(types)
             else:
-                return RFloat
+                return CsvFloat
 
         def fold(self, types={}):
             if len(self) == 1:
-                return RGStddev, RFloat
+                return CsvGStddev, CsvFloat
             else:
                 return self.a.fold(types)
 
@@ -729,32 +730,32 @@ class RExpr:
             if len(self) == 1:
                 return self.a.eval(fields)
             else:
-                return RGStddev()([v.eval(fields) for v in self])
+                return CsvGStddev()([v.eval(fields) for v in self])
 
     # functions
     @func('ratio', 'a')
     class Ratio(Expr):
         """Ratio of a fraction as a float"""
         def type(self, types={}):
-            return RFloat
+            return CsvFloat
 
         def eval(self, fields={}):
-            v = RFrac(self.a.eval(fields))
+            v = CsvFrac(self.a.eval(fields))
             if not float(v.b) and not float(v.a):
-                return RFloat(1)
+                return CsvFloat(1)
             elif not float(v.b):
-                return RFloat(mt.copysign(mt.inf, float(v.a)))
+                return CsvFloat(mt.copysign(mt.inf, float(v.a)))
             else:
-                return RFloat(float(v.a) / float(v.b))
+                return CsvFloat(float(v.a) / float(v.b))
 
     @func('total', 'a')
     class Total(Expr):
         """Total part of a fraction"""
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def eval(self, fields={}):
-            return RFrac(self.a.eval(fields)).b
+            return CsvFrac(self.a.eval(fields)).b
 
     @func('abs', 'a')
     class Abs(Expr):
@@ -766,32 +767,32 @@ class RExpr:
     class Ceil(Expr):
         """Round up to nearest integer"""
         def type(self, types={}):
-            return RFloat
+            return CsvFloat
 
         def eval(self, fields={}):
-            return RFloat(mt.ceil(float(self.a.eval(fields))))
+            return CsvFloat(mt.ceil(float(self.a.eval(fields))))
 
     @func('floor', 'a')
     class Floor(Expr):
         """Round down to nearest integer"""
         def type(self, types={}):
-            return RFloat
+            return CsvFloat
 
         def eval(self, fields={}):
-            return RFloat(mt.floor(float(self.a.eval(fields))))
+            return CsvFloat(mt.floor(float(self.a.eval(fields))))
 
     @func('log', 'a[, b]')
     class Log(Expr):
         """Log of a with base e, or log of a with base b"""
         def type(self, types={}):
-            return RFloat
+            return CsvFloat
 
         def eval(self, fields={}):
             if len(self) == 1:
-                return RFloat(mt.log(
+                return CsvFloat(mt.log(
                         float(self.a.eval(fields))))
             else:
-                return RFloat(mt.log(
+                return CsvFloat(mt.log(
                         float(self.a.eval(fields)),
                         float(self.b.eval(fields))))
 
@@ -799,14 +800,14 @@ class RExpr:
     class Pow(Expr):
         """e to the power of a, or a to the power of b"""
         def type(self, types={}):
-            return RFloat
+            return CsvFloat
 
         def eval(self, fields={}):
             if len(self) == 1:
-                return RFloat(mt.exp(
+                return CsvFloat(mt.exp(
                         float(self.a.eval(fields))))
             else:
-                return RFloat(mt.pow(
+                return CsvFloat(mt.pow(
                         float(self.a.eval(fields)),
                         float(self.b.eval(fields))))
 
@@ -814,70 +815,70 @@ class RExpr:
     class Sqrt(Expr):
         """Square root"""
         def type(self, types={}):
-            return RFloat
+            return CsvFloat
 
         def eval(self, fields={}):
-            return RFloat(mt.sqrt(float(self.a.eval(fields))))
+            return CsvFloat(mt.sqrt(float(self.a.eval(fields))))
 
     @func('isint', 'a')
     class IsInt(Expr):
         """1 if a is an integer, otherwise 0"""
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def eval(self, fields={}):
-            if isinstance(self.a.eval(fields), RInt):
-                return RInt(1)
+            if isinstance(self.a.eval(fields), CsvInt):
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @func('isfloat', 'a')
     class IsFloat(Expr):
         """1 if a is a float, otherwise 0"""
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def eval(self, fields={}):
-            if isinstance(self.a.eval(fields), RFloat):
-                return RInt(1)
+            if isinstance(self.a.eval(fields), CsvFloat):
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @func('isfrac', 'a')
     class IsFrac(Expr):
         """1 if a is a fraction, otherwise 0"""
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def eval(self, fields={}):
-            if isinstance(self.a.eval(fields), RFrac):
-                return RInt(1)
+            if isinstance(self.a.eval(fields), CsvFrac):
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @func('isinf', 'a')
     class IsInf(Expr):
         """1 if a is infinite, otherwise 0"""
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def eval(self, fields={}):
             if mt.isinf(self.a.eval(fields)):
-                return RInt(1)
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @func('isnan')
     class IsNan(Expr):
         """1 if a is a NAN, otherwise 0"""
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def eval(self, fields={}):
             if mt.isnan(self.a.eval(fields)):
-                return RInt(1)
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     # unary expr helper
     def uop(op):
@@ -911,13 +912,13 @@ class RExpr:
     class NotNot(Expr):
         """1 if a is zero, otherwise 0"""
         def type(self, types={}):
-            return RInt
+            return CsvInt
 
         def eval(self, fields={}):
             if self.a.eval(fields):
-                return RInt(0)
+                return CsvInt(0)
             else:
-                return RInt(1)
+                return CsvInt(1)
 
     # binary expr help
     def bop(op, prec):
@@ -981,54 +982,54 @@ class RExpr:
         """1 if a equals b, otherwise 0"""
         def eval(self, fields={}):
             if self.a.eval(fields) == self.b.eval(fields):
-                return RInt(1)
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @bop('!=', 4)
     class Ne(Expr):
         """1 if a does not equal b, otherwise 0"""
         def eval(self, fields={}):
             if self.a.eval(fields) != self.b.eval(fields):
-                return RInt(1)
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @bop('<', 4)
     class Lt(Expr):
         """1 if a is less than b"""
         def eval(self, fields={}):
             if self.a.eval(fields) < self.b.eval(fields):
-                return RInt(1)
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @bop('<=', 4)
     class Le(Expr):
         """1 if a is less than or equal to b"""
         def eval(self, fields={}):
             if self.a.eval(fields) <= self.b.eval(fields):
-                return RInt(1)
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @bop('>', 4)
     class Gt(Expr):
         """1 if a is greater than b"""
         def eval(self, fields={}):
             if self.a.eval(fields) > self.b.eval(fields):
-                return RInt(1)
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @bop('>=', 4)
     class Ge(Expr):
         """1 if a is greater than or equal to b"""
         def eval(self, fields={}):
             if self.a.eval(fields) >= self.b.eval(fields):
-                return RInt(1)
+                return CsvInt(1)
             else:
-                return RInt(0)
+                return CsvInt(0)
 
     @bop('&&', 3)
     class AndAnd(Expr):
@@ -1082,7 +1083,7 @@ class RExpr:
             t = self.b.type(types)
             u = self.c.type(types)
             if t != u:
-                raise RExpr.Error("mismatched types? %r" % self)
+                raise CsvExpr.Error("mismatched types? %r" % self)
             return t
 
         def fold(self, types={}):
@@ -1100,18 +1101,18 @@ class RExpr:
     def help(cls):
         print('uops:')
         for op in cls.uops.keys():
-            print('  %-21s %s' % ('%sa' % op, RExpr.uops[op].__doc__))
+            print('  %-21s %s' % ('%sa' % op, CsvExpr.uops[op].__doc__))
         print('bops:')
         for op in cls.bops.keys():
-            print('  %-21s %s' % ('a %s b' % op, RExpr.bops[op].__doc__))
+            print('  %-21s %s' % ('a %s b' % op, CsvExpr.bops[op].__doc__))
         print('tops:')
         for op in cls.tops.keys():
-            print('  %-21s %s' % ('a %s b %s c' % op, RExpr.tops[op].__doc__))
+            print('  %-21s %s' % ('a %s b %s c' % op, CsvExpr.tops[op].__doc__))
         print('funcs:')
         for func in cls.funcs.keys():
             print('  %-21s %s' % (
-                    '%s(%s)' % (func, RExpr.funcs[func]._fargs),
-                    RExpr.funcs[func].__doc__))
+                    '%s(%s)' % (func, CsvExpr.funcs[func]._fargs),
+                    CsvExpr.funcs[func].__doc__))
 
     # parse an expr
     def __init__(self, expr):
@@ -1124,16 +1125,16 @@ class RExpr:
                 p.chomp()
                 a = p_expr(p)
                 if not p.match('\)'):
-                    raise RExpr.Error("mismatched parens? %s" % p)
+                    raise CsvExpr.Error("mismatched parens? %s" % p)
                 p.chomp()
 
             # floats
             elif p.match('[+-]?(?:[_0-9]*\.[_0-9eE]|nan)'):
-                a = RExpr.FloatLit(RFloat(p.chomp()))
+                a = CsvExpr.FloatLit(CsvFloat(p.chomp()))
 
             # ints
             elif p.match('[+-]?(?:[0-9][bBoOxX]?[_0-9a-fA-F]*|∞|inf)'):
-                a = RExpr.IntLit(RInt(p.chomp()))
+                a = CsvExpr.IntLit(CsvInt(p.chomp()))
 
             # fields/functions
             elif p.match('[_a-zA-Z][_a-zA-Z0-9]*'):
@@ -1141,8 +1142,8 @@ class RExpr:
 
                 if p.match('\('):
                     p.chomp()
-                    if a not in RExpr.funcs:
-                        raise RExpr.Error("unknown function? %s" % a)
+                    if a not in CsvExpr.funcs:
+                        raise CsvExpr.Error("unknown function? %s" % a)
                     args = []
                     while True:
                         b = p_expr(p)
@@ -1152,62 +1153,62 @@ class RExpr:
                             continue
                         else:
                             if not p.match('\)'):
-                                raise RExpr.Error("mismatched parens? %s" % p)
+                                raise CsvExpr.Error("mismatched parens? %s" % p)
                             p.chomp()
-                            a = RExpr.funcs[a](*args)
+                            a = CsvExpr.funcs[a](*args)
                             break
                 else:
-                    a = RExpr.Field(a)
+                    a = CsvExpr.Field(a)
 
             # unary ops
-            elif any(p.match(re.escape(op)) for op in RExpr.uops.keys()):
+            elif any(p.match(re.escape(op)) for op in CsvExpr.uops.keys()):
                 # sort by len to avoid ambiguities
-                for op in sorted(RExpr.uops.keys(), reverse=True):
+                for op in sorted(CsvExpr.uops.keys(), reverse=True):
                     if p.match(re.escape(op)):
                         p.chomp()
                         a = p_expr(p, mt.inf)
-                        a = RExpr.uops[op](a)
+                        a = CsvExpr.uops[op](a)
                         break
                 else:
                     assert False
 
             # unknown expr?
             else:
-                raise RExpr.Error("unknown expr? %s" % p)
+                raise CsvExpr.Error("unknown expr? %s" % p)
 
             # parse tail
             while True:
                 # binary ops
                 if any(p.match(re.escape(op))
-                            and prec < RExpr.bprecs[op]
-                        for op in RExpr.bops.keys()):
+                            and prec < CsvExpr.bprecs[op]
+                        for op in CsvExpr.bops.keys()):
                     # sort by len to avoid ambiguities
-                    for op in sorted(RExpr.bops.keys(), reverse=True):
+                    for op in sorted(CsvExpr.bops.keys(), reverse=True):
                         if (p.match(re.escape(op))
-                                and prec < RExpr.bprecs[op]):
+                                and prec < CsvExpr.bprecs[op]):
                             p.chomp()
-                            b = p_expr(p, RExpr.bprecs[op])
-                            a = RExpr.bops[op](a, b)
+                            b = p_expr(p, CsvExpr.bprecs[op])
+                            a = CsvExpr.bops[op](a, b)
                             break
                     else:
                         assert False
 
                 # ternary ops, these are intentionally right associative
                 elif any(p.match(re.escape(op[0]))
-                            and prec <= RExpr.tprecs[op]
-                        for op in RExpr.tops.keys()):
+                            and prec <= CsvExpr.tprecs[op]
+                        for op in CsvExpr.tops.keys()):
                     # sort by len to avoid ambiguities
-                    for op in sorted(RExpr.tops.keys(), reverse=True):
+                    for op in sorted(CsvExpr.tops.keys(), reverse=True):
                         if (p.match(re.escape(op[0]))
-                                and prec <= RExpr.tprecs[op]):
+                                and prec <= CsvExpr.tprecs[op]):
                             p.chomp()
-                            b = p_expr(p, RExpr.tprecs[op])
+                            b = p_expr(p, CsvExpr.tprecs[op])
                             if not p.match(re.escape(op[1])):
-                                raise RExpr.Error(
+                                raise CsvExpr.Error(
                                         'mismatched ternary op? %s %s' % op)
                             p.chomp()
-                            c = p_expr(p, RExpr.tprecs[op])
-                            a = RExpr.tops[op](a, b, c)
+                            c = p_expr(p, CsvExpr.tprecs[op])
+                            a = CsvExpr.tops[op](a, b, c)
                             break
                     else:
                         assert False
@@ -1220,9 +1221,9 @@ class RExpr:
             p = Parser(self.expr)
             self.tree = p_expr(p)
             if p:
-                raise RExpr.Error("trailing expr? %s" % p)
+                raise CsvExpr.Error("trailing expr? %s" % p)
 
-        except (RExpr.Error, ValueError) as e:
+        except (CsvExpr.Error, ValueError) as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
             print('error: %s' % e,
@@ -1233,7 +1234,7 @@ class RExpr:
     def fields(self):
         try:
             return self.tree.fields()
-        except RExpr.Error as e:
+        except CsvExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
             print('error: %s' % e,
@@ -1244,7 +1245,7 @@ class RExpr:
     def type(self, types={}):
         try:
             return self.tree.type(types)
-        except RExpr.Error as e:
+        except CsvExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
             print('error: %s' % e,
@@ -1255,7 +1256,7 @@ class RExpr:
     def fold(self, types={}):
         try:
             return self.tree.fold(types)
-        except RExpr.Error as e:
+        except CsvExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
             print('error: %s' % e,
@@ -1266,7 +1267,7 @@ class RExpr:
     def eval(self, fields={}):
         try:
             return self.tree.eval(fields)
-        except RExpr.Error as e:
+        except CsvExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
             print('error: %s' % e,
@@ -1465,7 +1466,7 @@ def compile(fields_, results,
                     file=sys.stderr)
             sys.exit(2)
 
-        for t in [RInt, RFloat, RFrac]:
+        for t in [CsvInt, CsvFloat, CsvFrac]:
             for r in results:
                 if prefix+k in r and r[prefix+k].strip():
                     try:
@@ -1487,7 +1488,7 @@ def compile(fields_, results,
         types___[k] = expr.type(types__)
 
     # foldcheck field exprs
-    folds___ = {k: (RSum, t) for k, v in types__.items()}
+    folds___ = {k: (CsvSum, t) for k, v in types__.items()}
     for k, expr in exprs.items():
         folds___[k] = expr.fold(types__)
     folds___ = {k: (f(), t) for k, (f, t) in folds___.items()}
@@ -2184,7 +2185,7 @@ def main(csv_paths, *,
         return punescape_help()
     # show expr help text?
     if args.get('help_exprs'):
-        return RExpr.help()
+        return CsvExpr.help()
 
     if by is None and fields is None:
         print("error: needs --by or --fields to figure out fields",
@@ -2490,7 +2491,7 @@ if __name__ == "__main__":
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
-                    RExpr(v) if v is not None else None)
+                    CsvExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
             help="Show this field. Can include an expression of the form "
                 "field=expr.")
@@ -2527,7 +2528,7 @@ if __name__ == "__main__":
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
-                    RExpr(v) if v is not None else None)
+                    CsvExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
             const=(None, None),
             help="Sort by this field. Can include an expression of the form "
@@ -2539,7 +2540,7 @@ if __name__ == "__main__":
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
-                    RExpr(v) if v is not None else None)
+                    CsvExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
             const=(None, None),
             help="Sort by this field, but backwards. Can include an expression "
@@ -2570,7 +2571,7 @@ if __name__ == "__main__":
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
-                    RExpr(v) if v is not None else None)
+                    CsvExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
             const=(None, None),
             help="Show only the hot path for each function call. Can "
@@ -2583,7 +2584,7 @@ if __name__ == "__main__":
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
-                    RExpr(v) if v is not None else None)
+                    CsvExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
             const=(None, None),
             help="Like -r/--hot, but backwards.")

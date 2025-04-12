@@ -34,10 +34,10 @@ SECTIONS = ['.data', '.bss']
 
 
 # integer fields
-class RInt(co.namedtuple('RInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, RInt):
+        if isinstance(x, CsvInt):
             return x
         if isinstance(x, str):
             try:
@@ -143,12 +143,12 @@ class DataResult(co.namedtuple('DataResult', [
     _by = ['file', 'function']
     _fields = ['size']
     _sort = ['size']
-    _types = {'size': RInt}
+    _types = {'size': CsvInt}
 
     __slots__ = ()
     def __new__(cls, file='', function='', size=0):
         return super().__new__(cls, file, function,
-                RInt(size))
+                CsvInt(size))
 
     def __add__(self, other):
         return DataResult(self.file, self.function,

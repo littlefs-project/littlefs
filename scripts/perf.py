@@ -44,10 +44,10 @@ THRESHOLD = (0.5, 0.85)
 
 
 # integer fields
-class RInt(co.namedtuple('RInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, RInt):
+        if isinstance(x, CsvInt):
             return x
         if isinstance(x, str):
             try:
@@ -155,19 +155,19 @@ class PerfResult(co.namedtuple('PerfResult', [
     _fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
     _sort = ['cycles', 'bmisses', 'cmisses', 'branches', 'caches']
     _types = {
-            'cycles': RInt,
-            'bmisses': RInt, 'branches': RInt,
-            'cmisses': RInt, 'caches': RInt}
+            'cycles': CsvInt,
+            'bmisses': CsvInt, 'branches': CsvInt,
+            'cmisses': CsvInt, 'caches': CsvInt}
     _children = 'children'
 
     __slots__ = ()
     def __new__(cls, z=0, file='', function='', line=0,
             cycles=0, bmisses=0, branches=0, cmisses=0, caches=0,
             children=None):
-        return super().__new__(cls, z, file, function, int(RInt(line)),
-                RInt(cycles),
-                RInt(bmisses), RInt(branches),
-                RInt(cmisses), RInt(caches),
+        return super().__new__(cls, z, file, function, int(CsvInt(line)),
+                CsvInt(cycles),
+                CsvInt(bmisses), CsvInt(branches),
+                CsvInt(cmisses), CsvInt(caches),
                 children if children is not None else [])
 
     def __add__(self, other):

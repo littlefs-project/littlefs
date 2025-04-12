@@ -36,10 +36,10 @@ GCOV_PATH = ['gcov']
 
 
 # integer fields
-class RInt(co.namedtuple('RInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, RInt):
+        if isinstance(x, CsvInt):
             return x
         if isinstance(x, str):
             try:
@@ -138,16 +138,16 @@ class RInt(co.namedtuple('RInt', 'x')):
         return self.__class__(self.x % other.x)
 
 # fractional fields, a/b
-class RFrac(co.namedtuple('RFrac', 'a,b')):
+class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
     __slots__ = ()
     def __new__(cls, a=0, b=None):
-        if isinstance(a, RFrac) and b is None:
+        if isinstance(a, CsvFrac) and b is None:
             return a
         if isinstance(a, str) and b is None:
             a, b = a.split('/', 1)
         if b is None:
             b = a
-        return super().__new__(cls, RInt(a), RInt(b))
+        return super().__new__(cls, CsvInt(a), CsvInt(b))
 
     def __repr__(self):
         return '%s(%r, %r)' % (self.__class__.__name__, self.a.x, self.b.x)
@@ -180,15 +180,15 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
                 else '%.1f%%' % (100*t)]
 
     def diff(self, other):
-        new_a, new_b = self if self else (RInt(0), RInt(0))
-        old_a, old_b = other if other else (RInt(0), RInt(0))
+        new_a, new_b = self if self else (CsvInt(0), CsvInt(0))
+        old_a, old_b = other if other else (CsvInt(0), CsvInt(0))
         return '%11s' % ('%s/%s' % (
                 new_a.diff(old_a).strip(),
                 new_b.diff(old_b).strip()))
 
     def ratio(self, other):
-        new_a, new_b = self if self else (RInt(0), RInt(0))
-        old_a, old_b = other if other else (RInt(0), RInt(0))
+        new_a, new_b = self if self else (CsvInt(0), CsvInt(0))
+        old_a, old_b = other if other else (CsvInt(0), CsvInt(0))
         new = new_a.x/new_b.x if new_b.x else 1.0
         old = old_a.x/old_b.x if old_b.x else 1.0
         return new - old
@@ -218,16 +218,16 @@ class RFrac(co.namedtuple('RFrac', 'a,b')):
         return self.__class__(self.a % other.a, self.b % other.b)
 
     def __eq__(self, other):
-        self_a, self_b = self if self.b.x else (RInt(1), RInt(1))
-        other_a, other_b = other if other.b.x else (RInt(1), RInt(1))
+        self_a, self_b = self if self.b.x else (CsvInt(1), CsvInt(1))
+        other_a, other_b = other if other.b.x else (CsvInt(1), CsvInt(1))
         return self_a * other_b == other_a * self_b
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        self_a, self_b = self if self.b.x else (RInt(1), RInt(1))
-        other_a, other_b = other if other.b.x else (RInt(1), RInt(1))
+        self_a, self_b = self if self.b.x else (CsvInt(1), CsvInt(1))
+        other_a, other_b = other if other.b.x else (CsvInt(1), CsvInt(1))
         return self_a * other_b < other_a * self_b
 
     def __gt__(self, other):
@@ -248,15 +248,15 @@ class CovResult(co.namedtuple('CovResult', [
     _fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
     _sort = ['funcs', 'lines', 'branches', 'hits', 'calls']
     _types = {
-            'calls': RInt, 'hits': RInt,
-            'funcs': RFrac, 'lines': RFrac, 'branches': RFrac}
+            'calls': CsvInt, 'hits': CsvInt,
+            'funcs': CsvFrac, 'lines': CsvFrac, 'branches': CsvFrac}
 
     __slots__ = ()
     def __new__(cls, file='', function='', line=0,
             calls=0, hits=0, funcs=0, lines=0, branches=0):
-        return super().__new__(cls, file, function, int(RInt(line)),
-                RInt(calls), RInt(hits),
-                RFrac(funcs), RFrac(lines), RFrac(branches))
+        return super().__new__(cls, file, function, int(CsvInt(line)),
+                CsvInt(calls), CsvInt(hits),
+                CsvFrac(funcs), CsvFrac(lines), CsvFrac(branches))
 
     def __add__(self, other):
         return CovResult(self.file, self.function, self.line,
@@ -340,7 +340,7 @@ def collect_cov(gcda_paths, *,
                 results.append(CovResult(
                         file_name, func_name, func['start_line'],
                         func['execution_count'], 0,
-                        RFrac(1 if func['execution_count'] > 0 else 0, 1),
+                        CsvFrac(1 if func['execution_count'] > 0 else 0, 1),
                         0,
                         0))
 
@@ -356,8 +356,8 @@ def collect_cov(gcda_paths, *,
                         file_name, func_name, line['line_number'],
                         0, line['count'],
                         0,
-                        RFrac(1 if line['count'] > 0 else 0, 1),
-                        RFrac(
+                        CsvFrac(1 if line['count'] > 0 else 0, 1),
+                        CsvFrac(
                             sum(1 if branch['count'] > 0 else 0
                                 for branch in line['branches']),
                             len(line['branches']))))

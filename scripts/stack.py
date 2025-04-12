@@ -30,10 +30,10 @@ OBJDUMP_PATH = ['objdump']
 
 
 # integer fields
-class RInt(co.namedtuple('RInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, RInt):
+        if isinstance(x, CsvInt):
             return x
         if isinstance(x, str):
             try:
@@ -140,7 +140,7 @@ class StackResult(co.namedtuple('StackResult', [
     _by = ['z', 'file', 'function']
     _fields = ['frame', 'limit']
     _sort = ['limit', 'frame']
-    _types = {'frame': RInt, 'limit': RInt}
+    _types = {'frame': CsvInt, 'limit': CsvInt}
     _children = 'children'
     _notes = 'notes'
 
@@ -148,7 +148,7 @@ class StackResult(co.namedtuple('StackResult', [
     def __new__(cls, z=0, file='', function='', frame=0, limit=0,
             children=None, notes=None):
         return super().__new__(cls, z, file, function,
-                RInt(frame), RInt(limit),
+                CsvInt(frame), CsvInt(limit),
                 children if children is not None else [],
                 notes if notes is not None else set())
 

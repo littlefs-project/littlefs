@@ -35,10 +35,10 @@ THRESHOLD = (0.5, 0.85)
 
 
 # integer fields
-class RInt(co.namedtuple('RInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, RInt):
+        if isinstance(x, CsvInt):
             return x
         if isinstance(x, str):
             try:
@@ -145,15 +145,15 @@ class PerfBdResult(co.namedtuple('PerfBdResult', [
     _by = ['z', 'file', 'function', 'line']
     _fields = ['readed', 'proged', 'erased']
     _sort = ['erased', 'proged', 'readed']
-    _types = {'readed': RInt, 'proged': RInt, 'erased': RInt}
+    _types = {'readed': CsvInt, 'proged': CsvInt, 'erased': CsvInt}
     _children = 'children'
 
     __slots__ = ()
     def __new__(cls, z=0, file='', function='', line=0,
             readed=0, proged=0, erased=0,
             children=None):
-        return super().__new__(cls, z, file, function, int(RInt(line)),
-                RInt(readed), RInt(proged), RInt(erased),
+        return super().__new__(cls, z, file, function, int(CsvInt(line)),
+                CsvInt(readed), CsvInt(proged), CsvInt(erased),
                 children if children is not None else [])
 
     def __add__(self, other):

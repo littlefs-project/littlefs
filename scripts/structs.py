@@ -30,10 +30,10 @@ OBJDUMP_PATH = ['objdump']
 
 
 # integer fields
-class RInt(co.namedtuple('RInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, RInt):
+        if isinstance(x, CsvInt):
             return x
         if isinstance(x, str):
             try:
@@ -140,14 +140,14 @@ class StructResult(co.namedtuple('StructResult', [
     _by = ['z', 'i', 'file', 'struct']
     _fields = ['off', 'size', 'align']
     _sort = ['size', 'align']
-    _types = {'off': RInt, 'size': RInt, 'align': RInt}
+    _types = {'off': CsvInt, 'size': CsvInt, 'align': CsvInt}
     _children = 'children'
 
     __slots__ = ()
     def __new__(cls, z=0, i=0, file='', struct='', off=0, size=0, align=0,
             children=None):
         return super().__new__(cls, z, i, file, struct,
-                RInt(off), RInt(size), RInt(align),
+                CsvInt(off), CsvInt(size), CsvInt(align),
                 children if children is not None else [])
 
     def __add__(self, other):

@@ -30,10 +30,10 @@ OBJDUMP_PATH = ['objdump']
 
 
 # integer fields
-class RInt(co.namedtuple('RInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'x')):
     __slots__ = ()
     def __new__(cls, x=0):
-        if isinstance(x, RInt):
+        if isinstance(x, CsvInt):
             return x
         if isinstance(x, str):
             try:
@@ -140,7 +140,7 @@ class CtxResult(co.namedtuple('CtxResult', [
     _by = ['z', 'i', 'file', 'function']
     _fields = ['off', 'size']
     _sort = ['size']
-    _types = {'off': RInt, 'size': RInt}
+    _types = {'off': CsvInt, 'size': CsvInt}
     _children = 'children'
     _notes = 'notes'
 
@@ -148,7 +148,7 @@ class CtxResult(co.namedtuple('CtxResult', [
     def __new__(cls, z=0, i=0, file='', function='', off=0, size=0,
             children=None, notes=None):
         return super().__new__(cls, z, i, file, function,
-                RInt(off), RInt(size),
+                CsvInt(off), CsvInt(size),
                 children if children is not None else [],
                 notes if notes is not None else set())
 
@@ -703,7 +703,7 @@ def collect_ctx(obj_paths, *,
                 name = name.split('.', 1)[0]
 
             # context = sum of params
-            size = sum((param.size for param in params), start=RInt(0))
+            size = sum((param.size for param in params), start=CsvInt(0))
 
             results.append(CtxResult(
                     0, 0, file, name, 0, size,
