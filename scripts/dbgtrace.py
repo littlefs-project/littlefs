@@ -1211,8 +1211,9 @@ def main(path='-', *,
                     sum((b.wear - wear_avg)**2 for b in bmap.values())
                         / max(len(bmap), 1))
 
-            # if block_cycles isn't provide, scale based on max wear
-            if block_cycles is not None:
+            # if block_cycles isn't provided or is zero, scale based on
+            # max wear
+            if block_cycles:
                 block_cycles_ = block_cycles
             else:
                 block_cycles_ = wear_max
@@ -1445,7 +1446,7 @@ def main(path='-', *,
                     ranges__ = RangeSet([range(block_size_)])
                     # scale char/color based on either block_cycles
                     # or wear_avg
-                    if block_cycles is not None:
+                    if block_cycles:
                         wear__ = min(b.wear / max(block_cycles, 1), 1.0)
                     else:
                         wear__ = min(b.wear / max(2*wear_avg, 1), 1.0)
@@ -1660,9 +1661,12 @@ if __name__ == "__main__":
             help="Only render wear, don't render bd ops. Implies --wear.")
     parser.add_argument(
             '-w', '--block-cycles',
+            nargs='?',
             type=lambda x: int(x, 0),
+            const=0,
             help="Assumed maximum number of erase cycles when measuring "
-                "wear. Implies --wear.")
+                "wear. Defaults to the maximum wear on any single block. "
+                "Implies --wear.")
     parser.add_argument(
             '--volatile',
             action='store_true',
