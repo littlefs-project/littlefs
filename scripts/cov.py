@@ -36,54 +36,54 @@ GCOV_PATH = ['gcov']
 
 
 # integer fields
-class CsvInt(co.namedtuple('CsvInt', 'x')):
+class CsvInt(co.namedtuple('CsvInt', 'a')):
     __slots__ = ()
-    def __new__(cls, x=0):
-        if isinstance(x, CsvInt):
-            return x
-        if isinstance(x, str):
+    def __new__(cls, a=0):
+        if isinstance(a, CsvInt):
+            return a
+        if isinstance(a, str):
             try:
-                x = int(x, 0)
+                a = int(a, 0)
             except ValueError:
                 # also accept +-∞ and +-inf
-                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
-                    x = mt.inf
-                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
-                    x = -mt.inf
+                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', a):
+                    a = mt.inf
+                elif re.match('^\s*-\s*(?:∞|inf)\s*$', a):
+                    a = -mt.inf
                 else:
                     raise
-        if not (isinstance(x, int) or mt.isinf(x)):
-            x = int(x)
-        return super().__new__(cls, x)
+        if not (isinstance(a, int) or mt.isinf(a)):
+            a = int(a)
+        return super().__new__(cls, a)
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self.x)
+        return '%s(%r)' % (self.__class__.__name__, self.a)
 
     def __str__(self):
-        if self.x == mt.inf:
+        if self.a == mt.inf:
             return '∞'
-        elif self.x == -mt.inf:
+        elif self.a == -mt.inf:
             return '-∞'
         else:
-            return str(self.x)
+            return str(self.a)
 
     def __bool__(self):
-        return bool(self.x)
+        return bool(self.a)
 
     def __int__(self):
-        assert not mt.isinf(self.x)
-        return self.x
+        assert not mt.isinf(self.a)
+        return self.a
 
     def __float__(self):
-        return float(self.x)
+        return float(self.a)
 
     none = '%7s' % '-'
     def table(self):
         return '%7s' % (self,)
 
     def diff(self, other):
-        new = self.x if self else 0
-        old = other.x if other else 0
+        new = self.a if self else 0
+        old = other.a if other else 0
         diff = new - old
         if diff == +mt.inf:
             return '%7s' % '+∞'
@@ -93,8 +93,8 @@ class CsvInt(co.namedtuple('CsvInt', 'x')):
             return '%+7d' % diff
 
     def ratio(self, other):
-        new = self.x if self else 0
-        old = other.x if other else 0
+        new = self.a if self else 0
+        old = other.a if other else 0
         if mt.isinf(new) and mt.isinf(old):
             return 0.0
         elif mt.isinf(new):
@@ -109,22 +109,22 @@ class CsvInt(co.namedtuple('CsvInt', 'x')):
             return (new-old) / old
 
     def __pos__(self):
-        return self.__class__(+self.x)
+        return self.__class__(+self.a)
 
     def __neg__(self):
-        return self.__class__(-self.x)
+        return self.__class__(-self.a)
 
     def __abs__(self):
-        return self.__class__(abs(self.x))
+        return self.__class__(abs(self.a))
 
     def __add__(self, other):
-        return self.__class__(self.x + other.x)
+        return self.__class__(self.a + other.a)
 
     def __sub__(self, other):
-        return self.__class__(self.x - other.x)
+        return self.__class__(self.a - other.a)
 
     def __mul__(self, other):
-        return self.__class__(self.x * other.x)
+        return self.__class__(self.a * other.a)
 
     def __truediv__(self, other):
         if not other:
@@ -132,10 +132,10 @@ class CsvInt(co.namedtuple('CsvInt', 'x')):
                 return self.__class__(+mt.inf)
             else:
                 return self.__class__(-mt.inf)
-        return self.__class__(self.x // other.x)
+        return self.__class__(self.a // other.a)
 
     def __mod__(self, other):
-        return self.__class__(self.x % other.x)
+        return self.__class__(self.a % other.a)
 
 # fractional fields, a/b
 class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
@@ -150,7 +150,7 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
         return super().__new__(cls, CsvInt(a), CsvInt(b))
 
     def __repr__(self):
-        return '%s(%r, %r)' % (self.__class__.__name__, self.a.x, self.b.x)
+        return '%s(%r, %r)' % (self.__class__.__name__, self.a.a, self.b.a)
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
@@ -169,12 +169,12 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
         return '%11s' % (self,)
 
     def notes(self):
-        if self.b.x == 0 and self.a.x == 0:
+        if self.b.a == 0 and self.a.a == 0:
             t = 1.0
-        elif self.b.x == 0:
-            t = mt.copysign(mt.inf, self.a.x)
+        elif self.b.a == 0:
+            t = mt.copysign(mt.inf, self.a.a)
         else:
-            t = self.a.x / self.b.x
+            t = self.a.a / self.b.a
         return ['∞%' if t == +mt.inf
                 else '-∞%' if t == -mt.inf
                 else '%.1f%%' % (100*t)]
@@ -189,8 +189,8 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
     def ratio(self, other):
         new_a, new_b = self if self else (CsvInt(0), CsvInt(0))
         old_a, old_b = other if other else (CsvInt(0), CsvInt(0))
-        new = new_a.x/new_b.x if new_b.x else 1.0
-        old = old_a.x/old_b.x if old_b.x else 1.0
+        new = new_a.a/new_b.a if new_b.a else 1.0
+        old = old_a.a/old_b.a if old_b.a else 1.0
         return new - old
 
     def __pos__(self):
@@ -218,16 +218,16 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
         return self.__class__(self.a % other.a, self.b % other.b)
 
     def __eq__(self, other):
-        self_a, self_b = self if self.b.x else (CsvInt(1), CsvInt(1))
-        other_a, other_b = other if other.b.x else (CsvInt(1), CsvInt(1))
+        self_a, self_b = self if self.b.a else (CsvInt(1), CsvInt(1))
+        other_a, other_b = other if other.b.a else (CsvInt(1), CsvInt(1))
         return self_a * other_b == other_a * self_b
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        self_a, self_b = self if self.b.x else (CsvInt(1), CsvInt(1))
-        other_a, other_b = other if other.b.x else (CsvInt(1), CsvInt(1))
+        self_a, self_b = self if self.b.a else (CsvInt(1), CsvInt(1))
+        other_a, other_b = other if other.b.a else (CsvInt(1), CsvInt(1))
         return self_a * other_b < other_a * self_b
 
     def __gt__(self, other):
@@ -367,17 +367,17 @@ def collect_cov(gcda_paths, *,
 
 # common folding/tabling/read/write code
 
-class Rev(co.namedtuple('Rev', 'x')):
+class Rev(co.namedtuple('Rev', 'a')):
     __slots__ = ()
     # yes we need all of these because we're a namedtuple
     def __lt__(self, other):
-        return self.x > other.x
+        return self.a > other.a
     def __gt__(self, other):
-        return self.x < other.x
+        return self.a < other.a
     def __le__(self, other):
-        return self.x >= other.x
+        return self.a >= other.a
     def __ge__(self, other):
-        return self.x <= other.x
+        return self.a <= other.a
 
 def fold(Result, results, *,
         by=None,
