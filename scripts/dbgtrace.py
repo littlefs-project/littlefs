@@ -65,8 +65,8 @@ CHARS_BRAILLE = (
         '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
 
 
+# open with '-' for stdin/stdout
 def openio(path, mode='r', buffering=-1):
-    # allow '-' for stdin/stdout
     import os
     if path == '-':
         if 'r' in mode:
