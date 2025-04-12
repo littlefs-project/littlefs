@@ -1111,7 +1111,9 @@ class Btree:
             if path:
                 yield (bid-rid + (rbyd.weight-1), rbyd,
                         # path tail is usually redundant unless corrupt
-                        path_[:-1] if rbyd else path_)
+                        path_[:-1]
+                            if path_ and path_[-1][1] == rbyd
+                            else path_)
             else:
                 yield bid-rid + (rbyd.weight-1), rbyd
             bid += rbyd.weight - rid + 1
@@ -1351,6 +1353,12 @@ class TreeArt:
 
     def __iter__(self):
         return iter(self.tree)
+
+    def __bool__(self):
+        return bool(self.tree)
+
+    def __len__(self):
+        return len(self.tree)
 
     # render an rbyd rbyd tree for debugging
     @classmethod

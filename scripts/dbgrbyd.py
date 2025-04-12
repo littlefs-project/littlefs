@@ -1299,6 +1299,15 @@ class TreeArt:
         else:
             self.width = 0
 
+    def __iter__(self):
+        return iter(self.tree)
+
+    def __bool__(self):
+        return bool(self.tree)
+
+    def __len__(self):
+        return len(self.tree)
+
     # render an rbyd rbyd tree for debugging
     @classmethod
     def _fromrbydrtree(cls, rbyd, **args):

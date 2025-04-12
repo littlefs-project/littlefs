@@ -1126,7 +1126,9 @@ class Btree:
             if path:
                 yield (bid-rid + (rbyd.weight-1), rbyd,
                         # path tail is usually redundant unless corrupt
-                        path_[:-1] if rbyd else path_)
+                        path_[:-1]
+                            if path_ and path_[-1][1] == rbyd
+                            else path_)
             else:
                 yield bid-rid + (rbyd.weight-1), rbyd
             bid += rbyd.weight - rid + 1
@@ -1677,14 +1679,15 @@ class Mtree:
             # iterate over mrootchain
             path_ = []
             for mroot in self.mrootchain:
-                name = mroot.lookup(-1, TAG_MAGIC)
-                path_.append((mroot.mid, mroot, name))
                 # stop here?
                 if depth and len(path_) >= depth:
                     if path:
                         return mroot, path_
                     else:
                         return mroot
+
+                name = mroot.lookup(-1, TAG_MAGIC)
+                path_.append((mroot.mid, mroot, name))
 
         # no mtree? must be inlined in mroot
         if self.mtree is None:
@@ -1826,11 +1829,12 @@ class Mtree:
                 yield mroot
 
             if path or depth:
-                name = mroot.lookup(-1, TAG_MAGIC)
-                path_.append((mroot.mid, mroot, name))
                 # stop here?
                 if depth and len(path_) >= depth:
                     return
+
+                name = mroot.lookup(-1, TAG_MAGIC)
+                path_.append((mroot.mid, mroot, name))
 
         # do we even have an mtree?
         if self.mtree is not None:
@@ -1868,7 +1872,11 @@ class Mtree:
                     if path:
                         yield ((bid-rid + (rbyd.weight-1), rbyd),
                                 # path tail is usually redundant unless corrupt
-                                path_[:-1] if rbyd else path_)
+                                path_[:-1]
+                                    if path_
+                                        and isinstance(path_[-1][1], Rbyd)
+                                        and path_[-1][1] == rbyd
+                                    else path_)
                     else:
                         yield (bid-rid + (rbyd.weight-1), rbyd)
                     mid = self.mid(bid-rid + (rbyd.weight-1) + 1)
@@ -2051,14 +2059,15 @@ class Mtree:
             # iterate over mrootchain
             path_ = []
             for mroot in self.mrootchain:
-                name = mroot.lookup(-1, TAG_MAGIC)
-                path_.append((mroot.mid, mroot, name))
                 # stop here?
                 if depth and len(path_) >= depth:
                     if path:
                         return mroot, path_
                     else:
                         return mroot
+
+                name = mroot.lookup(-1, TAG_MAGIC)
+                path_.append((mroot.mid, mroot, name))
 
         # no mtree? must be inlined in mroot
         if self.mtree is None:
@@ -2246,6 +2255,12 @@ class TreeArt:
 
     def __iter__(self):
         return iter(self.tree)
+
+    def __bool__(self):
+        return bool(self.tree)
+
+    def __len__(self):
+        return len(self.tree)
 
     # render an rbyd rbyd tree for debugging
     @classmethod
