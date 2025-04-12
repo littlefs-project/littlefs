@@ -171,6 +171,7 @@ else:
                 else:
                     self.add_watch(path, flags)
 
+# a pseudo-stdout ring buffer
 class RingIO:
     def __init__(self, maxlen=None, head=False):
         self.maxlen = maxlen
@@ -223,7 +224,9 @@ class RingIO:
         if lines[-1]:
             self.tail.write(lines[-1])
 
+    # keep track of maximum drawn canvas
     canvas_lines = 1
+
     def draw(self):
         # did terminal size change?
         self.resize(self.maxlen)
@@ -241,24 +244,44 @@ class RingIO:
             else:
                 lines.popleft()
 
-        # first thing first, give ourself a canvas
+        # build up the redraw in memory first and render in a single
+        # write call, this minimizes flickering caused by the cursor
+        # jumping around
+        canvas = []
+
+        # hide the cursor
+        canvas.append('\x1b[?25l')
+
+        # give ourself a canvas
         while RingIO.canvas_lines < len(lines):
-            sys.stdout.write('\n')
+            canvas.append('\n')
             RingIO.canvas_lines += 1
 
         # write lines from top to bottom so later lines overwrite earlier
-        # lines, note [xA/[xB stop at terminal boundaries
+        # lines, note xA/xB stop at terminal boundaries
         for i, line in enumerate(lines):
-            # move cursor, clear line, disable/reenable line wrapping
-            sys.stdout.write('\r')
+            # move to col 0
+            canvas.append('\r')
+            # move up to line
             if len(lines)-1-i > 0:
-                sys.stdout.write('\x1b[%dA' % (len(lines)-1-i))
-            sys.stdout.write('\x1b[K')
-            sys.stdout.write('\x1b[?7l')
-            sys.stdout.write(line)
-            sys.stdout.write('\x1b[?7h')
+                canvas.append('\x1b[%dA' % (len(lines)-1-i))
+            # clear line
+            canvas.append('\x1b[K')
+            # disable line wrap
+            canvas.append('\x1b[?7l')
+            # print the line
+            canvas.append(line)
+            # enable line wrap
+            canvas.append('\x1b[?7h') # enable line wrap
+            # move back down
             if len(lines)-1-i > 0:
-                sys.stdout.write('\x1b[%dB' % (len(lines)-1-i))
+                canvas.append('\x1b[%dB' % (len(lines)-1-i))
+
+        # show the cursor again
+        canvas.append('\x1b[?25h')
+
+        # write to stdout and flush
+        sys.stdout.write(''.join(canvas))
         sys.stdout.flush()
 
 
