@@ -1244,39 +1244,18 @@ def main(path='-', *,
                     100*wear_stddev / max(block_cycles_, 1) if wear else '?',
             })
         else:
-            # hack time~, to avoid flickering, keep track of worst padding
-            # globally
-            if reads:
-                read_percent = '%.1f%%' % (100*readed / max(total, 1))
-                draw__.read_padding = max(
-                        getattr(draw__, 'read_padding', 0),
-                        len(read_percent))
-            if progs:
-                prog_percent = '%.1f%%' % (100*proged / max(total, 1))
-                draw__.prog_padding = max(
-                        getattr(draw__, 'prog_padding', 0),
-                        len(prog_percent))
-            if erases:
-                erase_percent = '%.1f%%' % (100*erased / max(total, 1))
-                draw__.erase_padding = max(
-                        getattr(draw__, 'erase_padding', 0),
-                        len(erase_percent))
-            if wear:
-                wear_percent = '%.1f%% +-%.1fσ' % (
-                        100*wear_avg / max(block_cycles_, 1),
-                        100*wear_stddev / max(block_cycles_, 1))
-                draw__.wear_padding = max(
-                        getattr(draw__, 'wear_padding', 0),
-                        len(wear_percent))
             title_ = ('bd %dx%d%s%s%s%s' % (
                     block_size_, block_count_,
-                    ', %*s read' % (draw__.read_padding, read_percent)
+                    ', %s read' % ('%.1f%%' % (100*readed / max(total, 1)))
                         if reads else '',
-                    ', %*s prog' % (draw__.prog_padding, prog_percent)
+                    ', %s prog' % ('%.1f%%' % (100*proged / max(total, 1)))
                         if progs else '',
-                    ', %*s erase' % (draw__.erase_padding, erase_percent)
+                    ', %s erase' % ('%.1f%%' % (100*erased / max(total, 1)))
                         if erases else '',
-                    ', %*s wear' % (draw__.wear_padding, wear_percent)
+                    ', %s wear' % (
+                            '%.1f%% +-%.1fσ' % (
+                                100*wear_avg / max(block_cycles_, 1),
+                                100*wear_stddev / max(block_cycles_, 1)))
                         if wear else ''))
 
         # give ring a writeln function

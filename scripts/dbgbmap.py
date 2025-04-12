@@ -4588,26 +4588,12 @@ def main_(ring, disk, mroots=None, *,
                         lfs.cksum,
                         '' if lfs.ckgcksum() else '?'))
         else:
-            # hack time~, to avoid flickering, keep track of worst padding
-            # globally
-            mdir_percent = '%.1f%%' % (100*mdir_count / max(len(bmap), 1))
-            btree_percent = '%.1f%%' % (100*btree_count / max(len(bmap), 1))
-            data_percent = '%.1f%%' % (100*data_count / max(len(bmap), 1))
-            main_.mdir_padding = max(
-                    getattr(main_, 'mdir_padding', 0),
-                    len(mdir_percent))
-            main_.btree_padding = max(
-                    getattr(main_, 'btree_padding', 0),
-                    len(btree_percent))
-            main_.data_padding = max(
-                    getattr(main_, 'data_padding', 0),
-                    len(data_percent))
-            title_ = ('bd %sx%s, %.*s mdir, %.*s btree, %.*s data' % (
+            title_ = ('bd %sx%s, %s mdir, %s btree, %s data' % (
                     lfs.block_size if lfs.block_size is not None else '?',
                     lfs.block_count if lfs.block_count is not None else '?',
-                    main_.mdir_padding, mdir_percent,
-                    main_.btree_padding, btree_percent,
-                    main_.data_padding, data_percent))
+                    '%.1f%%' % (100*mdir_count / max(len(bmap), 1)),
+                    '%.1f%%' % (100*btree_count / max(len(bmap), 1)),
+                    '%.1f%%' % (100*data_count / max(len(bmap), 1))))
 
     # scale width/height if requested
     if (to_scale is not None
