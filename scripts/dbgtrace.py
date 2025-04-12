@@ -1246,16 +1246,16 @@ def main(path='-', *,
         else:
             title_ = ('bd %dx%d%s%s%s%s' % (
                     block_size_, block_count_,
-                    ', %6s read' % (
+                    ', %5s read' % (
                         '%.1f%%' % (100*readed / max(total, 1)))
                             if reads else '',
-                    ', %6s prog' % (
+                    ', %5s prog' % (
                         '%.1f%%' % (100*proged / max(total, 1)))
                             if progs else '',
-                    ', %6s erase' % (
+                    ', %5s erase' % (
                         '%.1f%%' % (100*erased / max(total, 1)))
                             if erases else '',
-                    ', %15s wear' % (
+                    ', %13s wear' % (
                         '%.1f%% +-%.1fσ' % (
                                 100*wear_avg / max(block_cycles_, 1),
                                 100*wear_stddev / max(block_cycles_, 1)))

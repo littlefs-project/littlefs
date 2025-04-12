@@ -4588,7 +4588,7 @@ def main_(ring, disk, mroots=None, *,
                         lfs.cksum,
                         '' if lfs.ckgcksum() else '?'))
         else:
-            title_ = ('bd %sx%s, %6s mdir, %6s btree, %6s data' % (
+            title_ = ('bd %sx%s, %5s mdir, %5s btree, %5s data' % (
                     lfs.block_size if lfs.block_size is not None else '?',
                     lfs.block_count if lfs.block_count is not None else '?',
                     '%.1f%%' % (100*mdir_count / max(len(bmap), 1)),
