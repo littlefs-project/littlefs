@@ -152,7 +152,7 @@ def fromleb128(data):
 
 def fromtag(data):
     data = data.ljust(4, b'\0')
-    tag = (data[0] << 8) | data[1]
+    tag = struct.unpack('>H', data[:2])[0]
     weight, d = fromleb128(data[2:])
     size, d_ = fromleb128(data[2+d:])
     return tag>>15, tag&0x7fff, weight, size, 2+d+d_

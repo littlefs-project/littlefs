@@ -53,6 +53,17 @@ TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
 TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
 
 
+# open with '-' for stdin/stdout
+def openio(path, mode='r', buffering=-1):
+    import os
+    if path == '-':
+        if 'r' in mode:
+            return os.fdopen(os.dup(sys.stdin.fileno()), mode, buffering)
+        else:
+            return os.fdopen(os.dup(sys.stdout.fileno()), mode, buffering)
+    else:
+        return open(path, mode, buffering)
+
 def fromleb128(data):
     word = 0
     for i, b in enumerate(data):
@@ -61,6 +72,13 @@ def fromleb128(data):
         if not b & 0x80:
             return word, i+1
     return word, len(data)
+
+def fromtag(data):
+    data = data.ljust(4, b'\0')
+    tag = struct.unpack('>H', data[:2])[0]
+    weight, d = fromleb128(data[2:])
+    size, d_ = fromleb128(data[2+d:])
+    return tag>>15, tag&0x7fff, weight, size, 2+d+d_
 
 # human readable tag repr
 def tagrepr(tag, weight=None, size=None, *,
@@ -213,42 +231,64 @@ def list_tags():
                 w[0], 'LFSR_'+n,
                 c))
 
-def dbg_tag(data):
-    if isinstance(data, int):
-        tag = data
-        weight = None
-        size = None
-    else:
-        data = data.ljust(2, b'\0')
-        tag = (data[0] << 8) | data[1]
-        weight, d = fromleb128(data[2:]) if 2 < len(data) else (None, 2)
-        size, d_ = fromleb128(data[2+d:]) if d < len(data) else (None, d)
+def dbg_tags(data):
+    lines = []
+    # interpret as ints?
+    if not isinstance(data, bytes):
+        for tag in data:
+            lines.append((
+                    ' '.join('%02x' % b for b in struct.pack('>H', tag)),
+                    tagrepr(tag)))
 
-    print(tagrepr(tag, weight, size))
+    # interpret as bytes?
+    else:
+        j = 0
+        while j < len(data):
+            v, tag, w, size, d = fromtag(data[j:])
+            lines.append((
+                    ' '.join('%02x' % b for b in data[j:j+d]),
+                    tagrepr(tag, w, size)))
+            j += d
+
+            # skip attached data if there is any
+            if not tag & TAG_ALT:
+                j += size
+
+    # figure out widths
+    w = [0]
+    for l in lines:
+        w[0] = max(w[0], len(l[0]))
+
+    # then print results
+    for l in lines:
+        print('%-*s    %s' % (
+                w[0], l[0],
+                l[1]))
 
 def main(tags, *,
         list=False,
-        block_size=None,
-        block_count=None,
-        off=None,
-        **args):
+        hex=False,
+        input=None):
     list_ = list; del list
+    hex_ = hex; del hex
 
     # list all known tags
     if list_:
         list_tags()
 
-    # try to decode these tags
-    else:
-        # interpret as a sequence of hex bytes
-        if args.get('hex'):
-            bytes_ = [b for tag in tags for b in tag.split()]
-            dbg_tag(bytes(int(b, 16) for b in bytes_))
+    # interpret as a sequence of hex bytes
+    elif hex_:
+        bytes_ = [b for tag in tags for b in tag.split()]
+        dbg_tags(bytes(int(b, 16) for b in bytes_))
 
-        # default to interpreting as ints
-        else:
-            for tag in tags:
-                dbg_tag(int(tag, 0))
+    # parse tags in a file
+    elif input:
+        with openio(input, 'rb') as f:
+            dbg_tags(f.read())
+
+    # default to interpreting as ints
+    else:
+        dbg_tags(int(tag, 0) for tag in tags)
 
 
 if __name__ == "__main__":
@@ -269,6 +309,9 @@ if __name__ == "__main__":
             '-x', '--hex',
             action='store_true',
             help="Interpret as a sequence of hex bytes.")
+    parser.add_argument(
+            '-i', '--input',
+            help="Read tags from this file. Can use - for stdin.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))

@@ -38,14 +38,18 @@ def crc32c(data, crc=0):
         return 0xffffffff ^ crc
 
 
-def main(paths, **args):
+def main(paths, *,
+        hex=False,
+        string=False):
+    hex_ = hex; del hex
+
     # interpret as sequence of hex bytes
-    if args.get('hex'):
+    if hex_:
         bytes_ = [b for path in paths for b in path.split()]
         print('%08x' % crc32c(bytes(int(b, 16) for b in bytes_)))
 
     # interpret as strings
-    elif args.get('string'):
+    elif string:
         for path in paths:
             print('%08x  %s' % (crc32c(path.encode('utf8')), path))
 
