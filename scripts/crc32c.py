@@ -47,7 +47,7 @@ def main(paths, **args):
     # interpret as strings
     elif args.get('string'):
         for path in paths:
-            print('%08x' % crc32c(path.encode('utf8')))
+            print('%08x  %s' % (crc32c(path.encode('utf8')), path))
 
     # default to interpreting as paths
     else:
