@@ -21,20 +21,23 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def fromleb128(data):
+def fromleb128(data, j=0):
     word = 0
-    for i, b in enumerate(data):
-        word |= ((b & 0x7f) << 7*i)
+    d = 0
+    while j+d < len(data):
+        b = data[j+d]
+        word |= (b & 0x7f) << 7*d
         word &= 0xffffffff
         if not b & 0x80:
-            return word, i+1
+            return word, d+1
+        d += 1
     return word, len(data)
 
 def dbg_leb128s(data):
     lines = []
     j = 0
     while j < len(data):
-        word, d = fromleb128(data[j:])
+        word, d = fromleb128(data, j)
         lines.append((
                 ' '.join('%02x' % b for b in data[j:j+d]),
                 word))

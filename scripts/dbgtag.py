@@ -64,21 +64,24 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def fromleb128(data):
+def fromleb128(data, j=0):
     word = 0
-    for i, b in enumerate(data):
-        word |= ((b & 0x7f) << 7*i)
+    d = 0
+    while j+d < len(data):
+        b = data[j+d]
+        word |= (b & 0x7f) << 7*d
         word &= 0xffffffff
         if not b & 0x80:
-            return word, i+1
+            return word, d+1
+        d += 1
     return word, len(data)
 
-def fromtag(data):
-    data = data.ljust(4, b'\0')
-    tag = struct.unpack('>H', data[:2])[0]
-    weight, d = fromleb128(data[2:])
-    size, d_ = fromleb128(data[2+d:])
-    return tag>>15, tag&0x7fff, weight, size, 2+d+d_
+def fromtag(data, j=0):
+    d = 0
+    tag = struct.unpack('>H', data[j:j+2].ljust(2, b'\0'))[0]; d += 2
+    weight, d_ = fromleb128(data, j+d); d += d_
+    size, d_ = fromleb128(data, j+d); d += d_
+    return tag>>15, tag&0x7fff, weight, size, d
 
 # human readable tag repr
 def tagrepr(tag, weight=None, size=None, *,
@@ -244,7 +247,7 @@ def dbg_tags(data):
     else:
         j = 0
         while j < len(data):
-            v, tag, w, size, d = fromtag(data[j:])
+            v, tag, w, size, d = fromtag(data, j)
             lines.append((
                     ' '.join('%02x' % b for b in data[j:j+d]),
                     tagrepr(tag, w, size)))

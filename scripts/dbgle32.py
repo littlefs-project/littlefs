@@ -21,14 +21,14 @@ def openio(path, mode='r', buffering=-1):
     else:
         return open(path, mode, buffering)
 
-def fromle32(data):
-    return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
+def fromle32(data, j=0):
+    return struct.unpack('<I', data[j:j+4].ljust(4, b'\0'))[0]
 
 def dbg_le32s(data):
     lines = []
     j = 0
     while j < len(data):
-        word = fromle32(data[j:])
+        word = fromle32(data, j)
         lines.append((
                 ' '.join('%02x' % b for b in data[j:j+4]),
                 word))

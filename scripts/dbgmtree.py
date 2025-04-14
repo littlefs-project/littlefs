@@ -138,46 +138,49 @@ def popc(x):
 def parity(x):
     return popc(x) & 1
 
-def fromle32(data):
-    return struct.unpack('<I', data[0:4].ljust(4, b'\0'))[0]
+def fromle32(data, j=0):
+    return struct.unpack('<I', data[j:j+4].ljust(4, b'\0'))[0]
 
-def fromleb128(data):
+def fromleb128(data, j=0):
     word = 0
-    for i, b in enumerate(data):
-        word |= ((b & 0x7f) << 7*i)
+    d = 0
+    while j+d < len(data):
+        b = data[j+d]
+        word |= (b & 0x7f) << 7*d
         word &= 0xffffffff
         if not b & 0x80:
-            return word, i+1
+            return word, d+1
+        d += 1
     return word, len(data)
 
-def fromtag(data):
-    data = data.ljust(4, b'\0')
-    tag = struct.unpack('>H', data[:2])[0]
-    weight, d = fromleb128(data[2:])
-    size, d_ = fromleb128(data[2+d:])
-    return tag>>15, tag&0x7fff, weight, size, 2+d+d_
+def fromtag(data, j=0):
+    d = 0
+    tag = struct.unpack('>H', data[j:j+2].ljust(2, b'\0'))[0]; d += 2
+    weight, d_ = fromleb128(data, j+d); d += d_
+    size, d_ = fromleb128(data, j+d); d += d_
+    return tag>>15, tag&0x7fff, weight, size, d
 
-def frommdir(data):
+def frombranch(data, j=0):
+    d = 0
+    block, d_ = fromleb128(data, j+d); d += d_
+    trunk, d_ = fromleb128(data, j+d); d += d_
+    cksum = fromle32(data, j+d); d += 4
+    return block, trunk, cksum, d
+
+def frombtree(data, j=0):
+    d = 0
+    w, d_ = fromleb128(data, j+d); d += d_
+    block, trunk, cksum, d_ = frombranch(data, j+d); d += d_
+    return w, block, trunk, cksum, d
+
+def frommdir(data, j=0):
     blocks = []
     d = 0
-    while d < len(data):
-        block, d_ = fromleb128(data[d:])
+    while j+d < len(data):
+        block, d_ = fromleb128(data, j+d)
         blocks.append(block)
         d += d_
-    return blocks
-
-def frombranch(data):
-    d = 0
-    block, d_ = fromleb128(data[d:]); d += d_
-    trunk, d_ = fromleb128(data[d:]); d += d_
-    cksum = fromle32(data[d:]); d += 4
-    return block, trunk, cksum
-
-def frombtree(data):
-    d = 0
-    w, d_ = fromleb128(data[d:]); d += d_
-    block, trunk, cksum = frombranch(data[d:])
-    return w, block, trunk, cksum
+    return tuple(blocks), d
 
 def xxd(data, width=16):
     for i in range(0, len(data), width):
@@ -549,7 +552,7 @@ class Rbyd:
     @classmethod
     def _fetch(cls, data, block, trunk=None):
         # fetch the rbyd
-        rev = fromle32(data[0:4])
+        rev = fromle32(data, 0)
         cksum = 0
         cksum_ = crc32c(data[0:4])
         cksum__ = cksum_
@@ -567,7 +570,7 @@ class Rbyd:
         gcksumdelta_ = None
         while j_ < len(data) and (not trunk or eoff <= trunk):
             # read next tag
-            v, tag, w, size, d = fromtag(data[j_:])
+            v, tag, w, size, d = fromtag(data, j_)
             if v != parity(cksum__):
                 break
             cksum__ ^= 0x00000080 if v else 0
@@ -590,7 +593,7 @@ class Rbyd:
                 # found a cksum?
                 else:
                     # check cksum
-                    cksum___ = fromle32(data[j_:j_+4])
+                    cksum___ = fromle32(data, j_)
                     if cksum__ != cksum___:
                         break
                     # commit what we have
@@ -729,7 +732,7 @@ class Rbyd:
         # descend down tree
         j = self.trunk
         while True:
-            _, alt, w, jump, d = fromtag(self.data[j:])
+            _, alt, w, jump, d = fromtag(self.data, j)
 
             # found an alt?
             if alt & TAG_ALT:
@@ -745,7 +748,7 @@ class Rbyd:
                     if path:
                         # figure out which color
                         if alt & TAG_R:
-                            _, nalt, _, _, _ = fromtag(self.data[j+jump+d:])
+                            _, nalt, _, _, _ = fromtag(self.data, j+jump+d)
                             if nalt & TAG_R:
                                 color = 'y'
                             else:
@@ -768,7 +771,7 @@ class Rbyd:
                     if path:
                         # figure out which color
                         if alt & TAG_R:
-                            _, nalt, _, _, _ = fromtag(self.data[j:])
+                            _, nalt, _, _, _ = fromtag(self.data, j)
                             if nalt & TAG_R:
                                 color = 'y'
                             else:
@@ -1029,7 +1032,7 @@ class Btree:
             # descend down branch?
             if branch_ is not None and (
                     not depth or depth_ < depth):
-                block, trunk, cksum = frombranch(branch_.data)
+                block, trunk, cksum, _ = frombranch(branch_.data)
                 rbyd = Rbyd.fetchck(self.bd, block, trunk, name_.weight,
                         cksum)
 
@@ -1260,7 +1263,7 @@ class Btree:
             # found another branch
             if branch_ is not None and (
                     not depth or depth_ < depth):
-                block, trunk, cksum = frombranch(branch_.data)
+                block, trunk, cksum, _ = frombranch(branch_.data)
                 rbyd = Rbyd.fetchck(self.bd, block, trunk, name_.weight,
                         cksum)
 
@@ -1654,7 +1657,7 @@ class Mtree:
             rattr_ = mroot.lookup(-1, TAG_MROOT, 0x3)
             if rattr_ is None:
                 break
-            blocks_ = frommdir(rattr_.data)
+            blocks_, _ = frommdir(rattr_.data)
             mroot = Mdir.fetch(bd, -1, blocks_)
             mrootchain.append(mroot)
 
@@ -1663,7 +1666,7 @@ class Mtree:
         if not depth or len(mrootchain) < depth:
             rattr_ = mroot.lookup(-1, TAG_MTREE, 0x3)
             if rattr_ is not None:
-                w_, block_, trunk_, cksum_ = frombtree(rattr_.data)
+                w_, block_, trunk_, cksum_, _ = frombtree(rattr_.data)
                 mtree = Btree.fetchck(bd, block_, trunk_, w_, cksum_)
 
         return cls(bd, mrootchain, mtree,
@@ -1743,7 +1746,7 @@ class Mtree:
                     return (bid_, rbyd_, rid_), path_
                 else:
                     return (bid_, rbyd_, rid_)
-            blocks_ = frommdir(rattr_.data)
+            blocks_, _ = frommdir(rattr_.data)
             mdir = Mdir.fetch(self.bd, mid, blocks_)
             if path:
                 return mdir, path_
@@ -2117,7 +2120,7 @@ class Mtree:
                     return (bid_, rbyd_, rid_), path_
                 else:
                     return (bid_, rbyd_, rid_)
-            blocks_ = frommdir(rattr_.data)
+            blocks_, _ = frommdir(rattr_.data)
             mdir = Mdir.fetch(self.bd, self.mid(bid_), blocks_)
             if path:
                 return mdir, path_
