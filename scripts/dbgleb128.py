@@ -5,6 +5,7 @@ if __name__ == "__main__":
     __import__('sys').path.pop(0)
 
 import io
+import math as mt
 import os
 import struct
 import sys
@@ -31,13 +32,25 @@ def fromleb128(data, j=0):
         if not b & 0x80:
             return word, d+1
         d += 1
-    return word, len(data)
+    return word, d
 
-def dbg_leb128s(data):
+def dbg_leb128s(data, *,
+        word_bits=32):
+    # figure out leb128 size in bytes
+    if word_bits != 0:
+        n = mt.ceil(word_bits / 7)
+
+    # parse leb128s
     lines = []
     j = 0
     while j < len(data):
-        word, d = fromleb128(data, j)
+        # bounded leb128s?
+        if word_bits != 0:
+            word, d = fromleb128(data[j:j+n])
+        # unbounded?
+        else:
+            word, d = fromleb128(data, j)
+
         lines.append((
                 ' '.join('%02x' % b for b in data[j:j+d]),
                 word))
@@ -56,18 +69,21 @@ def dbg_leb128s(data):
 
 def main(leb128s, *,
         hex=False,
-        input=None):
+        input=None,
+        word_bits=32):
     hex_ = hex; del hex
 
     # interpret as a sequence of hex bytes
     if hex_:
         bytes_ = [b for leb128 in leb128s for b in leb128.split()]
-        dbg_leb128s(bytes(int(b, 16) for b in bytes_))
+        dbg_leb128s(bytes(int(b, 16) for b in bytes_),
+                word_bits=word_bits)
 
     # parse leb128s in a file
     elif input:
         with openio(input, 'rb') as f:
-            dbg_leb128s(f.read())
+            dbg_leb128s(f.read(),
+                    word_bits=word_bits)
 
     # we don't currently have a default interpretation
     else:
@@ -93,6 +109,12 @@ if __name__ == "__main__":
     parser.add_argument(
             '-i', '--input',
             help="Read leb128s from this file. Can use - for stdin.")
+    parser.add_argument(
+            '-w', '--word-bits',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Word size in bits. 0 is unbounded. Defaults to 32.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))

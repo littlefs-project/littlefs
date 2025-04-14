@@ -213,7 +213,7 @@ def fromleb128(data, j=0):
         if not b & 0x80:
             return word, d+1
         d += 1
-    return word, len(data)
+    return word, d
 
 def fromtag(data, j=0):
     d = 0

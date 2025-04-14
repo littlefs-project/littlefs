@@ -5,6 +5,7 @@ if __name__ == "__main__":
     __import__('sys').path.pop(0)
 
 import io
+import math as mt
 import os
 import struct
 import sys
@@ -74,7 +75,7 @@ def fromleb128(data, j=0):
         if not b & 0x80:
             return word, d+1
         d += 1
-    return word, len(data)
+    return word, d
 
 def fromtag(data, j=0):
     d = 0
@@ -234,7 +235,12 @@ def list_tags():
                 w[0], 'LFSR_'+n,
                 c))
 
-def dbg_tags(data):
+def dbg_tags(data, *,
+        word_bits=32):
+    # figure out tag size in bytes
+    if word_bits != 0:
+        n = 2 + 2*mt.ceil(word_bits / 7)
+
     lines = []
     # interpret as ints?
     if not isinstance(data, bytes):
@@ -247,7 +253,13 @@ def dbg_tags(data):
     else:
         j = 0
         while j < len(data):
-            v, tag, w, size, d = fromtag(data, j)
+            # bounded tags?
+            if word_bits != 0:
+                v, tag, w, size, d = fromtag(data[j:j+n])
+            # unbounded?
+            else:
+                v, tag, w, size, d = fromtag(data, j)
+
             lines.append((
                     ' '.join('%02x' % b for b in data[j:j+d]),
                     tagrepr(tag, w, size)))
@@ -271,7 +283,8 @@ def dbg_tags(data):
 def main(tags, *,
         list=False,
         hex=False,
-        input=None):
+        input=None,
+        word_bits=32):
     list_ = list; del list
     hex_ = hex; del hex
 
@@ -282,16 +295,19 @@ def main(tags, *,
     # interpret as a sequence of hex bytes
     elif hex_:
         bytes_ = [b for tag in tags for b in tag.split()]
-        dbg_tags(bytes(int(b, 16) for b in bytes_))
+        dbg_tags(bytes(int(b, 16) for b in bytes_),
+                word_bits=word_bits)
 
     # parse tags in a file
     elif input:
         with openio(input, 'rb') as f:
-            dbg_tags(f.read())
+            dbg_tags(f.read(),
+                    word_bits=word_bits)
 
     # default to interpreting as ints
     else:
-        dbg_tags(int(tag, 0) for tag in tags)
+        dbg_tags((int(tag, 0) for tag in tags),
+                word_bits=word_bits)
 
 
 if __name__ == "__main__":
@@ -315,6 +331,12 @@ if __name__ == "__main__":
     parser.add_argument(
             '-i', '--input',
             help="Read tags from this file. Can use - for stdin.")
+    parser.add_argument(
+            '-w', '--word-bits',
+            nargs='?',
+            type=lambda x: int(x, 0),
+            const=0,
+            help="Word size in bits. 0 is unbounded. Defaults to 32.")
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))
