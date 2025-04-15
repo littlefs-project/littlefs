@@ -541,20 +541,18 @@ class CsvExpr:
             return fields[self.a]
 
     # func expr helper
-    def func(name, args="a"):
-        def func(f):
-            f._func = name
-            f._fargs = args
-            return f
+    def func(funcs):
+        def func(name, args="a"):
+            def func(f):
+                f._func = name
+                f._fargs = args
+                funcs[f._func] = f
+                return f
+            return func
         return func
 
-    class Funcs:
-        @ft.cache
-        def __get__(self, _, cls):
-            return {x._func: x
-                    for x in cls.__dict__.values()
-                    if hasattr(x, '_func')}
-    funcs = Funcs()
+    funcs = {}
+    func = func(funcs)
 
     # type exprs
     @func('int', 'a')
@@ -881,19 +879,17 @@ class CsvExpr:
                 return CsvInt(0)
 
     # unary expr helper
-    def uop(op):
-        def uop(f):
-            f._uop = op
-            return f
+    def uop(uops):
+        def uop(op):
+            def uop(f):
+                f._uop = op
+                uops[f._uop] = f
+                return f
+            return uop
         return uop
 
-    class UOps:
-        @ft.cache
-        def __get__(self, _, cls):
-            return {x._uop: x
-                    for x in cls.__dict__.values()
-                    if hasattr(x, '_uop')}
-    uops = UOps()
+    uops = {}
+    uop = uop(uops)
 
     # unary ops
     @uop('+')
@@ -921,28 +917,20 @@ class CsvExpr:
                 return CsvInt(1)
 
     # binary expr help
-    def bop(op, prec):
-        def bop(f):
-            f._bop = op
-            f._bprec = prec
-            return f
+    def bop(bops, bprecs):
+        def bop(op, prec):
+            def bop(f):
+                f._bop = op
+                f._bprec = prec
+                bops[f._bop] = f
+                bprecs[f._bop] = f._bprec
+                return f
+            return bop
         return bop
 
-    class BOps:
-        @ft.cache
-        def __get__(self, _, cls):
-            return {x._bop: x
-                    for x in cls.__dict__.values()
-                    if hasattr(x, '_bop')}
-    bops = BOps()
-
-    class BPrecs:
-        @ft.cache
-        def __get__(self, _, cls):
-            return {x._bop: x._bprec
-                    for x in cls.__dict__.values()
-                    if hasattr(x, '_bop')}
-    bprecs = BPrecs()
+    bops = {}
+    bprecs = {}
+    bop = bop(bops, bprecs)
 
     # binary ops
     @bop('*', 10)
@@ -1052,28 +1040,20 @@ class CsvExpr:
                 return self.b.eval(fields)
 
     # ternary expr help
-    def top(op_a, op_b, prec):
-        def top(f):
-            f._top = (op_a, op_b)
-            f._tprec = prec
-            return f
+    def top(tops, tprecs):
+        def top(op_a, op_b, prec):
+            def top(f):
+                f._top = (op_a, op_b)
+                f._tprec = prec
+                tops[f._top] = f
+                tprecs[f._top] = f._tprec
+                return f
+            return top
         return top
 
-    class TOps:
-        @ft.cache
-        def __get__(self, _, cls):
-            return {x._top: x
-                    for x in cls.__dict__.values()
-                    if hasattr(x, '_top')}
-    tops = TOps()
-
-    class TPrecs:
-        @ft.cache
-        def __get__(self, _, cls):
-            return {x._top: x._tprec
-                    for x in cls.__dict__.values()
-                    if hasattr(x, '_top')}
-    tprecs = TPrecs()
+    tops = {}
+    tprecs = {}
+    top = top(tops, tprecs)
 
     # ternary ops
     @top('?', ':', 1)
