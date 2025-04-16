@@ -773,6 +773,17 @@ int lfs_fs_grow(lfs_t *lfs, lfs_size_t block_count);
 #endif
 
 #ifndef LFS_READONLY
+// Shrinks the filesystem to a new size, updating the superblock with the new
+// block count.
+//
+// Note: This first checks that none of the blocks that are being removed are in use
+// and will fail if it is the case
+//
+// Returns a negative error code on failure.
+int lfs_fs_shrink(lfs_t *lfs, lfs_size_t block_count);
+#endif
+
+#ifndef LFS_READONLY
 #ifdef LFS_MIGRATE
 // Attempts to migrate a previous version of littlefs
 //
