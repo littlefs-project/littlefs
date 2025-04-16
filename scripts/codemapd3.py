@@ -630,6 +630,11 @@ def main(paths, output, *,
         stack_ratio=1/5,
         no_ctx=False,
         no_frames=False,
+        tile_code=False,
+        tile_stack=False,
+        tile_frames=False,
+        tile_ctx=False,
+        tile_1=False,
         no_javascript=False,
         mode_callgraph=False,
         mode_deepest=False,
@@ -655,6 +660,14 @@ def main(paths, output, *,
         no_label = True
         no_stack = True
         no_javascript = True
+
+    # default to tiling based on code
+    if (not tile_code
+            and not tile_stack
+            and not tile_frames
+            and not tile_ctx
+            and not tile_1):
+        tile_code = True
 
     # default to all modes
     if (not mode_callgraph
@@ -737,12 +750,15 @@ def main(paths, output, *,
 
     # don't render code/stack/ctx results if we don't have any
     nil_code = not any('code_size' in r for r in results)
+    nil_stack = not any('stack_limit' in r for r in results)
     nil_frames = not any('stack_frame' in r for r in results)
+    nil_ctx = not any('ctx_size' in r for r in results)
+
     if nil_frames:
         no_frames = True
-    nil_ctx = not any('ctx_size' in r for r in results)
     if nil_ctx:
         no_ctx = True
+
     if no_frames and no_ctx:
         no_stack = True
 
@@ -860,6 +876,7 @@ def main(paths, output, *,
     totals['ctx'] = max(
             (f.get('ctx', 0) for f in functions.values()),
             default=0)
+    totals['count'] = len(functions)
     totals['attrs'] = {k: v
             for f in functions.values()
             for k, v in f['attrs'].items()}
@@ -878,10 +895,11 @@ def main(paths, output, *,
     # build code heirarchy
     code = Tile.merge(
             Tile(   (f['subsystem'], f['name']),
-                    # fallback to stack/ctx
-                    f.get('code', 0) if not nil_code
-                        else f.get('frame', 0) if not nil_frames
-                        else f.get('ctx', 0),
+                    f.get('code', 0) if tile_code and not nil_code
+                        else f.get('stack', 0) if tile_stack and not nil_stack
+                        else f.get('frame', 0) if tile_frames and not nil_frames
+                        else f.get('ctx', 0) if tile_ctx and not nil_ctx
+                        else 1,
                     attrs=f)
                 for f in functions.values())
 
@@ -988,9 +1006,11 @@ def main(paths, output, *,
     # scale width/height if requested now that we have our data
     if (to_scale is not None
             and (width is None or height is None)):
-        total_value = (totals.get('code', 0) if not nil_code
-                else totals.get('frame', 0) if not nil_frames
-                else totals.get('ctx', 0))
+        total_value = (totals.get('code', 0) if tile_code
+                else totals.get('stack', 0) if tile_stack
+                else totals.get('frame', 0) if tile_frames
+                else totals.get('ctx', 0) if tile_ctx
+                else totals.get('count', 0))
         if total_value:
             # don't include header/stack in scale
             width__ = width_
@@ -2193,11 +2213,11 @@ if __name__ == "__main__":
             action='store_true',
             help="Don't show the mode state.")
     parser.add_argument(
-            '--no-stack',
+            '-S', '--no-stack',
             action='store_true',
             help="Don't render any stack info.")
     parser.add_argument(
-            '-S', '--stack-ratio',
+            '-s', '--stack-ratio',
             type=lambda x: (
                 (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
                     if ':' in x else float(x)),
@@ -2210,6 +2230,26 @@ if __name__ == "__main__":
             '--no-frames',
             action='store_true',
             help="Don't render function stack frame info.")
+    parser.add_argument(
+            '--tile-code',
+            action='store_true',
+            help="Tile based on code size. This is the default.")
+    parser.add_argument(
+            '--tile-stack',
+            action='store_true',
+            help="Tile based on stack limits.")
+    parser.add_argument(
+            '--tile-frames',
+            action='store_true',
+            help="Tile based on stack frames.")
+    parser.add_argument(
+            '--tile-ctx',
+            action='store_true',
+            help="Tile based on function context.")
+    parser.add_argument(
+            '--tile-1',
+            action='store_true',
+            help="Tile functions evenly.")
     parser.add_argument(
             '-J', '--no-javascript',
             action='store_true',

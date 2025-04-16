@@ -931,6 +931,11 @@ def main_(ring, paths, *,
         width=None,
         height=None,
         no_header=False,
+        tile_code=False,
+        tile_stack=False,
+        tile_frames=False,
+        tile_ctx=False,
+        tile_1=False,
         to_scale=None,
         to_ratio=1/1,
         tiny=False,
@@ -957,6 +962,14 @@ def main_(ring, paths, *,
         if to_scale is None:
             to_scale = 1
         no_header = True
+
+    # default to tiling based on code
+    if (not tile_code
+            and not tile_stack
+            and not tile_frames
+            and not tile_ctx
+            and not tile_1):
+        tile_code = True
 
     # what chars/colors/labels to use?
     chars_ = []
@@ -1034,6 +1047,7 @@ def main_(ring, paths, *,
 
     # don't render code/stack/ctx results if we don't have any
     nil_code = not any('code_size' in r for r in results)
+    nil_stack = not any('stack_limit' in r for r in results)
     nil_frames = not any('stack_frame' in r for r in results)
     nil_ctx = not any('ctx_size' in r for r in results)
 
@@ -1151,6 +1165,7 @@ def main_(ring, paths, *,
     totals['ctx'] = max(
             (f.get('ctx', 0) for f in functions.values()),
             default=0)
+    totals['count'] = len(functions)
     totals['attrs'] = {k: v
             for f in functions.values()
             for k, v in f['attrs'].items()}
@@ -1169,10 +1184,11 @@ def main_(ring, paths, *,
     # build code heirarchy
     code = Tile.merge(
             Tile(   (f['subsystem'], f['name']),
-                    # fallback to stack/ctx
-                    f.get('code', 0) if not nil_code
-                        else f.get('frame', 0) if not nil_frames
-                        else f.get('ctx', 0),
+                    f.get('code', 0) if tile_code and not nil_code
+                        else f.get('stack', 0) if tile_stack and not nil_stack
+                        else f.get('frame', 0) if tile_frames and not nil_frames
+                        else f.get('ctx', 0) if tile_ctx and not nil_ctx
+                        else 1,
                     attrs=f)
                 for f in functions.values())
 
@@ -1213,9 +1229,11 @@ def main_(ring, paths, *,
     # scale width/height if requested now that we have our data
     if (to_scale is not None
             and (width is None or height is None)):
-        total_value = (totals.get('code', 0) if not nil_code
-                else totals.get('frame', 0) if not nil_frames
-                else totals.get('ctx', 0))
+        total_value = (totals.get('code', 0) if tile_code
+                else totals.get('stack', 0) if tile_stack
+                else totals.get('frame', 0) if tile_frames
+                else totals.get('ctx', 0) if tile_ctx
+                else totals.get('count', 0))
         if total_value:
             # don't include header in scale
             width__ = width_
@@ -1555,6 +1573,26 @@ if __name__ == "__main__":
             '--no-header',
             action='store_true',
             help="Don't show the header.")
+    parser.add_argument(
+            '--tile-code',
+            action='store_true',
+            help="Tile based on code size. This is the default.")
+    parser.add_argument(
+            '--tile-stack',
+            action='store_true',
+            help="Tile based on stack limits.")
+    parser.add_argument(
+            '--tile-frames',
+            action='store_true',
+            help="Tile based on stack frames.")
+    parser.add_argument(
+            '--tile-ctx',
+            action='store_true',
+            help="Tile based on function context.")
+    parser.add_argument(
+            '--tile-1',
+            action='store_true',
+            help="Tile functions evenly.")
     parser.add_argument(
             '--binary',
             action='store_true',

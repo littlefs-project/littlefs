@@ -1392,7 +1392,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Find struct sizes.",
+            description="Find the overhead of function contexts.",
             allow_abbrev=False)
     parser.add_argument(
             'obj_paths',
