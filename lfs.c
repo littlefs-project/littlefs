@@ -3101,7 +3101,7 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
         rbyd->eoff = -1;
     }
 
-    #ifdef LFS_DEBUGRBYDFETCHES
+    #ifdef LFS_DBGRBYDFETCHES
     LFS_DEBUG("Fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "eoff %"PRId32", cksum %"PRIx32,
             rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
@@ -3114,7 +3114,7 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
 
     // debugging rbyd balance? check that all branches in the rbyd have
     // the same height
-    #ifdef LFS_DEBUGRBYDBALANCE
+    #ifdef LFS_DBGRBYDBALANCE
     lfsr_srid_t rid = -1;
     lfsr_tag_t tag = 0;
     lfs_size_t min_height = 0;
@@ -4546,7 +4546,7 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // revert to canonical checksum
     rbyd->cksum = cksum;
 
-    #ifdef LFS_DEBUGRBYDCOMMITS
+    #ifdef LFS_DBGRBYDCOMMITS
     LFS_DEBUG("Committed rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "eoff %"PRId32", cksum %"PRIx32,
                 rbyd->blocks[0], lfsr_rbyd_trunk(rbyd),
@@ -5232,7 +5232,7 @@ static int lfsr_btree_fetch(lfs_t *lfs, lfsr_btree_t *btree,
         return err;
     }
 
-    #ifdef LFS_DEBUGBTREEFETCHES
+    #ifdef LFS_DBGBTREEFETCHES
     LFS_DEBUG("Fetched btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "cksum %"PRIx32,
             btree->blocks[0], lfsr_rbyd_trunk(btree),
@@ -6023,7 +6023,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
     }
 
     LFS_ASSERT(lfsr_rbyd_trunk(btree));
-    #ifdef LFS_DEBUGBTREECOMMITS
+    #ifdef LFS_DBGBTREECOMMITS
     LFS_DEBUG("Committed btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "cksum %"PRIx32,
             btree->blocks[0], lfsr_rbyd_trunk(btree),
@@ -6604,7 +6604,7 @@ static int lfsr_bshrub_commit_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
     }
 
     LFS_ASSERT(lfsr_shrub_trunk(&bshrub->shrub));
-    #ifdef LFS_DEBUGBTREECOMMITS
+    #ifdef LFS_DBGBTREECOMMITS
     if (lfsr_bshrub_isbshrub(bshrub)) {
         LFS_DEBUG("Committed bshrub "
                     "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32,
@@ -6654,7 +6654,7 @@ relocate:;
     bshrub->shrub = bshrub->shrub_;
 
     LFS_ASSERT(lfsr_rbyd_trunk(&bshrub->shrub));
-    #ifdef LFS_DEBUGBTREECOMMITS
+    #ifdef LFS_DBGBTREECOMMITS
     LFS_DEBUG("Committed btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "cksum %"PRIx32,
             bshrub->shrub.blocks[0], lfsr_shrub_trunk(&bshrub->shrub),
@@ -7305,7 +7305,7 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
             mdir->mid = mid;
             // keep track of other block for compactions
             mdir->rbyd.blocks[1] = blocks[1];
-            #ifdef LFS_DEBUGMDIRFETCHES
+            #ifdef LFS_DBGMDIRFETCHES
             LFS_DEBUG("Fetched mdir %"PRId32" "
                         "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32", "
                         "cksum %"PRIx32,
@@ -8155,7 +8155,7 @@ relocate:;
     }
 
 compact:;
-    #ifdef LFS_DEBUGMDIRCOMMITS
+    #ifdef LFS_DBGMDIRCOMMITS
     LFS_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                 "-> 0x{%"PRIx32",%"PRIx32"}",
             lfsr_dbgmbid(lfs, mdir->mid),
@@ -8836,7 +8836,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // until lfsr_fs_gc can prove otherwise
     lfs->flags |= LFS_I_COMPACT;
 
-    #ifdef LFS_DEBUGMDIRCOMMITS
+    #ifdef LFS_DBGMDIRCOMMITS
     LFS_DEBUG("Committed mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32", "
                 "cksum %"PRIx32,
@@ -9871,7 +9871,7 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
             lfs_alloc_inc(lfs);
             lfs_alloc_findfree(lfs);
 
-            #ifdef LFS_DEBUGALLOCS
+            #ifdef LFS_DBGALLOCS
             LFS_DEBUG("Allocated block 0x%"PRIx32", "
                         "lookahead %"PRId32"/%"PRId32"/%"PRId32,
                     block,
