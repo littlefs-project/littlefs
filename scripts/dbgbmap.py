@@ -1554,6 +1554,30 @@ class Mdir:
         rbyd = Rbyd.fetch(bd, blocks, trunk)
         return cls(mid, rbyd, mbits=Mtree.mbits_(bd))
 
+    def lookupnext(self, mid, tag=None, *,
+            path=False):
+        # this is similar to rbyd lookupnext, we just error if
+        # lookupnext changes mids
+        if not isinstance(mid, Mid):
+            mid = Mid(mid, mbits=self.mbits)
+        r = self.rbyd.lookupnext(mid.mrid, tag,
+                path=path)
+        if path:
+            rid, rattr, path_ = r
+        else:
+            rid, rattr = r
+
+        if rid != mid.mrid:
+            if path:
+                return None, path_
+            else:
+                return None
+
+        if path:
+            return rattr, path_
+        else:
+            return rattr
+
     def lookup(self, mid, tag=None, mask=None, *,
             path=False):
         if not isinstance(mid, Mid):
@@ -1854,6 +1878,40 @@ class Mtree:
         else:
             return mdir
 
+    def lookupnext(self, mid, *,
+            path=False,
+            depth=None):
+        if not isinstance(mid, Mid):
+            mid = self.mid(mid)
+
+        # lookup the relevant mdir
+        r = self.lookupleaf(mid,
+                path=path,
+                depth=depth)
+        if path:
+            mdir, path_ = r
+        else:
+            mdir = r
+        if mdir is None:
+            if path:
+                return None, None, path_
+            else:
+                return None, None
+
+        # not in mdir?
+        if mid.mrid >= mdir.weight:
+            if path:
+                return None, None, path_
+            else:
+                return None, None
+
+        # lookup mid in mdir
+        rattr = mdir.lookupnext(mid)
+        if path:
+            return mdir, rattr, path_+[(mid, mdir, rattr)]
+        else:
+            return mdir, rattr
+
     def lookup(self, mid, *,
             path=False,
             depth=None):
@@ -1881,18 +1939,12 @@ class Mtree:
             else:
                 return None, None
 
-        # lookup name in mdir
-        name = mdir.lookup(mid)
-        # name tag missing? weird
-        if name is None:
-            if path:
-                return None, None, path_
-            else:
-                return None, None
+        # lookup mid in mdir
+        rattr = mdir.lookup(mid)
         if path:
-            return mdir, name, path_+[(mid, mdir, name)]
+            return mdir, rattr, path_+[(mid, mdir, rattr)]
         else:
-            return mdir, name
+            return mdir, rattr
 
     # iterate over all mdirs, this includes the mrootchain
     def _leaves(self, *,

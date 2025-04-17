@@ -104,21 +104,23 @@ code = '''
         assert(btree.weight == sim_size);
 
         uint8_t buffer[4];
+        lfsr_bid_t bid_;
         lfsr_tag_t tag_;
         lfs_size_t weight_;
         lfsr_data_t data_;
         for (lfs_size_t i = 0; i < sim_size; i++) {
-            lfsr_btree_lookup(&lfs, &btree, i,
-                    &tag_, &weight_, &data_) => 0;
+            lfsr_btree_lookupnext(&lfs, &btree, i,
+                    &bid_, &tag_, &weight_, &data_) => 0;
             lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
+            assert(bid_ == i);
             assert(tag_ == LFSR_TAG_DATA);
             assert(weight_ == 1);
             assert(memcmp(buffer, &sim[i], 1) == 0);
         }
 
         // and no extra elements
-        lfsr_btree_lookup(&lfs, &btree, sim_size,
-                &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+        lfsr_btree_lookupnext(&lfs, &btree, sim_size,
+                &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
         // clean up sim
         free(sim);
@@ -1879,21 +1881,23 @@ code = '''
     assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
+    lfsr_bid_t bid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_lookup(&lfs, &btree, i,
-                &tag_, &weight_, &data_) => 0;
+        lfsr_btree_lookupnext(&lfs, &btree, i,
+                &bid_, &tag_, &weight_, &data_) => 0;
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
+        assert(bid_ == i);
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_lookup(&lfs, &btree, sim_size,
-            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+    lfsr_btree_lookupnext(&lfs, &btree, sim_size,
+            &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
     free(sim);
@@ -3654,21 +3658,23 @@ code = '''
     assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
+    lfsr_bid_t bid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_lookup(&lfs, &btree, i,
-                &tag_, &weight_, &data_) => 0;
+        lfsr_btree_lookupnext(&lfs, &btree, i,
+                &bid_, &tag_, &weight_, &data_) => 0;
         lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
+        assert(bid_ == i);
         assert(tag_ == LFSR_TAG_DATA);
         assert(weight_ == 1);
         assert(memcmp(buffer, &sim[i], 1) == 0);
     }
 
     // and no extra elements
-    lfsr_btree_lookup(&lfs, &btree, sim_size,
-            &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+    lfsr_btree_lookupnext(&lfs, &btree, sim_size,
+            &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
 
     // clean up sim
     free(sim);

@@ -177,7 +177,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
 
@@ -196,7 +196,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -220,7 +220,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -277,13 +277,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -303,13 +303,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -386,13 +386,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -402,7 +402,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -422,13 +422,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -438,7 +438,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -488,7 +488,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -499,7 +499,7 @@ code = '''
         sprintf(name+1, "%03x", i);
         mdir.mid += 1;
         if (lfsr_mrid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            lfsr_mtree_lookup(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
+            lfsr_mtree_lookupleaf(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
                     &mdir) => 0;
         }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
@@ -512,7 +512,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -521,7 +521,7 @@ code = '''
         sprintf(name+1, "%03x", i);
         mdir.mid += 1;
         if (lfsr_mrid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            lfsr_mtree_lookup(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
+            lfsr_mtree_lookupleaf(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
                     &mdir) => 0;
         }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
@@ -587,7 +587,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -613,7 +613,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -696,7 +696,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -716,7 +716,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -788,7 +788,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -808,7 +808,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -871,7 +871,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -887,7 +887,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -965,7 +965,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -975,7 +975,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -991,7 +991,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1001,7 +1001,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1079,13 +1079,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1105,13 +1105,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1204,7 +1204,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -1230,7 +1230,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -1277,7 +1277,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
 
@@ -1292,7 +1292,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // force mdir to compact twice, this should relocate
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_t old_mdir = mdir;
     mdir.rbyd.eoff = -1;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
@@ -1313,7 +1313,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1323,7 +1323,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1347,7 +1347,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1357,7 +1357,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(4), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1435,13 +1435,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1451,7 +1451,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1471,13 +1471,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1487,7 +1487,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1565,13 +1565,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1581,7 +1581,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1601,13 +1601,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1617,7 +1617,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1668,7 +1668,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1687,7 +1687,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1763,7 +1763,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1798,7 +1798,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1880,7 +1880,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1907,7 +1907,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2002,13 +2002,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2018,7 +2018,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -2038,13 +2038,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2054,7 +2054,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -2144,13 +2144,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2160,7 +2160,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2184,13 +2184,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2200,7 +2200,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2287,7 +2287,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2307,7 +2307,7 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2346,7 +2346,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
 
@@ -2368,7 +2368,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2392,7 +2392,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2459,13 +2459,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2485,13 +2485,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2615,7 +2615,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -2641,7 +2641,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -3579,7 +3579,7 @@ code = '''
 
     memset(buffer, 'b', SIZE);
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
 
@@ -3663,7 +3663,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3683,7 +3683,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[0] == 'a');
 
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(1), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3802,13 +3802,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3824,13 +3824,13 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3968,19 +3968,19 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3996,19 +3996,19 @@ code = '''
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -4233,7 +4233,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -4244,7 +4244,7 @@ code = '''
         sprintf(name+1, "%03x", i);
         mdir.mid += 1;
         if (lfsr_mrid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            lfsr_mtree_lookup(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
+            lfsr_mtree_lookupleaf(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
                     &mdir) => 0;
         }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
@@ -4257,7 +4257,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -4266,7 +4266,7 @@ code = '''
         sprintf(name+1, "%03x", i);
         mdir.mid += 1;
         if (lfsr_mrid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            lfsr_mtree_lookup(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
+            lfsr_mtree_lookupleaf(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
                     &mdir) => 0;
         }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
@@ -4397,7 +4397,7 @@ code = '''
 
     // try looking up each entry
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_data_t data;
     uint8_t buffer[256];
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
@@ -4423,7 +4423,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // try looking up each entry
-    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_BOOKMARK, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, sizeof(buffer)) => 1;
     for (lfs_size_t i = 0; i < N; i++) {
@@ -4801,7 +4801,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -4874,7 +4874,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
+    lfsr_mtree_lookupleaf(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
