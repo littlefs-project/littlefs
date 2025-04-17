@@ -6466,7 +6466,7 @@ code = '''
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight <= (2 << lfs.mbits));
     assert(file1.b.o.mdir.rbyd.weight <= 3);
     assert(file2.b.o.mdir.rbyd.weight <= 3);
 
@@ -6767,7 +6767,7 @@ code = '''
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight <= (2 << lfs.mbits));
     assert(file1.b.o.mdir.rbyd.weight <= 3);
     assert(file2.b.o.mdir.rbyd.weight <= 3);
 
@@ -6925,7 +6925,7 @@ code = '''
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight <= (2 << lfs.mbits));
     assert(file1.b.o.mdir.rbyd.weight <= 3);
     assert(file2.b.o.mdir.rbyd.weight <= 3);
 
@@ -7094,7 +7094,7 @@ code = '''
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight <= (2 << lfs.mbits));
     assert(file1.b.o.mdir.rbyd.weight <= 3);
     assert(file2.b.o.mdir.rbyd.weight <= 3);
 
@@ -7261,7 +7261,7 @@ code = '''
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight <= (2 << lfs.mbits));
     assert(file1.b.o.mdir.rbyd.weight <= 3);
     assert(file2.b.o.mdir.rbyd.weight <= 3);
 
@@ -7426,7 +7426,7 @@ code = '''
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs.mtree.weight <= (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight <= (2 << lfs.mbits));
     assert(file1.b.o.mdir.rbyd.weight <= 3);
     assert(file2.b.o.mdir.rbyd.weight <= 3);
 

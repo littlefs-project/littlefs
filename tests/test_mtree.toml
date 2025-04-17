@@ -187,7 +187,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -211,7 +211,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -272,18 +272,18 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -298,18 +298,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -361,7 +361,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -381,18 +381,18 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(2), 0, "e", 1))) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -402,7 +402,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -417,18 +417,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -438,7 +438,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -498,8 +498,8 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         mdir.mid += 1;
-        if (lfsr_mid_rid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            lfsr_mtree_lookup(&lfs, lfsr_mid_bid(&lfs, mdir.mid) + 1,
+        if (lfsr_mrid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            lfsr_mtree_lookup(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
                     &mdir) => 0;
         }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
@@ -520,8 +520,8 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         mdir.mid += 1;
-        if (lfsr_mid_rid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            lfsr_mtree_lookup(&lfs, lfsr_mid_bid(&lfs, mdir.mid) + 1,
+        if (lfsr_mrid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            lfsr_mtree_lookup(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
                     &mdir) => 0;
         }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
@@ -678,7 +678,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -691,12 +691,12 @@ code = '''
     assert(mdir.rbyd.weight == 0);
 
     // assert mdir was dropped
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -711,12 +711,12 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -768,7 +768,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -783,12 +783,12 @@ code = '''
     assert(mdir.rbyd.weight == 0);
 
     // assert mdir was dropped
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -803,12 +803,12 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -866,12 +866,12 @@ code = '''
     assert(mdir.rbyd.weight == 2);
 
     // assert split/drop worked out
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -882,12 +882,12 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -935,7 +935,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -960,12 +960,12 @@ code = '''
     assert(mdir.rbyd.weight == 1);
 
     // assert split/drop worked out
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -975,7 +975,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -986,12 +986,12 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert split/drop worked out
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1001,7 +1001,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1049,7 +1049,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1074,18 +1074,18 @@ code = '''
     assert(mdir.rbyd.weight == 1);
 
     // assert split/drop worked out
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1100,18 +1100,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert split/drop worked out
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1287,7 +1287,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(3), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1304,7 +1304,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1338,7 +1338,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1411,7 +1411,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1430,18 +1430,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1451,7 +1451,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1466,18 +1466,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1487,7 +1487,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1541,7 +1541,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1560,18 +1560,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1581,7 +1581,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1596,18 +1596,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1617,7 +1617,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -1668,7 +1668,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1687,7 +1687,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1763,7 +1763,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1798,7 +1798,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1880,7 +1880,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1907,7 +1907,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -1973,7 +1973,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -1997,18 +1997,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2018,7 +2018,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -2033,18 +2033,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2054,7 +2054,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_ATTR(2), &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
@@ -2108,7 +2108,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2139,18 +2139,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2160,7 +2160,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2179,18 +2179,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2200,7 +2200,7 @@ code = '''
     lfsr_data_read(&lfs, &data, buffer, 1) => 1;
     assert(buffer[0] == 'c');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2258,7 +2258,7 @@ code = '''
             LFSR_RATTR_BUF(LFSR_TAG_ATTR(1), 0, "c", 1))) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2282,12 +2282,12 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdir was dropped
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2302,12 +2302,12 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2359,7 +2359,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2383,7 +2383,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2454,18 +2454,18 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2480,18 +2480,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -2879,7 +2879,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -2970,7 +2970,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3105,7 +3105,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3202,7 +3202,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3311,7 +3311,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3330,7 +3330,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (4 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (4 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3421,7 +3421,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3431,7 +3431,7 @@ code = '''
     assert(mdir.rbyd.weight == 0);
 
     // assert mdir was dropped correctly
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3588,7 +3588,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3654,7 +3654,7 @@ code = '''
     // and the tree should still work
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3674,7 +3674,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs.mtree.weight == (1 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (1 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3731,7 +3731,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3797,18 +3797,18 @@ code = '''
     // and the tree should still work
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3819,18 +3819,18 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3878,7 +3878,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &lfs.mroot, NULL, 0) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs.mtree.weight == (2 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (2 << lfs.mbits));
     // assert mroot now has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3897,7 +3897,7 @@ code = '''
     lfsr_mdir_commit(&lfs, &mdir, NULL, 0) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
@@ -3963,24 +3963,24 @@ code = '''
     // and the tree should still work
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -3991,24 +3991,24 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfs.mtree.weight == (3 << lfs.mdir_bits));
+    assert(lfs.mtree.weight == (3 << lfs.mbits));
     // assert mroot still has no entries
     assert(lfs.mroot.rbyd.weight == 0);
 
     // assert that our entries are still in the mtree
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'a');
 
-    lfsr_mtree_lookup(&lfs, (1 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (1 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
     assert(buffer[1] == 'b');
 
-    lfsr_mtree_lookup(&lfs, (2 << lfs.mdir_bits)+0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (2 << lfs.mbits)+0, &mdir) => 0;
     assert(mdir.rbyd.weight == 1);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -4243,8 +4243,8 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         mdir.mid += 1;
-        if (lfsr_mid_rid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            lfsr_mtree_lookup(&lfs, lfsr_mid_bid(&lfs, mdir.mid) + 1,
+        if (lfsr_mrid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            lfsr_mtree_lookup(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
                     &mdir) => 0;
         }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
@@ -4265,8 +4265,8 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", i);
         mdir.mid += 1;
-        if (lfsr_mid_rid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
-            lfsr_mtree_lookup(&lfs, lfsr_mid_bid(&lfs, mdir.mid) + 1,
+        if (lfsr_mrid(&lfs, mdir.mid) >= (lfsr_srid_t)mdir.rbyd.weight) {
+            lfsr_mtree_lookup(&lfs, lfsr_mbid(&lfs, mdir.mid) + 1,
                     &mdir) => 0;
         }
         lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
@@ -4801,7 +4801,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our entry is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;
@@ -4874,7 +4874,7 @@ code = '''
     assert(lfsr_mdir_cmp(&old_mroot, &lfs.mroot) != 0);
 
     // assert that our rattr is still in the mroot
-    lfsr_mtree_lookup(&lfs, (0 << lfs.mdir_bits)+1, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, (0 << lfs.mbits)+1, &mdir) => 0;
     assert(mdir.rbyd.weight == 2);
     lfsr_mdir_lookup(&lfs, &mdir, LFSR_TAG_REG, &data) => 0;
     lfsr_data_read(&lfs, &data, buffer, SIZE) => SIZE;

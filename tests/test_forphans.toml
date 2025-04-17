@@ -5323,7 +5323,7 @@ code = '''
     // double check the actual disk state, it's easy for littlefs to
     // lie here
     assert(lfsr_mtree_weight(&lfs)
-            <= ((1+lfs_popc(BOOKENDS)) << lfs.mdir_bits));
+            <= ((1+lfs_popc(BOOKENDS)) << lfs.mbits));
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
@@ -5459,7 +5459,7 @@ code = '''
     // double check the actual disk state, it's easy for littlefs to
     // lie here
     assert(lfsr_mtree_weight(&lfs)
-            <= ((1+lfs_popc(BOOKENDS)) << lfs.mdir_bits));
+            <= ((1+lfs_popc(BOOKENDS)) << lfs.mbits));
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
@@ -5609,7 +5609,7 @@ code = '''
     // double check the actual disk state, it's easy for littlefs to
     // lie here
     assert(lfsr_mtree_weight(&lfs)
-            <= ((1+lfs_popc(BOOKENDS)) << lfs.mdir_bits));
+            <= ((1+lfs_popc(BOOKENDS)) << lfs.mbits));
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
@@ -5765,7 +5765,7 @@ code = '''
     // double check the actual disk state, it's easy for littlefs to
     // lie here
     assert(lfsr_mtree_weight(&lfs)
-            <= ((1+lfs_popc(BOOKENDS)) << lfs.mdir_bits));
+            <= ((1+lfs_popc(BOOKENDS)) << lfs.mbits));
     lfsr_mdir_t mdir;
     lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
