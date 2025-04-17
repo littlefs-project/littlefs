@@ -13160,31 +13160,40 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     // calculate the number of bits we need to reserve for mdir rids
     //
     // Worst case (or best case?) each metadata entry is a single tag. In
-    // theory each entry also needs a name, but with power-of-two rounding,
-    // this is negligible
+    // theory each entry also needs a did+name, but with power-of-two
+    // rounding, this is negligible
     //
     // Assuming a _perfect_ compaction algorithm (requires unbounded RAM),
     // each tag also needs ~1 alt, this gives us:
     //
-    //       block_size   block_size
-    //   m = ---------- = ----------
-    //          a_inf         2t
+    //           block_size   block_size
+    //   mrids = ---------- = ----------
+    //              a_inf         2t
     //
     // Assuming t=4 bytes, the minimum tag encoding:
     //
-    //       block_size   block_size
-    //   m = ---------- = ----------
-    //           2*4           8
+    //           block_size   block_size
+    //   mrids = ---------- = ----------
+    //               2*4           8
     //
     // Note we can't assume ~1/2 block utilization here, as an mdir may
     // temporarily fill with more mids before compaction occurs.
+    //
+    // Rounding up to the nearest power of two:
+    //
+    //                (block_size)
+    //   mbits = nlog2(----------) = nlog2(block_size) - 3
+    //                (     8    )
+    //
+    // Note if you divide before the nlog2, make sure to use ceiling
+    // division for compatibility if block_size is not aligned to 8 bytes.
     //
     // Note note our actual compaction algorithm is not perfect, and
     // requires 3t+4 bytes per tag, or with t=4 bytes => ~block_size/12
     // metadata entries per block. But we intentionally don't leverage this
     // to maintain compatibility with a theoretical perfect implementation.
     //
-    lfs->mdir_bits = lfs_nlog2(lfs->cfg->block_size/8);
+    lfs->mdir_bits = lfs_nlog2(lfs->cfg->block_size) - 3;
 
     // zero linked-list of opened mdirs
     lfs->omdirs = NULL;

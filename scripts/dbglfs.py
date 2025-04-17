@@ -1590,7 +1590,7 @@ class Mtree:
     def mbits_(block_size):
         if isinstance(block_size, Bd):
             block_size = block_size.block_size
-        return mt.ceil(mt.log2(block_size // 8))
+        return mt.ceil(mt.log2(block_size)) - 3
 
     # convenience function for creating mbits-dependent mids
     def mid(self, mbid, mrid=None):
