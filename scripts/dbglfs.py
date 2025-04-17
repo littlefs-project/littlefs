@@ -1734,11 +1734,10 @@ class Mtree:
                 else:
                     return None
 
-            mdir = Mdir(0, self.mroot)
             if path:
-                return mdir, path_
+                return self.mroot, path_
             else:
-                return mdir
+                return self.mroot
 
         # mtree? lookup in mtree
         else:
@@ -2108,11 +2107,10 @@ class Mtree:
 
         # no mtree? must be inlined in mroot
         if self.mtree is None:
-            mdir = Mdir(0, self.mroot)
             if path:
-                return mdir, path_
+                return self.mroot, path_
             else:
-                return mdir
+                return self.mroot
 
         # mtree? find name in mtree
         else:

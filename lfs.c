@@ -6689,6 +6689,19 @@ static inline lfsr_srid_t lfsr_mrid(const lfs_t *lfs, lfsr_smid_t mid) {
             | (mid & ((1 << lfs->mbits) - 1));
 }
 
+// these should only be used for logging
+static inline lfsr_sbid_t lfsr_dbgmbid(const lfs_t *lfs, lfsr_smid_t mid) {
+    if (lfs->mtree.weight == 0) {
+        return -1;
+    } else {
+        return mid >> lfs->mbits;
+    }
+}
+
+static inline lfsr_srid_t lfsr_dbgmrid(const lfs_t *lfs, lfsr_smid_t mid) {
+    return lfsr_mrid(lfs, mid);
+}
+
 
 /// metadata-pointer things ///
 
@@ -7296,7 +7309,7 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
             LFS_DEBUG("Fetched mdir %"PRId32" "
                         "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32", "
                         "cksum %"PRIx32,
-                    mdir->mid >> lfs->mbits,
+                    lfsr_dbgmbid(lfs, mdir->mid),
                     mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
                     lfsr_rbyd_trunk(&mdir->rbyd),
                     mdir->rbyd.weight,
@@ -8124,7 +8137,7 @@ relocate:;
     // without relocating
     if (err == LFS_ERR_NOSPC) {
         LFS_WARN("Overcompacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid >> lfs->mbits,
+                lfsr_dbgmbid(lfs, mdir->mid),
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
         overcompacted = true;
 
@@ -8145,7 +8158,7 @@ compact:;
     #ifdef LFS_DEBUGMDIRCOMMITS
     LFS_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                 "-> 0x{%"PRIx32",%"PRIx32"}",
-            mdir->mid >> lfs->mbits,
+            lfsr_dbgmbid(lfs, mdir->mid),
             mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
             mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
     #endif
@@ -8398,7 +8411,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
         LFS_INFO("Splitting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "-> 0x{%"PRIx32",%"PRIx32"}, 0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid >> lfs->mbits,
+                lfsr_dbgmbid(lfs, mdir->mid),
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
                 mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1],
                 mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
@@ -8409,17 +8422,17 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // both siblings reduced to zero
         if (mdir_[0].rbyd.weight == 0 && mdir_[1].rbyd.weight == 0) {
             LFS_INFO("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                    mdir_[0].mid >> lfs->mbits,
+                    lfsr_dbgmbid(lfs, mdir_[0].mid),
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
             LFS_INFO("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                    mdir_[1].mid >> lfs->mbits,
+                    lfsr_dbgmbid(lfs, mdir_[1].mid),
                     mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
             goto dropped;
 
         // one sibling reduced to zero
         } else if (mdir_[0].rbyd.weight == 0) {
             LFS_INFO("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                    mdir_[0].mid >> lfs->mbits,
+                    lfsr_dbgmbid(lfs, mdir_[0].mid),
                     mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
             lfsr_mdir_sync(&mdir_[0], &mdir_[1]);
             goto relocated;
@@ -8427,7 +8440,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // other sibling reduced to zero
         } else if (mdir_[1].rbyd.weight == 0) {
             LFS_INFO("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                    mdir_[1].mid >> lfs->mbits,
+                    lfsr_dbgmbid(lfs, mdir_[1].mid),
                     mdir_[1].rbyd.blocks[0], mdir_[1].rbyd.blocks[1]);
             goto relocated;
         }
@@ -8490,7 +8503,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // need to drop?
     } else if (err == LFS_ERR_NOENT) {
         LFS_INFO("Dropping mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid >> lfs->mbits,
+                lfsr_dbgmbid(lfs, mdir->mid),
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
         // set weight to zero
         mdir_[0].rbyd.weight = 0;
@@ -8524,7 +8537,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             && lfsr_mdir_cmp(mdir, &lfs->mroot) != 0) {
         LFS_INFO("Relocating mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "-> 0x{%"PRIx32",%"PRIx32"}",
-                mdir->mid >> lfs->mbits,
+                lfsr_dbgmbid(lfs, mdir->mid),
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
                 mdir_[0].rbyd.blocks[0], mdir_[0].rbyd.blocks[1]);
 
@@ -8827,7 +8840,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     LFS_DEBUG("Committed mdir %"PRId32" "
                 "0x{%"PRIx32",%"PRIx32"}.%"PRIx32" w%"PRId32", "
                 "cksum %"PRIx32,
-            mdir->mid >> lfs->mbits,
+            lfsr_dbgmbid(lfs, mdir->mid),
             mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
             lfsr_rbyd_trunk(&mdir->rbyd),
             mdir->rbyd.weight,
@@ -9506,7 +9519,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
                 LFS_ERROR("Found mdir cksum mismatch %"PRId32" "
                             "0x{%"PRIx32",%"PRIx32"}, "
                             "cksum %08"PRIx32" (!= %08"PRIx32")",
-                        mdir->mid >> lfs->mbits,
+                        lfsr_dbgmbid(lfs, mdir->mid),
                         mdir->rbyd.blocks[0],
                         mdir->rbyd.blocks[1],
                         mdir->rbyd.cksum,
@@ -9649,7 +9662,7 @@ dropped:;
         lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
         LFS_INFO("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "(%"PRId32" > %"PRId32")",
-                mdir->mid >> lfs->mbits,
+                lfsr_dbgmbid(lfs, mdir->mid),
                 mdir->rbyd.blocks[0],
                 mdir->rbyd.blocks[1],
                 lfsr_rbyd_eoff(&mdir->rbyd),
@@ -13733,14 +13746,14 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // found pending grms? this should only happen if we lost power
     if (lfsr_grm_count(lfs) == 2) {
         LFS_INFO("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                lfsr_mbid(lfs, lfs->grm.mids[0]) >> lfs->mbits,
-                lfsr_mrid(lfs, lfs->grm.mids[0]),
-                lfsr_mbid(lfs, lfs->grm.mids[1]) >> lfs->mbits,
-                lfsr_mrid(lfs, lfs->grm.mids[1]));
+                lfsr_dbgmbid(lfs, lfs->grm.mids[0]),
+                lfsr_dbgmrid(lfs, lfs->grm.mids[0]),
+                lfsr_dbgmbid(lfs, lfs->grm.mids[1]),
+                lfsr_dbgmrid(lfs, lfs->grm.mids[1]));
     } else if (lfsr_grm_count(lfs) == 1) {
         LFS_INFO("Found pending grm %"PRId32".%"PRId32,
-                lfsr_mbid(lfs, lfs->grm.mids[0]) >> lfs->mbits,
-                lfsr_mrid(lfs, lfs->grm.mids[0]));
+                lfsr_dbgmbid(lfs, lfs->grm.mids[0]),
+                lfsr_dbgmrid(lfs, lfs->grm.mids[0]));
     }
 
     return 0;
@@ -14074,14 +14087,14 @@ lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
     if (lfsr_grm_count(lfs) == 2) {
         LFS_INFO("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                lfsr_mbid(lfs, lfs->grm.mids[0]) >> lfs->mbits,
-                lfsr_mrid(lfs, lfs->grm.mids[0]),
-                lfsr_mbid(lfs, lfs->grm.mids[1]) >> lfs->mbits,
-                lfsr_mrid(lfs, lfs->grm.mids[1]));
+                lfsr_dbgmbid(lfs, lfs->grm.mids[0]),
+                lfsr_dbgmrid(lfs, lfs->grm.mids[0]),
+                lfsr_dbgmbid(lfs, lfs->grm.mids[1]),
+                lfsr_dbgmrid(lfs, lfs->grm.mids[1]));
     } else if (lfsr_grm_count(lfs) == 1) {
         LFS_INFO("Fixing grm %"PRId32".%"PRId32,
-                lfsr_mbid(lfs, lfs->grm.mids[0]) >> lfs->mbits,
-                lfsr_mrid(lfs, lfs->grm.mids[0]));
+                lfsr_dbgmbid(lfs, lfs->grm.mids[0]),
+                lfsr_dbgmrid(lfs, lfs->grm.mids[0]));
     }
 
     while (lfsr_grm_count(lfs) > 0) {
@@ -14145,8 +14158,8 @@ static int lfsr_mdir_mkconsistent(lfs_t *lfs, lfsr_mdir_t *mdir) {
 
         // we found an orphaned stickynote, remove
         LFS_INFO("Fixing orphaned stickynote %"PRId32".%"PRId32,
-                lfsr_mbid(lfs, mdir->mid) >> lfs->mbits,
-                lfsr_mrid(lfs, mdir->mid));
+                lfsr_dbgmbid(lfs, mdir->mid),
+                lfsr_dbgmrid(lfs, mdir->mid));
 
         lfs_alloc_ckpoint(lfs);
         err = lfsr_mdir_commit(lfs, mdir, LFSR_RATTRS(
