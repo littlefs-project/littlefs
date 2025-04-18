@@ -11559,7 +11559,7 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
 
     // try to merge commits where possible
     lfsr_bid_t bid = file->b.shrub.weight;
-    lfsr_rattr_t rattrs[5];
+    lfsr_rattr_t rattrs[3];
     lfs_size_t rattr_count = 0;
     lfsr_bptr_t l;
     lfsr_bptr_t r;
