@@ -979,7 +979,7 @@ code = '''
     // delete any bshrub/btree
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATTRS(
             LFSR_RATTR(
-                LFSR_TAG_RM | LFSR_TAG_SUB | LFSR_TAG_STRUCT, 0))) => 0;
+                LFSR_TAG_RM | LFSR_TAG_MASK8 | LFSR_TAG_STRUCT, 0))) => 0;
 
     lfsr_file_close(&lfs, &file) => 0;
 
@@ -1111,7 +1111,7 @@ code = '''
                     .rattr_count=1})))) => 0;
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATTRS(
             LFSR_RATTR_SHRUB(
-                LFSR_TAG_SUB | LFSR_TAG_BSHRUB, 0,
+                LFSR_TAG_MASK8 | LFSR_TAG_BSHRUB, 0,
                 &file.b.shrub_))) => 0;
 
     lfsr_file_close(&lfs, &file) => 0;
@@ -1234,7 +1234,7 @@ code = '''
             LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATTRS(
             LFSR_RATTR_BTREE(
-                LFSR_TAG_SUB | LFSR_TAG_BTREE, 0,
+                LFSR_TAG_MASK8 | LFSR_TAG_BTREE, 0,
                 &file.b.shrub))) => 0;
 
     lfsr_file_close(&lfs, &file) => 0;

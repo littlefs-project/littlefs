@@ -1132,7 +1132,7 @@ code = '''
             &mdir, NULL, &did) => 0;
     lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_CAT(
-                LFSR_TAG_SUB | (LFSR_TAG_NAME + 0x13), 0,
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
                 lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
                 LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     lfsr_unmount(&lfs) => 0;
