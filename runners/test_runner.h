@@ -111,6 +111,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                            ) \
     TEST_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                            ) \
     TEST_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                            ) \
+    TEST_DEFINE(FRAGMENT_THRESH,    -1                                      ) \
     TEST_DEFINE(ERASE_VALUE,        0xff                                    ) \
     TEST_DEFINE(ERASE_CYCLES,       0                                       ) \
     TEST_DEFINE(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR            ) \
@@ -139,7 +140,8 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .gc_compact_thresh  = GC_COMPACT_THRESH,    \
     .inline_size        = INLINE_SIZE,          \
     .fragment_size      = FRAGMENT_SIZE,        \
-    .crystal_thresh     = CRYSTAL_THRESH
+    .crystal_thresh     = CRYSTAL_THRESH,       \
+    .fragment_thresh    = FRAGMENT_THRESH,
 
 #ifdef LFS_GC
 #define TEST_GC_CFG                             \

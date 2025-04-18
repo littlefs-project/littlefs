@@ -5,8 +5,11 @@ after = 'test_files'
 # test with different fragment sizes
 defines.FRAGMENT_SIZE = [1, 16, 64]
 
-# test with different crystal sizes
-defines.CRYSTAL_SIZE = [512]
+# test with different crystallization thresholds
+defines.CRYSTAL_THRESH = [512]
+
+# test with different fragment thresholds
+defines.FRAGMENT_THRESH = [-1]
 
 # test with different prog sizes
 defines.PROG_SIZE = [1, 16]

@@ -11614,10 +11614,12 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 -1);
 
         // left sibling needs carving but falls underneath our
-        // crystallization threshold? break into fragments
+        // fragment threshold? break into fragments
         while (lfsr_bptr_isbptr(&bptr_)
                 && lfsr_data_size(l.data) > lfs->cfg->fragment_size
-                && lfsr_data_size(l.data) < lfs->cfg->crystal_thresh) {
+                && lfsr_data_size(l.data) < lfs_min(
+                    lfs->cfg->fragment_thresh,
+                    lfs->cfg->crystal_thresh)) {
             bptr_.data = LFSR_DATA_SLICE(bptr_.data,
                     lfs->cfg->fragment_size,
                     -1);
@@ -11643,10 +11645,12 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // right sibling needs carving but falls underneath our
-        // crystallization threshold? break into fragments
+        // fragment threshold? break into fragments
         while (lfsr_bptr_isbptr(&bptr_)
                 && lfsr_data_size(r.data) > lfs->cfg->fragment_size
-                && lfsr_data_size(r.data) < lfs->cfg->crystal_thresh) {
+                && lfsr_data_size(r.data) < lfs_min(
+                    lfs->cfg->fragment_thresh,
+                    lfs->cfg->crystal_thresh)) {
             bptr_.data = LFSR_DATA_SLICE(bptr_.data,
                     -1,
                     lfsr_data_size(bptr_.data) - lfs->cfg->fragment_size);
@@ -13093,6 +13097,9 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     LFS_ASSERT(lfs->cfg->inline_size <= lfs->cfg->block_size/4);
     // fragment_size must be <= block_size/4
     LFS_ASSERT(lfs->cfg->fragment_size <= lfs->cfg->block_size/4);
+    // fragment_thresh > crystal_thresh is probably a mistake
+    LFS_ASSERT(lfs->cfg->fragment_thresh == (lfs_size_t)-1
+            || lfs->cfg->fragment_thresh <= lfs->cfg->crystal_thresh);
 
     // setup flags
     lfs->flags = flags
