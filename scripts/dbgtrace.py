@@ -49,9 +49,9 @@ WEAR_COLORS = ['1;30', '1;30', '1;30', '', '', '', '', '31', '31', '1;31']
 
 # give more interesting operations a higher priority
 #
-# note that while erase is more destructive than prog, all progs subset
-# erases, so progs are more interesting
-Z_ORDER = ['prog', 'erase', 'read', 'wear', 'noop']
+# note that while progs always subset erases, erases are much rarer,
+# which is why we give them priority
+Z_ORDER = ['erase', 'prog', 'read', 'wear', 'noop']
 
 CHARS_DOTS = " .':"
 CHARS_BRAILLE = (
