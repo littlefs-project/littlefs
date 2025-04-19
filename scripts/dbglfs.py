@@ -1752,7 +1752,7 @@ class Mtree:
 
         # no mtree? must be inlined in mroot
         if self.mtree is None:
-            if mid.mbid >= (1 << self.mbits):
+            if mid.mbid != -1:
                 if path:
                     return None, path_
                 else:
@@ -2718,7 +2718,11 @@ class Gstate:
             if count <= 2:
                 for _ in range(count):
                     mid, d_ = fromleb128(self.data, d); d += d_
-                    rms.append(mtree.mid(mid))
+                    mid = mtree.mid(mid)
+                    # map mbids -> -1 if mroot-inlined
+                    if mtree.mtree is None:
+                        mid = mtree.mid(-1, mid.mrid)
+                    rms.append(mid)
             self.count = count
             self.rms = rms
 

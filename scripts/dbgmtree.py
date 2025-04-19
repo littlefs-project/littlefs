@@ -1718,7 +1718,7 @@ class Mtree:
 
         # no mtree? must be inlined in mroot
         if self.mtree is None:
-            if mid.mbid >= (1 << self.mbits):
+            if mid.mbid != -1:
                 if path:
                     return None, path_
                 else:
