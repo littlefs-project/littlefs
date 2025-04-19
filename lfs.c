@@ -5430,39 +5430,32 @@ typedef struct lfsr_bctx {
 //
 static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bctx_t *bctx,
-        lfsr_bid_t *bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
+        lfsr_bid_t *bid,
         const lfsr_rattr_t **rattrs, lfs_size_t *rattr_count) {
     lfsr_bid_t bid_ = *bid;
     LFS_ASSERT(bid_ <= (lfsr_bid_t)btree->weight);
     const lfsr_rattr_t *rattrs_ = *rattrs;
     lfs_size_t rattr_count_ = *rattr_count;
 
-    // if rbyd is NULL, lookup which leaf our bid resides
+    // lookup which leaf our bid resides
     //
     // for lfsr_btree_commit_ operations to work out, we need to
     // limit our bid to an rid in the tree, which is what this min
     // is doing
-    lfsr_rbyd_t rbyd_;
-    lfsr_srid_t rid_;
-    if (!rbyd) {
-        rbyd_ = *btree;
-        rid_ = bid_;
-        if (btree->weight > 0) {
-            lfsr_srid_t rid__;
-            int err = lfsr_btree_lookupleaf(lfs, btree,
-                    lfs_min(bid_, btree->weight-1),
-                    &bid_, &rbyd_, &rid__, NULL, NULL, NULL);
-            if (err) {
-                LFS_ASSERT(err != LFS_ERR_NOENT);
-                return err;
-            }
-
-            // adjust rid
-            rid_ -= (bid_-rid__);
+    lfsr_rbyd_t rbyd_ = *btree;
+    lfsr_srid_t rid_ = bid_;
+    if (btree->weight > 0) {
+        lfsr_srid_t rid__;
+        int err = lfsr_btree_lookupleaf(lfs, btree,
+                lfs_min(bid_, btree->weight-1),
+                &bid_, &rbyd_, &rid__, NULL, NULL, NULL);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_NOENT);
+            return err;
         }
-    } else {
-        rbyd_ = *rbyd;
-        rid_ = rid;
+
+        // adjust rid
+        rid_ -= (bid_-rid__);
     }
 
     // tail-recursively commit to btree
@@ -5980,14 +5973,13 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
     }
 }
 
-// commit to specific leaf rbyd in a btree
-static int lfsr_btree_commitleaf(lfs_t *lfs, lfsr_btree_t *btree,
-        lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
-        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
+// commit to a btree, this is atomic
+static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
+        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // try to commit to the btree
     lfsr_bctx_t bctx;
     int err = lfsr_btree_commit_(lfs, btree, &bctx,
-            &bid, rbyd, rid, &rattrs, &rattr_count);
+            &bid, &rattrs, &rattr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -6025,13 +6017,6 @@ static int lfsr_btree_commitleaf(lfs_t *lfs, lfsr_btree_t *btree,
             btree->cksum);
     #endif
     return 0;
-}
-
-// commit to a btree, this is atomic
-static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
-        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
-    return lfsr_btree_commitleaf(lfs, btree, bid, NULL, -1,
-            rattrs, rattr_count);
 }
 
 // lookup in a btree by name
@@ -6522,14 +6507,13 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_bshrub_t *bshrub,
             bid_, tag_, data_);
 }
 
-// needed in lfsr_bshrub_commitleaf
+// needed in lfsr_bshrub_commit
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         const lfsr_rattr_t *rattrs, lfs_size_t rattr_count);
 
-// commit to bshrub with optional rbyd
-static int lfsr_bshrub_commitleaf(lfs_t *lfs, lfsr_bshrub_t *bshrub,
-        lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
-        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
+// commit to bshrub, this is atomic
+static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_bshrub_t *bshrub,
+        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     // before we touch anything, we need to mark all other btree references
     // as unerased
     if (lfsr_bshrub_isbtree(bshrub)) {
@@ -6546,7 +6530,7 @@ static int lfsr_bshrub_commitleaf(lfs_t *lfs, lfsr_bshrub_t *bshrub,
     // try to commit to the btree
     lfsr_bctx_t bctx;
     int err = lfsr_btree_commit_(lfs, &bshrub->shrub, &bctx,
-            &bid, rbyd, rid, &rattrs, &rattr_count);
+            &bid, &rattrs, &rattr_count);
     if (err && err != LFS_ERR_RANGE) {
         return err;
     }
@@ -6684,13 +6668,6 @@ relocate:;
             bshrub->shrub.cksum);
     #endif
     return 0;
-}
-
-// commit to a bshrub, this is atomic
-static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_bshrub_t *bshrub,
-        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
-    return lfsr_bshrub_commitleaf(lfs, bshrub, bid, NULL, -1,
-            rattrs, rattr_count);
 }
 
 
@@ -11516,13 +11493,6 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 
 // low-level file writing
 
-static int lfsr_file_commitleaf(lfs_t *lfs, lfsr_file_t *file,
-        lfsr_bid_t bid, lfsr_rbyd_t *rbyd, lfsr_srid_t rid,
-        const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
-    return lfsr_bshrub_commitleaf(lfs, &file->b,
-            bid, rbyd, rid, rattrs, rattr_count);
-}
-
 static int lfsr_file_commit(lfs_t *lfs, lfsr_file_t *file,
         lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
     return lfsr_bshrub_commit(lfs, &file->b,
@@ -11531,20 +11501,8 @@ static int lfsr_file_commit(lfs_t *lfs, lfsr_file_t *file,
 
 static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfsr_rattr_t rattr) {
-    // Note! This function has some rather special constraints:
-    //
-    // 1. We must never allow our btree size to overflow, even temporarily.
-    //
-    // 2. We must not lose track of bptrs until we no longer need them, to
-    //    prevent incorrect allocation from the block allocator.
-    //
-    // 3. We should avoid copying data fragments as much as possible.
-    //
-    // These requirements end up conflicting a bit...
-    //
-    // The second requirement isn't strictly necessary if we track temporary
-    // copies during file writes, but it is nice to prove this constraint is
-    // possible in case we ever don't track temporary copies.
+    // note! we must never allow our btree size to overflow, even
+    // temporarily
 
     // can't carve more than the carve weight
     LFS_ASSERT(rattr.weight >= -(lfs_soff_t)weight);
@@ -11704,8 +11662,9 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                     LFSR_TAG_RM, -weight_);
         }
 
-        // spans more than one entry? we can't do everything in one commit,
-        // so commit what we have and move on to next entry
+        // spans more than one entry? we can't do everything in one
+        // commit because it might span more than one btree leaf, so
+        // commit what we have and move on to next entry
         if (pos+weight > bid+1) {
             LFS_ASSERT(lfsr_data_size(r.data) == 0);
             LFS_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfsr_rattr_t));
