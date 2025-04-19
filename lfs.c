@@ -11829,7 +11829,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     off = bptr.data.u.disk.off;
                     eoff = lfsr_bptr_cksize(&bptr);
                     cksum = lfsr_bptr_cksum(&bptr);
-                    goto compact;
+                    goto crystallize;
                 }
             }
         }
@@ -11873,11 +11873,12 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             goto fragment;
         }
 
-        // exceeded our crystallization threshold? compact into a new block
+        // exceeded our crystallization threshold? crystallize into a
+        // new block
 
-        // before we can compact we need to figure out the best block
-        // alignment, we use the entry immediately to the left of our
-        // crystal for this
+        // before we can crystallize we need to figure out the best
+        // block alignment, we use the entry immediately to the left of
+        // our crystal for this
         block_start = crystal_start;
         if (crystal_start > 0
                 && file->b.shrub.weight > 0
@@ -11920,7 +11921,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     off = bptr.data.u.disk.off;
                     eoff = lfsr_bptr_cksize(&bptr);
                     cksum = lfsr_bptr_cksum(&bptr);
-                    goto compact;
+                    goto crystallize;
                 }
 
             // no? is our left neighbor at least our left block neighbor?
@@ -11947,8 +11948,8 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         eoff = 0;
         cksum = 0;
 
-    compact:;
-        // compact data into our block
+    crystallize:;
+        // crystallize data into our block
         //
         // eagerly merge any right neighbors we see unless that would
         // put us over our block size
@@ -12083,10 +12084,12 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             eoff += d;
         }
 
-        // A bit of a hack here, we need to truncate our block to prog_size
-        // alignment to avoid padding issues. Doing this retroactively to
-        // the pcache greatly simplifies the above loop, though we may end
-        // up reading more than is strictly necessary.
+        // a bit of a hack here, we need to truncate our block to
+        // prog_size alignment to avoid padding issues
+        //
+        // doing this retroactively to the pcache greatly simplifies the
+        // above loop, though we may end up reading more than is
+        // strictly necessary
         lfs_ssize_t d = eoff % lfs->cfg->prog_size;
         lfs->pcache.size -= d;
         block_end -= d;
@@ -12130,8 +12133,8 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             file->eoff = eoff;
         }
 
-        // note compacting fragments -> blocks may not actually make any
-        // progress on flushing the buffer on the first pass
+        // note crystallizing fragments -> blocks may not actually make
+        // any progress on flushing the buffer on the first pass
         d = lfs_max(pos, block_end) - pos;
         pos += d;
         buffer += lfs_min(d, size);

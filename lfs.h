@@ -446,16 +446,16 @@ struct lfs_config {
     lfs_size_t fragment_size;
 
     // Threshold for compacting multiple fragments into a block. Smaller
-    // values will compact more eagerly, reducing disk usage, but increasing
-    // the cost of random-writes.
+    // values will crystallize more eagerly, reducing disk usage, but
+    // increasing the cost of random-writes.
     //
-    // 0 only writes blocks, minimizing disk usage, while -1 or any value >=
+    // 0 only writes blocks, minimizing disk usage, while -1 or any value >
     // block_size only writes fragments, minimizing random-write cost.
     lfs_size_t crystal_thresh;
 
     // Threshold for breaking a block into fragments. Smaller values will
-    // break more lazily, reducing random-write cost, but risk leaving blocks
-    // around with wasted storage.
+    // fragment more lazily, reducing random-write cost, but risk higher
+    // disk usage.
     //
     // This can be set lower than crystal_thresh to prevent repeated
     // compact/break operations in files with heavy random writes, at a
