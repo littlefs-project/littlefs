@@ -927,7 +927,8 @@ class Rbyd:
             rid_, rattr_ = r
         if (rid_ is None
                 or rid_ != rid
-                or (rattr_.tag & ~mask) != (tag & ~mask)):
+                or (rattr_.tag & ~mask & 0xfff)
+                    != (tag & ~mask & 0xfff)):
             if path:
                 return None, path_
             else:
@@ -995,7 +996,8 @@ class Rbyd:
                 # found end of tree?
                 if (rid_ is None
                         or rid_ != rid
-                        or (rattr_.tag & ~mask) != (tag & ~mask)):
+                        or (rattr_.tag & ~mask & 0xfff)
+                            != (tag & ~mask & 0xfff)):
                     break
 
                 if path:
