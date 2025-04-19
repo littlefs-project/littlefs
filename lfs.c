@@ -11642,7 +11642,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                         LFSR_TAG_GROW, -(bid+1 - pos));
 
             // carve fragment?
-            } else if (!lfsr_bptr_isbptr(&bptr_)) {
+            } else if (!lfsr_bptr_isbptr(&bptr_)
+                    || lfsr_data_size(l.data) <= lfs->cfg->fragment_size) {
                 rattrs[rattr_count++] = LFSR_RATTR_DATA(
                         LFSR_TAG_GROW | LFSR_TAG_MASK8 | LFSR_TAG_DATA,
                             -(bid+1 - pos),
@@ -11688,7 +11689,8 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                 rattr.weight += bid+1 - (pos+weight);
 
             // carve fragment?
-            } else if (!lfsr_bptr_isbptr(&bptr_)) {
+            } else if (!lfsr_bptr_isbptr(&bptr_)
+                    || lfsr_data_size(r.data) <= lfs->cfg->fragment_size) {
                 r_rattr_ = LFSR_RATTR_DATA(
                         LFSR_TAG_DATA, bid+1 - (pos+weight),
                         &r.data);

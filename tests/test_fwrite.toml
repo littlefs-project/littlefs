@@ -1690,6 +1690,295 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# test that carving below fragment_thresh breaks blocks into fragments
+[cases.test_fwrite_truncate_litmus_fragment]
+defines.N = [1, 2, 8]
+defines.SIZE = 'N*BLOCK_SIZE'
+# 1 vs multiple fragments are implemented slightly differently
+defines.FRAGMENTS = [1, 2, 3]
+defines.TSIZE = 'FRAGMENTS*FRAGMENT_SIZE'
+defines.SYNC = [false, true]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // truncate down to truncate size, this should fragment our blocks
+    lfsr_file_truncate(&lfs, &file, TSIZE) => 0;
+
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TSIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TSIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => TSIZE;
+        // try reading
+        uint8_t rbuf[2*TSIZE];
+        memset(rbuf, 0xaa, 2*TSIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*TSIZE) => TSIZE;
+        assert(memcmp(rbuf, wbuf, TSIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of fragments? we need our internal btree traversal
+        // API to check this
+        //
+        lfs_size_t fragments = 0;
+
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfsr_bid_t bid;
+            lfsr_tag_t tag;
+            lfsr_bptr_t bptr;
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
+                    &bid, &tag, &bptr);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFSR_TAG_BRANCH) {
+                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
+                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFSR_TAG_DATA) {
+                printf("traversal: %d 0x%x data %d\n",
+                        bid,
+                        tag,
+                        lfsr_data_size(bptr.data));
+
+                // keep track of how many fragments we've seen
+                fragments += 1;
+
+            } else if (tag == LFSR_TAG_BLOCK) {
+                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        bptr.data.u.disk.block,
+                        bptr.data.u.disk.off,
+                        lfsr_data_size(bptr.data));
+
+                // all blocks should have been fragmented
+                assert(false);
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x\n",
+                        bid,
+                        tag);
+                assert(false);
+            }
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // correct number of fragments?
+        assert(fragments == FRAGMENTS);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_fwrite_fruncate_litmus_fragment]
+defines.N = [1, 2, 8]
+defines.SIZE = 'N*BLOCK_SIZE'
+# 1 vs multiple fragments are implemented slightly differently
+defines.FRAGMENTS = [1, 2, 3]
+defines.TSIZE = 'FRAGMENTS*FRAGMENT_SIZE'
+defines.SYNC = [false, true]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // fruncate down to fruncate size, this should fragment our blocks
+    lfsr_file_fruncate(&lfs, &file, TSIZE) => 0;
+
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TSIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == TSIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => TSIZE;
+        // try reading
+        uint8_t rbuf[2*TSIZE];
+        memset(rbuf, 0xaa, 2*TSIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*TSIZE) => TSIZE;
+        assert(memcmp(rbuf, wbuf+(SIZE-TSIZE), TSIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of fragments? we need our internal btree traversal
+        // API to check this
+        //
+        lfs_size_t fragments = 0;
+
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfsr_bid_t bid;
+            lfsr_tag_t tag;
+            lfsr_bptr_t bptr;
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
+                    &bid, &tag, &bptr);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFSR_TAG_BRANCH) {
+                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
+                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFSR_TAG_DATA) {
+                printf("traversal: %d 0x%x data %d\n",
+                        bid,
+                        tag,
+                        lfsr_data_size(bptr.data));
+
+                // keep track of how many fragments we've seen
+                fragments += 1;
+
+            } else if (tag == LFSR_TAG_BLOCK) {
+                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        bptr.data.u.disk.block,
+                        bptr.data.u.disk.off,
+                        lfsr_data_size(bptr.data));
+
+                // all blocks should have been fragmented
+                assert(false);
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x\n",
+                        bid,
+                        tag);
+                assert(false);
+            }
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // correct number of fragments?
+        assert(fragments == FRAGMENTS);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
 # writing any data structure backwards always reveals issues
 [cases.test_fwrite_reversed]
 defines.SIZE = [
