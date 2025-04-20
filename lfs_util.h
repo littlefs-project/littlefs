@@ -242,6 +242,11 @@ extern "C"
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_BUILTINS falls back to a more
 // expensive basic C implementation for debugging purposes
+//
+// Most of the backup implementations are based on the infamous Bit
+// Twiddling Hacks compiled by Sean Eron Anderson:
+// https://graphics.stanford.edu/~seander/bithacks.html
+//
 
 // Compile time min/max
 #define LFS_MIN(a, b) ((a < b) ? a : b)
@@ -332,7 +337,8 @@ static inline uint32_t lfs_popc(uint32_t a) {
 #else
     a = a - ((a >> 1) & 0x55555555);
     a = (a & 0x33333333) + ((a >> 2) & 0x33333333);
-    return (((a + (a >> 4)) & 0xf0f0f0f) * 0x1010101) >> 24;
+    a = (a + (a >> 4)) & 0x0f0f0f0f;
+    return (a * 0x1010101) >> 24;
 #endif
 }
 
@@ -341,7 +347,10 @@ static inline bool lfs_parity(uint32_t a) {
 #if !defined(LFS_NO_BUILTINS) && (defined(__GNUC__) || defined(__CC_ARM))
     return __builtin_parity(a);
 #else
-    return lfs_popc(a) & 1;
+    a ^= a >> 16;
+    a ^= a >> 8;
+    a ^= a >> 4;
+    return (0x6996 >> (a & 0xf)) & 1;
 #endif
 }
 
