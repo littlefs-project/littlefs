@@ -442,33 +442,15 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 		-bbuild -cBEFORE -Q $(SUMMARYFLAGS))
 
 
-## Generate codemap ascii art
-.PHONY: codemap
-codemap: CODEMAPFLAGS+=-H6
-codemap: $(OBJ) $(CI)
-	./scripts/codemap.py $^ $(CODEMAPFLAGS)
-
-## Generate stackmap ascii art
-.PHONY: stackmap
-stackmap: CODEMAPFLAGS+=-H6
-stackmap: $(OBJ) $(CI)
-	./scripts/codemap.py $^ $(CODEMAPFLAGS) --tile-frames
-
-## Generate ctxmap ascii art
-.PHONY: ctxmap
-ctxmap: CODEMAPFLAGS+=-H6
-ctxmap: $(OBJ) $(CI)
-	./scripts/codemap.py $^ $(CODEMAPFLAGS) --tile-ctx
-
 ## Generate a codemap svg
-.PHONY: codemap-svg
-codemap-svg: CODEMAPFLAGS+=-W1400 -H750 --dark
-codemap-svg: $(BUILDDIR)/lfs.codemap.svg
+.PHONY: codemap
+codemap: CODEMAPFLAGS+=-W1400 -H750 --dark
+codemap: $(BUILDDIR)/lfs.codemap.svg
 
-## Generate a tiny codemap svg, where 1 pixel ~= 1 byte
-.PHONY: codemap-tiny-svg
-codemap-tiny-svg: CODEMAPFLAGS+=--dark
-codemap-tiny-svg: $(BUILDDIR)/lfs.codemap-tiny.svg
+## Generate a tiny codemap, where 1 pixel ~= 1 byte
+.PHONY: codemap-tiny
+codemap-tiny: CODEMAPFLAGS+=--dark
+codemap-tiny: $(BUILDDIR)/lfs.codemap-tiny.svg
 
 
 ## Build the test-runner
@@ -616,10 +598,12 @@ $(BUILDDIR)/lfs.perfbd.csv: $(BENCH_TRACE)
 		$(PERFBDFLAGS) -o$@)
 
 $(BUILDDIR)/lfs.codemap.svg: $(OBJ) $(CI)
-	./scripts/codemapd3.py $^ $(CODEMAPFLAGS) -o$@
+	$(strip ./scripts/codemapd3.py $^ $(CODEMAPFLAGS) -o$@ \
+		&& ./scripts/codemap.py $^ --no-header)
 
 $(BUILDDIR)/lfs.codemap-tiny.svg: $(OBJ) $(CI)
-	./scripts/codemapd3.py $^ --tiny $(CODEMAPFLAGS) -o$@
+	$(strip ./scripts/codemapd3.py $^ --tiny $(CODEMAPFLAGS) -o$@ \
+		&& ./scripts/codemap.py $^ --no-header)
 
 $(BUILDDIR)/lfs.test.csv: $(TEST_CSV)
 	cp $^ $@
