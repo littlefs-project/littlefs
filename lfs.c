@@ -1255,12 +1255,8 @@ static inline bool lfsr_tag_ismask12(lfsr_tag_t tag) {
     return ((tag >> 12) & 0x3) == 3;
 }
 
-static const uint16_t lfsr_tag_masktable[4] = {
-    0x0fff, 0x0ffc, 0x0f00, 0x0000
-};
-
 static inline lfsr_tag_t lfsr_tag_mask(lfsr_tag_t tag) {
-    return lfsr_tag_masktable[(tag >> 12) & 0x3];
+    return 0x0fff & (-1U << ((0xc820 >> (4*((tag >> 12) & 0x3))) & 0xf));
 }
 
 // alt operations
