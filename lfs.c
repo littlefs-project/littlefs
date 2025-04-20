@@ -11650,11 +11650,27 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                         &l.data);
 
             // carve bptr?
-            } else {
+            //
+            // make sure we're not creating a dag! we can't allow this
+            // to happen or it would break our littlefs-is-a-tree
+            // invariant
+            } else if (!(pos+weight < bid+1
+                    && lfsr_data_size(r.data) > lfs->cfg->fragment_size)) {
                 rattrs[rattr_count++] = LFSR_RATTR_BPTR(
                         LFSR_TAG_GROW | LFSR_TAG_MASK8 | LFSR_TAG_BLOCK,
                             -(bid+1 - pos),
                         &l);
+
+            // uh oh, keeping both siblings would create a dag? we have
+            // no choice but to rewrite one into a new block
+            //
+            // our crystallization algorithm currently prevents this from
+            // happening, but it may be a problem in the future (more
+            // advanced hole APIs, alternative write strategies, etc)
+            } else {
+                // this is where we would split dags if an algorithm
+                // needed it
+                LFS_UNREACHABLE();
             }
 
         // completely overwriting this entry?
@@ -11757,6 +11773,8 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
     bool aligned = false;
 
     // iteratively write blocks
+    lfs_off_t crystal_start;
+    lfs_off_t crystal_end;
     while (size > 0) {
         // first we need to figure out our current crystal, we do this
         // heuristically.
@@ -11765,8 +11783,8 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         // is fine. we don't want small holes breaking up blocks anyways
 
         // default to arbitrary alignment
-        lfs_off_t crystal_start = pos;
-        lfs_off_t crystal_end = pos + size;
+        crystal_start = pos;
+        crystal_end = pos + size;
         lfs_off_t block_start;
         lfs_off_t block_end;
         lfs_sblock_t block;
@@ -11813,7 +11831,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                         && bptr.data.u.disk.off + lfsr_data_size(bptr.data)
                             == file->eoff
                         // not clobbering data?
-                        && crystal_start - (bid-(weight-1))
+                        && pos - (bid-(weight-1))
                             >= lfsr_data_size(bptr.data)
                         // enough for prog alignment?
                         && crystal_end - crystal_start
@@ -11829,7 +11847,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                     off = bptr.data.u.disk.off;
                     eoff = lfsr_bptr_cksize(&bptr);
                     cksum = lfsr_bptr_cksum(&bptr);
-                    goto crystallize;
+                    goto compact;
                 }
             }
         }
@@ -11856,13 +11874,13 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             if (!lfsr_bptr_isbptr(&bptr)) {
                 crystal_end = lfs_max(
                         bid-(weight-1)+lfsr_data_size(bptr.data),
-                        pos + size);
+                        crystal_end);
 
             // otherwise treat as crystal boundary
             } else {
                 crystal_end = lfs_max(
                         bid-(weight-1),
-                        pos + size);
+                        crystal_end);
             }
         }
 
@@ -11879,7 +11897,6 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         // before we can crystallize we need to figure out the best
         // block alignment, we use the entry immediately to the left of
         // our crystal for this
-        block_start = crystal_start;
         if (crystal_start > 0
                 && file->b.shrub.weight > 0
                 // don't bother to lookup left after the first block
@@ -11901,7 +11918,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             if (crystal_start - (bid-(weight-1))
                         < lfs->cfg->block_size
                     && lfsr_data_size(bptr.data) > 0) {
-                block_start = bid-(weight-1);
+                crystal_start = bid-(weight-1);
 
                 // wait, found erased-state?
                 if (lfsr_bptr_isbptr(&bptr)
@@ -11909,19 +11926,20 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                         && bptr.data.u.disk.off + lfsr_data_size(bptr.data)
                             == file->eoff
                         // not clobbering data?
-                        && crystal_start - (bid-(weight-1))
+                        && pos - (bid-(weight-1))
                             >= lfsr_data_size(bptr.data)) {
                     // mark as unerased in case of failure
                     file->eblock = 0;
                     file->eoff = -1;
 
                     // try to use erased-state
+                    block_start = bid-(weight-1);
                     block_end = block_start + lfsr_data_size(bptr.data);
                     block = bptr.data.u.disk.block;
                     off = bptr.data.u.disk.off;
                     eoff = lfsr_bptr_cksize(&bptr);
                     cksum = lfsr_bptr_cksum(&bptr);
-                    goto crystallize;
+                    goto compact;
                 }
 
             // no? is our left neighbor at least our left block neighbor?
@@ -11929,9 +11947,12 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             } else if (crystal_start - (bid-(weight-1))
                         < 2*lfs->cfg->block_size
                     && lfsr_data_size(bptr.data) > 0) {
-                block_start = bid-(weight-1) + lfs->cfg->block_size;
+                crystal_start = bid-(weight-1) + lfs->cfg->block_size;
             }
         }
+
+    crystallize:;
+        block_start = crystal_start;
 
     relocate:;
         // allocate a new block
@@ -11948,7 +11969,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         eoff = 0;
         cksum = 0;
 
-    crystallize:;
+    compact:;
         // crystallize data into our block
         //
         // eagerly merge any right neighbors we see unless that would
@@ -12192,6 +12213,18 @@ fragment:;
                 fragment_end = fragment_start + lfs_min(
                         fragment_end - (bid-(weight-1)),
                         lfs->cfg->fragment_size);
+
+            // uh oh, would we end up creating a dag?
+            //
+            // we would be forced to split the dag in lfsr_file_carve in
+            // order to keep the littlefs-is-a-tree invariant, so we might
+            // as well try to recrystallize the left sibling
+            } else if (lfsr_bptr_isbptr(&bptr)
+                        && fragment_end
+                            < bid-(weight-1) + lfsr_data_size(bptr.data)) {
+                crystal_start = bid-(weight-1);
+                crystal_end = fragment_end;
+                goto crystallize;
             }
         }
 
