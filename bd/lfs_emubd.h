@@ -14,11 +14,6 @@
 #include "bd/lfs_rambd.h"
 #include "bd/lfs_filebd.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 
 // Block device specific tracing
 #ifndef LFS_EMUBD_TRACE
@@ -263,9 +258,5 @@ int lfs_emubd_setpowercycles(const struct lfs_config *cfg,
 // Create a copy-on-write copy of the state of this block device
 int lfs_emubd_cpy(const struct lfs_config *cfg, lfs_emubd_t *copy);
 
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif

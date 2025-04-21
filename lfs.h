@@ -10,11 +10,6 @@
 
 #include "lfs_util.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 
 /// Version info ///
 
@@ -1377,9 +1372,5 @@ int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count);
 #endif
 #endif
 
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif

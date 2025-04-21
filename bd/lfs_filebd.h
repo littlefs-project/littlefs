@@ -11,11 +11,6 @@
 #include "lfs.h"
 #include "lfs_util.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 
 // Block device specific tracing
 #ifndef LFS_FILEBD_TRACE
@@ -57,9 +52,5 @@ int lfs_filebd_erase(const struct lfs_config *cfg, lfs_block_t block);
 // Sync the block device
 int lfs_filebd_sync(const struct lfs_config *cfg);
 
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif

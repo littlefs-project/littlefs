@@ -11,11 +11,6 @@
 #include "lfs.h"
 #include "lfs_util.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 
 // Block device specific tracing
 #ifndef LFS_RAMBD_TRACE
@@ -66,9 +61,5 @@ int lfs_rambd_erase(const struct lfs_config *cfg, lfs_block_t block);
 // Sync the block device
 int lfs_rambd_sync(const struct lfs_config *cfg);
 
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif

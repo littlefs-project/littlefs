@@ -114,11 +114,6 @@
 #include <stdio.h>
 #endif
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 
 // Macros, may be replaced by system specific wrappers. Arguments to these
 // macros must not have side-effects as the macros can be removed for a smaller
@@ -775,10 +770,6 @@ static inline void lfs_free(void *p) {
 }
 #endif
 
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif
 #endif
