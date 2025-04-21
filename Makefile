@@ -95,6 +95,9 @@ ifdef PERFBDGEN
 CFLAGS += -fno-omit-frame-pointer
 endif
 
+# also forward all LFS_* environment variables
+CFLAGS += $(foreach D,$(filter LFS_%,$(.VARIABLES)),-D$D=$($D))
+
 TEST_CFLAGS += -Wno-unused-function
 TEST_CFLAGS += -Wno-format-overflow
 
