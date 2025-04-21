@@ -6856,11 +6856,21 @@ static inline bool lfsr_o_isappend(uint32_t flags) {
 }
 
 static inline bool lfsr_o_isflush(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS_YES_FLUSH
+    return true;
+    #else
     return flags & LFS_O_FLUSH;
+    #endif
 }
 
 static inline bool lfsr_o_issync(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS_YES_SYNC
+    return true;
+    #else
     return flags & LFS_O_SYNC;
+    #endif
 }
 
 static inline bool lfsr_o_isdesync(uint32_t flags) {
@@ -6964,37 +6974,67 @@ static inline bool lfsr_m_isrdonly(uint32_t flags) {
 
 #ifdef LFS_REVDBG
 static inline bool lfsr_m_isrevdbg(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS_YES_REVDBG
+    return true;
+    #else
     return flags & LFS_M_REVDBG;
+    #endif
 }
 #endif
 
 #ifdef LFS_REVNOISE
 static inline bool lfsr_m_isrevnoise(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS_YES_REVNOISE
+    return true;
+    #else
     return flags & LFS_M_REVNOISE;
+    #endif
 }
 #endif
 
 #ifdef LFS_CKPROGS
 static inline bool lfsr_m_isckprogs(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS_YES_CKPROGS
+    return true;
+    #else
     return flags & LFS_M_CKPROGS;
+    #endif
 }
 #endif
 
 #ifdef LFS_CKFETCHES
 static inline bool lfsr_m_isckfetches(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS_YES_CKFETCHES
+    return true;
+    #else
     return flags & LFS_M_CKFETCHES;
+    #endif
 }
 #endif
 
 #ifdef LFS_CKPARITY
 static inline bool lfsr_m_isckparity(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS_YES_CKPARITY
+    return true;
+    #else
     return flags & LFS_M_CKPARITY;
+    #endif
 }
 #endif
 
 #ifdef LFS_CKDATACKSUMS
 static inline bool lfsr_m_isckdatacksums(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS_YES_CKDATACKSUMS
+    return true;
+    #else
     return flags & LFS_M_CKDATACKSUMS;
+    #endif
 }
 #endif
 
@@ -14003,6 +14043,49 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
 
 int lfsr_mount(lfs_t *lfs, uint32_t flags,
         const struct lfs_config *cfg) {
+    #ifdef LFS_YES_RDONLY
+    flags |= LFS_M_RDONLY;
+    #endif
+    #ifdef LFS_YES_FLUSH
+    flags |= LFS_M_FLUSH;
+    #endif
+    #ifdef LFS_YES_SYNC
+    flags |= LFS_M_SYNC;
+    #endif
+    #ifdef LFS_YES_REVDBG
+    flags |= LFS_M_REVDBG;
+    #endif
+    #ifdef LFS_YES_REVNOISE
+    flags |= LFS_M_REVNOISE;
+    #endif
+    #ifdef LFS_YES_CKPROGS
+    flags |= LFS_M_CKPROGS;
+    #endif
+    #ifdef LFS_YES_CKFETCHES
+    flags |= LFS_M_CKFETCHES;
+    #endif
+    #ifdef LFS_YES_CKPARITY
+    flags |= LFS_M_CKPARITY;
+    #endif
+    #ifdef LFS_YES_CKDATACKSUMS
+    flags |= LFS_M_CKDATACKSUMS;
+    #endif
+    #ifdef LFS_YES_MKCONSISTENT
+    flags |= LFS_M_MKCONSISTENT;
+    #endif
+    #ifdef LFS_YES_LOOKAHEAD
+    flags |= LFS_M_LOOKAHEAD;
+    #endif
+    #ifdef LFS_YES_COMPACT
+    flags |= LFS_M_COMPACT;
+    #endif
+    #ifdef LFS_YES_CKMETA
+    flags |= LFS_M_CKMETA;
+    #endif
+    #ifdef LFS_YES_CKDATA
+    flags |= LFS_M_CKDATA
+    #endif
+
     // unknown flags?
     LFS_ASSERT((flags & ~(
             LFS_M_RDWR
@@ -14192,6 +14275,31 @@ static int lfsr_formatinited(lfs_t *lfs) {
 
 int lfsr_format(lfs_t *lfs, uint32_t flags,
         const struct lfs_config *cfg) {
+    #ifdef LFS_YES_REVDBG
+    flags |= LFS_F_REVDBG;
+    #endif
+    #ifdef LFS_YES_REVNOISE
+    flags |= LFS_F_REVNOISE;
+    #endif
+    #ifdef LFS_YES_CKPROGS
+    flags |= LFS_F_CKPROGS;
+    #endif
+    #ifdef LFS_YES_CKFETCHES
+    flags |= LFS_F_CKFETCHES;
+    #endif
+    #ifdef LFS_YES_CKPARITY
+    flags |= LFS_F_CKPARITY;
+    #endif
+    #ifdef LFS_YES_CKDATACKSUMS
+    flags |= LFS_F_CKDATACKSUMS;
+    #endif
+    #ifdef LFS_YES_CKMETA
+    flags |= LFS_F_CKMETA;
+    #endif
+    #ifdef LFS_YES_CKDATA
+    flags |= LFS_F_CKDATA
+    #endif
+
     // unknown flags?
     LFS_ASSERT((flags & ~(
             LFS_F_RDWR

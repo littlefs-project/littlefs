@@ -49,6 +49,32 @@
 #endif
 #endif
 
+// LFS_YES_* variants imply the relevant LFS_* macro
+#ifdef LFS_YES_RDONLY
+#define LFS_RDONLY
+#endif
+#ifdef LFS_YES_REVDBG
+#define LFS_REVDBG
+#endif
+#ifdef LFS_YES_REVNOISE
+#define LFS_REVNOISE
+#endif
+#ifdef LFS_YES_CKPROGS
+#define LFS_CKPROGS
+#endif
+#ifdef LFS_YES_CKFETCHES
+#define LFS_CKFETCHES
+#endif
+#ifdef LFS_YES_CKPARITY
+#define LFS_CKPARITY
+#endif
+#ifdef LFS_YES_CKDATACKSUMS
+#define LFS_CKDATACKSUMS
+#endif
+#ifdef LFS_YES_CKDATACKSUMS
+#define LFS_CKDATACKSUMS
+#endif
+
 // LFS_NO_LOG disables all logging macros
 #ifdef LFS_NO_LOG
 #ifndef LFS_NO_DEBUG
