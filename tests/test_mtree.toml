@@ -5,15 +5,24 @@ after = ['test_rbyd', 'test_btree']
 # of the disk for these tests
 defines.LOOKAHEAD_SIZE = 'BLOCK_COUNT / 8'
 
-# test with and without revision count noise
-defines.NOISY = [false, true]
+# test with normal revision counts, debug revision counts, and noisy
+# revision counts
+defines.REVDBG = [false, true]
+defines.REVNOISE = [false, true]
 defines.F_FLAGS = '''
-    ((NOISY) ? LFS_IFDEF_NOISY(LFS_F_NOISY, -1) : 0)
+    ((REVDBG) ? LFS_IFDEF_REVDBG(LFS_F_REVDBG, -1) : 0)
+        | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_F_REVNOISE, -1) : 0)
 '''
 defines.M_FLAGS = '''
-    ((NOISY) ? LFS_IFDEF_NOISY(LFS_M_NOISY, -1) : 0)
+    ((REVDBG) ? LFS_IFDEF_REVDBG(LFS_M_REVDBG, -1) : 0)
+        | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, -1) : 0)
 '''
-if = 'LFS_IFDEF_NOISY(true, !NOISY)'
+if = [
+    'LFS_IFDEF_REVDBG(true, !REVDBG)',
+    'LFS_IFDEF_REVNOISE(true, !REVNOISE)',
+    '!REVDBG || !REVNOISE',
+]
+
 
 
 # test a single mroot

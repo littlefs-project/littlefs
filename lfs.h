@@ -162,8 +162,11 @@ enum lfs_type {
 // Filesystem format flags
 #define LFS_F_MODE               1  // Format's access mode
 #define LFS_F_RDWR               0  // Format the filesystem as read and write
-#ifdef LFS_NOISY
-#define LFS_F_NOISY     0x00000010  // Add noise to revision counts
+#ifdef LFS_REVDBG
+#define LFS_F_REVDBG    0x00000010  // Add debug info to revision counts
+#endif
+#ifdef LFS_REVNOISE
+#define LFS_F_REVNOISE  0x00000020  // Add noise to revision counts
 #endif
 #ifdef LFS_CKPROGS
 #define LFS_F_CKPROGS   0x00000800  // Check progs by reading back progged data
@@ -188,8 +191,11 @@ enum lfs_type {
 #define LFS_M_RDONLY             1  // Mount the filesystem as read only
 #define LFS_M_FLUSH     0x00000040  // Open all files with LFS_O_FLUSH
 #define LFS_M_SYNC      0x00000080  // Open all files with LFS_O_SYNC
-#ifdef LFS_NOISY
-#define LFS_M_NOISY     0x00000010  // Add noise to revision counts
+#ifdef LFS_REVDBG
+#define LFS_M_REVDBG    0x00000010  // Add debug info to revision counts
+#endif
+#ifdef LFS_REVNOISE
+#define LFS_M_REVNOISE  0x00000020  // Add noise to revision counts
 #endif
 #ifdef LFS_CKPROGS
 #define LFS_M_CKPROGS   0x00000800  // Check progs by reading back progged data
@@ -216,8 +222,11 @@ enum lfs_type {
 #define LFS_I_RDONLY    0x00000001  // Mounted read only
 #define LFS_I_FLUSH     0x00000040  // Mounted with LFS_M_FLUSH
 #define LFS_I_SYNC      0x00000080  // Mounted with LFS_M_SYNC
-#ifdef LFS_NOISY
-#define LFS_I_NOISY     0x00000010  // Mounted with LFS_M_NOISY
+#ifdef LFS_REVDBG
+#define LFS_I_REVDBG    0x00000010  // Mounted with LFS_M_REVDBG
+#endif
+#ifdef LFS_REVNOISE
+#define LFS_I_REVNOISE  0x00000020  // Mounted with LFS_M_REVNOISE
 #endif
 #ifdef LFS_CKPROGS
 #define LFS_I_CKPROGS   0x00000800  // Mounted with LFS_M_CKPROGS
@@ -239,6 +248,11 @@ enum lfs_type {
 #define LFS_I_COMPACT   0x00080000  // Filesystem may have uncompacted metadata
 #define LFS_I_CKMETA    0x00100000  // Metadata checksums not checked recently
 #define LFS_I_CKDATA    0x00200000  // Data checksums not checked recently
+
+// internally used flags, don't use these
+#ifdef LFS_REVDBG
+#define LFS_i_INMTREE   0x01000000  // Committing to mtree
+#endif
 
 
 // Block types

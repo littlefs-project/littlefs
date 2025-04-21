@@ -57,7 +57,8 @@ FLAGS = [
     # Filesystem format flags
     ('F', 'MODE',               1, "Format's access mode"                     ),
     ('^', 'RDWR',               0, "Format the filesystem as read and write"  ),
-    ('F', 'NOISY',     0x00000010, "Add noise to revision counts"             ),
+    ('F', 'REVDBG',    0x00000010, "Add debug info to revision counts"        ),
+    ('F', 'REVNOISE',  0x00000020, "Add noise to revision counts"             ),
     ('F', 'CKPROGS',   0x00000800, "Check progs by reading back progged data" ),
     ('F', 'CKFETCHES', 0x00001000, "Check block checksums before first use"   ),
     ('F', 'CKPARITY',  0x00002000, "Check metadata tag parity bits"           ),
@@ -73,7 +74,8 @@ FLAGS = [
     ('^', 'RDONLY',             1, "Mount the filesystem as read only"        ),
     ('M', 'FLUSH',     0x00000040, "Open all files with LFS_O_FLUSH"          ),
     ('M', 'SYNC',      0x00000080, "Open all files with LFS_O_SYNC"           ),
-    ('M', 'NOISY',     0x00000010, "Add noise to revision counts"             ),
+    ('M', 'REVDBG',    0x00000010, "Add debug info to revision counts"        ),
+    ('M', 'REVNOISE',  0x00000020, "Add noise to revision counts"             ),
     ('M', 'CKPROGS',   0x00000800, "Check progs by reading back progged data" ),
     ('M', 'CKFETCHES', 0x00001000, "Check block checksums before first use"   ),
     ('M', 'CKPARITY',  0x00002000, "Check metadata tag parity bits"           ),
@@ -99,7 +101,8 @@ FLAGS = [
     ('I', 'RDONLY',    0x00000001, "Mounted read only"                        ),
     ('I', 'FLUSH',     0x00000040, "Mounted with LFS_M_FLUSH"                 ),
     ('I', 'SYNC',      0x00000080, "Mounted with LFS_M_SYNC"                  ),
-    ('I', 'NOISY',     0x00000010, "Mounted with LFS_M_NOISY"                 ),
+    ('I', 'REVDBG',    0x00000010, "Mounted with LFS_M_REVDBG"                ),
+    ('I', 'REVNOISE',  0x00000020, "Mounted with LFS_M_REVNOISE"              ),
     ('I', 'CKPROGS',   0x00000800, "Mounted with LFS_M_CKPROGS"               ),
     ('I', 'CKFETCHES', 0x00001000, "Mounted with LFS_M_CKFETCHES"             ),
     ('I', 'CKPARITY',  0x00002000, "Mounted with LFS_M_CKPARITY"              ),
@@ -112,6 +115,8 @@ FLAGS = [
     ('I', 'COMPACT',   0x00080000, "Filesystem may have uncompacted metadata" ),
     ('I', 'CKMETA',    0x00100000, "Metadata checksums not checked recently"  ),
     ('I', 'CKDATA',    0x00200000, "Data checksums not checked recently"      ),
+
+    ('i', 'INMTREE',   0x01000000, "Committing to mtree"                      ),
 
     # Traversal flags
     ('T', 'MTREEONLY', 0x00000010, "Only traverse the mtree"                  ),

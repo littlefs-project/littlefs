@@ -5418,6 +5418,9 @@ typedef struct lfsr_bctx {
     uint8_t buf[2*LFSR_BRANCH_DSIZE];
 } lfsr_bctx_t;
 
+// needed in lfsr_btree_commit_
+static inline uint32_t lfsr_rev_btree(lfs_t *lfs);
+
 // core btree algorithm
 //
 // this commits up to the root, but stops if:
@@ -5651,6 +5654,18 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
+        #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
+        // append a revision count?
+        err = lfsr_rbyd_appendrev(lfs, &rbyd__, lfsr_rev_btree(lfs));
+        if (err) {
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
+            return err;
+        }
+        #endif
+
         // try to compact
         err = lfsr_rbyd_compact(lfs, &rbyd__, &rbyd_, -1, -1);
         if (err) {
@@ -5688,6 +5703,18 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         if (err) {
             return err;
         }
+
+        #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
+        // append a revision count?
+        err = lfsr_rbyd_appendrev(lfs, &rbyd__, lfsr_rev_btree(lfs));
+        if (err) {
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto split_relocate_l;
+            }
+            return err;
+        }
+        #endif
 
         // copy over tags < split_rid
         err = lfsr_rbyd_compact(lfs, &rbyd__, &rbyd_, -1, split_rid);
@@ -5732,6 +5759,18 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         if (err) {
             return err;
         }
+
+        #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
+        // append a revision count?
+        err = lfsr_rbyd_appendrev(lfs, &sibling, lfsr_rev_btree(lfs));
+        if (err) {
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto split_relocate_r;
+            }
+            return err;
+        }
+        #endif
 
         // copy over tags >= split_rid
         err = lfsr_rbyd_compact(lfs, &sibling, &rbyd_, split_rid, -1);
@@ -5848,6 +5887,18 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         if (err) {
             return err;
         }
+
+        #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
+        // append a revision count?
+        err = lfsr_rbyd_appendrev(lfs, &rbyd__, lfsr_rev_btree(lfs));
+        if (err) {
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto merge_relocate;
+            }
+            return err;
+        }
+        #endif
 
         // merge the siblings together
         err = lfsr_rbyd_appendcompactrbyd(lfs, &rbyd__, &rbyd_, -1, -1);
@@ -5990,6 +6041,18 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         if (err) {
             return err;
         }
+
+        #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
+        // append a revision count?
+        err = lfsr_rbyd_appendrev(lfs, &rbyd_, lfsr_rev_btree(lfs));
+        if (err) {
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
+            return err;
+        }
+        #endif
 
         err = lfsr_rbyd_commit(lfs, &rbyd_, bid, rattrs, rattr_count);
         if (err) {
@@ -6630,6 +6693,18 @@ relocate:;
         return err;
     }
 
+    #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
+    // append a revision count?
+    err = lfsr_rbyd_appendrev(lfs, &bshrub->shrub_, lfsr_rev_btree(lfs));
+    if (err) {
+        // bad prog? try another block
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
+        return err;
+    }
+    #endif
+
     // note this may be a new root
     if (!alloc) {
         err = lfsr_rbyd_compact(lfs, &bshrub->shrub_, &bshrub->shrub, -1, -1);
@@ -6887,9 +6962,15 @@ static inline bool lfsr_m_isrdonly(uint32_t flags) {
     return flags & LFS_M_RDONLY;
 }
 
-#ifdef LFS_NOISY
-static inline bool lfsr_m_isnoisy(uint32_t flags) {
-    return flags & LFS_M_NOISY;
+#ifdef LFS_REVDBG
+static inline bool lfsr_m_isrevdbg(uint32_t flags) {
+    return flags & LFS_M_REVDBG;
+}
+#endif
+
+#ifdef LFS_REVNOISE
+static inline bool lfsr_m_isrevnoise(uint32_t flags) {
+    return flags & LFS_M_REVNOISE;
 }
 #endif
 
@@ -6914,6 +6995,13 @@ static inline bool lfsr_m_isckparity(uint32_t flags) {
 #ifdef LFS_CKDATACKSUMS
 static inline bool lfsr_m_isckdatacksums(uint32_t flags) {
     return flags & LFS_M_CKDATACKSUMS;
+}
+#endif
+
+// other internal flags
+#ifdef LFS_REVDBG
+static inline bool lfsr_i_isinmtree(uint32_t flags) {
+    return flags & LFS_i_INMTREE;
 }
 #endif
 
@@ -7203,18 +7291,74 @@ static int lfsr_fs_consumegdelta(lfs_t *lfs, const lfsr_mdir_t *mdir) {
 //   '-.''----.----''---------.--------'
 //     '------|---------------|---------- 4-bit relocation revision
 //            '---------------|---------- recycle-bits recycle counter
-//                            '---------- pseudorandom noise (optional)
+//                            '---------- pseudorandom noise (if revnoise)
+//
+// in revdbg mode, the bottom 24 bits are initialized with a hint based
+// on rbyd type, though it may be overwritten by the recycle counter if
+// it overlaps:
+//
+//   vvvv---- --1----1 -11-1--1 -11-1---  (68 69 21 v0  hi!.)  mroot anchor
+//   vvvv---- -111111- -111--1- -11-11-1  (6d 72 7e v0  mr~.)  mroot
+//   vvvv---- -111111- -11--1-- -11-11-1  (6d 64 7e v0  md~.)  mdir
+//   vvvv---- -111111- -111-1-- -11---1-  (62 74 7e v0  bt~.)  file btree node
+//   vvvv---- -111111- -11-11-1 -11---1-  (62 6d 7e v0  bm~.)  mtree node
+//
 
-static inline uint32_t lfsr_rev_init(lfs_t *lfs, uint32_t rev) {
+// needed in lfsr_rev_init
+static inline bool lfsr_mdir_ismrootanchor(const lfsr_mdir_t *mdir);
+static inline int lfsr_mdir_cmp(const lfsr_mdir_t *a, const lfsr_mdir_t *b);
+
+static inline uint32_t lfsr_rev_init(lfs_t *lfs, const lfsr_mdir_t *mdir,
+        uint32_t rev) {
     (void)lfs;
+    (void)mdir;
     // we really only care about the top revision bits here
     rev &= ~((1 << 28)-1);
     // increment revision
     rev += 1 << 28;
+    #ifdef LFS_REVDBG
+    // include debug bits?
+    if (lfsr_m_isrevdbg(lfs->flags)) {
+        // mroot?
+        if (mdir->mid == -1 || lfsr_mdir_cmp(mdir, &lfs->mroot) == 0) {
+            rev |= 0x007e726d;
+        // mdir?
+        } else {
+            rev |= 0x007e646d;
+        }
+    }
+    #endif
+    #ifdef LFS_REVNOISE
     // xor in pseudorandom noise
-    #ifdef LFS_NOISY
-    if (lfsr_m_isnoisy(lfs->flags)) {
+    if (lfsr_m_isrevnoise(lfs->flags)) {
         rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->gcksum;
+    }
+    #endif
+    return rev;
+}
+
+// btrees don't normally need revision counts, but we make use of them
+// if revdbg or revnoise is enabled
+static inline uint32_t lfsr_rev_btree(lfs_t *lfs) {
+    (void)lfs;
+    uint32_t rev = 0;
+    #ifdef LFS_REVDBG
+    // include debug bits?
+    if (lfsr_m_isrevdbg(lfs->flags)) {
+        // mtree?
+        if (lfsr_i_isinmtree(lfs->flags)) {
+            rev |= 0x007e6d62;
+        // file btree?
+        } else {
+            rev |= 0x007e7462;
+        }
+    }
+    #endif
+    #ifdef LFS_REVNOISE
+    // xor in pseudorandom noise
+    if (lfsr_m_isrevnoise(lfs->flags)) {
+        // keep the top nibble zero
+        rev ^= 0x0fffffff & lfs->gcksum;
     }
     #endif
     return rev;
@@ -7233,9 +7377,9 @@ static inline bool lfsr_rev_needsrelocation(lfs_t *lfs, uint32_t rev) {
 static inline uint32_t lfsr_rev_inc(lfs_t *lfs, uint32_t rev) {
     // increment recycle counter/revision
     rev += 1 << (28-lfs_smax(lfs->recycle_bits, 0));
+    #ifdef LFS_REVNOISE
     // xor in pseudorandom noise
-    #ifdef LFS_NOISY
-    if (lfsr_m_isnoisy(lfs->flags)) {
+    if (lfsr_m_isrevnoise(lfs->flags)) {
         rev ^= ((1 << (28-lfs_smax(lfs->recycle_bits, 0)))-1) & lfs->gcksum;
     }
     #endif
@@ -7490,6 +7634,21 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid, lfsr_tag_t tag,
     return 0;
 }
 
+// this is the same as lfsr_btree_commit, but we set the inmtree flag
+// for debugging reasons
+static int lfsr_mtree_commit(lfs_t *lfs, lfsr_btree_t *mtree,
+        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
+    #ifdef LFS_REVDBG
+    lfs->flags |= LFS_i_INMTREE;
+    #endif
+    int err = lfsr_btree_commit(lfs, mtree, bid, rattrs, rattr_count);
+    #ifdef LFS_REVDBG
+    lfs->flags &= ~LFS_i_INMTREE;
+    #endif
+    return err;
+}
+
+
 
 /// Mdir commit logic ///
 
@@ -7531,7 +7690,7 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir,
     // note we allow corrupt errors here, as long as they are consistent
     rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
     // reset recycle bits in revision count and increment
-    rev = lfsr_rev_init(lfs, rev);
+    rev = lfsr_rev_init(lfs, mdir, rev);
 
 relocate:;
     // allocate another block with an erase
@@ -8475,7 +8634,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (lfs->mtree.weight == 0) {
             lfsr_btree_init(&mtree_);
 
-            err = lfsr_btree_commit(lfs, &mtree_,
+            err = lfsr_mtree_commit(lfs, &mtree_,
                     0, LFSR_RATTRS(
                         LFSR_RATTR_MPTR(
                             LFSR_TAG_MDIR, +(1 << lfs->mbits),
@@ -8495,7 +8654,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // mark as unerased in case of failure
             lfs->mtree.eoff = -1;
 
-            err = lfsr_btree_commit(lfs, &mtree_,
+            err = lfsr_mtree_commit(lfs, &mtree_,
                     lfsr_mbid(lfs, mdir->mid), LFSR_RATTRS(
                         LFSR_RATTR_MPTR(
                             LFSR_TAG_MDIR, 0,
@@ -8535,7 +8694,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         lfs->mtree.eoff = -1;
 
         // update our mtree
-        err = lfsr_btree_commit(lfs, &mtree_,
+        err = lfsr_mtree_commit(lfs, &mtree_,
                 lfsr_mbid(lfs, mdir->mid), LFSR_RATTRS(
                     LFSR_RATTR(
                         LFSR_TAG_RM, -(1 << lfs->mbits))));
@@ -8557,7 +8716,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (lfs->mtree.weight == 0) {
             lfsr_btree_init(&mtree_);
 
-            err = lfsr_btree_commit(lfs, &mtree_,
+            err = lfsr_mtree_commit(lfs, &mtree_,
                     0, LFSR_RATTRS(
                         LFSR_RATTR_MPTR(
                             LFSR_TAG_MDIR, +(1 << lfs->mbits),
@@ -8571,7 +8730,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // mark as unerased in case of failure
             lfs->mtree.eoff = -1;
 
-            err = lfsr_btree_commit(lfs, &mtree_,
+            err = lfsr_mtree_commit(lfs, &mtree_,
                     lfsr_mbid(lfs, mdir->mid), LFSR_RATTRS(
                         LFSR_RATTR_MPTR(
                             LFSR_TAG_MDIR, 0,
@@ -13027,11 +13186,16 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
                 | LFS_M_RDONLY
                 | LFS_M_FLUSH
                 | LFS_M_SYNC
-                | LFS_IFDEF_NOISY(LFS_M_NOISY, 0)
+                | LFS_IFDEF_REVDBG(LFS_M_REVDBG, 0)
+                | LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, 0)
                 | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
                 | LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, 0))) == 0);
+    #if defined(LFS_REVNOISE) && defined(LFS_REVDBG)
+    // LFS_M_REVDBG and LFS_M_REVNOISE are incompatible
+    LFS_ASSERT(!lfsr_m_isrevdbg(flags) || !lfsr_m_isrevnoise(flags));
+    #endif
 
     // TODO this all needs to be cleaned up
     lfs->cfg = cfg;
@@ -13845,7 +14009,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_M_RDONLY
                 | LFS_M_FLUSH
                 | LFS_M_SYNC
-                | LFS_IFDEF_NOISY(LFS_M_NOISY, 0)
+                | LFS_IFDEF_REVDBG(LFS_M_REVDBG, 0)
+                | LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, 0)
                 | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
@@ -13866,7 +14031,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                     | LFS_M_RDONLY
                     | LFS_M_FLUSH
                     | LFS_M_SYNC
-                    | LFS_IFDEF_NOISY(LFS_M_NOISY, 0)
+                    | LFS_IFDEF_REVDBG(LFS_M_REVDBG, 0)
+                    | LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, 0)
                     | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                     | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
                     | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
@@ -14029,7 +14195,8 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
     // unknown flags?
     LFS_ASSERT((flags & ~(
             LFS_F_RDWR
-                | LFS_IFDEF_NOISY(LFS_F_NOISY, 0)
+                | LFS_IFDEF_REVDBG(LFS_F_REVDBG, 0)
+                | LFS_IFDEF_REVNOISE(LFS_F_REVNOISE, 0)
                 | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
@@ -14040,7 +14207,8 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
     int err = lfs_init(lfs,
             flags & (
                 LFS_F_RDWR
-                    | LFS_IFDEF_NOISY(LFS_F_NOISY, 0)
+                    | LFS_IFDEF_REVDBG(LFS_F_REVDBG, 0)
+                    | LFS_IFDEF_REVNOISE(LFS_F_REVNOISE, 0)
                     | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                     | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
                     | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
@@ -14100,7 +14268,8 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
             LFS_I_RDONLY
                 | LFS_I_FLUSH
                 | LFS_I_SYNC
-                | LFS_IFDEF_NOISY(LFS_I_NOISY, 0)
+                | LFS_IFDEF_REVDBG(LFS_I_REVDBG, 0)
+                | LFS_IFDEF_REVNOISE(LFS_I_REVNOISE, 0)
                 | LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
                 | LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, 0)

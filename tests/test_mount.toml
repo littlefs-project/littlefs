@@ -17,7 +17,8 @@ code = '''
 defines.RDONLY = [false, true]
 defines.FLUSH = [false, true]
 defines.SYNC = [false, true]
-defines.NOISY = [false, true]
+defines.REVDBG = [false, true]
+defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKPARITY = [false, true]
@@ -28,7 +29,9 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
-    'LFS_IFDEF_NOISY(true, !NOISY)',
+    'LFS_IFDEF_REVDBG(true, !REVDBG)',
+    'LFS_IFDEF_REVNOISE(true, !REVNOISE)',
+    '!REVDBG || !REVNOISE',
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
@@ -44,7 +47,8 @@ code = '''
             ((RDONLY) ? LFS_M_RDONLY : LFS_M_RDWR)
                 | ((FLUSH) ? LFS_M_FLUSH : 0)
                 | ((SYNC) ? LFS_M_SYNC : 0)
-                | ((NOISY) ? LFS_IFDEF_NOISY(LFS_M_NOISY, -1) : 0)
+                | ((REVDBG) ? LFS_IFDEF_REVDBG(LFS_M_REVDBG, -1) : 0)
+                | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
@@ -65,7 +69,8 @@ code = '''
             ((RDONLY) ? LFS_I_RDONLY : 0)
                 | ((FLUSH) ? LFS_I_FLUSH : 0)
                 | ((SYNC) ? LFS_I_SYNC : 0)
-                | ((NOISY) ? LFS_IFDEF_NOISY(LFS_M_NOISY, -1) : 0)
+                | ((REVDBG) ? LFS_IFDEF_REVDBG(LFS_M_REVDBG, -1) : 0)
+                | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, -1) : 0)
@@ -86,7 +91,8 @@ code = '''
 # 
 # these end up passed to mount internally
 [cases.test_mount_format_flags]
-defines.NOISY = [false, true]
+defines.REVDBG = [false, true]
+defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKPARITY = [false, true]
@@ -94,7 +100,9 @@ defines.CKDATACKSUMS = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
-    'LFS_IFDEF_NOISY(true, !NOISY)',
+    'LFS_IFDEF_REVDBG(true, !REVDBG)',
+    'LFS_IFDEF_REVNOISE(true, !REVNOISE)',
+    '!REVDBG || !REVNOISE',
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
@@ -104,7 +112,8 @@ code = '''
     lfs_t lfs;
     lfsr_format(&lfs,
             LFS_F_RDWR
-                | ((NOISY) ? LFS_IFDEF_NOISY(LFS_F_NOISY, -1) : 0)
+                | ((REVDBG) ? LFS_IFDEF_REVDBG(LFS_F_REVDBG, -1) : 0)
+                | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_F_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
                 | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
