@@ -1690,6 +1690,117 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# truncate should not affect pos
+[cases.test_fwrite_truncate_pos]
+defines.POS = ['1', 'SIZE/2', 'SIZE-1', '2*SIZE']
+defines.SIZE = '4*BLOCK_SIZE'
+defines.SYNC = [false, true]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // seek
+    lfsr_file_seek(&lfs, &file, POS, LFS_SEEK_SET) => POS;
+
+    // truncate
+    lfsr_file_truncate(&lfs, &file, SIZE) => 0;
+
+    // should not affect pos
+    lfsr_file_tell(&lfs, &file) => POS;
+    lfsr_file_size(&lfs, &file) => SIZE;
+
+    // truncate
+    lfsr_file_truncate(&lfs, &file, 1) => 0;
+
+    // should not affect pos
+    lfsr_file_tell(&lfs, &file) => POS;
+    lfsr_file_size(&lfs, &file) => 1;
+
+    // truncate
+    lfsr_file_truncate(&lfs, &file, SIZE-1) => 0;
+
+    // should not affect pos
+    lfsr_file_tell(&lfs, &file) => POS;
+    lfsr_file_size(&lfs, &file) => SIZE-1;
+
+    // truncate
+    lfsr_file_truncate(&lfs, &file, 0) => 0;
+
+    // should not affect pos
+    lfsr_file_tell(&lfs, &file) => POS;
+    lfsr_file_size(&lfs, &file) => 0;
+
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# fruncate should update pos relative to end
+[cases.test_fwrite_fruncate_pos]
+defines.POS = ['1', 'SIZE/2', 'SIZE-1', '2*SIZE']
+defines.SIZE = '4*BLOCK_SIZE'
+defines.SYNC = [false, true]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // seek
+    lfsr_file_seek(&lfs, &file, POS, LFS_SEEK_SET) => POS;
+
+    // fruncate
+    lfsr_file_fruncate(&lfs, &file, SIZE) => 0;
+
+    // should update pos
+    lfsr_file_tell(&lfs, &file) => POS + SIZE;
+    lfsr_file_size(&lfs, &file) => SIZE;
+
+    // seek
+    lfsr_file_seek(&lfs, &file, POS, LFS_SEEK_SET) => POS;
+
+    // fruncate
+    lfsr_file_fruncate(&lfs, &file, 1) => 0;
+
+    // should update pos
+    lfsr_file_tell(&lfs, &file) => lfs_smax(POS - (SIZE-1), 0);
+    lfsr_file_size(&lfs, &file) => 1;
+
+    // seek
+    lfsr_file_seek(&lfs, &file, POS, LFS_SEEK_SET) => POS;
+
+    // fruncate
+    lfsr_file_fruncate(&lfs, &file, SIZE-1) => 0;
+
+    // should update pos
+    lfsr_file_tell(&lfs, &file) => POS + (SIZE-2);
+    lfsr_file_size(&lfs, &file) => SIZE-1;
+
+    // seek
+    lfsr_file_seek(&lfs, &file, POS, LFS_SEEK_SET) => POS;
+
+    // fruncate
+    lfsr_file_fruncate(&lfs, &file, 0) => 0;
+
+    // should update pos
+    lfsr_file_tell(&lfs, &file) => lfs_smax(POS - (SIZE-1), 0);
+    lfsr_file_size(&lfs, &file) => 0;
+
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
 # test that truncating to zero drops the bshrub/btree
 [cases.test_fwrite_truncate_litmus_zero]
 defines.N = [1, 2, 8]
@@ -2178,18 +2289,16 @@ code = '''
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "hello",
             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    // simulate our file in ram
-    uint8_t sim[SIZE];
+    uint8_t wbuf[SIZE];
     uint32_t prng = 42;
     if (INIT == 0) {
-        memset(sim, 0, SIZE);
+        // do nothing
     } else if (INIT == 1) {
         for (lfs_size_t i = 0; i < SIZE; i++) {
-            sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
+            wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
     } else {
-        memset(sim, 0, SIZE);
         lfsr_file_truncate(&lfs, &file, SIZE) => 0;
     }
 
@@ -2207,12 +2316,12 @@ code = '''
     }
 
     // write to file incrementally and backwards
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
     for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
-        for (lfs_size_t j = 0; j < CHUNK; j++) {
-            sim[SIZE-i-CHUNK+j] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
         lfsr_file_seek(&lfs, &file, SIZE-i-CHUNK, LFS_SEEK_SET) => SIZE-i-CHUNK;
-        lfsr_file_write(&lfs, &file, &sim[SIZE-i-CHUNK], CHUNK) => CHUNK;
+        lfsr_file_write(&lfs, &file, &wbuf[SIZE-i-CHUNK], CHUNK) => CHUNK;
 
         // sync?
         if (SYNC) {
@@ -2269,9 +2378,777 @@ code = '''
         uint8_t rbuf[2*SIZE];
         memset(rbuf, 0xaa, 2*SIZE);
         lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
-        // does our file match our simulation?
-        assert(memcmp(rbuf, sim, SIZE) == 0);
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
         lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that reversed fragment-aligned writes are optimal
+[cases.test_fwrite_reversed_litmus_fragments]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.CHUNK = [32, 8, 1]
+# force a btree node
+defines.INLINE_SIZE = 0
+defines.CRYSTAL_THRESH = -1
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # writing backwards is expected to be a bit slow
+    'SIZE <= 4*1024*CHUNK',
+]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs_off_t chunk_ = lfs_min(CHUNK, SIZE-i);
+        lfs_off_t i_ = SIZE-i-chunk_;
+        lfsr_file_seek(&lfs, &file, i_, LFS_SEEK_SET) => i_;
+        lfsr_file_write(&lfs, &file, &wbuf[i_], chunk_) => chunk_;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+        }
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of fragments? we need our internal btree traversal
+        // API to check this
+        //
+        lfs_size_t fragments = 0;
+
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfsr_bid_t bid;
+            lfsr_tag_t tag;
+            lfsr_bptr_t bptr;
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
+                    &bid, &tag, &bptr);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFSR_TAG_BRANCH) {
+                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
+                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFSR_TAG_DATA) {
+                printf("traversal: %d 0x%x data %d\n",
+                        bid,
+                        tag,
+                        lfsr_data_size(bptr.data));
+
+                // keep track of how many fragments we've seen
+                fragments += 1;
+
+            } else if (tag == LFSR_TAG_BLOCK) {
+                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        bptr.data.u.disk.block,
+                        bptr.data.u.disk.off,
+                        lfsr_data_size(bptr.data));
+
+                // we disabled block crystallization so this shouldn't
+                // happen
+                assert(false);
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x\n",
+                        bid,
+                        tag);
+                assert(false);
+            }
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // correct number of fragments?
+        assert(fragments == N);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that reversed block-aligned writes always end up as compact blocks
+[cases.test_fwrite_reversed_litmus_blocks]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*BLOCK_SIZE'
+defines.CHUNK = [32, 8, 1]
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # writing backwards is expected to be a bit slow
+    'SIZE <= 4*1024*CHUNK',
+]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs_off_t chunk_ = lfs_min(CHUNK, SIZE-i);
+        lfs_off_t i_ = SIZE-i-chunk_;
+        lfsr_file_seek(&lfs, &file, i_, LFS_SEEK_SET) => i_;
+        lfsr_file_write(&lfs, &file, &wbuf[i_], chunk_) => chunk_;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+        }
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of branches/blocks? we need our internal btree
+        // traversal API to check this
+        //
+        lfs_block_t blocks = 0;
+
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfsr_bid_t bid;
+            lfsr_tag_t tag;
+            lfsr_bptr_t bptr;
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
+                    &bid, &tag, &bptr);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFSR_TAG_BRANCH) {
+                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
+                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFSR_TAG_DATA) {
+                printf("traversal: %d 0x%x data %d\n",
+                        bid,
+                        tag,
+                        lfsr_data_size(bptr.data));
+
+                // if block crystallization is working we shouldn't be
+                // left with any inlined data fragments
+                assert(false);
+
+            } else if (tag == LFSR_TAG_BLOCK) {
+                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        bptr.data.u.disk.block,
+                        bptr.data.u.disk.off,
+                        lfsr_data_size(bptr.data));
+
+                // keep track of how many data blocks we've seen
+                blocks += 1;
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x\n",
+                        bid,
+                        tag);
+                assert(false);
+            }
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // correct number of blocks?
+        assert(blocks == N);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# with lfsr_file_fruncate, we can write to a file in true reversed order
+[cases.test_fwrite_freversed]
+defines.SIZE = [
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = [32, 8, 1]
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # this just saves testing time
+    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    # writing backwards is expected to be a bit slow
+    'SIZE <= 4*1024*CHUNK',
+]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+
+    // sync?
+    if (SYNC) {
+        lfsr_file_sync(&lfs, &file) => 0;
+    }
+
+    // remount?
+    if (REMOUNT) {
+        lfsr_file_close(&lfs, &file) => 0;
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    }
+
+    // write to file incrementally and backwards
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs_off_t pos = lfsr_file_tell(&lfs, &file);
+        lfsr_file_fruncate(&lfs, &file, i+CHUNK) => 0;
+        // pos shouldn't move when we fruncate
+        lfsr_file_tell(&lfs, &file) => pos + CHUNK;
+        lfsr_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+        lfsr_file_write(&lfs, &file, &wbuf[SIZE-i-CHUNK], CHUNK) => CHUNK;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+        }
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that reversed fragment-aligned writes are optimal
+[cases.test_fwrite_freversed_litmus_fragments]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.CHUNK = [32, 8, 1]
+# force a btree node
+defines.INLINE_SIZE = 0
+defines.CRYSTAL_THRESH = -1
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # writing backwards is expected to be a bit slow
+    'SIZE <= 4*1024*CHUNK',
+]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs_off_t chunk_ = lfs_min(CHUNK, SIZE-i);
+        lfs_off_t i_ = SIZE-i-chunk_;
+        lfs_off_t pos = lfsr_file_tell(&lfs, &file);
+        lfsr_file_fruncate(&lfs, &file, i+chunk_) => 0;
+        // pos shouldn't move when we fruncate
+        lfsr_file_tell(&lfs, &file) => pos + chunk_;
+        lfsr_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+        lfsr_file_write(&lfs, &file, &wbuf[i_], chunk_) => chunk_;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+        }
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of fragments? we need our internal btree traversal
+        // API to check this
+        //
+        lfs_size_t fragments = 0;
+
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfsr_bid_t bid;
+            lfsr_tag_t tag;
+            lfsr_bptr_t bptr;
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
+                    &bid, &tag, &bptr);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFSR_TAG_BRANCH) {
+                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
+                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFSR_TAG_DATA) {
+                printf("traversal: %d 0x%x data %d\n",
+                        bid,
+                        tag,
+                        lfsr_data_size(bptr.data));
+
+                // keep track of how many fragments we've seen
+                fragments += 1;
+
+            } else if (tag == LFSR_TAG_BLOCK) {
+                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        bptr.data.u.disk.block,
+                        bptr.data.u.disk.off,
+                        lfsr_data_size(bptr.data));
+
+                // we disabled block crystallization so this shouldn't
+                // happen
+                assert(false);
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x\n",
+                        bid,
+                        tag);
+                assert(false);
+            }
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // correct number of fragments?
+        assert(fragments == N);
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that reversed block-aligned writes always end up as compact blocks
+[cases.test_fwrite_freversed_litmus_blocks]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*BLOCK_SIZE'
+defines.CHUNK = [32, 8, 1]
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # writing backwards is expected to be a bit slow
+    'SIZE <= 4*1024*CHUNK',
+]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs_off_t chunk_ = lfs_min(CHUNK, SIZE-i);
+        lfs_off_t i_ = SIZE-i-chunk_;
+        lfs_off_t pos = lfsr_file_tell(&lfs, &file);
+        lfsr_file_fruncate(&lfs, &file, i+chunk_) => 0;
+        // pos shouldn't move when we fruncate
+        lfsr_file_tell(&lfs, &file) => pos + chunk_;
+        lfsr_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+        lfsr_file_write(&lfs, &file, &wbuf[i_], chunk_) => chunk_;
+
+        // sync?
+        if (SYNC) {
+            lfsr_file_sync(&lfs, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+        }
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of branches/blocks? we need our internal btree
+        // traversal API to check this
+        //
+        lfs_block_t blocks = 0;
+
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        lfsr_btraversal_t bt;
+        lfsr_btraversal_init(&bt);
+        for (lfs_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfsr_bid_t bid;
+            lfsr_tag_t tag;
+            lfsr_bptr_t bptr;
+            int err = lfsr_file_traverse(&lfs, &file, &bt,
+                    &bid, &tag, &bptr);
+            assert(!err || err == LFS_ERR_NOENT);
+            if (err == LFS_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFSR_TAG_BRANCH) {
+                lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
+                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFSR_TAG_DATA) {
+                printf("traversal: %d 0x%x data %d\n",
+                        bid,
+                        tag,
+                        lfsr_data_size(bptr.data));
+
+                // if block crystallization is working we shouldn't be
+                // left with any inlined data fragments
+                assert(false);
+
+            } else if (tag == LFSR_TAG_BLOCK) {
+                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        bptr.data.u.disk.block,
+                        bptr.data.u.disk.off,
+                        lfsr_data_size(bptr.data));
+
+                // keep track of how many data blocks we've seen
+                blocks += 1;
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x\n",
+                        bid,
+                        tag);
+                assert(false);
+            }
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+
+        // correct number of blocks?
+        assert(blocks == N);
     }
 
     lfsr_unmount(&lfs) => 0;

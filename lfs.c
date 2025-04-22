@@ -11989,7 +11989,8 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
         // within our tree? find left crystal neighbor
         if (pos > 0
-                && lfs->cfg->crystal_thresh > 0
+                // if crystal_thresh is 0 or -1, we can skip these
+                && (lfs_soff_t)lfs->cfg->crystal_thresh > 0
                 && (lfs_soff_t)(pos - (lfs->cfg->crystal_thresh-1))
                     < (lfs_soff_t)file->b.shrub.weight
                 && file->b.shrub.weight > 0
@@ -12010,6 +12011,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // obvious hole between our own crystal and our neighbor,
             // include as a part of our crystal
             if (!lfsr_bptr_isbptr(&bptr)
+                    && lfsr_data_size(bptr.data) > 0
                     // hole? holes can be quite large and shouldn't trigger
                     // crystallization
                     && (lfs_soff_t)(bid-(weight-1)+lfsr_data_size(bptr.data))
@@ -12066,7 +12068,8 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
             // if right crystal neighbor is a fragment, include as a part
             // of our crystal
-            if (!lfsr_bptr_isbptr(&bptr)) {
+            if (!lfsr_bptr_isbptr(&bptr)
+                    && lfsr_data_size(bptr.data) > 0) {
                 crystal_end = lfs_max(
                         bid-(weight-1)+lfsr_data_size(bptr.data),
                         crystal_end);
@@ -13090,6 +13093,12 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     file->cache.pos -= lfs_smin(
             size - size_,
             file->cache.pos);
+
+    // fruncate _does_ update pos, to keep the same pos relative to end
+    // of file, though we can't let pos go negative
+    file->pos -= lfs_smin(
+            size - size_,
+            file->pos);
 
     // sync if requested
     if (lfsr_o_issync(file->b.o.flags)) {
