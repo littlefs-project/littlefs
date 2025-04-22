@@ -4859,3 +4859,224 @@ code = '''
 '''
 
 
+
+# test that we don't error on fragments > weight
+#
+# this may be useful in the future for compression
+#
+[cases.test_fwrite_bigger_than_expected_fragments]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.CHUNK = [32, 8, 1]
+defines.CRYSTAL_THRESH = -1
+if = [
+    'CHUNK <= SIZE',
+    'FRAGMENT_SIZE > 1',
+]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // reduce the weight of each btree entry
+    //
+    // this should normally never happen, so we need to use the
+    // internal bshrub APIs to force this
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    lfs_off_t pos = 0;
+    while (true) {
+        lfsr_tag_t tag;
+        lfsr_bid_t weight;
+        lfsr_data_t data;
+        int err = lfsr_bshrub_lookupnext(&lfs, &file.b, pos,
+                &pos, &tag, &weight, &data);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        printf("pos = %d, %d\n", pos, weight);
+        lfsr_bshrub_commit(&lfs, &file.b, pos, LFSR_RATTRS(
+                LFSR_RATTR_DATA(
+                    LFSR_TAG_GROW | tag, -(weight/2),
+                    &data))) => 0;
+
+        pos = pos - (weight/2) + 1;
+    }
+    file.b.o.flags |= LFS_o_UNSYNC;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE/2);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE/2);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE/2;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE/2;
+        for (lfs_size_t i = 0; i < SIZE/FRAGMENT_SIZE; i++) {
+            assert(memcmp(
+                    &rbuf[i*FRAGMENT_SIZE/2],
+                    &wbuf[i*FRAGMENT_SIZE],
+                    FRAGMENT_SIZE/2) == 0);
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test that we don't error on blocks > weight
+#
+# this may be useful in the future for compression
+#
+[cases.test_fwrite_bigger_than_expected_blocks]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*BLOCK_SIZE'
+defines.CHUNK = [32, 8, 1]
+if = [
+    'CHUNK <= SIZE',
+    'BLOCK_SIZE > 1',
+]
+in = 'lfs.c'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "hello",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // reduce the weight of each btree entry
+    //
+    // this should normally never happen, so we need to use the
+    // internal bshrub APIs to force this
+    lfsr_file_open(&lfs, &file, "hello", LFS_O_WRONLY) => 0;
+    lfs_off_t pos = 0;
+    while (true) {
+        lfsr_tag_t tag;
+        lfsr_bid_t weight;
+        lfsr_data_t data;
+        int err = lfsr_bshrub_lookupnext(&lfs, &file.b, pos,
+                &pos, &tag, &weight, &data);
+        assert(!err || err == LFS_ERR_NOENT);
+        if (err == LFS_ERR_NOENT) {
+            break;
+        }
+
+        printf("pos = %d, %d\n", pos, weight);
+        lfsr_bshrub_commit(&lfs, &file.b, pos, LFSR_RATTRS(
+                LFSR_RATTR_DATA(
+                    LFSR_TAG_GROW | tag, -(weight/2),
+                    &data))) => 0;
+
+        pos = pos - (weight/2) + 1;
+    }
+    file.b.o.flags |= LFS_o_UNSYNC;
+    lfsr_file_close(&lfs, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfsr_unmount(&lfs) => 0;
+            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE/2);
+
+        // and with dir read
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE/2);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+
+        // try reading our file
+        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        // is size correct?
+        lfsr_file_size(&lfs, &file) => SIZE/2;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => SIZE/2;
+        for (lfs_size_t i = 0; i < SIZE/BLOCK_SIZE; i++) {
+            assert(memcmp(
+                    &rbuf[i*BLOCK_SIZE/2],
+                    &wbuf[i*BLOCK_SIZE],
+                    BLOCK_SIZE/2) == 0);
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''

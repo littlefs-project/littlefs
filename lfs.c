@@ -11505,17 +11505,21 @@ static int lfsr_file_lookupleaf(lfs_t *lfs, const lfsr_file_t *file,
         lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_,
         lfsr_bid_t *weight_, lfsr_bptr_t *bptr_) {
     lfsr_tag_t tag;
+    lfsr_bid_t weight;
     lfsr_data_t data;
     int err = lfsr_bshrub_lookupleaf(lfs, &file->b, bid,
-            bid_, rbyd_, rid_, &tag, weight_, &data);
+            bid_, rbyd_, rid_, &tag, &weight, &data);
     if (err) {
         return err;
     }
     LFS_ASSERT(tag == LFSR_TAG_DATA
             || tag == LFSR_TAG_BLOCK);
 
-    // decode bptrs
+    if (weight_) {
+        *weight_ = weight;
+    }
     if (bptr_) {
+        // decode bptrs
         if (tag == LFSR_TAG_DATA) {
             bptr_->data = data;
         } else {
@@ -11524,6 +11528,10 @@ static int lfsr_file_lookupleaf(lfs_t *lfs, const lfsr_file_t *file,
                 return err;
             }
         }
+
+        // limit bptrs to btree weights, this may be useful for
+        // compression in the future
+        bptr_->data = LFSR_DATA_TRUNCATE(bptr_->data, weight);
     }
     return 0;
 }
