@@ -2,7 +2,8 @@
 after = ['test_fwrite', 'test_fsync']
 
 
-# Some specific tests
+
+# test files don't exist until first sync/close
 [cases.test_forphans_uncreat]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
@@ -32,7 +33,7 @@ code = '''
 
     // check that the file doesn't _really_ exist
     lfs_t lfs_;
-    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs_, LFS_M_RDONLY, CFG) => 0;
     // via stat
     struct lfs_info info;
     lfsr_stat(&lfs_, "batman", &info) => LFS_ERR_NOENT;
@@ -69,7 +70,7 @@ code = '''
         }
 
         // check that the file still doesn't _really_ exist
-        lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+        lfsr_mount(&lfs_, LFS_M_RDONLY, CFG) => 0;
         // via stat
         lfsr_stat(&lfs_, "batman", &info) => LFS_ERR_NOENT;
         // via readdir
@@ -94,7 +95,7 @@ code = '''
         lfsr_file_sync(&lfs, &file) => 0;
 
         // now it should show up
-        lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+        lfsr_mount(&lfs_, LFS_M_RDONLY, CFG) => 0;
         // via stat
         lfsr_stat(&lfs_, "batman", &info) => 0;
         assert(strcmp(info.name, "batman") == 0);
@@ -136,7 +137,7 @@ code = '''
     lfsr_file_close(&lfs, &file) => 0;
 
     // now it should show up
-    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs_, LFS_M_RDONLY, CFG) => 0;
     // via stat
     lfsr_stat(&lfs_, "batman", &info) => 0;
     assert(strcmp(info.name, "batman") == 0);
@@ -176,7 +177,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 
     // should still be there
-    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+    lfsr_mount(&lfs_, LFS_M_RDONLY, CFG) => 0;
     // via stat
     lfsr_stat(&lfs_, "batman", &info) => 0;
     assert(strcmp(info.name, "batman") == 0);
@@ -214,6 +215,8 @@ code = '''
     lfsr_unmount(&lfs_) => 0;
 '''
 
+
+# test files don't exist until first sync/close, even under powerloss
 [cases.test_forphans_uncreat_pl]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
@@ -291,6 +294,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# test files don't exist until first sync/close, even under powerloss
 [cases.test_forphans_uncreat_many_pl]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
@@ -378,6 +382,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+# test files only exist as stickynotes until first sync/close
 [cases.test_forphans_uncreat_sync_wr]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
@@ -405,10 +410,13 @@ code = '''
         lfsr_fs_mkconsistent(&lfs) => 0;
     }
 
-    // as far as the filesystem is concerned, the file does not exist yet
+    // uncommitted files appear as stickynotes
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -420,14 +428,18 @@ code = '''
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
-    // rdonly rejected
+    // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-    // non-create rejected
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+    uint8_t rbuf[CHUNK];
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+    lfsr_file_close(&lfs, &file_) => 0;
 
     // write to the file
     uint32_t prng = 42;
@@ -443,9 +455,12 @@ code = '''
             lfsr_fs_mkconsistent(&lfs) => 0;
         }
 
-        // as far as the filesystem is concerned, the file does not exist yet
+        // still appears as a stickynote
         // via stat
-        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         // via readdir
         lfsr_dir_open(&lfs, &dir, "/") => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -456,13 +471,18 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
-        // rdonly rejected
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-        // non-create rejected
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+        // via open
+        lfsr_file_t file_;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
     }
 
     // but we should still recieve sync broadcasts on sync/close
@@ -616,10 +636,13 @@ code = '''
         lfsr_fs_mkconsistent(&lfs) => 0;
     }
 
-    // as far as the filesystem is concerned, the file does not exist yet
+    // uncommitted files appear as stickynotes
     // via stat
     struct lfs_info info;
-    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -631,14 +654,18 @@ code = '''
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
-    // rdonly rejected
+    // via open
     lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-    // non-create rejected
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+    uint8_t rbuf[CHUNK];
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+    lfsr_file_close(&lfs, &file_) => 0;
 
     // write to the second file
     uint32_t prng = 42;
@@ -654,9 +681,12 @@ code = '''
             lfsr_fs_mkconsistent(&lfs) => 0;
         }
 
-        // as far as the filesystem is concerned, the file does not exist yet
+        // still appears as a stickynote
         // via stat
-        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         // via readdir
         lfsr_dir_open(&lfs, &dir, "/") => 0;
         lfsr_dir_read(&lfs, &dir, &info) => 0;
@@ -667,13 +697,18 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
-        // rdonly rejected
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-        // non-create rejected
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+        // via open
+        lfsr_file_t file_;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
     }
 
     if (SYNC) {
@@ -786,7 +821,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_desync_wdwr]
+[cases.test_forphans_uncreat_wdwr]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -835,10 +870,13 @@ code = '''
             lfsr_fs_mkconsistent(&lfs) => 0;
         }
 
-        // as far as the filesystem is concerned, the file does not exist yet
+        // uncommitted files appear as stickynotes
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -850,14 +888,18 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
-        // rdonly rejected
+        // via open
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-        // non-create rejected
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
     }
 
     // write to the second file
@@ -874,10 +916,13 @@ code = '''
             lfsr_fs_mkconsistent(&lfs) => 0;
         }
 
-        // as far as the filesystem is concerned, the file does not exist yet
+        // uncommitted files appear as stickynotes
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -889,14 +934,18 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
-        // rdonly rejected
+        // via open
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-        // non-create rejected
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
     }
 
     if (SYNC) {
@@ -1068,6 +1117,7 @@ code = '''
     // note we must sync to clear the desync flag
     lfsr_file_close(&lfs, &file) => 0;
 
+    // now it should show up
     // via stat
     lfsr_stat(&lfs, "batman", &info) => 0;
     assert(strcmp(info.name, "batman") == 0);
@@ -1237,12 +1287,8 @@ code = '''
 
     // attempt to create a new file over the uncreat
     //
-    // counterintuitively, we _do_ error on an attempt to create an excl
-    // file when there is an uncreat, even though the file doesn't exist
-    // yet
-    //
-    // otherwise it's easy to create the same file twice with excl,
-    // which isn't very useful and confusing for users
+    // this errors, otherwise it's easy to create the same file twice
+    // with excl, which would be super duper confusing for users
     //
     lfsr_file_t file;
     lfsr_file_open(&lfs, &file, "batman",
@@ -1267,58 +1313,50 @@ code = '''
     }
 
     // make sure the excl file had no effect
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
     if (CLOSE == 1) {
-        // via stat
-        struct lfs_info info;
-        lfsr_stat(&lfs, "batman", &info) => 0;
-        assert(strcmp(info.name, "batman") == 0);
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == strlen("WoOoOoOoOoO"));
-        // via readdir
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "batman") == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
         assert(info.type == LFS_TYPE_REG);
         assert(info.size == strlen("WoOoOoOoOoO"));
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-        // via open
-        lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
         lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
                 => strlen("WoOoOoOoOoO");
         assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
-        lfsr_file_close(&lfs, &file_) => 0;
     } else {
-        // via stat
-        struct lfs_info info;
-        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
-        // via readdir
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
-        assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
-        assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
-        // via open
-        lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
     }
+    lfsr_file_close(&lfs, &file_) => 0;
 
     if (CLOSE == 0) {
         lfsr_file_close(&lfs, &uncreat) => 0;
@@ -1326,7 +1364,2435 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_desync_open]
+[cases.test_forphans_uncreat_mkdir]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // attempt to mkdir
+    //
+    // this should fail because of the stickynote
+    //
+    lfsr_mkdir(&lfs, "batman") => LFS_ERR_EXIST;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the excl file had no effect
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test we can remove stickynotes
+[cases.test_forphans_uncreat_rm]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // remove the stickynote
+    lfsr_remove(&lfs, "batman") => 0;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // the stickynote should be gone
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "catman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test we can rename stickynotes
+[cases.test_forphans_uncreat_mv]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // rename the stickynote
+    lfsr_rename(&lfs, "batman", "catman") => 0;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the stickynote survived the rename
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "catman", &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "catman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test we can rename stickynotes onto files 
+[cases.test_forphans_uncreat_mv_replace]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreate
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // create another file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "catman",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
+    lfsr_file_close(&lfs, &file) => 0;
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // rename the stickynote
+    lfsr_rename(&lfs, "batman", "catman") => 0;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the stickynote survived the rename
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "catman", &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "catman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test we can rename stickynotes onto other files
+[cases.test_forphans_uncreat_mv_src_file]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreate
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "catman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // rename the stickynote
+    lfsr_rename(&lfs, "batman", "catman") => 0;
+
+    // we should still be able to read our uncreate/file
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    lfsr_file_rewind(&lfs, &file) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf))
+            => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the stickynote survived the rename
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "catman", &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "catman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test we can rename files onto stickynotes
+[cases.test_forphans_uncreat_mv_dst_file]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreate
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "catman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file, "catman!", strlen("catman!"))
+            => strlen("catman!");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // rename onto the stickynote
+    lfsr_rename(&lfs, "catman", "batman") => 0;
+
+    // we should still be able to read our uncreate/file
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    lfsr_file_rewind(&lfs, &file) => 0;
+    lfsr_file_read(&lfs, &file, rbuf, sizeof(rbuf))
+            => strlen("catman!");
+    assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // test that the file replaced the stickynote
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("catman!"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("catman!"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("catman!");
+        assert(memcmp(rbuf, "catman!", strlen("catman!")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test we can rename stickynotes onto other stickynotes
+[cases.test_forphans_uncreat_mv_stickynote]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreate
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    // create another uncreate
+    lfsr_file_t uncreat_;
+    lfsr_file_open(&lfs, &uncreat_, "catman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat_, "WoO~", strlen("WoO~"))
+            => strlen("WoO~");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // rename the stickynote
+    lfsr_rename(&lfs, "batman", "catman") => 0;
+
+    // we should still be able to read our uncreates
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    lfsr_file_rewind(&lfs, &uncreat_) => 0;
+    lfsr_file_read(&lfs, &uncreat_, rbuf, sizeof(rbuf))
+            => strlen("WoO~");
+    assert(memcmp(rbuf, "WoO~", strlen("WoO~")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+        lfsr_file_close(&lfs, &uncreat_) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the stickynote survived the rename
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "catman", &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "catman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "catman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+        lfsr_file_close(&lfs, &uncreat_) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test renaming a stickynote onto itself does nothing
+[cases.test_forphans_uncreat_mv_noop]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreate
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // rename the stickynote
+    lfsr_rename(&lfs, "batman", "batman") => 0;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the stickynote survived the rename
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_uncreat_not_dir]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // attempt to rename a dir onto the stickynote
+    //
+    // this should fail because of the stickynote
+    //
+    lfsr_mkdir(&lfs, "datman") => 0;
+    lfsr_rename(&lfs, "datman", "batman") => LFS_ERR_NOTDIR;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the mkdir had no effect
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_stat(&lfs, "datman", &info) => 0;
+    assert(strcmp(info.name, "datman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "datman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_uncreat_not_stickynote]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // attempt to rename the stickynote onto a dir
+    //
+    // this should fail because of the stickynote
+    //
+    lfsr_mkdir(&lfs, "datman") => 0;
+    lfsr_rename(&lfs, "batman", "datman") => LFS_ERR_ISDIR;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the mkdir had no effect
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_stat(&lfs, "datman", &info) => 0;
+    assert(strcmp(info.name, "datman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "datman") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_uncreat_not_root]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // attempt to rename the stickynote onto the root
+    //
+    // this should fail because of the stickynote
+    //
+    // well, because of the root really, but also because of the
+    // stickynote
+    //
+    lfsr_rename(&lfs, "batman", "/") => LFS_ERR_INVAL;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the mkdir had no effect
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_uncreat_not_noent]
+# CLOSE=0 => don't close (before end of test)
+# CLOSE=1 => close after op
+defines.CLOSE = [0, 1]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount after op
+defines.REMOUNT = [0, 1]
+defines.MKCONSISTENT = [false, true]
+if = 'REMOUNT <= CLOSE'
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create an uncreat
+    lfsr_file_t uncreat;
+    lfsr_file_open(&lfs, &uncreat, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &uncreat,
+            "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
+            => strlen("WoOoOoOoOoO");
+
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // attempt to rename the stickynote onto an invalid path
+    //
+    // this should fail because of the stickynote
+    //
+    // well, because of the invalid path really, but also because of the
+    // stickynote
+    //
+    lfsr_rename(&lfs, "batman", "no/batman") => LFS_ERR_NOENT;
+
+    // we should still be able to read our uncreat
+    lfsr_file_rewind(&lfs, &uncreat) => 0;
+    uint8_t rbuf[256];
+    lfsr_file_read(&lfs, &uncreat, rbuf, sizeof(rbuf))
+            => strlen("WoOoOoOoOoO");
+    assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+
+    if (CLOSE == 1) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    if (REMOUNT == 1) {
+        lfsr_unmount(&lfs) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // make sure the mkdir had no effect
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    if (CLOSE == 1) {
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == strlen("WoOoOoOoOoO"));
+    } else {
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+    }
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    if (CLOSE == 1) {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf))
+                => strlen("WoOoOoOoOoO");
+        assert(memcmp(rbuf, "WoOoOoOoOoO", strlen("WoOoOoOoOoO")) == 0);
+    } else {
+        lfsr_file_read(&lfs, &file_, rbuf, sizeof(rbuf)) => 0;
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    if (CLOSE == 0) {
+        lfsr_file_close(&lfs, &uncreat) => 0;
+    }
+    lfsr_unmount(&lfs) => 0;
+'''
+
+
+# test desync files don't exist until first sync + close
+[cases.test_forphans_undesync]
+defines.SIZE = [
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
+defines.SYNC = [false, true]
+defines.MKCONSISTENT = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a desync file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+
+    // mkconsistent should have no effect
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // check that the file doesn't _really_ exist
+    lfs_t lfs_;
+    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs_, "batman", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs_, &dir, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    lfsr_unmount(&lfs_) => 0;
+
+    // write to the file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+
+        // mkconsistent should have no effect
+        if (MKCONSISTENT) {
+            lfsr_fs_mkconsistent(&lfs) => 0;
+        }
+
+        // check that the file still doesn't _really_ exist
+        lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+        // via stat
+        lfsr_stat(&lfs_, "batman", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_open(&lfs_, &dir, "/") => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs_, &dir) => 0;
+        // via open
+        lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        lfsr_unmount(&lfs_) => 0;
+    }
+    
+    if (SYNC) {
+        // sync the file
+        lfsr_file_sync(&lfs, &file) => 0;
+
+        // now it should show up
+        lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+        // via stat
+        lfsr_stat(&lfs_, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_open(&lfs_, &dir, "/") => 0;
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs_, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs_, &dir) => 0;
+        // via open
+        lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => 0;
+        prng = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs_, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs_, &file_) => 0;
+        lfsr_unmount(&lfs_) => 0;
+    }
+
+    // sync the file
+    lfsr_file_sync(&lfs, &file) => 0;
+    // close the file
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // now it should show up
+    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+    // via stat
+    lfsr_stat(&lfs_, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs_, &dir, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs_, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs_, &file_) => 0;
+    lfsr_unmount(&lfs_) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+
+    // should still be there
+    lfsr_mount(&lfs_, LFS_M_RDWR, CFG) => 0;
+    // via stat
+    lfsr_stat(&lfs_, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs_, &dir, "/") => 0;
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs_, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs_, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs_, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs_, &file_, "batman", LFS_O_RDONLY) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs_, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs_, &file_) => 0;
+    lfsr_unmount(&lfs_) => 0;
+'''
+
+# test desync files don't exist until first sync + close, even under powerloss
+[cases.test_forphans_undesync_pl]
+defines.SIZE = [
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
+    if (err) {
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+
+    // create a desync file
+    //
+    // note the excl flag
+    lfsr_file_t file;
+    err = lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC);
+    assert(!err || err == LFS_ERR_EXIST);
+
+    if (err != LFS_ERR_EXIST) {
+        // write to the file
+        uint32_t prng = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+        }
+
+        // sync the file
+        lfsr_file_sync(&lfs, &file) => 0;
+        // close the file
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // we should be able to read the file now
+    lfsr_file_open(&lfs, &file, "batman", LFS_O_RDONLY) => 0;
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // and after remounting
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    lfsr_file_open(&lfs, &file, "batman", LFS_O_RDONLY) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test desync files don't exist until first sync + close, even under powerloss
+[cases.test_forphans_undesync_many_pl]
+defines.SIZE = [
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
+]
+defines.CHUNK = 8
+defines.N = 128
+reentrant = true
+code = '''
+    // format once per test
+    lfs_t lfs;
+    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
+    if (err) {
+        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    }
+
+    // create N desync files
+    lfsr_file_t files[N];
+    bool exists[N];
+    for (lfs_size_t j = 0; j < N; j++) {
+        // note the excl flag
+        char name[256];
+        sprintf(name, "batman%03x", j);
+        err = lfsr_file_open(&lfs, &files[j], name,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC);
+        assert(!err || err == LFS_ERR_EXIST);
+
+        exists[j] = (err == LFS_ERR_EXIST);
+        if (!exists[j]) {
+            // write to the file
+            uint32_t prng = 42 + j;
+            for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+                uint8_t wbuf[CHUNK];
+                for (lfs_size_t j = 0; j < CHUNK; j++) {
+                    wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+                }
+                lfsr_file_write(&lfs, &files[j], wbuf, CHUNK) => CHUNK;
+            }
+        }
+    }
+    // sync and close
+    for (lfs_size_t j = 0; j < N; j++) {
+        if (!exists[j]) {
+            // sync the file
+            lfsr_file_sync(&lfs, &files[j]) => 0;
+            // close the file
+            lfsr_file_close(&lfs, &files[j]) => 0;
+        }
+    }
+
+    // we should be able to read the files now
+    for (lfs_size_t j = 0; j < N; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", j);
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        uint32_t prng = 42 + j;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    // and after remounting
+    lfsr_unmount(&lfs) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    for (lfs_size_t j = 0; j < N; j++) {
+        char name[256];
+        sprintf(name, "batman%03x", j);
+        lfsr_file_t file;
+        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        uint32_t prng = 42 + j;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test desync files aren't even openable until first sync + close
+[cases.test_forphans_undesync_sync_wr]
+defines.SIZE = [
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
+defines.SYNC = [false, true]
+defines.MKCONSISTENT = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a desync file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+
+    // mkconsistent should have no effect
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // as far as the filesystem is concerned, the file does not exist yet
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    // write to the file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+
+        // mkconsistent should have no effect
+        if (MKCONSISTENT) {
+            lfsr_fs_mkconsistent(&lfs) => 0;
+        }
+
+        // as far as the filesystem is concerned, the file does not exist yet
+        // via stat
+        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+        // via readdir
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // rdonly rejected
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+        // non-create rejected
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+    }
+
+    // but we should still recieve sync broadcasts on sync + close
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "batman",
+            LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+    // mkconsistent should have no effect
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    if (SYNC) {
+        // sync the file
+        lfsr_file_sync(&lfs, &file) => 0;
+
+        // now it should show up
+        // via stat
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        prng = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file_) => 0;
+
+        // recieved sync broadcast?
+        lfsr_file_rewind(&lfs, &file__) => 0;
+        prng = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file__, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+
+    // sync the file
+    lfsr_file_sync(&lfs, &file) => 0;
+    // close the file
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // now it should show up
+    // via stat
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file__) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file__, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file__) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_undesync_sync_rw]
+defines.SIZE = [
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
+defines.SYNC = [false, true]
+defines.MKCONSISTENT = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    // open a second desync reference
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_DESYNC) => 0;
+
+    // mkconsistent should have no effect
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // uncommitted files appear as stickynotes
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    uint8_t rbuf[CHUNK];
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // write to the second file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
+
+        // mkconsistent should have no effect
+        if (MKCONSISTENT) {
+            lfsr_fs_mkconsistent(&lfs) => 0;
+        }
+
+        // still appears as a stickynote
+        // via stat
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+        // via readdir
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
+    }
+
+    if (SYNC) {
+        // sync the second file
+        lfsr_file_sync(&lfs, &file__) => 0;
+
+        // now it should show up
+        // via stat
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        prng = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file_) => 0;
+
+        // recieved sync broadcast?
+        lfsr_file_rewind(&lfs, &file) => 0;
+        prng = 42;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+
+    // sync the second file
+    lfsr_file_sync(&lfs, &file__) => 0;
+    // close the second file
+    lfsr_file_close(&lfs, &file__) => 0;
+
+    // now it should show up
+    // via stat
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_undesync_wdwr]
+defines.SIZE = [
+    'FILE_CACHE_SIZE/2',
+    '2*FILE_CACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+defines.CHUNK = 'LFS_MIN(64, SIZE)'
+defines.SYNC = [false, true]
+defines.MKCONSISTENT = [false, true]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // create a desync file
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "batman",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    // open a second desync reference
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+    // and a third for checking sync broadcasts
+    lfsr_file_t file___;
+    lfsr_file_open(&lfs, &file___, "batman",
+            LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+    // mkconsistent should have no effect
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // write to the first file
+    uint32_t prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file, wbuf, CHUNK) => CHUNK;
+
+        // mkconsistent should have no effect
+        if (MKCONSISTENT) {
+            lfsr_fs_mkconsistent(&lfs) => 0;
+        }
+
+        // still appears as a stickynote
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
+    }
+
+    // write to the second file
+    prng = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
+
+        // mkconsistent should have no effect
+        if (MKCONSISTENT) {
+            lfsr_fs_mkconsistent(&lfs) => 0;
+        }
+
+        // still appears as a stickynote
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
+    }
+
+    if (SYNC) {
+        // sync the second file
+        lfsr_file_sync(&lfs, &file__) => 0;
+
+        // now it should show up
+        // via stat
+        struct lfs_info info;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        // via readdir
+        lfsr_dir_t dir;
+        lfsr_dir_open(&lfs, &dir, "/") => 0;
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS_TYPE_DIR);
+        assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_REG);
+        assert(info.size == SIZE);
+        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+        lfsr_dir_close(&lfs, &dir) => 0;
+        // via open
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        prng = 42+1;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+        lfsr_file_close(&lfs, &file_) => 0;
+
+        // recieved sync broadcast?
+        lfsr_file_rewind(&lfs, &file___) => 0;
+        prng = 42+1;
+        for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+        }
+    }
+
+    // sync the second file
+    lfsr_file_sync(&lfs, &file__) => 0;
+    // close the second file
+    lfsr_file_close(&lfs, &file__) => 0;
+
+    // now it should show up
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    prng = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file___) => 0;
+    prng = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    // now sync the first file, this should overwrite what is written
+    lfsr_file_sync(&lfs, &file) => 0;
+
+    // now it should show up
+    // via stat
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file___) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    // and close, this shouldn't change anything
+    //
+    // note we must sync to clear the desync flag
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // via stat
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == SIZE);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+    lfsr_file_close(&lfs, &file_) => 0;
+
+    // recieved sync broadcast?
+    lfsr_file_rewind(&lfs, &file___) => 0;
+    prng = 42;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfsr_file_read(&lfs, &file___, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(wbuf, rbuf, CHUNK) == 0);
+    }
+
+    lfsr_file_close(&lfs, &file___) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_forphans_undesync_open]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1415,7 +3881,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_desync_excl]
+[cases.test_forphans_undesync_excl]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1514,6 +3980,9 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+
+
+# test that desynced, and then closed, files don't show up
 [cases.test_forphans_orphan]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
@@ -1690,10 +4159,13 @@ code = '''
             lfsr_fs_mkconsistent(&lfs) => 0;
         }
 
-        // as far as the filesystem is concerned, the file does not exist yet
+        // still appears as a stickynote
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1705,14 +4177,18 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
-        // rdonly rejected
+        // via open
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-        // non-create rejected
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
     }
 
     // write to the second file
@@ -1729,10 +4205,13 @@ code = '''
             lfsr_fs_mkconsistent(&lfs) => 0;
         }
 
-        // as far as the filesystem is concerned, the file does not exist yet
+        // still appears as a stickynote
         // via stat
         struct lfs_info info;
-        lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+        lfsr_stat(&lfs, "batman", &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         // via readdir
         lfsr_dir_t dir;
         lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -1744,14 +4223,18 @@ code = '''
         assert(strcmp(info.name, "..") == 0);
         assert(info.type == LFS_TYPE_DIR);
         assert(info.size == 0);
+        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        assert(strcmp(info.name, "batman") == 0);
+        assert(info.type == LFS_TYPE_STICKYNOTE);
+        assert(info.size == 0);
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
-        // rdonly rejected
+        // via open
         lfsr_file_t file_;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-        // non-create rejected
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+        uint8_t rbuf[CHUNK];
+        lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+        lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+        lfsr_file_close(&lfs, &file_) => 0;
     }
 
     if (SYNC & 0x1) {
@@ -1993,7 +4476,10 @@ code = '''
         sprintf(name, "aatman%03x", o);
         lfsr_stat(&lfs, name, &info) => LFS_ERR_NOENT;
     }
-    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     // via readdir
     lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
@@ -2005,10 +4491,15 @@ code = '''
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
     // via open
     lfsr_file_t file_;
+    uint8_t rbuf[CHUNK];
     for (lfs_size_t o = 0; o < N; o++) {
         char name[256];
         sprintf(name, "aatman%03x", o);
@@ -2018,11 +4509,9 @@ code = '''
         lfsr_file_open(&lfs, &file_, name, LFS_O_WRONLY) => LFS_ERR_NOENT;
         lfsr_file_open(&lfs, &file_, name, LFS_O_RDWR) => LFS_ERR_NOENT;
     }
-    // rdonly rejected
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-    // non-create rejected
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+    lfsr_file_close(&lfs, &file_) => 0;
 
     // but we should still be able to read our orphans
     for (lfs_size_t o = 0; o < N; o++) {
@@ -2760,6 +5249,9 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+
+
+# test that removed files never show up
 [cases.test_forphans_zombie]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
@@ -3063,27 +5555,7 @@ code = '''
     // remove the file
     lfsr_remove(&lfs, "batman") => 0;
 
-    // create a second file
-    lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "batman",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
-
-    // write to the second file
-    prng = 42+1;
-    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
-        uint8_t wbuf[CHUNK];
-        for (lfs_size_t j = 0; j < CHUNK; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
-        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
-    }
-
-    // mkconsistent should have no effect
-    if (MKCONSISTENT) {
-        lfsr_fs_mkconsistent(&lfs) => 0;
-    }
-
-    // as far as the filesystem is concerned, the file does not exist yet
+    // as far as the filesystem is concerned, this file does not exist anymore
     // via stat
     struct lfs_info info;
     lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
@@ -3106,6 +5578,54 @@ code = '''
     // non-create rejected
     lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
     lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    // create a second file
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // write to the second file
+    prng = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
+    }
+
+    // mkconsistent should have no effect
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // still appears as a stickynote
+    // via stat
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    uint8_t rbuf[CHUNK];
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+    lfsr_file_close(&lfs, &file_) => 0;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -3284,6 +5804,30 @@ code = '''
     // remove the file
     lfsr_remove(&lfs, "batman") => 0;
 
+    // as far as the filesystem is concerned, this file does not exist anymore
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+
     // create a second file
     lfsr_file_t file__;
     lfsr_file_open(&lfs, &file__, "batman",
@@ -3314,12 +5858,13 @@ code = '''
         lfsr_fs_mkconsistent(&lfs) => 0;
     }
 
-    // as far as the filesystem is concerned, the file does not exist yet
+    // still appears as a stickynote
     // via stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     // via readdir
-    lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
@@ -3329,14 +5874,17 @@ code = '''
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
-    // rdonly rejected
-    lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-    // non-create rejected
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+    // via open
+    uint8_t rbuf[CHUNK];
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+    lfsr_file_close(&lfs, &file_) => 0;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -3525,48 +6073,7 @@ code = '''
     // remove the file
     lfsr_remove(&lfs, "batman") => 0;
 
-    // create a second file
-    lfsr_file_t file__;
-    lfsr_file_open(&lfs, &file__, "batman",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
-
-    // write to the second file
-    prng = 42+1;
-    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
-        uint8_t wbuf[CHUNK];
-        for (lfs_size_t j = 0; j < CHUNK; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
-        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
-    }
-
-    // need to sync so we can remove
-    lfsr_file_sync(&lfs, &file__) => 0;
-
-    // remove the file
-    lfsr_remove(&lfs, "batman") => 0;
-
-    // create a third file
-    lfsr_file_t file___;
-    lfsr_file_open(&lfs, &file___, "batman",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
-
-    // write to the third file
-    prng = 42+2;
-    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
-        uint8_t wbuf[CHUNK];
-        for (lfs_size_t j = 0; j < CHUNK; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
-        lfsr_file_write(&lfs, &file___, wbuf, CHUNK) => CHUNK;
-    }
-
-    // mkconsistent should have no effect
-    if (MKCONSISTENT) {
-        lfsr_fs_mkconsistent(&lfs) => 0;
-    }
-
-    // as far as the filesystem is concerned, the file does not exist yet
+    // as far as the filesystem is concerned, this file does not exist anymore
     // via stat
     struct lfs_info info;
     lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
@@ -3589,6 +6096,96 @@ code = '''
     // non-create rejected
     lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
     lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    // create a second file
+    lfsr_file_t file__;
+    lfsr_file_open(&lfs, &file__, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // write to the second file
+    prng = 42+1;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file__, wbuf, CHUNK) => CHUNK;
+    }
+
+    // need to sync so we can remove
+    lfsr_file_sync(&lfs, &file__) => 0;
+
+    // remove the file
+    lfsr_remove(&lfs, "batman") => 0;
+
+    // still doesn't exist
+    // via stat
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+
+    // create a third file
+    lfsr_file_t file___;
+    lfsr_file_open(&lfs, &file___, "batman",
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+
+    // write to the third file
+    prng = 42+2;
+    for (lfs_off_t i = 0; i < SIZE; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfsr_file_write(&lfs, &file___, wbuf, CHUNK) => CHUNK;
+    }
+
+    // mkconsistent should have no effect
+    if (MKCONSISTENT) {
+        lfsr_fs_mkconsistent(&lfs) => 0;
+    }
+
+    // still appears as a stickynote
+    // via stat
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // via open
+    uint8_t rbuf[CHUNK];
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+    lfsr_file_close(&lfs, &file_) => 0;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -3781,6 +6378,30 @@ code = '''
     // remove the file
     lfsr_remove(&lfs, "batman") => 0;
 
+    // as far as the filesystem is concerned, this file does not exist anymore
+    // via stat
+    struct lfs_info info;
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_t file_;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+
     // create a second file
     lfsr_file_t file__;
     lfsr_file_open(&lfs, &file__, "batman",
@@ -3791,6 +6412,27 @@ code = '''
 
     // remove the file
     lfsr_remove(&lfs, "batman") => 0;
+
+    // still doesn't exist
+    // via stat
+    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    // via readdir
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+    // rdonly rejected
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
+    // non-create rejected
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
     // create a third file
     lfsr_file_t file___;
@@ -3832,12 +6474,13 @@ code = '''
         lfsr_fs_mkconsistent(&lfs) => 0;
     }
 
-    // as far as the filesystem is concerned, the file does not exist yet
+    // still appears as a stickynote
     // via stat
-    struct lfs_info info;
-    lfsr_stat(&lfs, "batman", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "batman", &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     // via readdir
-    lfsr_dir_t dir;
     lfsr_dir_open(&lfs, &dir, "/") => 0;
     lfsr_dir_read(&lfs, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
@@ -3847,14 +6490,17 @@ code = '''
     assert(strcmp(info.name, "..") == 0);
     assert(info.type == LFS_TYPE_DIR);
     assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "batman") == 0);
+    assert(info.type == LFS_TYPE_STICKYNOTE);
+    assert(info.size == 0);
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
-    // rdonly rejected
-    lfsr_file_t file_;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => LFS_ERR_NOENT;
-    // non-create rejected
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
-    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
+    // via open
+    uint8_t rbuf[CHUNK];
+    lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
+    lfsr_file_close(&lfs, &file_) => 0;
 
     // removed files can not be synced
     lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
@@ -4702,6 +7348,9 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
+
+
+# test some other operations that can make zombies
 [cases.test_forphans_zombify_mkdir]
 defines.POSTHUMOUS = [false, true]
 defines.CLOSE = [false, true]
@@ -4713,10 +7362,10 @@ code = '''
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
-    // create a file, not a zombie yet
+    // create a desync file, not a zombie yet
     lfsr_file_t zombie;
     lfsr_file_open(&lfs, &zombie, "batman",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
                 "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
@@ -4828,10 +7477,10 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
     }
 
-    // create a file, not a zombie yet
+    // create a desync file, not a zombie yet
     lfsr_file_t zombie;
     lfsr_file_open(&lfs, &zombie, (INTERDIR) ? "a/batman" : "batman",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
     if (!POSTHUMOUS) {
         lfsr_file_write(&lfs, &zombie,
                 "WoOoOoOoOoO", strlen("WoOoOoOoOoO"))
@@ -4938,7 +7587,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_on_zombie_rm]
+[cases.test_forphans_fileonzombie_rm]
 defines.DIR = [false, true]
 defines.POSTHUMOUS = [false, true]
 # CLOSE=0 => don't close (before end of test)
@@ -5044,7 +7693,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_on_zombie_mv_dst]
+[cases.test_forphans_fileonzombie_mv_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -5222,6 +7871,7 @@ code = '''
     }
     lfsr_unmount(&lfs) => 0;
 '''
+
 
 
 # test that we actually cleanup orphans correctly
@@ -5806,9 +8456,12 @@ code = '''
 
 
 
-# these doesn't really involve scratch files, but we might as well test
-# them here
-[cases.test_forphans_mv]
+# test that file handles follow mvs correctly
+#
+# these doesn't really involve stickynotes, but it's the same internal
+# circuitry, we might as well test them here
+#
+[cases.test_forphans_file_mv]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -6050,7 +8703,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_mv_postmv]
+[cases.test_forphans_file_mv_postmv]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -6352,7 +9005,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_mv_rwrw]
+[cases.test_forphans_file_mv_file_rwrw]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -6703,7 +9356,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_mv_rwrw_postmv]
+[cases.test_forphans_file_mv_rwrw_postmv]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -7046,7 +9699,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_mv_mv_src]
+[cases.test_forphans_file_mv_mv_src]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -7213,7 +9866,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_on_zombie_mv_src]
+[cases.test_forphans_file_fileonzombie_mv_src]
 defines.DIR = [false, true]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
@@ -7403,7 +10056,7 @@ code = '''
 # here we spam renames over an increasing number of files to hopefully hit
 # that case
 #
-[cases.test_forphans_mv_split]
+[cases.test_forphans_file_mv_split]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -7750,7 +10403,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_mv_split_backwards]
+[cases.test_forphans_file_mv_split_backwards]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -8124,11 +10777,12 @@ code = '''
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    bool *sim_isstickys = malloc(N*sizeof(bool));
     lfs_size_t sim_size = 0;
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool uncreat;
+        bool sticky;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -8151,28 +10805,25 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool uncreat = true;
+            bool exist = false;
             uint32_t wprng = 0;
+            bool sticky = true;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
-                    uncreat = false;
+                    exist = true;
                     wprng = sim_prngs[j];
+                    sticky = sim_isstickys[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (uncreat) {
+            if (!exist) {
                 wprng = TEST_PRNG(&prng);
+                sticky = true;
             }
 
-            // open in our sim
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
-            sim_files[j]->x = x;
-            sim_files[j]->uncreat = uncreat;
-            sim_files[j]->zombie = false;
-            sim_files[j]->prng = wprng;
-            sim_file_count++;
 
             // open the actual file
             char name[256];
@@ -8181,12 +10832,45 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (uncreat) {
+            if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
+                uint32_t wprng_ = wprng;
                 for (lfs_size_t k = 0; k < SIZE; k++) {
-                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                        => SIZE;
+            }
+
+            // open in our sim
+            sim_files[j]->x = x;
+            sim_files[j]->sticky = sticky;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // already seen?
+                    if (k < sim_size && sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim_size += 1;
+                        sim[k] = x;
+                        sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                    }
+                    break;
+                }
             }
 
         // write/rewrite a file?
@@ -8200,26 +10884,27 @@ code = '''
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng);
 
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            uint32_t wprng_ = wprng;
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
             // update sim
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
-                // insert into our sim
+                // update in our sim
                 for (lfs_size_t k = 0;; k++) {
-                    if (k >= sim_size || sim[k] >= x) {
-                        // already seen?
-                        if (k < sim_size && sim[k] == x) {
-                            // new prng
-                            sim_prngs[k] = wprng;
-                        } else {
-                            // insert
-                            memmove(&sim[k+1], &sim[k],
-                                    (sim_size-k)*sizeof(lfs_size_t));
-                            memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                    (sim_size-k)*sizeof(uint32_t));
-                            sim_size += 1;
-                            sim[k] = x;
-                            sim_prngs[k] = wprng;
-                        }
+                    if (sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                        // no longer sticky
+                        sim_isstickys[k] = false;
                         break;
                     }
                 }
@@ -8227,21 +10912,13 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->uncreat = false;
+                        // new prng
                         sim_files[k]->prng = wprng;
+                        // no longer sticky
+                        sim_files[k]->sticky = false;
                     }
                 }
             }
-
-            // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t k = 0; k < SIZE; k++) {
-                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
-            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
         // close a file?
         } else if (op == 2) {
@@ -8250,6 +10927,9 @@ code = '''
             }
             // choose a random file handle
             lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            bool sticky = sim_files[j]->sticky;
+            bool zombie = sim_files[j]->zombie;
 
             // this doesn't really test anything, but if we don't close
             // files eventually everything will end up zombies
@@ -8257,11 +10937,40 @@ code = '''
             // close the file without affected disk
             lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            // clobber closed files to try to catch lingering references
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
             // remove from list
             free(sim_files[j]);
             sim_files[j] = sim_files[sim_file_count-1];
             sim_file_count -= 1;
+
+            // update our sim
+            if (sticky && !zombie) {
+                // orphaned?
+                bool orphan = true;
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        orphan = false;
+                    }
+                }
+
+                // if we were never synced, delete from sim
+                if (orphan) {
+                    for (lfs_size_t k = 0;; k++) {
+                        if (sim[k] == x) {
+                            memmove(&sim[k], &sim[k+1],
+                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k], &sim_prngs[k+1],
+                                    (sim_size-(k+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k], &sim_isstickys[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            sim_size -= 1;
+                            break;
+                        }
+                    }
+                }
+            }
 
         // remove a file?
         } else if (op == 3) {
@@ -8272,11 +10981,18 @@ code = '''
             lfs_size_t j = TEST_PRNG(&prng) % sim_size;
             lfs_size_t x = sim[j];
 
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
                     (sim_size-(j+1))*sizeof(lfs_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
+            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                    (sim_size-(j+1))*sizeof(bool));
             sim_size -= 1;
 
             // mark any related sim files as zombied
@@ -8285,11 +11001,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // delete this file
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_remove(&lfs, name) => 0;
 
         // rename a file?
         } else if (op == 4) {
@@ -8302,6 +11013,14 @@ code = '''
             lfs_size_t x = sim[j];
             lfs_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
+            bool sticky = sim_isstickys[j];
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
 
             // update our sim
             for (lfs_size_t k = 0;; k++) {
@@ -8313,12 +11032,15 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         sim_size -= 1;
                         if (k > j) {
                             k -= 1;
                         }
-                        // update the prng
+                        // update the prng/sticky
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
                     // just renaming
                     } else {
                         // first delete
@@ -8326,6 +11048,8 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         if (k > j) {
                             k -= 1;
                         }
@@ -8334,8 +11058,11 @@ code = '''
                                 (sim_size-k)*sizeof(lfs_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
                         sim[k] = y;
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
                     }
                     break;
                 }
@@ -8352,13 +11079,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // rename this file
-            char old_name[256];
-            sprintf(old_name, "batman%03x", x);
-            char new_name[256];
-            sprintf(new_name, "batman%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
         }
     }
 
@@ -8369,8 +11089,13 @@ code = '''
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
+        if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
+        } else {
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
     }
 
     lfsr_dir_t dir;
@@ -8389,8 +11114,13 @@ code = '''
         sprintf(name, "batman%03x", sim[j]);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
+        if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
+        } else {
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
@@ -8408,8 +11138,12 @@ code = '''
         }
 
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        if (sim_isstickys[j]) {
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+        } else {
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
         lfsr_file_close(&lfs, &file) => 0;
     }
 
@@ -8430,6 +11164,7 @@ code = '''
     // clean up sim/lfs
     free(sim);
     free(sim_prngs);
+    free(sim_isstickys);
     for (lfs_size_t j = 0; j < sim_file_count; j++) {
         lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
         free(sim_files[j]);
@@ -8463,12 +11198,13 @@ code = '''
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    bool *sim_isstickys = malloc(N*sizeof(bool));
     bool *sim_isdirs = malloc(N*sizeof(bool));
     lfs_size_t sim_size = 0;
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool uncreat;
+        bool sticky;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -8491,31 +11227,28 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool uncreat = true;
+            bool exist = true;
             uint32_t wprng = 0;
+            bool sticky = true;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
                     }
-                    uncreat = false;
+                    exist = true;
                     wprng = sim_prngs[j];
+                    sticky = sim_isstickys[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (uncreat) {
+            if (!exist) {
                 wprng = TEST_PRNG(&prng);
+                sticky = true;
             }
 
-            // open in our sim
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
-            sim_files[j]->x = x;
-            sim_files[j]->uncreat = uncreat;
-            sim_files[j]->zombie = false;
-            sim_files[j]->prng = wprng;
-            sim_file_count++;
 
             // open the actual file
             char name[256];
@@ -8524,12 +11257,48 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (uncreat) {
+            if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
+                uint32_t wprng_ = wprng;
                 for (lfs_size_t k = 0; k < SIZE; k++) {
-                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                        => SIZE;
+            }
+
+            // open in our sim
+            sim_files[j]->x = x;
+            sim_files[j]->sticky = sticky;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // already seen?
+                    if (k < sim_size && sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
+                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim_size += 1;
+                        sim[k] = x;
+                        sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = false;
+                    }
+                    break;
+                }
             }
 
         // write/rewrite a file?
@@ -8543,29 +11312,27 @@ code = '''
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng);
 
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            uint32_t wprng_ = wprng;
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
             // update sim
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
-                // insert into our sim
+                // update in our sim
                 for (lfs_size_t k = 0;; k++) {
                     if (k >= sim_size || sim[k] >= x) {
-                        // already seen?
-                        if (k < sim_size && sim[k] == x) {
-                            // new prng
-                            sim_prngs[k] = wprng;
-                        } else {
-                            // insert
-                            memmove(&sim[k+1], &sim[k],
-                                    (sim_size-k)*sizeof(lfs_size_t));
-                            memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                    (sim_size-k)*sizeof(uint32_t));
-                            memmove(&sim_isdirs[k+1], &sim_isdirs[k],
-                                    (sim_size-k)*sizeof(bool));
-                            sim_size += 1;
-                            sim[k] = x;
-                            sim_prngs[k] = wprng;
-                            sim_isdirs[k] = false;
-                        }
+                        // new prng
+                        sim_prngs[k] = wprng;
+                        // no longer sticky
+                        sim_isstickys[k] = false;
                         break;
                     }
                 }
@@ -8573,21 +11340,13 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->uncreat = false;
+                        // new prng
                         sim_files[k]->prng = wprng;
+                        // no longer sticky
+                        sim_files[k]->sticky = false;
                     }
                 }
             }
-
-            // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t k = 0; k < SIZE; k++) {
-                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
-            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
         // close a file?
         } else if (op == 2) {
@@ -8596,6 +11355,9 @@ code = '''
             }
             // choose a random file handle
             lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            lfs_size_t sticky = sim_files[j]->sticky;
+            lfs_size_t zombie = sim_files[j]->zombie;
 
             // this doesn't really test anything, but if we don't close
             // files eventually everything will end up zombies
@@ -8603,11 +11365,42 @@ code = '''
             // close the file without affected disk
             lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            // clobber closed files to try to catch lingering references
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
             // remove from list
             free(sim_files[j]);
             sim_files[j] = sim_files[sim_file_count-1];
             sim_file_count -= 1;
+
+            // update our sim
+            if (sticky && !zombie) {
+                // orphaned?
+                bool orphan = true;
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        orphan = false;
+                    }
+                }
+
+                // if we were never synced, delete from sim
+                if (orphan) {
+                    for (lfs_size_t k = 0;; k++) {
+                        if (sim[k] == x) {
+                            memmove(&sim[k], &sim[k+1],
+                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k], &sim_prngs[k+1],
+                                    (sim_size-(k+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k], &sim_isstickys[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            memmove(&sim_isdirs[k], &sim_isdirs[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            sim_size -= 1;
+                            break;
+                        }
+                    }
+                }
+            }
 
         // remove a file?
         } else if (op == 3) {
@@ -8618,11 +11411,18 @@ code = '''
             lfs_size_t j = TEST_PRNG(&prng) % sim_size;
             lfs_size_t x = sim[j];
 
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
                     (sim_size-(j+1))*sizeof(lfs_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
+            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                    (sim_size-(j+1))*sizeof(bool));
             memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                     (sim_size-(j+1))*sizeof(bool));
             sim_size -= 1;
@@ -8633,11 +11433,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // delete this file
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_remove(&lfs, name) => 0;
 
         // rename a file?
         } else if (op == 4) {
@@ -8650,31 +11445,51 @@ code = '''
             lfs_size_t x = sim[j];
             lfs_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
-            bool isdir = sim_isdirs[j];
+            bool sticky = sim_isstickys[j];
+            bool dir = sim_isdirs[j];
+
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // type mismatch?
+                        if (sim_isdirs[k] != dir) {
+                            goto nonsense;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
 
             // update our sim
             for (lfs_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
-                        // type mismatch?
-                        if (sim_isdirs[k] != isdir) {
-                            goto nonsense;
-                        }
-
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                                 (sim_size-(j+1))*sizeof(bool));
                         sim_size -= 1;
                         if (k > j) {
                             k -= 1;
                         }
-                        // update the prng
+                        // update the prng/sticky/dir
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = dir;
                     // just renaming
                     } else {
                         // first delete
@@ -8682,6 +11497,8 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                                 (sim_size-(j+1))*sizeof(bool));
                         if (k > j) {
@@ -8692,11 +11509,14 @@ code = '''
                                 (sim_size-k)*sizeof(lfs_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
                         memmove(&sim_isdirs[k+1], &sim_isdirs[k],
                                 (sim_size-k)*sizeof(bool));
                         sim[k] = y;
                         sim_prngs[k] = wprng;
-                        sim_isdirs[k] = isdir;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = dir;
                     }
                     break;
                 }
@@ -8714,37 +11534,42 @@ code = '''
                 }
             }
 
-            // rename this file
-            char old_name[256];
-            sprintf(old_name, "batman%03x", x);
-            char new_name[256];
-            sprintf(new_name, "batman%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
-
         // toss a directory into the mix
         } else if (op == 5) {
             // choose a pseudo-random number
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
-            // insert into our sim, use negative numbers for dirs
             for (lfs_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
                         goto nonsense;
-                    } else {
-                        // insert
-                        memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
-                        memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                (sim_size-k)*sizeof(uint32_t));
-                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
-                                (sim_size-k)*sizeof(bool));
-                        sim_size += 1;
-                        sim[k] = x;
-                        sim_prngs[k] = 0;
-                        sim_isdirs[k] = true;
                     }
+                    break;
+                }
+            }
+
+            // make the directory
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_mkdir(&lfs, name) => 0;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // insert
+                    memmove(&sim[k+1], &sim[k],
+                            (sim_size-k)*sizeof(lfs_size_t));
+                    memmove(&sim_prngs[k+1], &sim_prngs[k],
+                            (sim_size-k)*sizeof(uint32_t));
+                    memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                            (sim_size-k)*sizeof(bool));
+                    memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                            (sim_size-k)*sizeof(bool));
+                    sim_size += 1;
+                    sim[k] = x;
+                    sim_prngs[k] = 0;
+                    sim_isdirs[k] = true;
                     break;
                 }
             }
@@ -8755,11 +11580,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // make the directory
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_mkdir(&lfs, name) => 0;
         }
     }
 
@@ -8772,6 +11592,10 @@ code = '''
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
             assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        } else if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
         } else {
             assert(info.type == LFS_TYPE_REG);
             assert(info.size == SIZE);
@@ -8796,6 +11620,10 @@ code = '''
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
             assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        } else if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
         } else {
             assert(info.type == LFS_TYPE_REG);
             assert(info.size == SIZE);
@@ -8809,7 +11637,8 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", sim[j]);
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => LFS_ERR_ISDIR;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY)
+                    => LFS_ERR_ISDIR;
 
         } else {
             char name[256];
@@ -8824,8 +11653,12 @@ code = '''
             }
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            if (sim_isstickys[j]) {
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+            } else {
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            }
             lfsr_file_close(&lfs, &file) => 0;
         }
     }
@@ -8847,6 +11680,8 @@ code = '''
     // clean up sim/lfs
     free(sim);
     free(sim_prngs);
+    free(sim_isstickys);
+    free(sim_isdirs);
     for (lfs_size_t j = 0; j < sim_file_count; j++) {
         lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
         free(sim_files[j]);

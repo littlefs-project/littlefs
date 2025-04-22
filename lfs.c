@@ -9311,9 +9311,11 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
 
         // only continue if we hit a directory
         if (tag != LFSR_TAG_DIR) {
-            return (tag == LFSR_TAG_STICKYNOTE)
+            return (tag == LFSR_TAG_STICKYNOTE
+                        && !lfsr_omdir_ismidopen(lfs, mdir.mid,
+                            ~(LFS_o_ZOMBIE | LFS_O_DESYNC)))
                         ? LFS_ERR_NOENT
-                    : (tag == LFSR_TAG_REG)
+                    : (tag == LFSR_TAG_REG || tag == LFSR_TAG_STICKYNOTE)
                         ? LFS_ERR_NOTDIR
                         : LFS_ERR_NOTSUP;
         }
@@ -10176,9 +10178,14 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     if (err && !(err == LFS_ERR_NOENT && lfsr_path_islast(path))) {
         return err;
     }
-    // already exists? stickynotes don't really exist
+    // TODO LFSR_TAG_ORPHAN maybe?
+    // already exists? if we find a stickynote, check to see if there
+    // are any open in-sync file handles to decide if it really exists
     bool exists = (err != LFS_ERR_NOENT);
-    if (exists && tag != LFSR_TAG_STICKYNOTE) {
+    if (exists
+            && (tag != LFSR_TAG_STICKYNOTE
+                || lfsr_omdir_ismidopen(lfs, mdir.mid,
+                    ~(LFS_o_ZOMBIE | LFS_O_DESYNC)))) {
         return LFS_ERR_EXIST;
     }
 
@@ -10403,12 +10410,17 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
     if (err) {
         return err;
     }
-    // stickynotes don't really exist
-    if (tag == LFSR_TAG_STICKYNOTE) {
+    // if we find a stickynote, check to see if there are any open
+    // in-sync file handles to decide if it really exists
+    if (tag == LFSR_TAG_STICKYNOTE
+            && !lfsr_omdir_ismidopen(lfs, mdir.mid,
+                ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
         return LFS_ERR_NOENT;
     }
     // we can't remove unknown types or else we may leak resources
-    if (tag != LFSR_TAG_REG && tag != LFSR_TAG_DIR) {
+    if (tag != LFSR_TAG_REG
+            && tag != LFSR_TAG_DIR
+            && tag != LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOTSUP;
     }
 
@@ -10526,12 +10538,17 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
     if (err) {
         return err;
     }
-    // stickynotes don't really exist
-    if (old_tag == LFSR_TAG_STICKYNOTE) {
+    // if we find a stickynote, check to see if there are any open
+    // in-sync file handles to decide if it really exists
+    if (old_tag == LFSR_TAG_STICKYNOTE
+            && !lfsr_omdir_ismidopen(lfs, old_mdir.mid,
+                ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
         return LFS_ERR_NOENT;
     }
     // we can't rename unknown types or else we may leak resources
-    if (old_tag != LFSR_TAG_REG && old_tag != LFSR_TAG_DIR) {
+    if (old_tag != LFSR_TAG_REG
+            && old_tag != LFSR_TAG_DIR
+            && old_tag != LFSR_TAG_STICKYNOTE) {
         return LFS_ERR_NOTSUP;
     }
 
@@ -10571,15 +10588,26 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             return LFS_ERR_INVAL;
         }
 
-        // renaming different types is an error
-        //
-        // unless we found a stickynote, these don't really exist
-        if (old_tag != new_tag && new_tag != LFSR_TAG_STICKYNOTE) {
-            return (new_tag == LFSR_TAG_DIR)
-                        ? LFS_ERR_ISDIR
-                    : (new_tag == LFSR_TAG_REG)
-                        ? LFS_ERR_NOTDIR
-                        : LFS_ERR_NOTSUP;
+        // we allow reg <-> stickynote renaming, but renaming a non-dir
+        // to a dir and a dir to a non-dir is an error
+        if (old_tag != LFSR_TAG_DIR && new_tag == LFSR_TAG_DIR) {
+            return LFS_ERR_ISDIR;
+        }
+        if (old_tag == LFSR_TAG_DIR
+                && new_tag != LFSR_TAG_DIR
+                // if we find a stickynote, check to see if there are
+                // any open in-sync file handles to decide if it really
+                // exists
+                && (new_tag != LFSR_TAG_STICKYNOTE
+                    || lfsr_omdir_ismidopen(lfs, new_mdir.mid,
+                        ~(LFS_o_ZOMBIE | LFS_O_DESYNC)))) {
+            return LFS_ERR_NOTDIR;
+        }
+        // we can't rename unknown types or else we may leak resources
+        if (new_tag != LFSR_TAG_REG
+                && new_tag != LFSR_TAG_DIR
+                && new_tag != LFSR_TAG_STICKYNOTE) {
+            return LFS_ERR_NOTSUP;
         }
 
         // renaming to ourself is a noop
@@ -10743,8 +10771,11 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
     if (err) {
         return err;
     }
-    // stickynotes don't really exist
-    if (tag == LFSR_TAG_STICKYNOTE) {
+    // if we find a stickynote, check to see if there are any open
+    // in-sync file handles to decide if it really exists
+    if (tag == LFSR_TAG_STICKYNOTE
+            && !lfsr_omdir_ismidopen(lfs, mdir.mid,
+                ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
         return LFS_ERR_NOENT;
     }
 
@@ -10780,8 +10811,11 @@ int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path) {
     if (err) {
         return err;
     }
-    // stickynotes don't really exist
-    if (tag == LFSR_TAG_STICKYNOTE) {
+    // if we find a stickynote, check to see if there are any open
+    // in-sync file handles to decide if it really exists
+    if (tag == LFSR_TAG_STICKYNOTE
+            && !lfsr_omdir_ismidopen(lfs, mdir.mid,
+                ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
         return LFS_ERR_NOENT;
     }
 
@@ -10884,8 +10918,11 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
             return LFS_ERR_NOENT;
         }
 
-        // skip stickynotes, we pretend these don't exist
-        if (tag == LFSR_TAG_STICKYNOTE) {
+        // if we find a stickynote, check to see if there are any open
+        // in-sync file handles to decide if it really exists
+        if (tag == LFSR_TAG_STICKYNOTE
+                && !lfsr_omdir_ismidopen(lfs, dir->o.mdir.mid,
+                    ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
             dir->o.mdir.mid += 1;
             dir->pos += 1;
             continue;
@@ -10997,8 +11034,11 @@ static int lfsr_lookupattr(lfs_t *lfs, const char *path, uint8_t type,
     if (err) {
         return err;
     }
-    // stickynotes don't really exist
-    if (tag == LFSR_TAG_STICKYNOTE) {
+    // if we find a stickynote, check to see if there are any open
+    // in-sync file handles to decide if it really exists
+    if (tag == LFSR_TAG_STICKYNOTE
+            && !lfsr_omdir_ismidopen(lfs, mdir_->mid,
+                ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
         return LFS_ERR_NOENT;
     }
 
@@ -11333,8 +11373,13 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     }
     bool exists = err != LFS_ERR_NOENT;
 
-    // creating a new entry?
-    if (!exists || tag == LFSR_TAG_STICKYNOTE) {
+    // creating a new entry? if we find a stickynote, check to see if
+    // there are any open in-sync file handles to decide if it really
+    // exists
+    if (!exists
+            || (tag == LFSR_TAG_STICKYNOTE
+                && !lfsr_omdir_ismidopen(lfs, file->b.o.mdir.mid,
+                    ~(LFS_o_ZOMBIE | LFS_O_DESYNC)))) {
         if (!lfsr_o_iscreat(flags)) {
             return LFS_ERR_NOENT;
         }
@@ -11343,19 +11388,6 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         // we're a file, don't allow trailing slashes
         if (lfsr_path_isdir(path)) {
             return LFS_ERR_NOTDIR;
-        }
-
-        // if we're EXCL and we found a stickynote, check if the file
-        // is open and not zombied/desynced
-        //
-        // we error here even though the file isn't created yet so
-        // EXCL only lets one create through (ignoring desync+sync
-        // shenanigans)
-        if (exists
-                && lfsr_o_isexcl(flags)
-                && lfsr_omdir_ismidopen(lfs, file->b.o.mdir.mid,
-                    ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
-            return LFS_ERR_EXIST;
         }
 
         // create a stickynote entry if we don't have one, this reserves the
@@ -11385,11 +11417,6 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 }
             }
         }
-
-        // mark as uncreated and unsynced, we need to convert to reg file
-        // on first sync
-        file->b.o.flags |= LFS_o_UNCREAT | LFS_o_UNSYNC;
-
     } else {
         // wanted to create a new entry?
         if (lfsr_o_isexcl(flags)) {
@@ -11397,11 +11424,17 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // wrong type?
-        if (tag != LFSR_TAG_REG) {
+        if (tag != LFSR_TAG_REG && tag != LFSR_TAG_STICKYNOTE) {
             return (tag == LFSR_TAG_DIR)
                     ? LFS_ERR_ISDIR
                     : LFS_ERR_NOTSUP;
         }
+    }
+
+    // if stickynote, mark as uncreated and unsynced, we need to convert
+    // to reg file on first sync
+    if (!exists || tag == LFSR_TAG_STICKYNOTE) {
+        file->b.o.flags |= LFS_o_UNCREAT | LFS_o_UNSYNC;
     }
 
     // allocate cache if necessary

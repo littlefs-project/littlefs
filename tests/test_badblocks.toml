@@ -1016,11 +1016,12 @@ code = '''
         // set up a simulation to compare against
         lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
         uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+        bool *sim_isstickys = malloc(N*sizeof(bool));
         lfs_size_t sim_size = 0;
 
         typedef struct sim_file {
             lfs_size_t x;
-            bool uncreat;
+            bool sticky;
             bool zombie;
             uint32_t prng;
             lfsr_file_t file;
@@ -1043,28 +1044,25 @@ code = '''
                 lfs_size_t x = TEST_PRNG(&prng) % N;
 
                 // already exists?
-                bool uncreat = true;
+                bool exist = false;
                 uint32_t wprng = 0;
+                bool sticky = true;
                 for (lfs_size_t j = 0; j < sim_size; j++) {
                     if (sim[j] == x) {
-                        uncreat = false;
+                        exist = true;
                         wprng = sim_prngs[j];
+                        sticky = sim_isstickys[j];
                         break;
                     }
                 }
                 // choose a random seed if we don't exist
-                if (uncreat) {
+                if (!exist) {
                     wprng = TEST_PRNG(&prng);
+                    sticky = true;
                 }
 
-                // open in our sim
                 lfs_size_t j = sim_file_count;
                 sim_files[j] = malloc(sizeof(sim_file_t));
-                sim_files[j]->x = x;
-                sim_files[j]->uncreat = uncreat;
-                sim_files[j]->zombie = false;
-                sim_files[j]->prng = wprng;
-                sim_file_count++;
 
                 // open the actual file
                 char name[256];
@@ -1073,13 +1071,45 @@ code = '''
                         LFS_O_RDWR | LFS_O_CREAT) => 0;
 
                 // write some initial data if we don't exist
-                if (uncreat) {
+                if (!exist || sticky) {
                     uint8_t wbuf[SIZE];
+                    uint32_t wprng_ = wprng;
                     for (lfs_size_t k = 0; k < SIZE; k++) {
-                        wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                        wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                     }
                     lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
                             => SIZE;
+                }
+
+                // open in our sim
+                sim_files[j]->x = x;
+                sim_files[j]->sticky = sticky;
+                sim_files[j]->zombie = false;
+                sim_files[j]->prng = wprng;
+                sim_file_count++;
+
+                // insert into our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= x) {
+                        // already seen?
+                        if (k < sim_size && sim[k] == x) {
+                            // new prng
+                            sim_prngs[k] = wprng;
+                        } else {
+                            // insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                    (sim_size-k)*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                    (sim_size-k)*sizeof(bool));
+                            sim_size += 1;
+                            sim[k] = x;
+                            sim_prngs[k] = wprng;
+                            sim_isstickys[k] = sticky;
+                        }
+                        break;
+                    }
                 }
 
             // write/rewrite a file?
@@ -1093,26 +1123,27 @@ code = '''
                 // choose a random seed
                 uint32_t wprng = TEST_PRNG(&prng);
 
+                // write to the file
+                lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+                uint8_t wbuf[SIZE];
+                uint32_t wprng_ = wprng;
+                for (lfs_size_t k = 0; k < SIZE; k++) {
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                }
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_sync(&lfs, &sim_files[j]->file)
+                        => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
                 // update sim
                 sim_files[j]->prng = wprng;
                 if (!sim_files[j]->zombie) {
-                    // insert into our sim
+                    // update in our sim
                     for (lfs_size_t k = 0;; k++) {
-                        if (k >= sim_size || sim[k] >= x) {
-                            // already seen?
-                            if (k < sim_size && sim[k] == x) {
-                                // new prng
-                                sim_prngs[k] = wprng;
-                            } else {
-                                // insert
-                                memmove(&sim[k+1], &sim[k],
-                                        (sim_size-k)*sizeof(lfs_size_t));
-                                memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                        (sim_size-k)*sizeof(uint32_t));
-                                sim_size += 1;
-                                sim[k] = x;
-                                sim_prngs[k] = wprng;
-                            }
+                        if (sim[k] == x) {
+                            // new prng
+                            sim_prngs[k] = wprng;
+                            // no longer sticky
+                            sim_isstickys[k] = false;
                             break;
                         }
                     }
@@ -1120,21 +1151,13 @@ code = '''
                     // update related sim files
                     for (lfs_size_t k = 0; k < sim_file_count; k++) {
                         if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                            sim_files[k]->uncreat = false;
+                            // new prng
                             sim_files[k]->prng = wprng;
+                            // no longer sticky
+                            sim_files[k]->sticky = false;
                         }
                     }
                 }
-
-                // write to the file
-                lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
-                uint8_t wbuf[SIZE];
-                for (lfs_size_t k = 0; k < SIZE; k++) {
-                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
-                }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-                lfsr_file_sync(&lfs, &sim_files[j]->file)
-                        => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
             // close a file?
             } else if (op == 2) {
@@ -1143,6 +1166,9 @@ code = '''
                 }
                 // choose a random file handle
                 lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+                lfs_size_t x = sim_files[j]->x;
+                bool sticky = sim_files[j]->sticky;
+                bool zombie = sim_files[j]->zombie;
 
                 // this doesn't really test anything, but if we don't close
                 // files eventually everything will end up zombies
@@ -1150,11 +1176,40 @@ code = '''
                 // close the file without affected disk
                 lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
                 lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+                // clobber closed files to try to catch lingering references
+                memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
                 // remove from list
                 free(sim_files[j]);
                 sim_files[j] = sim_files[sim_file_count-1];
                 sim_file_count -= 1;
+
+                // update our sim
+                if (sticky && !zombie) {
+                    // orphaned?
+                    bool orphan = true;
+                    for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                        if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                            orphan = false;
+                        }
+                    }
+
+                    // if we were never synced, delete from sim
+                    if (orphan) {
+                        for (lfs_size_t k = 0;; k++) {
+                            if (sim[k] == x) {
+                                memmove(&sim[k], &sim[k+1],
+                                        (sim_size-(k+1))*sizeof(lfs_size_t));
+                                memmove(&sim_prngs[k], &sim_prngs[k+1],
+                                        (sim_size-(k+1))*sizeof(uint32_t));
+                                memmove(&sim_isstickys[k], &sim_isstickys[k+1],
+                                        (sim_size-(k+1))*sizeof(bool));
+                                sim_size -= 1;
+                                break;
+                            }
+                        }
+                    }
+                }
 
             // remove a file?
             } else if (op == 3) {
@@ -1165,11 +1220,18 @@ code = '''
                 lfs_size_t j = TEST_PRNG(&prng) % sim_size;
                 lfs_size_t x = sim[j];
 
+                // delete this file
+                char name[256];
+                sprintf(name, "batman%03x", x);
+                lfsr_remove(&lfs, name) => 0;
+
                 // delete from our sim
                 memmove(&sim[j], &sim[j+1],
                         (sim_size-(j+1))*sizeof(lfs_size_t));
                 memmove(&sim_prngs[j], &sim_prngs[j+1],
                         (sim_size-(j+1))*sizeof(uint32_t));
+                memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                        (sim_size-(j+1))*sizeof(bool));
                 sim_size -= 1;
 
                 // mark any related sim files as zombied
@@ -1178,11 +1240,6 @@ code = '''
                         sim_files[k]->zombie = true;
                     }
                 }
-
-                // delete this file
-                char name[256];
-                sprintf(name, "batman%03x", x);
-                lfsr_remove(&lfs, name) => 0;
 
             // rename a file?
             } else if (op == 4) {
@@ -1195,6 +1252,14 @@ code = '''
                 lfs_size_t x = sim[j];
                 lfs_size_t y = TEST_PRNG(&prng) % N;
                 uint32_t wprng = sim_prngs[j];
+                bool sticky = sim_isstickys[j];
+
+                // rename this file
+                char old_name[256];
+                sprintf(old_name, "batman%03x", x);
+                char new_name[256];
+                sprintf(new_name, "batman%03x", y);
+                lfsr_rename(&lfs, old_name, new_name) => 0;
 
                 // update our sim
                 for (lfs_size_t k = 0;; k++) {
@@ -1206,12 +1271,15 @@ code = '''
                                     (sim_size-(j+1))*sizeof(lfs_size_t));
                             memmove(&sim_prngs[j], &sim_prngs[j+1],
                                     (sim_size-(j+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                    (sim_size-(j+1))*sizeof(bool));
                             sim_size -= 1;
                             if (k > j) {
                                 k -= 1;
                             }
-                            // update the prng
+                            // update the prng/sticky
                             sim_prngs[k] = wprng;
+                            sim_isstickys[k] = sticky;
                         // just renaming
                         } else {
                             // first delete
@@ -1219,6 +1287,8 @@ code = '''
                                     (sim_size-(j+1))*sizeof(lfs_size_t));
                             memmove(&sim_prngs[j], &sim_prngs[j+1],
                                     (sim_size-(j+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                    (sim_size-(j+1))*sizeof(bool));
                             if (k > j) {
                                 k -= 1;
                             }
@@ -1227,8 +1297,11 @@ code = '''
                                     (sim_size-k)*sizeof(lfs_size_t));
                             memmove(&sim_prngs[k+1], &sim_prngs[k],
                                     (sim_size-k)*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                    (sim_size-k)*sizeof(bool));
                             sim[k] = y;
                             sim_prngs[k] = wprng;
+                            sim_isstickys[k] = sticky;
                         }
                         break;
                     }
@@ -1245,13 +1318,6 @@ code = '''
                         sim_files[k]->zombie = true;
                     }
                 }
-
-                // rename this file
-                char old_name[256];
-                sprintf(old_name, "batman%03x", x);
-                char new_name[256];
-                sprintf(new_name, "batman%03x", y);
-                lfsr_rename(&lfs, old_name, new_name) => 0;
             }
         }
 
@@ -1262,8 +1328,13 @@ code = '''
             struct lfs_info info;
             lfsr_stat(&lfs, name, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
-            assert(info.size == SIZE);
+            if (sim_isstickys[j]) {
+                assert(info.type == LFS_TYPE_STICKYNOTE);
+                assert(info.size == 0);
+            } else {
+                assert(info.type == LFS_TYPE_REG);
+                assert(info.size == SIZE);
+            }
         }
 
         lfsr_dir_t dir;
@@ -1282,8 +1353,13 @@ code = '''
             sprintf(name, "batman%03x", sim[j]);
             lfsr_dir_read(&lfs, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
-            assert(info.size == SIZE);
+            if (sim_isstickys[j]) {
+                assert(info.type == LFS_TYPE_STICKYNOTE);
+                assert(info.size == 0);
+            } else {
+                assert(info.type == LFS_TYPE_REG);
+                assert(info.size == SIZE);
+            }
         }
         lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
         lfsr_dir_close(&lfs, &dir) => 0;
@@ -1301,8 +1377,12 @@ code = '''
             }
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            if (sim_isstickys[j]) {
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+            } else {
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            }
             lfsr_file_close(&lfs, &file) => 0;
         }
 
@@ -1323,12 +1403,14 @@ code = '''
         // clean up sim/lfs
         free(sim);
         free(sim_prngs);
+        free(sim_isstickys);
         for (lfs_size_t j = 0; j < sim_file_count; j++) {
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
             free(sim_files[j]);
         }
         free(sim_files);
         lfsr_unmount(&lfs) => 0;
+
         // reset badblock
         lfs_emubd_markgood(CFG, badblock) => 0;
     }
@@ -1387,12 +1469,13 @@ code = '''
         // set up a simulation to compare against
         lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
         uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+        bool *sim_isstickys = malloc(N*sizeof(bool));
         bool *sim_isdirs = malloc(N*sizeof(bool));
         lfs_size_t sim_size = 0;
 
         typedef struct sim_file {
             lfs_size_t x;
-            bool uncreat;
+            bool sticky;
             bool zombie;
             uint32_t prng;
             lfsr_file_t file;
@@ -1415,31 +1498,28 @@ code = '''
                 lfs_size_t x = TEST_PRNG(&prng) % N;
 
                 // already exists?
-                bool uncreat = true;
+                bool exist = true;
                 uint32_t wprng = 0;
+                bool sticky = true;
                 for (lfs_size_t j = 0; j < sim_size; j++) {
                     if (sim[j] == x) {
                         if (sim_isdirs[j]) {
                             goto nonsense;
                         }
-                        uncreat = false;
+                        exist = true;
                         wprng = sim_prngs[j];
+                        sticky = sim_isstickys[j];
                         break;
                     }
                 }
                 // choose a random seed if we don't exist
-                if (uncreat) {
+                if (!exist) {
                     wprng = TEST_PRNG(&prng);
+                    sticky = true;
                 }
 
-                // open in our sim
                 lfs_size_t j = sim_file_count;
                 sim_files[j] = malloc(sizeof(sim_file_t));
-                sim_files[j]->x = x;
-                sim_files[j]->uncreat = uncreat;
-                sim_files[j]->zombie = false;
-                sim_files[j]->prng = wprng;
-                sim_file_count++;
 
                 // open the actual file
                 char name[256];
@@ -1448,13 +1528,48 @@ code = '''
                         LFS_O_RDWR | LFS_O_CREAT) => 0;
 
                 // write some initial data if we don't exist
-                if (uncreat) {
+                if (!exist || sticky) {
                     uint8_t wbuf[SIZE];
+                    uint32_t wprng_ = wprng;
                     for (lfs_size_t k = 0; k < SIZE; k++) {
-                        wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                        wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                     }
                     lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
                             => SIZE;
+                }
+
+                // open in our sim
+                sim_files[j]->x = x;
+                sim_files[j]->sticky = sticky;
+                sim_files[j]->zombie = false;
+                sim_files[j]->prng = wprng;
+                sim_file_count++;
+
+                // insert into our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= x) {
+                        // already seen?
+                        if (k < sim_size && sim[k] == x) {
+                            // new prng
+                            sim_prngs[k] = wprng;
+                        } else {
+                            // insert
+                            memmove(&sim[k+1], &sim[k],
+                                    (sim_size-k)*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                    (sim_size-k)*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                    (sim_size-k)*sizeof(bool));
+                            memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                                    (sim_size-k)*sizeof(bool));
+                            sim_size += 1;
+                            sim[k] = x;
+                            sim_prngs[k] = wprng;
+                            sim_isstickys[k] = sticky;
+                            sim_isdirs[k] = false;
+                        }
+                        break;
+                    }
                 }
 
             // write/rewrite a file?
@@ -1468,29 +1583,27 @@ code = '''
                 // choose a random seed
                 uint32_t wprng = TEST_PRNG(&prng);
 
+                // write to the file
+                lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+                uint8_t wbuf[SIZE];
+                uint32_t wprng_ = wprng;
+                for (lfs_size_t k = 0; k < SIZE; k++) {
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                }
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_sync(&lfs, &sim_files[j]->file)
+                        => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
                 // update sim
                 sim_files[j]->prng = wprng;
                 if (!sim_files[j]->zombie) {
-                    // insert into our sim
+                    // update in our sim
                     for (lfs_size_t k = 0;; k++) {
                         if (k >= sim_size || sim[k] >= x) {
-                            // already seen?
-                            if (k < sim_size && sim[k] == x) {
-                                // new prng
-                                sim_prngs[k] = wprng;
-                            } else {
-                                // insert
-                                memmove(&sim[k+1], &sim[k],
-                                        (sim_size-k)*sizeof(lfs_size_t));
-                                memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                        (sim_size-k)*sizeof(uint32_t));
-                                memmove(&sim_isdirs[k+1], &sim_isdirs[k],
-                                        (sim_size-k)*sizeof(bool));
-                                sim_size += 1;
-                                sim[k] = x;
-                                sim_prngs[k] = wprng;
-                                sim_isdirs[k] = false;
-                            }
+                            // new prng
+                            sim_prngs[k] = wprng;
+                            // no longer sticky
+                            sim_isstickys[k] = false;
                             break;
                         }
                     }
@@ -1498,21 +1611,13 @@ code = '''
                     // update related sim files
                     for (lfs_size_t k = 0; k < sim_file_count; k++) {
                         if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                            sim_files[k]->uncreat = false;
+                            // new prng
                             sim_files[k]->prng = wprng;
+                            // no longer sticky
+                            sim_files[k]->sticky = false;
                         }
                     }
                 }
-
-                // write to the file
-                lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
-                uint8_t wbuf[SIZE];
-                for (lfs_size_t k = 0; k < SIZE; k++) {
-                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
-                }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-                lfsr_file_sync(&lfs, &sim_files[j]->file)
-                        => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
             // close a file?
             } else if (op == 2) {
@@ -1521,6 +1626,9 @@ code = '''
                 }
                 // choose a random file handle
                 lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+                lfs_size_t x = sim_files[j]->x;
+                lfs_size_t sticky = sim_files[j]->sticky;
+                lfs_size_t zombie = sim_files[j]->zombie;
 
                 // this doesn't really test anything, but if we don't close
                 // files eventually everything will end up zombies
@@ -1528,11 +1636,42 @@ code = '''
                 // close the file without affected disk
                 lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
                 lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+                // clobber closed files to try to catch lingering references
+                memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
                 // remove from list
                 free(sim_files[j]);
                 sim_files[j] = sim_files[sim_file_count-1];
                 sim_file_count -= 1;
+
+                // update our sim
+                if (sticky && !zombie) {
+                    // orphaned?
+                    bool orphan = true;
+                    for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                        if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                            orphan = false;
+                        }
+                    }
+
+                    // if we were never synced, delete from sim
+                    if (orphan) {
+                        for (lfs_size_t k = 0;; k++) {
+                            if (sim[k] == x) {
+                                memmove(&sim[k], &sim[k+1],
+                                        (sim_size-(k+1))*sizeof(lfs_size_t));
+                                memmove(&sim_prngs[k], &sim_prngs[k+1],
+                                        (sim_size-(k+1))*sizeof(uint32_t));
+                                memmove(&sim_isstickys[k], &sim_isstickys[k+1],
+                                        (sim_size-(k+1))*sizeof(bool));
+                                memmove(&sim_isdirs[k], &sim_isdirs[k+1],
+                                        (sim_size-(k+1))*sizeof(bool));
+                                sim_size -= 1;
+                                break;
+                            }
+                        }
+                    }
+                }
 
             // remove a file?
             } else if (op == 3) {
@@ -1543,11 +1682,18 @@ code = '''
                 lfs_size_t j = TEST_PRNG(&prng) % sim_size;
                 lfs_size_t x = sim[j];
 
+                // delete this file
+                char name[256];
+                sprintf(name, "batman%03x", x);
+                lfsr_remove(&lfs, name) => 0;
+
                 // delete from our sim
                 memmove(&sim[j], &sim[j+1],
                         (sim_size-(j+1))*sizeof(lfs_size_t));
                 memmove(&sim_prngs[j], &sim_prngs[j+1],
                         (sim_size-(j+1))*sizeof(uint32_t));
+                memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                        (sim_size-(j+1))*sizeof(bool));
                 memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                         (sim_size-(j+1))*sizeof(bool));
                 sim_size -= 1;
@@ -1558,11 +1704,6 @@ code = '''
                         sim_files[k]->zombie = true;
                     }
                 }
-
-                // delete this file
-                char name[256];
-                sprintf(name, "batman%03x", x);
-                lfsr_remove(&lfs, name) => 0;
 
             // rename a file?
             } else if (op == 4) {
@@ -1575,31 +1716,51 @@ code = '''
                 lfs_size_t x = sim[j];
                 lfs_size_t y = TEST_PRNG(&prng) % N;
                 uint32_t wprng = sim_prngs[j];
-                bool isdir = sim_isdirs[j];
+                bool sticky = sim_isstickys[j];
+                bool dir = sim_isdirs[j];
+
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= y) {
+                        // renaming and replacing
+                        if (k < sim_size && sim[k] == y && x != y) {
+                            // type mismatch?
+                            if (sim_isdirs[k] != dir) {
+                                goto nonsense;
+                            }
+                        }
+                        break;
+                    }
+                }
+
+                // rename this file
+                char old_name[256];
+                sprintf(old_name, "batman%03x", x);
+                char new_name[256];
+                sprintf(new_name, "batman%03x", y);
+                lfsr_rename(&lfs, old_name, new_name) => 0;
 
                 // update our sim
                 for (lfs_size_t k = 0;; k++) {
                     if (k >= sim_size || sim[k] >= y) {
                         // renaming and replacing
                         if (k < sim_size && sim[k] == y && x != y) {
-                            // type mismatch?
-                            if (sim_isdirs[k] != isdir) {
-                                goto nonsense;
-                            }
-
                             // delete the original entry
                             memmove(&sim[j], &sim[j+1],
                                     (sim_size-(j+1))*sizeof(lfs_size_t));
                             memmove(&sim_prngs[j], &sim_prngs[j+1],
                                     (sim_size-(j+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                    (sim_size-(j+1))*sizeof(bool));
                             memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                                     (sim_size-(j+1))*sizeof(bool));
                             sim_size -= 1;
                             if (k > j) {
                                 k -= 1;
                             }
-                            // update the prng
+                            // update the prng/sticky/dir
                             sim_prngs[k] = wprng;
+                            sim_isstickys[k] = sticky;
+                            sim_isdirs[k] = dir;
                         // just renaming
                         } else {
                             // first delete
@@ -1607,6 +1768,8 @@ code = '''
                                     (sim_size-(j+1))*sizeof(lfs_size_t));
                             memmove(&sim_prngs[j], &sim_prngs[j+1],
                                     (sim_size-(j+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                    (sim_size-(j+1))*sizeof(bool));
                             memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                                     (sim_size-(j+1))*sizeof(bool));
                             if (k > j) {
@@ -1617,11 +1780,14 @@ code = '''
                                     (sim_size-k)*sizeof(lfs_size_t));
                             memmove(&sim_prngs[k+1], &sim_prngs[k],
                                     (sim_size-k)*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                    (sim_size-k)*sizeof(bool));
                             memmove(&sim_isdirs[k+1], &sim_isdirs[k],
                                     (sim_size-k)*sizeof(bool));
                             sim[k] = y;
                             sim_prngs[k] = wprng;
-                            sim_isdirs[k] = isdir;
+                            sim_isstickys[k] = sticky;
+                            sim_isdirs[k] = dir;
                         }
                         break;
                     }
@@ -1639,37 +1805,42 @@ code = '''
                     }
                 }
 
-                // rename this file
-                char old_name[256];
-                sprintf(old_name, "batman%03x", x);
-                char new_name[256];
-                sprintf(new_name, "batman%03x", y);
-                lfsr_rename(&lfs, old_name, new_name) => 0;
-
             // toss a directory into the mix
             } else if (op == 5) {
                 // choose a pseudo-random number
                 lfs_size_t x = TEST_PRNG(&prng) % N;
 
-                // insert into our sim, use negative numbers for dirs
                 for (lfs_size_t k = 0;; k++) {
                     if (k >= sim_size || sim[k] >= x) {
                         // already seen?
                         if (k < sim_size && sim[k] == x) {
                             goto nonsense;
-                        } else {
-                            // insert
-                            memmove(&sim[k+1], &sim[k],
-                                    (sim_size-k)*sizeof(lfs_size_t));
-                            memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                    (sim_size-k)*sizeof(uint32_t));
-                            memmove(&sim_isdirs[k+1], &sim_isdirs[k],
-                                    (sim_size-k)*sizeof(bool));
-                            sim_size += 1;
-                            sim[k] = x;
-                            sim_prngs[k] = 0;
-                            sim_isdirs[k] = true;
                         }
+                        break;
+                    }
+                }
+
+                // make the directory
+                char name[256];
+                sprintf(name, "batman%03x", x);
+                lfsr_mkdir(&lfs, name) => 0;
+
+                // insert into our sim
+                for (lfs_size_t k = 0;; k++) {
+                    if (k >= sim_size || sim[k] >= x) {
+                        // insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
+                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim_size += 1;
+                        sim[k] = x;
+                        sim_prngs[k] = 0;
+                        sim_isdirs[k] = true;
                         break;
                     }
                 }
@@ -1680,11 +1851,6 @@ code = '''
                         sim_files[k]->zombie = true;
                     }
                 }
-
-                // make the directory
-                char name[256];
-                sprintf(name, "batman%03x", x);
-                lfsr_mkdir(&lfs, name) => 0;
             }
         }
 
@@ -1697,6 +1863,10 @@ code = '''
             assert(strcmp(info.name, name) == 0);
             if (sim_isdirs[j]) {
                 assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+            } else if (sim_isstickys[j]) {
+                assert(info.type == LFS_TYPE_STICKYNOTE);
+                assert(info.size == 0);
             } else {
                 assert(info.type == LFS_TYPE_REG);
                 assert(info.size == SIZE);
@@ -1721,6 +1891,10 @@ code = '''
             assert(strcmp(info.name, name) == 0);
             if (sim_isdirs[j]) {
                 assert(info.type == LFS_TYPE_DIR);
+                assert(info.size == 0);
+            } else if (sim_isstickys[j]) {
+                assert(info.type == LFS_TYPE_STICKYNOTE);
+                assert(info.size == 0);
             } else {
                 assert(info.type == LFS_TYPE_REG);
                 assert(info.size == SIZE);
@@ -1750,8 +1924,12 @@ code = '''
                 }
 
                 uint8_t rbuf[SIZE];
-                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                if (sim_isstickys[j]) {
+                    lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+                } else {
+                    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                }
                 lfsr_file_close(&lfs, &file) => 0;
             }
         }
@@ -1773,6 +1951,8 @@ code = '''
         // clean up sim/lfs
         free(sim);
         free(sim_prngs);
+        free(sim_isstickys);
+        free(sim_isdirs);
         for (lfs_size_t j = 0; j < sim_file_count; j++) {
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
             free(sim_files[j]);
@@ -2799,11 +2979,12 @@ code = '''
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    bool *sim_isstickys = malloc(N*sizeof(bool));
     lfs_size_t sim_size = 0;
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool uncreat;
+        bool sticky;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -2826,28 +3007,25 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool uncreat = true;
+            bool exist = false;
             uint32_t wprng = 0;
+            bool sticky = true;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
-                    uncreat = false;
+                    exist = true;
                     wprng = sim_prngs[j];
+                    sticky = sim_isstickys[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (uncreat) {
+            if (!exist) {
                 wprng = TEST_PRNG(&prng);
+                sticky = true;
             }
 
-            // open in our sim
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
-            sim_files[j]->x = x;
-            sim_files[j]->uncreat = uncreat;
-            sim_files[j]->zombie = false;
-            sim_files[j]->prng = wprng;
-            sim_file_count++;
 
             // open the actual file
             char name[256];
@@ -2856,12 +3034,45 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (uncreat) {
+            if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
+                uint32_t wprng_ = wprng;
                 for (lfs_size_t k = 0; k < SIZE; k++) {
-                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                        => SIZE;
+            }
+
+            // open in our sim
+            sim_files[j]->x = x;
+            sim_files[j]->sticky = sticky;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // already seen?
+                    if (k < sim_size && sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim_size += 1;
+                        sim[k] = x;
+                        sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                    }
+                    break;
+                }
             }
 
         // write/rewrite a file?
@@ -2875,26 +3086,27 @@ code = '''
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng);
 
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            uint32_t wprng_ = wprng;
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
             // update sim
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
-                // insert into our sim
+                // update in our sim
                 for (lfs_size_t k = 0;; k++) {
-                    if (k >= sim_size || sim[k] >= x) {
-                        // already seen?
-                        if (k < sim_size && sim[k] == x) {
-                            // new prng
-                            sim_prngs[k] = wprng;
-                        } else {
-                            // insert
-                            memmove(&sim[k+1], &sim[k],
-                                    (sim_size-k)*sizeof(lfs_size_t));
-                            memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                    (sim_size-k)*sizeof(uint32_t));
-                            sim_size += 1;
-                            sim[k] = x;
-                            sim_prngs[k] = wprng;
-                        }
+                    if (sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                        // no longer sticky
+                        sim_isstickys[k] = false;
                         break;
                     }
                 }
@@ -2902,21 +3114,13 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->uncreat = false;
+                        // new prng
                         sim_files[k]->prng = wprng;
+                        // no longer sticky
+                        sim_files[k]->sticky = false;
                     }
                 }
             }
-
-            // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t k = 0; k < SIZE; k++) {
-                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
-            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
         // close a file?
         } else if (op == 2) {
@@ -2925,6 +3129,9 @@ code = '''
             }
             // choose a random file handle
             lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            bool sticky = sim_files[j]->sticky;
+            bool zombie = sim_files[j]->zombie;
 
             // this doesn't really test anything, but if we don't close
             // files eventually everything will end up zombies
@@ -2932,11 +3139,40 @@ code = '''
             // close the file without affected disk
             lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            // clobber closed files to try to catch lingering references
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
             // remove from list
             free(sim_files[j]);
             sim_files[j] = sim_files[sim_file_count-1];
             sim_file_count -= 1;
+
+            // update our sim
+            if (sticky && !zombie) {
+                // orphaned?
+                bool orphan = true;
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        orphan = false;
+                    }
+                }
+
+                // if we were never synced, delete from sim
+                if (orphan) {
+                    for (lfs_size_t k = 0;; k++) {
+                        if (sim[k] == x) {
+                            memmove(&sim[k], &sim[k+1],
+                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k], &sim_prngs[k+1],
+                                    (sim_size-(k+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k], &sim_isstickys[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            sim_size -= 1;
+                            break;
+                        }
+                    }
+                }
+            }
 
         // remove a file?
         } else if (op == 3) {
@@ -2947,11 +3183,18 @@ code = '''
             lfs_size_t j = TEST_PRNG(&prng) % sim_size;
             lfs_size_t x = sim[j];
 
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
                     (sim_size-(j+1))*sizeof(lfs_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
+            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                    (sim_size-(j+1))*sizeof(bool));
             sim_size -= 1;
 
             // mark any related sim files as zombied
@@ -2960,11 +3203,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // delete this file
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_remove(&lfs, name) => 0;
 
         // rename a file?
         } else if (op == 4) {
@@ -2977,6 +3215,14 @@ code = '''
             lfs_size_t x = sim[j];
             lfs_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
+            bool sticky = sim_isstickys[j];
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
 
             // update our sim
             for (lfs_size_t k = 0;; k++) {
@@ -2988,12 +3234,15 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         sim_size -= 1;
                         if (k > j) {
                             k -= 1;
                         }
-                        // update the prng
+                        // update the prng/sticky
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
                     // just renaming
                     } else {
                         // first delete
@@ -3001,6 +3250,8 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         if (k > j) {
                             k -= 1;
                         }
@@ -3009,8 +3260,11 @@ code = '''
                                 (sim_size-k)*sizeof(lfs_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
                         sim[k] = y;
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
                     }
                     break;
                 }
@@ -3027,13 +3281,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // rename this file
-            char old_name[256];
-            sprintf(old_name, "batman%03x", x);
-            char new_name[256];
-            sprintf(new_name, "batman%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
         }
     }
 
@@ -3044,8 +3291,13 @@ code = '''
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
+        if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
+        } else {
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
     }
 
     lfsr_dir_t dir;
@@ -3064,8 +3316,13 @@ code = '''
         sprintf(name, "batman%03x", sim[j]);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
+        if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
+        } else {
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
@@ -3083,8 +3340,12 @@ code = '''
         }
 
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        if (sim_isstickys[j]) {
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+        } else {
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
         lfsr_file_close(&lfs, &file) => 0;
     }
 
@@ -3105,6 +3366,7 @@ code = '''
     // clean up sim/lfs
     free(sim);
     free(sim_prngs);
+    free(sim_isstickys);
     for (lfs_size_t j = 0; j < sim_file_count; j++) {
         lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
         free(sim_files[j]);
@@ -3171,12 +3433,13 @@ code = '''
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    bool *sim_isstickys = malloc(N*sizeof(bool));
     bool *sim_isdirs = malloc(N*sizeof(bool));
     lfs_size_t sim_size = 0;
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool uncreat;
+        bool sticky;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -3199,31 +3462,28 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool uncreat = true;
+            bool exist = true;
             uint32_t wprng = 0;
+            bool sticky = true;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
                     }
-                    uncreat = false;
+                    exist = true;
                     wprng = sim_prngs[j];
+                    sticky = sim_isstickys[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (uncreat) {
+            if (!exist) {
                 wprng = TEST_PRNG(&prng);
+                sticky = true;
             }
 
-            // open in our sim
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
-            sim_files[j]->x = x;
-            sim_files[j]->uncreat = uncreat;
-            sim_files[j]->zombie = false;
-            sim_files[j]->prng = wprng;
-            sim_file_count++;
 
             // open the actual file
             char name[256];
@@ -3232,12 +3492,48 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (uncreat) {
+            if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
+                uint32_t wprng_ = wprng;
                 for (lfs_size_t k = 0; k < SIZE; k++) {
-                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                        => SIZE;
+            }
+
+            // open in our sim
+            sim_files[j]->x = x;
+            sim_files[j]->sticky = sticky;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // already seen?
+                    if (k < sim_size && sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
+                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim_size += 1;
+                        sim[k] = x;
+                        sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = false;
+                    }
+                    break;
+                }
             }
 
         // write/rewrite a file?
@@ -3251,29 +3547,27 @@ code = '''
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng);
 
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            uint32_t wprng_ = wprng;
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
             // update sim
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
-                // insert into our sim
+                // update in our sim
                 for (lfs_size_t k = 0;; k++) {
                     if (k >= sim_size || sim[k] >= x) {
-                        // already seen?
-                        if (k < sim_size && sim[k] == x) {
-                            // new prng
-                            sim_prngs[k] = wprng;
-                        } else {
-                            // insert
-                            memmove(&sim[k+1], &sim[k],
-                                    (sim_size-k)*sizeof(lfs_size_t));
-                            memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                    (sim_size-k)*sizeof(uint32_t));
-                            memmove(&sim_isdirs[k+1], &sim_isdirs[k],
-                                    (sim_size-k)*sizeof(bool));
-                            sim_size += 1;
-                            sim[k] = x;
-                            sim_prngs[k] = wprng;
-                            sim_isdirs[k] = false;
-                        }
+                        // new prng
+                        sim_prngs[k] = wprng;
+                        // no longer sticky
+                        sim_isstickys[k] = false;
                         break;
                     }
                 }
@@ -3281,21 +3575,13 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->uncreat = false;
+                        // new prng
                         sim_files[k]->prng = wprng;
+                        // no longer sticky
+                        sim_files[k]->sticky = false;
                     }
                 }
             }
-
-            // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t k = 0; k < SIZE; k++) {
-                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
-            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
         // close a file?
         } else if (op == 2) {
@@ -3304,6 +3590,9 @@ code = '''
             }
             // choose a random file handle
             lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            lfs_size_t sticky = sim_files[j]->sticky;
+            lfs_size_t zombie = sim_files[j]->zombie;
 
             // this doesn't really test anything, but if we don't close
             // files eventually everything will end up zombies
@@ -3311,11 +3600,42 @@ code = '''
             // close the file without affected disk
             lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            // clobber closed files to try to catch lingering references
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
             // remove from list
             free(sim_files[j]);
             sim_files[j] = sim_files[sim_file_count-1];
             sim_file_count -= 1;
+
+            // update our sim
+            if (sticky && !zombie) {
+                // orphaned?
+                bool orphan = true;
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        orphan = false;
+                    }
+                }
+
+                // if we were never synced, delete from sim
+                if (orphan) {
+                    for (lfs_size_t k = 0;; k++) {
+                        if (sim[k] == x) {
+                            memmove(&sim[k], &sim[k+1],
+                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k], &sim_prngs[k+1],
+                                    (sim_size-(k+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k], &sim_isstickys[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            memmove(&sim_isdirs[k], &sim_isdirs[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            sim_size -= 1;
+                            break;
+                        }
+                    }
+                }
+            }
 
         // remove a file?
         } else if (op == 3) {
@@ -3326,11 +3646,18 @@ code = '''
             lfs_size_t j = TEST_PRNG(&prng) % sim_size;
             lfs_size_t x = sim[j];
 
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
                     (sim_size-(j+1))*sizeof(lfs_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
+            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                    (sim_size-(j+1))*sizeof(bool));
             memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                     (sim_size-(j+1))*sizeof(bool));
             sim_size -= 1;
@@ -3341,11 +3668,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // delete this file
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_remove(&lfs, name) => 0;
 
         // rename a file?
         } else if (op == 4) {
@@ -3358,31 +3680,51 @@ code = '''
             lfs_size_t x = sim[j];
             lfs_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
-            bool isdir = sim_isdirs[j];
+            bool sticky = sim_isstickys[j];
+            bool dir = sim_isdirs[j];
+
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // type mismatch?
+                        if (sim_isdirs[k] != dir) {
+                            goto nonsense;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
 
             // update our sim
             for (lfs_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
-                        // type mismatch?
-                        if (sim_isdirs[k] != isdir) {
-                            goto nonsense;
-                        }
-
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                                 (sim_size-(j+1))*sizeof(bool));
                         sim_size -= 1;
                         if (k > j) {
                             k -= 1;
                         }
-                        // update the prng
+                        // update the prng/sticky/dir
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = dir;
                     // just renaming
                     } else {
                         // first delete
@@ -3390,6 +3732,8 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                                 (sim_size-(j+1))*sizeof(bool));
                         if (k > j) {
@@ -3400,11 +3744,14 @@ code = '''
                                 (sim_size-k)*sizeof(lfs_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
                         memmove(&sim_isdirs[k+1], &sim_isdirs[k],
                                 (sim_size-k)*sizeof(bool));
                         sim[k] = y;
                         sim_prngs[k] = wprng;
-                        sim_isdirs[k] = isdir;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = dir;
                     }
                     break;
                 }
@@ -3422,37 +3769,42 @@ code = '''
                 }
             }
 
-            // rename this file
-            char old_name[256];
-            sprintf(old_name, "batman%03x", x);
-            char new_name[256];
-            sprintf(new_name, "batman%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
-
         // toss a directory into the mix
         } else if (op == 5) {
             // choose a pseudo-random number
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
-            // insert into our sim, use negative numbers for dirs
             for (lfs_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
                         goto nonsense;
-                    } else {
-                        // insert
-                        memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
-                        memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                (sim_size-k)*sizeof(uint32_t));
-                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
-                                (sim_size-k)*sizeof(bool));
-                        sim_size += 1;
-                        sim[k] = x;
-                        sim_prngs[k] = 0;
-                        sim_isdirs[k] = true;
                     }
+                    break;
+                }
+            }
+
+            // make the directory
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_mkdir(&lfs, name) => 0;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // insert
+                    memmove(&sim[k+1], &sim[k],
+                            (sim_size-k)*sizeof(lfs_size_t));
+                    memmove(&sim_prngs[k+1], &sim_prngs[k],
+                            (sim_size-k)*sizeof(uint32_t));
+                    memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                            (sim_size-k)*sizeof(bool));
+                    memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                            (sim_size-k)*sizeof(bool));
+                    sim_size += 1;
+                    sim[k] = x;
+                    sim_prngs[k] = 0;
+                    sim_isdirs[k] = true;
                     break;
                 }
             }
@@ -3463,11 +3815,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // make the directory
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_mkdir(&lfs, name) => 0;
         }
     }
 
@@ -3480,6 +3827,10 @@ code = '''
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
             assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        } else if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
         } else {
             assert(info.type == LFS_TYPE_REG);
             assert(info.size == SIZE);
@@ -3504,6 +3855,10 @@ code = '''
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
             assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        } else if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
         } else {
             assert(info.type == LFS_TYPE_REG);
             assert(info.size == SIZE);
@@ -3517,7 +3872,8 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", sim[j]);
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => LFS_ERR_ISDIR;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY)
+                    => LFS_ERR_ISDIR;
 
         } else {
             char name[256];
@@ -3532,8 +3888,12 @@ code = '''
             }
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            if (sim_isstickys[j]) {
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+            } else {
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            }
             lfsr_file_close(&lfs, &file) => 0;
         }
     }
@@ -3555,6 +3915,8 @@ code = '''
     // clean up sim/lfs
     free(sim);
     free(sim_prngs);
+    free(sim_isstickys);
+    free(sim_isdirs);
     for (lfs_size_t j = 0; j < sim_file_count; j++) {
         lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
         free(sim_files[j]);
@@ -4574,11 +4936,12 @@ code = '''
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    bool *sim_isstickys = malloc(N*sizeof(bool));
     lfs_size_t sim_size = 0;
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool uncreat;
+        bool sticky;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -4601,28 +4964,25 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool uncreat = true;
+            bool exist = false;
             uint32_t wprng = 0;
+            bool sticky = true;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
-                    uncreat = false;
+                    exist = true;
                     wprng = sim_prngs[j];
+                    sticky = sim_isstickys[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (uncreat) {
+            if (!exist) {
                 wprng = TEST_PRNG(&prng);
+                sticky = true;
             }
 
-            // open in our sim
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
-            sim_files[j]->x = x;
-            sim_files[j]->uncreat = uncreat;
-            sim_files[j]->zombie = false;
-            sim_files[j]->prng = wprng;
-            sim_file_count++;
 
             // open the actual file
             char name[256];
@@ -4631,12 +4991,45 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (uncreat) {
+            if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
+                uint32_t wprng_ = wprng;
                 for (lfs_size_t k = 0; k < SIZE; k++) {
-                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                        => SIZE;
+            }
+
+            // open in our sim
+            sim_files[j]->x = x;
+            sim_files[j]->sticky = sticky;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // already seen?
+                    if (k < sim_size && sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim_size += 1;
+                        sim[k] = x;
+                        sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                    }
+                    break;
+                }
             }
 
         // write/rewrite a file?
@@ -4650,26 +5043,27 @@ code = '''
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng);
 
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            uint32_t wprng_ = wprng;
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
             // update sim
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
-                // insert into our sim
+                // update in our sim
                 for (lfs_size_t k = 0;; k++) {
-                    if (k >= sim_size || sim[k] >= x) {
-                        // already seen?
-                        if (k < sim_size && sim[k] == x) {
-                            // new prng
-                            sim_prngs[k] = wprng;
-                        } else {
-                            // insert
-                            memmove(&sim[k+1], &sim[k],
-                                    (sim_size-k)*sizeof(lfs_size_t));
-                            memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                    (sim_size-k)*sizeof(uint32_t));
-                            sim_size += 1;
-                            sim[k] = x;
-                            sim_prngs[k] = wprng;
-                        }
+                    if (sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                        // no longer sticky
+                        sim_isstickys[k] = false;
                         break;
                     }
                 }
@@ -4677,21 +5071,13 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->uncreat = false;
+                        // new prng
                         sim_files[k]->prng = wprng;
+                        // no longer sticky
+                        sim_files[k]->sticky = false;
                     }
                 }
             }
-
-            // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t k = 0; k < SIZE; k++) {
-                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
-            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
         // close a file?
         } else if (op == 2) {
@@ -4700,6 +5086,9 @@ code = '''
             }
             // choose a random file handle
             lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            bool sticky = sim_files[j]->sticky;
+            bool zombie = sim_files[j]->zombie;
 
             // this doesn't really test anything, but if we don't close
             // files eventually everything will end up zombies
@@ -4707,11 +5096,40 @@ code = '''
             // close the file without affected disk
             lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            // clobber closed files to try to catch lingering references
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
             // remove from list
             free(sim_files[j]);
             sim_files[j] = sim_files[sim_file_count-1];
             sim_file_count -= 1;
+
+            // update our sim
+            if (sticky && !zombie) {
+                // orphaned?
+                bool orphan = true;
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        orphan = false;
+                    }
+                }
+
+                // if we were never synced, delete from sim
+                if (orphan) {
+                    for (lfs_size_t k = 0;; k++) {
+                        if (sim[k] == x) {
+                            memmove(&sim[k], &sim[k+1],
+                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k], &sim_prngs[k+1],
+                                    (sim_size-(k+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k], &sim_isstickys[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            sim_size -= 1;
+                            break;
+                        }
+                    }
+                }
+            }
 
         // remove a file?
         } else if (op == 3) {
@@ -4722,11 +5140,18 @@ code = '''
             lfs_size_t j = TEST_PRNG(&prng) % sim_size;
             lfs_size_t x = sim[j];
 
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
                     (sim_size-(j+1))*sizeof(lfs_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
+            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                    (sim_size-(j+1))*sizeof(bool));
             sim_size -= 1;
 
             // mark any related sim files as zombied
@@ -4735,11 +5160,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // delete this file
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_remove(&lfs, name) => 0;
 
         // rename a file?
         } else if (op == 4) {
@@ -4752,6 +5172,14 @@ code = '''
             lfs_size_t x = sim[j];
             lfs_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
+            bool sticky = sim_isstickys[j];
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
 
             // update our sim
             for (lfs_size_t k = 0;; k++) {
@@ -4763,12 +5191,15 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         sim_size -= 1;
                         if (k > j) {
                             k -= 1;
                         }
-                        // update the prng
+                        // update the prng/sticky
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
                     // just renaming
                     } else {
                         // first delete
@@ -4776,6 +5207,8 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         if (k > j) {
                             k -= 1;
                         }
@@ -4784,8 +5217,11 @@ code = '''
                                 (sim_size-k)*sizeof(lfs_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
                         sim[k] = y;
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
                     }
                     break;
                 }
@@ -4802,13 +5238,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // rename this file
-            char old_name[256];
-            sprintf(old_name, "batman%03x", x);
-            char new_name[256];
-            sprintf(new_name, "batman%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
         }
     }
 
@@ -4819,8 +5248,13 @@ code = '''
         struct lfs_info info;
         lfsr_stat(&lfs, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
+        if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
+        } else {
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
     }
 
     lfsr_dir_t dir;
@@ -4839,8 +5273,13 @@ code = '''
         sprintf(name, "batman%03x", sim[j]);
         lfsr_dir_read(&lfs, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
-        assert(info.type == LFS_TYPE_REG);
-        assert(info.size == SIZE);
+        if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
+        } else {
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
     }
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
@@ -4858,8 +5297,12 @@ code = '''
         }
 
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        if (sim_isstickys[j]) {
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+        } else {
+            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
         lfsr_file_close(&lfs, &file) => 0;
     }
 
@@ -4880,6 +5323,7 @@ code = '''
     // clean up sim/lfs
     free(sim);
     free(sim_prngs);
+    free(sim_isstickys);
     for (lfs_size_t j = 0; j < sim_file_count; j++) {
         lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
         free(sim_files[j]);
@@ -4946,12 +5390,13 @@ code = '''
     // set up a simulation to compare against
     lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    bool *sim_isstickys = malloc(N*sizeof(bool));
     bool *sim_isdirs = malloc(N*sizeof(bool));
     lfs_size_t sim_size = 0;
 
     typedef struct sim_file {
         lfs_size_t x;
-        bool uncreat;
+        bool sticky;
         bool zombie;
         uint32_t prng;
         lfsr_file_t file;
@@ -4974,31 +5419,28 @@ code = '''
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
-            bool uncreat = true;
+            bool exist = true;
             uint32_t wprng = 0;
+            bool sticky = true;
             for (lfs_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
                     }
-                    uncreat = false;
+                    exist = true;
                     wprng = sim_prngs[j];
+                    sticky = sim_isstickys[j];
                     break;
                 }
             }
             // choose a random seed if we don't exist
-            if (uncreat) {
+            if (!exist) {
                 wprng = TEST_PRNG(&prng);
+                sticky = true;
             }
 
-            // open in our sim
             lfs_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
-            sim_files[j]->x = x;
-            sim_files[j]->uncreat = uncreat;
-            sim_files[j]->zombie = false;
-            sim_files[j]->prng = wprng;
-            sim_file_count++;
 
             // open the actual file
             char name[256];
@@ -5007,12 +5449,48 @@ code = '''
                     LFS_O_RDWR | LFS_O_CREAT) => 0;
 
             // write some initial data if we don't exist
-            if (uncreat) {
+            if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
+                uint32_t wprng_ = wprng;
                 for (lfs_size_t k = 0; k < SIZE; k++) {
-                    wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
+                    wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                        => SIZE;
+            }
+
+            // open in our sim
+            sim_files[j]->x = x;
+            sim_files[j]->sticky = sticky;
+            sim_files[j]->zombie = false;
+            sim_files[j]->prng = wprng;
+            sim_file_count++;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // already seen?
+                    if (k < sim_size && sim[k] == x) {
+                        // new prng
+                        sim_prngs[k] = wprng;
+                    } else {
+                        // insert
+                        memmove(&sim[k+1], &sim[k],
+                                (sim_size-k)*sizeof(lfs_size_t));
+                        memmove(&sim_prngs[k+1], &sim_prngs[k],
+                                (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
+                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                                (sim_size-k)*sizeof(bool));
+                        sim_size += 1;
+                        sim[k] = x;
+                        sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = false;
+                    }
+                    break;
+                }
             }
 
         // write/rewrite a file?
@@ -5026,29 +5504,27 @@ code = '''
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng);
 
+            // write to the file
+            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            uint8_t wbuf[SIZE];
+            uint32_t wprng_ = wprng;
+            for (lfs_size_t k = 0; k < SIZE; k++) {
+                wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfsr_file_sync(&lfs, &sim_files[j]->file)
+                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+
             // update sim
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
-                // insert into our sim
+                // update in our sim
                 for (lfs_size_t k = 0;; k++) {
                     if (k >= sim_size || sim[k] >= x) {
-                        // already seen?
-                        if (k < sim_size && sim[k] == x) {
-                            // new prng
-                            sim_prngs[k] = wprng;
-                        } else {
-                            // insert
-                            memmove(&sim[k+1], &sim[k],
-                                    (sim_size-k)*sizeof(lfs_size_t));
-                            memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                    (sim_size-k)*sizeof(uint32_t));
-                            memmove(&sim_isdirs[k+1], &sim_isdirs[k],
-                                    (sim_size-k)*sizeof(bool));
-                            sim_size += 1;
-                            sim[k] = x;
-                            sim_prngs[k] = wprng;
-                            sim_isdirs[k] = false;
-                        }
+                        // new prng
+                        sim_prngs[k] = wprng;
+                        // no longer sticky
+                        sim_isstickys[k] = false;
                         break;
                     }
                 }
@@ -5056,21 +5532,13 @@ code = '''
                 // update related sim files
                 for (lfs_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
-                        sim_files[k]->uncreat = false;
+                        // new prng
                         sim_files[k]->prng = wprng;
+                        // no longer sticky
+                        sim_files[k]->sticky = false;
                     }
                 }
             }
-
-            // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
-            uint8_t wbuf[SIZE];
-            for (lfs_size_t k = 0; k < SIZE; k++) {
-                wbuf[k] = 'a' + (TEST_PRNG(&wprng) % 26);
-            }
-            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
 
         // close a file?
         } else if (op == 2) {
@@ -5079,6 +5547,9 @@ code = '''
             }
             // choose a random file handle
             lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs_size_t x = sim_files[j]->x;
+            lfs_size_t sticky = sim_files[j]->sticky;
+            lfs_size_t zombie = sim_files[j]->zombie;
 
             // this doesn't really test anything, but if we don't close
             // files eventually everything will end up zombies
@@ -5086,11 +5557,42 @@ code = '''
             // close the file without affected disk
             lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
             lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            // clobber closed files to try to catch lingering references
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
 
             // remove from list
             free(sim_files[j]);
             sim_files[j] = sim_files[sim_file_count-1];
             sim_file_count -= 1;
+
+            // update our sim
+            if (sticky && !zombie) {
+                // orphaned?
+                bool orphan = true;
+                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                    if (sim_files[k]->x == x && !sim_files[k]->zombie) {
+                        orphan = false;
+                    }
+                }
+
+                // if we were never synced, delete from sim
+                if (orphan) {
+                    for (lfs_size_t k = 0;; k++) {
+                        if (sim[k] == x) {
+                            memmove(&sim[k], &sim[k+1],
+                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                            memmove(&sim_prngs[k], &sim_prngs[k+1],
+                                    (sim_size-(k+1))*sizeof(uint32_t));
+                            memmove(&sim_isstickys[k], &sim_isstickys[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            memmove(&sim_isdirs[k], &sim_isdirs[k+1],
+                                    (sim_size-(k+1))*sizeof(bool));
+                            sim_size -= 1;
+                            break;
+                        }
+                    }
+                }
+            }
 
         // remove a file?
         } else if (op == 3) {
@@ -5101,11 +5603,18 @@ code = '''
             lfs_size_t j = TEST_PRNG(&prng) % sim_size;
             lfs_size_t x = sim[j];
 
+            // delete this file
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_remove(&lfs, name) => 0;
+
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
                     (sim_size-(j+1))*sizeof(lfs_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
+            memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                    (sim_size-(j+1))*sizeof(bool));
             memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                     (sim_size-(j+1))*sizeof(bool));
             sim_size -= 1;
@@ -5116,11 +5625,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // delete this file
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_remove(&lfs, name) => 0;
 
         // rename a file?
         } else if (op == 4) {
@@ -5133,31 +5637,51 @@ code = '''
             lfs_size_t x = sim[j];
             lfs_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
-            bool isdir = sim_isdirs[j];
+            bool sticky = sim_isstickys[j];
+            bool dir = sim_isdirs[j];
+
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= y) {
+                    // renaming and replacing
+                    if (k < sim_size && sim[k] == y && x != y) {
+                        // type mismatch?
+                        if (sim_isdirs[k] != dir) {
+                            goto nonsense;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // rename this file
+            char old_name[256];
+            sprintf(old_name, "batman%03x", x);
+            char new_name[256];
+            sprintf(new_name, "batman%03x", y);
+            lfsr_rename(&lfs, old_name, new_name) => 0;
 
             // update our sim
             for (lfs_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
-                        // type mismatch?
-                        if (sim_isdirs[k] != isdir) {
-                            goto nonsense;
-                        }
-
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                                 (sim_size-(j+1))*sizeof(bool));
                         sim_size -= 1;
                         if (k > j) {
                             k -= 1;
                         }
-                        // update the prng
+                        // update the prng/sticky/dir
                         sim_prngs[k] = wprng;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = dir;
                     // just renaming
                     } else {
                         // first delete
@@ -5165,6 +5689,8 @@ code = '''
                                 (sim_size-(j+1))*sizeof(lfs_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
+                        memmove(&sim_isstickys[j], &sim_isstickys[j+1],
+                                (sim_size-(j+1))*sizeof(bool));
                         memmove(&sim_isdirs[j], &sim_isdirs[j+1],
                                 (sim_size-(j+1))*sizeof(bool));
                         if (k > j) {
@@ -5175,11 +5701,14 @@ code = '''
                                 (sim_size-k)*sizeof(lfs_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
+                        memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                                (sim_size-k)*sizeof(bool));
                         memmove(&sim_isdirs[k+1], &sim_isdirs[k],
                                 (sim_size-k)*sizeof(bool));
                         sim[k] = y;
                         sim_prngs[k] = wprng;
-                        sim_isdirs[k] = isdir;
+                        sim_isstickys[k] = sticky;
+                        sim_isdirs[k] = dir;
                     }
                     break;
                 }
@@ -5197,37 +5726,42 @@ code = '''
                 }
             }
 
-            // rename this file
-            char old_name[256];
-            sprintf(old_name, "batman%03x", x);
-            char new_name[256];
-            sprintf(new_name, "batman%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
-
         // toss a directory into the mix
         } else if (op == 5) {
             // choose a pseudo-random number
             lfs_size_t x = TEST_PRNG(&prng) % N;
 
-            // insert into our sim, use negative numbers for dirs
             for (lfs_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
                         goto nonsense;
-                    } else {
-                        // insert
-                        memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
-                        memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                (sim_size-k)*sizeof(uint32_t));
-                        memmove(&sim_isdirs[k+1], &sim_isdirs[k],
-                                (sim_size-k)*sizeof(bool));
-                        sim_size += 1;
-                        sim[k] = x;
-                        sim_prngs[k] = 0;
-                        sim_isdirs[k] = true;
                     }
+                    break;
+                }
+            }
+
+            // make the directory
+            char name[256];
+            sprintf(name, "batman%03x", x);
+            lfsr_mkdir(&lfs, name) => 0;
+
+            // insert into our sim
+            for (lfs_size_t k = 0;; k++) {
+                if (k >= sim_size || sim[k] >= x) {
+                    // insert
+                    memmove(&sim[k+1], &sim[k],
+                            (sim_size-k)*sizeof(lfs_size_t));
+                    memmove(&sim_prngs[k+1], &sim_prngs[k],
+                            (sim_size-k)*sizeof(uint32_t));
+                    memmove(&sim_isstickys[k+1], &sim_isstickys[k],
+                            (sim_size-k)*sizeof(bool));
+                    memmove(&sim_isdirs[k+1], &sim_isdirs[k],
+                            (sim_size-k)*sizeof(bool));
+                    sim_size += 1;
+                    sim[k] = x;
+                    sim_prngs[k] = 0;
+                    sim_isdirs[k] = true;
                     break;
                 }
             }
@@ -5238,11 +5772,6 @@ code = '''
                     sim_files[k]->zombie = true;
                 }
             }
-
-            // make the directory
-            char name[256];
-            sprintf(name, "batman%03x", x);
-            lfsr_mkdir(&lfs, name) => 0;
         }
     }
 
@@ -5255,6 +5784,10 @@ code = '''
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
             assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        } else if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
         } else {
             assert(info.type == LFS_TYPE_REG);
             assert(info.size == SIZE);
@@ -5279,6 +5812,10 @@ code = '''
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
             assert(info.type == LFS_TYPE_DIR);
+            assert(info.size == 0);
+        } else if (sim_isstickys[j]) {
+            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.size == 0);
         } else {
             assert(info.type == LFS_TYPE_REG);
             assert(info.size == SIZE);
@@ -5292,7 +5829,8 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", sim[j]);
             lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => LFS_ERR_ISDIR;
+            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY)
+                    => LFS_ERR_ISDIR;
 
         } else {
             char name[256];
@@ -5307,8 +5845,12 @@ code = '''
             }
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
-            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            if (sim_isstickys[j]) {
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+            } else {
+                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            }
             lfsr_file_close(&lfs, &file) => 0;
         }
     }
@@ -5330,6 +5872,8 @@ code = '''
     // clean up sim/lfs
     free(sim);
     free(sim_prngs);
+    free(sim_isstickys);
+    free(sim_isdirs);
     for (lfs_size_t j = 0; j < sim_file_count; j++) {
         lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
         free(sim_files[j]);
