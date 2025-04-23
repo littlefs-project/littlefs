@@ -33,8 +33,8 @@ TAG_GRMDELTA    = 0x0100    #  0x0100  v--- ---1 ---- ----
 TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
 TAG_REG         = 0x0201    #  0x0201  v--- --1- ---- ---1
 TAG_DIR         = 0x0202    #  0x0202  v--- --1- ---- --1-
+TAG_STICKYNOTE  = 0x0203    #  0x0203  v--- --1- ---- --11
 TAG_BOOKMARK    = 0x0204    #  0x0204  v--- --1- ---- -1--
-TAG_STICKYNOTE  = 0x0205    #  0x0205  v--- --1- ---- -1-1
 TAG_STRUCT      = 0x0300    ## 0x03tt  v--- --11 -ttt tttt
 TAG_DATA        = 0x0300    #  0x0300  v--- --11 ---- ----
 TAG_BLOCK       = 0x0304    #  0x0304  v--- --11 ---- -1rr
@@ -54,7 +54,7 @@ TAG_B           = 0x0000
 TAG_R           = 0x2000
 TAG_LE          = 0x0000
 TAG_GT          = 0x1000
-TAG_CKSUM       = 0x3000    ## 0x300p  v-11 cccc ---- ---p
+TAG_CKSUM       = 0x3000    ## 0x300p  v-11 ---- ---- ---p
 TAG_P           = 0x0001
 TAG_NOTE        = 0x3100    ## 0x3100  v-11 ---1 ---- ----
 TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
@@ -225,8 +225,8 @@ def tagrepr(tag, weight=None, size=None, *,
                 'name' if (tag & 0xfff) == TAG_NAME
                     else 'reg' if (tag & 0xfff) == TAG_REG
                     else 'dir' if (tag & 0xfff) == TAG_DIR
-                    else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                     else 'stickynote' if (tag & 0xfff) == TAG_STICKYNOTE
+                    else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
                     else 'name 0x%02x' % (tag & 0xff),
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')

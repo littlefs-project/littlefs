@@ -113,7 +113,7 @@ enum lfs_type {
     // file types
     LFS_TYPE_REG        = 1,
     LFS_TYPE_DIR        = 2,
-    LFS_TYPE_STICKYNOTE = 5,
+    LFS_TYPE_STICKYNOTE = 3,
 
     // internally used types, don't use these
     LFS_TYPE_BOOKMARK   = 4,

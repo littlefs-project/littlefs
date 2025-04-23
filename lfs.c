@@ -1113,8 +1113,8 @@ enum lfsr_tag {
     LFSR_TAG_NAME           = 0x0200,
     LFSR_TAG_REG            = 0x0201,
     LFSR_TAG_DIR            = 0x0202,
+    LFSR_TAG_STICKYNOTE     = 0x0203,
     LFSR_TAG_BOOKMARK       = 0x0204,
-    LFSR_TAG_STICKYNOTE     = 0x0205,
 
     // struct tags
     LFSR_TAG_STRUCT         = 0x0300,
