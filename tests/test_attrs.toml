@@ -8,25 +8,33 @@ after = ['test_files', 'test_fsync', 'test_stickynotes']
 [cases.test_attrs_setattr]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
 
-    // create a dir?
+    // create a stickynote?
     } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
         path = "armadillo";
         lfsr_mkdir(&lfs, path) => 0;
 
@@ -42,6 +50,10 @@ code = '''
     lfsr_setattr(&lfs, path, 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
     lfsr_setattr(&lfs, path, 'c', c, strlen(c)) => 0;
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -71,9 +83,10 @@ code = '''
 [cases.test_attrs_setattr_trunc]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
 defines.BUFSIZE = [1, 4, 7]
 code = '''
     lfs_t lfs;
@@ -81,16 +94,23 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
 
-    // create a dir?
+    // create a stickynote?
     } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
         path = "armadillo";
         lfsr_mkdir(&lfs, path) => 0;
 
@@ -106,6 +126,10 @@ code = '''
     lfsr_setattr(&lfs, path, 'b', b, strlen(b)) => 0;
     const char *c = "Three slash four cup vegetable oil.";
     lfsr_setattr(&lfs, path, 'c', c, strlen(c)) => 0;
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -149,15 +173,17 @@ code = '''
 [cases.test_attrs_setattr_noattr]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
@@ -166,8 +192,15 @@ code = '''
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
 
-    // create a dir?
+    // create a stickynote?
     } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
         path = "armadillo";
         lfsr_mkdir(&lfs, path) => 0;
 
@@ -185,6 +218,10 @@ code = '''
     lfsr_getattr(&lfs, path, 'a', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
     lfsr_getattr(&lfs, path, 'b', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
     lfsr_getattr(&lfs, path, 'c', rbuf, sizeof(rbuf)) => LFS_ERR_NOATTR;
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -213,9 +250,10 @@ code = '''
 [cases.test_attrs_setattr_update]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
 # update based on this mask
 defines.MASK = 'range(0x8)'
 code = '''
@@ -224,16 +262,23 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
 
-    // create a dir?
+    // create a stickynote?
     } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
         path = "armadillo";
         lfsr_mkdir(&lfs, path) => 0;
 
@@ -262,6 +307,10 @@ code = '''
     const char *c_ = "One and two third cups granulated sugar.";
     if (MASK & 0x4) {
         lfsr_setattr(&lfs, path, 'c', c_, strlen(c_)) => 0;
+    }
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -320,9 +369,10 @@ code = '''
 [cases.test_attrs_removeattr]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
 # remove based on this mask
 defines.MASK = 'range(0x8)'
 code = '''
@@ -331,16 +381,23 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
 
-    // create a dir?
+    // create a stickynote?
     } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
         path = "armadillo";
         lfsr_mkdir(&lfs, path) => 0;
 
@@ -366,6 +423,10 @@ code = '''
     }
     if (MASK & 0x4) {
         lfsr_removeattr(&lfs, path, 'c') => 0;
+    }
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -428,9 +489,10 @@ code = '''
 [cases.test_attrs_all]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
 defines.SIZE = 4
 code = '''
     lfs_t lfs;
@@ -438,16 +500,23 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
 
-    // create a dir?
+    // create a stickynote?
     } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
         path = "armadillo";
         lfsr_mkdir(&lfs, path) => 0;
 
@@ -477,6 +546,9 @@ code = '''
         lfsr_removeattr(&lfs, path, a) => 0;
     }
 
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
+    }
     lfsr_unmount(&lfs) => 0;
 '''
 
@@ -484,9 +556,10 @@ code = '''
 [cases.test_attrs_many]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
 defines.M = 40
 defines.SIZE = 4
 defines.COMPACT = [false, true]
@@ -500,16 +573,23 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
 
-    // create a dir?
+    // create a stickynote?
     } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
         path = "armadillo";
         lfsr_mkdir(&lfs, path) => 0;
 
@@ -534,6 +614,10 @@ code = '''
         lfsr_fs_gc(&lfs) => 0;
     }
     #endif
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -566,8 +650,9 @@ code = '''
 [cases.test_attrs_many_many]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-defines.FILETYPE = [0, 1]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+defines.FILETYPE = [0, 1, 2]
 defines.N = 64
 defines.M = 4
 defines.SIZE = 4
@@ -583,17 +668,25 @@ code = '''
 
     // create N files
     uint32_t prng = 42;
+    lfsr_file_t files[N];
     for (lfs_size_t i = 0; i < N; i++) {
         char path[256];
         // create a file?
         if (FILETYPE == 0) {
             sprintf(path, "cat%03x", i);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, path,
+            lfsr_file_open(&lfs, &files[i], path,
                     LFS_O_WRONLY | LFS_O_CREAT) => 0;
-            lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+            lfsr_file_write(&lfs, &files[i], "meow", strlen("meow"))
                     => strlen("meow");
-            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_file_close(&lfs, &files[i]) => 0;
+
+        // create a stickynote?
+        } else if (FILETYPE == 1) {
+            sprintf(path, "snail%03x", i);
+            lfsr_file_open(&lfs, &files[i], path,
+                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfsr_file_write(&lfs, &files[i], "snailnoise", strlen("snailnoise"))
+                    => strlen("snailnoise");
 
         // create a dir?
         } else {
@@ -618,6 +711,12 @@ code = '''
     }
     #endif
 
+    if (FILETYPE == 1) {
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_close(&lfs, &files[i]) => 0;
+        }
+    }
+
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
@@ -631,6 +730,9 @@ code = '''
             // file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
@@ -660,9 +762,10 @@ code = '''
 [cases.test_attrs_fuzz]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-# FILETYPE=2 => root
-defines.FILETYPE = [0, 1, 2]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
 defines.M = 10
 defines.SIZE = 4
 defines.OPS = '4*M'
@@ -674,16 +777,23 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
 
-    // create a dir?
+    // create a stickynote?
     } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
         path = "armadillo";
         lfsr_mkdir(&lfs, path) => 0;
 
@@ -736,6 +846,10 @@ code = '''
         }
     }
 
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
+    }
+
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
@@ -779,8 +893,9 @@ code = '''
 [cases.test_attrs_fuzz_fuzz]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-defines.FILETYPE = [0, 1]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+defines.FILETYPE = [0, 1, 2]
 defines.N = 64
 defines.M = 4
 defines.SIZE = 4
@@ -793,17 +908,25 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create N files
+    lfsr_file_t files[N];
     for (lfs_size_t i = 0; i < N; i++) {
         char path[256];
         // create a file?
         if (FILETYPE == 0) {
             sprintf(path, "cat%03x", i);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, path,
+            lfsr_file_open(&lfs, &files[i], path,
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+            lfsr_file_write(&lfs, &files[i], "meow", strlen("meow"))
                     => strlen("meow");
-            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_file_close(&lfs, &files[i]) => 0;
+
+        // create a stickynote?
+        } else if (FILETYPE == 1) {
+            sprintf(path, "snail%03x", i);
+            lfsr_file_open(&lfs, &files[i], path,
+                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+            lfsr_file_write(&lfs, &files[i], "snailnoise", strlen("snailnoise"))
+                    => strlen("snailnoise");
 
         // create a dir?
         } else {
@@ -829,6 +952,9 @@ code = '''
             // file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
@@ -857,6 +983,9 @@ code = '''
             // file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
@@ -876,6 +1005,12 @@ code = '''
         }
     }
 
+    if (FILETYPE == 1) {
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_close(&lfs, &files[i]) => 0;
+        }
+    }
+
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
@@ -888,6 +1023,9 @@ code = '''
             // file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
@@ -931,21 +1069,29 @@ code = '''
 [cases.test_attrs_rm]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-defines.FILETYPE = [0, 1]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+defines.FILETYPE = [0, 1, 2]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
+
+    // create a stickynote?
+    } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
 
     // create a dir?
     } else {
@@ -968,14 +1114,27 @@ code = '''
 
     // file?
     if (FILETYPE == 0) {
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
-        lfsr_file_write(&lfs, &file, "miao", strlen("miao")) => strlen("miao");
-        lfsr_file_close(&lfs, &file) => 0;
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file_, "miao", strlen("miao")) => strlen("miao");
+        lfsr_file_close(&lfs, &file_) => 0;
+
+    // stickynote?
+    } else if (FILETYPE == 1) {
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file_,
+                    "bruit d'escargot", strlen("bruit d'escargot"))
+                => strlen("bruit d'escargot");
+        lfsr_file_close(&lfs, &file_) => 0;
 
     // dir?
     } else {
         lfsr_mkdir(&lfs, path) => 0;
+    }
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
     }
 
     for (int remount = 0; remount < 2; remount++) {
@@ -1003,21 +1162,29 @@ code = '''
 [cases.test_attrs_mv_dst]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-defines.FILETYPE = [0, 1]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+defines.FILETYPE = [0, 1, 2]
 code = '''
     lfs_t lfs;
     lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     const char *path;
+    lfsr_file_t file;
     // create a file?
     if (FILETYPE == 0) {
         path = "cat";
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "meow", strlen("meow")) => strlen("meow");
         lfsr_file_close(&lfs, &file) => 0;
+
+    // create a stickynote?
+    } else if (FILETYPE == 1) {
+        path = "snail";
+        lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
 
     // create a dir?
     } else {
@@ -1037,10 +1204,19 @@ code = '''
 
     // file?
     if (FILETYPE == 0) {
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, "beaver", LFS_O_WRONLY | LFS_O_CREAT) => 0;
-        lfsr_file_write(&lfs, &file, "miao", strlen("miao")) => strlen("miao");
-        lfsr_file_close(&lfs, &file) => 0;
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "beaver", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file_, "miao", strlen("miao")) => strlen("miao");
+        lfsr_file_close(&lfs, &file_) => 0;
+
+    // stickynote?
+    } else if (FILETYPE == 1) {
+        lfsr_file_t file_;
+        lfsr_file_open(&lfs, &file_, "beaver", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file_,
+                    "bruit d'escargot", strlen("bruit d'escargot"))
+                => strlen("bruit d'escargot");
+        lfsr_file_close(&lfs, &file_) => 0;
 
     // dir?
     } else {
@@ -1048,6 +1224,10 @@ code = '''
     }
 
     lfsr_rename(&lfs, "beaver", path) => 0;
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -1074,8 +1254,9 @@ code = '''
 [cases.test_attrs_mv_src]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-defines.FILETYPE = [0, 1]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+defines.FILETYPE = [0, 1, 2]
 defines.REPLACE = [false, true]
 code = '''
     lfs_t lfs;
@@ -1086,6 +1267,9 @@ code = '''
     // file?
     if (FILETYPE == 0) {
         path = "cat";
+    // stickynote?
+    } else if (FILETYPE == 0) {
+        path = "snail";
     // dir?
     } else {
         path = "armadillo";
@@ -1093,28 +1277,43 @@ code = '''
 
     // if replacing create a file to replace
     if (REPLACE) {
-        // create a file?
+        // from file?
         if (FILETYPE == 0) {
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
-            lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+            lfsr_file_t file_;
+            lfsr_file_open(&lfs, &file_, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfsr_file_write(&lfs, &file_, "meow", strlen("meow"))
                     => strlen("meow");
-            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_file_close(&lfs, &file_) => 0;
 
-        // create a dir?
+        // from stickynote?
+        } else if (FILETYPE == 1) {
+            lfsr_file_t file_;
+            lfsr_file_open(&lfs, &file_, path, LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfsr_file_write(&lfs, &file_, "snail noise", strlen("snail noise"))
+                    => strlen("snail noise");
+            lfsr_file_close(&lfs, &file_) => 0;
+
+        // from dir?
         } else {
             lfsr_mkdir(&lfs, path) => 0;
         }
     }
 
     // create a file?
+    lfsr_file_t file;
     if (FILETYPE == 0) {
-        lfsr_file_t file;
         lfsr_file_open(&lfs, &file, "beaver",
                 LFS_O_WRONLY | LFS_O_CREAT) => 0;
         lfsr_file_write(&lfs, &file, "miao", strlen("miao"))
                 => strlen("miao");
         lfsr_file_close(&lfs, &file) => 0;
+
+    // stickynote?
+    } else if (FILETYPE == 1) {
+        lfsr_file_open(&lfs, &file, "beaver", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfsr_file_write(&lfs, &file,
+                    "bruit d'escargot", strlen("bruit d'escargot"))
+                => strlen("bruit d'escargot");
 
     // create a dir?
     } else {
@@ -1131,6 +1330,10 @@ code = '''
 
     // move file
     lfsr_rename(&lfs, "beaver", path) => 0;
+
+    if (FILETYPE == 1) {
+        lfsr_file_close(&lfs, &file) => 0;
+    }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -1160,8 +1363,9 @@ code = '''
 [cases.test_attrs_mvrm_fuzz_fuzz]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
-# FILETYPE=1 => directory
-defines.FILETYPE = [0, 1]
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+defines.FILETYPE = [0, 1, 2]
 defines.N = 64
 defines.M = 4
 defines.SIZE = 4
@@ -1174,17 +1378,26 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // create N files
+    lfsr_file_t files[N];
     for (lfs_size_t i = 0; i < N; i++) {
         char path[256];
         // create a file?
         if (FILETYPE == 0) {
             sprintf(path, "cat%03x", i);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, path,
+            lfsr_file_open(&lfs, &files[i], path,
                     LFS_O_WRONLY | LFS_O_CREAT) => 0;
-            lfsr_file_write(&lfs, &file, "meow", strlen("meow"))
+            lfsr_file_write(&lfs, &files[i], "meow", strlen("meow"))
                     => strlen("meow");
-            lfsr_file_close(&lfs, &file) => 0;
+            lfsr_file_close(&lfs, &files[i]) => 0;
+
+        // create a stickynote?
+        } else if (FILETYPE == 1) {
+            sprintf(path, "snail%03x", i);
+            lfsr_file_open(&lfs, &files[i], path,
+                    LFS_O_WRONLY | LFS_O_CREAT) => 0;
+            lfsr_file_write(&lfs, &files[i],
+                        "snail noise", strlen("snail noise"))
+                    => strlen("snail noise");
 
         // create a dir?
         } else {
@@ -1210,6 +1423,9 @@ code = '''
             // file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
@@ -1238,6 +1454,9 @@ code = '''
             // file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
@@ -1263,6 +1482,9 @@ code = '''
             // file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
@@ -1271,18 +1493,30 @@ code = '''
             // remove the file
             lfsr_remove(&lfs, path) => 0;
 
+            if (FILETYPE == 1) {
+                lfsr_file_close(&lfs, &files[x]) => 0;
+            }
+
             // but recreate the file so we always have something to
             // attach attrs to
 
             // create a file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
-                lfsr_file_t file;
-                lfsr_file_open(&lfs, &file, path,
+                lfsr_file_open(&lfs, &files[x], path,
                         LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-                lfsr_file_write(&lfs, &file, "miao", strlen("miao"))
+                lfsr_file_write(&lfs, &files[x], "miao", strlen("miao"))
                         => strlen("miao");
-                lfsr_file_close(&lfs, &file) => 0;
+                lfsr_file_close(&lfs, &files[x]) => 0;
+
+            // create a stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
+                lfsr_file_open(&lfs, &files[x], path,
+                        LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+                lfsr_file_write(&lfs, &files[x],
+                            "bruit d'escargot", strlen("bruit d'escargot"))
+                        => strlen("bruit d'escargot");
 
             // create a dir?
             } else {
@@ -1304,6 +1538,10 @@ code = '''
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
                 sprintf(path_, "cat%03x", y);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
+                sprintf(path_, "snail%03x", y);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
@@ -1314,18 +1552,39 @@ code = '''
             lfsr_rename(&lfs, path, path_) => 0;
 
             if (x != y) {
+                if (FILETYPE == 1) {
+                    lfsr_file_t wait;
+                    lfsr_file_open(&lfs, &wait, path_,
+                            LFS_O_WRONLY) => 0;
+                    lfsr_file_desync(&lfs, &files[x]) => 0;
+                    lfsr_file_close(&lfs, &files[x]) => 0;
+                    lfsr_file_close(&lfs, &files[y]) => 0;
+                    lfsr_file_open(&lfs, &files[y], path_,
+                            LFS_O_WRONLY) => 0;
+                    lfsr_file_desync(&lfs, &wait) => 0;
+                    lfsr_file_close(&lfs, &wait) => 0;
+                }
+
                 // but recreate the file so we always have something to
                 // attach attrs to
 
                 // create a file?
                 if (FILETYPE == 0) {
                     sprintf(path, "cat%03x", x);
-                    lfsr_file_t file;
-                    lfsr_file_open(&lfs, &file, path,
+                    lfsr_file_open(&lfs, &files[x], path,
                             LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-                    lfsr_file_write(&lfs, &file, "nyan", strlen("nyan"))
+                    lfsr_file_write(&lfs, &files[x], "nyan", strlen("nyan"))
                             => strlen("nyan");
-                    lfsr_file_close(&lfs, &file) => 0;
+                    lfsr_file_close(&lfs, &files[x]) => 0;
+
+                // create a stickynote?
+                } else if (FILETYPE == 1) {
+                    sprintf(path, "snail%03x", x);
+                    lfsr_file_open(&lfs, &files[x], path,
+                            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+                    lfsr_file_write(&lfs, &files[x],
+                                "swara keong", strlen("swara keong"))
+                            => strlen("swara keong");
 
                 // create a dir?
                 } else {
@@ -1337,6 +1596,12 @@ code = '''
                 memcpy(&sim_prngs[y*M], &sim_prngs[x*M], M*sizeof(uint32_t));
                 memset(&sim_prngs[x*M], 0, M*sizeof(uint32_t));
             }
+        }
+    }
+
+    if (FILETYPE == 1) {
+        for (lfs_size_t i = 0; i < N; i++) {
+            lfsr_file_close(&lfs, &files[i]) => 0;
         }
     }
 
@@ -1352,6 +1617,9 @@ code = '''
             // file?
             if (FILETYPE == 0) {
                 sprintf(path, "cat%03x", x);
+            // stickynote?
+            } else if (FILETYPE == 1) {
+                sprintf(path, "snail%03x", x);
             // dir?
             } else {
                 sprintf(path, "armadillo%03x", x);
