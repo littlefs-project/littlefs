@@ -4,7 +4,7 @@ after = ['test_fwrite', 'test_fsync']
 
 
 # test files don't exist until first sync/close
-[cases.test_forphans_uncreat]
+[cases.test_stickynotes_uncreat]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -217,7 +217,7 @@ code = '''
 
 
 # test files don't exist until first sync/close, even under powerloss
-[cases.test_forphans_uncreat_pl]
+[cases.test_stickynotes_uncreat_pl]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -295,7 +295,7 @@ code = '''
 '''
 
 # test files don't exist until first sync/close, even under powerloss
-[cases.test_forphans_uncreat_many_pl]
+[cases.test_stickynotes_uncreat_many_pl]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -383,7 +383,7 @@ code = '''
 '''
 
 # test files only exist as stickynotes until first sync/close
-[cases.test_forphans_uncreat_sync_wr]
+[cases.test_stickynotes_uncreat_sync_wr]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -605,7 +605,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_sync_rw]
+[cases.test_stickynotes_uncreat_sync_rw]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -821,7 +821,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_wdwr]
+[cases.test_stickynotes_uncreat_wdwr]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -1170,7 +1170,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_open]
+[cases.test_stickynotes_uncreat_open]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1259,7 +1259,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_excl]
+[cases.test_stickynotes_uncreat_excl]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1364,7 +1364,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_mkdir]
+[cases.test_stickynotes_uncreat_mkdir]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1467,7 +1467,7 @@ code = '''
 '''
 
 # test we can remove stickynotes
-[cases.test_forphans_uncreat_rm]
+[cases.test_stickynotes_uncreat_rm]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1542,7 +1542,7 @@ code = '''
 '''
 
 # test we can rename stickynotes
-[cases.test_forphans_uncreat_mv]
+[cases.test_stickynotes_uncreat_mv]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1642,7 +1642,7 @@ code = '''
 '''
 
 # test we can rename stickynotes onto files 
-[cases.test_forphans_uncreat_mv_replace]
+[cases.test_stickynotes_uncreat_mv_replace]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1750,7 +1750,7 @@ code = '''
 '''
 
 # test we can rename stickynotes onto other files
-[cases.test_forphans_uncreat_mv_src_file]
+[cases.test_stickynotes_uncreat_mv_src_file]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1864,7 +1864,7 @@ code = '''
 '''
 
 # test we can rename files onto stickynotes
-[cases.test_forphans_uncreat_mv_dst_file]
+[cases.test_stickynotes_uncreat_mv_dst_file]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -1978,7 +1978,7 @@ code = '''
 '''
 
 # test we can rename stickynotes onto other stickynotes
-[cases.test_forphans_uncreat_mv_stickynote]
+[cases.test_stickynotes_uncreat_mv_stickynote]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -2092,7 +2092,7 @@ code = '''
 '''
 
 # test renaming a stickynote onto itself does nothing
-[cases.test_forphans_uncreat_mv_noop]
+[cases.test_stickynotes_uncreat_mv_noop]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -2191,7 +2191,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_not_dir]
+[cases.test_stickynotes_uncreat_not_dir]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -2302,7 +2302,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_not_stickynote]
+[cases.test_stickynotes_uncreat_not_stickynote]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -2413,7 +2413,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_not_root]
+[cases.test_stickynotes_uncreat_not_root]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -2518,7 +2518,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_uncreat_not_noent]
+[cases.test_stickynotes_uncreat_not_noent]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -2625,7 +2625,7 @@ code = '''
 
 
 # test desync files don't exist until first sync + close
-[cases.test_forphans_undesync]
+[cases.test_stickynotes_undesync]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -2839,7 +2839,7 @@ code = '''
 '''
 
 # test desync files don't exist until first sync + close, even under powerloss
-[cases.test_forphans_undesync_pl]
+[cases.test_stickynotes_undesync_pl]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -2919,7 +2919,7 @@ code = '''
 '''
 
 # test desync files don't exist until first sync + close, even under powerloss
-[cases.test_forphans_undesync_many_pl]
+[cases.test_stickynotes_undesync_many_pl]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -3015,7 +3015,7 @@ code = '''
 '''
 
 # test desync files aren't even openable until first sync + close
-[cases.test_forphans_undesync_sync_wr]
+[cases.test_stickynotes_undesync_sync_wr]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -3224,7 +3224,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_undesync_sync_rw]
+[cases.test_stickynotes_undesync_sync_rw]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -3442,7 +3442,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_undesync_wdwr]
+[cases.test_stickynotes_undesync_wdwr]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -3792,7 +3792,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_undesync_open]
+[cases.test_stickynotes_undesync_open]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -3881,7 +3881,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_undesync_excl]
+[cases.test_stickynotes_undesync_excl]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
 defines.CLOSE = [0, 1]
@@ -3983,7 +3983,7 @@ code = '''
 
 
 # test that desynced, and then closed, files don't show up
-[cases.test_forphans_orphan]
+[cases.test_stickynotes_orphan]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -4108,7 +4108,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_wdwr]
+[cases.test_stickynotes_orphan_wdwr]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -4414,7 +4414,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_unrelated]
+[cases.test_stickynotes_orphan_unrelated]
 # different number of orphan require different methods of cleanup
 defines.N = 'range(6)'
 defines.M = 'range(6)'
@@ -4640,7 +4640,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_open]
+[cases.test_stickynotes_orphan_open]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -4739,7 +4739,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_excl]
+[cases.test_stickynotes_orphan_excl]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -4842,7 +4842,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_mkdir]
+[cases.test_stickynotes_orphan_mkdir]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -4930,7 +4930,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_rm]
+[cases.test_stickynotes_orphan_rm]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -5011,7 +5011,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_mv_dst]
+[cases.test_stickynotes_orphan_mv_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -5167,7 +5167,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_orphan_mv_src]
+[cases.test_stickynotes_orphan_mv_src]
 defines.ORPHANS = [1, 2, 3, 100]
 # REMOUNT=0 => don't remount
 # REMOUNT=1 => remount after op
@@ -5252,7 +5252,7 @@ code = '''
 
 
 # test that removed files never show up
-[cases.test_forphans_zombie]
+[cases.test_stickynotes_zombie]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -5385,7 +5385,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_posthumous]
+[cases.test_stickynotes_zombie_posthumous]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -5518,7 +5518,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_rwrw]
+[cases.test_stickynotes_zombie_rwrw]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -5777,7 +5777,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_rwrw_posthumous]
+[cases.test_stickynotes_zombie_rwrw_posthumous]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -6036,7 +6036,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_zombie_rwrwrw]
+[cases.test_stickynotes_zombie_zombie_rwrwrw]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -6351,7 +6351,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_zombie_rwrwrw_posthumous]
+[cases.test_stickynotes_zombie_zombie_rwrwrw_posthumous]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -6666,7 +6666,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_open]
+[cases.test_stickynotes_zombie_open]
 defines.POSTHUMOUS = [false, true]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
@@ -6778,7 +6778,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_excl]
+[cases.test_stickynotes_zombie_excl]
 defines.POSTHUMOUS = [false, true]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
@@ -6894,7 +6894,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_mkdir]
+[cases.test_stickynotes_zombie_mkdir]
 defines.POSTHUMOUS = [false, true]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
@@ -6994,7 +6994,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_rm]
+[cases.test_stickynotes_zombie_rm]
 defines.POSTHUMOUS = [false, true]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
@@ -7087,7 +7087,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_mv_dst]
+[cases.test_stickynotes_zombie_mv_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -7254,7 +7254,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombie_mv_src]
+[cases.test_stickynotes_zombie_mv_src]
 defines.POSTHUMOUS = [false, true]
 # CLOSE=0 => don't close (before end of test)
 # CLOSE=1 => close after op
@@ -7351,7 +7351,7 @@ code = '''
 
 
 # test some other operations that can make zombies
-[cases.test_forphans_zombify_mkdir]
+[cases.test_stickynotes_zombify_mkdir]
 defines.POSTHUMOUS = [false, true]
 defines.CLOSE = [false, true]
 defines.REMOUNT = [false, true]
@@ -7432,7 +7432,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_zombify_mv_dst]
+[cases.test_stickynotes_zombify_mv_dst]
 defines.ORPHAN = [false, true]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
@@ -7587,7 +7587,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_fileonzombie_rm]
+[cases.test_stickynotes_fileonzombie_rm]
 defines.DIR = [false, true]
 defines.POSTHUMOUS = [false, true]
 # CLOSE=0 => don't close (before end of test)
@@ -7693,7 +7693,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_fileonzombie_mv_dst]
+[cases.test_stickynotes_fileonzombie_mv_dst]
 defines.DIR = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -7875,7 +7875,7 @@ code = '''
 
 
 # test that we actually cleanup orphans correctly
-[cases.test_forphans_cleanup]
+[cases.test_stickynotes_cleanup]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -8017,7 +8017,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_cleanup_open]
+[cases.test_stickynotes_cleanup_open]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -8169,7 +8169,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_cleanup_uncreat]
+[cases.test_stickynotes_cleanup_uncreat]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -8319,7 +8319,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_cleanup_zombie]
+[cases.test_stickynotes_cleanup_zombie]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -8461,7 +8461,7 @@ code = '''
 # these doesn't really involve stickynotes, but it's the same internal
 # circuitry, we might as well test them here
 #
-[cases.test_forphans_file_mv]
+[cases.test_stickynotes_file_mv]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -8703,7 +8703,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_mv_postmv]
+[cases.test_stickynotes_file_mv_postmv]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -9005,7 +9005,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_mv_file_rwrw]
+[cases.test_stickynotes_file_mv_file_rwrw]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -9356,7 +9356,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_mv_rwrw_postmv]
+[cases.test_stickynotes_file_mv_rwrw_postmv]
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -9699,7 +9699,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_mv_mv_src]
+[cases.test_stickynotes_file_mv_mv_src]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
 defines.DISTANCE = [0, 1, 100]
@@ -9866,7 +9866,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_fileonzombie_mv_src]
+[cases.test_stickynotes_file_fileonzombie_mv_src]
 defines.DIR = [false, true]
 defines.EXISTS = [false, true]
 defines.INTERDIR = [false, true]
@@ -10056,7 +10056,7 @@ code = '''
 # here we spam renames over an increasing number of files to hopefully hit
 # that case
 #
-[cases.test_forphans_file_mv_split]
+[cases.test_stickynotes_file_mv_split]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -10403,7 +10403,7 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-[cases.test_forphans_file_mv_split_backwards]
+[cases.test_stickynotes_file_mv_split_backwards]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -10753,7 +10753,7 @@ code = '''
 
 
 # fuzz tests involving many uncreats + zombies, this gets a bit crazy
-[cases.test_forphans_uz_fuzz]
+[cases.test_stickynotes_uz_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than files to encourage file rewrites
 defines.OPS = '2*N'
@@ -11174,7 +11174,7 @@ code = '''
 '''
 
 # fuzz tests involving many uncreats + zombies + dirs, this gets a bit crazy
-[cases.test_forphans_uzd_fuzz]
+[cases.test_stickynotes_uzd_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than files to encourage file rewrites
 defines.OPS = '2*N'

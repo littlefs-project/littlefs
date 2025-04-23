@@ -1,5 +1,5 @@
 # Custom attribute tests
-after = ['test_files', 'test_fsync', 'test_forphans']
+after = ['test_files', 'test_fsync', 'test_stickynotes']
 
 
 ## General setattr/getattr tests

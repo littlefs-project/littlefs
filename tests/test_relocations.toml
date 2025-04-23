@@ -3,7 +3,7 @@ after = [
     'test_mtree',
     'test_dirs',
     'test_files',
-    'test_forphans',
+    'test_stickynotes',
     'test_powerloss',
 ]
 

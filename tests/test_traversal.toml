@@ -3,7 +3,7 @@ after = [
     'test_dirs',
     'test_files',
     'test_fwrite',
-    'test_forphans',
+    'test_stickynotes',
     'test_alloc'
 ]
 
