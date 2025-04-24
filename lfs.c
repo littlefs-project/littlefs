@@ -1116,6 +1116,10 @@ enum lfsr_tag {
     LFSR_TAG_STICKYNOTE     = 0x0203,
     LFSR_TAG_BOOKMARK       = 0x0204,
 
+    // in-device only name tags, these should never get written to disk
+    LFSR_TAG_TRAVERSAL      = 0x0205,
+    LFSR_TAG_UNKNOWN        = 0x0206,
+
     // struct tags
     LFSR_TAG_STRUCT         = 0x0300,
     LFSR_TAG_DATA           = 0x0300,
@@ -7088,7 +7092,8 @@ static void lfsr_omdir_close(lfs_t *lfs, lfsr_omdir_t *o) {
 }
 
 // check if a given mid is open
-static bool lfsr_omdir_ismidopen(lfs_t *lfs, lfsr_smid_t mid, uint32_t mask) {
+static bool lfsr_omdir_ismidopen(const lfs_t *lfs,
+        lfsr_smid_t mid, uint32_t mask) {
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         // we really only care about regular open files here, all
         // others are either transient (dirs) or fake (orphans)
@@ -7112,7 +7117,7 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t);
 static void lfsr_omdir_clobber(lfs_t *lfs, const lfsr_omdir_t *o,
         bool dirty) {
     for (lfsr_omdir_t *o_ = lfs->omdirs; o_; o_ = o_->next) {
-        if (lfsr_o_type(o_->flags) == LFS_TYPE_TRAVERSAL) {
+        if (lfsr_o_type(o_->flags) == LFS_type_TRAVERSAL) {
             o_->flags |= (dirty) ? LFS_t_DIRTY : 0;
 
             if (o && ((lfsr_traversal_t*)o_)->ot == o) {
@@ -7518,6 +7523,30 @@ static int lfsr_data_fetchmdir(lfs_t *lfs,
     return lfsr_mdir_fetch(lfs, mdir, mid, mdir->rbyd.blocks);
 }
 
+static lfsr_tag_t lfsr_mdir_nametag(const lfs_t *lfs, const lfsr_mdir_t *mdir,
+        lfsr_smid_t mid, lfsr_tag_t tag) {
+    (void)mdir;
+    // intercept pending grms here and pretend they're orphaned
+    // stickynotes
+    //
+    // fortunately pending grms/orphaned stickynotes have roughly the
+    // same semantics, and it's easier to manage the implied mid gap in
+    // higher-levels
+    if (lfsr_grm_ismidrm(lfs, mid)) {
+        return LFSR_TAG_STICKYNOTE;
+
+    // map unknown types -> LFSR_TAG_UNKNOWN, this simplifies higher
+    // levels and prevents collisions with internal types
+    //
+    // Note future types should probably come with WCOMPAT flags, and be
+    // at least reported on non-supporting filesystems
+    } else if (tag < LFSR_TAG_REG || tag > LFSR_TAG_BOOKMARK) {
+        return LFSR_TAG_UNKNOWN;
+    }
+
+    return tag;
+}
+
 static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
@@ -7536,15 +7565,9 @@ static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
         return LFS_ERR_NOENT;
     }
 
-    // intercept pending grms here and pretend they're orphaned
-    // stickynotes
-    //
-    // fortunately pending grms/orphaned stickynotes have roughly the
-    // same semantics, and it's easier to manage the implied mid gap in
-    // higher-levels
-    if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME
-            && lfsr_grm_ismidrm(lfs, mdir->mid)) {
-        tag__ = LFSR_TAG_STICKYNOTE;
+    // map name tags to understood types
+    if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
+        tag__ = lfsr_mdir_nametag(lfs, mdir, mdir->mid, tag__);
     }
 
     if (tag_) {
@@ -8980,7 +9003,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     if (lfsr_mdir_cmp(&mroot_, &lfs->mroot) != 0
             || lfsr_btree_cmp(&mtree_, &lfs->mtree) != 0) {
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-            if (lfsr_o_type(o->flags) == LFS_TYPE_TRAVERSAL
+            if (lfsr_o_type(o->flags) == LFS_type_TRAVERSAL
                     && o->mdir.mid == -1
                     // don't clobber the current mdir, assume upper layers
                     // know what they're doing
@@ -9109,15 +9132,8 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
             mdir->mid,
             (cmp < LFS_CMP_EQ) ? rid+1 : rid);
 
-    // intercept pending grms here and pretend they're orphaned
-    // stickynotes
-    //
-    // fortunately pending grms/orphaned stickynotes have roughly the
-    // same semantics, and it's easier to manage the implied mid gap in
-    // higher-levels
-    if (lfsr_grm_ismidrm(lfs, mid)) {
-        tag = LFSR_TAG_STICKYNOTE;
-    }
+    // map name tags to understood types
+    tag = lfsr_mdir_nametag(lfs, mdir, mid, tag);
 
     if (mid_) {
         *mid_ = mid;
@@ -9231,7 +9247,6 @@ static inline bool lfsr_path_isdir(const char *path) {
 // - LFS_ERR_NOENT, lfsr_path_islast(path)  => file not found
 // - LFS_ERR_NOENT, !lfsr_path_islast(path) => parent not found
 // - LFS_ERR_NOTDIR                         => parent not a dir
-// - LFS_ERR_NOTSUP                         => parent of unknown type
 //
 // if not found, mdir_/did_ will at least be set up with what should be
 // the parent
@@ -9315,9 +9330,7 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
                         && !lfsr_omdir_ismidopen(lfs, mdir.mid,
                             ~(LFS_o_ZOMBIE | LFS_O_DESYNC)))
                         ? LFS_ERR_NOENT
-                    : (tag == LFSR_TAG_REG || tag == LFSR_TAG_STICKYNOTE)
-                        ? LFS_ERR_NOTDIR
-                        : LFS_ERR_NOTSUP;
+                    : LFS_ERR_NOTDIR;
         }
 
         // read the next did from the mdir if this is not the root
@@ -9384,7 +9397,7 @@ enum {
 };
 
 static void lfsr_traversal_init(lfsr_traversal_t *t, uint32_t flags) {
-    t->b.o.flags = lfsr_o_settype(0, LFS_TYPE_TRAVERSAL)
+    t->b.o.flags = lfsr_o_settype(0, LFS_type_TRAVERSAL)
             | lfsr_t_settstate(0, LFSR_TSTATE_MROOTANCHOR)
             | flags;
     t->b.o.mdir.mid = -1;
@@ -10417,12 +10430,6 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
                 ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
         return LFS_ERR_NOENT;
     }
-    // we can't remove unknown types or else we may leak resources
-    if (tag != LFSR_TAG_REG
-            && tag != LFSR_TAG_DIR
-            && tag != LFSR_TAG_STICKYNOTE) {
-        return LFS_ERR_NOTSUP;
-    }
 
     // trying to remove the root dir?
     if (mdir.mid == -1) {
@@ -10501,7 +10508,7 @@ int lfsr_remove(lfs_t *lfs, const char *path) {
             }
 
         // clobber entangled traversals
-        } else if (lfsr_o_type(o->flags) == LFS_TYPE_TRAVERSAL) {
+        } else if (lfsr_o_type(o->flags) == LFS_type_TRAVERSAL) {
             if (lfsr_o_iszombie(o->flags)) {
                 o->flags &= ~LFS_o_ZOMBIE;
                 o->mdir.mid -= 1;
@@ -10544,12 +10551,6 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             && !lfsr_omdir_ismidopen(lfs, old_mdir.mid,
                 ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
         return LFS_ERR_NOENT;
-    }
-    // we can't rename unknown types or else we may leak resources
-    if (old_tag != LFSR_TAG_REG
-            && old_tag != LFSR_TAG_DIR
-            && old_tag != LFSR_TAG_STICKYNOTE) {
-        return LFS_ERR_NOTSUP;
     }
 
     // trying to rename the root?
@@ -10602,12 +10603,6 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
                     || lfsr_omdir_ismidopen(lfs, new_mdir.mid,
                         ~(LFS_o_ZOMBIE | LFS_O_DESYNC)))) {
             return LFS_ERR_NOTDIR;
-        }
-        // we can't rename unknown types or else we may leak resources
-        if (new_tag != LFSR_TAG_REG
-                && new_tag != LFSR_TAG_DIR
-                && new_tag != LFSR_TAG_STICKYNOTE) {
-            return LFS_ERR_NOTSUP;
         }
 
         // renaming to ourself is a noop
@@ -10695,7 +10690,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             }
 
         // clobber entangled traversals
-        } else if (lfsr_o_type(o->flags) == LFS_TYPE_TRAVERSAL
+        } else if (lfsr_o_type(o->flags) == LFS_type_TRAVERSAL
                 && ((exists && o->mdir.mid == new_mdir.mid)
                     || o->mdir.mid == lfs->grm.mids[0])) {
             lfsr_traversal_clobber(lfs, (lfsr_traversal_t*)o);
@@ -11424,10 +11419,11 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         }
 
         // wrong type?
-        if (tag != LFSR_TAG_REG && tag != LFSR_TAG_STICKYNOTE) {
-            return (tag == LFSR_TAG_DIR)
-                    ? LFS_ERR_ISDIR
-                    : LFS_ERR_NOTSUP;
+        if (tag == LFSR_TAG_DIR) {
+            return LFS_ERR_ISDIR;
+        }
+        if (tag == LFSR_TAG_UNKNOWN) {
+            return LFS_ERR_NOTSUP;
         }
     }
 
@@ -12920,7 +12916,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             }
 
         // clobber entangled traversals
-        } else if (lfsr_o_type(o->flags) == LFS_TYPE_TRAVERSAL
+        } else if (lfsr_o_type(o->flags) == LFS_type_TRAVERSAL
                 && o->mdir.mid == file->b.o.mdir.mid) {
             lfsr_traversal_clobber(lfs, (lfsr_traversal_t*)o);
         }
@@ -13579,39 +13575,45 @@ static int lfs_deinit(lfs_t *lfs) {
 //
 // - RCOMPAT => Must understand to read the filesystem
 // - WCOMPAT => Must understand to write to the filesystem
-// - OCOMPAT => Don't need to understand, we don't really use these
+// - OCOMPAT => No understanding necessary, we don't really use these
 //
 // note, "understanding" does not necessarily mean support
 //
 #define LFSR_RCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 #define LFSR_RCOMPAT_WRONLY      0x00000002 // Reading is disallowed
-#define LFSR_RCOMPAT_GRM         0x00000004 // Global-remove in use
-#define LFSR_RCOMPAT_MMOSS       0x00000010 // May use an inlined mdir
-#define LFSR_RCOMPAT_MSPROUT     0x00000020 // May use an mdir pointer
-#define LFSR_RCOMPAT_MSHRUB      0x00000040 // May use an inlined mtree
-#define LFSR_RCOMPAT_MTREE       0x00000080 // May use an mtree
-#define LFSR_RCOMPAT_BMOSS       0x00000100 // Files may use inlined data
-#define LFSR_RCOMPAT_BSPROUT     0x00000200 // Files may use block pointers
-#define LFSR_RCOMPAT_BSHRUB      0x00000400 // Files may use inlined btrees
-#define LFSR_RCOMPAT_BTREE       0x00000800 // Files may use btrees
+#define LFSR_RCOMPAT_BMOSS       0x00000010 // Files may use inlined data
+#define LFSR_RCOMPAT_BSPROUT     0x00000020 // Files may use block pointers
+#define LFSR_RCOMPAT_BSHRUB      0x00000040 // Files may use inlined btrees
+#define LFSR_RCOMPAT_BTREE       0x00000080 // Files may use btrees
+#define LFSR_RCOMPAT_MMOSS       0x00000100 // May use an inlined mdir
+#define LFSR_RCOMPAT_MSPROUT     0x00000200 // May use an mdir pointer
+#define LFSR_RCOMPAT_MSHRUB      0x00000400 // May use an inlined mtree
+#define LFSR_RCOMPAT_MTREE       0x00000800 // May use an mtree
+#define LFSR_RCOMPAT_GRM         0x00001000 // Global-remove in use
 // internal
 #define LFSR_rcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
 #define LFSR_RCOMPAT_COMPAT \
-    (LFSR_RCOMPAT_GRM \
+    (LFSR_RCOMPAT_BSHRUB \
+        | LFSR_RCOMPAT_BTREE \
         | LFSR_RCOMPAT_MMOSS \
         | LFSR_RCOMPAT_MTREE \
-        | LFSR_RCOMPAT_BSHRUB \
-        | LFSR_RCOMPAT_BTREE)
+        | LFSR_RCOMPAT_GRM)
 
 #define LFSR_WCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 #define LFSR_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
-#define LFSR_WCOMPAT_GCKSUM      0x00000004 // Global-checksum in use
+#define LFSR_WCOMPAT_REG         0x00000010 // Regular files in use
+#define LFSR_WCOMPAT_DIR         0x00000020 // Directory files in use
+#define LFSR_WCOMPAT_STICKYNOTE  0x00000040 // Stickynote files in use
+#define LFSR_WCOMPAT_GCKSUM      0x00001000 // Global-checksum in use
 // internal
 #define LFSR_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
 #define LFSR_WCOMPAT_COMPAT \
-    (LFSR_WCOMPAT_GCKSUM)
+    (LFSR_WCOMPAT_REG \
+        | LFSR_WCOMPAT_DIR \
+        | LFSR_WCOMPAT_STICKYNOTE \
+        | LFSR_WCOMPAT_GCKSUM)
 
 #define LFSR_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 // internal
@@ -14886,7 +14888,7 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));
 
     // setup traversal state
-    t->b.o.flags = lfsr_o_settype(flags, LFS_TYPE_TRAVERSAL);
+    t->b.o.flags = lfsr_o_settype(flags, LFS_type_TRAVERSAL);
 
     // let rewind initialize/reset things
     int err = lfsr_traversal_rewind_(lfs, t);

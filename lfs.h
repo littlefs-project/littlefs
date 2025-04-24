@@ -109,15 +109,21 @@ enum lfs_error {
 };
 
 // File types
+//
+// LFS_TYPE_UNKNOWN will always be the largest, including internal
+// types, and can be used to deliminate user defined types at higher
+// levels
+//
 enum lfs_type {
     // file types
-    LFS_TYPE_REG        = 1,
-    LFS_TYPE_DIR        = 2,
-    LFS_TYPE_STICKYNOTE = 3,
+    LFS_TYPE_REG        = 1,  // A regular file
+    LFS_TYPE_DIR        = 2,  // A directory file
+    LFS_TYPE_STICKYNOTE = 3,  // An uncommitted file
+    LFS_TYPE_UNKNOWN    = 6,  // Unknown file type
 
     // internally used types, don't use these
-    LFS_TYPE_BOOKMARK   = 4,
-    LFS_TYPE_TRAVERSAL  = 9,
+    LFS_type_BOOKMARK   = 4,  // Directory bookmark
+    LFS_type_TRAVERSAL  = 5,  // An open traversal object
 };
 
 // File open flags
