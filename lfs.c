@@ -6890,8 +6890,8 @@ static inline uint32_t lfsr_o_settype(uint32_t flags, uint8_t type) {
 }
 
 static inline bool lfsr_o_isbshrub(uint32_t flags) {
-    // it turns out that bshrub types share a bit
-    return flags & 0x10000000;
+    return lfsr_o_type(flags) == LFS_TYPE_REG
+            || lfsr_o_type(flags) == LFS_type_TRAVERSAL;
 }
 
 static inline bool lfsr_o_isunflush(uint32_t flags) {
