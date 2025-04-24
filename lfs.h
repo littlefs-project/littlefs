@@ -119,11 +119,12 @@ enum lfs_type {
     LFS_TYPE_REG        = 1,  // A regular file
     LFS_TYPE_DIR        = 2,  // A directory file
     LFS_TYPE_STICKYNOTE = 3,  // An uncommitted file
-    LFS_TYPE_UNKNOWN    = 6,  // Unknown file type
+    LFS_TYPE_UNKNOWN    = 7,  // Unknown file type
 
     // internally used types, don't use these
-    LFS_type_BOOKMARK   = 4,  // Directory bookmark
-    LFS_type_TRAVERSAL  = 5,  // An open traversal object
+    LFS_type_ORPHAN     = 4,  // An orphaned stickynote
+    LFS_type_BOOKMARK   = 5,  // Directory bookmark
+    LFS_type_TRAVERSAL  = 6,  // An open traversal object
 };
 
 // File open flags
