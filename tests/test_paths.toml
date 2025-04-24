@@ -4656,28 +4656,69 @@ code = '''
     lfsr_dir_open(&lfs, &dir, "coffee/vietnamese") => LFS_ERR_NOTDIR;
     lfsr_dir_open(&lfs, &dir, "coffee/thai") => LFS_ERR_NOTDIR;
 
-    // note write operations should normally be rejected during mount
-    // by wcompat flags
+    // rename paths
+    lfsr_mkdir(&lfs, "espresso") => 0;
+    lfsr_rename(&lfs,
+            "coffee/drip",
+            "espresso/espresso") => 0;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew",
+            "espresso/americano") => 0;
+    lfsr_rename(&lfs,
+            "coffee/turkish",
+            "espresso/macchiato") => 0;
+    lfsr_rename(&lfs,
+            "coffee/tubruk",
+            "espresso/latte") => 0;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese",
+            "espresso/cappuccino") => 0;
+    lfsr_rename(&lfs,
+            "coffee/thai",
+            "espresso/mocha") => 0;
 
     // stat paths
-    lfsr_stat(&lfs, "coffee/drip", &info) => 0;
-    assert(strcmp(info.name, "drip") == 0);
+    lfsr_stat(&lfs, "espresso/espresso", &info) => 0;
+    assert(strcmp(info.name, "espresso") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
-    lfsr_stat(&lfs, "coffee/coldbrew", &info) => 0;
-    assert(strcmp(info.name, "coldbrew") == 0);
+    lfsr_stat(&lfs, "espresso/americano", &info) => 0;
+    assert(strcmp(info.name, "americano") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
-    lfsr_stat(&lfs, "coffee/turkish", &info) => 0;
-    assert(strcmp(info.name, "turkish") == 0);
+    lfsr_stat(&lfs, "espresso/macchiato", &info) => 0;
+    assert(strcmp(info.name, "macchiato") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
-    lfsr_stat(&lfs, "coffee/tubruk", &info) => 0;
-    assert(strcmp(info.name, "tubruk") == 0);
+    lfsr_stat(&lfs, "espresso/latte", &info) => 0;
+    assert(strcmp(info.name, "latte") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
-    lfsr_stat(&lfs, "coffee/vietnamese", &info) => 0;
-    assert(strcmp(info.name, "vietnamese") == 0);
+    lfsr_stat(&lfs, "espresso/cappuccino", &info) => 0;
+    assert(strcmp(info.name, "cappuccino") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
-    lfsr_stat(&lfs, "coffee/thai", &info) => 0;
-    assert(strcmp(info.name, "thai") == 0);
+    lfsr_stat(&lfs, "espresso/mocha", &info) => 0;
+    assert(strcmp(info.name, "mocha") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
+
+    lfsr_stat(&lfs, "coffee/drip", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "coffee/coldbrew", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "coffee/turkish", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "coffee/tubruk", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "coffee/vietnamese", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "coffee/thai", &info) => LFS_ERR_NOENT;
+
+    // remove paths
+    lfsr_remove(&lfs, "espresso/espresso") => 0;
+    lfsr_remove(&lfs, "espresso/americano") => 0;
+    lfsr_remove(&lfs, "espresso/macchiato") => 0;
+    lfsr_remove(&lfs, "espresso/latte") => 0;
+    lfsr_remove(&lfs, "espresso/cappuccino") => 0;
+    lfsr_remove(&lfs, "espresso/mocha") => 0;
+
+    // stat paths
+    lfsr_stat(&lfs, "espresso/espresso", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/americano", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/macchiato", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/latte", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/cappuccino", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/mocha", &info) => LFS_ERR_NOENT;
 
     lfsr_unmount(&lfs) => 0;
 '''
@@ -4857,10 +4898,104 @@ code = '''
         lfsr_file_close(&lfs, &file) => 0;
     }
 
-    // note write operations should normally be rejected during mount
-    // by wcompat flags
+    // rename paths
+    lfsr_mkdir(&lfs, "espresso") => 0;
+    // bad source
+    lfsr_rename(&lfs,
+            "drip/coffee",
+            "espresso/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coldbrew/coffee",
+            "espresso/americano") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "turkish/coffee",
+            "espresso/macchiato") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "tubruk/coffee",
+            "espresso/latte") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "vietnamese/coffee",
+            "espresso/cappuccino") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "thai/coffee",
+            "espresso/mocha") => LFS_ERR_NOTDIR;
+
+    // bad destination
+    lfsr_rename(&lfs,
+            "coffee/drip",
+            "drip/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew",
+            "coldbrew/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/turkish",
+            "turkish/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/tubruk",
+            "tubruk/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese",
+            "vietnamese/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/thai",
+            "thai/espresso") => LFS_ERR_NOTDIR;
+
+    // bad source and bad destination
+    lfsr_rename(&lfs,
+            "drip/coffee",
+            "drip/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coldbrew/coffee",
+            "coldbrew/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "turkish/coffee",
+            "turkish/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "tubruk/coffee",
+            "tubruk/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "vietnamese/coffee",
+            "vietnamese/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "thai/coffee",
+            "thai/espresso") => LFS_ERR_NOTDIR;
+
+    // here's a weird one, what happens if our rename is also a noop?
+    lfsr_rename(&lfs,
+            "drip/coffee",
+            "drip/coffee") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coldbrew/coffee",
+            "coldbrew/coffee") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "turkish/coffee",
+            "turkish/coffee") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "tubruk/coffee",
+            "tubruk/coffee") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "vietnamese/coffee",
+            "vietnamese/coffee") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "thai/coffee",
+            "thai/coffee") => LFS_ERR_NOTDIR;
+
+    // remove paths
+    lfsr_stat(&lfs, "drip/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "coldbrew/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "turkish/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "tubruk/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "vietnamese/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "thai/espresso", &info) => LFS_ERR_NOTDIR;
 
     // stat paths
+    lfsr_stat(&lfs, "drip/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "coldbrew/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "turkish/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "tubruk/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "vietnamese/espresso", &info) => LFS_ERR_NOTDIR;
+    lfsr_stat(&lfs, "thai/espresso", &info) => LFS_ERR_NOTDIR;
+
     lfsr_stat(&lfs, "coffee/drip", &info) => 0;
     assert(strcmp(info.name, "drip") == 0);
     assert(info.type == ((DIR) ? LFS_TYPE_DIR : LFS_TYPE_REG));
@@ -5005,10 +5140,104 @@ code = '''
     lfsr_dir_open(&lfs, &dir, "coffee/vietnamese/////") => LFS_ERR_NOTDIR;
     lfsr_dir_open(&lfs, &dir, "coffee/thai//////") => LFS_ERR_NOTDIR;
 
-    // note write operations should normally be rejected during mount
-    // by wcompat flags
+    // rename paths
+    lfsr_mkdir(&lfs, "espresso") => 0;
+    // bad source
+    lfsr_rename(&lfs,
+            "coffee/drip//////",
+            "espresso/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/////",
+            "espresso/americano") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/turkish////",
+            "espresso/macchiato") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/tubruk///",
+            "espresso/latte") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese//",
+            "espresso/cappuccino") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/thai/",
+            "espresso/mocha") => LFS_ERR_NOTDIR;
+
+    // bad destination
+    lfsr_rename(&lfs,
+            "coffee/drip",
+            "espresso/espresso/") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew",
+            "espresso/americano//") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/turkish",
+            "espresso/macchiato///") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/tubruk",
+            "espresso/latte////") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese",
+            "espresso/cappuccino/////") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/thai",
+            "espresso/mocha//////") => LFS_ERR_NOTDIR;
+
+    // bad source and bad destination
+    lfsr_rename(&lfs,
+            "coffee/drip//////",
+            "espresso/espresso/") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/////",
+            "espresso/americano//") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/turkish////",
+            "espresso/macchiato///") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/tubruk///",
+            "espresso/latte////") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese//",
+            "espresso/cappuccino/////") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/thai/",
+            "espresso/mocha//////") => LFS_ERR_NOTDIR;
+
+    // here's a weird one, what happens if our rename is also a noop?
+    lfsr_rename(&lfs,
+            "coffee/drip//////",
+            "coffee/drip//////") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/////",
+            "coffee/coldbrew/////") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/turkish////",
+            "coffee/turkish////") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/tubruk///",
+            "coffee/tubruk///") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese//",
+            "coffee/vietnamese//") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/thai/",
+            "coffee/thai/") => LFS_ERR_NOTDIR;
+
+    // remove paths
+    lfsr_remove(&lfs, "coffee/drip/") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/coldbrew//") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/turkish///") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/tubruk////") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/vietnamese/////") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/thai//////") => LFS_ERR_NOTDIR;
 
     // stat paths
+    lfsr_stat(&lfs, "espresso/espresso", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/americano", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/macchiato", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/latte", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/cappuccino", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/mocha", &info) => LFS_ERR_NOENT;
+
     lfsr_stat(&lfs, "coffee/drip", &info) => 0;
     assert(strcmp(info.name, "drip") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
@@ -5153,10 +5382,104 @@ code = '''
     lfsr_dir_open(&lfs, &dir, "coffee/vietnamese/././././.") => LFS_ERR_NOTDIR;
     lfsr_dir_open(&lfs, &dir, "coffee/thai/./././././.") => LFS_ERR_NOTDIR;
 
-    // note write operations should normally be rejected during mount
-    // by wcompat flags
+    // rename paths
+    lfsr_mkdir(&lfs, "espresso") => 0;
+    // bad source
+    lfsr_rename(&lfs,
+            "coffee/drip/./././././.",
+            "espresso/espresso") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/././././.",
+            "espresso/americano") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/turkish/./././.",
+            "espresso/macchiato") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/tubruk/././.",
+            "espresso/latte") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese/./.",
+            "espresso/cappuccino") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/thai/.",
+            "espresso/mocha") => LFS_ERR_NOTDIR;
+
+    // bad destination
+    lfsr_rename(&lfs,
+            "coffee/drip",
+            "espresso/espresso/.") => LFS_ERR_NOENT;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew",
+            "espresso/americano/./.") => LFS_ERR_NOENT;
+    lfsr_rename(&lfs,
+            "coffee/turkish",
+            "espresso/macchiato/././.") => LFS_ERR_NOENT;
+    lfsr_rename(&lfs,
+            "coffee/tubruk",
+            "espresso/latte/./././.") => LFS_ERR_NOENT;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese",
+            "espresso/cappuccino/././././.") => LFS_ERR_NOENT;
+    lfsr_rename(&lfs,
+            "coffee/thai",
+            "espresso/mocha/./././././.") => LFS_ERR_NOENT;
+
+    // bad source and bad destination
+    lfsr_rename(&lfs,
+            "coffee/drip/./././././.",
+            "espresso/espresso/.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/././././.",
+            "espresso/americano/./.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/turkish/./././.",
+            "espresso/macchiato/././.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/tubruk/././.",
+            "espresso/latte/./././.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese/./.",
+            "espresso/cappuccino/././././.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/thai/.",
+            "espresso/mocha/./././././.") => LFS_ERR_NOTDIR;
+
+    // here's a weird one, what happens if our rename is also a noop?
+    lfsr_rename(&lfs,
+            "coffee/drip/./././././.",
+            "coffee/drip/./././././.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/././././.",
+            "coffee/coldbrew/././././.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/turkish/./././.",
+            "coffee/turkish/./././.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/tubruk/././.",
+            "coffee/tubruk/././.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese/./.",
+            "coffee/vietnamese/./.") => LFS_ERR_NOTDIR;
+    lfsr_rename(&lfs,
+            "coffee/thai/.",
+            "coffee/thai/.") => LFS_ERR_NOTDIR;
+
+    // remove paths
+    lfsr_remove(&lfs, "coffee/drip/.") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/coldbrew/./.") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/turkish/././.") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/tubruk/./././.") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/vietnamese/././././.") => LFS_ERR_NOTDIR;
+    lfsr_remove(&lfs, "coffee/thai/./././././.") => LFS_ERR_NOTDIR;
 
     // stat paths
+    lfsr_stat(&lfs, "espresso/espresso", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/americano", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/macchiato", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/latte", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/cappuccino", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/mocha", &info) => LFS_ERR_NOENT;
+
     lfsr_stat(&lfs, "coffee/drip", &info) => 0;
     assert(strcmp(info.name, "drip") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
@@ -5281,11 +5604,109 @@ code = '''
     lfsr_dir_open(&lfs, &dir, "coffee/vietnamese/../../../../..") => LFS_ERR_INVAL;
     lfsr_dir_open(&lfs, &dir, "coffee/thai/../../../../../..") => LFS_ERR_INVAL;
 
-    // note write operations should normally be rejected during mount
-    // by wcompat flags
+    // rename paths
+    lfsr_mkdir(&lfs, "espresso") => 0;
+    // bad source
+    lfsr_rename(&lfs,
+            "coffee/drip/../../../../../..",
+            "espresso/espresso") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/../../../../..",
+            "espresso/americano") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/turkish/../../../..",
+            "espresso/macchiato") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/tubruk/../../..",
+            "espresso/latte") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese/../..",
+            "espresso/cappuccino") => LFS_ERR_INVAL;
+    // this one works
+    lfsr_rename(&lfs,
+            "coffee/thai/..",
+            "espresso/mocha") => 0;
+    lfsr_rename(&lfs,
+            "espresso/mocha",
+            "coffee") => 0;
+
+    // bad destination
+    lfsr_rename(&lfs,
+            "coffee/drip",
+            "espresso/espresso/..") => LFS_ERR_ISDIR;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew",
+            "espresso/americano/../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/turkish",
+            "espresso/macchiato/../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/tubruk",
+            "espresso/latte/../../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese",
+            "espresso/cappuccino/../../../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/thai",
+            "espresso/mocha/../../../../../..") => LFS_ERR_INVAL;
+
+    // bad source and bad destination
+    lfsr_rename(&lfs,
+            "coffee/drip/../../../../../..",
+            "espresso/espresso/..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/../../../../..",
+            "espresso/americano/../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/turkish/../../../..",
+            "espresso/macchiato/../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/tubruk/../../..",
+            "espresso/latte/../../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese/../..",
+            "espresso/cappuccino/../../../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/thai/..",
+            "espresso/mocha/../../../../../..") => LFS_ERR_INVAL;
+
+    // here's a weird one, what happens if our rename is also a noop?
+    lfsr_rename(&lfs,
+            "coffee/drip/../../../../../..",
+            "coffee/drip/../../../../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/coldbrew/../../../../..",
+            "coffee/coldbrew/../../../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/turkish/../../../..",
+            "coffee/turkish/../../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/tubruk/../../..",
+            "coffee/tubruk/../../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/vietnamese/../..",
+            "coffee/vietnamese/../..") => LFS_ERR_INVAL;
+    lfsr_rename(&lfs,
+            "coffee/thai/..",
+            "coffee/thai/..") => 0;
+
+    // remove paths
+    lfsr_remove(&lfs, "coffee/drip/..") => LFS_ERR_NOTEMPTY;
+    lfsr_remove(&lfs, "coffee/coldbrew/../..") => LFS_ERR_INVAL;
+    lfsr_remove(&lfs, "coffee/turkish/../../..") => LFS_ERR_INVAL;
+    lfsr_remove(&lfs, "coffee/tubruk/../../../..") => LFS_ERR_INVAL;
+    lfsr_remove(&lfs, "coffee/vietnamese/../../../../..") => LFS_ERR_INVAL;
+    lfsr_remove(&lfs, "coffee/thai/../../../../../..") => LFS_ERR_INVAL;
 
     // stat paths
+    lfsr_stat(&lfs, "espresso/espresso", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/americano", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/macchiato", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/latte", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/cappuccino", &info) => LFS_ERR_NOENT;
+    lfsr_stat(&lfs, "espresso/mocha", &info) => LFS_ERR_NOENT;
     lfsr_stat(&lfs, "coffee/drip", &info) => 0;
+
     assert(strcmp(info.name, "drip") == 0);
     assert(info.type == LFS_TYPE_UNKNOWN);
     lfsr_stat(&lfs, "coffee/coldbrew", &info) => 0;

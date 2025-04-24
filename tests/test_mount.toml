@@ -1146,9 +1146,8 @@ code = '''
                 LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
     lfsr_unmount(&lfs) => 0;
 
-    // mount, note the LFS_M_RDONLY, new types should be added with
-    // new wcompat flags to prevent resource leaks
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
+    // mount
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
     struct lfs_info info;
@@ -1182,9 +1181,785 @@ code = '''
     lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
     lfsr_dir_close(&lfs, &dir) => 0;
 
+    // open/mkdir should error
     lfsr_file_open(&lfs, &file, "b",
             LFS_O_RDONLY) => LFS_ERR_NOTSUP;
+    lfsr_file_open(&lfs, &file, "b",
+            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_NOTSUP;
+
+    lfsr_mkdir(&lfs, "b") => LFS_ERR_EXIST;
 
     lfsr_unmount(&lfs) => 0;
 '''
 
+[cases.test_mount_incompat_unknown_type_rm]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // create some files
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "a",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi a!", strlen("hi a!")) => strlen("hi a!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "b",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "oh no!", strlen("oh no!")) => strlen("oh no!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "c",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi c!", strlen("hi c!")) => strlen("hi c!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // change a file's type to something unknown
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    const char *path = "b";
+    lfsr_mdir_t mdir;
+    lfsr_did_t did;
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_CAT(
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // our file should appear as an unknown type
+    struct lfs_info info;
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi c!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // removing unknown files should still work, if this would leak
+    // resources the new type should set a wcompat flag
+    lfsr_remove(&lfs, "b") => 0;
+
+    // check that things look reasonable
+    lfsr_stat(&lfs, "b", &info) => LFS_ERR_NOENT;
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi c!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mount_incompat_unknown_type_mv_src]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // create some files
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "a",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi a!", strlen("hi a!")) => strlen("hi a!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "b",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "oh no!", strlen("oh no!")) => strlen("oh no!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "c",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi c!", strlen("hi c!")) => strlen("hi c!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // change a file's type to something unknown
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    const char *path = "b";
+    lfsr_mdir_t mdir;
+    lfsr_did_t did;
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_CAT(
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // our file should appear as an unknown type
+    struct lfs_info info;
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi c!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // renaming unknown files should still work, if this would leak
+    // resources the new type should set a wcompat flag
+    lfsr_rename(&lfs, "b", "c") => 0;
+
+    // check that things look reasonable after renaming/removing
+    lfsr_stat(&lfs, "c", &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mount_incompat_unknown_type_mv_dst]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // create some files
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "a",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi a!", strlen("hi a!")) => strlen("hi a!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "b",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "oh no!", strlen("oh no!")) => strlen("oh no!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "c",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi c!", strlen("hi c!")) => strlen("hi c!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // change a file's type to something unknown
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    const char *path = "b";
+    lfsr_mdir_t mdir;
+    lfsr_did_t did;
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_CAT(
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // our file should appear as an unknown type
+    struct lfs_info info;
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi c!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // renaming unknown files should still work, if this would leak
+    // resources the new type should set a wcompat flag
+    lfsr_rename(&lfs, "c", "b") => 0;
+
+    // check that things look reasonable after renaming/removing
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi c!"));
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi c!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mount_incompat_unknown_type_mv_src_dst]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // create some files
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "a",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi a!", strlen("hi a!")) => strlen("hi a!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "b",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "oh no!", strlen("oh no!")) => strlen("oh no!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "c",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "oh hi!", strlen("oh hi!")) => strlen("oh hi!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // change a file's type to something unknown
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    const char *path = "b";
+    lfsr_mdir_t mdir;
+    lfsr_did_t did;
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_CAT(
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    path = "c";
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_CAT(
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // our file should appear as an unknown type
+    struct lfs_info info;
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // renaming unknown files should still work, if this would leak
+    // resources the new type should set a wcompat flag
+    lfsr_rename(&lfs, "b", "c") => 0;
+
+    // check that things look reasonable after renaming/removing
+    lfsr_stat(&lfs, "c", &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mount_incompat_unknown_type_mv_noop]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // create some files
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "a",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi a!", strlen("hi a!")) => strlen("hi a!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "b",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "oh no!", strlen("oh no!")) => strlen("oh no!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "c",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi c!", strlen("hi c!")) => strlen("hi c!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // change a file's type to something unknown
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    const char *path = "b";
+    lfsr_mdir_t mdir;
+    lfsr_did_t did;
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_CAT(
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // our file should appear as an unknown type
+    struct lfs_info info;
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi c!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // renaming unknown files should still work, if this would leak
+    // resources the new type should set a wcompat flag
+    lfsr_rename(&lfs, "b", "b") => 0;
+
+    // check that things look reasonable after renaming/removing
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi c!"));
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mount_incompat_unknown_type_mv_notdir]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // create some files
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "a",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi a!", strlen("hi a!")) => strlen("hi a!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "b",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "oh no!", strlen("oh no!")) => strlen("oh no!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_mkdir(&lfs, "c") => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // change a file's type to something unknown
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    const char *path = "b";
+    lfsr_mdir_t mdir;
+    lfsr_did_t did;
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_CAT(
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // our file should appear as an unknown type
+    struct lfs_info info;
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // renaming unknown files should still work, if this would leak
+    // resources the new type should set a wcompat flag
+    lfsr_rename(&lfs, "c", "b") => LFS_ERR_NOTDIR;
+
+    // check that things look reasonable after renaming/removing
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''
+
+[cases.test_mount_incompat_unknown_type_mv_isdir]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // create some files
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "a",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "hi a!", strlen("hi a!")) => strlen("hi a!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "b",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfsr_file_write(&lfs, &file,
+            "oh no!", strlen("oh no!")) => strlen("oh no!");
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_mkdir(&lfs, "c") => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // change a file's type to something unknown
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    const char *path = "b";
+    lfsr_mdir_t mdir;
+    lfsr_did_t did;
+    lfsr_mtree_pathlookup(&lfs, &path,
+            &mdir, NULL, &did) => 0;
+    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
+            LFSR_RATTR_CAT(
+                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
+                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
+                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    lfsr_unmount(&lfs) => 0;
+
+    // mount
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+
+    // our file should appear as an unknown type
+    struct lfs_info info;
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_t dir;
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    // renaming unknown files should still work, if this would leak
+    // resources the new type should set a wcompat flag
+    lfsr_rename(&lfs, "b", "c") => LFS_ERR_ISDIR;
+
+    // check that things look reasonable after renaming/removing
+    lfsr_stat(&lfs, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+
+    lfsr_dir_open(&lfs, &dir, "/") => 0;
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, ".") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "..") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == strlen("hi a!"));
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS_TYPE_DIR);
+    assert(info.size == 0);
+    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
+    lfsr_dir_close(&lfs, &dir) => 0;
+
+    lfsr_unmount(&lfs) => 0;
+'''

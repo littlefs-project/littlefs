@@ -2331,7 +2331,12 @@ static inline lfsr_tag_t lfsr_rattr_dtag(lfsr_rattr_t rattr) {
     // lazily tag encoding can be bypassed with explicit data, this is
     // necessary to allow copies during compaction, relocation, etc
     if (rattr.count >= 0) {
-        return rattr.tag;
+        // map all name tags to LFSR_TAG_NAME for simplicity
+        if (lfsr_tag_suptype(rattr.tag) == LFSR_TAG_NAME) {
+            return LFSR_TAG_NAME;
+        } else {
+            return rattr.tag;
+        }
     } else {
         return LFSR_TAG_DATA;
     }
@@ -3452,7 +3457,7 @@ static lfsr_data_t lfsr_data_frombtree(const lfsr_btree_t *btree,
 static lfsr_data_t lfsr_data_frommptr(const lfs_block_t mptr[static 2],
         uint8_t buffer[static LFSR_MPTR_DSIZE]);
 
-// our core rbyd append algorithm
+// encode rattrs
 static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_rattr_t rattr) {
     // tag must not be internal at this point
@@ -3507,7 +3512,6 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // leb128?
     case LFSR_TAG_NAMELIMIT:;
     case LFSR_TAG_FILELIMIT:;
-    case LFSR_TAG_BOOKMARK:;
     case LFSR_TAG_DID:;
         // leb128s should not exceed 31-bits
         LFS_ASSERT(rattr.u.leb128 <= 0x7fffffff);
@@ -3530,9 +3534,6 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // name?
     case LFSR_TAG_NAME:;
-    case LFSR_TAG_REG:;
-    case LFSR_TAG_DIR:;
-    case LFSR_TAG_STICKYNOTE:;
         const lfsr_name_t *name = rattr.u.etc;
         ctx.u.name.datas[0] = lfsr_data_fromleb128(name->did, ctx.u.name.buf);
         ctx.u.name.datas[1] = LFSR_DATA_BUF(name->name, name->name_len);
@@ -3772,7 +3773,7 @@ static void lfsr_rbyd_p_recolor(
     }
 }
 
-// core rbyd algorithm
+// our core rbyd append algorithm
 static int lfsr_rbyd_appendrattr(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_rattr_t rattr) {
     // must fetch before mutating!
@@ -10300,8 +10301,8 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     // commit our bookmark and a grm to self-remove in case of powerloss
     lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_LEB128(
-                LFSR_TAG_BOOKMARK, +1, did_)));
+            LFSR_RATTR_NAME(
+                LFSR_TAG_BOOKMARK, +1, did_, NULL, 0)));
     if (err) {
         return err;
     }
@@ -10632,6 +10633,16 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             if (err) {
                 return err;
             }
+        }
+    }
+
+    if (old_tag == LFSR_TAG_UNKNOWN) {
+        // lookup the actual tag
+        err = lfsr_rbyd_lookup(lfs, &old_mdir.rbyd,
+                lfsr_mrid(lfs, old_mdir.mid), LFSR_TAG_MASK8 | LFSR_TAG_NAME,
+                &old_tag, NULL);
+        if (err) {
+            return err;
         }
     }
 
@@ -13602,17 +13613,13 @@ static int lfs_deinit(lfs_t *lfs) {
 
 #define LFSR_WCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 #define LFSR_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
-#define LFSR_WCOMPAT_REG         0x00000010 // Regular files in use
-#define LFSR_WCOMPAT_DIR         0x00000020 // Directory files in use
-#define LFSR_WCOMPAT_STICKYNOTE  0x00000040 // Stickynote files in use
+#define LFSR_WCOMPAT_DIR         0x00000010 // Directory files in use
 #define LFSR_WCOMPAT_GCKSUM      0x00001000 // Global-checksum in use
 // internal
 #define LFSR_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
 #define LFSR_WCOMPAT_COMPAT \
-    (LFSR_WCOMPAT_REG \
-        | LFSR_WCOMPAT_DIR \
-        | LFSR_WCOMPAT_STICKYNOTE \
+    (LFSR_WCOMPAT_DIR \
         | LFSR_WCOMPAT_GCKSUM)
 
 #define LFSR_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
@@ -14294,9 +14301,9 @@ static int lfsr_formatinited(lfs_t *lfs) {
                 LFSR_RATTR_LEB128(
                     LFSR_TAG_FILELIMIT, 0,
                     lfs->file_limit),
-                LFSR_RATTR_LEB128(
+                LFSR_RATTR_NAME(
                     LFSR_TAG_BOOKMARK, +1,
-                    0)));
+                    0, NULL, 0)));
         if (err) {
             return err;
         }
