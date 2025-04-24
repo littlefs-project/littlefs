@@ -1207,10 +1207,6 @@ static inline lfsr_tag_t lfsr_tag_subkey(lfsr_tag_t tag) {
     return tag & 0x00ff;
 }
 
-static inline lfsr_tag_t lfsr_tag_nonredund(lfsr_tag_t tag) {
-    return tag & 0xfffc;
-}
-
 static inline lfsr_tag_t lfsr_tag_redund(lfsr_tag_t tag) {
     return tag & 0x0003;
 }
@@ -2331,12 +2327,7 @@ static inline lfsr_tag_t lfsr_rattr_dtag(lfsr_rattr_t rattr) {
     // lazily tag encoding can be bypassed with explicit data, this is
     // necessary to allow copies during compaction, relocation, etc
     if (rattr.count >= 0) {
-        // map all name tags to LFSR_TAG_NAME for simplicity
-        if (lfsr_tag_suptype(rattr.tag) == LFSR_TAG_NAME) {
-            return LFSR_TAG_NAME;
-        } else {
-            return rattr.tag;
-        }
+        return rattr.tag;
     } else {
         return LFSR_TAG_DATA;
     }
@@ -3469,6 +3460,11 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     //
     // we encode most tags lazily as this heavily reduces stack usage,
     // though this does make us less gc-able at compile time
+    //
+    // note we only encode lazily if the rattr uses a direct buffer,
+    // explicit data bypasses the lazy encoding, which is necessary to
+    // allow copies during compaction, relocation, etc
+    //
     lfs_size_t size;
     const void *data;
     int16_t count;
@@ -3497,104 +3493,105 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             } name;
         } u;
     } ctx;
-    switch (lfsr_rattr_dtag(rattr)) {
+
     // le32?
-    case LFSR_TAG_RCOMPAT:;
-    case LFSR_TAG_WCOMPAT:;
-    case LFSR_TAG_OCOMPAT:;
-    case LFSR_TAG_GCKSUMDELTA:;
+    if (rattr.count >= 0
+            && (rattr.tag == LFSR_TAG_RCOMPAT
+                || rattr.tag == LFSR_TAG_WCOMPAT
+                || rattr.tag == LFSR_TAG_OCOMPAT
+                || rattr.tag == LFSR_TAG_GCKSUMDELTA)) {
         lfsr_data_t data_ = lfsr_data_fromle32(rattr.u.le32, ctx.u.buf);
         size = lfsr_data_size(data_);
         data = ctx.u.buf;
         count = size;
-        break;
 
     // leb128?
-    case LFSR_TAG_NAMELIMIT:;
-    case LFSR_TAG_FILELIMIT:;
-    case LFSR_TAG_DID:;
+    } else if (rattr.count >= 0
+            && (rattr.tag == LFSR_TAG_NAMELIMIT
+                || rattr.tag == LFSR_TAG_FILELIMIT
+                || rattr.tag == LFSR_TAG_DID)) {
         // leb128s should not exceed 31-bits
         LFS_ASSERT(rattr.u.leb128 <= 0x7fffffff);
         // little-leb128s should not exceed 28-bits
         LFS_ASSERT(rattr.tag != LFSR_TAG_NAMELIMIT
                 || rattr.u.leb128 <= 0x0fffffff);
-        data_ = lfsr_data_fromleb128(rattr.u.leb128, ctx.u.buf);
+        lfsr_data_t data_ = lfsr_data_fromleb128(rattr.u.leb128, ctx.u.buf);
         size = lfsr_data_size(data_);
         data = ctx.u.buf;
         count = size;
-        break;
 
     // geometry?
-    case LFSR_TAG_GEOMETRY:;
-        data_ = lfsr_data_fromgeometry(rattr.u.etc, ctx.u.buf);
+    } else if (rattr.count >= 0
+            && rattr.tag == LFSR_TAG_GEOMETRY) {
+        lfsr_data_t data_ = lfsr_data_fromgeometry(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data_);
         data = ctx.u.buf;
         count = size;
-        break;
 
     // name?
-    case LFSR_TAG_NAME:;
+    } else if (rattr.count >= 0
+            && lfsr_tag_suptype(rattr.tag) == LFSR_TAG_NAME) {
         const lfsr_name_t *name = rattr.u.etc;
         ctx.u.name.datas[0] = lfsr_data_fromleb128(name->did, ctx.u.name.buf);
         ctx.u.name.datas[1] = LFSR_DATA_BUF(name->name, name->name_len);
         size = lfsr_data_size(ctx.u.name.datas[0]) + name->name_len;
         data = &ctx.u.name.datas;
         count = -2;
-        break;
 
     // bptr?
-    case LFSR_TAG_BLOCK:;
-    case LFSR_TAG_SHRUB | LFSR_TAG_BLOCK:;
-        data_ = lfsr_data_frombptr(rattr.u.etc, ctx.u.buf);
+    } else if (rattr.count >= 0
+            && (rattr.tag == LFSR_TAG_BLOCK
+                || rattr.tag == (LFSR_TAG_SHRUB | LFSR_TAG_BLOCK))) {
+        lfsr_data_t data_ = lfsr_data_frombptr(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data_);
         data = ctx.u.buf;
         count = size;
-        break;
 
     // shrub trunk?
-    case LFSR_TAG_BSHRUB:;
+    } else if (rattr.count >= 0
+            && rattr.tag == LFSR_TAG_BSHRUB) {
         // note unlike the other lazy tags, we _need_ to lazily encode
         // shrub trunks, since they change underneath us during mdir
         // compactions, relocations, etc
-        data_ = lfsr_data_fromshrub(rattr.u.etc, ctx.u.buf);
+        lfsr_data_t data_ = lfsr_data_fromshrub(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data_);
         data = ctx.u.buf;
         count = size;
-        break;
 
     // btree?
-    case LFSR_TAG_BTREE:;
-    case LFSR_TAG_MTREE:;
-        data_ = lfsr_data_frombtree(rattr.u.etc, ctx.u.buf);
+    } else if (rattr.count >= 0
+            && (rattr.tag == LFSR_TAG_BTREE
+                || rattr.tag == LFSR_TAG_MTREE)) {
+        lfsr_data_t data_ = lfsr_data_frombtree(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data_);
         data = ctx.u.buf;
         count = size;
-        break;
 
     // mptr?
-    case LFSR_TAG_MROOT:;
-    case LFSR_TAG_MDIR:;
-        data_ = lfsr_data_frommptr(rattr.u.etc, ctx.u.buf);
+    } else if (rattr.count >= 0
+            && (rattr.tag == LFSR_TAG_MROOT
+                || rattr.tag == LFSR_TAG_MDIR)) {
+        lfsr_data_t data_ = lfsr_data_frommptr(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data_);
         data = ctx.u.buf;
         count = size;
-        break;
 
     // ecksum?
-    case LFSR_TAG_ECKSUM:;
-        data_ = lfsr_data_fromecksum(rattr.u.etc, ctx.u.buf);
+    } else if (rattr.count >= 0
+            && rattr.tag == LFSR_TAG_ECKSUM) {
+        lfsr_data_t data_ = lfsr_data_fromecksum(rattr.u.etc, ctx.u.buf);
         size = lfsr_data_size(data_);
         data = ctx.u.buf;
         count = size;
-        break;
 
     // default to raw data
-    default:;
+    } else {
         size = lfsr_rattr_dsize(rattr);
         data = rattr.u.datas;
         count = rattr.count;
-        break;
     }
+
+    // now everything should be raw data, either in-ram or on-disk
 
     // do we fit?
     if (lfsr_rbyd_eoff(rbyd) + LFSR_TAG_DSIZE + size
