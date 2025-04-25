@@ -9530,6 +9530,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 LFS_ERROR("Weird mroot entry? 0x%"PRIx32, tag);
                 return LFS_ERR_CORRUPT;
             }
+            LFS_UNREACHABLE();
 
         // iterate over mdirs in the mtree
         case LFSR_TSTATE_MDIRS:;
@@ -9617,6 +9618,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                         LFSR_TSTATE_OMDIRS);
                 continue;
             }
+            LFS_UNREACHABLE();
 
         // scan for blocks/btrees in our opened file list
         case LFSR_TSTATE_OMDIRS:;
