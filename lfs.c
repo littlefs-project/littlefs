@@ -6486,7 +6486,7 @@ static inline int lfsr_bshrub_cmp(
 }
 
 // needed in lfsr_bshrub_estimate
-static int lfsr_mdir_lookupnext(lfs_t *lfs, const lfsr_mdir_t *mdir,
+static int lfsr_mdir_lookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
         lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_);
 
@@ -6500,13 +6500,13 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
     // on-disk shrub
     lfsr_tag_t tag;
     lfsr_data_t data;
-    int err = lfsr_mdir_lookupnext(lfs, &bshrub->o.mdir, LFSR_TAG_DATA,
+    int err = lfsr_mdir_lookup(lfs, &bshrub->o.mdir, LFSR_TAG_BSHRUB,
             &tag, &data);
     if (err < 0 && err != LFS_ERR_NOENT) {
         return err;
     }
 
-    if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
+    if (err != LFS_ERR_NOENT) {
         lfsr_shrub_t shrub;
         err = lfsr_data_readshrub(lfs, &data, &bshrub->o.mdir,
                 &shrub);
@@ -9571,28 +9571,44 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 continue;
             }
 
-            // do we have a block/btree?
-            err = lfsr_mdir_lookupnext(lfs, &t->b.o.mdir, LFSR_TAG_DATA,
+            // do we have a bshrub/btree?
+            err = lfsr_mdir_lookup(lfs, &t->b.o.mdir,
+                    LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
                     &tag, &data);
             if (err && err != LFS_ERR_NOENT) {
                 return err;
             }
 
-            // found a bshrub (inlined btree)?
-            if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
-                err = lfsr_data_readshrub(lfs, &data, &t->b.o.mdir,
-                        &t->b.shrub);
-                if (err) {
-                    return err;
+            // found a bshrub/btree? note we may also run into
+            // dirs/dids here
+            if (err != LFS_ERR_NOENT
+                    && (tag == LFSR_TAG_BSHRUB
+                        || tag == LFSR_TAG_BTREE)) {
+                // found a bshrub (inlined btree)?
+                if (tag == LFSR_TAG_BSHRUB) {
+                    err = lfsr_data_readshrub(lfs, &data, &t->b.o.mdir,
+                            &t->b.shrub);
+                    if (err) {
+                        return err;
+                    }
+
+                // found a btree?
+                } else if (tag == LFSR_TAG_BTREE) {
+                    err = lfsr_data_fetchbtree(lfs, &data,
+                            &t->b.shrub);
+                    if (err) {
+                        return err;
+                    }
+
+                } else {
+                    LFS_UNREACHABLE();
                 }
 
-            // found a btree?
-            } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
-                err = lfsr_data_fetchbtree(lfs, &data,
-                        &t->b.shrub);
-                if (err) {
-                    return err;
-                }
+                // start traversing
+                lfsr_btraversal_init(&t->u.bt);
+                t->b.o.flags = lfsr_t_settstate(t->b.o.flags,
+                        LFSR_TSTATE_BTREE);
+                continue;
 
             // no? next we need to check any opened files
             } else {
@@ -9601,12 +9617,6 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                         LFSR_TSTATE_OMDIRS);
                 continue;
             }
-
-            // start traversing
-            lfsr_btraversal_init(&t->u.bt);
-            t->b.o.flags = lfsr_t_settstate(t->b.o.flags,
-                    LFSR_TSTATE_BTREE);
-            continue;
 
         // scan for blocks/btrees in our opened file list
         case LFSR_TSTATE_OMDIRS:;
@@ -11197,7 +11207,8 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
         // lookup the file struct, if there is one
         lfsr_tag_t tag;
         lfsr_data_t data;
-        int err = lfsr_mdir_lookupnext(lfs, &file->b.o.mdir, LFSR_TAG_DATA,
+        int err = lfsr_mdir_lookup(lfs, &file->b.o.mdir,
+                LFSR_TAG_MASK8 | LFSR_TAG_DATA,
                 &tag, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -11208,20 +11219,26 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
         // bshrub
         file->b.shrub_ = file->b.shrub;
 
-        // may be a bshrub (inlined btree)
-        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BSHRUB) {
-            err = lfsr_data_readshrub(lfs, &data, &file->b.o.mdir,
-                    &file->b.shrub_);
-            if (err) {
-                return err;
-            }
+        // found a bshrub/btree?
+        if (err != LFS_ERR_NOENT) {
+            // may be a bshrub (inlined btree)
+            if (tag == LFSR_TAG_BSHRUB) {
+                err = lfsr_data_readshrub(lfs, &data, &file->b.o.mdir,
+                        &file->b.shrub_);
+                if (err) {
+                    return err;
+                }
 
-        // or a btree
-        } else if (err != LFS_ERR_NOENT && tag == LFSR_TAG_BTREE) {
-            err = lfsr_data_fetchbtree(lfs, &data,
-                    &file->b.shrub_);
-            if (err) {
-                return err;
+            // or a btree
+            } else if (tag == LFSR_TAG_BTREE) {
+                err = lfsr_data_fetchbtree(lfs, &data,
+                        &file->b.shrub_);
+                if (err) {
+                    return err;
+                }
+
+            } else {
+                LFS_UNREACHABLE();
             }
         }
 
