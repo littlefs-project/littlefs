@@ -5318,8 +5318,10 @@ code = '''
     lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
     lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
-    // removed files can not be synced
-    lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
+    // syncing removed files is a noop
+    lfsr_file_sync(&lfs, &file) => 0;
+    // resyncing removed files is an error
+    lfsr_file_resync(&lfs, &file) => LFS_ERR_NOENT;
 
     // but we should still be able to read our file handle
     lfsr_file_rewind(&lfs, &file) => 0;
@@ -5451,8 +5453,10 @@ code = '''
     lfsr_file_open(&lfs, &file_, "batman", LFS_O_WRONLY) => LFS_ERR_NOENT;
     lfsr_file_open(&lfs, &file_, "batman", LFS_O_RDWR) => LFS_ERR_NOENT;
 
-    // removed files can not be synced
-    lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
+    // syncing removed files is a noop
+    lfsr_file_sync(&lfs, &file) => 0;
+    // resyncing removed files is an error
+    lfsr_file_resync(&lfs, &file) => LFS_ERR_NOENT;
 
     // but we should still be able to read our file handle
     lfsr_file_rewind(&lfs, &file) => 0;
@@ -5627,9 +5631,11 @@ code = '''
     lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
     lfsr_file_close(&lfs, &file_) => 0;
 
-    // removed files can not be synced
-    lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
-    // but we should be able to sync our second file just fine
+    // syncing removed files is a noop
+    lfsr_file_sync(&lfs, &file) => 0;
+    // resyncing removed files is an error
+    lfsr_file_resync(&lfs, &file) => LFS_ERR_NOENT;
+    // syncing our second file should actually sync
     lfsr_file_sync(&lfs, &file__) => 0;
 
     // second file should appear on disk now
@@ -5886,9 +5892,11 @@ code = '''
     lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
     lfsr_file_close(&lfs, &file_) => 0;
 
-    // removed files can not be synced
-    lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
-    // but we should be able to sync our second file just fine
+    // syncing removed files is a noop
+    lfsr_file_sync(&lfs, &file) => 0;
+    // resyncing removed files is an error
+    lfsr_file_resync(&lfs, &file) => LFS_ERR_NOENT;
+    // syncing our second file should actually sync
     lfsr_file_sync(&lfs, &file__) => 0;
 
     // second file should appear on disk now
@@ -6187,10 +6195,13 @@ code = '''
     lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
     lfsr_file_close(&lfs, &file_) => 0;
 
-    // removed files can not be synced
-    lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
-    lfsr_file_sync(&lfs, &file__) => LFS_ERR_NOENT;
-    // but we should be able to sync our third file just fine
+    // syncing removed files is a noop
+    lfsr_file_sync(&lfs, &file) => 0;
+    lfsr_file_sync(&lfs, &file__) => 0;
+    // resyncing removed files is an error
+    lfsr_file_resync(&lfs, &file) => LFS_ERR_NOENT;
+    lfsr_file_resync(&lfs, &file__) => LFS_ERR_NOENT;
+    // syncing our third file should actually sync
     lfsr_file_sync(&lfs, &file___) => 0;
 
     // third file should appear on disk now
@@ -6502,10 +6513,13 @@ code = '''
     lfsr_file_read(&lfs, &file_, rbuf, CHUNK) => 0;
     lfsr_file_close(&lfs, &file_) => 0;
 
-    // removed files can not be synced
-    lfsr_file_sync(&lfs, &file) => LFS_ERR_NOENT;
-    lfsr_file_sync(&lfs, &file__) => LFS_ERR_NOENT;
-    // but we should be able to sync our third file just fine
+    // syncing removed files is a noop
+    lfsr_file_sync(&lfs, &file) => 0;
+    lfsr_file_sync(&lfs, &file__) => 0;
+    // resyncing removed files is an error
+    lfsr_file_resync(&lfs, &file) => LFS_ERR_NOENT;
+    lfsr_file_resync(&lfs, &file__) => LFS_ERR_NOENT;
+    // syncing our third file should actually sync
     lfsr_file_sync(&lfs, &file___) => 0;
 
     // third file should appear on disk now
@@ -10892,8 +10906,7 @@ code = '''
                 wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
             lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+            lfsr_file_sync(&lfs, &sim_files[j]->file) => 0;
 
             // update sim
             sim_files[j]->prng = wprng;
@@ -11320,8 +11333,7 @@ code = '''
                 wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
             lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+            lfsr_file_sync(&lfs, &sim_files[j]->file) => 0;
 
             // update sim
             sim_files[j]->prng = wprng;

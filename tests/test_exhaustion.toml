@@ -886,8 +886,7 @@ code = '''
                     goto dead;
                 }
                 int err = lfsr_file_sync(&lfs, &sim_files[j]->file);
-                assert(err == ((!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT)
-                        || err == LFS_ERR_NOSPC);
+                assert(err == 0 || err == LFS_ERR_NOSPC);
                 if (err == LFS_ERR_NOSPC) {
                     goto dead;
                 }
@@ -1399,8 +1398,7 @@ code = '''
                     goto dead;
                 }
                 int err = lfsr_file_sync(&lfs, &sim_files[j]->file);
-                assert(err == ((!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT)
-                        || err == LFS_ERR_NOSPC);
+                assert(err == 0 || err == LFS_ERR_NOSPC);
                 if (err == LFS_ERR_NOSPC) {
                     goto dead;
                 }

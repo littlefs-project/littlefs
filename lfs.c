@@ -12721,11 +12721,10 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // lfsr_file_resync
     LFS_ASSERT(!lfsr_o_isrdonly(file->b.o.flags));
 
-    // removed? we can't sync
+    // removed? sync is just a noop in this case
     int err;
     if (lfsr_o_iszombie(file->b.o.flags)) {
-        err = LFS_ERR_NOENT;
-        goto failed;
+        return 0;
     }
 
     // first flush any data in our cache, this is a noop if already

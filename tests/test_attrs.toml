@@ -3979,10 +3979,10 @@ code = '''
     b_size[1] = strlen(b_);
     c_size[1] = strlen(c_);
 
-    // attempting to sync should error
-    lfsr_file_sync(&lfs, &file[1]) => LFS_ERR_NOENT;
+    // attempting to sync the zombie file is a noop
+    lfsr_file_sync(&lfs, &file[1]) => 0;
 
-    // attempting to resync should error
+    // attempting to resync the zombie file should error
     lfsr_file_resync(&lfs, &file[1]) => LFS_ERR_NOENT;
 
     // other file unaffected?
@@ -4239,8 +4239,8 @@ code = '''
         }
     }
 
-    // attempting to sync the zombie file should error
-    lfsr_file_sync(&lfs, &file[0]) => LFS_ERR_NOENT;
+    // attempting to sync the zombie file is a noop
+    lfsr_file_sync(&lfs, &file[0]) => 0;
 
     // attempting to resync the zombie file should error
     lfsr_file_resync(&lfs, &file[0]) => LFS_ERR_NOENT;

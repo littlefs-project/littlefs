@@ -667,8 +667,7 @@ code = '''
                 wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
             lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+            lfsr_file_sync(&lfs, &sim_files[j]->file) => 0;
 
             // update sim
             sim_files[j]->prng = wprng;
@@ -1096,8 +1095,7 @@ code = '''
                 wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
             lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file)
-                    => (!sim_files[j]->zombie) ? 0 : LFS_ERR_NOENT;
+            lfsr_file_sync(&lfs, &sim_files[j]->file) => 0;
 
             // update sim
             sim_files[j]->prng = wprng;
