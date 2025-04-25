@@ -10724,28 +10724,22 @@ static int lfsr_stat_(lfs_t *lfs, const lfsr_mdir_t *mdir,
     }
     info->name[name_len] = '\0';
 
-    // get file size if we're a regular file, this gets a bit messy
-    // because of the different file representations
+    // default size to zero
     info->size = 0;
+
+    // get file size if we're a regular file
     if (tag == LFSR_TAG_REG) {
-        // inlined?
         lfsr_tag_t tag;
         lfsr_data_t data;
-        int err = lfsr_mdir_lookupnext(lfs, mdir, LFSR_TAG_DATA,
+        int err = lfsr_mdir_lookup(lfs, mdir,
+                LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
                 &tag, &data);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
-        // may be a moss (simple inlined data)
-        if (err != LFS_ERR_NOENT && tag == LFSR_TAG_DATA) {
-            info->size = lfsr_data_size(data);
-
-        // or a block/bshrub/btree, size is always first field here
-        } else if (err != LFS_ERR_NOENT
-                && (tag == LFSR_TAG_BLOCK
-                    || tag == LFSR_TAG_BSHRUB
-                    || tag == LFSR_TAG_BTREE)) {
+        if (err != LFS_ERR_NOENT) {
+            // in bshrubs/btrees, size is always the first field
             err = lfsr_data_readleb128(lfs, &data, &info->size);
             if (err) {
                 return err;
