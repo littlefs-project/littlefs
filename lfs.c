@@ -11247,7 +11247,7 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
         // update the bshrub
         file->b.shrub = file->b.shrub_;
 
-        // mark as synced
+        // mark as in-sync
         file->b.o.flags &= ~LFS_o_UNSYNC;
     }
 
@@ -11353,8 +11353,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     // setup file state
     file->cfg = cfg;
     file->b.o.flags = lfsr_o_settype(flags, LFS_TYPE_REG)
-            // default to unflushed for orphans/truncated files
-            | LFS_o_UNFLUSH;
+            // default to unsynced for uncreated/truncated files
+            | LFS_o_UNSYNC;
     file->pos = 0;
     file->eblock = 0;
     file->eoff = -1;
@@ -11423,10 +11423,12 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         }
     }
 
-    // if stickynote, mark as uncreated and unsynced, we need to convert
-    // to reg file on first sync
-    if (!exists || tag == LFSR_TAG_STICKYNOTE || tag == LFSR_TAG_ORPHAN) {
-        file->b.o.flags |= LFS_o_UNCREAT | LFS_o_UNSYNC;
+    // if stickynote, mark as uncreated, we need to convert to reg file
+    // on first sync
+    if (!exists
+            || tag == LFSR_TAG_STICKYNOTE
+            || tag == LFSR_TAG_ORPHAN) {
+        file->b.o.flags |= LFS_o_UNCREAT;
     }
 
     // allocate cache if necessary
@@ -11459,7 +11461,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     lfsr_omdir_open(lfs, &file->b.o);
 
     // sync if requested
-    if (lfsr_o_iscreat(flags) && lfsr_o_issync(flags)) {
+    if (!lfsr_o_isrdonly(file->b.o.flags)
+            && lfsr_o_issync(file->b.o.flags)
+            && lfsr_o_isunsync(file->b.o.flags)) {
         err = lfsr_file_sync(lfs, file);
         if (err) {
             lfsr_omdir_close(lfs, &file->b.o);
@@ -12702,6 +12706,8 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     if (!lfsr_o_isunflush(file->b.o.flags)) {
         return 0;
     }
+    // unflushed files must be unsynced
+    LFS_ASSERT(lfsr_o_isunsync(file->b.o.flags));
 
     // clobber entangled traversals
     lfsr_omdir_mkdirty(lfs, &file->b.o);
@@ -12748,6 +12754,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     if (err) {
         goto failed;
     }
+
     // build a commit of any pending file metadata
     lfsr_rattr_t rattrs[3];
     lfs_size_t rattr_count = 0;
