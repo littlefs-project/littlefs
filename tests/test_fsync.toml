@@ -105,7 +105,7 @@ code = '''
 '''
 
 # test that LFS_O_SYNC/LFS_O_FLUSH flags work as expected
-[cases.test_fsync_sync_o_wrr]
+[cases.test_fsync_sync_o_wsrr]
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
@@ -132,19 +132,12 @@ code = '''
     lfsr_file_t b;
     lfsr_file_t c;
     uint8_t rbuf[256];
-    // LFS_O_SYNC/LFS_M_SYNC should immediately create the file
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY
                 | LFS_O_CREAT
                 | LFS_O_EXCL
                 | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
                 | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
-    struct lfs_info info;
-    lfsr_stat(&lfs, "jello", &info) => 0;
-    assert(strcmp(info.name, "jello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == 0);
-    // create the other files
     lfsr_file_open(&lfs, &b, "jello", LFS_O_RDONLY) => 0;
 
     // write to a
@@ -160,27 +153,8 @@ code = '''
     assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
     lfsr_file_close(&lfs, &c) => 0;
 
-    // reopen with LFS_O_TRUNC
-    lfsr_file_close(&lfs, &a) => 0;
-    lfsr_file_open(&lfs, &a, "jello",
-            LFS_O_WRONLY
-                | LFS_O_TRUNC
-                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
-                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
-
-    // should immediately show up in b
-    lfsr_file_read(&lfs, &b, rbuf, sizeof(rbuf)) => 0;
-    // and on disk
-    lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => 0;
-    lfsr_file_close(&lfs, &c) => 0;
-
-    // reopen LFS_O_WRONLY and rewrite a
-    lfsr_file_close(&lfs, &a) => 0;
-    lfsr_file_open(&lfs, &a, "jello",
-            LFS_O_WRONLY
-                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
-                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+    // rewrite a
+    lfsr_file_rewind(&lfs, &a) => 0;
     lfsr_file_write(&lfs, &a, "bonjour!", strlen("bonjour!"))
             => strlen("bonjour!");
 
@@ -336,7 +310,7 @@ code = '''
 '''
 
 # test that LFS_O_SYNC/LFS_O_FLUSH flags work as expected
-[cases.test_fsync_sync_o_wwrr]
+[cases.test_fsync_sync_o_wswsrr]
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
@@ -356,8 +330,8 @@ code = '''
                 | ((SYNC == 3) ? LFS_M_SYNC : 0),
             CFG) => 0;
 
-    // a - writer
-    // b - writer
+    // a - synced writer
+    // b - synced writer
     // c - reader kept open, recvs updates from a/b
     // d - reader kept closed, checks disk state
     lfsr_file_t a;
@@ -365,19 +339,12 @@ code = '''
     lfsr_file_t c;
     lfsr_file_t d;
     uint8_t rbuf[256];
-    // LFS_O_SYNC/LFS_M_SYNC should immediately create the file
     lfsr_file_open(&lfs, &a, "jello",
             LFS_O_WRONLY
                 | LFS_O_CREAT
                 | LFS_O_EXCL
                 | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
                 | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
-    struct lfs_info info;
-    lfsr_stat(&lfs, "jello", &info) => 0;
-    assert(strcmp(info.name, "jello") == 0);
-    assert(info.type == LFS_TYPE_REG);
-    assert(info.size == 0);
-    // create the other files
     lfsr_file_open(&lfs, &b, "jello",
             LFS_O_WRONLY
                 | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
@@ -424,49 +391,19 @@ code = '''
     assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
     lfsr_file_close(&lfs, &d) => 0;
 
-    // reopen b with LFS_O_TRUNC
-    lfsr_file_close(&lfs, &b) => 0;
-    lfsr_file_open(&lfs, &b, "jello",
-            LFS_O_WRONLY
-                | LFS_O_TRUNC
-                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
-                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
-
-    // should immediately show up in c
-    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => 0;
-    // and on disk
-    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => 0;
-    lfsr_file_close(&lfs, &d) => 0;
-
-    // sync a
-    lfsr_file_sync(&lfs, &a) => 0;
-
-    // a's contents were clobbered, so we should see b
-    lfsr_file_rewind(&lfs, &c) => 0;
-    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => 0;
-    // and on disk
-    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => 0;
-    lfsr_file_close(&lfs, &d) => 0;
-
-    // reopen LFS_O_WRONLY and rewrite b
-    lfsr_file_close(&lfs, &b) => 0;
-    lfsr_file_open(&lfs, &b, "jello",
-            LFS_O_WRONLY
-                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
-                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
     lfsr_file_write(&lfs, &b, "ohayo!", strlen("ohayo!"))
             => strlen("ohayo!");
 
     // should immediately show up in c
     lfsr_file_rewind(&lfs, &c) => 0;
-    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!");
-    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
     // and on disk
     lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!");
-    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
     lfsr_file_close(&lfs, &d) => 0;
 
     // sync a
@@ -474,12 +411,12 @@ code = '''
 
     // a's contents were clobbered, so we should see b
     lfsr_file_rewind(&lfs, &c) => 0;
-    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!");
-    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
     // and on disk
     lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!");
-    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
     lfsr_file_close(&lfs, &d) => 0;
 
     // lets rewrite a one last time
@@ -509,6 +446,203 @@ code = '''
     lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
     lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("zdrasti!");
     assert(memcmp(rbuf, "zdrasti!", strlen("zdrasti!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    lfsr_file_close(&lfs, &c) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test one non-LFS_O_SYNC and one LFS_O_SYNC
+[cases.test_fsync_sync_o_wwsrr]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [2]
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 2, 3]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
+
+    // a - writer
+    // b - synced writer
+    // c - reader kept open, recvs updates from a
+    // d - reader kept closed, checks disk state
+    lfsr_file_t a;
+    lfsr_file_t b;
+    lfsr_file_t c;
+    lfsr_file_t d;
+    uint8_t rbuf[256];
+    lfsr_file_open(&lfs, &a, "jello",
+            LFS_O_WRONLY
+                | LFS_O_CREAT
+                | LFS_O_EXCL
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)) => 0;
+    lfsr_file_open(&lfs, &b, "jello",
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+    lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
+
+    // write to a
+    lfsr_file_write(&lfs, &a, "hello!", strlen("hello!"))
+            => strlen("hello!");
+    // write to b
+    lfsr_file_write(&lfs, &b, "bonjour!", strlen("bonjour!"))
+            => strlen("bonjour!");
+
+    // should immediately show up in c
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should still have b's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // reopen a with LFS_O_TRUNC
+    lfsr_file_close(&lfs, &a) => 0;
+    lfsr_file_open(&lfs, &a, "jello",
+            LFS_O_WRONLY
+                | LFS_O_TRUNC
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)) => 0;
+
+    // c should still have b's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "ohayo!", strlen("ohayo!"))
+            => strlen("ohayo!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should still have b's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // reopen LFS_O_WRONLY and rewrite a
+    lfsr_file_close(&lfs, &a) => 0;
+    lfsr_file_open(&lfs, &a, "jello",
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)) => 0;
+    lfsr_file_write(&lfs, &a, "zdrasti!", strlen("zdrasti!"))
+            => strlen("zdrasti!");
+
+    // c should still have b's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "annyeong!", strlen("annyeong!"))
+            => strlen("annyeong!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("annyeong!");
+    assert(memcmp(rbuf, "annyeong!", strlen("annyeong!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("annyeong!");
+    assert(memcmp(rbuf, "annyeong!", strlen("annyeong!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should still have b's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("annyeong!");
+    assert(memcmp(rbuf, "annyeong!", strlen("annyeong!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("annyeong!");
+    assert(memcmp(rbuf, "annyeong!", strlen("annyeong!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // lets rewrite a and b one last time
+    lfsr_file_rewind(&lfs, &a) => 0;
+    lfsr_file_write(&lfs, &a, "moshimoshi!", strlen("moshimoshi!"))
+            => strlen("moshimoshi!");
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "czesc!", strlen("czesc!"))
+            => strlen("czesc!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("czesc!ng!");
+    assert(memcmp(rbuf, "czesc!ng!", strlen("czesc!ng!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("czesc!ng!");
+    assert(memcmp(rbuf, "czesc!ng!", strlen("czesc!ng!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // close a and b
+    lfsr_file_close(&lfs, &a) => 0;
+    lfsr_file_close(&lfs, &b) => 0;
+
+    // should still have b
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("czesc!ng!");
+    assert(memcmp(rbuf, "czesc!ng!", strlen("czesc!ng!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("czesc!ng!");
+    assert(memcmp(rbuf, "czesc!ng!", strlen("czesc!ng!")) == 0);
     lfsr_file_close(&lfs, &d) => 0;
 
     lfsr_file_close(&lfs, &c) => 0;
@@ -2047,6 +2181,7 @@ code = '''
         for (lfs_size_t rw = 0; rw < RW; rw++) {
             // choose a random operation
             uint8_t op = TEST_PRNG(&prng) % 4;
+            bool broadcast = false;
 
             // writing?
             if (op == 0) {
@@ -2078,6 +2213,9 @@ code = '''
                 }
                 memcpy(&between[rw][off], wbuf, size);
                 between_size[rw] = lfs_max(off + size, between_size[rw]);
+                if (SYNC) {
+                    broadcast = true;
+                }
 
             // reading?
             } else if (op == 1) {
@@ -2114,6 +2252,10 @@ code = '''
                             size - between_size[rw]);
                 }
                 between_size[rw] = size;
+                // note LFS_O_SYNC does _not_ sync truncates
+                if (SYNC == 1) {
+                    broadcast = true;
+                }
 
             // fruncating?
             } else if (op == 3) {
@@ -2143,10 +2285,14 @@ code = '''
                             size);
                 }
                 between_size[rw] = size;
+                // note LFS_O_SYNC does _not_ sync fruncates
+                if (SYNC == 1) {
+                    broadcast = true;
+                }
             }
 
             // broadcast sim?
-            if (SYNC) {
+            if (broadcast) {
                 memcpy(after, between[rw], SIZE);
                 after_size = between_size[rw];
 
@@ -2475,7 +2621,217 @@ code = '''
 '''
 
 # test that LFS_O_SYNC/LFS_O_FLUSH flags work as expected
-[cases.test_fsync_desync_o_wdwrr]
+[cases.test_fsync_desync_o_wsdwsrr]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [2, 3]
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 2, 3]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
+
+    // a - desynced writer
+    // b - writer
+    // c - reader kept open, recvs updates from a
+    // d - reader kept closed, checks disk state
+    lfsr_file_t a;
+    lfsr_file_t b;
+    lfsr_file_t c;
+    lfsr_file_t d;
+    uint8_t rbuf[256];
+    lfsr_file_open(&lfs, &a, "jello",
+            LFS_O_WRONLY
+                | LFS_O_CREAT
+                | LFS_O_EXCL
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)
+                | LFS_O_DESYNC) => 0;
+    lfsr_file_open(&lfs, &b, "jello",
+            LFS_O_WRONLY
+                | LFS_O_CREAT
+                | LFS_O_EXCL
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+    lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
+
+    // write to b
+    lfsr_file_write(&lfs, &b, "hello!", strlen("hello!"))
+            => strlen("hello!");
+
+    // our write should show up in c
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("hello!");
+    assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("hello!");
+    assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should revert to a's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => 0;
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => 0;
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // rewrite a
+    lfsr_file_rewind(&lfs, &a) => 0;
+    lfsr_file_write(&lfs, &a, "bonjour!", strlen("bonjour!"))
+            => strlen("bonjour!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync b
+    lfsr_file_sync(&lfs, &b) => 0;
+
+    // should still have a
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // reopen a
+    lfsr_file_close(&lfs, &a) => 0;
+    lfsr_file_open(&lfs, &a, "jello",
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)
+                | LFS_O_DESYNC) => 0;
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "ohayo!", strlen("ohayo!"))
+            => strlen("ohayo!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!r!");
+    assert(memcmp(rbuf, "ohayo!r!", strlen("ohayo!r!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should revert to a's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // rewrite a
+    lfsr_file_rewind(&lfs, &a) => 0;
+    lfsr_file_write(&lfs, &a, "zdrasti!", strlen("zdrasti!"))
+            => strlen("zdrasti!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("zdrasti!");
+    assert(memcmp(rbuf, "zdrasti!", strlen("zdrasti!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("zdrasti!");
+    assert(memcmp(rbuf, "zdrasti!", strlen("zdrasti!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // desync a
+    lfsr_file_desync(&lfs, &a) => 0;
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "annyeong!", strlen("annyeong!"))
+            => strlen("annyeong!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("annyeong!");
+    assert(memcmp(rbuf, "annyeong!", strlen("annyeong!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("annyeong!");
+    assert(memcmp(rbuf, "annyeong!", strlen("annyeong!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should revert to a's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("zdrasti!");
+    assert(memcmp(rbuf, "zdrasti!", strlen("zdrasti!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("zdrasti!");
+    assert(memcmp(rbuf, "zdrasti!", strlen("zdrasti!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // lets rewrite a one last time
+    lfsr_file_rewind(&lfs, &a) => 0;
+    lfsr_file_write(&lfs, &a, "czesc!", strlen("czesc!"))
+            => strlen("czesc!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("czesc!i!");
+    assert(memcmp(rbuf, "czesc!i!", strlen("czesc!i!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("czesc!i!");
+    assert(memcmp(rbuf, "czesc!i!", strlen("czesc!i!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // close a and b
+    lfsr_file_close(&lfs, &a) => 0;
+    lfsr_file_close(&lfs, &b) => 0;
+
+    // should still have a
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("czesc!i!");
+    assert(memcmp(rbuf, "czesc!i!", strlen("czesc!i!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("czesc!i!");
+    assert(memcmp(rbuf, "czesc!i!", strlen("czesc!i!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    lfsr_file_close(&lfs, &c) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test one non-LFS_O_SYNC and one LFS_O_SYNC
+[cases.test_fsync_desync_o_wdwsrr]
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
@@ -2525,7 +2881,7 @@ code = '''
     lfsr_file_write(&lfs, &b, "bonjour!", strlen("bonjour!"))
             => strlen("bonjour!");
 
-    // our write should show up in c
+    // should immediately show up in c
     lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
     assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
     // and on disk
@@ -3021,7 +3377,7 @@ defines.R = 4
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1]
+defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
@@ -3114,7 +3470,7 @@ defines.R = 4
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1]
+defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
@@ -3409,7 +3765,7 @@ defines.RW = 4
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1]
+defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
@@ -3517,7 +3873,7 @@ defines.RW = 4
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1]
+defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
@@ -4297,7 +4653,229 @@ code = '''
 '''
 
 # test that LFS_O_SYNC/LFS_O_FLUSH flags work as expected
-[cases.test_fsync_resync_o_wdwyrr]
+[cases.test_fsync_resync_o_wsdywsrr]
+# SYNC=0 => no sync, readers not updated
+# SYNC=1 => sync via lfsr_file_sync
+# SYNC=2 => sync via LFS_O_SYNC
+# SYNC=3 => sync via LFS_M_SYNC
+defines.SYNC = [2, 3]
+# FLUSH=0 => no flush
+# FLUSH=1 => flush via lfsr_file_flush
+# FLUSH=2 => flush via LFS_O_FLUSH
+# FLUSH=3 => flush via LFS_M_FLUSH
+defines.FLUSH = [0, 2, 3]
+code = '''
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfsr_mount(&lfs,
+            LFS_M_RDWR
+                | ((FLUSH == 3) ? LFS_M_FLUSH : 0)
+                | ((SYNC == 3) ? LFS_M_SYNC : 0),
+            CFG) => 0;
+
+    // a - desynced synced writer
+    // b - synced writer
+    // c - reader kept open, recvs updates from a
+    // d - reader kept closed, checks disk state
+    lfsr_file_t a;
+    lfsr_file_t b;
+    lfsr_file_t c;
+    lfsr_file_t d;
+    uint8_t rbuf[256];
+    lfsr_file_open(&lfs, &a, "jello",
+            LFS_O_WRONLY
+                | LFS_O_CREAT
+                | LFS_O_EXCL
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)
+                | LFS_O_DESYNC) => 0;
+    lfsr_file_open(&lfs, &b, "jello",
+            LFS_O_WRONLY
+                | LFS_O_CREAT
+                | LFS_O_EXCL
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)) => 0;
+    lfsr_file_open(&lfs, &c, "jello", LFS_O_RDONLY) => 0;
+
+    // write to b
+    lfsr_file_write(&lfs, &b, "hello!", strlen("hello!"))
+            => strlen("hello!");
+
+    // should immediately show up in c
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("hello!");
+    assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("hello!");
+    assert(memcmp(rbuf, "hello!", strlen("hello!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should revert to a's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => 0;
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => 0;
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // reopen a
+    lfsr_file_close(&lfs, &a) => 0;
+    lfsr_file_open(&lfs, &a, "jello",
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)
+                | LFS_O_DESYNC) => 0;
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "bonjour!", strlen("bonjour!"))
+            => strlen("bonjour!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("bonjour!");
+    assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should revert to a's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => 0;
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => 0;
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // reopen a
+    lfsr_file_close(&lfs, &a) => 0;
+    lfsr_file_open(&lfs, &a, "jello",
+            LFS_O_WRONLY
+                | ((FLUSH == 2) ? LFS_O_FLUSH : 0)
+                | ((SYNC == 2) ? LFS_O_SYNC : 0)
+                | LFS_O_DESYNC) => 0;
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "ohayo!", strlen("ohayo!"))
+            => strlen("ohayo!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!");
+    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!");
+    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // resync a
+    lfsr_file_resync(&lfs, &a) => 0;
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should still show b's changes
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!");
+    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!");
+    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // desync a
+    lfsr_file_desync(&lfs, &a) => 0;
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "zdrasti!", strlen("zdrasti!"))
+            => strlen("zdrasti!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("zdrasti!");
+    assert(memcmp(rbuf, "zdrasti!", strlen("zdrasti!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("zdrasti!");
+    assert(memcmp(rbuf, "zdrasti!", strlen("zdrasti!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // sync a
+    lfsr_file_sync(&lfs, &a) => 0;
+
+    // c should revert to a's contents
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("ohayo!");
+    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("ohayo!");
+    assert(memcmp(rbuf, "ohayo!", strlen("ohayo!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // rewrite a
+    lfsr_file_rewind(&lfs, &a) => 0;
+    lfsr_file_write(&lfs, &a, "annyeong!", strlen("annyeong!"))
+            => strlen("annyeong!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("annyeong!");
+    assert(memcmp(rbuf, "annyeong!", strlen("annyeong!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("annyeong!");
+    assert(memcmp(rbuf, "annyeong!", strlen("annyeong!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // desync b
+    lfsr_file_desync(&lfs, &b) => 0;
+    // resync b
+    lfsr_file_resync(&lfs, &b) => 0;
+    // rewrite b
+    lfsr_file_rewind(&lfs, &b) => 0;
+    lfsr_file_write(&lfs, &b, "czesc!", strlen("czesc!"))
+            => strlen("czesc!");
+
+    // should immediately show up in c
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("czesc!ng!");
+    assert(memcmp(rbuf, "czesc!ng!", strlen("czesc!ng!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("czesc!ng!");
+    assert(memcmp(rbuf, "czesc!ng!", strlen("czesc!ng!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    // close b
+    lfsr_file_close(&lfs, &b) => 0;
+    // close a
+    lfsr_file_close(&lfs, &a) => 0;
+
+    // c should still show b's changes
+    lfsr_file_rewind(&lfs, &c) => 0;
+    lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("czesc!ng!");
+    assert(memcmp(rbuf, "czesc!ng!", strlen("czesc!ng!")) == 0);
+    // and on disk
+    lfsr_file_open(&lfs, &d, "jello", LFS_O_RDONLY) => 0;
+    lfsr_file_read(&lfs, &d, rbuf, sizeof(rbuf)) => strlen("czesc!ng!");
+    assert(memcmp(rbuf, "czesc!ng!", strlen("czesc!ng!")) == 0);
+    lfsr_file_close(&lfs, &d) => 0;
+
+    lfsr_file_close(&lfs, &c) => 0;
+    lfsr_unmount(&lfs) => 0;
+'''
+
+# test one non-LFS_O_SYNC and one LFS_O_SYNC
+[cases.test_fsync_resync_o_wdywsrr]
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
@@ -4347,7 +4925,7 @@ code = '''
     lfsr_file_write(&lfs, &b, "bonjour!", strlen("bonjour!"))
             => strlen("bonjour!");
 
-    // our write should show up in c
+    // should immediately show up in c
     lfsr_file_read(&lfs, &c, rbuf, sizeof(rbuf)) => strlen("bonjour!");
     assert(memcmp(rbuf, "bonjour!", strlen("bonjour!")) == 0);
     // and on disk
@@ -4838,7 +5416,7 @@ defines.R = 4
 # SYNC=0 => no sync, readers not updated
 # SYNC=1 => sync via lfsr_file_sync
 # SYNC=2 => sync via LFS_O_SYNC
-defines.SYNC = [0, 1]
+defines.SYNC = [0, 1, 2]
 # FLUSH=0 => no flush
 # FLUSH=1 => flush via lfsr_file_flush
 # FLUSH=2 => flush via LFS_O_FLUSH
