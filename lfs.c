@@ -11459,19 +11459,12 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     lfsr_omdir_open(lfs, &file->b.o);
 
     // sync if requested
-    if (lfsr_o_issync(flags) && !lfsr_o_isrdonly(flags)) {
+    if (lfsr_o_iscreat(flags) && lfsr_o_issync(flags)) {
         err = lfsr_file_sync(lfs, file);
         if (err) {
             lfsr_omdir_close(lfs, &file->b.o);
             goto failed;
         }
-
-        // TODO should we do this for all LFS_O_SYNC operations?
-        // sync clears the desync flag, so reset it if we're desync
-        //
-        // note this matches the behavior of calling lfsr_file_sync and
-        // then lfsr_file_desync after opening the file
-        file->b.o.flags |= flags & LFS_O_DESYNC;
     }
 
     return 0;
