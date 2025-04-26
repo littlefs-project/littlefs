@@ -11339,6 +11339,9 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
                 || !lfsr_o_isexcl(cfg->attrs[i].flags));
     }
 
+    // mounted with LFS_M_FLUSH/SYNC? implies LFS_O_FLUSH/SYNC
+    flags |= lfs->flags & (LFS_M_FLUSH | LFS_M_SYNC);
+
     if (!lfsr_o_isrdonly(flags)) {
         // prepare our filesystem for writing
         int err = lfsr_fs_mkconsistent(lfs);
@@ -11350,8 +11353,6 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     // setup file state
     file->cfg = cfg;
     file->b.o.flags = lfsr_o_settype(flags, LFS_TYPE_REG)
-            // mounted with LFS_M_FLUSH/SYNC? implies LFS_O_FLUSH/SYNC
-            | (lfs->flags & (LFS_M_FLUSH | LFS_M_SYNC))
             // default to unflushed for orphans/truncated files
             | LFS_o_UNFLUSH;
     file->pos = 0;
@@ -11441,8 +11442,7 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     file->cache.size = 0;
 
     // fetch the file struct and custom attrs
-    err = lfsr_file_fetch(lfs, file,
-            lfsr_o_istrunc(file->b.o.flags));
+    err = lfsr_file_fetch(lfs, file, lfsr_o_istrunc(flags));
     if (err) {
         goto failed;
     }
@@ -11457,6 +11457,23 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 
     // add to tracked mdirs
     lfsr_omdir_open(lfs, &file->b.o);
+
+    // sync if requested
+    if (lfsr_o_issync(flags) && !lfsr_o_isrdonly(flags)) {
+        err = lfsr_file_sync(lfs, file);
+        if (err) {
+            lfsr_omdir_close(lfs, &file->b.o);
+            goto failed;
+        }
+
+        // TODO should we do this for all LFS_O_SYNC operations?
+        // sync clears the desync flag, so reset it if we're desync
+        //
+        // note this matches the behavior of calling lfsr_file_sync and
+        // then lfsr_file_desync after opening the file
+        file->b.o.flags |= flags & LFS_O_DESYNC;
+    }
+
     return 0;
 
 failed:;
