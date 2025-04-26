@@ -11331,6 +11331,13 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_iscreat(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_isexcl(flags));
     LFS_ASSERT(!lfsr_o_isrdonly(flags) || !lfsr_o_istrunc(flags));
+    // these flags are incompatible
+    LFS_ASSERT(lfsr_o_isrdonly(flags)
+            || !lfsr_o_issync(flags)
+            || !lfsr_o_isdesync(flags));
+    LFS_ASSERT(lfsr_o_isrdonly(flags)
+            || !lfsr_o_issync(lfs->flags)
+            || !lfsr_o_isdesync(flags));
     for (lfs_size_t i = 0; i < cfg->attr_count; i++) {
         // these flags require a writable attr
         LFS_ASSERT(!lfsr_o_isrdonly(cfg->attrs[i].flags)
@@ -11461,9 +11468,8 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
     lfsr_omdir_open(lfs, &file->b.o);
 
     // sync if requested
-    if (!lfsr_o_isrdonly(file->b.o.flags)
-            && lfsr_o_issync(file->b.o.flags)
-            && lfsr_o_isunsync(file->b.o.flags)) {
+    if (lfsr_o_issync(file->b.o.flags)
+            && !lfsr_o_isrdonly(file->b.o.flags)) {
         err = lfsr_file_sync(lfs, file);
         if (err) {
             lfsr_omdir_close(lfs, &file->b.o);
@@ -12946,6 +12952,8 @@ failed:;
 int lfsr_file_desync(lfs_t *lfs, lfsr_file_t *file) {
     (void)lfs;
     LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->b.o));
+    // desyncing LFS_O_SYNC files is not allowed
+    LFS_ASSERT(!lfsr_o_issync(file->b.o.flags));
 
     // mark as desynced
     file->b.o.flags |= LFS_O_DESYNC;
