@@ -13,31 +13,31 @@ import sys
 
 TAG_NULL        = 0x0000    ## 0x0000  v--- ---- ---- ----
 TAG_CONFIG      = 0x0000    ## 0x00tt  v--- ---- -ttt tttt
-TAG_MAGIC       = 0x0003    #  0x0003  v--- ---- ---- --11
-TAG_VERSION     = 0x0004    #  0x0004  v--- ---- ---- -1--
-TAG_RCOMPAT     = 0x0005    #  0x0005  v--- ---- ---- -1-1
-TAG_WCOMPAT     = 0x0006    #  0x0006  v--- ---- ---- -11-
-TAG_OCOMPAT     = 0x0007    #  0x0007  v--- ---- ---- -111
-TAG_GEOMETRY    = 0x0009    #  0x0008  v--- ---- ---- 1-rr
-TAG_NAMELIMIT   = 0x000c    #  0x000c  v--- ---- ---- 11--
-TAG_FILELIMIT   = 0x000d    #  0x000d  v--- ---- ---- 11-1
-TAG_GDELTA      = 0x0100    ## 0x01tt  v--- ---1 -ttt tttt
+TAG_MAGIC       = 0x0031    #  0x003r  v--- ---- --11 --rr
+TAG_VERSION     = 0x0034    #  0x0034  v--- ---- --11 -1--
+TAG_RCOMPAT     = 0x0035    #  0x0035  v--- ---- --11 -1-1
+TAG_WCOMPAT     = 0x0036    #  0x0036  v--- ---- --11 -11-
+TAG_OCOMPAT     = 0x0037    #  0x0037  v--- ---- --11 -111
+TAG_GEOMETRY    = 0x0038    #  0x0038  v--- ---- --11 1---
+TAG_FILELIMIT   = 0x0039    #  0x0039  v--- ---- --11 1--1
+TAG_NAMELIMIT   = 0x003a    #  0x003a  v--- ---- --11 1-1-
+TAG_GDELTA      = 0x0100    ## 0x01tt  v--- ---1 -ttt ttrr
 TAG_GRMDELTA    = 0x0100    #  0x0100  v--- ---1 ---- ----
 TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
 TAG_REG         = 0x0201    #  0x0201  v--- --1- ---- ---1
 TAG_DIR         = 0x0202    #  0x0202  v--- --1- ---- --1-
 TAG_STICKYNOTE  = 0x0203    #  0x0203  v--- --1- ---- --11
 TAG_BOOKMARK    = 0x0204    #  0x0204  v--- --1- ---- -1--
-TAG_STRUCT      = 0x0300    ## 0x03tt  v--- --11 -ttt tttt
-TAG_DATA        = 0x0300    #  0x0300  v--- --11 ---- ----
-TAG_BLOCK       = 0x0304    #  0x0304  v--- --11 ---- -1rr
-TAG_BSHRUB      = 0x0308    #  0x0308  v--- --11 ---- 1---
-TAG_BTREE       = 0x030c    #  0x030c  v--- --11 ---- 11rr
-TAG_MROOT       = 0x0311    #  0x0310  v--- --11 ---1 --rr
-TAG_MDIR        = 0x0315    #  0x0314  v--- --11 ---1 -1rr
-TAG_MTREE       = 0x031c    #  0x031c  v--- --11 ---1 11rr
-TAG_DID         = 0x0320    #  0x0320  v--- --11 --1- ----
-TAG_BRANCH      = 0x032c    #  0x032c  v--- --11 --1- 11rr
+TAG_STRUCT      = 0x0300    ## 0x03tt  v--- --11 -ttt ttrr
+TAG_BRANCH      = 0x0300    #  0x030r  v--- --11 ---- --rr
+TAG_DATA        = 0x0304    #  0x0304  v--- --11 ---- -1--
+TAG_BLOCK       = 0x0308    #  0x0308  v--- --11 ---- 1err
+TAG_DID         = 0x0314    #  0x0314  v--- --11 ---1 -1--
+TAG_BSHRUB      = 0x0318    #  0x0318  v--- --11 ---1 1---
+TAG_BTREE       = 0x031c    #  0x031c  v--- --11 ---1 11rr
+TAG_MROOT       = 0x0321    #  0x032r  v--- --11 --1- --rr
+TAG_MDIR        = 0x0325    #  0x0324  v--- --11 --1- -1rr
+TAG_MTREE       = 0x032c    #  0x032c  v--- --11 --1- 11rr
 TAG_ATTR        = 0x0400    ## 0x04aa  v--- -1-a -aaa aaaa
 TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-- -aaa aaaa
 TAG_SATTR       = 0x0500    #  0x05aa  v--- -1-1 -aaa aaaa
@@ -104,8 +104,8 @@ def tagrepr(tag, weight=None, size=None, *,
                     else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
                     else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
                     else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
-                    else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
                     else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
+                    else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
                     else 'config 0x%02x' % (tag & 0xff),
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
@@ -141,15 +141,15 @@ def tagrepr(tag, weight=None, size=None, *,
     elif (tag & 0x6f00) == TAG_STRUCT:
         return '%s%s%s%s' % (
                 'shrub' if tag & TAG_SHRUB else '',
-                'data' if (tag & 0xfff) == TAG_DATA
+                'branch' if (tag & 0xfff) == TAG_BRANCH
+                    else 'data' if (tag & 0xfff) == TAG_DATA
                     else 'block' if (tag & 0xfff) == TAG_BLOCK
+                    else 'did' if (tag & 0xfff) == TAG_DID
                     else 'bshrub' if (tag & 0xfff) == TAG_BSHRUB
                     else 'btree' if (tag & 0xfff) == TAG_BTREE
                     else 'mroot' if (tag & 0xfff) == TAG_MROOT
                     else 'mdir' if (tag & 0xfff) == TAG_MDIR
                     else 'mtree' if (tag & 0xfff) == TAG_MTREE
-                    else 'did' if (tag & 0xfff) == TAG_DID
-                    else 'branch' if (tag & 0xfff) == TAG_BRANCH
                     else 'struct 0x%02x' % (tag & 0xff),
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')

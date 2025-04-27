@@ -1095,7 +1095,7 @@ code = '''
     lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
     lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
             LFSR_RATTR_BUF(
-                LFSR_TAG_CONFIG + 0x13, 0,
+                LFSR_TAG_CONFIG + 0x42, 0,
                 "oh no!", strlen("oh no!")))) => 0;
     lfsr_unmount(&lfs) => 0;
 

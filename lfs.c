@@ -1096,14 +1096,15 @@ enum lfsr_tag {
 
     // config tags
     LFSR_TAG_CONFIG         = 0x0000,
-    LFSR_TAG_MAGIC          = 0x0003,
-    LFSR_TAG_VERSION        = 0x0004,
-    LFSR_TAG_RCOMPAT        = 0x0005,
-    LFSR_TAG_WCOMPAT        = 0x0006,
-    LFSR_TAG_OCOMPAT        = 0x0007,
-    LFSR_TAG_GEOMETRY       = 0x0009,
-    LFSR_TAG_NAMELIMIT      = 0x000c,
-    LFSR_TAG_FILELIMIT      = 0x000d,
+    LFSR_TAG_MAGIC          = 0x0031,
+    LFSR_TAG_VERSION        = 0x0034,
+    LFSR_TAG_RCOMPAT        = 0x0035,
+    LFSR_TAG_WCOMPAT        = 0x0036,
+    LFSR_TAG_OCOMPAT        = 0x0037,
+    LFSR_TAG_GEOMETRY       = 0x0038,
+    LFSR_TAG_FILELIMIT      = 0x0039,
+    LFSR_TAG_NAMELIMIT      = 0x003a,
+    LFSR_TAG_UNKNOWNCONFIG  = 0x003b,
 
     // global-state tags
     LFSR_TAG_GDELTA         = 0x0100,
@@ -1123,15 +1124,15 @@ enum lfsr_tag {
 
     // struct tags
     LFSR_TAG_STRUCT         = 0x0300,
-    LFSR_TAG_DATA           = 0x0300,
-    LFSR_TAG_BLOCK          = 0x0304,
-    LFSR_TAG_BSHRUB         = 0x0308,
-    LFSR_TAG_BTREE          = 0x030c,
-    LFSR_TAG_MROOT          = 0x0311,
-    LFSR_TAG_MDIR           = 0x0315,
-    LFSR_TAG_MTREE          = 0x031c,
-    LFSR_TAG_DID            = 0x0320,
-    LFSR_TAG_BRANCH         = 0x032c,
+    LFSR_TAG_BRANCH         = 0x0300,
+    LFSR_TAG_DATA           = 0x0304,
+    LFSR_TAG_BLOCK          = 0x0308,
+    LFSR_TAG_DID            = 0x0314,
+    LFSR_TAG_BSHRUB         = 0x0318,
+    LFSR_TAG_BTREE          = 0x031c,
+    LFSR_TAG_MROOT          = 0x0321,
+    LFSR_TAG_MDIR           = 0x0325,
+    LFSR_TAG_MTREE          = 0x032c,
 
     // user/sys attributes
     LFSR_TAG_ATTR           = 0x0400,
@@ -3508,8 +3509,8 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // leb128?
     } else if (rattr.count >= 0
-            && (rattr.tag == LFSR_TAG_NAMELIMIT
-                || rattr.tag == LFSR_TAG_FILELIMIT
+            && (rattr.tag == LFSR_TAG_FILELIMIT
+                || rattr.tag == LFSR_TAG_NAMELIMIT
                 || rattr.tag == LFSR_TAG_DID)) {
         // leb128s should not exceed 31-bits
         LFS_ASSERT(rattr.u.leb128 <= 0x7fffffff);
@@ -13818,32 +13819,6 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     lfs->block_count = geometry.block_count;
 
-    // read the name limit
-    lfs_size_t name_limit = 0xff;
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_NAMELIMIT,
-            NULL, &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data, &name_limit);
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        if (err == LFS_ERR_CORRUPT) {
-            name_limit = -1;
-        }
-    }
-
-    if (name_limit > lfs->name_limit) {
-        LFS_ERROR("Incompatible name limit %"PRId32" (> %"PRId32")",
-                name_limit,
-                lfs->name_limit);
-        return LFS_ERR_NOTSUP;
-    }
-
-    lfs->name_limit = name_limit;
-
     // read the file limit
     lfs_off_t file_limit = 0x7fffffff;
     err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_FILELIMIT,
@@ -13870,9 +13845,35 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     lfs->file_limit = file_limit;
 
+    // read the name limit
+    lfs_size_t name_limit = 0xff;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_NAMELIMIT,
+            NULL, &data);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readleb128(lfs, &data, &name_limit);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+        if (err == LFS_ERR_CORRUPT) {
+            name_limit = -1;
+        }
+    }
+
+    if (name_limit > lfs->name_limit) {
+        LFS_ERROR("Incompatible name limit %"PRId32" (> %"PRId32")",
+                name_limit,
+                lfs->name_limit);
+        return LFS_ERR_NOTSUP;
+    }
+
+    lfs->name_limit = name_limit;
+
     // check for unknown configs
     lfsr_tag_t tag;
-    err = lfsr_mdir_lookupnext(lfs, mroot, LFSR_TAG_FILELIMIT+1,
+    err = lfsr_mdir_lookupnext(lfs, mroot, LFSR_TAG_UNKNOWNCONFIG,
             &tag, NULL);
     if (err && err != LFS_ERR_NOENT) {
         return err;
