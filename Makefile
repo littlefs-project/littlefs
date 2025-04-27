@@ -74,6 +74,8 @@ CFLAGS += -fcallgraph-info=su
 CFLAGS += -g3
 CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -Wextra -pedantic
+# labels are useful for debugging, in-function organization, etc
+CFLAGS += -Wno-unused-label
 # compiler bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101854
 CFLAGS += -Wno-stringop-overflow
 CFLAGS += -ftrack-macro-expansion=0

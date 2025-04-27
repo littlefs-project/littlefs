@@ -11879,27 +11879,16 @@ static int lfsr_file_carve(lfs_t *lfs, lfsr_file_t *file,
                         &l.data);
 
             // carve bptr?
-            //
-            // make sure we're not creating a dag! we can't allow this
-            // to happen or it would break our littlefs-is-a-tree
-            // invariant
-            } else if (!(pos+weight < bid+1
-                    && lfsr_data_size(r.data) > lfs->cfg->fragment_size)) {
+            } else {
+                #ifdef LFS_NONDAG
+                // if LFS_NONDAG, we're not creating a dag are we?
+                LFS_ASSERT(!(pos+weight < bid+1
+                        && lfsr_data_size(r.data) > lfs->cfg->fragment_size));
+                #endif
                 rattrs[rattr_count++] = LFSR_RATTR_BPTR(
                         LFSR_TAG_GROW | LFSR_TAG_MASK8 | LFSR_TAG_BLOCK,
                             -(bid+1 - pos),
                         &l);
-
-            // uh oh, keeping both siblings would create a dag? we have
-            // no choice but to rewrite one into a new block
-            //
-            // our crystallization algorithm currently prevents this from
-            // happening, but it may be a problem in the future (more
-            // advanced hole APIs, alternative write strategies, etc)
-            } else {
-                // this is where we would split dags if an algorithm
-                // needed it
-                LFS_UNREACHABLE();
             }
 
         // completely overwriting this entry?
@@ -12448,15 +12437,19 @@ fragment:;
 
             // uh oh, would we end up creating a dag?
             //
-            // we would be forced to split the dag in lfsr_file_carve in
-            // order to keep the littlefs-is-a-tree invariant, so we might
-            // as well try to recrystallize the left sibling
-            } else if (lfsr_bptr_isbptr(&bptr)
+            // if LFS_NONDAG, we would be forced to split the dag in
+            // lfsr_file_carve, so we might as well try to recrystallize
+            // the left sibling
+            } else if (LFS_IFDEF_NONDAG(
+                    lfsr_bptr_isbptr(&bptr)
                         && fragment_end
-                            < bid-(weight-1) + lfsr_data_size(bptr.data)) {
+                            < bid-(weight-1) + lfsr_data_size(bptr.data),
+                    false)) {
+                #ifdef LFS_NONDAG
                 crystal_start = bid-(weight-1);
                 crystal_end = fragment_end;
                 goto crystallize;
+                #endif
             }
         }
 
