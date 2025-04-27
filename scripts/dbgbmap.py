@@ -4603,7 +4603,12 @@ def main_(ring, disk, mroots=None, *,
                 # check for some common issues
 
                 # block conflict?
-                if b in bmap and bmap[b].type != 'unused':
+                #
+                # note we can't compare more than types due to different
+                # trunks, slicing, etc
+                if (b in bmap
+                        and bmap[b].type != 'unused'
+                        and bmap[b].type != type):
                     if bmap[b].type == 'conflict':
                         bmap[b].value.append(child)
                     else:
