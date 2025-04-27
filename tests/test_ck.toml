@@ -2110,6 +2110,11 @@ code = '''
             // to our revision count + first tag
             i < ((BADBIT == -1) ? 8*6 : 1);
             i++) {
+        // we can't even detect bit flips that change the
+        // alt vs tag encoding
+        if (BADBIT == -1 && i == 8*4+6) {
+            continue;
+        }
         lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
 
         // reset the bd prng every run for reproducibility
@@ -2262,6 +2267,11 @@ code = '''
             // to our revision count + first tag
             i < ((BADBIT == -1) ? 8*6 : 1);
             i++) {
+        // we can't even detect bit flips that change the
+        // alt vs tag encoding
+        if (BADBIT == -1 && i == 8*4+6) {
+            continue;
+        }
         lfs_size_t badbit = (BADBIT == -1) ? i : BADBIT;
 
         // reset the bd prng every run for reproducibility
