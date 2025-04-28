@@ -5436,6 +5436,36 @@ static inline uint32_t lfsr_rev_btree(lfs_t *lfs);
 // 1. we need a new root
 // 2. we have a shrub root
 //
+// ---
+//
+// note! all non-bid-0 name updates must be via splits!
+//
+// This is because our btrees contain vestigial names, i.e. our inner
+// nodes may contain names no longer in the tree. This simplifies
+// lfsr_btree_commit_, but means insert-before-bid+1 is _not_ the same
+// as insert-after-bid when named btrees are involved. If you try this
+// it _will not_ work and if try to make it work you _will_ cry:
+//
+//     .-----f-----.    insert-after-d     .-------f-----.
+//   .-b--.     .--j-.        =>         .-b---.      .--j-.
+//   |   .-.   .-.   |                   |   .---.   .-.   |
+//   a   c d   h i   k                   a   c d e   h i   k
+//                                               ^
+//                      insert-before-h
+//                            =>           .-----f-------.
+//                                       .-b--.      .---j-.
+//                                       |   .-.   .---.   |
+//                                       a   c d   g h i   k
+//                                                 ^
+//
+// The problem is that lfsr_btree_commit_ needs to find the same leaf
+// rbyd as lfsr_btree_namelookup, and potentially insert-before the
+// first rid or insert-after the last rid.
+//
+// Instead of separate insert-before/after flags, we make the first tag
+// in a commit insert-before, and all following non-grow tags
+// insert-after (splits).
+//
 static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bctx_t *bctx,
         lfsr_bid_t *bid,

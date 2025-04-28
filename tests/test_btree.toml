@@ -3866,6 +3866,28 @@ code = '''
             }
 
             // split btree
+            //
+            // note! all name updates _must_ be via splits (except for
+            // the first one)
+            //
+            // This is because our btrees contain vestigial names, i.e.
+            // our inner nodes may contain names no longer in the tree.
+            // This simplifies lfsr_btree_commit_, but means
+            // insert-before-bid+1 is _not_ the same as insert-after-bid
+            // when named btrees are involved. If you try this it _will
+            // not_ work and if try to make it work you _will_ cry:
+            //
+            //     .-----f-----.    insert-after-d     .-------f-----.
+            //   .-b--.     .--j-.        =>         .-b---.      .--j-.
+            //   |   .-.   .-.   |                   |   .---.   .-.   |
+            //   a   c d   h i   k                   a   c d e   h i   k
+            //                                               ^
+            //                      insert-before-h
+            //                            =>           .-----f-------.
+            //                                       .-b--.      .---j-.
+            //                                       |   .-.   .---.   |
+            //                                       a   c d   g h i   k
+            //                                                 ^
             lfsr_bid_t split_bid;
             lfs_scmp_t cmp = lfsr_btree_namelookupleaf(&lfs, &btree,
                     0, name, 3,
@@ -3882,9 +3904,7 @@ code = '''
                             &(uint8_t){'0'+(i % 10)}, 1))) => 0;
             } else {
                 lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_RATTRS(
-                        // TODO can we avoid this noop? the problem is we need
-                        // some way to differentiate inserting before vs after
-                        // the requested bid
+                        // yes, we need this noop, see above
                         LFSR_RATTR_NOOP(),
                         LFSR_RATTR_NAME(
                             LFSR_TAG_REG, +1,
@@ -4038,6 +4058,29 @@ code = '''
             }
 
             // split btree
+            //
+            // note! all name updates _must_ be via splits (except for
+            // the first one)
+            //
+            // This is because our btrees contain vestigial names, i.e.
+            // our inner nodes may contain names no longer in the tree.
+            // This simplifies lfsr_btree_commit_, but means
+            // insert-before-bid+1 is _not_ the same as insert-after-bid
+            // when named btrees are involved. If you try this it _will
+            // not_ work and if try to make it work you _will_ cry:
+            //
+            //
+            //     .-----f-----.    insert-after-d     .-------f-----.
+            //   .-b--.     .--j-.        =>         .-b---.      .--j-.
+            //   |   .-.   .-.   |                   |   .---.   .-.   |
+            //   a   c d   h i   k                   a   c d e   h i   k
+            //                                               ^
+            //                      insert-before-h
+            //                            =>           .-----f-------.
+            //                                       .-b--.      .---j-.
+            //                                       |   .-.   .---.   |
+            //                                       a   c d   g h i   k
+            //                                                 ^
             lfsr_bid_t split_bid;
             lfsr_bid_t split_weight;
             lfs_scmp_t cmp = lfsr_btree_namelookupleaf(&lfs, &btree,
@@ -4056,9 +4099,7 @@ code = '''
                                 &(uint8_t){'0'+(i % 10)}, 1))) => 0;
             } else {
                 lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_RATTRS(
-                        // TODO can we avoid this noop? the problem is we need
-                        // some way to differentiate inserting before vs after
-                        // the requested bid
+                        // yes, we need this noop, see above
                         LFSR_RATTR_NOOP(),
                         LFSR_RATTR_NAME(
                             LFSR_TAG_REG, +weight,
