@@ -3889,9 +3889,10 @@ code = '''
             //                                       a   c d   g h i   k
             //                                                 ^
             lfsr_bid_t split_bid;
+            lfsr_rbyd_t split_rbyd;
             lfs_scmp_t cmp = lfsr_btree_namelookupleaf(&lfs, &btree,
                     0, name, 3,
-                    &split_bid, NULL, NULL, NULL, NULL, NULL);
+                    &split_bid, &split_rbyd, NULL, NULL, NULL, NULL);
             assert(cmp >= 0);
             assert(cmp != LFS_CMP_EQ);
             if (cmp > LFS_CMP_EQ) {
@@ -4082,10 +4083,11 @@ code = '''
             //                                       a   c d   g h i   k
             //                                                 ^
             lfsr_bid_t split_bid;
+            lfsr_rbyd_t split_rbyd;
             lfsr_bid_t split_weight;
             lfs_scmp_t cmp = lfsr_btree_namelookupleaf(&lfs, &btree,
                     0, name, 3,
-                    &split_bid, NULL, NULL, NULL, &split_weight, NULL);
+                    &split_bid, &split_rbyd, NULL, NULL, &split_weight, NULL);
             assert(cmp >= 0);
             assert(cmp != LFS_CMP_EQ);
             if (cmp > LFS_CMP_EQ) {

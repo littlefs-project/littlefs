@@ -5243,10 +5243,10 @@ static int lfsr_data_fetchbtree(lfs_t *lfs, lfsr_data_t *data,
 // lookup rbyd/rid containing a given bid
 static int lfsr_btree_lookupleaf(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_bid_t bid,
-        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_,
+        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd, lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     // descend down the btree looking for our bid
-    lfsr_rbyd_t branch = *btree;
+    *rbyd = *btree;
     lfsr_srid_t rid = bid;
     while (true) {
         // each branch is a pair of optional name + on-disk structure
@@ -5256,7 +5256,7 @@ static int lfsr_btree_lookupleaf(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_tag_t tag__;
         lfsr_rid_t weight__;
         lfsr_data_t data__;
-        int err = lfsr_rbyd_lookupnext(lfs, &branch, rid, 0,
+        int err = lfsr_rbyd_lookupnext(lfs, rbyd, rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             return err;
@@ -5264,7 +5264,7 @@ static int lfsr_btree_lookupleaf(lfs_t *lfs, const lfsr_btree_t *btree,
 
         // if we found a bname, lookup the branch
         if (tag__ == LFSR_TAG_BNAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_BRANCH,
+            err = lfsr_rbyd_lookup(lfs, rbyd, rid__, LFSR_TAG_BRANCH,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5279,7 +5279,7 @@ static int lfsr_btree_lookupleaf(lfs_t *lfs, const lfsr_btree_t *btree,
 
             // fetch the next branch
             err = lfsr_data_fetchbranch(lfs, &data__, weight__,
-                    &branch);
+                    rbyd);
             if (err) {
                 return err;
             }
@@ -5289,9 +5289,6 @@ static int lfsr_btree_lookupleaf(lfs_t *lfs, const lfsr_btree_t *btree,
             // TODO how many of these should be conditional?
             if (bid_) {
                 *bid_ = bid + (rid__ - rid);
-            }
-            if (rbyd_) {
-                *rbyd_ = branch;
             }
             if (rid_) {
                 *rid_ = rid__;
@@ -5316,8 +5313,9 @@ static int lfsr_btree_lookupnext(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bid_t *weight_,
         lfsr_data_t *data_) {
+    lfsr_rbyd_t rbyd;
     return lfsr_btree_lookupleaf(lfs, btree, bid,
-            bid_, NULL, NULL, tag_, weight_, data_);
+            bid_, &rbyd, NULL, tag_, weight_, data_);
 }
 
 // lfsr_btree_lookup assumes a known bid, matching lfsr_rbyd_lookup's
@@ -5327,36 +5325,36 @@ static int lfsr_btree_lookup(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_bid_t bid, lfsr_tag_t tag,
         lfsr_tag_t *tag_, lfsr_data_t *data_) {
     // lookup rbyd in btree
-    lfsr_bid_t bid_;
-    lfsr_rbyd_t rbyd_;
-    lfsr_srid_t rid_;
+    lfsr_bid_t bid__;
+    lfsr_rbyd_t rbyd__;
+    lfsr_srid_t rid__;
     int err = lfsr_btree_lookupleaf(lfs, btree, bid,
-            &bid_, &rbyd_, &rid_, NULL, NULL, NULL);
+            &bid__, &rbyd__, &rid__, NULL, NULL, NULL);
     if (err) {
         return err;
     }
 
     // lookup finds the next-smallest bid, all we need to do is fail if it
     // picks up the wrong bid
-    if (bid_ != bid) {
+    if (bid__ != bid) {
         return LFS_ERR_NOENT;
     }
 
     // lookup tag in rbyd
-    return lfsr_rbyd_lookup(lfs, &rbyd_, rid_, tag,
+    return lfsr_rbyd_lookup(lfs, &rbyd__, rid__, tag,
             tag_, data_);
 }
 
 // TODO should lfsr_btree_lookupnext/lfsr_btree_parent be deduplicated?
 static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_bid_t bid, const lfsr_rbyd_t *child,
-        lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_) {
+        lfsr_rbyd_t *rbyd, lfsr_srid_t *rid_) {
     // we should only call this when we actually have parents
     LFS_ASSERT(bid < (lfsr_bid_t)btree->weight);
     LFS_ASSERT(lfsr_rbyd_cmp(btree, child) != 0);
 
     // descend down the btree looking for our rid
-    lfsr_rbyd_t branch = *btree;
+    *rbyd = *btree;
     lfsr_srid_t rid = bid;
     while (true) {
         // each branch is a pair of optional name + on-disk structure
@@ -5364,7 +5362,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
         lfsr_tag_t tag__;
         lfsr_rid_t weight__;
         lfsr_data_t data__;
-        int err = lfsr_rbyd_lookupnext(lfs, &branch, rid, 0,
+        int err = lfsr_rbyd_lookupnext(lfs, rbyd, rid, 0,
                 &rid__, &tag__, &weight__, &data__);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5373,7 +5371,7 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
 
         // if we found a bname, lookup the branch
         if (tag__ == LFSR_TAG_BNAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_BRANCH,
+            err = lfsr_rbyd_lookup(lfs, rbyd, rid__, LFSR_TAG_BRANCH,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5390,32 +5388,27 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
         rid -= (rid__ - (weight__-1));
 
         // fetch the next branch
-        lfsr_rbyd_t branch_;
-        err = lfsr_data_readbranch(lfs, &data__, weight__, &branch_);
+        lfsr_rbyd_t child_;
+        err = lfsr_data_readbranch(lfs, &data__, weight__, &child_);
         if (err) {
             return err;
         }
 
         // found our child?
-        if (lfsr_rbyd_cmp(&branch_, child) == 0) {
+        if (lfsr_rbyd_cmp(&child_, child) == 0) {
             // TODO how many of these should be conditional?
-            if (rbyd_) {
-                *rbyd_ = branch;
-            }
             if (rid_) {
                 *rid_ = rid__;
             }
             return 0;
         }
 
-        err = lfsr_branch_fetch(lfs, &branch_,
-                branch_.blocks[0], branch_.trunk, branch_.weight,
-                branch_.cksum);
+        err = lfsr_branch_fetch(lfs, rbyd,
+                child_.blocks[0], child_.trunk, child_.weight,
+                child_.cksum);
         if (err) {
             return err;
         }
-
-        branch = branch_;
     }
 }
 
@@ -6121,7 +6114,7 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
 static lfs_scmp_t lfsr_btree_namelookupleaf(lfs_t *lfs,
         const lfsr_btree_t *btree,
         lfsr_did_t did, const char *name, lfs_size_t name_len,
-        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_,
+        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd, lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     // an empty tree?
     if (btree->weight == 0) {
@@ -6129,7 +6122,7 @@ static lfs_scmp_t lfsr_btree_namelookupleaf(lfs_t *lfs,
     }
 
     // descend down the btree looking for our name
-    lfsr_rbyd_t branch = *btree;
+    *rbyd = *btree;
     lfsr_bid_t bid = 0;
     while (true) {
         // each branch is a pair of optional name + on-disk structure
@@ -6139,7 +6132,7 @@ static lfs_scmp_t lfsr_btree_namelookupleaf(lfs_t *lfs,
         lfsr_tag_t tag__;
         lfsr_rid_t weight__;
         lfsr_data_t data__;
-        lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &branch,
+        lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, rbyd,
                 did, name, name_len,
                 &rid__, &tag__, &weight__, &data__);
         if (cmp < 0) {
@@ -6149,7 +6142,7 @@ static lfs_scmp_t lfsr_btree_namelookupleaf(lfs_t *lfs,
 
         // if we found a bname, lookup the branch
         if (tag__ == LFSR_TAG_BNAME) {
-            int err = lfsr_rbyd_lookup(lfs, &branch, rid__,
+            int err = lfsr_rbyd_lookup(lfs, rbyd, rid__,
                     LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
                     &tag__, &data__);
             if (err < 0) {
@@ -6165,7 +6158,7 @@ static lfs_scmp_t lfsr_btree_namelookupleaf(lfs_t *lfs,
 
             // fetch the next branch
             int err = lfsr_data_fetchbranch(lfs, &data__, weight__,
-                    &branch);
+                    rbyd);
             if (err < 0) {
                 return err;
             }
@@ -6175,9 +6168,6 @@ static lfs_scmp_t lfsr_btree_namelookupleaf(lfs_t *lfs,
             // TODO how many of these should be conditional?
             if (bid_) {
                 *bid_ = bid + rid__;
-            }
-            if (rbyd_) {
-                *rbyd_ = branch;
             }
             if (rid_) {
                 *rid_ = rid__;
@@ -6201,9 +6191,10 @@ static lfs_scmp_t lfsr_btree_namelookup(lfs_t *lfs,
         lfsr_did_t did, const char *name, lfs_size_t name_len,
         lfsr_bid_t *bid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
+    lfsr_rbyd_t rbyd;
     return lfsr_btree_namelookupleaf(lfs, btree,
             did, name, name_len,
-            bid_, NULL, NULL, tag_, weight_, data_);
+            bid_, &rbyd, NULL, tag_, weight_, data_);
 }
 
 // incremental btree traversal
@@ -6581,10 +6572,10 @@ static lfs_ssize_t lfsr_bshrub_estimate(lfs_t *lfs,
 // bshrub lookup functions
 static int lfsr_bshrub_lookupleaf(lfs_t *lfs, const lfsr_bshrub_t *bshrub,
         lfsr_bid_t bid,
-        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_,
+        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd, lfsr_srid_t *rid_,
         lfsr_tag_t *tag_, lfsr_bid_t *weight_, lfsr_data_t *data_) {
     return lfsr_btree_lookupleaf(lfs, &bshrub->shrub, bid,
-            bid_, rbyd_, rid_, tag_, weight_, data_);
+            bid_, rbyd, rid_, tag_, weight_, data_);
 }
 
 static int lfsr_bshrub_lookupnext(lfs_t *lfs, const lfsr_bshrub_t *bshrub,
@@ -7668,7 +7659,7 @@ static inline lfsr_mid_t lfsr_mtree_weight(lfs_t *lfs) {
 
 // lookup mdir containing a given mid
 static int lfsr_mtree_lookupleaf(lfs_t *lfs, lfsr_smid_t mid,
-        lfsr_mdir_t *mdir_) {
+        lfsr_mdir_t *mdir) {
     // looking up mid=-1 is probably a mistake
     LFS_ASSERT(mid >= 0);
 
@@ -7678,11 +7669,11 @@ static int lfsr_mtree_lookupleaf(lfs_t *lfs, lfsr_smid_t mid,
     }
 
     // looking up mroot?
-    lfsr_mdir_t mdir;
     if (lfs->mtree.weight == 0) {
         // treat inlined mdir as mid=0
-        mdir.mid = mid;
-        lfsr_mdir_sync(&mdir, &lfs->mroot);
+        mdir->mid = mid;
+        lfsr_mdir_sync(mdir, &lfs->mroot);
+        return 0;
 
     // look up mdir in actual mtree
     } else {
@@ -7714,60 +7705,35 @@ static int lfsr_mtree_lookupleaf(lfs_t *lfs, lfsr_smid_t mid,
         }
 
         // fetch mdir
-        err = lfsr_data_fetchmdir(lfs, &data, mid,
-                &mdir);
-        if (err) {
-            return err;
-        }
+        return lfsr_data_fetchmdir(lfs, &data, mid,
+                mdir);
     }
-
-    if (mdir_) {
-        *mdir_ = mdir;
-    }
-    return 0;
 }
 
+// TODO just drop these? revert lfsr_mtree_lookupleaf -> lfsr_mtree_lookup?
 // in-mdir lookups for convenience/possible code sharing
 static int lfsr_mtree_lookupnext(lfs_t *lfs, lfsr_smid_t mid, lfsr_tag_t tag,
-        lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    lfsr_mdir_t mdir;
+        lfsr_mdir_t *mdir, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     int err = lfsr_mtree_lookupleaf(lfs, mid,
-            &mdir);
+            mdir);
     if (err) {
         return err;
     }
 
-    err = lfsr_mdir_lookupnext(lfs, &mdir, tag,
+    return lfsr_mdir_lookupnext(lfs, mdir, tag,
             tag_, data_);
-    if (err) {
-        return err;
-    }
-
-    if (mdir_) {
-        *mdir_ = mdir;
-    }
-    return 0;
 }
 
 static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid, lfsr_tag_t tag,
-        lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    lfsr_mdir_t mdir;
+        lfsr_mdir_t *mdir, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     int err = lfsr_mtree_lookupleaf(lfs, mid,
-            &mdir);
+            mdir);
     if (err) {
         return err;
     }
 
-    err = lfsr_mdir_lookup(lfs, &mdir, tag,
+    return lfsr_mdir_lookup(lfs, mdir, tag,
             tag_, data_);
-    if (err) {
-        return err;
-    }
-
-    if (mdir_) {
-        *mdir_ = mdir;
-    }
-    return 0;
 }
 
 // this is the same as lfsr_btree_commit, but we set the inmtree flag
@@ -8510,7 +8476,7 @@ compact:;
 }
 
 static int lfsr_mroot_parent(lfs_t *lfs, const lfs_block_t mptr[static 2],
-        lfsr_mdir_t *mparent_) {
+        lfsr_mdir_t *mparent) {
     // we only call this when we actually have parents
     LFS_ASSERT(!lfsr_mptr_ismrootanchor(mptr));
 
@@ -8543,7 +8509,7 @@ static int lfsr_mroot_parent(lfs_t *lfs, const lfs_block_t mptr[static 2],
 
         // found our child?
         if (lfsr_mptr_cmp(mptr_, mptr) == 0) {
-            *mparent_ = mdir;
+            *mparent = mdir;
             return 0;
         }
     }
@@ -9222,13 +9188,13 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
 // if not found, rid will be the best place to insert
 static int lfsr_mtree_namelookupleaf(lfs_t *lfs,
         lfsr_did_t did, const char *name, lfs_size_t name_len,
-        lfsr_mdir_t *mdir_) {
+        lfsr_mdir_t *mdir) {
     // do we only have mroot?
-    lfsr_mdir_t mdir;
     if (lfs->mtree.weight == 0) {
         // treat inlined mdir as mid=0
-        mdir.mid = 0;
-        lfsr_mdir_sync(&mdir, &lfs->mroot);
+        mdir->mid = 0;
+        lfsr_mdir_sync(mdir, &lfs->mroot);
+        return 0;
 
     // lookup name in actual mtree
     } else {
@@ -9260,34 +9226,25 @@ static int lfsr_mtree_namelookupleaf(lfs_t *lfs,
         }
 
         // fetch mdir
-        int err = lfsr_data_fetchmdir(lfs, &data, bid-((1 << lfs->mbits)-1),
-                &mdir);
-        if (err) {
-            return err;
-        }
+        return lfsr_data_fetchmdir(lfs, &data, bid-((1 << lfs->mbits)-1),
+                mdir);
     }
-
-    if (mdir_) {
-        *mdir_ = mdir;
-    }
-    return 0;
 }
 
 static int lfsr_mtree_namelookup(lfs_t *lfs,
         lfsr_did_t did, const char *name, lfs_size_t name_len,
-        lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_data_t *data_) {
+        lfsr_mdir_t *mdir, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     // lookup name in our mtree
-    lfsr_mdir_t mdir;
     int err = lfsr_mtree_namelookupleaf(lfs,
             did, name, name_len,
-            &mdir);
+            mdir);
     if (err) {
         return err;
     }
 
     // and lookup name in our mdir
     lfsr_smid_t mid;
-    err = lfsr_mdir_namelookup(lfs, &mdir,
+    err = lfsr_mdir_namelookup(lfs, mdir,
             did, name, name_len,
             &mid, tag_, data_);
     if (err && err != LFS_ERR_NOENT) {
@@ -9295,11 +9252,7 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
     }
 
     // update mdir with best place to insert even if we fail
-    mdir.mid = mid;
-
-    if (mdir_) {
-        *mdir_ = mdir;
-    }
+    mdir->mid = mid;
     return err;
 }
 
@@ -9334,13 +9287,13 @@ static inline bool lfsr_path_isdir(const char *path) {
 // - LFS_ERR_NOENT, !lfsr_path_islast(path) => parent not found
 // - LFS_ERR_NOTDIR                         => parent not a dir
 //
-// if not found, mdir_/did_ will at least be set up with what should be
+// if not found, mdir/did_ will at least be set up with what should be
 // the parent
 //
 static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
-        lfsr_mdir_t *mdir_, lfsr_tag_t *tag_, lfsr_did_t *did_) {
+        lfsr_mdir_t *mdir, lfsr_tag_t *tag_, lfsr_did_t *did_) {
     // setup root
-    lfsr_mdir_t mdir = lfs->mroot;
+    *mdir = lfs->mroot;
     lfsr_tag_t tag = LFSR_TAG_DIR;
     lfsr_did_t did = LFSR_DID_ROOT;
     
@@ -9398,9 +9351,6 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
 
         // found end of path, we must be done parsing our path now
         if (path_[0] == '\0') {
-            if (mdir_) {
-                *mdir_ = mdir;
-            }
             if (tag_) {
                 *tag_ = tag;
             }
@@ -9418,9 +9368,9 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
         }
 
         // read the next did from the mdir if this is not the root
-        if (mdir.mid != -1) {
+        if (mdir->mid != -1) {
             lfsr_data_t data;
-            int err = lfsr_mdir_lookup(lfs, &mdir, LFSR_TAG_DID,
+            int err = lfsr_mdir_lookup(lfs, mdir, LFSR_TAG_DID,
                     NULL, &data);
             if (err) {
                 return err;
@@ -9437,16 +9387,13 @@ static int lfsr_mtree_pathlookup(lfs_t *lfs, const char **path,
 
         // lookup up this name in the mtree
         int err = lfsr_mtree_namelookup(lfs, did, path_, name_len,
-                &mdir, &tag, NULL);
+                mdir, &tag, NULL);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
 
         // keep track of where to insert if we can't find path
         if (err == LFS_ERR_NOENT) {
-            if (mdir_) {
-                *mdir_ = mdir;
-            }
             if (tag_) {
                 *tag_ = tag;
             }
@@ -11084,11 +11031,11 @@ int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir) {
 /// Custom attribute stuff ///
 
 static int lfsr_lookupattr(lfs_t *lfs, const char *path, uint8_t type,
-        lfsr_mdir_t *mdir_, lfsr_data_t *data_) {
+        lfsr_mdir_t *mdir, lfsr_data_t *data_) {
     // lookup our entry
     lfsr_tag_t tag;
     int err = lfsr_mtree_pathlookup(lfs, &path,
-            mdir_, &tag, NULL);
+            mdir, &tag, NULL);
     if (err) {
         return err;
     }
@@ -11098,7 +11045,7 @@ static int lfsr_lookupattr(lfs_t *lfs, const char *path, uint8_t type,
     }
 
     // lookup our attr
-    err = lfsr_mdir_lookup(lfs, mdir_, LFSR_TAG_ATTR(type),
+    err = lfsr_mdir_lookup(lfs, mdir, LFSR_TAG_ATTR(type),
             NULL, data_);
     if (err) {
         if (err == LFS_ERR_NOENT) {
@@ -11596,13 +11543,13 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
 
 static int lfsr_file_lookupleaf(lfs_t *lfs, const lfsr_file_t *file,
         lfsr_bid_t bid,
-        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd_, lfsr_srid_t *rid_,
+        lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd, lfsr_srid_t *rid_,
         lfsr_bid_t *weight_, lfsr_bptr_t *bptr_) {
     lfsr_tag_t tag;
     lfsr_bid_t weight;
     lfsr_data_t data;
     int err = lfsr_bshrub_lookupleaf(lfs, &file->b, bid,
-            bid_, rbyd_, rid_, &tag, &weight, &data);
+            bid_, rbyd, rid_, &tag, &weight, &data);
     if (err) {
         return err;
     }
@@ -11633,8 +11580,9 @@ static int lfsr_file_lookupleaf(lfs_t *lfs, const lfsr_file_t *file,
 static int lfsr_file_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
         lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_bid_t *weight_, lfsr_bptr_t *bptr_) {
+    lfsr_rbyd_t rbyd;
     return lfsr_file_lookupleaf(lfs, file, bid,
-            bid_, NULL, NULL, weight_, bptr_);
+            bid_, &rbyd, NULL, weight_, bptr_);
 }
 
 static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
