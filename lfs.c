@@ -1104,6 +1104,7 @@ enum lfsr_tag {
     LFSR_TAG_GEOMETRY       = 0x0038,
     LFSR_TAG_FILELIMIT      = 0x0039,
     LFSR_TAG_NAMELIMIT      = 0x003a,
+    // in-device only, to help find unknown config tags
     LFSR_TAG_UNKNOWNCONFIG  = 0x003b,
 
     // global-state tags
@@ -1112,15 +1113,17 @@ enum lfsr_tag {
 
     // name tags
     LFSR_TAG_NAME           = 0x0200,
+    LFSR_TAG_BNAME          = 0x0200,
     LFSR_TAG_REG            = 0x0201,
     LFSR_TAG_DIR            = 0x0202,
     LFSR_TAG_STICKYNOTE     = 0x0203,
     LFSR_TAG_BOOKMARK       = 0x0204,
-
     // in-device only name tags, these should never get written to disk
     LFSR_TAG_ORPHAN         = 0x0205,
     LFSR_TAG_TRAVERSAL      = 0x0206,
     LFSR_TAG_UNKNOWN        = 0x0207,
+    // non-file name tags
+    LFSR_TAG_MNAME          = 0x0220,
 
     // struct tags
     LFSR_TAG_STRUCT         = 0x0300,
@@ -3336,7 +3339,7 @@ static int lfsr_rbyd_lookupnext_(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
 }
 
 
-// finds the next rid+tag such that rid_+tag_ >= rid+tag
+// finds the next rid_+tag_ such that rid_+tag_ >= rid+tag
 static int lfsr_rbyd_lookupnext(lfs_t *lfs, const lfsr_rbyd_t *rbyd,
         lfsr_srid_t rid, lfsr_tag_t tag,
         lfsr_srid_t *rid_, lfsr_tag_t *tag_, lfsr_rid_t *weight_,
@@ -5247,6 +5250,8 @@ static int lfsr_btree_lookupleaf(lfs_t *lfs, const lfsr_btree_t *btree,
     lfsr_srid_t rid = bid;
     while (true) {
         // each branch is a pair of optional name + on-disk structure
+
+        // lookup our bid in the rbyd
         lfsr_srid_t rid__;
         lfsr_tag_t tag__;
         lfsr_rid_t weight__;
@@ -5257,9 +5262,9 @@ static int lfsr_btree_lookupleaf(lfs_t *lfs, const lfsr_btree_t *btree,
             return err;
         }
 
-        if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__,
-                    LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+        // if we found a bname, lookup the branch
+        if (tag__ == LFSR_TAG_BNAME) {
+            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_BRANCH,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5366,9 +5371,9 @@ static int lfsr_btree_parent(lfs_t *lfs, const lfsr_btree_t *btree,
             return err;
         }
 
-        if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, &branch, rid__,
-                    LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+        // if we found a bname, lookup the branch
+        if (tag__ == LFSR_TAG_BNAME) {
+            err = lfsr_rbyd_lookup(lfs, &branch, rid__, LFSR_TAG_BRANCH,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5522,7 +5527,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        goto recurse;
+        goto commit;
 
     compact:;
         // estimate our compacted size
@@ -5551,8 +5556,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                 lfsr_tag_t sibling_tag;
                 lfsr_rid_t sibling_weight;
                 lfsr_data_t sibling_data;
-                err = lfsr_rbyd_lookupnext(lfs, &parent,
-                        pid+1, LFSR_TAG_NAME,
+                err = lfsr_rbyd_lookupnext(lfs, &parent, pid+1, 0,
                         &sibling_rid, &sibling_tag, &sibling_weight,
                         &sibling_data);
                 if (err) {
@@ -5560,9 +5564,10 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                     return err;
                 }
 
-                if (sibling_tag == LFSR_TAG_NAME) {
-                    err = lfsr_rbyd_lookup(lfs, &parent, sibling_rid,
-                            LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                // if we found a bname, lookup the branch
+                if (sibling_tag == LFSR_TAG_BNAME) {
+                    err = lfsr_rbyd_lookup(lfs, &parent,
+                            sibling_rid, LFSR_TAG_BRANCH,
                             &sibling_tag, &sibling_data);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5599,8 +5604,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                 lfsr_tag_t sibling_tag;
                 lfsr_rid_t sibling_weight;
                 lfsr_data_t sibling_data;
-                err = lfsr_rbyd_lookupnext(lfs, &parent,
-                        pid-rbyd_.weight, LFSR_TAG_NAME,
+                err = lfsr_rbyd_lookupnext(lfs, &parent, pid-rbyd_.weight, 0,
                         &sibling_rid, &sibling_tag, &sibling_weight,
                         &sibling_data);
                 if (err) {
@@ -5608,9 +5612,10 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                     return err;
                 }
 
-                if (sibling_tag == LFSR_TAG_NAME) {
-                    err = lfsr_rbyd_lookup(lfs, &parent, sibling_rid,
-                            LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                // if we found a bname, lookup the branch
+                if (sibling_tag == LFSR_TAG_BNAME) {
+                    err = lfsr_rbyd_lookup(lfs, &parent,
+                            sibling_rid, LFSR_TAG_BRANCH,
                             &sibling_tag, &sibling_data);
                     if (err) {
                         LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5694,7 +5699,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             return err;
         }
 
-        goto recurse;
+        goto commit;
 
     split:;
         // we should have something to split here
@@ -5819,7 +5824,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             if (rbyd__.weight == 0) {
                 rbyd__ = sibling;
             }
-            goto recurse;
+            goto commit;
         }
 
         // lookup first name in sibling to use as the split name
@@ -5827,7 +5832,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         // note we need to do this after playing out pending rattrs in case
         // they introduce a new name!
         lfsr_tag_t split_tag;
-        err = lfsr_rbyd_lookupnext(lfs, &sibling, 0, LFSR_TAG_NAME,
+        err = lfsr_rbyd_lookupnext(lfs, &sibling, 0, 0,
                 NULL, &split_tag, NULL, &bctx->split_name);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -5852,7 +5857,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                     branch_r.u.buffer, lfsr_data_size(branch_r));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 bctx->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
-                        LFSR_TAG_NAME, 0,
+                        LFSR_TAG_BNAME, 0,
                         &bctx->split_name);
             }
         // split root?
@@ -5874,7 +5879,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
                     branch_r.u.buffer, lfsr_data_size(branch_r));
             if (lfsr_tag_suptype(split_tag) == LFSR_TAG_NAME) {
                 bctx->rattrs[rattr_count_++] = LFSR_RATTR_DATA(
-                        LFSR_TAG_NAME, 0,
+                        LFSR_TAG_BNAME, 0,
                         &bctx->split_name);
             }
         }
@@ -5980,7 +5985,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
         rid_ = pid + sibling.weight;
         continue;
 
-    recurse:;
+    commit:;
         // done?
         if (!lfsr_rbyd_trunk(&parent)) {
             *btree = rbyd__;
@@ -6097,26 +6102,30 @@ static lfs_scmp_t lfsr_btree_namelookupleaf(lfs_t *lfs,
     lfsr_rbyd_t branch = *btree;
     lfsr_bid_t bid = 0;
     while (true) {
+        // each branch is a pair of optional name + on-disk structure
+
         // lookup our name in the rbyd via binary search
         lfsr_srid_t rid__;
+        lfsr_tag_t tag__;
         lfsr_rid_t weight__;
+        lfsr_data_t data__;
         lfs_scmp_t cmp = lfsr_rbyd_namelookup(lfs, &branch,
                 did, name, name_len,
-                &rid__, NULL, &weight__, NULL);
+                &rid__, &tag__, &weight__, &data__);
         if (cmp < 0) {
             LFS_ASSERT(cmp != LFS_ERR_NOENT);
             return cmp;
         }
 
-        // the name may not match exactly, but indicates which branch to follow
-        lfsr_tag_t tag__;
-        lfsr_data_t data__;
-        int err = lfsr_rbyd_lookup(lfs, &branch, rid__,
-                LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
-                &tag__, &data__);
-        if (err < 0) {
-            LFS_ASSERT(err != LFS_ERR_NOENT);
-            return err;
+        // if we found a bname, lookup the branch
+        if (tag__ == LFSR_TAG_BNAME) {
+            int err = lfsr_rbyd_lookup(lfs, &branch, rid__,
+                    LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                    &tag__, &data__);
+            if (err < 0) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
         }
 
         // found another branch
@@ -6125,7 +6134,7 @@ static lfs_scmp_t lfsr_btree_namelookupleaf(lfs_t *lfs,
             bid += rid__ - (weight__-1);
 
             // fetch the next branch
-            err = lfsr_data_fetchbranch(lfs, &data__, weight__,
+            int err = lfsr_data_fetchbranch(lfs, &data__, weight__,
                     &branch);
             if (err < 0) {
                 return err;
@@ -6223,9 +6232,9 @@ static int lfsr_btree_traverse(lfs_t *lfs, const lfsr_btree_t *btree,
             return err;
         }
 
-        if (lfsr_tag_suptype(tag__) == LFSR_TAG_NAME) {
-            err = lfsr_rbyd_lookup(lfs, bt->branch, rid__,
-                    LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+        // if we found a bname, lookup the branch
+        if (tag__ == LFSR_TAG_BNAME) {
+            err = lfsr_rbyd_lookup(lfs, bt->branch, rid__, LFSR_TAG_BRANCH,
                     &tag__, &data__);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -7648,16 +7657,31 @@ static int lfsr_mtree_lookupleaf(lfs_t *lfs, lfsr_smid_t mid,
     // look up mdir in actual mtree
     } else {
         lfsr_bid_t bid;
+        lfsr_rbyd_t rbyd;
+        lfsr_srid_t rid;
         lfsr_tag_t tag;
+        lfsr_bid_t weight;
         lfsr_data_t data;
-        int err = lfsr_btree_lookupnext(lfs, &lfs->mtree, mid,
-                &bid, &tag, NULL, &data);
+        int err = lfsr_btree_lookupleaf(lfs, &lfs->mtree, mid,
+                &bid, &rbyd, &rid, &tag, &weight, &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
         }
         LFS_ASSERT((lfsr_sbid_t)bid == lfsr_mbid(lfs, mid));
-        LFS_ASSERT(tag == LFSR_TAG_MDIR);
+        LFS_ASSERT(weight == (lfsr_bid_t)(1 << lfs->mbits));
+        LFS_ASSERT(tag == LFSR_TAG_MNAME
+                || tag == LFSR_TAG_MDIR);
+
+        // if we found an mname, lookup the mdir
+        if (tag == LFSR_TAG_MNAME) {
+            err = lfsr_rbyd_lookup(lfs, &rbyd, rid, LFSR_TAG_MDIR,
+                    NULL, &data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+        }
 
         // fetch mdir
         err = lfsr_data_fetchmdir(lfs, &data, mid,
@@ -8722,7 +8746,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             LFSR_TAG_MDIR, +(1 << lfs->mbits),
                             mdir_[0].rbyd.blocks),
                         LFSR_RATTR_DATA(
-                            LFSR_TAG_NAME, +(1 << lfs->mbits),
+                            LFSR_TAG_MNAME, +(1 << lfs->mbits),
                             &split_name),
                         LFSR_RATTR_MPTR(
                             LFSR_TAG_MDIR, 0,
@@ -8742,7 +8766,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                             LFSR_TAG_MDIR, 0,
                             mdir_[0].rbyd.blocks),
                         LFSR_RATTR_DATA(
-                            LFSR_TAG_NAME, +(1 << lfs->mbits),
+                            LFSR_TAG_MNAME, +(1 << lfs->mbits),
                             &split_name),
                         LFSR_RATTR_MPTR(
                             LFSR_TAG_MDIR, 0,
@@ -9179,21 +9203,34 @@ static int lfsr_mtree_namelookupleaf(lfs_t *lfs,
     // lookup name in actual mtree
     } else {
         lfsr_bid_t bid;
+        lfsr_rbyd_t rbyd;
+        lfsr_srid_t rid;
         lfsr_tag_t tag;
         lfsr_bid_t weight;
         lfsr_data_t data;
-        lfs_scmp_t cmp = lfsr_btree_namelookup(lfs, &lfs->mtree,
+        lfs_scmp_t cmp = lfsr_btree_namelookupleaf(lfs, &lfs->mtree,
                 did, name, name_len,
-                &bid, &tag, &weight, &data);
+                &bid, &rbyd, &rid, &tag, &weight, &data);
         if (cmp < 0) {
             LFS_ASSERT(cmp != LFS_ERR_NOENT);
             return cmp;
         }
-        LFS_ASSERT(tag == LFSR_TAG_MDIR);
-        LFS_ASSERT(weight == (1U << lfs->mbits));
+        LFS_ASSERT(weight == (lfsr_bid_t)(1 << lfs->mbits));
+        LFS_ASSERT(tag == LFSR_TAG_MNAME
+                || tag == LFSR_TAG_MDIR);
+
+        // if we found an mname, lookup the mdir
+        if (tag == LFSR_TAG_MNAME) {
+            int err = lfsr_rbyd_lookup(lfs, &rbyd, rid, LFSR_TAG_MDIR,
+                    NULL, &data);
+            if (err) {
+                LFS_ASSERT(err != LFS_ERR_NOENT);
+                return err;
+            }
+        }
 
         // fetch mdir
-        int err = lfsr_data_fetchmdir(lfs, &data, bid-(weight-1),
+        int err = lfsr_data_fetchmdir(lfs, &data, bid-((1 << lfs->mbits)-1),
                 &mdir);
         if (err) {
             return err;

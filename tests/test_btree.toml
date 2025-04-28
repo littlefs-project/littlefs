@@ -3044,12 +3044,12 @@ code = '''
 
     // try to find tags
     lfsr_bid_t bid_;
-    lfsr_tag_t tag_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfs_size_t weight_;
-    lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, 0, "aaa", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_ERR_NOENT;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 0, "aaa", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_ERR_NOENT;
 '''
 
 [cases.test_btree_find_one]
@@ -3072,7 +3072,7 @@ code = '''
     lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 0, "aaa", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "0", 1))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -3084,20 +3084,26 @@ code = '''
     // try to find tags
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, 0*DID, "aaa", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 0*DID, "aaa", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 1*DID, "aab", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_LT;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 1*DID, "aab", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_LT;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
@@ -3125,13 +3131,13 @@ code = '''
     lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 0, "aaa", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "0", 1))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "0", 1),
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 0, "aab", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "1", 1))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -3143,28 +3149,36 @@ code = '''
     // try to find tags
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, 0, "aaa", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 0, "aaa", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 0, "aab", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 0, "aab", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 1);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 0, "aac", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_LT;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 0, "aac", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_LT;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 1);
     assert(weight_ == 1);
@@ -3192,19 +3206,19 @@ code = '''
     lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 0, "aaa", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "0", 1))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "0", 1),
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 1*DID, "aab", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "1", 1))) => 0;
     lfsr_btree_commit(&lfs, &btree, 1, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "1", 1),
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 2*DID, "aac", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "2", 1))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -3216,36 +3230,46 @@ code = '''
     // try to find tags
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, 0*DID, "aaa", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 0*DID, "aaa", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 1*DID, "aab", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 1*DID, "aab", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 1);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 2*DID, "aac", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 2*DID, "aac", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 2);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "2", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 3*DID, "aad", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_LT;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 3*DID, "aad", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_LT;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 2);
     assert(weight_ == 1);
@@ -3273,19 +3297,19 @@ code = '''
     lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 0, "aaa", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "0", 1))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "1", 1),
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 2*DID, "aac", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "2", 1))) => 0;
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "0", 1),
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 1*DID, "aab", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "1", 1))) => 0;
     printf("btree: w%d 0x%x.%x\n",
@@ -3297,36 +3321,46 @@ code = '''
     // try to find tags
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
 
-    lfsr_btree_namelookup(&lfs, &btree, 0*DID, "aaa", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 0*DID, "aaa", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "0", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 1*DID, "aab", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 1*DID, "aab", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 1);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "1", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 2*DID, "aac", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 2*DID, "aac", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 2);
     assert(weight_ == 1);
     lfsr_data_read(&lfs, &data_, buffer, 4) => 1;
     assert(memcmp(buffer, "2", 1) == 0);
 
-    lfsr_btree_namelookup(&lfs, &btree, 3*DID, "aad", 3,
-            &bid_, &tag_, &weight_, &data_) => LFS_CMP_LT;
+    lfsr_btree_namelookupleaf(&lfs, &btree, 3*DID, "aad", 3,
+            &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_LT;
+    lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+            &tag_, &data_) => 0;
     assert(tag_ == LFSR_TAG_DATA);
     assert(bid_ == 2);
     assert(weight_ == 1);
@@ -3358,7 +3392,7 @@ code = '''
     };
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 0, name, 3),
             LFSR_RATTR_BUF(
                 LFSR_TAG_DATA, 0,
@@ -3373,7 +3407,7 @@ code = '''
                     LFSR_TAG_DATA, 0,
                     &(uint8_t){'0'+((i-1) % 10)}, 1),
                 LFSR_RATTR_NAME(
-                    LFSR_TAG_NAME, +1,
+                    LFSR_TAG_REG, +1,
                     i*DID, name, 3),
                 LFSR_RATTR_BUF(
                     LFSR_TAG_DATA, 0,
@@ -3389,6 +3423,8 @@ code = '''
     // try to find tags
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
@@ -3398,8 +3434,10 @@ code = '''
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
 
-        lfsr_btree_namelookup(&lfs, &btree, i*DID, name, 3,
-                &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+        lfsr_btree_namelookupleaf(&lfs, &btree, i*DID, name, 3,
+                &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+        lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                &tag_, &data_) => 0;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == i);
         assert(weight_ == 1);
@@ -3429,7 +3467,7 @@ code = '''
     lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 0, "___", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "_", 1))) => 0;
 
@@ -3469,7 +3507,7 @@ code = '''
                     LFSR_TAG_DATA, 0,
                     &(uint8_t){'0'+(i % 10)}, 1),
                 LFSR_RATTR_NAME(
-                    LFSR_TAG_NAME, +1,
+                    LFSR_TAG_REG, +1,
                     0, name, 3),
                 LFSR_RATTR_BUF(
                     LFSR_TAG_DATA, 0,
@@ -3503,12 +3541,16 @@ code = '''
 
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_namelookup(&lfs, &btree, 0, sim_names[i], 3,
-                &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+        lfsr_btree_namelookupleaf(&lfs, &btree, 0, sim_names[i], 3,
+                &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+        lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                &tag_, &data_) => 0;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == i);
         assert(weight_ == 1);
@@ -3547,7 +3589,7 @@ code = '''
     };
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +W,
+                LFSR_TAG_REG, +W,
                 0, name, 3),
             LFSR_RATTR_BUF(
                 LFSR_TAG_DATA, 0,
@@ -3562,7 +3604,7 @@ code = '''
                     LFSR_TAG_DATA, 0,
                     &(uint8_t){'0'+((i-1) % 10)}, 1),
                 LFSR_RATTR_NAME(
-                    LFSR_TAG_NAME, +W,
+                    LFSR_TAG_REG, +W,
                     i*DID, name, 3),
                 LFSR_RATTR_BUF(
                     LFSR_TAG_DATA, 0,
@@ -3578,6 +3620,8 @@ code = '''
     // try to find tags
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
@@ -3587,8 +3631,10 @@ code = '''
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
         };
 
-        lfsr_btree_namelookup(&lfs, &btree, i*DID, name, 3,
-                &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+        lfsr_btree_namelookupleaf(&lfs, &btree, i*DID, name, 3,
+                &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+        lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                &tag_, &data_) => 0;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == i*W+W-1);
         assert(weight_ == W);
@@ -3619,7 +3665,7 @@ code = '''
     lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +W,
+                LFSR_TAG_REG, +W,
                 0, "___", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "_", 1))) => 0;
 
@@ -3674,7 +3720,7 @@ code = '''
                         LFSR_TAG_DATA, 0,
                         &(uint8_t){'0'+(i % 10)}, 1),
                     LFSR_RATTR_NAME(
-                        LFSR_TAG_NAME, +weight2,
+                        LFSR_TAG_REG, +weight2,
                         0, name, 3),
                     LFSR_RATTR_BUF(
                         LFSR_TAG_DATA, 0,
@@ -3727,6 +3773,8 @@ code = '''
 
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
@@ -3737,8 +3785,10 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_namelookup(&lfs, &btree, 0, sim_names[i], 3,
-                &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+        lfsr_btree_namelookupleaf(&lfs, &btree, 0, sim_names[i], 3,
+                &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+        lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                &tag_, &data_) => 0;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(weight_ == sim_weights[i]);
@@ -3775,7 +3825,7 @@ code = '''
     lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +1,
+                LFSR_TAG_REG, +1,
                 0, "___", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "_", 1))) => 0;
 
@@ -3816,28 +3866,28 @@ code = '''
             }
 
             // split btree
-            lfs_size_t split_bid;
-            lfsr_data_t split_data;
-            lfs_scmp_t cmp = lfsr_btree_namelookup(&lfs, &btree, 0, name, 3,
-                    &split_bid, NULL, NULL, &split_data);
+            lfsr_bid_t split_bid;
+            lfs_scmp_t cmp = lfsr_btree_namelookupleaf(&lfs, &btree,
+                    0, name, 3,
+                    &split_bid, NULL, NULL, NULL, NULL, NULL);
             assert(cmp >= 0);
             assert(cmp != LFS_CMP_EQ);
             if (cmp > LFS_CMP_EQ) {
-                lfsr_btree_commit(&lfs, &btree,
-                        split_bid, LFSR_RATTRS(
-                            LFSR_RATTR_NAME(
-                                LFSR_TAG_NAME, +1,
-                                0, name, 3),
-                            LFSR_RATTR_BUF(
-                                LFSR_TAG_DATA, 0,
-                                &(uint8_t){'0'+(i % 10)}, 1))) => 0;
+                lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_RATTRS(
+                        LFSR_RATTR_NAME(
+                            LFSR_TAG_REG, +1,
+                            0, name, 3),
+                        LFSR_RATTR_BUF(
+                            LFSR_TAG_DATA, 0,
+                            &(uint8_t){'0'+(i % 10)}, 1))) => 0;
             } else {
                 lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_RATTRS(
-                        LFSR_RATTR_DATA(
-                            LFSR_TAG_DATA, 0,
-                            &split_data),
+                        // TODO can we avoid this noop? the problem is we need
+                        // some way to differentiate inserting before vs after
+                        // the requested bid
+                        LFSR_RATTR_NOOP(),
                         LFSR_RATTR_NAME(
-                            LFSR_TAG_NAME, +1,
+                            LFSR_TAG_REG, +1,
                             0, name, 3),
                         LFSR_RATTR_BUF(
                             LFSR_TAG_DATA, 0,
@@ -3892,12 +3942,16 @@ code = '''
 
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
     for (lfs_size_t i = 0; i < sim_size; i++) {
-        lfsr_btree_namelookup(&lfs, &btree, 0, sim_names[i], 3,
-                &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+        lfsr_btree_namelookupleaf(&lfs, &btree, 0, sim_names[i], 3,
+                &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+        lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                &tag_, &data_) => 0;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == i);
         assert(weight_ == 1);
@@ -3932,7 +3986,7 @@ code = '''
     lfsr_btree_init(&btree);
     lfsr_btree_commit(&lfs, &btree, 0, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_NAME, +W,
+                LFSR_TAG_REG, +W,
                 0, "___", 3),
             LFSR_RATTR_BUF(LFSR_TAG_DATA, 0, "_", 1))) => 0;
 
@@ -3984,29 +4038,30 @@ code = '''
             }
 
             // split btree
-            lfs_size_t split_bid;
-            lfs_size_t split_weight;
-            lfsr_data_t split_data;
-            lfs_scmp_t cmp = lfsr_btree_namelookup(&lfs, &btree, 0, name, 3,
-                    &split_bid, NULL, &split_weight, &split_data);
+            lfsr_bid_t split_bid;
+            lfsr_bid_t split_weight;
+            lfs_scmp_t cmp = lfsr_btree_namelookupleaf(&lfs, &btree,
+                    0, name, 3,
+                    &split_bid, NULL, NULL, NULL, &split_weight, NULL);
             assert(cmp >= 0);
             assert(cmp != LFS_CMP_EQ);
             if (cmp > LFS_CMP_EQ) {
                 lfsr_btree_commit(&lfs, &btree,
                         split_bid-(split_weight-1), LFSR_RATTRS(
                             LFSR_RATTR_NAME(
-                                LFSR_TAG_NAME, +weight,
+                                LFSR_TAG_REG, +weight,
                                 0, name, 3),
                             LFSR_RATTR_BUF(
                                 LFSR_TAG_DATA, 0,
                                 &(uint8_t){'0'+(i % 10)}, 1))) => 0;
             } else {
                 lfsr_btree_commit(&lfs, &btree, split_bid, LFSR_RATTRS(
-                        LFSR_RATTR_DATA(
-                            LFSR_TAG_DATA, 0,
-                            &split_data),
+                        // TODO can we avoid this noop? the problem is we need
+                        // some way to differentiate inserting before vs after
+                        // the requested bid
+                        LFSR_RATTR_NOOP(),
                         LFSR_RATTR_NAME(
-                            LFSR_TAG_NAME, +weight,
+                            LFSR_TAG_REG, +weight,
                             0, name, 3),
                         LFSR_RATTR_BUF(
                             LFSR_TAG_DATA, 0,
@@ -4087,6 +4142,8 @@ code = '''
 
     uint8_t buffer[4];
     lfsr_bid_t bid_;
+    lfsr_rbyd_t rbyd_;
+    lfsr_srid_t rid_;
     lfsr_tag_t tag_;
     lfs_size_t weight_;
     lfsr_data_t data_;
@@ -4097,8 +4154,10 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfsr_btree_namelookup(&lfs, &btree, 0, sim_names[i], 3,
-                &bid_, &tag_, &weight_, &data_) => LFS_CMP_EQ;
+        lfsr_btree_namelookupleaf(&lfs, &btree, 0, sim_names[i], 3,
+                &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS_CMP_EQ;
+        lfsr_rbyd_lookup(&lfs, &rbyd_, rid_, LFSR_TAG_MASK8 | LFSR_TAG_STRUCT,
+                &tag_, &data_) => 0;
         assert(tag_ == LFSR_TAG_DATA);
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(weight_ == sim_weights[i]);
