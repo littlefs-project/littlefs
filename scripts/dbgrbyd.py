@@ -66,8 +66,9 @@ TAG_B           = 0x0000
 TAG_R           = 0x2000
 TAG_LE          = 0x0000
 TAG_GT          = 0x1000
-TAG_CKSUM       = 0x3000    ## 0x300p  v-11 ---- ---- ---p
-TAG_P           = 0x0001
+TAG_CKSUM       = 0x3000    ## 0x300p  v-11 ---- ---- -pqq
+TAG_PHASE       = 0x0003
+TAG_PERTURB     = 0x0004
 TAG_NOTE        = 0x3100    ## 0x3100  v-11 ---1 ---- ----
 TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
 TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
@@ -257,7 +258,7 @@ def tagrepr(tag, weight=None, size=None, *,
         return '%s%sattr 0x%02x%s%s' % (
                 'shrub' if tag & TAG_SHRUB else '',
                 's' if tag & 0x100 else 'u',
-                ((tag & 0x100) >> 1) ^ (tag & 0xff),
+                ((tag & 0x100) >> 1) + (tag & 0xff),
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     # alt pointers
@@ -273,9 +274,10 @@ def tagrepr(tag, weight=None, size=None, *,
                     else '')
     # checksum tags
     elif (tag & 0x7f00) == TAG_CKSUM:
-        return 'cksum%s%s%s%s' % (
-                'p' if not tag & 0xfe and tag & TAG_P else '',
-                ' 0x%02x' % (tag & 0xff) if tag & 0xfe else '',
+        return 'cksum%s%s%s%s%s' % (
+                'q%d' % (tag & 0x3),
+                'p' if tag & TAG_PERTURB else '',
+                ' 0x%02x' % (tag & 0xff) if tag & 0xf8 else '',
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
     # note tags
@@ -575,7 +577,7 @@ class Rbyd:
                     gcksumdelta = gcksumdelta_
                     gcksumdelta_ = None
                     # update perturb bit
-                    perturb = tag & TAG_P
+                    perturb = bool(tag & TAG_PERTURB)
                     # revert to data cksum and perturb
                     cksum__ = cksum_ ^ (0xfca42daf if perturb else 0)
 
@@ -1548,6 +1550,7 @@ def dbg_log(rbyd, *,
         # read next tag
         j = j_
         v, tag, w, size, d = fromtag(data, j_)
+        # note if parity doesn't match
         if v != parity(cksum_):
             notes.append('v!=%x' % parity(cksum_))
         cksum_ ^= 0x00000080 if v else 0
@@ -1560,12 +1563,16 @@ def dbg_log(rbyd, *,
                 cksum_ = crc32c(data[j_:j_+size], cksum_)
             # found a cksum?
             else:
+                # note if phase doesn't match
+                if (tag & 0x3) != (rbyd.block & 0x3):
+                    notes.append('q!=%x' % (rbyd.block & 0x3))
                 # check cksum
                 cksum__ = fromle32(data, j_)
+                # note if cksum doesn't match
                 if cksum_ != cksum__:
                     notes.append('cksum!=%08x' % cksum__)
                 # update perturb bit
-                perturb = tag & TAG_P
+                perturb = bool(tag & TAG_PERTURB)
                 # revert to data cksum and perturb
                 cksum_ = cksum ^ (0xfca42daf if perturb else 0)
             j_ += size

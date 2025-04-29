@@ -1963,3 +1963,55 @@ code = '''
 
     lfsr_unmount(&lfs) => 0;
 '''
+
+
+# Ok, here's an interesting one, test that we fail if we're
+# "out-of-phase", i.e. the mrootanchor has been shifted by a small
+# number of blocks.
+#
+# This can happen if we find the wrong mrootanchor (after, say, a magic
+# scan), and risks filesystem corruption. To prevent this, we include 2
+# phase bits in cksum tags to detect up to a 3 block shift (the maximum
+# number of redund mrootanchors)
+#
+[cases.test_mount_incompat_out_of_phase]
+defines.PHASE = [1, 2, 3, 4]
+in = 'lfs.c'
+code = '''
+    // create a superblock
+    lfs_t lfs;
+    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+
+    // with some files
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfsr_file_t file;
+    lfsr_file_open(&lfs, &file, "r2d2",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    char wbuf[256];
+    strcpy(wbuf, "beep boop");
+    lfsr_file_write(&lfs, &file, wbuf, strlen(wbuf)) => strlen(wbuf);
+    lfsr_file_close(&lfs, &file) => 0;
+    lfsr_file_open(&lfs, &file, "c3po",
+            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    strcpy(wbuf, "we seem to be made to suffer");
+    lfsr_file_write(&lfs, &file, wbuf, strlen(wbuf)) => strlen(wbuf);
+    lfsr_file_close(&lfs, &file) => 0;
+
+    // shift the filesystem out-of-phase
+    uint8_t shift_buf[BLOCK_SIZE];
+    for (lfs_size_t i = 0; i < 4; i++) {
+        CFG->read(CFG, 4-1-i, 0, shift_buf, BLOCK_SIZE) => 0;
+        CFG->erase(CFG, 4-1-i + PHASE) => 0;
+        CFG->prog(CFG, 4-1-i + PHASE, 0, shift_buf, BLOCK_SIZE) => 0;
+
+        memset(shift_buf, 0, BLOCK_SIZE);
+        strcpy((char*)shift_buf,
+                "these aren't the files you're looking for ;)");
+        CFG->erase(CFG, 4-1-i) => 0;
+        CFG->prog(CFG, 4-1-i, 0, shift_buf, BLOCK_SIZE) => 0;
+    }
+
+    // mount should now fail
+    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_CORRUPT;
+    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_CORRUPT;
+'''

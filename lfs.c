@@ -1154,7 +1154,8 @@ enum lfsr_tag {
 
     // checksum tags
     LFSR_TAG_CKSUM          = 0x3000,
-    LFSR_TAG_P              = 0x0001,
+    LFSR_TAG_PHASE          = 0x0003,
+    LFSR_TAG_PERTURB        = 0x0004,
     LFSR_TAG_NOTE           = 0x3100,
     LFSR_TAG_ECKSUM         = 0x3200,
     LFSR_TAG_GCKSUMDELTA    = 0x3300,
@@ -1213,7 +1214,7 @@ static inline lfsr_tag_t lfsr_tag_subkey(lfsr_tag_t tag) {
     return tag & 0x00ff;
 }
 
-static inline lfsr_tag_t lfsr_tag_redund(lfsr_tag_t tag) {
+static inline uint8_t lfsr_tag_redund(lfsr_tag_t tag) {
     return tag & 0x0003;
 }
 
@@ -1229,8 +1230,12 @@ static inline bool lfsr_tag_istrunk(lfsr_tag_t tag) {
     return lfsr_tag_mode(tag) != LFSR_TAG_CKSUM;
 }
 
-static inline bool lfsr_tag_p(lfsr_tag_t tag) {
-    return tag & LFSR_TAG_P;
+static inline uint8_t lfsr_tag_phase(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_PHASE;
+}
+
+static inline bool lfsr_tag_perturb(lfsr_tag_t tag) {
+    return tag & LFSR_TAG_PERTURB;
 }
 
 static inline bool lfsr_tag_isinternal(lfsr_tag_t tag) {
@@ -3013,8 +3018,14 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
 
             // is an end-of-commit cksum
             } else {
-                // truncate checksum?
+                // truncated checksum?
                 if (size < sizeof(uint32_t)) {
+                    break;
+                }
+
+                // check phase
+                if (lfsr_tag_phase(tag) != (block & 0x3)) {
+                    // uh oh, phase doesn't match, mounted incorrectly?
                     break;
                 }
 
@@ -3037,7 +3048,7 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
 
                 // save what we've found so far
                 rbyd->eoff
-                        = ((lfs_size_t)lfsr_tag_p(tag)
+                        = ((lfs_size_t)lfsr_tag_perturb(tag)
                             << (8*sizeof(lfs_size_t)-1))
                         | (off_ + size);
                 rbyd->cksum = cksum;
@@ -4488,7 +4499,10 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
             | ((uint8_t)v << 7);
     cksum_buf[1] = (uint8_t)(LFSR_TAG_CKSUM >> 0)
             // set the perturb bit so next commit is invalid
-            | ((uint8_t)perturb << 0);
+            | ((uint8_t)perturb << 2)
+            // include the lower 2 bits of the block address to help
+            // with resynchronization
+            | (rbyd->blocks[0] & 0x3);
     cksum_buf[2] = 0;
 
     lfs_size_t padding = off_ - (lfsr_rbyd_eoff(rbyd) + 2+1+4);
