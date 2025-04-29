@@ -2726,26 +2726,22 @@ class Gstate:
 
         def __init__(self, mtree, tag, gdeltas):
             super().__init__(mtree, tag, gdeltas)
+            queue = []
             d = 0
-            count, d_ = fromleb128(self.data, d); d += d_
-            rms = []
-            if count <= 2:
-                for _ in range(count):
-                    mid, d_ = fromleb128(self.data, d); d += d_
-                    mid = mtree.mid(mid)
-                    # map mbids -> -1 if mroot-inlined
-                    if mtree.mtree is None:
-                        mid = mtree.mid(-1, mid.mrid)
-                    rms.append(mid)
-            self.count = count
-            self.rms = rms
+            for _ in range(2):
+                mid, d_ = fromleb128(self.data, d); d += d_
+                # a null mid (mid=0.0) terminates the grm queue
+                if not mid:
+                    break
+                mid = mtree.mid(mid)
+                # map mbids -> -1 if mroot-inlined
+                if mtree.mtree is None:
+                    mid = mtree.mid(-1, mid.mrid)
+                queue.append(mid)
+            self.queue = queue
 
         def repr(self):
-            return 'grm %s' % (
-                    'none' if self.count == 0
-                        else ' '.join(mid.repr() for mid in self.rms)
-                        if self.count <= 2
-                        else '0x%x %d' % (self.count, len(self.data)))
+            return 'grm [%s]' % ', '.join(mid.repr() for mid in self.queue)
 
     # keep track of known gstate
     _known = [g for g in Gstate.__subclasses__() if g.tag is not None]
@@ -2961,7 +2957,7 @@ class Lfs:
         if not isinstance(mid, Mid):
             mid = self.mid(mid)
 
-        return mid in self.gstate.grm.rms
+        return mid in self.gstate.grm.queue
 
     # lookup operations 
     def lookup(self, mid, mdir=None, *,

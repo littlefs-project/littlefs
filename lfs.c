@@ -7185,29 +7185,34 @@ static void lfsr_fs_mkdirty(lfs_t *lfs) {
 /// Global-state things ///
 
 // grm (global remove) things
-static inline uint8_t lfsr_grm_count_(const lfsr_grm_t *grm) {
-    return (grm->mids[0] >= 0) + (grm->mids[1] >= 0);
+static inline lfs_size_t lfsr_grm_count_(const lfsr_grm_t *grm) {
+    return (grm->queue[0] != 0) + (grm->queue[1] != 0);
 }
 
-static inline uint8_t lfsr_grm_count(const lfs_t *lfs) {
+static inline lfs_size_t lfsr_grm_count(const lfs_t *lfs) {
     return lfsr_grm_count_(&lfs->grm);
 }
 
 static inline void lfsr_grm_push(lfs_t *lfs, lfsr_smid_t mid) {
-    LFS_ASSERT(lfs->grm.mids[1] == -1);
-    lfs->grm.mids[1] = lfs->grm.mids[0];
-    lfs->grm.mids[0] = mid;
+    // note mid=0.0 always maps to the root bookmark and should never
+    // be grmed
+    LFS_ASSERT(mid != 0);
+    LFS_ASSERT(lfs->grm.queue[1] == 0);
+    lfs->grm.queue[1] = lfs->grm.queue[0];
+    lfs->grm.queue[0] = mid;
 }
 
 static inline lfsr_smid_t lfsr_grm_pop(lfs_t *lfs) {
-    lfsr_smid_t mid = lfs->grm.mids[0];
-    lfs->grm.mids[0] = lfs->grm.mids[1];
-    lfs->grm.mids[1] = -1;
+    lfsr_smid_t mid = lfs->grm.queue[0];
+    lfs->grm.queue[0] = lfs->grm.queue[1];
+    lfs->grm.queue[1] = 0;
     return mid;
 }
 
 static inline bool lfsr_grm_ismidrm(const lfs_t *lfs, lfsr_smid_t mid) {
-    return lfs->grm.mids[0] == mid || lfs->grm.mids[1] == mid;
+    return mid != 0
+            && (lfs->grm.queue[0] == mid
+                || lfs->grm.queue[1] == mid);
 }
 
 #define LFSR_DATA_GRM(_grm, _buffer) \
@@ -7218,15 +7223,11 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
     // make sure to zero so we don't leak any info
     lfs_memset(buffer, 0, LFSR_GRM_DSIZE);
 
-    // first encode the number of grms, this can be 0, 1, or 2 and may
-    // be extended to a general purpose leb128 type field in the future
-    uint8_t mode = lfsr_grm_count_(grm);
+    // encode grms
+    lfs_size_t count = lfsr_grm_count_(grm);
     lfs_ssize_t d = 0;
-    buffer[d] = mode;
-    d += 1;
-
-    for (uint8_t i = 0; i < mode; i++) {
-        lfs_ssize_t d_ = lfs_toleb128(grm->mids[i], &buffer[d], 5);
+    for (lfs_size_t i = 0; i < count; i++) {
+        lfs_ssize_t d_ = lfs_toleb128(grm->queue[i], &buffer[d], 5);
         if (d_ < 0) {
             LFS_UNREACHABLE();
         }
@@ -7242,28 +7243,26 @@ static inline lfsr_mid_t lfsr_mtree_weight(lfs_t *lfs);
 static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
         lfsr_grm_t *grm) {
     // clear first
-    grm->mids[0] = -1;
-    grm->mids[1] = -1;
+    grm->queue[0] = 0;
+    grm->queue[1] = 0;
 
-    // first read the mode field
-    uint8_t mode;
-    lfs_ssize_t d = lfsr_data_read(lfs, data, &mode, 1);
-    if (d < 0) {
-        return d;
-    }
-    LFS_ASSERT(d == 1);
-
-    // unknown mode? return an error, we may be able to mount read-only
-    if (mode > 2) {
-        return LFS_ERR_CORRUPT;
-    }
-
-    for (uint8_t i = 0; i < mode; i++) {
-        int err = lfsr_data_readleb128(lfs, data, (lfsr_mid_t*)&grm->mids[i]);
+    // decode grms, these are terminated by either a null (mid=0) or the
+    // size of the grm buffer
+    for (lfs_size_t i = 0; i < 2; i++) {
+        lfsr_mid_t mid;
+        int err = lfsr_data_readleb128(lfs, data, &mid);
         if (err) {
             return err;
         }
-        LFS_ASSERT((lfsr_mid_t)grm->mids[i] < lfsr_mtree_weight(lfs));
+
+        // null grm?
+        if (!mid) {
+            break;
+        }
+
+        // grm inside mtree?
+        LFS_ASSERT(mid < lfsr_mtree_weight(lfs));
+        grm->queue[i] = mid;
     }
 
     return 0;
@@ -7271,24 +7270,31 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
 
 // some mdir-related gstate things we need
+
+// zero any pending gdeltas
 static void lfsr_fs_flushgdelta(lfs_t *lfs) {
-    // zero any pending gdeltas
+    // zero the gcksumdelta
     lfs->gcksum_d = 0;
 
+    // zero the grmdelta
     lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 }
 
+// commit any pending gdeltas
 static void lfsr_fs_commitgdelta(lfs_t *lfs) {
-    // commit any pending gdeltas
+    // keep track of the on-disk gcksum
     lfs->gcksum_p = lfs->gcksum;
 
+    // keep track of the on-disk grm
     lfsr_data_fromgrm(&lfs->grm, lfs->grm_p);
 }
 
+// revert gstate to on-disk state
 static void lfsr_fs_revertgdelta(lfs_t *lfs) {
-    // revert gstate to on-disk state
+    // revert to the on-disk gcksum
     lfs->gcksum = lfs->gcksum_p;
 
+    // revert to the on-disk grm
     int err = lfsr_data_readgrm(lfs,
             &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
             &lfs->grm);
@@ -8526,13 +8532,13 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // adjust pending grms?
         } else {
             for (int j = 0; j < 2; j++) {
-                if (lfsr_mbid(lfs, lfs->grm.mids[j]) == lfsr_mbid(lfs, mid_)
-                        && lfs->grm.mids[j] >= mid_) {
+                if (lfsr_mbid(lfs, lfs->grm.queue[j]) == lfsr_mbid(lfs, mid_)
+                        && lfs->grm.queue[j] >= mid_) {
                     // deleting a pending grm doesn't really make sense
-                    LFS_ASSERT(lfs->grm.mids[j] >= mid_ - rattrs[i].weight);
+                    LFS_ASSERT(lfs->grm.queue[j] >= mid_ - rattrs[i].weight);
 
                     // adjust the grm
-                    lfs->grm.mids[j] += rattrs[i].weight;
+                    lfs->grm.queue[j] += rattrs[i].weight;
                 }
             }
         }
@@ -8825,16 +8831,16 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
 
     // patch any pending grms
     for (int j = 0; j < 2; j++) {
-        if (lfsr_mbid(lfs, lfs->grm.mids[j])
+        if (lfsr_mbid(lfs, lfs->grm.queue[j])
                 == lfsr_mbid(lfs, lfs_smax(mdir->mid, 0))) {
             if (mdelta > 0
-                    && lfsr_mrid(lfs, lfs->grm.mids[j])
+                    && lfsr_mrid(lfs, lfs->grm.queue[j])
                         >= (lfsr_srid_t)mdir_[0].rbyd.weight) {
-                lfs->grm.mids[j]
+                lfs->grm.queue[j]
                         += (1 << lfs->mbits) - mdir_[0].rbyd.weight;
             }
-        } else if (lfs->grm.mids[j] > mdir->mid) {
-            lfs->grm.mids[j] += mdelta;
+        } else if (lfs->grm.queue[j] > mdir->mid) {
+            lfs->grm.queue[j] += mdelta;
         }
     }
 
@@ -10286,7 +10292,7 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     if (err) {
         return err;
     }
-    LFS_ASSERT(lfs->grm.mids[0] == mdir.mid);
+    LFS_ASSERT(lfs->grm.queue[0] == mdir.mid);
 
     // committing our bookmark may have changed the mid of our metadata entry,
     // we need to look it up again, we can at least avoid the full path walk
@@ -10644,7 +10650,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
 
         // update moved files with the new mdir
         } else if (lfsr_o_type(o->flags) == LFS_TYPE_REG
-                && o->mdir.mid == lfs->grm.mids[0]) {
+                && o->mdir.mid == lfs->grm.queue[0]) {
             o->mdir = new_mdir;
 
         // mark any removed dirs as zombied
@@ -10662,8 +10668,8 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
             }
 
             if (((lfsr_dir_t*)o)->did == old_did
-                    && o->mdir.mid >= lfs->grm.mids[0]) {
-                if (o->mdir.mid == lfs->grm.mids[0]) {
+                    && o->mdir.mid >= lfs->grm.queue[0]) {
+                if (o->mdir.mid == lfs->grm.queue[0]) {
                     o->mdir.mid += 1;
                 } else {
                     ((lfsr_dir_t*)o)->pos -= 1;
@@ -10673,7 +10679,7 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path) {
         // clobber entangled traversals
         } else if (lfsr_o_type(o->flags) == LFS_type_TRAVERSAL
                 && ((exists && o->mdir.mid == new_mdir.mid)
-                    || o->mdir.mid == lfs->grm.mids[0])) {
+                    || o->mdir.mid == lfs->grm.queue[0])) {
             lfsr_traversal_clobber(lfs, (lfsr_traversal_t*)o);
         }
     }
@@ -13486,8 +13492,8 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
     lfs->gcksum_p = 0;
     lfs->gcksum_d = 0;
 
-    lfs->grm.mids[0] = -1;
-    lfs->grm.mids[1] = -1;
+    lfs->grm.queue[0] = -1;
+    lfs->grm.queue[1] = -1;
     lfs_memset(lfs->grm_p, 0, LFSR_GRM_DSIZE);
     lfs_memset(lfs->grm_d, 0, LFSR_GRM_DSIZE);
 
@@ -14019,14 +14025,14 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // found pending grms? this should only happen if we lost power
     if (lfsr_grm_count(lfs) == 2) {
         LFS_INFO("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                lfsr_dbgmbid(lfs, lfs->grm.mids[0]),
-                lfsr_dbgmrid(lfs, lfs->grm.mids[0]),
-                lfsr_dbgmbid(lfs, lfs->grm.mids[1]),
-                lfsr_dbgmrid(lfs, lfs->grm.mids[1]));
+                lfsr_dbgmbid(lfs, lfs->grm.queue[0]),
+                lfsr_dbgmrid(lfs, lfs->grm.queue[0]),
+                lfsr_dbgmbid(lfs, lfs->grm.queue[1]),
+                lfsr_dbgmrid(lfs, lfs->grm.queue[1]));
     } else if (lfsr_grm_count(lfs) == 1) {
         LFS_INFO("Found pending grm %"PRId32".%"PRId32,
-                lfsr_dbgmbid(lfs, lfs->grm.mids[0]),
-                lfsr_dbgmrid(lfs, lfs->grm.mids[0]));
+                lfsr_dbgmbid(lfs, lfs->grm.queue[0]),
+                lfsr_dbgmrid(lfs, lfs->grm.queue[0]));
     }
 
     return 0;
@@ -14434,22 +14440,22 @@ lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
 static int lfsr_fs_fixgrm(lfs_t *lfs) {
     if (lfsr_grm_count(lfs) == 2) {
         LFS_INFO("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                lfsr_dbgmbid(lfs, lfs->grm.mids[0]),
-                lfsr_dbgmrid(lfs, lfs->grm.mids[0]),
-                lfsr_dbgmbid(lfs, lfs->grm.mids[1]),
-                lfsr_dbgmrid(lfs, lfs->grm.mids[1]));
+                lfsr_dbgmbid(lfs, lfs->grm.queue[0]),
+                lfsr_dbgmrid(lfs, lfs->grm.queue[0]),
+                lfsr_dbgmbid(lfs, lfs->grm.queue[1]),
+                lfsr_dbgmrid(lfs, lfs->grm.queue[1]));
     } else if (lfsr_grm_count(lfs) == 1) {
         LFS_INFO("Fixing grm %"PRId32".%"PRId32,
-                lfsr_dbgmbid(lfs, lfs->grm.mids[0]),
-                lfsr_dbgmrid(lfs, lfs->grm.mids[0]));
+                lfsr_dbgmbid(lfs, lfs->grm.queue[0]),
+                lfsr_dbgmrid(lfs, lfs->grm.queue[0]));
     }
 
     while (lfsr_grm_count(lfs) > 0) {
-        LFS_ASSERT(lfs->grm.mids[0] != -1);
+        LFS_ASSERT(lfs->grm.queue[0] != -1);
 
         // find our mdir
         lfsr_mdir_t mdir;
-        int err = lfsr_mtree_lookup(lfs, lfs->grm.mids[0],
+        int err = lfsr_mtree_lookup(lfs, lfs->grm.queue[0],
                 &mdir);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);

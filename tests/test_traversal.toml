@@ -6461,8 +6461,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should have cleaned up all grms/orphans
-    assert(lfs.grm.mids[0] == -1);
-    assert(lfs.grm.mids[1] == -1);
+    assert(lfs.grm.queue[0] == 0);
+    assert(lfs.grm.queue[1] == 0);
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -6603,8 +6603,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should be able to clean up grms
-    assert(lfs.grm.mids[0] == -1);
-    assert(lfs.grm.mids[1] == -1);
+    assert(lfs.grm.queue[0] == 0);
+    assert(lfs.grm.queue[1] == 0);
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
         assert(lfs.flags & LFS_I_MKCONSISTENT);
@@ -6762,8 +6762,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should have cleaned up all grms/orphans
-    assert(lfs.grm.mids[0] == -1);
-    assert(lfs.grm.mids[1] == -1);
+    assert(lfs.grm.queue[0] == 0);
+    assert(lfs.grm.queue[1] == 0);
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -6920,8 +6920,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should have cleaned up all grms/orphans
-    assert(lfs.grm.mids[0] == -1);
-    assert(lfs.grm.mids[1] == -1);
+    assert(lfs.grm.queue[0] == 0);
+    assert(lfs.grm.queue[1] == 0);
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -7089,8 +7089,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should have cleaned up all grms/orphans
-    assert(lfs.grm.mids[0] == -1);
-    assert(lfs.grm.mids[1] == -1);
+    assert(lfs.grm.queue[0] == 0);
+    assert(lfs.grm.queue[1] == 0);
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -7256,8 +7256,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should have cleaned up all grms/orphans
-    assert(lfs.grm.mids[0] == -1);
-    assert(lfs.grm.mids[1] == -1);
+    assert(lfs.grm.queue[0] == 0);
+    assert(lfs.grm.queue[1] == 0);
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -7421,8 +7421,8 @@ code = '''
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
 
     // we should have cleaned up all grms/orphans
-    assert(lfs.grm.mids[0] == -1);
-    assert(lfs.grm.mids[1] == -1);
+    assert(lfs.grm.queue[0] == 0);
+    assert(lfs.grm.queue[1] == 0);
     assert(!(lfs.flags & LFS_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -7614,8 +7614,8 @@ code = '''
     lfsr_traversal_close(&lfs, &t) => 0;
 
     // we should be able to clean up grms
-    assert(lfs.grm.mids[0] == -1);
-    assert(lfs.grm.mids[1] == -1);
+    assert(lfs.grm.queue[0] == 0);
+    assert(lfs.grm.queue[1] == 0);
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
         assert(lfs.flags & LFS_I_MKCONSISTENT);

@@ -812,18 +812,16 @@ typedef struct lfsr_traversal {
 //} lfs_gstate_t;
 
 // grm encoding:
-// .---.                  mode:  1 leb128   1 byte
-// |mod|                  mids:  2 leb128s  <=2x5 bytes
-// +- -+- -+- -+- -+- -.  total:            <=11 bytes
-// ' mid x mod         '
+// .- -+- -+- -+- -+- -.  mids:  2 leb128s  <=2x5 bytes
+// ' mids              '  total:            <=10 bytes
 // +                   +
 // '                   '
 // '- -+- -+- -+- -+- -'
 //
-#define LFSR_GRM_DSIZE (1+5+5)
+#define LFSR_GRM_DSIZE (5+5)
 
 typedef struct lfsr_grm {
-    lfsr_smid_t mids[2];
+    lfsr_smid_t queue[2];
 } lfsr_grm_t;
 
 #ifdef LFS_CKPARITY
