@@ -7989,7 +7989,7 @@ code = '''
     assert(lfsr_mtree_weight(&lfs)
             <= ((1+lfs_popc(BOOKENDS)) << lfs.mbits));
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
 
     // check that other files are unaffected
@@ -8125,7 +8125,7 @@ code = '''
     assert(lfsr_mtree_weight(&lfs)
             <= ((1+lfs_popc(BOOKENDS)) << lfs.mbits));
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
 
     // check that other files are unaffected
@@ -8275,7 +8275,7 @@ code = '''
     assert(lfsr_mtree_weight(&lfs)
             <= ((1+lfs_popc(BOOKENDS)) << lfs.mbits));
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
 
     // check that other files are unaffected
@@ -8431,7 +8431,7 @@ code = '''
     assert(lfsr_mtree_weight(&lfs)
             <= ((1+lfs_popc(BOOKENDS)) << lfs.mbits));
     lfsr_mdir_t mdir;
-    lfsr_mtree_lookupleaf(&lfs, 0, &mdir) => 0;
+    lfsr_mtree_lookup(&lfs, 0, &mdir) => 0;
     assert(mdir.rbyd.weight <= 1+lfs_popc(BOOKENDS));
 
     // check that other files are unaffected

@@ -7658,7 +7658,7 @@ static inline lfsr_mid_t lfsr_mtree_weight(lfs_t *lfs) {
 }
 
 // lookup mdir containing a given mid
-static int lfsr_mtree_lookupleaf(lfs_t *lfs, lfsr_smid_t mid,
+static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
         lfsr_mdir_t *mdir) {
     // looking up mid=-1 is probably a mistake
     LFS_ASSERT(mid >= 0);
@@ -7708,32 +7708,6 @@ static int lfsr_mtree_lookupleaf(lfs_t *lfs, lfsr_smid_t mid,
         return lfsr_data_fetchmdir(lfs, &data, mid,
                 mdir);
     }
-}
-
-// TODO just drop these? revert lfsr_mtree_lookupleaf -> lfsr_mtree_lookup?
-// in-mdir lookups for convenience/possible code sharing
-static int lfsr_mtree_lookupnext(lfs_t *lfs, lfsr_smid_t mid, lfsr_tag_t tag,
-        lfsr_mdir_t *mdir, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    int err = lfsr_mtree_lookupleaf(lfs, mid,
-            mdir);
-    if (err) {
-        return err;
-    }
-
-    return lfsr_mdir_lookupnext(lfs, mdir, tag,
-            tag_, data_);
-}
-
-static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid, lfsr_tag_t tag,
-        lfsr_mdir_t *mdir, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    int err = lfsr_mtree_lookupleaf(lfs, mid,
-            mdir);
-    if (err) {
-        return err;
-    }
-
-    return lfsr_mdir_lookup(lfs, mdir, tag,
-            tag_, data_);
 }
 
 // this is the same as lfsr_btree_commit, but we set the inmtree flag
@@ -9186,15 +9160,14 @@ static int lfsr_mdir_namelookup(lfs_t *lfs, const lfsr_mdir_t *mdir,
 // lookup names in our mtree
 //
 // if not found, rid will be the best place to insert
-static int lfsr_mtree_namelookupleaf(lfs_t *lfs,
+static int lfsr_mtree_namelookup(lfs_t *lfs,
         lfsr_did_t did, const char *name, lfs_size_t name_len,
-        lfsr_mdir_t *mdir) {
+        lfsr_mdir_t *mdir, lfsr_tag_t *tag_, lfsr_data_t *data_) {
     // do we only have mroot?
     if (lfs->mtree.weight == 0) {
         // treat inlined mdir as mid=0
         mdir->mid = 0;
         lfsr_mdir_sync(mdir, &lfs->mroot);
-        return 0;
 
     // lookup name in actual mtree
     } else {
@@ -9226,26 +9199,16 @@ static int lfsr_mtree_namelookupleaf(lfs_t *lfs,
         }
 
         // fetch mdir
-        return lfsr_data_fetchmdir(lfs, &data, bid-((1 << lfs->mbits)-1),
+        int err = lfsr_data_fetchmdir(lfs, &data, bid-((1 << lfs->mbits)-1),
                 mdir);
-    }
-}
-
-static int lfsr_mtree_namelookup(lfs_t *lfs,
-        lfsr_did_t did, const char *name, lfs_size_t name_len,
-        lfsr_mdir_t *mdir, lfsr_tag_t *tag_, lfsr_data_t *data_) {
-    // lookup name in our mtree
-    int err = lfsr_mtree_namelookupleaf(lfs,
-            did, name, name_len,
-            mdir);
-    if (err) {
-        return err;
+        if (err) {
+            return err;
+        }
     }
 
     // and lookup name in our mdir
     lfsr_smid_t mid;
-    err = lfsr_mdir_namelookup(lfs, mdir,
-            did, name, name_len,
+    int err = lfsr_mdir_namelookup(lfs, mdir, did, name, name_len,
             &mid, tag_, data_);
     if (err && err != LFS_ERR_NOENT) {
         return err;
@@ -9555,7 +9518,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
         // iterate over mdirs in the mtree
         case LFSR_TSTATE_MDIRS:;
             // find the next mdir
-            err = lfsr_mtree_lookupleaf(lfs, t->b.o.mdir.mid,
+            err = lfsr_mtree_lookup(lfs, t->b.o.mdir.mid,
                     &t->b.o.mdir);
             if (err) {
                 // end of mtree? guess we're done
@@ -10380,7 +10343,7 @@ static int lfsr_grm_pushdid(lfs_t *lfs, lfsr_did_t did) {
     bookmark_mdir.mid += 1;
     if (lfsr_mrid(lfs, bookmark_mdir.mid)
             >= (lfsr_srid_t)bookmark_mdir.rbyd.weight) {
-        err = lfsr_mtree_lookupleaf(lfs,
+        err = lfsr_mtree_lookup(lfs,
                 lfsr_mbid(lfs, bookmark_mdir.mid-1) + 1,
                 &bookmark_mdir);
         if (err) {
@@ -10882,7 +10845,7 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info) {
         // next mdir?
         if (lfsr_mrid(lfs, dir->o.mdir.mid)
                 >= (lfsr_srid_t)dir->o.mdir.rbyd.weight) {
-            int err = lfsr_mtree_lookupleaf(lfs,
+            int err = lfsr_mtree_lookup(lfs,
                     lfsr_mbid(lfs, dir->o.mdir.mid-1) + 1,
                     &dir->o.mdir);
             if (err) {
@@ -10955,7 +10918,7 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off) {
         // next mdir?
         if (lfsr_mrid(lfs, dir->o.mdir.mid)
                 >= (lfsr_srid_t)dir->o.mdir.rbyd.weight) {
-            int err = lfsr_mtree_lookupleaf(lfs,
+            int err = lfsr_mtree_lookup(lfs,
                     lfsr_mbid(lfs, dir->o.mdir.mid-1) + 1,
                     &dir->o.mdir);
             if (err) {
@@ -14479,7 +14442,7 @@ static int lfsr_fs_fixgrm(lfs_t *lfs) {
 
         // find our mdir
         lfsr_mdir_t mdir;
-        int err = lfsr_mtree_lookupleaf(lfs, lfs->grm.mids[0],
+        int err = lfsr_mtree_lookup(lfs, lfs->grm.mids[0],
                 &mdir);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
