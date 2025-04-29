@@ -7977,7 +7977,7 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                 }
 
             // custom attributes need to be reencoded into our tag format
-            } else if (lfsr_tag_key(rattrs[i].tag) == LFSR_TAG_ATTRS) {
+            } else if (rattrs[i].tag == LFSR_TAG_ATTRS) {
                 const struct lfs_attr *attrs_ = rattrs[i].u.etc;
                 lfs_size_t attr_count_ = rattrs[i].count;
 
