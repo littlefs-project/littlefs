@@ -711,14 +711,14 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 #endif
 
 #ifdef LFS_CKPARITY
-static inline bool lfsr_ptail_parity(const lfsr_ptail_t *ptail) {
-    return ptail->off & LFSR_PTAIL_PARITY;
+static inline bool lfsr_ptail_parity(const lfs_t *lfs) {
+    return lfs->ptail.off & LFSR_PTAIL_PARITY;
 }
 #endif
 
 #ifdef LFS_CKPARITY
-static inline lfs_size_t lfsr_ptail_off(const lfsr_ptail_t *ptail) {
-    return ptail->off & ~LFSR_PTAIL_PARITY;
+static inline lfs_size_t lfsr_ptail_off(const lfs_t *lfs) {
+    return lfs->ptail.off & ~LFSR_PTAIL_PARITY;
 }
 #endif
 
@@ -1559,9 +1559,8 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
 
         // parity in in ptail?
         bool parity;
-        if (block == lfs->ptail.block
-                && off+d_ == lfsr_ptail_off(&lfs->ptail)) {
-            parity = lfsr_ptail_parity(&lfs->ptail);
+        if (block == lfs->ptail.block && off+d_ == lfsr_ptail_off(lfs)) {
+            parity = lfsr_ptail_parity(lfs);
 
         // parity on disk?
         } else {
@@ -7099,7 +7098,7 @@ static inline bool lfsr_i_isinmtree(uint32_t flags) {
 // we maintain a linked-list of all opened mdirs, in order to keep
 // metadata state in-sync, these may be casted to specific file types
 
-static bool lfsr_omdir_isopen(lfs_t *lfs, const lfsr_omdir_t *o) {
+static bool lfsr_omdir_isopen(const lfs_t *lfs, const lfsr_omdir_t *o) {
     for (lfsr_omdir_t *o_ = lfs->omdirs; o_; o_ = o_->next) {
         if (o_ == o) {
             return true;
@@ -7185,12 +7184,8 @@ static void lfsr_fs_mkdirty(lfs_t *lfs) {
 /// Global-state things ///
 
 // grm (global remove) things
-static inline lfs_size_t lfsr_grm_count_(const lfsr_grm_t *grm) {
-    return (grm->queue[0] != 0) + (grm->queue[1] != 0);
-}
-
 static inline lfs_size_t lfsr_grm_count(const lfs_t *lfs) {
-    return lfsr_grm_count_(&lfs->grm);
+    return (lfs->grm.queue[0] != 0) + (lfs->grm.queue[1] != 0);
 }
 
 static inline void lfsr_grm_push(lfs_t *lfs, lfsr_smid_t mid) {
@@ -7218,16 +7213,16 @@ static inline bool lfsr_grm_ismidrm(const lfs_t *lfs, lfsr_smid_t mid) {
 #define LFSR_DATA_GRM(_grm, _buffer) \
     ((struct {lfsr_data_t d;}){lfsr_data_fromgrm(_grm, _buffer)}.d)
 
-static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
+static lfsr_data_t lfsr_data_fromgrm(const lfs_t *lfs,
         uint8_t buffer[static LFSR_GRM_DSIZE]) {
     // make sure to zero so we don't leak any info
     lfs_memset(buffer, 0, LFSR_GRM_DSIZE);
 
     // encode grms
-    lfs_size_t count = lfsr_grm_count_(grm);
+    lfs_size_t count = lfsr_grm_count(lfs);
     lfs_ssize_t d = 0;
     for (lfs_size_t i = 0; i < count; i++) {
-        lfs_ssize_t d_ = lfs_toleb128(grm->queue[i], &buffer[d], 5);
+        lfs_ssize_t d_ = lfs_toleb128(lfs->grm.queue[i], &buffer[d], 5);
         if (d_ < 0) {
             LFS_UNREACHABLE();
         }
@@ -7240,11 +7235,10 @@ static lfsr_data_t lfsr_data_fromgrm(const lfsr_grm_t *grm,
 // required by lfsr_data_readgrm
 static inline lfsr_mid_t lfsr_mtree_weight(lfs_t *lfs);
 
-static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
-        lfsr_grm_t *grm) {
+static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data) {
     // clear first
-    grm->queue[0] = 0;
-    grm->queue[1] = 0;
+    lfs->grm.queue[0] = 0;
+    lfs->grm.queue[1] = 0;
 
     // decode grms, these are terminated by either a null (mid=0) or the
     // size of the grm buffer
@@ -7262,7 +7256,7 @@ static int lfsr_data_readgrm(lfs_t *lfs, lfsr_data_t *data,
 
         // grm inside mtree?
         LFS_ASSERT(mid < lfsr_mtree_weight(lfs));
-        grm->queue[i] = mid;
+        lfs->grm.queue[i] = mid;
     }
 
     return 0;
@@ -7286,7 +7280,7 @@ static void lfsr_fs_commitgdelta(lfs_t *lfs) {
     lfs->gcksum_p = lfs->gcksum;
 
     // keep track of the on-disk grm
-    lfsr_data_fromgrm(&lfs->grm, lfs->grm_p);
+    lfsr_data_fromgrm(lfs, lfs->grm_p);
 }
 
 // revert gstate to on-disk state
@@ -7296,8 +7290,7 @@ static void lfsr_fs_revertgdelta(lfs_t *lfs) {
 
     // revert to the on-disk grm
     int err = lfsr_data_readgrm(lfs,
-            &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
-            &lfs->grm);
+            &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE));
     if (err) {
         LFS_UNREACHABLE();
     }
@@ -7310,7 +7303,7 @@ static int lfsr_rbyd_appendgdelta(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
 
     // pending grm state?
     uint8_t grmdelta_[LFSR_GRM_DSIZE];
-    lfsr_data_fromgrm(&lfs->grm, grmdelta_);
+    lfsr_data_fromgrm(lfs, grmdelta_);
     lfs_memxor(grmdelta_, lfs->grm_p, LFSR_GRM_DSIZE);
     lfs_memxor(grmdelta_, lfs->grm_d, LFSR_GRM_DSIZE);
 
@@ -14015,8 +14008,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
 
     // decode grm so we can report any removed files as missing
     int err = lfsr_data_readgrm(lfs,
-            &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE),
-            &lfs->grm);
+            &LFSR_DATA_BUF(lfs->grm_p, LFSR_GRM_DSIZE));
     if (err) {
         // TODO switch to read-only?
         return err;

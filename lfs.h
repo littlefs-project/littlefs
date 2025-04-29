@@ -824,14 +824,6 @@ typedef struct lfsr_grm {
     lfsr_smid_t queue[2];
 } lfsr_grm_t;
 
-#ifdef LFS_CKPARITY
-typedef struct lfsr_ptail {
-    lfs_block_t block;
-    // sign(off) => tail parity
-    lfs_size_t off;
-} lfsr_ptail_t;
-#endif
-
 // The littlefs filesystem type
 typedef struct lfs {
     const struct lfs_config *cfg;
@@ -850,13 +842,14 @@ typedef struct lfs {
     lfsr_mdir_t mroot;
     lfsr_btree_t mtree;
 
-    struct {
+    struct lfsr_rcache {
         lfs_block_t block;
         lfs_size_t off;
         lfs_size_t size;
         uint8_t *buffer;
     } rcache;
-    struct {
+
+    struct lfsr_pcache {
         lfs_block_t block;
         lfs_size_t off;
         lfs_size_t size;
@@ -864,7 +857,11 @@ typedef struct lfs {
     } pcache;
 
     #ifdef LFS_CKPARITY
-    lfsr_ptail_t ptail;
+    struct {
+        lfs_block_t block;
+        // sign(off) => tail parity
+        lfs_size_t off;
+    } ptail;
     #endif
 
     struct lfs_lookahead {
@@ -875,6 +872,7 @@ typedef struct lfs {
         uint8_t *buffer;
     } lookahead;
 
+    // global state
     uint32_t gcksum;
     uint32_t gcksum_p;
     uint32_t gcksum_d;
@@ -884,6 +882,7 @@ typedef struct lfs {
     uint8_t grm_d[LFSR_GRM_DSIZE];
 
     #ifdef LFS_GC
+    // optional incremental gc state
     struct {
         lfsr_traversal_t t;
     } gc;
