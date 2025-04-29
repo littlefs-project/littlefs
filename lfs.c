@@ -9447,11 +9447,11 @@ static void lfsr_traversal_init(lfsr_traversal_t *t, uint32_t flags) {
 // needed in lfsr_mtree_traverse_
 static int lfsr_file_traverse_(lfs_t *lfs, const lfsr_bshrub_t *bshrub,
         lfsr_btraversal_t *bt,
-        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bptr_t *bptr_);
+        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bptr_t *bptr);
 
 // low-level traversal _only_ finds blocks
 static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
-        lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
+        lfsr_tag_t *tag_, lfsr_bptr_t *bptr) {
     while (true) {
         switch (lfsr_t_tstate(t->b.o.flags)) {
         // start with the mrootanchor 0x{0,1}
@@ -9472,9 +9472,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
             if (tag_) {
                 *tag_ = LFSR_TAG_MDIR;
             }
-            if (bptr_) {
-                bptr_->data.u.buffer = (const uint8_t*)&t->b.o.mdir;
-            }
+            bptr->data.u.buffer = (const uint8_t*)&t->b.o.mdir;
             return 0;
 
         // traverse the mroot chain, checking for mroots/mtrees
@@ -9531,9 +9529,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
                 if (tag_) {
                     *tag_ = LFSR_TAG_MDIR;
                 }
-                if (bptr_) {
-                    bptr_->data.u.buffer = (const uint8_t*)&t->b.o.mdir;
-                }
+                bptr->data.u.buffer = (const uint8_t*)&t->b.o.mdir;
                 return 0;
 
             // found an mtree?
@@ -9576,9 +9572,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
             if (tag_) {
                 *tag_ = LFSR_TAG_MDIR;
             }
-            if (bptr_) {
-                bptr_->data.u.buffer = (const uint8_t*)&t->b.o.mdir;
-            }
+            bptr->data.u.buffer = (const uint8_t*)&t->b.o.mdir;
             return 0;
 
         // scan for blocks/btrees in the current mdir
@@ -9681,7 +9675,7 @@ static int lfsr_mtree_traverse_(lfs_t *lfs, lfsr_traversal_t *t,
             // lfsr_file_traverse_, but this gets us bptr decoding
             // for free
             err = lfsr_file_traverse_(lfs, &t->b, &t->u.bt,
-                    NULL, &tag, bptr_);
+                    NULL, &tag, bptr);
             if (err) {
                 if (err == LFS_ERR_NOENT) {
                     // clear the bshrub state
@@ -9745,11 +9739,10 @@ static void lfs_alloc_markinuse(lfs_t *lfs,
 // but no mutation! (we're called in lfs_alloc, so things would end up
 // recursive, which would be a bit bad!)
 static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
-        lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
+        lfsr_tag_t *tag_, lfsr_bptr_t *bptr) {
     lfsr_tag_t tag;
-    lfsr_bptr_t bptr;
     int err = lfsr_mtree_traverse_(lfs, t,
-            &tag, &bptr);
+            &tag, bptr);
     if (err) {
         // end of traversal?
         if (err == LFS_ERR_NOENT) {
@@ -9771,7 +9764,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
     if ((lfsr_t_isckmeta(t->b.o.flags)
                 || lfsr_t_isckdata(t->b.o.flags))
             && tag == LFSR_TAG_MDIR) {
-        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
+        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr->data.u.buffer;
 
         // check cksum matches our mroot
         if (lfsr_mdir_cmp(mdir, &lfs->mroot) == 0
@@ -9814,7 +9807,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
     if ((lfsr_t_isckmeta(t->b.o.flags)
                 || lfsr_t_isckdata(t->b.o.flags))
             && tag == LFSR_TAG_BRANCH) {
-        lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr.data.u.buffer;
+        lfsr_rbyd_t *rbyd = (lfsr_rbyd_t*)bptr->data.u.buffer;
         err = lfsr_rbyd_fetchck(lfs, rbyd,
                 rbyd->blocks[0], rbyd->trunk,
                 rbyd->cksum);
@@ -9826,7 +9819,7 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
     // validate data blocks?
     if (lfsr_t_isckdata(t->b.o.flags)
             && tag == LFSR_TAG_BLOCK) {
-        err = lfsr_bptr_ck(lfs, &bptr);
+        err = lfsr_bptr_ck(lfs, bptr);
         if (err) {
             return err;
         }
@@ -9834,9 +9827,6 @@ static int lfsr_mtree_traverse(lfs_t *lfs, lfsr_traversal_t *t,
 
     if (tag_) {
         *tag_ = tag;
-    }
-    if (bptr_) {
-        *bptr_ = bptr;
     }
     return 0;
 
@@ -9880,12 +9870,11 @@ static void lfs_alloc_markfree(lfs_t *lfs);
 // high-level mutating traversal, handle extra features that require
 // mutation here, upper layers should call lfs_alloc_ckpoint as needed
 static int lfsr_mtree_gc(lfs_t *lfs, lfsr_traversal_t *t,
-        lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
+        lfsr_tag_t *tag_, lfsr_bptr_t *bptr) {
 dropped:;
     lfsr_tag_t tag;
-    lfsr_bptr_t bptr;
     int err = lfsr_mtree_traverse(lfs, t,
-            &tag, &bptr);
+            &tag, bptr);
     if (err) {
         // end of traversal?
         if (err == LFS_ERR_NOENT) {
@@ -9899,14 +9888,14 @@ dropped:;
 
     // track in-use blocks?
     if (lfsr_t_islookahead(t->b.o.flags)) {
-        lfs_alloc_markinuse(lfs, tag, &bptr);
+        lfs_alloc_markinuse(lfs, tag, bptr);
     }
 
     // mkconsistencing mdirs?
     if (lfsr_t_ismkconsistent(t->b.o.flags)
             && lfsr_t_ismkconsistent(lfs->flags)
             && tag == LFSR_TAG_MDIR) {
-        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
+        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr->data.u.buffer;
         err = lfsr_mdir_mkconsistent(lfs, mdir);
         if (err) {
             goto failed;
@@ -9929,11 +9918,11 @@ dropped:;
     if (lfsr_t_iscompact(t->b.o.flags)
             && tag == LFSR_TAG_MDIR
             // exceed compaction threshold?
-            && lfsr_rbyd_eoff(&((lfsr_mdir_t*)bptr.data.u.buffer)->rbyd)
+            && lfsr_rbyd_eoff(&((lfsr_mdir_t*)bptr->data.u.buffer)->rbyd)
                 > ((lfs->cfg->gc_compact_thresh)
                     ? lfs->cfg->gc_compact_thresh
                     : lfs->cfg->block_size - lfs->cfg->block_size/8)) {
-        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr.data.u.buffer;
+        lfsr_mdir_t *mdir = (lfsr_mdir_t*)bptr->data.u.buffer;
         LFS_INFO("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "(%"PRId32" > %"PRId32")",
                 lfsr_dbgmbid(lfs, mdir->mid),
@@ -9958,9 +9947,6 @@ dropped:;
     t->b.o.flags = lfsr_t_swapdirty(t->b.o.flags);
     if (tag_) {
         *tag_ = tag;
-    }
-    if (bptr_) {
-        *bptr_ = bptr;
     }
     return 0;
 
@@ -11544,7 +11530,7 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file) {
 static int lfsr_file_lookupleaf(lfs_t *lfs, const lfsr_file_t *file,
         lfsr_bid_t bid,
         lfsr_bid_t *bid_, lfsr_rbyd_t *rbyd, lfsr_srid_t *rid_,
-        lfsr_bid_t *weight_, lfsr_bptr_t *bptr_) {
+        lfsr_bid_t *weight_, lfsr_bptr_t *bptr) {
     lfsr_tag_t tag;
     lfsr_bid_t weight;
     lfsr_data_t data;
@@ -11556,33 +11542,32 @@ static int lfsr_file_lookupleaf(lfs_t *lfs, const lfsr_file_t *file,
     LFS_ASSERT(tag == LFSR_TAG_DATA
             || tag == LFSR_TAG_BLOCK);
 
+    // decode bptrs
+    if (tag == LFSR_TAG_DATA) {
+        bptr->data = data;
+    } else {
+        err = lfsr_data_readbptr(lfs, &data, bptr);
+        if (err) {
+            return err;
+        }
+    }
+
+    // limit bptrs to btree weights, this may be useful for
+    // compression in the future
+    bptr->data = LFSR_DATA_TRUNCATE(bptr->data, weight);
+
     if (weight_) {
         *weight_ = weight;
-    }
-    if (bptr_) {
-        // decode bptrs
-        if (tag == LFSR_TAG_DATA) {
-            bptr_->data = data;
-        } else {
-            err = lfsr_data_readbptr(lfs, &data, bptr_);
-            if (err) {
-                return err;
-            }
-        }
-
-        // limit bptrs to btree weights, this may be useful for
-        // compression in the future
-        bptr_->data = LFSR_DATA_TRUNCATE(bptr_->data, weight);
     }
     return 0;
 }
 
 static int lfsr_file_lookupnext(lfs_t *lfs, const lfsr_file_t *file,
         lfsr_bid_t bid,
-        lfsr_bid_t *bid_, lfsr_bid_t *weight_, lfsr_bptr_t *bptr_) {
+        lfsr_bid_t *bid_, lfsr_bid_t *weight_, lfsr_bptr_t *bptr) {
     lfsr_rbyd_t rbyd;
     return lfsr_file_lookupleaf(lfs, file, bid,
-            bid_, &rbyd, NULL, weight_, bptr_);
+            bid_, &rbyd, NULL, weight_, bptr);
 }
 
 static lfs_ssize_t lfsr_file_readnext(lfs_t *lfs, const lfsr_file_t *file,
@@ -13150,7 +13135,7 @@ failed:;
 
 static int lfsr_file_traverse_(lfs_t *lfs, const lfsr_bshrub_t *bshrub,
         lfsr_btraversal_t *bt,
-        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
+        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bptr_t *bptr) {
     lfsr_tag_t tag;
     lfsr_data_t data;
     int err = lfsr_bshrub_traverse(lfs, bshrub, bt,
@@ -13160,28 +13145,27 @@ static int lfsr_file_traverse_(lfs_t *lfs, const lfsr_bshrub_t *bshrub,
     }
 
     // decode bptrs
+    if (tag == LFSR_TAG_BLOCK) {
+        err = lfsr_data_readbptr(lfs, &data,
+                bptr);
+        if (err) {
+            return err;
+        }
+    } else {
+        bptr->data = data;
+    }
+
     if (tag_) {
         *tag_ = tag;
-    }
-    if (bptr_) {
-        if (tag == LFSR_TAG_BLOCK) {
-            err = lfsr_data_readbptr(lfs, &data,
-                    bptr_);
-            if (err) {
-                return err;
-            }
-        } else {
-            bptr_->data = data;
-        }
     }
     return 0;
 }
 
 static int lfsr_file_traverse(lfs_t *lfs, const lfsr_file_t *file,
         lfsr_btraversal_t *bt,
-        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bptr_t *bptr_) {
+        lfsr_bid_t *bid_, lfsr_tag_t *tag_, lfsr_bptr_t *bptr) {
     return lfsr_file_traverse_(lfs, &file->b, bt,
-            bid_, tag_, bptr_);
+            bid_, tag_, bptr);
 }
 
 static int lfsr_file_ck(lfs_t *lfs, const lfsr_file_t *file,
@@ -14446,8 +14430,9 @@ lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
     lfsr_traversal_init(&t, 0);
     while (true) {
         lfsr_tag_t tag;
+        lfsr_bptr_t bptr;
         int err = lfsr_mtree_traverse(lfs, &t,
-                &tag, NULL);
+                &tag, &bptr);
         if (err) {
             if (err == LFS_ERR_NOENT) {
                 break;
@@ -14581,8 +14566,9 @@ static int lfsr_fs_fixorphans(lfs_t *lfs) {
     lfsr_traversal_t t;
     lfsr_traversal_init(&t, LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
     while (true) {
+        lfsr_bptr_t bptr;
         int err = lfsr_mtree_gc(lfs, &t,
-                NULL, NULL);
+                NULL, &bptr);
         if (err) {
             if (err == LFS_ERR_NOENT) {
                 break;
@@ -14628,8 +14614,9 @@ static int lfsr_fs_ck(lfs_t *lfs, uint32_t flags) {
     lfsr_traversal_t t;
     lfsr_traversal_init(&t, flags);
     while (true) {
+        lfsr_bptr_t bptr;
         int err = lfsr_mtree_traverse(lfs, &t,
-                NULL, NULL);
+                NULL, &bptr);
         if (err) {
             if (err == LFS_ERR_NOENT) {
                 break;
@@ -14733,8 +14720,9 @@ static int lfsr_fs_gc_(lfs_t *lfs, lfsr_traversal_t *t,
         }
 
         // progress gc
+        lfsr_bptr_t bptr;
         int err = lfsr_mtree_gc(lfs, t,
-                NULL, NULL);
+                NULL, &bptr);
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
