@@ -1163,8 +1163,9 @@ enum lfsr_tag {
     LFSR_TAG_INTERNAL       = 0x0800,
     LFSR_TAG_RATTRS         = 0x0800,
     LFSR_TAG_SHRUBCOMMIT    = 0x0801,
-    LFSR_TAG_MOVE           = 0x0802,
-    LFSR_TAG_ATTRS          = 0x0803,
+    LFSR_TAG_GRMPUSH        = 0x0802,
+    LFSR_TAG_MOVE           = 0x0803,
+    LFSR_TAG_ATTRS          = 0x0804,
 
     // some in-device only tag modifiers
     LFSR_TAG_RM             = 0x8000,
@@ -7894,6 +7895,11 @@ static int lfsr_mdir_commit__(lfs_t *lfs, lfsr_mdir_t *mdir,
                     return err;
                 }
 
+            // push a new grm, this tag lets us push grms atomically when
+            // creating new mids
+            } else if (rattrs[i].tag == LFSR_TAG_GRMPUSH) {
+                // do nothing here, this is handled up in lfsr_mdir_commit
+
             // move tags copy over any tags associated with the source's rid
             // TODO can this be deduplicated with lfsr_mdir_compact__ more?
             // it _really_ wants to be deduplicated
@@ -8512,8 +8518,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     // keep in mind we revert to on-disk gstate if we run into an error
     lfsr_smid_t mid_ = mdir->mid;
     for (lfs_size_t i = 0; i < rattr_count; i++) {
-        // automatically create grms for new bookmarks
-        if (rattrs[i].tag == LFSR_TAG_BOOKMARK) {
+        // push a new grm, this tag lets us push grms atomically when
+        // creating new mids
+        if (rattrs[i].tag == LFSR_TAG_GRMPUSH) {
             lfsr_grm_push(lfs, mid_);
 
         // adjust pending grms?
@@ -10273,7 +10280,9 @@ int lfsr_mkdir(lfs_t *lfs, const char *path) {
     lfs_alloc_ckpoint(lfs);
     err = lfsr_mdir_commit(lfs, &mdir, LFSR_RATTRS(
             LFSR_RATTR_NAME(
-                LFSR_TAG_BOOKMARK, +1, did_, NULL, 0)));
+                LFSR_TAG_BOOKMARK, +1, did_, NULL, 0),
+            LFSR_RATTR(
+                LFSR_TAG_GRMPUSH, 0)));
     if (err) {
         return err;
     }
