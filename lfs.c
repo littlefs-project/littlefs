@@ -7678,13 +7678,12 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
     // look up mdir in actual mtree
     } else {
         lfsr_bid_t bid;
-        lfsr_rbyd_t rbyd;
         lfsr_srid_t rid;
         lfsr_tag_t tag;
         lfsr_bid_t weight;
         lfsr_data_t data;
         int err = lfsr_btree_lookupleaf(lfs, &lfs->mtree, mid,
-                &bid, &rbyd, &rid, &tag, &weight, &data);
+                &bid, &mdir->rbyd, &rid, &tag, &weight, &data);
         if (err) {
             LFS_ASSERT(err != LFS_ERR_NOENT);
             return err;
@@ -7696,7 +7695,7 @@ static int lfsr_mtree_lookup(lfs_t *lfs, lfsr_smid_t mid,
 
         // if we found an mname, lookup the mdir
         if (tag == LFSR_TAG_MNAME) {
-            err = lfsr_rbyd_lookup(lfs, &rbyd, rid, LFSR_TAG_MDIR,
+            err = lfsr_rbyd_lookup(lfs, &mdir->rbyd, rid, LFSR_TAG_MDIR,
                     NULL, &data);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
@@ -9172,14 +9171,13 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
     // lookup name in actual mtree
     } else {
         lfsr_bid_t bid;
-        lfsr_rbyd_t rbyd;
         lfsr_srid_t rid;
         lfsr_tag_t tag;
         lfsr_bid_t weight;
         lfsr_data_t data;
         lfs_scmp_t cmp = lfsr_btree_namelookupleaf(lfs, &lfs->mtree,
                 did, name, name_len,
-                &bid, &rbyd, &rid, &tag, &weight, &data);
+                &bid, &mdir->rbyd, &rid, &tag, &weight, &data);
         if (cmp < 0) {
             LFS_ASSERT(cmp != LFS_ERR_NOENT);
             return cmp;
@@ -9190,7 +9188,7 @@ static int lfsr_mtree_namelookup(lfs_t *lfs,
 
         // if we found an mname, lookup the mdir
         if (tag == LFSR_TAG_MNAME) {
-            int err = lfsr_rbyd_lookup(lfs, &rbyd, rid, LFSR_TAG_MDIR,
+            int err = lfsr_rbyd_lookup(lfs, &mdir->rbyd, rid, LFSR_TAG_MDIR,
                     NULL, &data);
             if (err) {
                 LFS_ASSERT(err != LFS_ERR_NOENT);
