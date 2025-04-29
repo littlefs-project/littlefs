@@ -1806,40 +1806,6 @@ class Mtree:
         else:
             return mdir
 
-    def lookupnext(self, mid, *,
-            path=False,
-            depth=None):
-        if not isinstance(mid, Mid):
-            mid = self.mid(mid)
-
-        # lookup the relevant mdir
-        r = self.lookupleaf(mid,
-                path=path,
-                depth=depth)
-        if path:
-            mdir, path_ = r
-        else:
-            mdir = r
-        if mdir is None:
-            if path:
-                return None, None, path_
-            else:
-                return None, None
-
-        # not in mdir?
-        if mid.mrid >= mdir.weight:
-            if path:
-                return None, None, path_
-            else:
-                return None, None
-
-        # lookup mid in mdir
-        rattr = mdir.lookupnext(mid)
-        if path:
-            return mdir, rattr, path_+[(mid, mdir, rattr)]
-        else:
-            return mdir, rattr
-
     def lookup(self, mid, *,
             path=False,
             depth=None):
