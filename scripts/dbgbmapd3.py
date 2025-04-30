@@ -4438,19 +4438,21 @@ def main(disk, output, mroots=None, *,
         block_cols_ = block_cols
         block_rows_ = mt.ceil(len(bmap) / block_cols)
     else:
-        # prioritize rows at low resolution
-        block_rows_ = min(len(bmap), max(height__, 1)) # was len(bmap)
-        block_cols_ = mt.ceil(len(bmap) / block_rows_) # was 1
         # divide by 2 until we hit our target ratio, this works
         # well for things that are often powers-of-two
-        while (abs(((width__/(block_cols_*2))
-                        / max(height__/mt.ceil(block_rows_/2), 1))
-                    - block_ratio)
-                < abs(((width__/block_cols_)
-                        / max(height__/block_rows_, 1)))
-                    - block_ratio):
-            block_rows_ = mt.ceil(block_rows_ / 2)
+        #
+        # also prioritize rows at low resolution
+        block_cols_ = 1
+        block_rows_ = len(bmap)
+        while (block_rows_ > height__
+                or abs(((width__/(block_cols_*2))
+                            / max(height__/mt.ceil(block_rows_/2), 1))
+                        - block_ratio)
+                    < abs(((width__/block_cols_)
+                            / max(height__/block_rows_, 1)))
+                        - block_ratio):
             block_cols_ *= 2
+            block_rows_ = mt.ceil(block_rows_ / 2)
 
     block_width_ = width__ / block_cols_
     block_height_ = height__ / block_rows_
