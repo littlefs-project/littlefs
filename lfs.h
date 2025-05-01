@@ -1261,14 +1261,14 @@ int lfsr_traversal_rewind(lfs_t *lfs, lfsr_traversal_t *t);
 // Returns a negative error code on failure.
 int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo);
 
-// Finds the current size of the filesystem
+// Finds the number of blocks in use by the filesystem
 //
 // Note: Result is best effort. If files share COW structures, the returned
-// size may be larger than the filesystem actually is.
+// usage may be larger than the filesystem actually is.
 //
 // Returns the number of allocated blocks, or a negative error code on failure.
 //lfs_ssize_t lfs_fs_size(lfs_t *lfs);
-lfs_ssize_t lfsr_fs_size(lfs_t *lfs);
+lfs_ssize_t lfsr_fs_usage(lfs_t *lfs);
 
 // Traverse through all blocks in use by the filesystem
 //

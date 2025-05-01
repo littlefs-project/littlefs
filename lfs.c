@@ -14406,7 +14406,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
     return 0;
 }
 
-lfs_ssize_t lfsr_fs_size(lfs_t *lfs) {
+lfs_ssize_t lfsr_fs_usage(lfs_t *lfs) {
     lfs_size_t count = 0;
     lfsr_traversal_t t;
     lfsr_traversal_init(&t, 0);
