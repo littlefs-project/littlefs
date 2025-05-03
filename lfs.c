@@ -3932,7 +3932,9 @@ static int lfs_remove_(lfs_t *lfs, const char *path) {
     }
 
     lfs->mlist = dir.next;
-    if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
+    if (lfs_gstate_hasorphans(&lfs->gstate)) {
+        LFS_ASSERT(lfs_tag_type3(tag) == LFS_TYPE_DIR);
+
         // fix orphan
         err = lfs_fs_preporphans(lfs, -1);
         if (err) {
@@ -4076,8 +4078,10 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
     }
 
     lfs->mlist = prevdir.next;
-    if (prevtag != LFS_ERR_NOENT
-            && lfs_tag_type3(prevtag) == LFS_TYPE_DIR) {
+    if (lfs_gstate_hasorphans(&lfs->gstate)) {
+        LFS_ASSERT(prevtag != LFS_ERR_NOENT
+                && lfs_tag_type3(prevtag) == LFS_TYPE_DIR);
+
         // fix orphan
         err = lfs_fs_preporphans(lfs, -1);
         if (err) {
