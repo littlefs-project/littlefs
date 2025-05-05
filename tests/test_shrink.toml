@@ -7,7 +7,7 @@ code = '''
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
     lfs_mount(&lfs, cfg) => 0;
-    lfs_fs_shrink(&lfs, AFTER_BLOCK_COUNT) => 0;
+    lfs_fs_grow(&lfs, AFTER_BLOCK_COUNT) => 0;
     lfs_unmount(&lfs);
     if (BLOCK_COUNT != AFTER_BLOCK_COUNT) {
         lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
@@ -46,7 +46,7 @@ code = '''
         lfs_file_close(&lfs, &file) => 0;
     }
 
-    int err = lfs_fs_shrink(&lfs, AFTER_BLOCK_COUNT);
+    int err = lfs_fs_grow(&lfs, AFTER_BLOCK_COUNT);
     if (err == 0) {
         for (int i = 0; i < FILES_COUNT + 1; i++) {
             lfs_file_t file;

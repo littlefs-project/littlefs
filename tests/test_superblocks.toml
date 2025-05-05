@@ -550,7 +550,7 @@ code = '''
 
     // same size is a noop
     lfs_mount(&lfs, cfg) => 0;
-    lfs_fs_shrink(&lfs, BLOCK_COUNT) => 0;
+    lfs_fs_grow(&lfs, BLOCK_COUNT) => 0;
     lfs_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BLOCK_COUNT);
@@ -564,7 +564,7 @@ code = '''
 
     // grow to new size
     lfs_mount(&lfs, cfg) => 0;
-    lfs_fs_shrink(&lfs, BLOCK_COUNT_2) => 0;
+    lfs_fs_grow(&lfs, BLOCK_COUNT_2) => 0;
     lfs_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BLOCK_COUNT_2);
@@ -594,7 +594,7 @@ code = '''
 
     // same size is a noop
     lfs_mount(&lfs, cfg) => 0;
-    lfs_fs_shrink(&lfs, BLOCK_COUNT_2) => 0;
+    lfs_fs_grow(&lfs, BLOCK_COUNT_2) => 0;
     lfs_fs_stat(&lfs, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BLOCK_COUNT_2);
