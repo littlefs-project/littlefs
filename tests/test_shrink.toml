@@ -2,8 +2,10 @@
 [cases.test_shrink_simple]
 defines.BLOCK_COUNT = [10, 15, 20]
 defines.AFTER_BLOCK_COUNT = [5, 10, 15, 19]
+   
 if = "AFTER_BLOCK_COUNT <= BLOCK_COUNT"
 code = '''
+#ifdef LFS_SHRINKIFCHEAP
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
     lfs_mount(&lfs, cfg) => 0;
@@ -18,6 +20,7 @@ code = '''
     lfs2.cfg = &cfg2;
     lfs_mount(&lfs2, &cfg2) => 0;
     lfs_unmount(&lfs2) => 0;
+#endif
 '''
 
 # shrinking full
@@ -27,6 +30,7 @@ defines.AFTER_BLOCK_COUNT = [5, 7, 10, 12, 15, 17, 20]
 defines.FILES_COUNT = [7, 8, 9, 10]
 if = "AFTER_BLOCK_COUNT <= BLOCK_COUNT && FILES_COUNT + 2 < BLOCK_COUNT"
 code = '''
+#ifdef LFS_SHRINKIFCHEAP
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
     // create FILES_COUNT files of BLOCK_SIZE - 50 bytes (to avoid inlining)
@@ -101,4 +105,5 @@ code = '''
         }
         lfs_unmount(&lfs2);
     }
+#endif
 '''
