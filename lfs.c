@@ -5233,7 +5233,7 @@ static int lfs_fs_gc_(lfs_t *lfs) {
 #endif
 
 #ifndef LFS_READONLY
-#ifdef LFS_SHRINKIFCHEAP
+#ifdef LFS_SHRINKNONRELOCATING
 static int lfs_shrink_checkblock(void * data, lfs_block_t block) {
     lfs_size_t threshold = *((lfs_size_t *) data);
     if (block >= threshold) {
@@ -5251,11 +5251,11 @@ static int lfs_fs_grow_(lfs_t *lfs, lfs_size_t block_count) {
     }
 
     
-#ifndef LFS_SHRINKIFCHEAP
+#ifndef LFS_SHRINKNONRELOCATING
     // shrinking is not supported
     LFS_ASSERT(block_count >= lfs->block_count);
 #endif
-#ifdef LFS_SHRINKIFCHEAP
+#ifdef LFS_SHRINKNONRELOCATING
     lfs_block_t threshold = block_count;
     err = lfs_fs_traverse_(lfs, lfs_shrink_checkblock, &threshold, true);
     if (err) {

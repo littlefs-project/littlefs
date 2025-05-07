@@ -388,7 +388,7 @@ jobs:
           python3 --version
       - name: test-no-intrinsics
         run: |
-          CFLAGS="$CFLAGS -DLFS_SHRINKIFCHEAP" make test
+          CFLAGS="$CFLAGS -DLFS_SHRINKNONRELOCATING" make test
 
   # run with all trace options enabled to at least make sure these
   # all compile

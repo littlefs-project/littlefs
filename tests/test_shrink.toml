@@ -5,7 +5,7 @@ defines.AFTER_BLOCK_COUNT = [5, 10, 15, 19]
    
 if = "AFTER_BLOCK_COUNT <= BLOCK_COUNT"
 code = '''
-#ifdef LFS_SHRINKIFCHEAP
+#ifdef LFS_SHRINKNONRELOCATING
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
     lfs_mount(&lfs, cfg) => 0;
@@ -30,7 +30,7 @@ defines.AFTER_BLOCK_COUNT = [5, 7, 10, 12, 15, 17, 20]
 defines.FILES_COUNT = [7, 8, 9, 10]
 if = "AFTER_BLOCK_COUNT <= BLOCK_COUNT && FILES_COUNT + 2 < BLOCK_COUNT"
 code = '''
-#ifdef LFS_SHRINKIFCHEAP
+#ifdef LFS_SHRINKNONRELOCATING
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
     // create FILES_COUNT files of BLOCK_SIZE - 50 bytes (to avoid inlining)

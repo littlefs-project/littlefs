@@ -531,7 +531,7 @@ defines.BLOCK_COUNT = 'ERASE_COUNT'
 defines.BLOCK_COUNT_2 = ['ERASE_COUNT/2', 'ERASE_COUNT/4', '2']
 defines.KNOWN_BLOCK_COUNT = [true, false]
 code = '''
-#ifdef LFS_SHRINKIFCHEAP
+#ifdef LFS_SHRINKNONRELOCATING
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
 
