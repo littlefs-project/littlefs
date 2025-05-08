@@ -454,8 +454,7 @@ jobs:
           TESTFLAGS="$TESTFLAGS --valgrind --context=1024 -Gdefault -Pnone" \
             make test
 
-  # test that compilation is warning free under clang
-  # run with Clang, mostly to check for Clang-specific warnings
+  # compile/run with Clang, mostly to check for Clang-specific warnings
   test-clang:
     runs-on: ubuntu-latest
     steps:
@@ -469,12 +468,8 @@ jobs:
           python3 --version
       - name: test-clang
         run: |
-          # override CFLAGS since Clang does not support -fcallgraph-info
-          # and -ftrack-macro-expansions
-          make \
-            CC=clang \
-            CFLAGS="$CFLAGS -MMD -g3 -I. -std=c99 -Wall -Wextra -pedantic" \
-            test
+          CC=clang \
+            make test
 
   # run benchmarks
   #
