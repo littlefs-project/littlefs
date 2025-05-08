@@ -18,6 +18,12 @@ VALGRIND ?= valgrind
 GDB		 ?= gdb
 PERF	 ?= perf
 
+# guess clang or gcc (clang sometimes masquerades as gcc because of
+# course it does)
+ifneq ($(shell $(CC) --version | grep clang),)
+NO_GCC = 1
+endif
+
 SRC  ?= $(filter-out $(wildcard *.t.* *.b.*),$(wildcard *.c))
 OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
 DEP  := $(SRC:%.c=$(BUILDDIR)/%.d)
@@ -63,9 +69,9 @@ CFLAGS += -g3
 CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -Wextra -pedantic
 CFLAGS += -Wmissing-prototypes
-ifeq ($(shell $(CC) --version | grep clang),)
-CFLAGS += -ftrack-macro-expansion=0
+ifndef NO_GCC
 CFLAGS += -fcallgraph-info=su
+CFLAGS += -ftrack-macro-expansion=0
 endif
 
 ifdef DEBUG
