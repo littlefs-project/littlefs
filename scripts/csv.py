@@ -2179,7 +2179,8 @@ def main(csv_paths, *,
     if args.get('help_exprs'):
         return CsvExpr.help()
 
-    if by is None and fields is None:
+    if ((by is None or all(hidden for (k, v), hidden in by))
+            and (fields is None or all(hidden for (k, v), hidden in fields))):
         print("error: needs --by or --fields to figure out fields",
                 file=sys.stderr)
         sys.exit(-1)
@@ -2208,40 +2209,6 @@ def main(csv_paths, *,
     elif depth == 0:
         depth = mt.inf
 
-    # separate out enumerates/mods/exprs
-    #
-    # enumerate enumerates: -ia
-    # by supports mods: -ba=%(b)s
-    # fields/sort/etc supports exprs: -fa=b+c
-    #
-    enumerates = [k
-            for (k, v), hidden in (by or [])
-                if v == enumerate]
-    mods = [(k, v)
-            for k, v in it.chain(
-                ((k, v) for (k, v), hidden in (by or [])
-                    if v != enumerate))
-            if v is not None]
-    exprs = [(k, v)
-            for k, v in it.chain(
-                ((k, v) for (k, v), hidden in (fields or [])),
-                ((k, v) for (k, v), reverse in (sort or [])),
-                ((k, v) for (k, v), reverse in (hot or [])))
-            if v is not None]
-    labels = None
-    if by is not None:
-        labels = [k for (k, v), hidden in by if not hidden]
-        by = [k for (k, v), hidden in by]
-    if fields is not None:
-        fields = [k for (k, v), hidden in fields
-                if not hidden
-                    or args.get('output')
-                    or args.get('output_json')]
-    if sort is not None:
-        sort = [(k, reverse) for (k, v), reverse in sort]
-    if hot is not None:
-        hot = [(k, reverse) for (k, v), reverse in hot]
-
     # find results
     if not args.get('use', None):
         # not enough info?
@@ -2265,32 +2232,80 @@ def main(csv_paths, *,
                 notes=notes,
                 **args)
 
+    # separate out enumerates/mods/exprs
+    #
+    # enumerate enumerates: -ia
+    # by supports mods: -ba=%(b)s
+    # fields/sort/etc supports exprs: -fa=b+c
+    #
+    enumerates = [k
+            for (k, v), hidden in (by or [])
+                if v == enumerate]
+    mods = [(k, v)
+            for k, v in it.chain(
+                ((k, v) for (k, v), hidden in (by or [])
+                    if v != enumerate))
+            if v is not None]
+    exprs = [(k, v)
+            for k, v in it.chain(
+                ((k, v) for (k, v), hidden in (fields or [])),
+                ((k, v) for (k, v), reverse in (sort or [])),
+                ((k, v) for (k, v), reverse in (hot or [])))
+            if v is not None]
+
+    # figure out labels/by/fields
+    labels__ = None
+    by__ = []
+    fields__ = []
+    if by is not None and any(not hidden for (k, v), hidden in by):
+        labels__ = [k for (k, v), hidden in by if not hidden]
+    if by is not None:
+        by__ = [k for (k, v), hidden in by]
+    if fields is not None:
+        fields__ = [k for (k, v), hidden in fields
+                if not hidden
+                    or args.get('output')
+                    or args.get('output_json')]
+
     # if by not specified, guess it's anything not in fields/defines/exprs/etc
-    if not by:
-        by = [k for k in fields_
-                if k not in (fields or [])
+    if by is None or all(hidden for (k, v), hidden in by):
+        by__.extend(k for k in fields_
+                if not any(k == k_ for (k_, _), _ in (by or []))
+                    and not any(k == k_ for (k_, _), _ in (fields or []))
                     and not any(k == k_ for k_, _ in defines)
-                    and not any(k == k_ for k_, _ in (sort or []))
+                    and not any(k == k_ for (k_, _), _ in (sort or []))
                     and k != children
-                    and not any(k == k_ for k_, _ in (hot or []))
+                    and not any(k == k_ for (k_, _), _ in (hot or []))
                     and k != notes
                     and not any(k == k_
                         for _, expr in exprs
-                        for k_ in expr.fields())]
+                        for k_ in expr.fields()))
 
     # if fields not specified, guess it's anything not in by/defines/exprs/etc
-    if not fields:
-        fields = [k for k in fields_
-                if k not in (by or [])
+    if fields is None or all(hidden for (k, v), hidden in fields):
+        fields__.extend(k for k in fields_
+                if not any(k == k_ for (k_, _), _ in (by or []))
+                    and not any(k == k_ for (k_, _), _ in (fields or []))
                     and not any(k == k_ for k_, _ in defines)
-                    and not any(k == k_ for k_, _ in (sort or []))
+                    and not any(k == k_ for (k_, _), _ in (sort or []))
                     and k != children
-                    and not any(k == k_ for k_, _ in (hot or []))
+                    and not any(k == k_ for (k_, _), _ in (hot or []))
                     and k != notes
                     and not any(k == k_
                         for _, expr in exprs
-                        for k_ in expr.fields())]
+                        for k_ in expr.fields()))
+    labels = labels__
+    by = by__
+    fields = fields__
 
+    # filter exprs from sort/hot
+    if sort is not None:
+        sort = [(k, reverse) for (k, v), reverse in sort]
+    if hot is not None:
+        hot = [(k, reverse) for (k, v), reverse in hot]
+
+    # ok ok, now that by/fields/bla/bla/bla is all figured out
+    #
     # build result type
     Result = compile(fields_, results,
             by=by,
@@ -2450,7 +2465,8 @@ if __name__ == "__main__":
             nargs='?',
             type=lambda x: (x, enumerate),
             const=('i', enumerate),
-            help="Like -i/--enumerate, but hidden from the table renderer.")
+            help="Like -i/--enumerate, but hidden from the table renderer, "
+                "and doesn't affect -b/--by defaults.")
     parser.add_argument(
             '-b', '--by',
             action=AppendBy,
@@ -2469,7 +2485,8 @@ if __name__ == "__main__":
                     k.strip(),
                     v.strip() if v is not None else None)
                 )(*x.split('=', 1)),
-            help="Like -b/--by, but hidden from the table renderer.")
+            help="Like -b/--by, but hidden from the table renderer, "
+                "and doesn't affect -b/--by defaults.")
     class AppendField(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.fields is None:
@@ -2496,7 +2513,8 @@ if __name__ == "__main__":
                     k.strip(),
                     v.strip() if v is not None else None)
                 )(*x.split('=', 1)),
-            help="Like -f/--field, but hidden from the table renderer.")
+            help="Like -f/--field, but hidden from the table renderer, "
+                "and doesn't affect -f/--field defaults.")
     parser.add_argument(
             '-D', '--define',
             dest='defines',
