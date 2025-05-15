@@ -27,6 +27,7 @@ lfs.bench.csv
 
 # Misc
 tags
+clip
 .gdb_history
 scripts/__pycache__
 
