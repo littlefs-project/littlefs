@@ -1042,9 +1042,9 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         last_defines = None # fetched on demand
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
-        readed_ = None
-        proged_ = None
-        erased_ = None
+        creaded = co.defaultdict(lambda: 0)
+        cproged = co.defaultdict(lambda: 0)
+        cerased = co.defaultdict(lambda: 0)
         try:
             while True:
                 # parse a line for state changes
@@ -1075,9 +1075,9 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         last_defines = None
                         last_stdout.clear()
                         last_assert = None
-                        readed_ = 0
-                        proged_ = 0
-                        erased_ = 0
+                        creaded.clear()
+                        cproged.clear()
+                        cerased.clear()
                     elif op == 'finished':
                         # force a failure
                         if args.get('fail'):
@@ -1110,13 +1110,13 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                 return float(v)
                             else:
                                 return int(v)
-                        readed__ = dat(m.group('readed'))
-                        proged__ = dat(m.group('proged'))
-                        erased__ = dat(m.group('erased'))
+                        readed_ = dat(m.group('readed'))
+                        proged_ = dat(m.group('proged'))
+                        erased_ = dat(m.group('erased'))
                         # keep track of cumulative measurements
-                        readed_ += readed__
-                        proged_ += proged__
-                        erased_ += erased__
+                        creaded[m_] += readed_
+                        cproged[m_] += proged_
+                        cerased[m_] += erased_
                         if output_:
                             # fetch defines if needed, only do this at most
                             # once per perm
@@ -1131,16 +1131,16 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     **last_defines,
                                     'm': m_,
                                     'n': n_,
-                                    'bench_readed': readed__,
-                                    'bench_proged': proged__,
-                                    'bench_erased': erased__,
-                                    'bench_creaded': readed_,
-                                    'bench_cproged': proged_,
-                                    'bench_cerased': erased_})
+                                    'bench_readed': readed_,
+                                    'bench_proged': proged_,
+                                    'bench_erased': erased_,
+                                    'bench_creaded': creaded[m_],
+                                    'bench_cproged': cproged[m_],
+                                    'bench_cerased': cerased[m_]})
                         # keep track of total for summary
-                        readed += readed__
-                        proged += proged__
-                        erased += erased__
+                        readed += readed_
+                        proged += proged_
+                        erased += erased_
         except KeyboardInterrupt:
             proc.kill()
             raise BenchFailure(last_id, 0, list(last_stdout))
