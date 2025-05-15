@@ -1129,7 +1129,7 @@ class CsvExpr:
                 p.chomp()
 
             # floats
-            elif p.match('[+-]?(?:[_0-9]*\.[_0-9eE]|nan)'):
+            elif p.match('[+-]?(?:[_0-9]*\.[_0-9eE]*|nan)'):
                 a = CsvExpr.FloatLit(CsvFloat(p.chomp()))
 
             # ints
