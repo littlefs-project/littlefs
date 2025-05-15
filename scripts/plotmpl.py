@@ -1100,7 +1100,7 @@ def main(csv_paths, output, *,
                         if y is not None))),
                 xlim_[1] if xlim_[1] is not None
                     else max(it.chain([0], (x
-                        for r in subdatasets.values()
+                        for dataset in subdatasets.values()
                         for x, y in dataset
                         if y is not None))))
         ax.set_ylim(
