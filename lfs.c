@@ -5256,7 +5256,7 @@ static int lfs_shrink_checkblock(void *data, lfs_block_t block) {
 static int lfs_fs_grow_(lfs_t *lfs, lfs_size_t block_count) {
     int err;
 
-    if (block_count == lfs->block_count) {
+    if (block_count == lfs->block_count && (lfs->cfg->flags & LFS_CFG_DISABLE_BLOCK_COUNT_CHECK) == 0) {
         return 0;
     }
 
