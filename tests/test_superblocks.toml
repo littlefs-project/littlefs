@@ -524,6 +524,114 @@ code = '''
     lfs2_unmount(&lfs2) => 0;
 '''
 
+
+# mount and grow the filesystem
+[cases.test_superblocks_shrink]
+defines.BLOCK_COUNT = 'ERASE_COUNT'
+defines.BLOCK_COUNT_2 = ['ERASE_COUNT/2', 'ERASE_COUNT/4', '2']
+defines.KNOWN_BLOCK_COUNT = [true, false]
+code = '''
+#ifdef LFS2_SHRINKNONRELOCATING
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT;
+    } else {
+        cfg->block_count = 0;
+    }
+
+    // mount with block_size < erase_size
+    lfs2_mount(&lfs2, cfg) => 0;
+    struct lfs2_fsinfo fsinfo;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    // same size is a noop
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_grow(&lfs2, BLOCK_COUNT) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT);
+    lfs2_unmount(&lfs2) => 0;
+
+    // grow to new size
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_grow(&lfs2, BLOCK_COUNT_2) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_unmount(&lfs2) => 0;
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT_2;
+    } else {
+        cfg->block_count = 0;
+    }
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_unmount(&lfs2) => 0;
+
+    // mounting with the previous size should fail
+    cfg->block_count = BLOCK_COUNT;
+    lfs2_mount(&lfs2, cfg) => LFS2_ERR_INVAL;
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT_2;
+    } else {
+        cfg->block_count = 0;
+    }
+
+    // same size is a noop
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_grow(&lfs2, BLOCK_COUNT_2) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_unmount(&lfs2) => 0;
+
+    // do some work
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_file_t file;
+    lfs2_file_open(&lfs2, &file, "test",
+            LFS2_O_CREAT | LFS2_O_EXCL | LFS2_O_WRONLY) => 0;
+    lfs2_file_write(&lfs2, &file, "hello!", 6) => 6;
+    lfs2_file_close(&lfs2, &file) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    lfs2_mount(&lfs2, cfg) => 0;
+    lfs2_fs_stat(&lfs2, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs2_file_open(&lfs2, &file, "test", LFS2_O_RDONLY) => 0;
+    uint8_t buffer[256];
+    lfs2_file_read(&lfs2, &file, buffer, sizeof(buffer)) => 6;
+    lfs2_file_close(&lfs2, &file) => 0;
+    assert(memcmp(buffer, "hello!", 6) == 0);
+    lfs2_unmount(&lfs2) => 0;
+#endif
+'''
+
 # test that metadata_max does not cause problems for superblock compaction
 [cases.test_superblocks_metadata_max]
 defines.METADATA_MAX = [
