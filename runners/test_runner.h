@@ -109,7 +109,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(GC_STEPS,           0                                       ) \
     TEST_DEFINE(GC_COMPACT_THRESH,  0                                       ) \
     TEST_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                            ) \
-    TEST_DEFINE(FRAGMENT_SIZE,      BLOCK_SIZE/8                            ) \
+    TEST_DEFINE(FRAGMENT_SIZE,      LFS_MIN(BLOCK_SIZE/8, 512)              ) \
     TEST_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                            ) \
     TEST_DEFINE(FRAGMENT_THRESH,    -1                                      ) \
     TEST_DEFINE(ERASE_VALUE,        0xff                                    ) \
