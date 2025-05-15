@@ -105,7 +105,7 @@ def si(x):
     if x == 0:
         return '0'
     # figure out prefix and scale
-    p = 3*int(mt.log(abs(x), 10**3))
+    p = 3*mt.floor(mt.log(abs(x), 10**3))
     p = min(18, max(-18, p))
     # format with 3 digits of precision
     s = '%.3f' % (abs(x) / (10.0**p))
@@ -121,7 +121,7 @@ def si2(x):
     if x == 0:
         return '0'
     # figure out prefix and scale
-    p = 10*int(mt.log(abs(x), 2**10))
+    p = 10*mt.floor(mt.log(abs(x), 2**10))
     p = min(30, max(-30, p))
     # format with 3 digits of precision
     s = '%.3f' % (abs(x) / (2.0**p))

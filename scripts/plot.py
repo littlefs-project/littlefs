@@ -101,7 +101,7 @@ def si(x, w=4):
     #
     # note we adjust this so that 100K = .1M, which has more info
     # per character
-    p = 3*int(mt.log(abs(x)*10, 10**3))
+    p = 3*mt.floor(mt.log(abs(x)*10, 10**3))
     p = min(18, max(-18, p))
     # format with enough digits
     s = '%.*f' % (w, abs(x) / (10.0**p))
@@ -120,7 +120,7 @@ def si2(x, w=5):
     #
     # note we adjust this so that 128Ki = .1Mi, which has more info
     # per character
-    p = 10*int(mt.log(abs(x)*10, 2**10))
+    p = 10*mt.floor(mt.log(abs(x)*10, 2**10))
     p = min(30, max(-30, p))
     # format with enough digits
     s = '%.*f' % (w, abs(x) / (2.0**p))
