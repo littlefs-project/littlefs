@@ -8182,7 +8182,7 @@ static lfs_ssize_t lfsr_mdir_estimate__(lfs_t *lfs, const lfsr_mdir_t *mdir,
 
             } else {
                 // include the cost of this tag
-                dsize_ += lfs->rattr_estimate + lfsr_data_size(data);
+                dsize_ += lfs->mattr_estimate + lfsr_data_size(data);
             }
         }
 
@@ -13452,6 +13452,17 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
             + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
     LFS_ASSERT(tag_estimate <= LFSR_TAG_DSIZE);
     lfs->rattr_estimate = 3*tag_estimate + 4;
+
+    // calculate the upper-bound cost of a single mdir attr after compaction
+    //
+    // This is the same as rattr_estimate, except we can assume a weight<=1.
+    //
+    tag_estimate
+            = 2
+            + 1
+            + (lfs_nlog2(lfs->cfg->block_size)+7-1)/7;
+    LFS_ASSERT(tag_estimate <= LFSR_TAG_DSIZE);
+    lfs->mattr_estimate = 3*tag_estimate + 4;
 
     // calculate the number of bits we need to reserve for mdir rids
     //

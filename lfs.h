@@ -833,8 +833,9 @@ typedef struct lfs {
     lfs_off_t file_limit;
 
     int8_t recycle_bits;
-    uint8_t rattr_estimate;
     uint8_t mbits;
+    uint8_t rattr_estimate;
+    uint8_t mattr_estimate;
 
     // linked-list of opened mdirs
     lfsr_omdir_t *omdirs;
