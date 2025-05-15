@@ -1845,11 +1845,11 @@ if __name__ == "__main__":
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(
-            '-S', '--coalesce',
+            '-+', '--coalesce',
             type=lambda x: int(x, 0),
             help="Number of operations to coalesce together.")
     parser.add_argument(
-            '-s', '--sleep',
+            '-~', '--sleep',
             type=float,
             help="Seconds to sleep between draws, coalescing operations "
                 "in between.")

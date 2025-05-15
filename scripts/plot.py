@@ -314,6 +314,19 @@ def dat(x, *args):
         else:
             raise
 
+# a simple reverse-key class
+class Rev(co.namedtuple('Rev', 'a')):
+    __slots__ = ()
+    # yes we need all of these because we're a namedtuple
+    def __lt__(self, other):
+        return self.a > other.a
+    def __gt__(self, other):
+        return self.a < other.a
+    def __le__(self, other):
+        return self.a >= other.a
+    def __ge__(self, other):
+        return self.a <= other.a
+
 def collect(csv_paths, defines=[]):
     # collect results from CSV files
     fields = []
@@ -1185,6 +1198,7 @@ def main_(ring, csv_paths, *,
         x=None,
         y=None,
         define=[],
+        sort=None,
         labels=[],
         chars=[],
         line_chars=[],
@@ -1384,12 +1398,18 @@ def main_(ring, csv_paths, *,
     # note we don't need to filter by defines again
     datasets_, dataattrs_ = fold(results, all_by, all_x, all_y)
 
-    # order by labels
+    # sort datasets
     datasets_ = co.OrderedDict(sorted(
             datasets_.items(),
-            key=lambda kv: labels_.key(kv[0])))
+            key=lambda kv: (
+                # sort by explicit sort fields
+                tuple((Rev if reverse else lambda x: x)(
+                        dat(dataattrs_[kv[0]].get(k,''), 0))
+                    for k, reverse in (sort or [])),
+                # order by labels
+                labels_.key(kv[0]))))
 
-    # and merge dataattrs
+    # merge dataattrs
     mergedattrs_ = {k: v
             for dataattr in dataattrs_.values()
             for k, v in dataattr.items()}
@@ -1918,6 +1938,21 @@ if __name__ == "__main__":
             action='append',
             help="Only include results where this field is this value. May "
                 "include comma-separated options and globs.")
+    class AppendSort(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.sort is None:
+                namespace.sort = []
+            namespace.sort.append((value, option in {'-S', '--reverse-sort'}))
+    parser.add_argument(
+            '-s', '--sort',
+            nargs='?',
+            action=AppendSort,
+            help="Sort by this field.")
+    parser.add_argument(
+            '-S', '--reverse-sort',
+            nargs='?',
+            action=AppendSort,
+            help="Sort by this field, but backwards.")
     parser.add_argument(
             '-L', '--add-label',
             dest='labels',
@@ -2126,7 +2161,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(
-            '-s', '--sleep',
+            '-~', '--sleep',
             type=float,
             help="Time in seconds to sleep between redraws when running "
                 "with -k. Defaults to 2 seconds.")
