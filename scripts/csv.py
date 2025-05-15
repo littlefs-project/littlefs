@@ -59,6 +59,14 @@ class CsvInt(co.namedtuple('CsvInt', 'a')):
         else:
             return str(self.a)
 
+    def __csv__(self):
+        if self.a == mt.inf:
+            return 'inf'
+        elif self.a == -mt.inf:
+            return '-inf'
+        else:
+            return repr(self.a)
+
     def __bool__(self):
         return bool(self.a)
 
@@ -161,6 +169,14 @@ class CsvFloat(co.namedtuple('CsvFloat', 'a')):
         else:
             return '%.1f' % self.a
 
+    def __csv__(self):
+        if self.a == mt.inf:
+            return 'inf'
+        elif self.a == -mt.inf:
+            return '-inf'
+        else:
+            return repr(self.a)
+
     def __bool__(self):
         return bool(self.a)
 
@@ -247,6 +263,9 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
 
     def __str__(self):
         return '%s/%s' % (self.a, self.b)
+
+    def __csv__(self):
+        return '%s/%s' % (self.a.__csv__(), self.b.__csv__())
 
     def __bool__(self):
         return bool(self.a)
@@ -2126,7 +2145,7 @@ def write_csv(path, Result, results, *,
                         {k: getattr(r, k)
                                 for k in by
                                 if getattr(r, k) is not None}
-                            | {prefix+k: str(getattr(r, k))
+                            | {prefix+k: getattr(r, k).__csv__()
                                 for k in fields
                                 if getattr(r, k) is not None})
 
@@ -2142,7 +2161,7 @@ def write_csv(path, Result, results, *,
                             {k: getattr(r, k)
                                     for k in by
                                     if getattr(r, k) is not None}
-                                | {prefix+k: str(getattr(r, k))
+                                | {prefix+k: getattr(r, k).__csv__()
                                     for k in fields
                                     if getattr(r, k) is not None}
                                 | ({Result._children: jsonify(
