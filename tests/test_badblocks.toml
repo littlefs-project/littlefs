@@ -31,7 +31,7 @@ defines.BADBLOCK_BEHAVIOR = [
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
-defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
@@ -1985,7 +1985,7 @@ defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
-defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'
@@ -3942,7 +3942,7 @@ defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS_EMUBD_BADBLOCK_READERROR'
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
-defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = 'LFS_IFDEF_CKPROGS(true, !CKPROGS)'

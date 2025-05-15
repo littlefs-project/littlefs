@@ -3,7 +3,7 @@ after = 'test_rbyd'
 
 # maximize lookahead buffer, we don't actually gc so we only get one pass
 # of the disk for these tests
-defines.LOOKAHEAD_SIZE = 'lfs_alignup(BLOCK_COUNT / 8, 8)'
+defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 
 # test an empty tree
 [cases.test_btree_zero]
