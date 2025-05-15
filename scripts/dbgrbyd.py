@@ -948,7 +948,8 @@ class JumpArt:
 
     @classmethod
     def fromrbyd(cls, rbyd, all=False):
-        all_ = all; del all
+        import builtins
+        all_, all = all, builtins.all
 
         jumps = []
         j_ = 4
@@ -1100,7 +1101,8 @@ class LifetimeArt:
 
     @classmethod
     def fromrbyd(cls, rbyd, all=False):
-        all_ = all; del all
+        import builtins
+        all_, all = all, builtins.all
 
         # first figure out where each rid comes from
         id = 0

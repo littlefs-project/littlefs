@@ -2994,7 +2994,8 @@ class Lfs:
     # lookup operations 
     def lookup(self, mid, mdir=None, *,
             all=False):
-        all_ = all; del all
+        import builtins
+        all_, all = all, builtins.all
 
         # is this mid grmed?
         if not all_ and self.grmed(mid):
@@ -3015,7 +3016,8 @@ class Lfs:
 
     def namelookup(self, did, name, *,
             all=False):
-        all_ = all; del all
+        import builtins
+        all_, all = all, builtins.all
 
         mid_, mdir_, name_ = self.mtree.namelookup(did, name)
         if mid_ is None:
@@ -3077,7 +3079,8 @@ class Lfs:
             all=False,
             path=False,
             depth=None):
-        all_ = all; del all
+        import builtins
+        all_, all = all, builtins.all
 
         # default to the root directory
         if path_ is None:
@@ -3130,7 +3133,8 @@ class Lfs:
             all=False,
             path=False,
             depth=None):
-        all_ = all; del all
+        import builtins
+        all_, all = all, builtins.all
 
         # default to the root directory
         did = did or self.root.did
@@ -3185,7 +3189,8 @@ class Lfs:
 
     def orphans(self,
             all=False):
-        all_ = all; del all
+        import builtins
+        all_, all = all, builtins.all
 
         # first find all reachable dids
         dids = {self.root.did}

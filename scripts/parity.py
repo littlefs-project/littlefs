@@ -49,7 +49,8 @@ def parity(x):
 def main(paths, *,
         hex=False,
         string=False):
-    hex_ = hex; del hex
+    import builtins
+    hex_, hex = hex, builtins.hex
 
     # interpret as sequence of hex bytes
     if hex_:

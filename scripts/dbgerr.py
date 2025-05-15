@@ -28,7 +28,8 @@ ERRS = [
 
 def main(errs, *,
         list=False):
-    list_ = list; del list
+    import builtins
+    list_, list = list, builtins.list
 
     lines = []
     # list all known error codes

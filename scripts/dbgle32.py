@@ -59,7 +59,8 @@ def main(le32s, *,
         hex=False,
         input=None,
         word_bits=32):
-    hex_ = hex; del hex
+    import builtins
+    hex_, hex = hex, builtins.hex
 
     # interpret as a sequence of hex bytes
     if hex_:

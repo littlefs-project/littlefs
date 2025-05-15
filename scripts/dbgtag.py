@@ -290,8 +290,9 @@ def main(tags, *,
         hex=False,
         input=None,
         word_bits=32):
-    list_ = list; del list
-    hex_ = hex; del hex
+    import builtins
+    list_, list = list, builtins.list
+    hex_, hex = hex, builtins.hex
 
     # list all known tags
     if list_:
