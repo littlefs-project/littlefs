@@ -569,6 +569,7 @@ benchmarks-diff: $(BENCH_CSV)
 # low-level rules
 -include $(DEP)
 -include $(TEST_DEP)
+-include $(BENCH_DEP)
 .SUFFIXES:
 .SECONDARY:
 
