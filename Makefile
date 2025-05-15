@@ -1,21 +1,12 @@
-ifdef BUILDDIR
-# bit of a hack, but we want to make sure BUILDDIR directory structure
-# is correct before any commands
-$(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
-	$(BUILDDIR)/ \
-	$(BUILDDIR)/bd \
-	$(BUILDDIR)/runners \
-	$(BUILDDIR)/tests \
-	$(BUILDDIR)/benches))
-endif
+# overrideable build dir, default is in-place
 BUILDDIR ?= .
-
-# default to building a library
+# overrideable target, default to building a library
 ifneq ($(wildcard test.c main.c),)
 TARGET ?= $(BUILDDIR)/lfs
 else
 TARGET ?= $(BUILDDIR)/liblfs.a
 endif
+
 
 # find source files
 SRC  ?= $(filter-out $(wildcard *.t.* *.b.*),$(wildcard *.c))
@@ -26,11 +17,13 @@ CI   := $(SRC:%.c=$(BUILDDIR)/%.ci)
 GCDA := $(SRC:%.c=$(BUILDDIR)/%.t.a.gcda)
 
 TESTS ?= $(wildcard tests/*.toml)
-TEST_SRC ?= $(SRC) \
+TEST_SRC ?= \
+		$(SRC) \
 		$(filter-out $(wildcard bd/*.t.* bd/*.b.*),$(wildcard bd/*.c)) \
 		runners/test_runner.c
 TEST_RUNNER ?= $(BUILDDIR)/runners/test_runner
-TEST_C     := $(TESTS:%.toml=$(BUILDDIR)/%.t.c) \
+TEST_C     := \
+		$(TESTS:%.toml=$(BUILDDIR)/%.t.c) \
 		$(TEST_SRC:%.c=$(BUILDDIR)/%.t.c)
 TEST_A     := $(TEST_C:%.t.c=%.t.a.c)
 TEST_OBJ   := $(TEST_A:%.t.a.c=%.t.a.o)
@@ -43,11 +36,13 @@ TEST_TRACE := $(TEST_RUNNER:%=%.trace)
 TEST_CSV   := $(TEST_RUNNER:%=%.csv)
 
 BENCHES ?= $(wildcard benches/*.toml)
-BENCH_SRC ?= $(SRC) \
+BENCH_SRC ?= \
+		$(SRC) \
 		$(filter-out $(wildcard bd/*.t.* bd/*.b.*),$(wildcard bd/*.c)) \
 		runners/bench_runner.c
 BENCH_RUNNER ?= $(BUILDDIR)/runners/bench_runner
-BENCH_C     := $(BENCHES:%.toml=$(BUILDDIR)/%.b.c) \
+BENCH_C     := \
+		$(BENCHES:%.toml=$(BUILDDIR)/%.b.c) \
 		$(BENCH_SRC:%.c=$(BUILDDIR)/%.b.c)
 BENCH_A     := $(BENCH_C:%.b.c=%.b.a.c)
 BENCH_OBJ   := $(BENCH_A:%.b.a.c=%.b.a.o)
@@ -142,13 +137,11 @@ TESTFLAGS  += -p$(TEST_PERF)
 BENCHFLAGS += -p$(BENCH_PERF)
 endif
 ifdef PERFBDGEN
-TESTFLAGS += -t$(TEST_TRACE) --trace-backtrace --trace-freq=100
-endif
-ifdef PERFBDGEN
+TESTFLAGS  += -t$(TEST_TRACE) --trace-backtrace --trace-freq=100
 BENCHFLAGS += -t$(BENCH_TRACE) --trace-backtrace --trace-freq=100
 endif
 ifdef TESTMARKS
-TESTFLAGS += -o$(TEST_CSV)
+TESTFLAGS  += -o$(TEST_CSV)
 endif
 ifdef BENCHMARKS
 BENCHFLAGS += -o$(BENCH_CSV)
@@ -174,6 +167,19 @@ endif
 ifneq ($(PERF),perf)
 TESTFLAGS  += --perf-path="$(PERF)"
 BENCHFLAGS += --perf-path="$(PERF)"
+endif
+
+# this is a bit of a hack, but we want to make sure the BUILDDIR
+# directory structure is correct before we run any commands
+ifneq ($(BUILDDIR),.)
+$(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
+	$(BUILDDIR) \
+	$(addprefix $(BUILDDIR)/,$(dir \
+		$(SRC) \
+		$(TESTS) \
+		$(TEST_SRC) \
+		$(BENCHES) \
+		$(BENCH_SRC)))))
 endif
 
 
@@ -627,7 +633,13 @@ $(BUILDDIR)/runners/bench_runner: $(BENCH_OBJ)
 $(BUILDDIR)/%.o $(BUILDDIR)/%.ci: %.c
 	$(CC) -c -MMD $(CFLAGS) $< -o $(BUILDDIR)/$*.o
 
+$(BUILDDIR)/%.o $(BUILDDIR)/%.ci: $(BUILDDIR)/%.c
+	$(CC) -c -MMD $(CFLAGS) $< -o $(BUILDDIR)/$*.o
+
 $(BUILDDIR)/%.s: %.c
+	$(CC) -S $(CFLAGS) $< -o$@
+
+$(BUILDDIR)/%.s: $(BUILDDIR)/%.c
 	$(CC) -S $(CFLAGS) $< -o$@
 
 $(BUILDDIR)/%.a.c: %.c
