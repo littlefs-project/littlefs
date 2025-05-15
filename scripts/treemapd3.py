@@ -104,7 +104,9 @@ def collect(csv_paths, defines=[]):
                             if k not in fields)
                 for r in reader:
                     # filter by matching defines
-                    if not all(k in r and r[k] in vs for k, vs in defines):
+                    if not all(any(fnmatch.fnmatchcase(r.get(k, ''), v)
+                                for v in vs)
+                            for k, vs in defines):
                         continue
 
                     results.append(r)
@@ -118,7 +120,9 @@ def fold(results, by=None, fields=None, defines=[]):
     if defines:
         results_ = []
         for r in results:
-            if all(k in r and r[k] in vs for k, vs in defines):
+            if all(any(fnmatch.fnmatchcase(r.get(k, ''), v)
+                        for v in vs)
+                    for k, vs in defines):
                 results_.append(r)
         results = results_
 
@@ -1043,7 +1047,8 @@ if __name__ == "__main__":
                     k.strip(),
                     {v.strip() for v in vs.split(',')})
                 )(*x.split('=', 1)),
-            help="Only include results where this field is this value.")
+            help="Only include results where this field is this value. May "
+                "include comma-separated options and globs.")
     parser.add_argument(
             '-L', '--add-label',
             dest='labels',

@@ -15,9 +15,10 @@ if __name__ == "__main__":
 
 import collections as co
 import csv
-import itertools as it
-import io
+import fnmatch
 import functools as ft
+import io
+import itertools as it
 import math as mt
 import os
 import re
@@ -637,7 +638,9 @@ def fold(Result, results, *,
     if defines:
         results_ = []
         for r in results:
-            if all(str(getattr(r, k)) in vs for k, vs in defines):
+            if all(any(fnmatch.fnmatchcase(str(getattr(r, k, '')), v)
+                        for v in vs)
+                    for k, vs in defines):
                 results_.append(r)
         results = results_
 
@@ -775,7 +778,13 @@ def table(Result, results, diff_results=None, *,
 
     # find compare entry if there is one
     if compare:
-        compare_r = table.get(','.join(str(k) for k in compare))
+        compare_ = min(
+            (n for n in table.keys()
+                if all(fnmatch.fnmatchcase(k, c)
+                    for k, c in it.zip_longest(n.split(','), compare,
+                        fillvalue=''))),
+            default=compare)
+        compare_r = table.get(compare_)
 
     # build up our lines
     lines = []
@@ -1333,7 +1342,8 @@ if __name__ == "__main__":
                     k.strip(),
                     {v.strip() for v in vs.split(',')})
                 )(*x.split('=', 1)),
-            help="Only include results where this field is this value.")
+            help="Only include results where this field is this value. May "
+                "include comma-separated options and globs.")
     class AppendSort(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.sort is None:
