@@ -374,6 +374,22 @@ jobs:
         run: |
           CFLAGS="$CFLAGS -DLFS_NO_INTRINSICS" make test
 
+  test-shrink:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip
+          pip3 install toml
+          gcc --version
+          python3 --version
+      - name: test-no-intrinsics
+        run: |
+          CFLAGS="$CFLAGS -DLFS_SHRINKNONRELOCATING" make test
+
   # run with all trace options enabled to at least make sure these
   # all compile
   test-yes-trace:
@@ -454,8 +470,7 @@ jobs:
           TESTFLAGS="$TESTFLAGS --valgrind --context=1024 -Gdefault -Pnone" \
             make test
 
-  # test that compilation is warning free under clang
-  # run with Clang, mostly to check for Clang-specific warnings
+  # compile/run with Clang, mostly to check for Clang-specific warnings
   test-clang:
     runs-on: ubuntu-latest
     steps:
@@ -469,12 +484,8 @@ jobs:
           python3 --version
       - name: test-clang
         run: |
-          # override CFLAGS since Clang does not support -fcallgraph-info
-          # and -ftrack-macro-expansions
-          make \
-            CC=clang \
-            CFLAGS="$CFLAGS -MMD -g3 -I. -std=c99 -Wall -Wextra -pedantic" \
-            test
+          CC=clang \
+            make test
 
   # run benchmarks
   #

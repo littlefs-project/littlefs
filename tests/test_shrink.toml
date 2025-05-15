@@ -1,0 +1,109 @@
+# simple shrink
+[cases.test_shrink_simple]
+defines.BLOCK_COUNT = [10, 15, 20]
+defines.AFTER_BLOCK_COUNT = [5, 10, 15, 19]
+   
+if = "AFTER_BLOCK_COUNT <= BLOCK_COUNT"
+code = '''
+#ifdef LFS_SHRINKNONRELOCATING
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_fs_grow(&lfs, AFTER_BLOCK_COUNT) => 0;
+    lfs_unmount(&lfs);
+    if (BLOCK_COUNT != AFTER_BLOCK_COUNT) {
+        lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
+    }
+    lfs_t lfs2 = lfs;
+    struct lfs_config cfg2 = *cfg;
+    cfg2.block_count = AFTER_BLOCK_COUNT;
+    lfs2.cfg = &cfg2;
+    lfs_mount(&lfs2, &cfg2) => 0;
+    lfs_unmount(&lfs2) => 0;
+#endif
+'''
+
+# shrinking full
+[cases.test_shrink_full]
+defines.BLOCK_COUNT = [10, 15, 20]
+defines.AFTER_BLOCK_COUNT = [5, 7, 10, 12, 15, 17, 20]
+defines.FILES_COUNT = [7, 8, 9, 10]
+if = "AFTER_BLOCK_COUNT <= BLOCK_COUNT && FILES_COUNT + 2 < BLOCK_COUNT"
+code = '''
+#ifdef LFS_SHRINKNONRELOCATING
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    // create FILES_COUNT files of BLOCK_SIZE - 50 bytes (to avoid inlining)
+    lfs_mount(&lfs, cfg) => 0;
+    for (int i = 0; i < FILES_COUNT + 1; i++) {
+        lfs_file_t file;
+        char path[1024];
+        sprintf(path, "file_%03d", i);
+        lfs_file_open(&lfs, &file, path,
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        char wbuffer[BLOCK_SIZE];
+        memset(wbuffer, 'b', BLOCK_SIZE);
+        // Ensure one block is taken per file, but that files are not inlined.
+        lfs_size_t size = BLOCK_SIZE - 0x40;
+        sprintf(wbuffer, "Hi %03d", i);
+        lfs_file_write(&lfs, &file, wbuffer, size) => size;
+        lfs_file_close(&lfs, &file) => 0;
+    }
+
+    int err = lfs_fs_grow(&lfs, AFTER_BLOCK_COUNT);
+    if (err == 0) {
+        for (int i = 0; i < FILES_COUNT + 1; i++) {
+            lfs_file_t file;
+            char path[1024];
+            sprintf(path, "file_%03d", i);
+            lfs_file_open(&lfs, &file, path,
+                    LFS_O_RDONLY ) => 0;
+            lfs_size_t size = BLOCK_SIZE - 0x40;
+            char wbuffer[size];
+            char wbuffer_ref[size];
+            // Ensure one block is taken per file, but that files are not inlined.
+            memset(wbuffer_ref, 'b', size);
+            sprintf(wbuffer_ref, "Hi %03d", i);
+            lfs_file_read(&lfs, &file, wbuffer, BLOCK_SIZE) => size;
+            lfs_file_close(&lfs, &file) => 0;
+            for (lfs_size_t j = 0; j < size; j++) {
+                wbuffer[j] => wbuffer_ref[j];
+            }
+        }
+    } else {
+        assert(err == LFS_ERR_NOTEMPTY);
+    }
+
+    lfs_unmount(&lfs) => 0;
+    if (err == 0 ) {
+        if ( AFTER_BLOCK_COUNT != BLOCK_COUNT ) {
+            lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
+        }
+
+        lfs_t lfs2 = lfs;
+        struct lfs_config cfg2 = *cfg;
+        cfg2.block_count = AFTER_BLOCK_COUNT;
+        lfs2.cfg = &cfg2;
+        lfs_mount(&lfs2, &cfg2) => 0;
+        for (int i = 0; i < FILES_COUNT + 1; i++) {
+            lfs_file_t file;
+            char path[1024];
+            sprintf(path, "file_%03d", i);
+            lfs_file_open(&lfs2, &file, path,
+                    LFS_O_RDONLY ) => 0;
+            lfs_size_t size = BLOCK_SIZE - 0x40;
+            char wbuffer[size];
+            char wbuffer_ref[size];
+            // Ensure one block is taken per file, but that files are not inlined.
+            memset(wbuffer_ref, 'b', size);
+            sprintf(wbuffer_ref, "Hi %03d", i);
+            lfs_file_read(&lfs2, &file, wbuffer, BLOCK_SIZE) => size;
+            lfs_file_close(&lfs2, &file) => 0;
+            for (lfs_size_t j = 0; j < size; j++) {
+                wbuffer[j] => wbuffer_ref[j];
+            }
+        }
+        lfs_unmount(&lfs2);
+    }
+#endif
+'''

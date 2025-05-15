@@ -207,7 +207,8 @@ code = '''
 [cases.test_orphans_reentrant]
 reentrant = true
 # TODO fix this case, caused by non-DAG trees
-if = '!(DEPTH == 3 && CACHE_SIZE != 64)'
+# NOTE the second condition is required
+if = '!(DEPTH == 3 && CACHE_SIZE != 64) && 2*FILES < BLOCK_COUNT'
 defines = [
     {FILES=6,  DEPTH=1, CYCLES=20},
     {FILES=26, DEPTH=1, CYCLES=20},
@@ -262,6 +263,72 @@ code = '''
                 strcpy(path, full_path);
                 path[2*d+2] = '\0';
                 err = lfs_remove(&lfs, path);
+                assert(!err || err == LFS_ERR_NOTEMPTY);
+            }
+
+            lfs_stat(&lfs, full_path, &info) => LFS_ERR_NOENT;
+        }
+    }
+    lfs_unmount(&lfs) => 0;
+'''
+
+# non-reentrant testing for orphans, this is the same as reentrant
+# testing, but we test way more states than we could under powerloss
+[cases.test_orphans_nonreentrant]
+# TODO fix this case, caused by non-DAG trees
+# NOTE the second condition is required
+if = '!(DEPTH == 3 && CACHE_SIZE != 64) && 2*FILES < BLOCK_COUNT'
+defines = [
+    {FILES=6,   DEPTH=1, CYCLES=2000},
+    {FILES=26,  DEPTH=1, CYCLES=2000},
+    {FILES=3,   DEPTH=3, CYCLES=2000},
+]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+
+    uint32_t prng = 1;
+    const char alpha[] = "abcdefghijklmnopqrstuvwxyz";
+    for (unsigned i = 0; i < CYCLES; i++) {
+        // create random path
+        char full_path[256];
+        for (unsigned d = 0; d < DEPTH; d++) {
+            sprintf(&full_path[2*d], "/%c", alpha[TEST_PRNG(&prng) % FILES]);
+        }
+
+        // if it does not exist, we create it, else we destroy
+        struct lfs_info info;
+        int res = lfs_stat(&lfs, full_path, &info);
+        if (res == LFS_ERR_NOENT) {
+            // create each directory in turn, ignore if dir already exists
+            for (unsigned d = 0; d < DEPTH; d++) {
+                char path[1024];
+                strcpy(path, full_path);
+                path[2*d+2] = '\0';
+                int err = lfs_mkdir(&lfs, path);
+                assert(!err || err == LFS_ERR_EXIST);
+            }
+
+            for (unsigned d = 0; d < DEPTH; d++) {
+                char path[1024];
+                strcpy(path, full_path);
+                path[2*d+2] = '\0';
+                lfs_stat(&lfs, path, &info) => 0;
+                assert(strcmp(info.name, &path[2*d+1]) == 0);
+                assert(info.type == LFS_TYPE_DIR);
+            }
+        } else {
+            // is valid dir?
+            assert(strcmp(info.name, &full_path[2*(DEPTH-1)+1]) == 0);
+            assert(info.type == LFS_TYPE_DIR);
+
+            // try to delete path in reverse order, ignore if dir is not empty
+            for (int d = DEPTH-1; d >= 0; d--) {
+                char path[1024];
+                strcpy(path, full_path);
+                path[2*d+2] = '\0';
+                int err = lfs_remove(&lfs, path);
                 assert(!err || err == LFS_ERR_NOTEMPTY);
             }
 
