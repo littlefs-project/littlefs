@@ -177,7 +177,7 @@ def fold(results, by=None, fields=None, defines=[]):
     return datasets, dataattrs
 
 # a representation of optionally key-mapped attrs
-class Attr:
+class CsvAttr:
     def __init__(self, attrs, defaults=None):
         if attrs is None:
             attrs = []
@@ -201,20 +201,20 @@ class Attr:
             self.keyed[attr[0]].append(attr[1])
 
         # create attrs object for defaults
-        if isinstance(defaults, Attr):
+        if isinstance(defaults, CsvAttr):
             self.defaults = defaults
         elif defaults is not None:
-            self.defaults = Attr(defaults)
+            self.defaults = CsvAttr(defaults)
         else:
             self.defaults = None
 
     def __repr__(self):
         if self.defaults is None:
-            return 'Attr(%r)' % (
+            return 'CsvAttr(%r)' % (
                     [(','.join(attr[0]), attr[1])
                         for attr in self.attrs])
         else:
-            return 'Attr(%r, %r)' % (
+            return 'CsvAttr(%r, %r)' % (
                     [(','.join(attr[0]), attr[1])
                         for attr in self.attrs],
                     [(','.join(attr[0]), attr[1])
@@ -668,9 +668,9 @@ def main(csv_paths, output, *,
         no_header = True
 
     # what colors/labels to use?
-    colors_ = Attr(colors, defaults=COLORS_DARK if dark else COLORS)
+    colors_ = CsvAttr(colors, defaults=COLORS_DARK if dark else COLORS)
 
-    labels_ = Attr(labels)
+    labels_ = CsvAttr(labels)
 
     if background is not None:
         background_ = background

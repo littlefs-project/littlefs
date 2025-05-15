@@ -442,7 +442,7 @@ def fold(results, by=None, x=None, y=None, defines=[]):
     return datasets, dataattrs
 
 # a representation of optionally key-mapped attrs
-class Attr:
+class CsvAttr:
     def __init__(self, attrs, defaults=None):
         if attrs is None:
             attrs = []
@@ -466,20 +466,20 @@ class Attr:
             self.keyed[attr[0]].append(attr[1])
 
         # create attrs object for defaults
-        if isinstance(defaults, Attr):
+        if isinstance(defaults, CsvAttr):
             self.defaults = defaults
         elif defaults is not None:
-            self.defaults = Attr(defaults)
+            self.defaults = CsvAttr(defaults)
         else:
             self.defaults = None
 
     def __repr__(self):
         if self.defaults is None:
-            return 'Attr(%r)' % (
+            return 'CsvAttr(%r)' % (
                     [(','.join(attr[0]), attr[1])
                         for attr in self.attrs])
         else:
-            return 'Attr(%r, %r)' % (
+            return 'CsvAttr(%r, %r)' % (
                     [(','.join(attr[0]), attr[1])
                         for attr in self.attrs],
                     [(','.join(attr[0]), attr[1])
@@ -1264,7 +1264,7 @@ def main_(ring, csv_paths, *,
             chars_.extend((char[0], c) for c in psplit(char[1]))
         else:
             chars_.extend(psplit(char))
-    chars_ = Attr(chars_, defaults=(
+    chars_ = CsvAttr(chars_, defaults=(
             CHARS_POINTS_AND_LINES if points_and_lines
                 else [True]))
 
@@ -1274,13 +1274,13 @@ def main_(ring, csv_paths, *,
             line_chars_.extend((line_char[0], c) for c in psplit(line_char[1]))
         else:
             line_chars_.extend(psplit(line_char))
-    line_chars_ = Attr(line_chars_, defaults=(
+    line_chars_ = CsvAttr(line_chars_, defaults=(
             [True] if points_and_lines or not points
                 else [False]))
 
-    colors_ = Attr(colors, defaults=COLORS)
+    colors_ = CsvAttr(colors, defaults=COLORS)
 
-    labels_ = Attr(labels)
+    labels_ = CsvAttr(labels)
 
     # split %n newlines early
     title = (title.replace('%n', '\n').split('\n')

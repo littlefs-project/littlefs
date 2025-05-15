@@ -3800,7 +3800,7 @@ class RingIO:
         sys.stdout.flush()
 
 # a representation of optionally key-mapped attrs
-class Attr:
+class CsvAttr:
     def __init__(self, attrs, defaults=None):
         if attrs is None:
             attrs = []
@@ -3824,20 +3824,20 @@ class Attr:
             self.keyed[attr[0]].append(attr[1])
 
         # create attrs object for defaults
-        if isinstance(defaults, Attr):
+        if isinstance(defaults, CsvAttr):
             self.defaults = defaults
         elif defaults is not None:
-            self.defaults = Attr(defaults)
+            self.defaults = CsvAttr(defaults)
         else:
             self.defaults = None
 
     def __repr__(self):
         if self.defaults is None:
-            return 'Attr(%r)' % (
+            return 'CsvAttr(%r)' % (
                     [(','.join(attr[0]), attr[1])
                         for attr in self.attrs])
         else:
-            return 'Attr(%r, %r)' % (
+            return 'CsvAttr(%r, %r)' % (
                     [(','.join(attr[0]), attr[1])
                         for attr in self.attrs],
                     [(','.join(attr[0]), attr[1])
@@ -4458,9 +4458,9 @@ def main_(ring, disk, mroots=None, *,
             chars_.extend((char[0], c) for c in psplit(char[1]))
         else:
             chars_.extend(psplit(char))
-    chars_ = Attr(chars_, defaults=[True] if braille or dots else CHARS)
+    chars_ = CsvAttr(chars_, defaults=[True] if braille or dots else CHARS)
 
-    colors_ = Attr(colors, defaults=COLORS)
+    colors_ = CsvAttr(colors, defaults=COLORS)
 
     # figure out width/height
     if width is None:
