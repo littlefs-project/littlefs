@@ -9,7 +9,7 @@ endif
 
 
 # find source files
-SRC  ?= $(filter-out $(wildcard *.t.* *.b.*),$(wildcard *.c))
+SRC  ?= $(filter-out %.t.c %.b.c %.a.c,$(wildcard *.c))
 OBJ  := $(SRC:%.c=$(BUILDDIR)/%.o)
 DEP  := $(SRC:%.c=$(BUILDDIR)/%.d)
 ASM  := $(SRC:%.c=$(BUILDDIR)/%.s)
@@ -19,7 +19,7 @@ GCDA := $(SRC:%.c=$(BUILDDIR)/%.t.a.gcda)
 TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= \
 		$(SRC) \
-		$(filter-out $(wildcard bd/*.t.* bd/*.b.*),$(wildcard bd/*.c)) \
+		$(filter-out %.t.c %.b.c %.a.c,$(wildcard bd/*.c)) \
 		runners/test_runner.c
 TEST_RUNNER ?= $(BUILDDIR)/runners/test_runner
 TEST_C     := \
@@ -38,7 +38,7 @@ TEST_CSV   := $(TEST_RUNNER:%=%.csv)
 BENCHES ?= $(wildcard benches/*.toml)
 BENCH_SRC ?= \
 		$(SRC) \
-		$(filter-out $(wildcard bd/*.t.* bd/*.b.*),$(wildcard bd/*.c)) \
+		$(filter-out %.t.c %.b.c %.a.c,$(wildcard bd/*.c)) \
 		runners/bench_runner.c
 BENCH_RUNNER ?= $(BUILDDIR)/runners/bench_runner
 BENCH_C     := \
