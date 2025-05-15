@@ -132,6 +132,18 @@ def si2(x, w=5):
         s = s.rstrip('.')
     return '%s%s%s' % ('-' if x < 0 else '', s, SI2_PREFIXES[p])
 
+# find x/y limit based on a number of standard deviations
+def stddevlim(lim, xs):
+    # make a list, we need two passes
+    xs = [float(x) for x in xs]
+    if len(xs) == 0:
+        return 0
+    # calculate mean and stddev
+    mean = sum(xs) / len(xs)
+    stddev = mt.sqrt(sum((x - mean)**2 for x in xs) / len(xs))
+    # compute the limit as relative stddevs from the mean
+    return mean + float(lim)*stddev
+
 # open with '-' for stdin/stdout
 def openio(path, mode='r', buffering=-1):
     import os
@@ -1212,6 +1224,8 @@ def main_(ring, csv_paths, *,
         height=None,
         xlim=(None,None),
         ylim=(None,None),
+        xlim_stddev=(None,None),
+        ylim_stddev=(None,None),
         xlog=False,
         ylog=False,
         x2=False,
@@ -1567,14 +1581,20 @@ def main_(ring, csv_paths, *,
         define_ = define + s.args.get('define', [])
         xlim_ = s.args.get('xlim', xlim)
         ylim_ = s.args.get('ylim', ylim)
+        xlim_stddev_ = s.args.get('xlim_stddev', xlim_stddev)
+        ylim_stddev_ = s.args.get('ylim_stddev', ylim_stddev)
         xlog_ = s.args.get('xlog', False) or xlog
         ylog_ = s.args.get('ylog', False) or ylog
 
         # allow shortened ranges
         if len(xlim_) == 1:
-            xlim_ = (0, xlim_[0])
+            xlim_ = (None, xlim_[0])
         if len(ylim_) == 1:
-            ylim_ = (0, ylim_[0])
+            ylim_ = (None, ylim_[0])
+        if len(xlim_stddev_) == 1:
+            xlim_stddev_ = (None, xlim_stddev_[0])
+        if len(ylim_stddev_) == 1:
+            ylim_stddev_ = (None, ylim_stddev_[0])
 
         # data can be constrained by subplot-specific defines,
         # so re-extract for each plot
@@ -1605,29 +1625,32 @@ def main_(ring, csv_paths, *,
                 for k, v in dataattr.items()}
 
         # find actual xlim/ylim
+        x__ = (lambda: it.chain([0], (x
+                for dataset in subdatasets.values()
+                for x, y in dataset
+                if y is not None)))
+        y__ = (lambda: it.chain([0], (y
+                for dataset in subdatasets.values()
+                for _, y in dataset
+                if y is not None)))
         xlim_ = (
                 xlim_[0] if xlim_[0] is not None
-                    else min(it.chain([0], (x
-                        for dataset in subdatasets.values()
-                        for x, y in dataset
-                        if y is not None))),
+                    else stddevlim(xlim_stddev_[0], x__())
+                    if xlim_stddev_[0] is not None
+                    else min(x__()),
                 xlim_[1] if xlim_[1] is not None
-                    else max(it.chain([0], (x
-                        for dataset in subdatasets.values()
-                        for x, y in dataset
-                        if y is not None))))
-
+                    else stddevlim(xlim_stddev_[1], x__())
+                    if xlim_stddev_[1] is not None
+                    else max(x__()))
         ylim_ = (
                 ylim_[0] if ylim_[0] is not None
-                    else min(it.chain([0], (y
-                        for dataset in subdatasets.values()
-                        for _, y in dataset
-                        if y is not None))),
+                    else stddevlim(ylim_stddev_[0], y__())
+                    if ylim_stddev_[0] is not None
+                    else min(y__()),
                 ylim_[1] if ylim_[1] is not None
-                    else max(it.chain([0], (y
-                        for dataset in subdatasets.values()
-                        for _, y in dataset
-                        if y is not None))))
+                    else stddevlim(ylim_stddev_[1], y__())
+                    if ylim_stddev_[1] is not None
+                    else max(y__()))
 
         # figure out labels/titles now that we have our data
         subtitle = [punescape(l, submergedattrs) for l in s.title]
@@ -2053,6 +2076,20 @@ if __name__ == "__main__":
                 dat(x) if x.strip() else None
                     for x in x.split(',')),
             help="Range for the y-axis.")
+    parser.add_argument(
+            '--xlim-stddev',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Range for the x-axis specified as a number of standard "
+                "deviations from the mean.")
+    parser.add_argument(
+            '--ylim-stddev',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Range for the y-axis specified as a number of standard "
+                "deviations from the mean.")
     parser.add_argument(
             '--xlog',
             action='store_true',
