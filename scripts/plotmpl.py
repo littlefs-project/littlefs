@@ -308,9 +308,10 @@ class Attr:
         self.attrs = []
         self.keyed = co.OrderedDict()
         for attr in attrs:
-            if (not isinstance(attr, tuple)
-                    or attr[0] in {None, (), (None,), ('*',)}):
+            if not isinstance(attr, tuple):
                 attr = ((), attr)
+            if attr[0] in {None, (), (None,), ('*',)}:
+                attr = ((), attr[1])
             if not isinstance(attr[0], tuple):
                 attr = ((attr[0],), attr[1])
 
