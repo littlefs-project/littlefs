@@ -283,6 +283,11 @@ struct lfs_config {
     // Set to -1 to disable inlined files.
     lfs_size_t inline_max;
 
+    // Configuration flags for the filesystem
+    //
+    // See variants of lfs_fs_flags
+    uint32_t flags;
+
 #ifdef LFS_MULTIVERSION
     // On-disk version to use when writing in the form of 16-bit major version
     // + 16-bit minor version. This limiting metadata to what is supported by
@@ -290,6 +295,10 @@ struct lfs_config {
     // to the most recent minor version when zero.
     uint32_t disk_version;
 #endif
+};
+
+enum lfs_fs_flags {
+    LFS_CFG_DISABLE_BLOCK_COUNT_CHECK = 1, // Allow mounting a filesystem with a different block count in the config and the superblock
 };
 
 // File info structure
