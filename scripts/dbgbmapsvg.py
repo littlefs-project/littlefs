@@ -5248,7 +5248,7 @@ if __name__ == "__main__":
     import sys
     parser = argparse.ArgumentParser(
             description="Render currently used blocks in a littlefs image "
-                "as an interactive d3-esque map.",
+                "as an interactive SVG block map.",
             allow_abbrev=False)
     parser.add_argument(
             'disk',

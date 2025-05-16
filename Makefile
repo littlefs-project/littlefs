@@ -610,11 +610,11 @@ $(BUILDDIR)/lfs.perfbd.csv: $(BENCH_TRACE)
 		$(PERFBDFLAGS) -o$@)
 
 $(BUILDDIR)/lfs.codemap.svg: $(OBJ) $(CI)
-	$(strip ./scripts/codemapd3.py $^ $(CODEMAPFLAGS) -o$@ \
+	$(strip ./scripts/codemapsvg.py $^ $(CODEMAPFLAGS) -o$@ \
 		&& ./scripts/codemap.py $^ --no-header)
 
 $(BUILDDIR)/lfs.codemap-tiny.svg: $(OBJ) $(CI)
-	$(strip ./scripts/codemapd3.py $^ --tiny $(CODEMAPFLAGS) -o$@ \
+	$(strip ./scripts/codemapsvg.py $^ --tiny $(CODEMAPFLAGS) -o$@ \
 		&& ./scripts/codemap.py $^ --no-header)
 
 $(BUILDDIR)/lfs.test.csv: $(TEST_CSV)

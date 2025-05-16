@@ -1015,7 +1015,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Render CSV files as a d3-esque treemap.",
+            description="Render CSV files as an SVG treemap.",
             allow_abbrev=False)
     parser.add_argument(
             'csv_paths',

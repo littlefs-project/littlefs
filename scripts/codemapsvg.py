@@ -2119,7 +2119,7 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(
-            description="Render code info as an interactive d3-esque treemap.",
+            description="Render code info as an interactive SVG treemap.",
             allow_abbrev=False)
     class AppendPath(argparse.Action):
         def __call__(self, parser, namespace, value, option):
