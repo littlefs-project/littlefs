@@ -12715,15 +12715,25 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // flush succeeds but mdir commit fails it's ok to fall back to
     // our flushed state
     //
-    err = lfsr_file_flush(lfs, file);
-    if (err) {
-        goto failed;
+    // though don't flush quite yet if our file is small and can be
+    // combined with sync in a single commit
+    if (file->cache.size < lfsr_file_size_(file)
+            || file->cache.size > lfs->cfg->inline_size
+            || file->cache.size > lfs->cfg->fragment_size
+            || file->cache.size >= lfs->cfg->crystal_thresh) {
+        err = lfsr_file_flush(lfs, file);
+        if (err) {
+            goto failed;
+        }
     }
 
     // build a commit of any pending file metadata
-    lfsr_rattr_t rattrs[3];
+    lfsr_rattr_t rattrs[4];
     lfs_size_t rattr_count = 0;
     lfsr_data_t name_data;
+    lfsr_rattr_t shrub_rattrs[1];
+    lfs_size_t shrub_rattr_count = 0;
+    lfsr_shrubcommit_t shrub_commit;
 
     // not created yet? need to convert to normal file
     if (lfsr_o_isuncreat(file->b.o.flags)) {
@@ -12744,6 +12754,31 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 &name_data);
     }
 
+    // pending small file flush?
+    if (lfsr_o_isunflush(file->b.o.flags)) {
+        // this only works if the file is entirely in our cache
+        LFS_ASSERT(file->cache.pos == 0);
+        LFS_ASSERT(file->cache.size == lfsr_file_size_(file));
+
+        // reset the bshrub
+        lfsr_bshrub_init(&file->b);
+
+        // build a small shrub commit
+        if (file->cache.size > 0) {
+            shrub_rattrs[shrub_rattr_count++] = LFSR_RATTR_DATA(
+                    LFSR_TAG_DATA, +file->cache.size,
+                    (const lfsr_data_t*)&file->cache);
+
+            LFS_ASSERT(shrub_rattr_count
+                    <= sizeof(shrub_rattrs)/sizeof(lfsr_rattr_t));
+            shrub_commit.bshrub = &file->b;
+            shrub_commit.rid = 0;
+            shrub_commit.rattrs = shrub_rattrs;
+            shrub_commit.rattr_count = shrub_rattr_count;
+            rattrs[rattr_count++] = LFSR_RATTR_SHRUBCOMMIT(&shrub_commit);
+        }
+    }
+
     // pending file changes?
     if (lfsr_o_isunsync(file->b.o.flags)) {
         // make sure data is on-disk before committing metadata
@@ -12753,15 +12788,19 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         }
 
         // zero size files should have no bshrub/btree
-        LFS_ASSERT(file->b.shrub.weight > 0
+        LFS_ASSERT(lfsr_file_size_(file) > 0
                 || lfsr_bshrub_isbnull(&file->b));
 
         // no bshrub/btree?
-        if (lfsr_bshrub_isbnull(&file->b)) {
+        if (lfsr_bshrub_isbnull(&file->b)
+                && !(lfsr_o_isunflush(file->b.o.flags)
+                    && file->cache.size > 0)) {
             rattrs[rattr_count++] = LFSR_RATTR(
                     LFSR_TAG_RM | LFSR_TAG_MASK8 | LFSR_TAG_STRUCT, 0);
         // bshrub?
-        } else if (lfsr_bshrub_isbshrub(&file->b)) {
+        } else if (lfsr_bshrub_isbshrub(&file->b)
+                || (lfsr_o_isunflush(file->b.o.flags)
+                    && file->cache.size > 0)) {
             rattrs[rattr_count++] = LFSR_RATTR_SHRUB(
                     LFSR_TAG_MASK8 | LFSR_TAG_BSHRUB, 0,
                     // note we use the staged trunk here
@@ -12900,7 +12939,11 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     }
 
     // mark as synced
-    file->b.o.flags &= ~(LFS_o_UNSYNC | LFS_o_UNCREAT | LFS_O_DESYNC);
+    file->b.o.flags &= ~(
+            LFS_o_UNSYNC
+                | LFS_o_UNFLUSH
+                | LFS_o_UNCREAT
+                | LFS_O_DESYNC);
     return 0;
 
 failed:;
