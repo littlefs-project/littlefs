@@ -274,6 +274,13 @@
 #define LFS_FORCEINLINE
 #endif
 
+// Force a function to _not_ be inlined
+#if !defined(LFS_NO_BUILTINS) && defined(__GNUC__)
+#define LFS_NOINLINE __attribute__((noinline))
+#else
+#define LFS_NOINLINE
+#endif
+
 
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_BUILTINS falls back to a more
