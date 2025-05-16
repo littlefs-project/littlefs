@@ -12696,37 +12696,9 @@ failed:;
     return err;
 }
 
-int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
-    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->b.o));
-    // can't write to readonly files, if you want to resync call
-    // lfsr_file_resync
-    LFS_ASSERT(!lfsr_o_isrdonly(file->b.o.flags));
-
-    // removed? sync is just a noop in this case
-    int err;
-    if (lfsr_o_iszombie(file->b.o.flags)) {
-        return 0;
-    }
-
-    // first flush any data in our cache, this is a noop if already
-    // flushed
-    //
-    // note that flush does not change the actual file data, so if
-    // flush succeeds but mdir commit fails it's ok to fall back to
-    // our flushed state
-    //
-    // though don't flush quite yet if our file is small and can be
-    // combined with sync in a single commit
-    if (file->cache.size < lfsr_file_size_(file)
-            || file->cache.size > lfs->cfg->inline_size
-            || file->cache.size > lfs->cfg->fragment_size
-            || file->cache.size >= lfs->cfg->crystal_thresh) {
-        err = lfsr_file_flush(lfs, file);
-        if (err) {
-            goto failed;
-        }
-    }
-
+// this LFS_NOINLINE is to force lfsr_file_sync_ off the stack hot-path
+LFS_NOINLINE
+static int lfsr_file_sync_(lfs_t *lfs, lfsr_file_t *file) {
     // build a commit of any pending file metadata
     lfsr_rattr_t rattrs[4];
     lfs_size_t rattr_count = 0;
@@ -12740,13 +12712,13 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         // uncreated files must be unsynced
         LFS_ASSERT(lfsr_o_isunsync(file->b.o.flags));
 
-        err = lfsr_rbyd_lookup(lfs, &file->b.o.mdir.rbyd,
+        int err = lfsr_rbyd_lookup(lfs, &file->b.o.mdir.rbyd,
                 lfsr_mrid(lfs, file->b.o.mdir.mid), LFSR_TAG_STICKYNOTE,
                 NULL, &name_data);
         if (err) {
             // orphan flag but no stickynote tag?
             LFS_ASSERT(err != LFS_ERR_NOENT);
-            goto failed;
+            return err;
         }
 
         rattrs[rattr_count++] = LFSR_RATTR_DATA(
@@ -12782,9 +12754,9 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // pending file changes?
     if (lfsr_o_isunsync(file->b.o.flags)) {
         // make sure data is on-disk before committing metadata
-        err = lfsr_bd_sync(lfs);
+        int err = lfsr_bd_sync(lfs);
         if (err) {
-            goto failed;
+            return err;
         }
 
         // zero size files should have no bshrub/btree
@@ -12831,19 +12803,18 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
             // lookup the attr
             lfsr_data_t data;
-            err = lfsr_mdir_lookup(lfs, &file->b.o.mdir,
+            int err = lfsr_mdir_lookup(lfs, &file->b.o.mdir,
                     LFSR_TAG_ATTR(file->cfg->attrs[i].type),
                     NULL, &data);
             if (err && err != LFS_ERR_NOENT) {
-                goto failed;
+                return err;
             }
 
             // does disk match our attr?
             lfs_scmp_t cmp = lfsr_attr_cmp(lfs, &file->cfg->attrs[i],
                     (err != LFS_ERR_NOENT) ? &data : NULL);
             if (cmp < 0) {
-                err = cmp;
-                goto failed;
+                return cmp;
             }
 
             if (cmp != LFS_CMP_EQ) {
@@ -12865,11 +12836,55 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
 
         // commit!
         LFS_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfsr_rattr_t));
-        err = lfsr_mdir_commit(lfs, &file->b.o.mdir,
+        int err = lfsr_mdir_commit(lfs, &file->b.o.mdir,
                 rattrs, rattr_count);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+
+int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
+    LFS_ASSERT(lfsr_omdir_isopen(lfs, &file->b.o));
+    // can't write to readonly files, if you want to resync call
+    // lfsr_file_resync
+    LFS_ASSERT(!lfsr_o_isrdonly(file->b.o.flags));
+
+    // removed? sync is just a noop in this case
+    int err;
+    if (lfsr_o_iszombie(file->b.o.flags)) {
+        return 0;
+    }
+
+    // first flush any data in our cache, this is a noop if already
+    // flushed
+    //
+    // note that flush does not change the actual file data, so if
+    // flush succeeds but mdir commit fails it's ok to fall back to
+    // our flushed state
+    //
+    // though don't flush quite yet if our file is small and can be
+    // combined with sync in a single commit
+    if (file->cache.size < lfsr_file_size_(file)
+            || file->cache.size > lfs->cfg->inline_size
+            || file->cache.size > lfs->cfg->fragment_size
+            || file->cache.size >= lfs->cfg->crystal_thresh) {
+        err = lfsr_file_flush(lfs, file);
         if (err) {
             goto failed;
         }
+    }
+
+    // commit any pending metadata to disk
+    //
+    // the use of a second function here is mainly to isolate the stack
+    // costs of lfsr_file_flush and lfsr_file_sync_
+    //
+    err = lfsr_file_sync_(lfs, file);
+    if (err) {
+        goto failed;
     }
 
     // update in-device state
