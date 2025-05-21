@@ -2131,6 +2131,7 @@ code = '''
         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file) => 0;
     if (SYNC) {
         lfsr_file_sync(&lfs, &file) => 0;
     }
@@ -2499,6 +2500,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     lfsr_file_t file2;
     lfsr_file_open(&lfs, &file2, "tarantula",
@@ -2508,6 +2510,7 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file2) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -2531,6 +2534,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     // we should be at end of traversal now
     lfsr_traversal_read(&lfs, &t, &tinfo) => LFS_ERR_NOENT;
@@ -2586,6 +2590,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     lfsr_file_t file2;
     lfsr_file_open(&lfs, &file2, "tarantula",
@@ -2595,6 +2600,7 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file2) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -2624,6 +2630,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     // traverse btree
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -2686,6 +2693,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     lfsr_file_t file2;
     lfsr_file_open(&lfs, &file2, "tarantula",
@@ -2695,6 +2703,7 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file2) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -2721,6 +2730,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     // traverse two data blocks
     lfsr_traversal_read(&lfs, &t, &tinfo) => 0;
@@ -2781,6 +2791,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     lfsr_file_t file2;
     lfsr_file_open(&lfs, &file2, "tarantula",
@@ -2790,6 +2801,7 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file2) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -2876,6 +2888,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     lfsr_file_t file2;
     lfsr_file_open(&lfs, &file2, "tarantula",
@@ -2885,6 +2898,7 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file2) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -2984,6 +2998,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     lfsr_file_t file2;
     lfsr_file_open(&lfs, &file2, "tarantula",
@@ -2993,6 +3008,7 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file2) => 0;
 
     // try traversing
     lfsr_traversal_t t;
@@ -6835,6 +6851,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     lfsr_file_t file2;
     lfsr_file_open(&lfs, &file2, "octopus",
@@ -6844,6 +6861,7 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file2) => 0;
 
     // create this many orphaned files
     //
@@ -7163,6 +7181,7 @@ code = '''
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file1) => 0;
 
     lfsr_file_t file2;
     lfsr_file_open(&lfs, &file2, "octopus",
@@ -7172,6 +7191,7 @@ code = '''
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
     lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
+    lfsr_file_flush(&lfs, &file2) => 0;
 
     // create this many orphaned files
     //

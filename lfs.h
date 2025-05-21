@@ -144,6 +144,7 @@ enum lfs_type {
 
 // internally used flags, don't use these
 #define LFS_o_TYPE      0xf0000000  // The file's type
+#define LFS_o_UNGRAFT   0x00800000  // File's leaf does not match btree
 #define LFS_o_UNFLUSH   0x01000000  // File's data does not match disk
 #define LFS_o_UNSYNC    0x02000000  // File's metadata does not match disk
 #define LFS_o_UNCREAT   0x04000000  // File does not exist yet
@@ -639,8 +640,10 @@ typedef struct lfsr_data {
         struct {
             lfs_block_t block;
             lfs_size_t off;
-            // optional context for validating data
             #ifdef LFS_CKDATACKSUMS
+            // optional context for validating data
+            // sign(cksize)=0 => block not erased
+            // sign(cksize)=1 => block erased
             lfs_size_t cksize;
             uint32_t cksum;
             #endif
@@ -655,6 +658,8 @@ typedef struct lfsr_bptr {
     // sign2(size)=0b11 => block pointer
     lfsr_data_t data;
     #ifndef LFS_CKDATACKSUMS
+    // sign(cksize)=0 => block not erased
+    // sign(cksize)=1 => block erased
     lfs_size_t cksize;
     uint32_t cksum;
     #endif
@@ -730,11 +735,15 @@ typedef struct lfsr_bshrub {
 //} lfs_file_t;
 
 typedef struct lfsr_file {
+    // btree/bshrub stuff is in here
     lfsr_bshrub_t b;
     const struct lfs_file_config *cfg;
 
+    // current file position
     lfs_off_t pos;
 
+    // in-RAM cache
+    //
     // note this lines up with lfsr_data_t's buffer representation
     struct {
         lfs_off_t size;
@@ -742,8 +751,12 @@ typedef struct lfsr_file {
         lfs_off_t pos;
     } cache;
 
-    lfs_block_t eblock;
-    lfs_size_t eoff;
+    // on-disk leaf bptr
+    struct {
+        lfs_off_t pos;
+        lfs_off_t weight;
+        lfsr_bptr_t bptr;
+    } leaf;
 } lfsr_file_t;
 
 // littlefs directory type

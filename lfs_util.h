@@ -258,12 +258,6 @@
 #define LFS_IFDEF_GC(a, b) (b)
 #endif
 
-#ifdef LFS_NONDAG
-#define LFS_IFDEF_NONDAG(a, b) (a)
-#else
-#define LFS_IFDEF_NONDAG(a, b) (b)
-#endif
-
 
 // Some function attributes, no way around these
 
