@@ -1694,7 +1694,7 @@ static inline bool lfsr_data_isbptr(lfsr_data_t data) {
 }
 
 static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
-    return data.size & ~(LFSR_DATA_ONDISK | LFSR_DATA_ISBPTR);
+    return data.size & ~LFSR_DATA_ONDISK & ~LFSR_DATA_ISBPTR;
 }
 
 #ifdef LFS_CKDATACKSUMS
@@ -7651,7 +7651,7 @@ static lfsr_tag_t lfsr_mdir_nametag(const lfs_t *lfs, const lfsr_mdir_t *mdir,
     // in-sync file handles to decide if it really exists
     } else if (tag == LFSR_TAG_STICKYNOTE
             && !lfsr_omdir_ismidopen(lfs, mid,
-                ~(LFS_o_ZOMBIE | LFS_O_DESYNC))) {
+                ~LFS_o_ZOMBIE & ~LFS_O_DESYNC)) {
         return LFSR_TAG_ORPHAN;
 
     // map unknown types -> LFSR_TAG_UNKNOWN, this simplifies higher
@@ -15463,7 +15463,10 @@ static int lfsr_traversal_rewind_(lfs_t *lfs, lfsr_traversal_t *t) {
 
     // reset traversal
     lfsr_traversal_init(t,
-            t->b.o.flags & ~(LFS_t_DIRTY | LFS_t_MUTATED | LFS_t_TSTATE));
+            t->b.o.flags
+                & ~LFS_t_DIRTY
+                & ~LFS_t_MUTATED
+                & ~LFS_t_TSTATE);
 
     // and clear any pending blocks
     t->blocks[0] = -1;
