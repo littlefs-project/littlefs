@@ -2611,7 +2611,6 @@ static inline bool lfsr_bptr_isbptr(const lfsr_bptr_t *bptr) {
     return bptr->data.size & LFSR_BPTR_ISBPTR;
 }
 
-// TODO adopt these everywhere?
 static inline lfs_block_t lfsr_bptr_block(const lfsr_bptr_t *bptr) {
     return bptr->data.u.disk.block;
 }
@@ -2621,7 +2620,7 @@ static inline lfs_size_t lfsr_bptr_off(const lfsr_bptr_t *bptr) {
 }
 
 static inline lfs_size_t lfsr_bptr_size(const lfsr_bptr_t *bptr) {
-    return bptr->data.size & ~(LFSR_BPTR_ONDISK | LFSR_BPTR_ISBPTR);
+    return bptr->data.size & ~LFSR_BPTR_ONDISK & ~LFSR_BPTR_ISBPTR;
 }
 
 // checked reads adds ck info to lfsr_data_t that we don't want to
@@ -2657,9 +2656,9 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
     // size should not exceed 28-bits
     LFS_ASSERT(lfsr_data_size(bptr->data) <= 0x0fffffff);
     // block should not exceed 31-bits
-    LFS_ASSERT(bptr->data.u.disk.block <= 0x7fffffff);
+    LFS_ASSERT(lfsr_bptr_block(bptr) <= 0x7fffffff);
     // off should not exceed 28-bits
-    LFS_ASSERT(bptr->data.u.disk.off <= 0x0fffffff);
+    LFS_ASSERT(lfsr_bptr_off(bptr) <= 0x0fffffff);
     // cksize should not exceed 28-bits
     LFS_ASSERT(lfsr_bptr_cksize(bptr) <= 0x0fffffff);
     lfs_ssize_t d = 0;
@@ -2671,13 +2670,13 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
     }
     d += d_;
 
-    d_ = lfs_toleb128(bptr->data.u.disk.block, &buffer[d], 5);
+    d_ = lfs_toleb128(lfsr_bptr_block(bptr), &buffer[d], 5);
     if (d_ < 0) {
         LFS_UNREACHABLE();
     }
     d += d_;
 
-    d_ = lfs_toleb128(bptr->data.u.disk.off, &buffer[d], 4);
+    d_ = lfs_toleb128(lfsr_bptr_off(bptr), &buffer[d], 4);
     if (d_ < 0) {
         LFS_UNREACHABLE();
     }
@@ -2740,7 +2739,7 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
 static int lfsr_bptr_ck(lfs_t *lfs, const lfsr_bptr_t *bptr) {
     uint32_t cksum = 0;
     int err = lfsr_bd_cksum(lfs,
-            bptr->data.u.disk.block, 0, 0,
+            lfsr_bptr_block(bptr), 0, 0,
             lfsr_bptr_cksize(bptr),
             &cksum);
     if (err) {
@@ -2752,7 +2751,7 @@ static int lfsr_bptr_ck(lfs_t *lfs, const lfsr_bptr_t *bptr) {
         LFS_ERROR("Found bptr cksum mismatch "
                     "0x%"PRIx32".%"PRIx32" %"PRId32", "
                     "cksum %08"PRIx32" (!= %08"PRIx32")",
-                bptr->data.u.disk.block, 0,
+                lfsr_bptr_block(bptr), 0,
                 lfsr_bptr_cksize(bptr),
                 cksum, lfsr_bptr_cksum(bptr));
         return LFS_ERR_CORRUPT;
@@ -10095,7 +10094,7 @@ static void lfs_alloc_markinuse(lfs_t *lfs,
         lfs_alloc_markinuse_(lfs, rbyd->blocks[0]);
 
     } else if (tag == LFSR_TAG_BLOCK) {
-        lfs_alloc_markinuse_(lfs, bptr->data.u.disk.block);
+        lfs_alloc_markinuse_(lfs, lfsr_bptr_block(bptr));
 
     } else {
         LFS_UNREACHABLE();
@@ -11742,12 +11741,12 @@ static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, lfsr_file_t *file,
 
     // any data on disk?
     lfs_off_t pos_ = pos;
-    if (pos_ < file->leaf.pos + lfsr_data_size(file->leaf.bptr.data)) {
+    if (pos_ < file->leaf.pos + lfsr_bptr_size(&file->leaf.bptr)) {
         // note one important side-effect here is a strict
         // data hint
         lfs_ssize_t d = lfs_min(
                 size,
-                lfsr_data_size(file->leaf.bptr.data)
+                lfsr_bptr_size(&file->leaf.bptr)
                     - (pos_ - file->leaf.pos));
         lfsr_data_t slice = LFSR_DATA_SLICE(file->leaf.bptr.data,
                 pos_ - file->leaf.pos,
@@ -11954,8 +11953,8 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
         // left sibling needs carving but falls underneath our
         // fragment threshold? break into fragments
         while (lfsr_bptr_isbptr(&bptr_)
-                && lfsr_data_size(l.data) > lfs->cfg->fragment_size
-                && lfsr_data_size(l.data) < lfs_min(
+                && lfsr_bptr_size(&l) > lfs->cfg->fragment_size
+                && lfsr_bptr_size(&l) < lfs_min(
                     lfs->cfg->fragment_thresh,
                     lfs->cfg->crystal_thresh)) {
             bptr_.data = LFSR_DATA_SLICE(bptr_.data,
@@ -11985,30 +11984,30 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
         // right sibling needs carving but falls underneath our
         // fragment threshold? break into fragments
         while (lfsr_bptr_isbptr(&bptr_)
-                && lfsr_data_size(r.data) > lfs->cfg->fragment_size
-                && lfsr_data_size(r.data) < lfs_min(
+                && lfsr_bptr_size(&r) > lfs->cfg->fragment_size
+                && lfsr_bptr_size(&r) < lfs_min(
                     lfs->cfg->fragment_thresh,
                     lfs->cfg->crystal_thresh)) {
             bptr_.data = LFSR_DATA_SLICE(bptr_.data,
                     -1,
-                    lfsr_data_size(bptr_.data) - lfs->cfg->fragment_size);
+                    lfsr_bptr_size(&bptr_) - lfs->cfg->fragment_size);
 
             err = lfsr_file_commit(lfs, file, bid, LFSR_RATTRS(
                     LFSR_RATTR_BPTR(
                         LFSR_TAG_GROW | LFSR_TAG_MASK8 | LFSR_TAG_BLOCK,
-                            -(weight_ - lfsr_data_size(bptr_.data)),
+                            -(weight_ - lfsr_bptr_size(&bptr_)),
                         &bptr_),
                     LFSR_RATTR_DATA(
                         LFSR_TAG_DATA,
-                            +(weight_ - lfsr_data_size(bptr_.data)),
+                            +(weight_ - lfsr_bptr_size(&bptr_)),
                         &LFSR_DATA_FRUNCATE(r.data,
                             lfs->cfg->fragment_size))));
             if (err) {
                 return err;
             }
 
-            bid -= (weight_-lfsr_data_size(bptr_.data));
-            weight_ -= (weight_-lfsr_data_size(bptr_.data));
+            bid -= (weight_-lfsr_bptr_size(&bptr_));
+            weight_ -= (weight_-lfsr_bptr_size(&bptr_));
             r.data = LFSR_DATA_SLICE(bptr_.data,
                     pos+weight - (bid-(weight_-1)),
                     -1);
@@ -12017,13 +12016,13 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
         // found left sibling?
         if (bid-(weight_-1) < pos) {
             // can we get away with a grow attribute?
-            if (lfsr_data_size(bptr_.data) == lfsr_data_size(l.data)) {
+            if (lfsr_bptr_size(&bptr_) == lfsr_bptr_size(&l)) {
                 rattrs[rattr_count++] = LFSR_RATTR(
                         LFSR_TAG_GROW, -(bid+1 - pos));
 
             // carve fragment?
             } else if (!lfsr_bptr_isbptr(&bptr_)
-                    || lfsr_data_size(l.data) <= lfs->cfg->fragment_size) {
+                    || lfsr_bptr_size(&l) <= lfs->cfg->fragment_size) {
                 rattrs[rattr_count++] = LFSR_RATTR_DATA(
                         LFSR_TAG_GROW | LFSR_TAG_MASK8 | LFSR_TAG_DATA,
                             -(bid+1 - pos),
@@ -12047,7 +12046,7 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
         // commit because it might span more than one btree leaf, so
         // commit what we have and move on to next entry
         if (pos+weight > bid+1) {
-            LFS_ASSERT(lfsr_data_size(r.data) == 0);
+            LFS_ASSERT(lfsr_bptr_size(&r) == 0);
             LFS_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfsr_rattr_t));
 
             err = lfsr_file_commit(lfs, file, bid,
@@ -12065,12 +12064,12 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
         // found right sibling?
         if (pos+weight < bid+1) {
             // can we coalesce a hole?
-            if (lfsr_data_size(r.data) == 0) {
+            if (lfsr_bptr_size(&r) == 0) {
                 rattr.weight += bid+1 - (pos+weight);
 
             // carve fragment?
             } else if (!lfsr_bptr_isbptr(&bptr_)
-                    || lfsr_data_size(r.data) <= lfs->cfg->fragment_size) {
+                    || lfsr_bptr_size(&r) <= lfs->cfg->fragment_size) {
                 r_rattr_ = LFSR_RATTR_DATA(
                         LFSR_TAG_DATA, bid+1 - (pos+weight),
                         &r.data);
@@ -12479,10 +12478,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // obvious hole between our own crystal and our neighbor,
             // include as a part of our crystal
             if (!lfsr_bptr_isbptr(&bptr)
-                    && lfsr_data_size(bptr.data) > 0
+                    && lfsr_bptr_size(&bptr) > 0
                     // hole? holes can be quite large and shouldn't
                     // trigger crystallization
-                    && bid-(weight-1) + lfsr_data_size(bptr.data) >= poke) {
+                    && bid-(weight-1) + lfsr_bptr_size(&bptr) >= poke) {
                 crystal_start = bid-(weight-1);
 
             // otherwise our neighbor determines our crystal boundary
@@ -12511,9 +12510,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // if right crystal neighbor is a fragment, include as a part
             // of our crystal
             if (!lfsr_bptr_isbptr(&bptr)
-                    && lfsr_data_size(bptr.data) > 0) {
+                    && lfsr_bptr_size(&bptr) > 0) {
                 crystal_end = lfs_max(
-                        bid-(weight-1) + lfsr_data_size(bptr.data),
+                        bid-(weight-1) + lfsr_bptr_size(&bptr),
                         crystal_end);
 
             // otherwise treat as crystal boundary
@@ -12618,14 +12617,14 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             // is our left neighbor in the same block?
             if (crystal_start - (bid-(weight-1))
                         < lfs->cfg->block_size
-                    && lfsr_data_size(bptr.data) > 0) {
+                    && lfsr_bptr_size(&bptr) > 0) {
                 crystal_start = bid-(weight-1);
 
             // no? is our left neighbor at least our left block neighbor?
             // align to block alignment
             } else if (crystal_start - (bid-(weight-1))
                         < 2*lfs->cfg->block_size
-                    && lfsr_data_size(bptr.data) > 0) {
+                    && lfsr_bptr_size(&bptr) > 0) {
                 crystal_start = bid-(weight-1) + lfs->cfg->block_size;
             }
         }
@@ -12722,7 +12721,7 @@ fragment:;
             #endif
 
             // can we coalesce?
-            if (bid-(weight-1) + lfsr_data_size(bptr.data) >= fragment_start
+            if (bid-(weight-1) + lfsr_bptr_size(&bptr) >= fragment_start
                     && fragment_end - (bid-(weight-1))
                         <= lfs->cfg->fragment_size) {
                 datas[data_count++] = LFSR_DATA_TRUNCATE(bptr.data,
@@ -12769,16 +12768,16 @@ fragment:;
             #endif
 
             // can we coalesce?
-            if (fragment_end < bid-(weight-1) + lfsr_data_size(bptr.data)
-                    && bid-(weight-1) + lfsr_data_size(bptr.data)
+            if (fragment_end < bid-(weight-1) + lfsr_bptr_size(&bptr)
+                    && bid-(weight-1) + lfsr_bptr_size(&bptr)
                             - fragment_start
                         <= lfs->cfg->fragment_size) {
                 datas[data_count++] = LFSR_DATA_FRUNCATE(bptr.data,
-                        bid-(weight-1) + lfsr_data_size(bptr.data)
+                        bid-(weight-1) + lfsr_bptr_size(&bptr)
                             - fragment_end);
 
                 fragment_end = fragment_start + lfs_min(
-                        bid-(weight-1) + lfsr_data_size(bptr.data)
+                        bid-(weight-1) + lfsr_bptr_size(&bptr)
                             - fragment_start,
                         lfs->cfg->fragment_size);
             }
@@ -15420,7 +15419,7 @@ int lfsr_traversal_read(lfs_t *lfs, lfsr_traversal_t *t,
 
         } else if (tag == LFSR_TAG_BLOCK) {
             lfsr_t_setbtype(&t->b.o.flags, LFS_BTYPE_DATA);
-            t->blocks[0] = bptr.data.u.disk.block;
+            t->blocks[0] = lfsr_bptr_block(&bptr);
             t->blocks[1] = -1;
 
         } else {
