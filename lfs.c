@@ -12537,43 +12537,8 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
             goto fragment;
         }
 
-        // exceeded crystallization threshold?
-
-        // TODO does this make sense? wouldn't most useful append-crystals
-        // be caught with the above check? benchmark?
-        //
-        // can we resume crystallizing with the fragments on disk?
-        block_start = file->leaf.pos
-                - lfsr_bptr_off(&file->leaf.bptr);
-        block_end = file->leaf.pos
-                + lfsr_bptr_size(&file->leaf.bptr);
-        if (lfsr_bptr_isbptr(&file->leaf.bptr)
-                && lfsr_bptr_iserased(&file->leaf.bptr)
-                && crystal_start >= block_end
-                && crystal_start < block_start + lfs->cfg->block_size) {
-            int err = lfsr_file_crystallize(lfs, file,
-                    file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr),
-                    crystal_end
-                        - (file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr)),
-                    pos, buffer, size);
-            if (err) {
-                return err;
-            }
-
-            // update buffer state, this may or may not make progress
-            lfs_soff_t d = lfs_max(
-                    file->leaf.pos + lfsr_bptr_size(&file->leaf.bptr),
-                    pos) - pos;
-            pos += d;
-            buffer += lfs_min(d, size);
-            size -= lfs_min(d, size);
-
-            // we should be aligned now
-            aligned = true;
-            continue;
-        }
-
-        // no? we need to allocate a new block
+        // exceeded crystallization threshold? we need to allocate a
+        // new block
 
         // if we're mid-crystallization, finish crystallizing the block
         // and graft it into our bshrub/btree
