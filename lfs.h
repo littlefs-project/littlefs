@@ -144,8 +144,6 @@ enum lfs_type {
 
 // internally used flags, don't use these
 #define LFS_o_TYPE      0xf0000000  // The file's type
-#define LFS_o_UNCRYST   0x00400000  // File's leaf not fully crystallized
-#define LFS_o_UNGRAFT   0x00800000  // File's leaf does not match bshrub/btree
 #define LFS_o_UNFLUSH   0x01000000  // File's data does not match disk
 #define LFS_o_UNSYNC    0x02000000  // File's metadata does not match disk
 #define LFS_o_UNCREAT   0x04000000  // File does not exist yet
