@@ -8410,7 +8410,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
             mid, rattrs, rattr_count);
     if (err) {
         if (err == LFS_ERR_RANGE || err == LFS_ERR_CORRUPT) {
-            goto swap;
+            goto compact;
         }
         return err;
     }
@@ -8419,7 +8419,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     *mdir = mdir_;
     return 0;
 
-swap:;
+compact:;
     // can't commit, can we compact?
     bool relocated = false;
     bool overrecyclable = true;
@@ -8446,88 +8446,88 @@ swap:;
         return err;
     }
 
-    goto compact;
-
-relocate:;
-    // needs relocation? bad prog? ok, try allocating a new mdir
-    err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, relocated);
-    if (err && !(err == LFS_ERR_NOSPC && overrecyclable)) {
-        return err;
-    }
-    relocated = true;
-
-    // no more blocks? wear-leveling falls apart here, but we can try
-    // without relocating
-    if (err == LFS_ERR_NOSPC) {
-        LFS_WARN("Overrecycling mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+    while (true) {
+        // try to compact
+        #ifdef LFS_DBGMDIRCOMMITS
+        LFS_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
+                    "-> 0x{%"PRIx32",%"PRIx32"}",
                 lfsr_dbgmbid(lfs, mdir->mid),
-                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
-        relocated = false;
-        overrecyclable = false;
+                mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
+                mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
+        #endif
 
-        err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
+        // don't copy over gcksum if relocating
+        lfsr_srid_t start_rid_ = start_rid;
+        if (relocated) {
+            start_rid_ = lfs_smax(start_rid_, -1);
+        }
+
+        // compact our mdir
+        err = lfsr_mdir_compact__(lfs, &mdir_, mdir, start_rid_, end_rid);
         if (err) {
-            // bad prog? can't do much here, mdir stuck
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
             if (err == LFS_ERR_CORRUPT) {
-                LFS_ERROR("Stuck mdir 0x{%"PRIx32",%"PRIx32"}",
-                        mdir->rbyd.blocks[0],
-                        mdir->rbyd.blocks[1]);
-                return LFS_ERR_NOSPC;
+                overrecyclable &= relocated;
+                goto relocate;
             }
             return err;
         }
-    }
 
-compact:;
-    #ifdef LFS_DBGMDIRCOMMITS
-    LFS_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
-                "-> 0x{%"PRIx32",%"PRIx32"}",
-            lfsr_dbgmbid(lfs, mdir->mid),
-            mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
-            mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
-    #endif
-
-    // don't copy over gcksum if relocating
-    lfsr_srid_t start_rid_ = start_rid;
-    if (relocated) {
-        start_rid_ = lfs_smax(start_rid_, -1);
-    }
-
-    // compact our mdir
-    err = lfsr_mdir_compact__(lfs, &mdir_, mdir, start_rid_, end_rid);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        // bad prog? try another block
-        if (err == LFS_ERR_CORRUPT) {
-            overrecyclable &= relocated;
-            goto relocate;
+        // now try to commit again
+        //
+        // upper layers should make sure this can't fail by limiting the
+        // maximum commit size
+        err = lfsr_mdir_commit__(lfs, &mdir_, start_rid_, end_rid,
+                mid, rattrs, rattr_count);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                overrecyclable &= relocated;
+                goto relocate;
+            }
+            return err;
         }
-        return err;
-    }
 
-    // now try to commit again
-    //
-    // upper layers should make sure this can't fail by limiting the
-    // maximum commit size
-    err = lfsr_mdir_commit__(lfs, &mdir_, start_rid_, end_rid,
-            mid, rattrs, rattr_count);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        // bad prog? try another block
-        if (err == LFS_ERR_CORRUPT) {
-            overrecyclable &= relocated;
-            goto relocate;
+        // consume gcksumdelta if relocated
+        if (relocated) {
+            lfs->gcksum_d ^= mdir->gcksumdelta;
         }
-        return err;
-    }
+        // update mdir
+        *mdir = mdir_;
+        return 0;
 
-    // consume gcksumdelta if relocated
-    if (relocated) {
-        lfs->gcksum_d ^= mdir->gcksumdelta;
+    relocate:;
+        // needs relocation? bad prog? ok, try allocating a new mdir
+        err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, relocated);
+        if (err && !(err == LFS_ERR_NOSPC && overrecyclable)) {
+            return err;
+        }
+        relocated = true;
+
+        // no more blocks? wear-leveling falls apart here, but we can try
+        // without relocating
+        if (err == LFS_ERR_NOSPC) {
+            LFS_WARN("Overrecycling mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                    lfsr_dbgmbid(lfs, mdir->mid),
+                    mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
+            relocated = false;
+            overrecyclable = false;
+
+            err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
+            if (err) {
+                // bad prog? can't do much here, mdir stuck
+                if (err == LFS_ERR_CORRUPT) {
+                    LFS_ERROR("Stuck mdir 0x{%"PRIx32",%"PRIx32"}",
+                            mdir->rbyd.blocks[0],
+                            mdir->rbyd.blocks[1]);
+                    return LFS_ERR_NOSPC;
+                }
+                return err;
+            }
+        }
     }
-    // update mdir
-    *mdir = mdir_;
-    return 0;
 }
 
 static int lfsr_mroot_parent(lfs_t *lfs, const lfs_block_t mptr[static 2],
