@@ -3778,6 +3778,9 @@ static int lfsr_rbyd_p_flush(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 static inline int lfsr_rbyd_p_push(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         lfsr_alt_t p[static 3],
         lfsr_tag_t alt, lfsr_rid_t weight, lfs_size_t jump) {
+    // jump should actually be in the rbyd
+    LFS_ASSERT(jump < lfsr_rbyd_eoff(rbyd));
+
     int err = lfsr_rbyd_p_flush(lfs, rbyd, p, 1);
     if (err) {
         return err;
@@ -8419,7 +8422,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
 swap:;
     // can't commit, can we compact?
     bool relocated = false;
-    bool overcompacted = false;
+    bool overrecycled = false;
 
     // check if we're within our compaction threshold
     lfs_ssize_t estimate = lfsr_mdir_estimate__(lfs, mdir, start_rid, end_rid,
@@ -8447,7 +8450,7 @@ swap:;
 relocate:;
     // needs relocation? bad prog? ok, try allocating a new mdir
     err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, relocated);
-    if (err && !(err == LFS_ERR_NOSPC && !overcompacted)) {
+    if (err && !(err == LFS_ERR_NOSPC && !overrecycled)) {
         return err;
     }
     relocated = true;
@@ -8455,10 +8458,10 @@ relocate:;
     // no more blocks? wear-leveling falls apart here, but we can try
     // without relocating
     if (err == LFS_ERR_NOSPC) {
-        LFS_WARN("Overcompacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+        LFS_WARN("Overrecycling mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                 lfsr_dbgmbid(lfs, mdir->mid),
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
-        overcompacted = true;
+        overrecycled = true;
 
         err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
         if (err) {
@@ -8473,6 +8476,16 @@ relocate:;
         }
     }
 
+    // discard any committed shrubs, we need to do this explicitly
+    // when overrecycling
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
+        if (lfsr_o_isbshrub(o->flags)
+                && ((lfsr_bshrub_t*)o)->shrub_.blocks[0]
+                    == mdir_.rbyd.blocks[0]) {
+            ((lfsr_bshrub_t*)o)->shrub_.blocks[0] = -1;
+        }
+    }
+
 compact:;
     #ifdef LFS_DBGMDIRCOMMITS
     LFS_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
@@ -8484,7 +8497,7 @@ compact:;
 
     // don't copy over gcksum if relocating
     lfsr_srid_t start_rid_ = start_rid;
-    if (relocated && !overcompacted) {
+    if (relocated && !overrecycled) {
         start_rid_ = lfs_smax(start_rid_, -1);
     }
 
@@ -8515,7 +8528,7 @@ compact:;
     }
 
     // consume gcksumdelta if relocated
-    if (relocated && !overcompacted) {
+    if (relocated && !overrecycled) {
         lfs->gcksum_d ^= mdir->gcksumdelta;
     }
     // update mdir

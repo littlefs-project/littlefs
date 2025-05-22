@@ -1501,7 +1501,6 @@ code = '''
                     LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
             assert(!err || err == LFS_ERR_CORRUPT);
             if (err == LFS_ERR_CORRUPT) {
-                lfsr_file_close(&lfs, &file) => 0;
                 goto corrupt_mounted;
             }
             uint32_t prng = 42;
@@ -1512,9 +1511,11 @@ code = '''
             lfs_ssize_t res = lfsr_file_write(&lfs, &file, wbuf, SIZE);
             assert(res == SIZE || res == LFS_ERR_CORRUPT);
             if (res == LFS_ERR_CORRUPT) {
+                lfsr_file_close(&lfs, &file) => 0;
                 goto corrupt_mounted;
             }
             err = lfsr_file_close(&lfs, &file);
+            assert(!err || err == LFS_ERR_CORRUPT);
             if (err == LFS_ERR_CORRUPT) {
                 goto corrupt_mounted;
             }
@@ -1623,6 +1624,7 @@ code = '''
                 goto corrupt_mounted;
             }
             int err = lfsr_file_close(&lfs, &file);
+            assert(!err || err == LFS_ERR_CORRUPT);
             if (err == LFS_ERR_CORRUPT) {
                 goto corrupt_mounted;
             }
@@ -1733,6 +1735,7 @@ code = '''
                 goto corrupt_mounted;
             }
             int err = lfsr_file_close(&lfs, &file);
+            assert(!err || err == LFS_ERR_CORRUPT);
             if (err == LFS_ERR_CORRUPT) {
                 goto corrupt_mounted;
             }
@@ -1759,6 +1762,214 @@ code = '''
 
         // reset badbit
         lfs_emubd_markgood(CFG, badblock) => 0;
+    }
+'''
+
+# overrecycling breaks several expectations around shrub blocks,
+# so let's test overrecycling triggered by ckprogs
+[cases.test_ck_ckprogs_overrecycling]
+# limit to two blocks so we're forced to overrecycle
+defines.BLOCK_COUNT = 2
+defines.BADBLOCK = [0, 1]
+defines.BADBIT = -1
+defines.BADBLOCK_ = '(BADBLOCK+1) % 2'
+defines.BADBIT_ = -1
+defines.M = 4000
+defines.BADBLOCK_BEHAVIOR = 'LFS_EMUBD_BADBLOCK_PROGFLIP'
+# this should stay inlined
+defines.SIZE = 'BLOCK_SIZE/64'
+defines.N = 4
+defines.FLUSH = [false, true]
+defines.SYNC = [false, true]
+defines.SEED = 42
+ifdef = 'LFS_CKPROGS'
+code = '''
+    // to avoid taking up too much testing time, assign bits
+    // pseudorandomly
+    uint32_t prng = SEED;
+    for (lfs_size_t i = 0;
+            i < ((BADBIT == -1) ? M : 1);
+            i++) {
+        lfs_size_t badbit = (BADBIT == -1)
+                ? TEST_PRNG(&prng) % (8*BLOCK_SIZE)
+                : BADBIT;
+        lfs_size_t badbit_ = (BADBIT_ == -1)
+                ? TEST_PRNG(&prng) % (8*BLOCK_SIZE)
+                : BADBIT_;
+        printf("--- badblocks: 0x%x.%x + 0x%x.%x, "
+                    "badbits: 0x%x + 0x%x (0x%x+%x + 0x%x+%x) ---\n",
+                (lfs_off_t)BADBLOCK, badbit/8,
+                (lfs_off_t)BADBLOCK_, badbit_/8,
+                badbit,
+                badbit_,
+                badbit/8, badbit%8,
+                badbit_/8, badbit_%8);
+
+        // mark our badbits as bad
+        lfs_emubd_markbadbit(CFG, BADBLOCK, badbit) => 0;
+        lfs_emubd_markbadbit(CFG, BADBLOCK_, badbit_) => 0;
+
+        // keep track of open files so we clean up correctly
+        lfsr_file_t files[N];
+        bool open[N];
+        memset(open, 0, N*sizeof(bool));
+
+        // formatting the filesystem may already find the bit error
+        lfs_t lfs;
+        int err = lfsr_format(&lfs, LFS_M_RDWR | LFS_M_CKPROGS, CFG);
+        assert(!err || err == LFS_ERR_CORRUPT);
+        if (err == LFS_ERR_CORRUPT) {
+            goto corrupt;
+        }
+        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPROGS, CFG) => 0;
+
+        {
+            // create some files
+            //
+            // don't use global prng here! if we do we lose reproducibility
+            uint32_t wprng = 42+0;
+            for (lfs_size_t i = 0; i < N; i++) {
+                char name[256];
+                sprintf(name, "physalia%03d", i);
+                err = lfsr_file_open(&lfs, &files[i], name,
+                        LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
+                assert(!err
+                        || err == LFS_ERR_CORRUPT
+                        || err == LFS_ERR_NOSPC);
+                if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOSPC) {
+                    goto corrupt_open;
+                }
+                open[i] = true;
+
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                     wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
+                lfs_ssize_t res = lfsr_file_write(&lfs, &files[i], wbuf, SIZE);
+                assert(res == SIZE
+                        || res == LFS_ERR_CORRUPT
+                        || res == LFS_ERR_NOSPC);
+                if (res == LFS_ERR_CORRUPT || res == LFS_ERR_NOSPC) {
+                    goto corrupt_open;
+                }
+
+                // flush?
+                if (FLUSH) {
+                    err = lfsr_file_flush(&lfs, &files[i]);
+                    assert(!err
+                            || err == LFS_ERR_CORRUPT
+                            || err == LFS_ERR_NOSPC);
+                    if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOSPC) {
+                        goto corrupt_open;
+                    }
+                }
+
+                // sync?
+                if (SYNC) {
+                    err = lfsr_file_sync(&lfs, &files[i]);
+                    assert(!err
+                            || err == LFS_ERR_CORRUPT
+                            || err == LFS_ERR_NOSPC);
+                    if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOSPC) {
+                        goto corrupt_open;
+                    }
+                }
+            }
+
+            // rewrite for good measure
+            wprng = 42+1;
+            for (lfs_size_t i = 0; i < N; i++) {
+                lfsr_file_rewind(&lfs, &files[i]) => 0;
+
+                uint8_t wbuf[SIZE];
+                for (lfs_size_t j = 0; j < SIZE; j++) {
+                     wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+                }
+                lfs_ssize_t res = lfsr_file_write(&lfs, &files[i], wbuf, SIZE);
+                assert(res == SIZE
+                        || res == LFS_ERR_CORRUPT
+                        || res == LFS_ERR_NOSPC);
+                if (res == LFS_ERR_CORRUPT || res == LFS_ERR_NOSPC) {
+                    goto corrupt_open;
+                }
+
+                // flush?
+                if (FLUSH) {
+                    err = lfsr_file_flush(&lfs, &files[i]);
+                    assert(!err
+                            || err == LFS_ERR_CORRUPT
+                            || err == LFS_ERR_NOSPC);
+                    if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOSPC) {
+                        goto corrupt_open;
+                    }
+                }
+
+                // sync?
+                if (SYNC) {
+                    err = lfsr_file_sync(&lfs, &files[i]);
+                    assert(!err
+                            || err == LFS_ERR_CORRUPT
+                            || err == LFS_ERR_NOSPC);
+                    if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOSPC) {
+                        goto corrupt_open;
+                    }
+                }
+            }
+
+            // and close
+            for (lfs_size_t i = 0; i < N; i++) {
+                err = lfsr_file_close(&lfs, &files[i]);
+                assert(!err
+                        || err == LFS_ERR_CORRUPT
+                        || err == LFS_ERR_NOSPC);
+                open[i] = false;
+                if (err == LFS_ERR_CORRUPT || err == LFS_ERR_NOSPC) {
+                    goto corrupt_open;
+                }
+            }
+
+            // if we made it here without erroring we should be able to
+            // read our files
+            for (int remount = 0; remount < 2; remount++) {
+                // remount?
+                if (remount) {
+                    lfsr_unmount(&lfs) => 0;
+                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPROGS, CFG) => 0;
+                }
+
+                wprng = 42+1;
+                for (lfs_size_t i = 0; i < N; i++) {
+                    char name[256];
+                    sprintf(name, "physalia%03d", i);
+                    lfsr_file_open(&lfs, &files[i], name, LFS_O_RDONLY) => 0;
+                    uint8_t wbuf[SIZE];
+                    for (lfs_size_t j = 0; j < SIZE; j++) {
+                         wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
+                    }
+                    uint8_t rbuf[SIZE];
+                    lfsr_file_read(&lfs, &files[i], rbuf, SIZE) => SIZE;
+                    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+                    lfsr_file_close(&lfs, &files[i]) => 0;
+                }
+            }
+        }
+
+    corrupt_open:;
+        for (lfs_size_t i = 0; i < N; i++) {
+            if (open[i]) {
+                lfsr_file_desync(&lfs, &files[i]) => 0;
+                lfsr_file_close(&lfs, &files[i]) => 0;
+                open[i] = false;
+            }
+        }
+
+    corrupt_mounted:;
+        lfsr_unmount(&lfs) => 0;
+
+    corrupt:;
+        // reset badbits
+        lfs_emubd_markgood(CFG, BADBLOCK) => 0;
+        lfs_emubd_markgood(CFG, BADBLOCK_) => 0;
     }
 '''
 
@@ -3757,7 +3968,7 @@ code = '''
                 goto corrupt_mounted;
             }
             int err = lfsr_file_sync(&lfs, &sim_files[j]->file);
-            assert(err == 0
+            assert(!err
                     || err == LFS_ERR_NOSPC
                     || (err == LFS_ERR_CORRUPT
                         && (METHOD == 2 || METHOD == 3)));
@@ -4359,7 +4570,7 @@ code = '''
                 goto corrupt_mounted;
             }
             int err = lfsr_file_sync(&lfs, &sim_files[j]->file);
-            assert(err == 0
+            assert(!err
                     || err == LFS_ERR_NOSPC
                     || (err == LFS_ERR_CORRUPT
                         && (METHOD == 2 || METHOD == 3)));
