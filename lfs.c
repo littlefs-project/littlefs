@@ -8422,7 +8422,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
 swap:;
     // can't commit, can we compact?
     bool relocated = false;
-    bool overrecycled = false;
+    bool overrecyclable = true;
 
     // check if we're within our compaction threshold
     lfs_ssize_t estimate = lfsr_mdir_estimate__(lfs, mdir, start_rid, end_rid,
@@ -8440,6 +8440,7 @@ swap:;
     err = lfsr_mdir_swap__(lfs, &mdir_, mdir, false);
     if (err) {
         if (err == LFS_ERR_NOSPC || err == LFS_ERR_CORRUPT) {
+            overrecyclable &= (err != LFS_ERR_CORRUPT);
             goto relocate;
         }
         return err;
@@ -8450,7 +8451,7 @@ swap:;
 relocate:;
     // needs relocation? bad prog? ok, try allocating a new mdir
     err = lfsr_mdir_alloc__(lfs, &mdir_, mdir->mid, relocated);
-    if (err && !(err == LFS_ERR_NOSPC && !overrecycled)) {
+    if (err && !(err == LFS_ERR_NOSPC && overrecyclable)) {
         return err;
     }
     relocated = true;
@@ -8461,7 +8462,8 @@ relocate:;
         LFS_WARN("Overrecycling mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                 lfsr_dbgmbid(lfs, mdir->mid),
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1]);
-        overrecycled = true;
+        relocated = false;
+        overrecyclable = false;
 
         err = lfsr_mdir_swap__(lfs, &mdir_, mdir, true);
         if (err) {
@@ -8476,16 +8478,6 @@ relocate:;
         }
     }
 
-    // discard any committed shrubs, we need to do this explicitly
-    // when overrecycling
-    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-        if (lfsr_o_isbshrub(o->flags)
-                && ((lfsr_bshrub_t*)o)->shrub_.blocks[0]
-                    == mdir_.rbyd.blocks[0]) {
-            ((lfsr_bshrub_t*)o)->shrub_.blocks[0] = -1;
-        }
-    }
-
 compact:;
     #ifdef LFS_DBGMDIRCOMMITS
     LFS_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
@@ -8497,7 +8489,7 @@ compact:;
 
     // don't copy over gcksum if relocating
     lfsr_srid_t start_rid_ = start_rid;
-    if (relocated && !overrecycled) {
+    if (relocated) {
         start_rid_ = lfs_smax(start_rid_, -1);
     }
 
@@ -8507,6 +8499,7 @@ compact:;
         LFS_ASSERT(err != LFS_ERR_RANGE);
         // bad prog? try another block
         if (err == LFS_ERR_CORRUPT) {
+            overrecyclable &= relocated;
             goto relocate;
         }
         return err;
@@ -8522,13 +8515,14 @@ compact:;
         LFS_ASSERT(err != LFS_ERR_RANGE);
         // bad prog? try another block
         if (err == LFS_ERR_CORRUPT) {
+            overrecyclable &= relocated;
             goto relocate;
         }
         return err;
     }
 
     // consume gcksumdelta if relocated
-    if (relocated && !overrecycled) {
+    if (relocated) {
         lfs->gcksum_d ^= mdir->gcksumdelta;
     }
     // update mdir
@@ -8696,9 +8690,9 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
             // order the split compacts so that that mdir containing our mid
             // is committed last, this is a bit of a hack but necessary so
             // shrubs are staged correctly
-            bool l = lfsr_mrid(lfs, mdir->mid) < split_rid;
+            bool l = (lfsr_mrid(lfs, mdir->mid) < split_rid);
 
-            bool relocated = false;;
+            bool relocated = false;
         split_relocate:;
             // alloc and compact into new mdirs
             err = lfsr_mdir_alloc__(lfs, &mdir_[i^l],
