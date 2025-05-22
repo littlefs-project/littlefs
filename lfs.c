@@ -8570,6 +8570,9 @@ static int lfsr_mroot_parent(lfs_t *lfs, const lfs_block_t mptr[static 2],
     }
 }
 
+// needed in lfsr_mdir_commit
+static inline void lfsr_file_discardleaf(lfsr_file_t *file);
+
 // high-level mdir commit
 //
 // this is atomic and updates any opened mdirs, lfs_t, etc
@@ -9156,9 +9159,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
                     == ((lfsr_bshrub_t*)o)->shrub.blocks[0]
                 && ((lfsr_bshrub_t*)o)->shrub_.blocks[0]
                     != ((lfsr_bshrub_t*)o)->shrub.blocks[0]) {
-            ((lfsr_file_t*)o)->leaf.pos = 0;
-            ((lfsr_file_t*)o)->leaf.weight = 0;
-            lfsr_bptr_discard(&((lfsr_file_t*)o)->leaf.bptr);
+            lfsr_file_discardleaf((lfsr_file_t*)o);
         }
 
         // update the shrub
@@ -11249,6 +11250,21 @@ int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
 /// File operations ///
 
 // file helpers
+static inline void lfsr_file_discardcache(lfsr_file_t *file) {
+    file->cache.pos = 0;
+    file->cache.size = 0;
+}
+
+static inline void lfsr_file_discardleaf(lfsr_file_t *file) {
+    file->leaf.pos = 0;
+    file->leaf.weight = 0;
+    lfsr_bptr_discard(&file->leaf.bptr);
+}
+
+static inline void lfsr_file_discardbshrub(lfsr_file_t *file) {
+    lfsr_bshrub_init(&file->b);
+}
+
 static inline lfs_size_t lfsr_file_cachesize(lfs_t *lfs,
         const lfsr_file_t *file) {
     return (file->cfg->cache_size)
@@ -11268,18 +11284,17 @@ static inline lfs_off_t lfsr_file_size_(const lfsr_file_t *file) {
             lfsr_file_weight(file));
 }
 
+
+
 // file operations
 
 static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     // default data state
-    lfsr_bshrub_init(&file->b);
+    lfsr_file_discardbshrub(file);
     // discard the current cache
-    file->cache.pos = 0;
-    file->cache.size = 0;
+    lfsr_file_discardcache(file);
     // discard the current leaf
-    file->leaf.pos = 0;
-    file->leaf.weight = 0;
-    lfsr_bptr_discard(&file->leaf.bptr);
+    lfsr_file_discardleaf(file);
     // mark as flushed
     file->b.o.flags &= ~LFS_o_UNFLUSH & ~LFS_o_UNGRAFT;
 
@@ -11518,8 +11533,6 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
             return LFS_ERR_NOMEM;
         }
     }
-    file->cache.pos = 0;
-    file->cache.size = 0;
 
     // fetch the file struct and custom attrs
     err = lfsr_file_fetch(lfs, file, lfsr_o_istrunc(flags));
@@ -11846,8 +11859,7 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
                 if (err) {
                     return err;
                 }
-                file->cache.pos = 0;
-                file->cache.size = 0;
+                lfsr_file_discardcache(file);
             }
 
             // try to fill our cache with some data
@@ -11900,7 +11912,7 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
     if (pos == 0
             && weight >= file->b.shrub.weight
             && delta == -(lfs_soff_t)weight) {
-        lfsr_bshrub_init(&file->b);
+        lfsr_file_discardbshrub(file);
         return 0;
     }
 
@@ -12653,9 +12665,7 @@ fragment:;
         if (!lfsr_bptr_isbptr(&file->leaf.bptr)
                 || (pos < file->leaf.pos + lfsr_bptr_size(&file->leaf.bptr)
                     && pos + size > file->leaf.pos)) {
-            file->leaf.pos = 0;
-            file->leaf.weight = 0;
-            lfsr_bptr_discard(&file->leaf.bptr);
+            lfsr_file_discardleaf(file);
         }
 
         // truncate to our fragment size
@@ -13024,7 +13034,7 @@ static int lfsr_file_sync_(lfs_t *lfs, lfsr_file_t *file) {
         LFS_ASSERT(file->cache.size == lfsr_file_size_(file));
 
         // reset the bshrub
-        lfsr_bshrub_init(&file->b);
+        lfsr_file_discardbshrub(file);
 
         // build a small shrub commit
         if (file->cache.size > 0) {
@@ -13165,9 +13175,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
         if (lfsr_o_isungraft(file->b.o.flags)) {
             file->b.o.flags |= LFS_o_UNFLUSH;
             file->b.o.flags &= ~LFS_o_UNGRAFT;
-            file->leaf.pos = 0;
-            file->leaf.weight = 0;
-            lfsr_bptr_discard(&file->leaf.bptr);
+            lfsr_file_discardleaf(file);
         }
     } else {
         err = lfsr_file_flush(lfs, file);
@@ -13210,6 +13218,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 file_->b.shrub = file->b.shrub;
                 // update leaves
                 file_->leaf = file->leaf;
+                // TODO wait, what if cache sizes don't match?
                 // update caches
                 file_->cache.pos = file->cache.pos;
                 LFS_ASSERT(file->cache.size
@@ -13401,9 +13410,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
             goto failed;
         }
 
-        file->leaf.pos = 0;
-        file->leaf.weight = 0;
-        lfsr_bptr_discard(&file->leaf.bptr);
+        lfsr_file_discardleaf(file);
     }
 
     // truncate our btree
@@ -13485,9 +13492,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
             goto failed;
         }
 
-        file->leaf.pos = 0;
-        file->leaf.weight = 0;
-        lfsr_bptr_discard(&file->leaf.bptr);
+        lfsr_file_discardleaf(file);
     }
 
     // fruncate our btree
