@@ -11877,19 +11877,22 @@ static int lfsr_file_commit(lfs_t *lfs, lfsr_file_t *file,
             bid, rattrs, rattr_count);
 }
 
-// TODO replace rattr with bptr + delta?
+// graft bptr/fragments into our bshrub/btree
 static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
-        lfs_off_t pos, lfs_off_t weight, lfsr_rattr_t rattr) {
+        lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
+        // data_count=-1 => single bptr
+        // data_count>=0 => list of concatenated fragments
+        const lfsr_data_t *datas, lfs_ssize_t data_count) {
     // note! we must never allow our btree size to overflow, even
     // temporarily
 
     // can't carve more than the graft weight
-    LFS_ASSERT(rattr.weight >= -(lfs_soff_t)weight);
+    LFS_ASSERT(delta >= -(lfs_soff_t)weight);
 
     // carving the entire tree? revert to no bshrub/btree
     if (pos == 0
             && weight >= file->b.shrub.weight
-            && rattr.weight == -(lfs_soff_t)weight) {
+            && delta == -(lfs_soff_t)weight) {
         lfsr_bshrub_init(&file->b);
         return 0;
     }
@@ -12055,7 +12058,7 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
                 return err;
             }
 
-            rattr.weight += lfs_min(weight, bid+1 - pos);
+            delta += lfs_min(weight, bid+1 - pos);
             weight -= lfs_min(weight, bid+1 - pos);
             rattr_count = 0;
             continue;
@@ -12065,7 +12068,7 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
         if (pos+weight < bid+1) {
             // can we coalesce a hole?
             if (lfsr_bptr_size(&r) == 0) {
-                rattr.weight += bid+1 - (pos+weight);
+                delta += bid+1 - (pos+weight);
 
             // carve fragment?
             } else if (!lfsr_bptr_isbptr(&bptr_)
@@ -12082,31 +12085,45 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
             }
         }
 
-        rattr.weight += lfs_min(weight, bid+1 - pos);
+        delta += lfs_min(weight, bid+1 - pos);
         weight -= lfs_min(weight, bid+1 - pos);
         break;
     }
 
     // append our data
-    if (weight + rattr.weight > 0) {
+    if (weight + delta > 0) {
+        lfs_size_t dsize = 0;
+        for (lfs_size_t i = 0;
+                i < ((data_count < 0) ? 1 : (lfs_size_t)data_count);
+                i++) {
+            dsize += lfsr_data_size(datas[i]);
+        }
+
         // can we coalesce a hole?
-        if (lfsr_rattr_dsize(rattr) == 0 && pos > 0) {
+        if (dsize == 0 && pos > 0) {
             bid = lfs_min(bid, file->b.shrub.weight-1);
             rattrs[rattr_count++] = LFSR_RATTR(
-                    LFSR_TAG_GROW, +(weight + rattr.weight));
+                    LFSR_TAG_GROW, +(weight + delta));
 
         // need a new hole?
-        } else if (lfsr_rattr_dsize(rattr) == 0) {
+        } else if (dsize == 0) {
             bid = lfs_min(bid, file->b.shrub.weight);
             rattrs[rattr_count++] = LFSR_RATTR(
-                    LFSR_TAG_DATA, +(weight + rattr.weight));
+                    LFSR_TAG_DATA, +(weight + delta));
 
-        // append new fragment/bptr?
+        // append a new fragment?
+        } else if (data_count >= 0) {
+            bid = lfs_min(bid, file->b.shrub.weight);
+            rattrs[rattr_count++] = LFSR_RATTR_CAT_(
+                    LFSR_TAG_DATA, +(weight + delta),
+                    datas, data_count);
+
+        // append a new bptr?
         } else {
             bid = lfs_min(bid, file->b.shrub.weight);
-            rattrs[rattr_count++] = LFSR_RATTR_(
-                    rattr.tag, +(weight + rattr.weight),
-                    rattr.u, rattr.count);
+            rattrs[rattr_count++] = LFSR_RATTR_BPTR(
+                    LFSR_TAG_BLOCK, +(weight + delta),
+                    (const lfsr_bptr_t*)datas);
         }
     }
 
@@ -12129,19 +12146,6 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
     return 0;
 }
 
-static int lfsr_file_graftcrystal(lfs_t *lfs, lfsr_file_t *file,
-        lfs_off_t pos, lfs_off_t weight, const lfsr_bptr_t *bptr) {
-    return lfsr_file_graft_(lfs, file, pos, weight,
-            LFSR_RATTR_BPTR(LFSR_TAG_BLOCK, 0, bptr));
-}
-
-static int lfsr_file_graftfragment(lfs_t *lfs, lfsr_file_t *file,
-        lfs_off_t pos, lfs_off_t weight,
-        const lfsr_data_t *datas, lfs_size_t data_count) {
-    return lfsr_file_graft_(lfs, file, pos, weight,
-            LFSR_RATTR_CAT_(LFSR_TAG_DATA, 0, datas, data_count));
-}
-
 static int lfsr_file_graft(lfs_t *lfs, lfsr_file_t *file) {
     // do nothing if already grafted
     if (!lfsr_o_isungraft(file->b.o.flags)) {
@@ -12153,9 +12157,9 @@ static int lfsr_file_graft(lfs_t *lfs, lfsr_file_t *file) {
     LFS_ASSERT(lfsr_bptr_isbptr(&file->leaf.bptr));
 
     // graft our crystal
-    int err = lfsr_file_graftcrystal(lfs, file,
-            file->leaf.pos, file->leaf.weight,
-            &file->leaf.bptr);
+    int err = lfsr_file_graft_(lfs, file,
+            file->leaf.pos, file->leaf.weight, 0,
+            &file->leaf.bptr.data, -1);
     if (err) {
         return err;
     }
@@ -12788,8 +12792,8 @@ fragment:;
 
         // once we've figured out what fragment to write, graft it into
         // our tree
-        err = lfsr_file_graftfragment(lfs, file,
-                fragment_start, fragment_end - fragment_start,
+        err = lfsr_file_graft_(lfs, file,
+                fragment_start, fragment_end - fragment_start, 0,
                 datas, data_count);
         if (err) {
             return err;
@@ -12992,9 +12996,9 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
 
     // graft any ungrafted leaves
     if (lfsr_o_isungraft(file->b.o.flags)) {
-        err = lfsr_file_graftcrystal(lfs, file,
-                file->leaf.pos, file->leaf.weight,
-                &file->leaf.bptr);
+        err = lfsr_file_graft_(lfs, file,
+                file->leaf.pos, file->leaf.weight, 0,
+                &file->leaf.bptr.data, -1);
         if (err) {
             goto failed;
         }
@@ -13433,8 +13437,8 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // truncate our btree
     err = lfsr_file_graft_(lfs, file,
             lfs_min(size, size_), size - lfs_min(size, size_),
-            LFSR_RATTR(
-                LFSR_TAG_DATA, +size_ - size));
+                +size_ - size,
+            NULL, 0);
     if (err) {
         goto failed;
     }
@@ -13517,8 +13521,8 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // fruncate our btree
     err = lfsr_file_graft_(lfs, file,
             0, lfs_smax(size - size_, 0),
-            LFSR_RATTR(
-                LFSR_TAG_DATA, +size_ - size));
+                +size_ - size,
+            NULL, 0);
     if (err) {
         goto failed;
     }
