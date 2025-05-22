@@ -7193,13 +7193,13 @@ static void lfsr_omdir_open(lfs_t *lfs, lfsr_omdir_t *o) {
 
 // needed in lfsr_omdir_close
 static void lfsr_omdir_clobber(lfs_t *lfs, const lfsr_omdir_t *o,
-        bool dirty);
+        uint32_t flags);
 
 static void lfsr_omdir_close(lfs_t *lfs, lfsr_omdir_t *o) {
     LFS_ASSERT(lfsr_omdir_isopen(lfs, o));
     // make sure we're not entangled in any traversals, note we don't
     // set the dirty bit here
-    lfsr_omdir_clobber(lfs, o, false);
+    lfsr_omdir_clobber(lfs, o, 0);
     // remove from opened list
     for (lfsr_omdir_t **o_ = &lfs->omdirs; *o_; o_ = &(*o_)->next) {
         if (*o_ == o) {
@@ -7233,10 +7233,10 @@ static void lfsr_traversal_clobber(lfs_t *lfs, lfsr_traversal_t *t);
 
 // clobber any traversals referencing our mdir
 static void lfsr_omdir_clobber(lfs_t *lfs, const lfsr_omdir_t *o,
-        bool dirty) {
+        uint32_t flags) {
     for (lfsr_omdir_t *o_ = lfs->omdirs; o_; o_ = o_->next) {
         if (lfsr_o_type(o_->flags) == LFS_type_TRAVERSAL) {
-            o_->flags |= (dirty) ? LFS_t_DIRTY : 0;
+            o_->flags |= flags;
 
             if (o && ((lfsr_traversal_t*)o_)->ot == o) {
                 lfsr_traversal_clobber(lfs, (lfsr_traversal_t*)o_);
@@ -7245,14 +7245,9 @@ static void lfsr_omdir_clobber(lfs_t *lfs, const lfsr_omdir_t *o,
     }
 }
 
-// clobber and mark traversals as dirty
-static void lfsr_omdir_mkdirty(lfs_t *lfs, const lfsr_omdir_t *o) {
-    lfsr_omdir_clobber(lfs, o, true);
-}
-
-// mark all traversals as dirty
-static void lfsr_fs_mkdirty(lfs_t *lfs) {
-    lfsr_omdir_clobber(lfs, NULL, true);
+// clobber all traversals
+static void lfsr_fs_clobber(lfs_t *lfs, uint32_t flags) {
+    lfsr_omdir_clobber(lfs, NULL, flags);
 }
 
 
@@ -9170,7 +9165,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     lfsr_fs_commitgdelta(lfs);
 
     // mark all traversals as dirty
-    lfsr_fs_mkdirty(lfs);
+    lfsr_fs_clobber(lfs, LFS_t_DIRTY);
 
     // we may have touched any number of mdirs, so assume uncompacted
     // until lfsr_fs_gc can prove otherwise
@@ -12838,7 +12833,7 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
     }
 
     // clobber entangled traversals
-    lfsr_omdir_mkdirty(lfs, &file->b.o);
+    lfsr_omdir_clobber(lfs, &file->b.o, LFS_t_DIRTY);
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // mark as unsynced in case we fail
@@ -12979,7 +12974,7 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     LFS_ASSERT(lfsr_o_isunsync(file->b.o.flags));
 
     // clobber entangled traversals
-    lfsr_omdir_mkdirty(lfs, &file->b.o);
+    lfsr_omdir_clobber(lfs, &file->b.o, LFS_t_DIRTY);
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     int err;
@@ -13410,7 +13405,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // clobber entangled traversals
-    lfsr_omdir_mkdirty(lfs, &file->b.o);
+    lfsr_omdir_clobber(lfs, &file->b.o, LFS_t_DIRTY);
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // mark as unsynced in case we fail
@@ -13490,7 +13485,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // clobber entangled traversals
-    lfsr_omdir_mkdirty(lfs, &file->b.o);
+    lfsr_omdir_clobber(lfs, &file->b.o, LFS_t_DIRTY);
     // checkpoint the allocator
     lfs_alloc_ckpoint(lfs);
     // mark as unsynced in case we fail
