@@ -44,6 +44,8 @@ FLAGS = [
     ('^', 'ORPHAN',    0x50000000, "Type = orphan"                            ),
     ('^', 'TRAVERSAL', 0x60000000, "Type = traversal"                         ),
     ('^', 'UNKNOWN',   0x70000000, "Type = unknown"                           ),
+    ('o', 'UNCRYST',   0x00400000, "File's leaf not fully crystallized"       ),
+    ('o', 'UNGRAFT',   0x00800000, "File's leaf does not match bshrub/btree"  ),
     ('o', 'UNFLUSH',   0x01000000, "File's data does not match disk"          ),
     ('o', 'UNSYNC',    0x02000000, "File's metadata does not match disk"      ),
     ('o', 'UNCREAT',   0x04000000, "File does not exist yet"                  ),
