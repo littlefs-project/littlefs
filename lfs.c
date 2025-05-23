@@ -12093,11 +12093,15 @@ static int lfsr_file_graft(lfs_t *lfs, lfsr_file_t *file,
 // hot-path
 LFS_NOINLINE
 static int lfsr_file_crystallize_(lfs_t *lfs, lfsr_file_t *file,
-        lfs_off_t block_pos, lfs_soff_t crystal_size,
+        lfs_off_t block_pos, lfs_soff_t crystal_min, lfs_soff_t crystal_max,
         lfs_off_t pos, const uint8_t *buffer, lfs_size_t size) {
-    // limit to block_size and theoretical file size
+    // align to prog_size, limit to block_size and theoretical file size
     lfs_off_t crystal_limit = lfs_min(
-            block_pos + lfs->cfg->block_size,
+            block_pos + lfs_min(
+                lfs_aligndown(
+                    (lfs_off_t)crystal_max,
+                    lfs->cfg->prog_size),
+                lfs->cfg->block_size),
             lfs_max(
                 pos + size,
                 file->b.shrub.weight));
@@ -12207,7 +12211,7 @@ static int lfsr_file_crystallize_(lfs_t *lfs, lfsr_file_t *file,
                         // but make sure to include all of the requested
                         // crystal if explicit, otherwise above loops
                         // may never terminate
-                        && (lfs_soff_t)(pos_ - block_pos) >= crystal_size) {
+                        && (lfs_soff_t)(pos_ - block_pos) >= crystal_min) {
                     break;
                 }
 
@@ -12319,7 +12323,7 @@ static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file,
 
     // crystallize
     int err = lfsr_file_crystallize_(lfs, file,
-            block_pos, crystal_size,
+            block_pos, crystal_size, -1,
             pos, buffer, size);
     if (err) {
         return err;
