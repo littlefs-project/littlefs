@@ -6686,7 +6686,7 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_bshrub_t *bshrub,
     if (lfsr_bshrub_isbtree(bshrub)) {
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             if (lfsr_o_isbshrub(o->flags)
-                    && (lfsr_bshrub_t*)o != bshrub
+                    && o != &bshrub->o
                     && lfsr_bshrub_cmp((lfsr_bshrub_t*)o, bshrub) == 0) {
                 // mark as unerased
                 ((lfsr_bshrub_t*)o)->shrub.eoff = -1;
@@ -7001,6 +7001,10 @@ static inline void lfsr_o_settype(uint32_t *flags, uint8_t type) {
 static inline bool lfsr_o_isbshrub(uint32_t flags) {
     return lfsr_o_type(flags) == LFS_TYPE_REG
             || lfsr_o_type(flags) == LFS_type_TRAVERSAL;
+}
+
+static inline bool lfsr_o_isuncryst(uint32_t flags) {
+    return flags & LFS_o_UNCRYST;
 }
 
 static inline bool lfsr_o_isungraft(uint32_t flags) {
@@ -11251,11 +11255,13 @@ int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type) {
 
 // file helpers
 static inline void lfsr_file_discardcache(lfsr_file_t *file) {
+    file->b.o.flags &= ~LFS_o_UNFLUSH;
     file->cache.pos = 0;
     file->cache.size = 0;
 }
 
 static inline void lfsr_file_discardleaf(lfsr_file_t *file) {
+    file->b.o.flags &= ~LFS_o_UNCRYST & ~LFS_o_UNGRAFT;
     file->leaf.pos = 0;
     file->leaf.weight = 0;
     lfsr_bptr_discard(&file->leaf.bptr);
@@ -11295,8 +11301,6 @@ static int lfsr_file_fetch(lfs_t *lfs, lfsr_file_t *file, bool trunc) {
     lfsr_file_discardcache(file);
     // discard the current leaf
     lfsr_file_discardleaf(file);
-    // mark as flushed
-    file->b.o.flags &= ~LFS_o_UNFLUSH & ~LFS_o_UNGRAFT;
 
     // don't bother reading disk if we're not created or truncating
     if (!lfsr_o_isuncreat(file->b.o.flags) && !trunc) {
@@ -11726,7 +11730,8 @@ static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, lfsr_file_t *file,
     if (!(pos >= file->leaf.pos
             && pos < file->leaf.pos + file->leaf.weight)) {
         // leaf in use? we need to flush it
-        if (lfsr_o_isungraft(file->b.o.flags)) {
+        if (lfsr_o_isungraft(file->b.o.flags)
+                || lfsr_o_isuncryst(file->b.o.flags)) {
             int err = lfsr_file_flush(lfs, file);
             if (err) {
                 return err;
@@ -11897,7 +11902,7 @@ static int lfsr_file_commit(lfs_t *lfs, lfsr_file_t *file,
 }
 
 // graft bptr/fragments into our bshrub/btree
-static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
+static int lfsr_file_graft(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, lfs_off_t weight, lfs_soff_t delta,
         // data_count=-1 => single bptr
         // data_count>=0 => list of concatenated fragments
@@ -12165,35 +12170,16 @@ static int lfsr_file_graft_(lfs_t *lfs, lfsr_file_t *file,
     return 0;
 }
 
-static int lfsr_file_graft(lfs_t *lfs, lfsr_file_t *file) {
-    // do nothing if already grafted
-    if (!lfsr_o_isungraft(file->b.o.flags)) {
-        return 0;
-    }
-    // ungrafted files must be unsynced
-    LFS_ASSERT(lfsr_o_isunsync(file->b.o.flags));
-    // only blocks can be ungrafted
-    LFS_ASSERT(lfsr_bptr_isbptr(&file->leaf.bptr));
-
-    // graft our crystal
-    int err = lfsr_file_graft_(lfs, file,
-            file->leaf.pos, file->leaf.weight, 0,
-            &file->leaf.bptr.data, -1);
-    if (err) {
-        return err;
-    }
-
-    // mark as grafted
-    file->b.o.flags &= ~LFS_o_UNGRAFT;
-    return 0;
-}
-
-static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file,
+static int lfsr_file_crystallize_(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t block_pos, lfs_soff_t crystal_size,
         lfs_off_t pos, const uint8_t *buffer, lfs_size_t size) {
-    // limit to block_size and theoretical file size
+    // align to prog_size, limit to block_size and theoretical file size
     lfs_off_t crystal_limit = lfs_min(
-            block_pos + lfs->cfg->block_size,
+            block_pos + lfs_min(
+                lfs_aligndown(
+                    (lfs_off_t)crystal_size,
+                    lfs->cfg->prog_size),
+                lfs->cfg->block_size),
             lfs_max(
                 pos + size,
                 lfsr_file_weight(file)));
@@ -12217,9 +12203,9 @@ static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file,
     // before we write, claim the erased state!
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (lfsr_o_type(o->flags) == LFS_TYPE_REG
+                && o != &file->b.o
                 && lfsr_bptr_block(&((lfsr_file_t*)o)->leaf.bptr)
-                    == lfsr_bptr_block(&file->leaf.bptr)
-                && (lfsr_file_t*)o != file) {
+                    == lfsr_bptr_block(&file->leaf.bptr)) {
             lfsr_bptr_claim(&((lfsr_file_t*)o)->leaf.bptr);
         }
     }
@@ -12389,8 +12375,8 @@ static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file,
                 (pos_ - block_pos) | LFSR_BPTR_ISERASED,
                 cksum_);
 
-        // mark as ungrafted
-        file->b.o.flags |= LFS_o_UNGRAFT;
+        // mark as uncrystallized and ungrafted
+        file->b.o.flags |= LFS_o_UNCRYST | LFS_o_UNGRAFT;
         return 0;
 
     relocate:;
@@ -12409,6 +12395,44 @@ static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file,
                 LFSR_BPTR_ISERASED | 0,
                 0);
     }
+}
+
+static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file) {
+    // finish crystallizing
+    if (lfsr_o_isuncryst(file->b.o.flags)) {
+        // uncrystallized files must be unsynced
+        LFS_ASSERT(lfsr_o_isunsync(file->b.o.flags));
+        // only blocks can be uncrystallized
+        LFS_ASSERT(lfsr_bptr_isbptr(&file->leaf.bptr));
+        LFS_ASSERT(lfsr_bptr_iserased(&file->leaf.bptr));
+
+        // finish crystallizing the block
+        int err = lfsr_file_crystallize_(lfs, file,
+                file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr),
+                -1,
+                file->cache.pos, file->cache.buffer, file->cache.size);
+        if (err) {
+            return err;
+        }
+
+        // mark as crystallized
+        file->b.o.flags &= ~LFS_o_UNCRYST;
+    }
+
+    // and graft into tree
+    if (lfsr_o_isungraft(file->b.o.flags)) {
+        int err = lfsr_file_graft(lfs, file,
+                file->leaf.pos, file->leaf.weight, 0,
+                &file->leaf.bptr.data, -1);
+        if (err) {
+            return err;
+        }
+
+        // mark as grafted
+        file->b.o.flags &= ~LFS_o_UNGRAFT;
+    }
+
+    return 0;
 }
 
 static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
@@ -12440,7 +12464,7 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 && pos - block_end < lfs->cfg->crystal_thresh
                 // need to bail if we can't meet prog alignment
                 && (pos + size) - block_end >= lfs->cfg->prog_size) {
-            int err = lfsr_file_crystallize(lfs, file,
+            int err = lfsr_file_crystallize_(lfs, file,
                     file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr),
                     (pos + size)
                         - (file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr)),
@@ -12561,26 +12585,14 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
         // if we're mid-crystallization, finish crystallizing the block
         // and graft it into our bshrub/btree
-        if (lfsr_bptr_isbptr(&file->leaf.bptr)
-                && lfsr_bptr_iserased(&file->leaf.bptr)) {
-            int err = lfsr_file_crystallize(lfs, file,
-                    file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr),
-                    -1,
-                    pos, buffer, size);
-            if (err) {
-                return err;
-            }
-
-            // and graft the crystal into our tree
-            err = lfsr_file_graft(lfs, file);
-            if (err) {
-                return err;
-            }
-
-            // mark as unerased so lfsr_file_crystallize doesn't try to
-            // continue crystallizing this block
-            lfsr_bptr_claim(&file->leaf.bptr);
+        int err = lfsr_file_crystallize(lfs, file);
+        if (err) {
+            return err;
         }
+
+        // mark as unerased so lfsr_file_crystallize doesn't try to
+        // resume crystallizing this block
+        lfsr_bptr_claim(&file->leaf.bptr);
 
         // before we can crystallize we need to figure out the best
         // block alignment, we use the entry immediately to the left of
@@ -12619,8 +12631,8 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
 
         // start crystallizing!
         //
-        // lfsr_file_crystallize handles block allocation/relocation
-        int err = lfsr_file_crystallize(lfs, file,
+        // lfsr_file_crystallize_ handles block allocation/relocation
+        err = lfsr_file_crystallize_(lfs, file,
                 crystal_start, crystal_end - crystal_start,
                 pos, buffer, size);
         if (err) {
@@ -12647,9 +12659,17 @@ fragment:;
         //
         // but note we're still tracking its erased state for future
         // writes!
-        int err = lfsr_file_graft(lfs, file);
-        if (err) {
-            return err;
+        if (lfsr_o_isungraft(file->b.o.flags)) {
+            // graft our crystal
+            int err = lfsr_file_graft(lfs, file,
+                    file->leaf.pos, file->leaf.weight, 0,
+                    &file->leaf.bptr.data, -1);
+            if (err) {
+                return err;
+            }
+
+            // mark as grafted
+            file->b.o.flags &= ~LFS_o_UNGRAFT;
         }
 
         // do we need to discard our leaf? we need to discard fragments
@@ -12687,7 +12707,7 @@ fragment:;
             lfsr_bid_t bid;
             lfsr_bid_t weight;
             lfsr_bptr_t bptr;
-            err = lfsr_file_lookup(lfs, file,
+            int err = lfsr_file_lookup(lfs, file,
                     fragment_start-1,
                     &bid, &weight, &bptr);
             if (err) {
@@ -12734,7 +12754,7 @@ fragment:;
             lfsr_bid_t bid;
             lfsr_bid_t weight;
             lfsr_bptr_t bptr;
-            err = lfsr_file_lookup(lfs, file,
+            int err = lfsr_file_lookup(lfs, file,
                     fragment_end,
                     &bid, &weight, &bptr);
             if (err) {
@@ -12774,7 +12794,7 @@ fragment:;
 
         // once we've figured out what fragment to write, graft it into
         // our tree
-        err = lfsr_file_graft_(lfs, file,
+        int err = lfsr_file_graft(lfs, file,
                 fragment_start, fragment_end - fragment_start, 0,
                 datas, data_count);
         if (err) {
@@ -12793,6 +12813,7 @@ fragment:;
 
     return 0;
 }
+
 
 // high-level file writing
 
@@ -12950,8 +12971,10 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
     // can't write to readonly files
     LFS_ASSERT(!lfsr_o_isrdonly(file->b.o.flags));
 
-    // do nothing if our file is already flushed and grafted
+    // do nothing if our file is already flushed, crystallized,
+    // and grafted
     if (!lfsr_o_isunflush(file->b.o.flags)
+            && !lfsr_o_isuncryst(file->b.o.flags)
             && !lfsr_o_isungraft(file->b.o.flags)) {
         return 0;
     }
@@ -12976,17 +12999,10 @@ int lfsr_file_flush(lfs_t *lfs, lfsr_file_t *file) {
         file->b.o.flags &= ~LFS_o_UNFLUSH;
     }
 
-    // graft any ungrafted leaves
-    if (lfsr_o_isungraft(file->b.o.flags)) {
-        err = lfsr_file_graft_(lfs, file,
-                file->leaf.pos, file->leaf.weight, 0,
-                &file->leaf.bptr.data, -1);
-        if (err) {
-            goto failed;
-        }
-
-        // mark as grafted
-        file->b.o.flags &= ~LFS_o_UNGRAFT;
+    // and crystallize/graft our leaf
+    err = lfsr_file_crystallize(lfs, file);
+    if (err) {
+        goto failed;
     }
 
     return 0;
@@ -13174,9 +13190,8 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
             && file->cache.size < lfs->cfg->crystal_thresh) {
         if (lfsr_o_isungraft(file->b.o.flags)) {
             file->b.o.flags |= LFS_o_UNFLUSH;
-            file->b.o.flags &= ~LFS_o_UNGRAFT;
-            lfsr_file_discardleaf(file);
         }
+        lfsr_file_discardleaf(file);
     } else {
         err = lfsr_file_flush(lfs, file);
         if (err) {
@@ -13213,6 +13228,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 // update flags
                 file_->b.o.flags &= ~LFS_o_UNSYNC
                         & ~LFS_o_UNFLUSH
+                        & ~LFS_o_UNCRYST
                         & ~LFS_o_UNGRAFT;
                 // update shrubs
                 file_->b.shrub = file->b.shrub;
@@ -13271,6 +13287,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
     // mark as synced
     file->b.o.flags &= ~LFS_o_UNSYNC
             & ~LFS_o_UNFLUSH
+            & ~LFS_o_UNCRYST
             & ~LFS_o_UNGRAFT
             & ~LFS_o_UNCREAT
             & ~LFS_O_DESYNC;
@@ -13405,7 +13422,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
                 < lfs_min(
                     lfs->cfg->fragment_thresh,
                     lfs->cfg->crystal_thresh)) {
-        err = lfsr_file_graft(lfs, file);
+        err = lfsr_file_crystallize(lfs, file);
         if (err) {
             goto failed;
         }
@@ -13414,7 +13431,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // truncate our btree
-    err = lfsr_file_graft_(lfs, file,
+    err = lfsr_file_graft(lfs, file,
             lfs_min(size, size_), size - lfs_min(size, size_),
                 +size_ - size,
             NULL, 0);
@@ -13425,6 +13442,7 @@ int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     // truncate our leaf
     if (size_ < file->leaf.pos + lfsr_bptr_size(&file->leaf.bptr)) {
         lfsr_bptr_claim(&file->leaf.bptr);
+        file->b.o.flags &= ~LFS_o_UNCRYST;
     }
     file->leaf.bptr.data = LFSR_DATA_TRUNCATE(
             file->leaf.bptr.data,
@@ -13487,7 +13505,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
                 < lfs_min(
                     lfs->cfg->fragment_thresh,
                     lfs->cfg->crystal_thresh)) {
-        err = lfsr_file_graft(lfs, file);
+        err = lfsr_file_crystallize(lfs, file);
         if (err) {
             goto failed;
         }
@@ -13496,7 +13514,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
     }
 
     // fruncate our btree
-    err = lfsr_file_graft_(lfs, file,
+    err = lfsr_file_graft(lfs, file,
             0, lfs_smax(size - size_, 0),
                 +size_ - size,
             NULL, 0);
@@ -13509,6 +13527,7 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size_) {
             > (lfs_soff_t)(file->leaf.pos
                 + lfsr_bptr_size(&file->leaf.bptr))) {
         lfsr_bptr_claim(&file->leaf.bptr);
+        file->b.o.flags &= ~LFS_o_UNCRYST;
     }
     file->leaf.bptr.data = LFSR_DATA_FRUNCATE(
             file->leaf.bptr.data,
