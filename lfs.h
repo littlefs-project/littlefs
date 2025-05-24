@@ -681,15 +681,8 @@ typedef struct lfsr_rbyd {
     uint32_t cksum;
 } lfsr_rbyd_t;
 
-// all we need for btrees is the root rbyd, but tracking the most recent
-// leaf helps speed up iteration/attr lookup/etc
-typedef struct lfsr_btree {
-    lfsr_rbyd_t root;
-    struct {
-        lfsr_bid_t bid;
-        lfsr_rbyd_t rbyd;
-    } leaf;
-} lfsr_btree_t;
+// a btree is represented by the root rbyd
+typedef lfsr_rbyd_t lfsr_btree_t;
 
 // littlefs's atomic metadata log type
 typedef struct lfsr_mdir {
@@ -716,7 +709,7 @@ typedef struct lfsr_bshrub {
     // trunk=0       => no bshrub/btree
     // sign(trunk)=1 => bshrub
     // sign(trunk)=0 => btree
-    lfsr_btree_t shrub;
+    lfsr_shrub_t shrub;
     lfsr_shrub_t shrub_;
 } lfsr_bshrub_t;
 

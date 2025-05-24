@@ -1227,10 +1227,10 @@ code = '''
 
     // create an empty btree
     lfs_alloc_ckpoint(&lfs);
-    lfsr_rbyd_alloc(&lfs, &file.b.shrub.root) => 0;
-    lfsr_rbyd_commit(&lfs, &file.b.shrub.root, 0, LFSR_RATTRS(
+    lfsr_rbyd_alloc(&lfs, &file.b.shrub) => 0;
+    lfsr_rbyd_commit(&lfs, &file.b.shrub, 0, LFSR_RATTRS(
             LFSR_RATTR_BUF(LFSR_TAG_DATA, +1, "?", 1))) => 0;
-    lfsr_rbyd_commit(&lfs, &file.b.shrub.root, 0, LFSR_RATTRS(
+    lfsr_rbyd_commit(&lfs, &file.b.shrub, 0, LFSR_RATTRS(
             LFSR_RATTR(LFSR_TAG_RM, -1))) => 0;
     lfsr_mdir_commit(&lfs, &file.b.o.mdir, LFSR_RATTRS(
             LFSR_RATTR_BTREE(
