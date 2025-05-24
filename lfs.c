@@ -12418,8 +12418,7 @@ static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file) {
 
         // finish crystallizing the block
         int err = lfsr_file_crystallize_(lfs, file,
-                file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr),
-                -1, -1,
+                file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr), -1, -1,
                 file->cache.pos, file->cache.buffer, file->cache.size);
         if (err) {
             return err;
@@ -12482,11 +12481,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 // need to bail if we can't meet prog alignment
                 && (pos + size) - block_end >= lfs->cfg->prog_size) {
             int err = lfsr_file_crystallize_(lfs, file,
-                    file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr),
-                    (pos + size)
-                        - (file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr)),
-                    (pos + size)
-                        - (file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr)),
+                    block_start,
+                    (pos + size) - block_start,
+                    (pos + size) - block_start,
                     pos, buffer, size);
             if (err) {
                 return err;
@@ -12612,11 +12609,9 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
                 && crystal_start >= block_end
                 && crystal_start < block_start + lfs->cfg->block_size) {
             int err = lfsr_file_crystallize_(lfs, file,
-                    file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr),
-                    crystal_end
-                        - (file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr)),
-                    crystal_end
-                        - (file->leaf.pos - lfsr_bptr_off(&file->leaf.bptr)),
+                    block_start,
+                    crystal_end - block_start,
+                    crystal_end - block_start,
                     pos, buffer, size);
             if (err) {
                 return err;
@@ -12684,8 +12679,10 @@ static int lfsr_file_flush_(lfs_t *lfs, lfsr_file_t *file,
         // start crystallizing!
         //
         // lfsr_file_crystallize_ handles block allocation/relocation
-        err = lfsr_file_crystallize_(lfs, file, crystal_start,
-                crystal_end - crystal_start, crystal_end - crystal_start,
+        err = lfsr_file_crystallize_(lfs, file,
+                crystal_start,
+                crystal_end - crystal_start,
+                crystal_end - crystal_start,
                 pos, buffer, size);
         if (err) {
             return err;
