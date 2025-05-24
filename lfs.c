@@ -2591,7 +2591,7 @@ static void lfsr_bptr_init(lfsr_bptr_t *bptr,
     #endif
 }
 
-static void lfsr_bptr_discard(lfsr_bptr_t *bptr) {
+static inline void lfsr_bptr_discard(lfsr_bptr_t *bptr) {
     bptr->data = LFSR_DATA_NULL();
     #ifndef LFS_CKDATACKSUMS
     bptr->cksize = 0;
@@ -2599,7 +2599,7 @@ static void lfsr_bptr_discard(lfsr_bptr_t *bptr) {
     #endif
 }
 
-static void lfsr_bptr_claim(lfsr_bptr_t *bptr) {
+static inline void lfsr_bptr_claim(lfsr_bptr_t *bptr) {
     #ifdef LFS_CKDATACKSUMS
     bptr->data.u.disk.cksize &= ~LFSR_BPTR_ISERASED;
     #else
@@ -2878,6 +2878,18 @@ static int lfsr_bptr_ck(lfs_t *lfs, const lfsr_bptr_t *bptr) {
 #define LFSR_RBYD_ISPERTURB 0x80000000
 
 // helper functions
+static void lfsr_rbyd_init(lfsr_rbyd_t *rbyd, lfs_block_t block) {
+    rbyd->blocks[0] = block;
+    rbyd->trunk = 0;
+    rbyd->weight = 0;
+    rbyd->eoff = 0;
+    rbyd->cksum = 0;
+}
+
+static inline void lfsr_rbyd_claim(lfsr_rbyd_t *rbyd) {
+    rbyd->eoff = -1;
+}
+
 static inline bool lfsr_rbyd_isshrub(const lfsr_rbyd_t *rbyd) {
     return rbyd->trunk & LFSR_RBYD_ISSHRUB;
 }
@@ -2919,11 +2931,7 @@ static int lfsr_rbyd_alloc(lfs_t *lfs, lfsr_rbyd_t *rbyd) {
         return block;
     }
 
-    rbyd->blocks[0] = block;
-    rbyd->trunk = 0;
-    rbyd->weight = 0;
-    rbyd->eoff = 0;
-    rbyd->cksum = 0;
+    lfsr_rbyd_init(rbyd, block);
     return 0;
 }
 
@@ -5131,6 +5139,10 @@ static void lfsr_btree_init(lfsr_btree_t *btree) {
 }
 
 // convenience operations
+static inline void lfsr_btree_claim(lfsr_btree_t *btree) {
+    lfsr_rbyd_claim(btree);
+}
+
 static inline int lfsr_btree_cmp(
         const lfsr_btree_t *a,
         const lfsr_btree_t *b) {
@@ -5584,7 +5596,7 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
             // mark btree as unerased in case of failure, our btree rbyd and
             // root rbyd can diverge if there's a split, but we would have
             // marked the old root as unerased earlier anyways
-            btree->eoff = -1;
+            lfsr_btree_claim(btree);
 
         } else {
             int err = lfsr_btree_parent(lfs, btree, bid_, &rbyd_,
@@ -6687,9 +6699,10 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_bshrub_t *bshrub,
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             if (lfsr_o_isbshrub(o->flags)
                     && o != &bshrub->o
-                    && lfsr_bshrub_cmp((lfsr_bshrub_t*)o, bshrub) == 0) {
+                    && ((lfsr_bshrub_t*)o)->shrub.blocks[0]
+                        == bshrub->shrub.blocks[0]) {
                 // mark as unerased
-                ((lfsr_bshrub_t*)o)->shrub.eoff = -1;
+                lfsr_btree_claim(&((lfsr_bshrub_t*)o)->shrub);
             }
         }
     }
@@ -7555,6 +7568,10 @@ static inline uint32_t lfsr_rev_inc(lfs_t *lfs, uint32_t rev) {
 /// Metadata pair stuff ///
 
 // mdir convenience functions
+static inline void lfsr_mdir_claim(lfsr_mdir_t *mdir) {
+    lfsr_rbyd_claim(&mdir->rbyd);
+}
+
 static inline int lfsr_mdir_cmp(const lfsr_mdir_t *a, const lfsr_mdir_t *b) {
     return lfsr_mptr_cmp(a->rbyd.blocks, b->rbyd.blocks);
 }
@@ -8407,7 +8424,7 @@ static int lfsr_mdir_commit_(lfs_t *lfs, lfsr_mdir_t *mdir,
     // make a copy
     lfsr_mdir_t mdir_ = *mdir;
     // mark as erased in case of failure
-    mdir->rbyd.eoff = -1;
+    lfsr_mdir_claim(mdir);
 
     // try to commit
     int err = lfsr_mdir_commit__(lfs, &mdir_, start_rid, end_rid,
@@ -8646,14 +8663,14 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
     lfsr_mdir_t mdir_[2];
     mdir_[0] = *mdir;
     // mark our mdir as unerased in case we fail
-    mdir->rbyd.eoff = -1;
+    lfsr_mdir_claim(mdir);
     // mark any copies of our mdir as unerased in case we fail
     if (lfsr_mdir_cmp(mdir, &lfs->mroot) == 0) {
-        lfs->mroot.rbyd.eoff = -1;
+        lfsr_mdir_claim(&lfs->mroot);
     }
     for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
         if (lfsr_mdir_cmp(&o->mdir, mdir) == 0) {
-            o->mdir.rbyd.eoff = -1;
+            lfsr_mdir_claim(&o->mdir);
         }
     }
 
@@ -8817,7 +8834,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // update our mtree
         } else {
             // mark as unerased in case of failure
-            lfs->mtree.eoff = -1;
+            lfsr_btree_claim(&lfs->mtree);
 
             err = lfsr_mtree_commit(lfs, &mtree_,
                     lfsr_mbid(lfs, mdir->mid), LFSR_RATTRS(
@@ -8856,7 +8873,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         LFS_ASSERT(lfs->mtree.weight != 0);
 
         // mark as unerased in case of failure
-        lfs->mtree.eoff = -1;
+        lfsr_btree_claim(&lfs->mtree);
 
         // update our mtree
         err = lfsr_mtree_commit(lfs, &mtree_,
@@ -8893,7 +8910,7 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         // update our mtree
         } else {
             // mark as unerased in case of failure
-            lfs->mtree.eoff = -1;
+            lfsr_btree_claim(&lfs->mtree);
 
             err = lfsr_mtree_commit(lfs, &mtree_,
                     lfsr_mbid(lfs, mdir->mid), LFSR_RATTRS(
@@ -8939,10 +8956,10 @@ static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         }
 
         // mark any copies of our mroot as unerased
-        lfs->mroot.rbyd.eoff = -1;
+        lfsr_mdir_claim(&lfs->mroot);
         for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
             if (lfsr_mdir_cmp(&o->mdir, &lfs->mroot) == 0) {
-                o->mdir.rbyd.eoff = -1;
+                lfsr_mdir_claim(&o->mdir);
             }
         }
 
@@ -9203,7 +9220,7 @@ failed:;
 static int lfsr_mdir_compact(lfs_t *lfs, lfsr_mdir_t *mdir) {
     // the easiest way to do this is to just mark mdir as unerased
     // and call lfsr_mdir_commit
-    mdir->rbyd.eoff = -1;
+    lfsr_mdir_claim(mdir);
     return lfsr_mdir_commit(lfs, mdir, NULL, 0);
 }
 
