@@ -122,8 +122,8 @@ enum lfs_type {
     LFS_TYPE_UNKNOWN    = 7,  // Unknown file type
 
     // internally used types, don't use these
-    LFS_type_ORPHAN     = 4,  // An orphaned stickynote
-    LFS_type_BOOKMARK   = 5,  // Directory bookmark
+    LFS_type_BOOKMARK   = 4,  // Directory bookmark
+    LFS_type_ORPHAN     = 5,  // An orphaned stickynote
     LFS_type_TRAVERSAL  = 6,  // An open traversal object
 };
 
