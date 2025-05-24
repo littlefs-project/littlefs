@@ -11724,15 +11724,21 @@ static int lfsr_file_lookup(lfs_t *lfs, const lfsr_file_t *file,
     return 0;
 }
 
+// needed in lfsr_file_read_
+static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file);
+
 static lfs_ssize_t lfsr_file_read_(lfs_t *lfs, lfsr_file_t *file,
         lfs_off_t pos, uint8_t *buffer, lfs_size_t size) {
     // need to fetch a new leaf?
     if (!(pos >= file->leaf.pos
             && pos < file->leaf.pos + file->leaf.weight)) {
-        // leaf in use? we need to flush it
+        // leaf in use? we need to crystallize/graft it
+        //
+        // it would be easier to just call lfsr_file_flush here, but
+        // we don't want to drag in the extra stack usage
         if (lfsr_o_isungraft(file->b.o.flags)
                 || lfsr_o_isuncryst(file->b.o.flags)) {
-            int err = lfsr_file_flush(lfs, file);
+            int err = lfsr_file_crystallize(lfs, file);
             if (err) {
                 return err;
             }
@@ -12398,6 +12404,10 @@ static int lfsr_file_crystallize_(lfs_t *lfs, lfsr_file_t *file,
 }
 
 static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file) {
+    bool flushable = (
+            file->cache.pos
+                >= file->leaf.pos + lfsr_bptr_size(&file->leaf.bptr));
+
     // finish crystallizing
     if (lfsr_o_isuncryst(file->b.o.flags)) {
         // uncrystallized files must be unsynced
@@ -12430,6 +12440,13 @@ static int lfsr_file_crystallize(lfs_t *lfs, lfsr_file_t *file) {
 
         // mark as grafted
         file->b.o.flags &= ~LFS_o_UNGRAFT;
+    }
+
+    // eagerly mark as flushed if this included all of our cache
+    if (flushable
+            && file->leaf.pos + lfsr_bptr_size(&file->leaf.bptr)
+                >= file->cache.pos + file->cache.size) {
+        file->b.o.flags &= ~LFS_o_UNFLUSH;
     }
 
     return 0;
