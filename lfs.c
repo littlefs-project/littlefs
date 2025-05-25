@@ -706,17 +706,17 @@ static int lfsr_bd_set(lfs_t *lfs, lfs_block_t block, lfs_size_t off,
 // ptail tracks the most recent trunk's parity so we can parity-check
 // if it hasn't been written to disk yet
 
-#ifdef LFS_CKPARITY
+#ifdef LFS_CKMETAPARITY
 #define LFSR_PTAIL_PARITY 0x80000000
 #endif
 
-#ifdef LFS_CKPARITY
+#ifdef LFS_CKMETAPARITY
 static inline bool lfsr_ptail_parity(const lfs_t *lfs) {
     return lfs->ptail.off & LFSR_PTAIL_PARITY;
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#ifdef LFS_CKMETAPARITY
 static inline lfs_size_t lfsr_ptail_off(const lfs_t *lfs) {
     return lfs->ptail.off & ~LFSR_PTAIL_PARITY;
 }
@@ -725,7 +725,7 @@ static inline lfs_size_t lfsr_ptail_off(const lfs_t *lfs) {
 
 // checked read helpers
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 static int lfsr_bd_ckprefix(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfs_size_t cksize, uint32_t cksum,
@@ -760,7 +760,7 @@ static int lfsr_bd_ckprefix(lfs_t *lfs,
 }
 #endif
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 static int lfsr_bd_cksuffix(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         lfs_size_t cksize, uint32_t cksum,
@@ -795,7 +795,7 @@ static int lfsr_bd_cksuffix(lfs_t *lfs,
 
 // checked read functions
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 // caching read with parity/checksum checks
 //
 // the main downside of checking reads is we need to read all data that
@@ -851,7 +851,7 @@ static int lfsr_bd_readck(lfs_t *lfs,
 //
 // we'd also need to worry about early termination in lfsr_bd_cmp/cmpck
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
         lfs_block_t block, lfs_size_t off, lfs_size_t hint,
         const void *buffer, lfs_size_t size,
@@ -915,7 +915,7 @@ static lfs_scmp_t lfsr_bd_cmpck(lfs_t *lfs,
 }
 #endif
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 static int lfsr_bd_cpyck(lfs_t *lfs,
         lfs_block_t dst_block, lfs_size_t dst_off,
         lfs_block_t src_block, lfs_size_t src_off, lfs_size_t hint,
@@ -1454,7 +1454,7 @@ static inline bool lfsr_tag_diverging2(
 #define LFSR_TAG_DSIZE (2+5+4)
 
 // needed in lfsr_bd_readtag
-#ifdef LFS_CKPARITY
+#ifdef LFS_CKMETAPARITY
 static inline bool lfsr_m_isckparity(uint32_t flags);
 #endif
 
@@ -1519,7 +1519,7 @@ static lfs_ssize_t lfsr_bd_readtag(lfs_t *lfs,
         return LFS_ERR_CORRUPT;
     }
 
-    #ifdef LFS_CKPARITY
+    #ifdef LFS_CKMETAPARITY
     // check the parity if we're checking parity
     //
     // this requires reading all of the data as well, but with any luck
@@ -1660,7 +1660,7 @@ static lfs_ssize_t lfsr_bd_progtag(lfs_t *lfs,
 #define LFSR_DATA_ONDISK 0x80000000
 #define LFSR_DATA_ISBPTR 0x40000000
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 #define LFSR_DATA_ISERASED 0x80000000
 #endif
 
@@ -1697,13 +1697,13 @@ static inline lfs_size_t lfsr_data_size(lfsr_data_t data) {
     return data.size & ~LFSR_DATA_ONDISK & ~LFSR_DATA_ISBPTR;
 }
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 static inline lfs_size_t lfsr_data_cksize(lfsr_data_t data) {
     return data.u.disk.cksize & ~LFSR_DATA_ISERASED;
 }
 #endif
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 static inline uint32_t lfsr_data_cksum(lfsr_data_t data) {
     return data.u.disk.cksum;
 }
@@ -1768,7 +1768,7 @@ static inline lfsr_data_t lfsr_data_fromfruncate(lfsr_data_t data,
 // consuming the data
 
 // needed in lfsr_data_read and friends
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 static inline bool lfsr_m_isckdatacksums(uint32_t flags);
 #endif
 
@@ -1780,11 +1780,11 @@ static lfs_ssize_t lfsr_data_read(lfs_t *lfs, lfsr_data_t *data,
     // on-disk?
     if (lfsr_data_ondisk(*data)) {
         // validating data cksums?
-        if (LFS_IFDEF_CKDATACKSUMS(
+        if (LFS_IFDEF_CKDATACKSUMREADS(
                 lfsr_m_isckdatacksums(lfs->flags)
                     && lfsr_data_isbptr(*data),
                 false)) {
-            #ifdef LFS_CKDATACKSUMS
+            #ifdef LFS_CKDATACKSUMREADS
             int err = lfsr_bd_readck(lfs,
                     data->u.disk.block, data->u.disk.off,
                     // note our hint includes the full data range
@@ -1887,11 +1887,11 @@ static lfs_scmp_t lfsr_data_cmp(lfs_t *lfs, lfsr_data_t data,
     // on-disk?
     if (lfsr_data_ondisk(data)) {
         // validating data cksums?
-        if (LFS_IFDEF_CKDATACKSUMS(
+        if (LFS_IFDEF_CKDATACKSUMREADS(
                 lfsr_m_isckdatacksums(lfs->flags)
                     && lfsr_data_isbptr(data),
                 false)) {
-            #ifdef LFS_CKDATACKSUMS
+            #ifdef LFS_CKDATACKSUMREADS
             int cmp = lfsr_bd_cmpck(lfs,
                     // note the 0 hint, we don't usually use any
                     // following data
@@ -1959,11 +1959,11 @@ static int lfsr_bd_progdata(lfs_t *lfs,
     // on-disk?
     if (lfsr_data_ondisk(data)) {
         // validating data cksums?
-        if (LFS_IFDEF_CKDATACKSUMS(
+        if (LFS_IFDEF_CKDATACKSUMREADS(
                 lfsr_m_isckdatacksums(lfs->flags)
                     && lfsr_data_isbptr(data),
                 false)) {
-            #ifdef LFS_CKDATACKSUMS
+            #ifdef LFS_CKDATACKSUMREADS
             int err = lfsr_bd_cpyck(lfs, block, off,
                     data.u.disk.block, data.u.disk.off, lfsr_data_size(data),
                     lfsr_data_size(data),
@@ -2582,7 +2582,7 @@ static void lfsr_bptr_init(lfsr_bptr_t *bptr,
     bptr->data.size = data.size | LFSR_DATA_ONDISK | LFSR_BPTR_ISBPTR;
     bptr->data.u.disk.block = data.u.disk.block;
     bptr->data.u.disk.off = data.u.disk.off;
-    #ifdef LFS_CKDATACKSUMS
+    #ifdef LFS_CKDATACKSUMREADS
     bptr->data.u.disk.cksize = cksize;
     bptr->data.u.disk.cksum = cksum;
     #else
@@ -2593,14 +2593,14 @@ static void lfsr_bptr_init(lfsr_bptr_t *bptr,
 
 static inline void lfsr_bptr_discard(lfsr_bptr_t *bptr) {
     bptr->data = LFSR_DATA_NULL();
-    #ifndef LFS_CKDATACKSUMS
+    #ifndef LFS_CKDATACKSUMREADS
     bptr->cksize = 0;
     bptr->cksum = 0;
     #endif
 }
 
 static inline void lfsr_bptr_claim(lfsr_bptr_t *bptr) {
-    #ifdef LFS_CKDATACKSUMS
+    #ifdef LFS_CKDATACKSUMREADS
     bptr->data.u.disk.cksize &= ~LFSR_BPTR_ISERASED;
     #else
     bptr->cksize &= ~LFSR_BPTR_ISERASED;
@@ -2627,7 +2627,7 @@ static inline lfs_size_t lfsr_bptr_size(const lfsr_bptr_t *bptr) {
 // unnecessarily duplicate, this makes accessing ck info annoyingly
 // messy...
 static inline bool lfsr_bptr_iserased(const lfsr_bptr_t *bptr) {
-    #ifdef LFS_CKDATACKSUMS
+    #ifdef LFS_CKDATACKSUMREADS
     return bptr->data.u.disk.cksize & LFSR_BPTR_ISERASED;
     #else
     return bptr->cksize & LFSR_BPTR_ISERASED;
@@ -2635,7 +2635,7 @@ static inline bool lfsr_bptr_iserased(const lfsr_bptr_t *bptr) {
 }
 
 static inline lfs_size_t lfsr_bptr_cksize(const lfsr_bptr_t *bptr) {
-    #ifdef LFS_CKDATACKSUMS
+    #ifdef LFS_CKDATACKSUMREADS
     return bptr->data.u.disk.cksize & ~LFSR_BPTR_ISERASED;
     #else
     return bptr->cksize & ~LFSR_BPTR_ISERASED;
@@ -2643,7 +2643,7 @@ static inline lfs_size_t lfsr_bptr_cksize(const lfsr_bptr_t *bptr) {
 }
 
 static inline uint32_t lfsr_bptr_cksum(const lfsr_bptr_t *bptr) {
-    #ifdef LFS_CKDATACKSUMS
+    #ifdef LFS_CKDATACKSUMREADS
     return bptr->data.u.disk.cksum;
     #else
     return bptr->cksum;
@@ -2715,7 +2715,7 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
 
     // read the cksize, cksum
     err = lfsr_data_readlleb128(lfs, data,
-            LFS_IFDEF_CKDATACKSUMS(
+            LFS_IFDEF_CKDATACKSUMREADS(
                 &bptr->data.u.disk.cksize,
                 &bptr->cksize));
     if (err) {
@@ -2723,7 +2723,7 @@ static int lfsr_data_readbptr(lfs_t *lfs, lfsr_data_t *data,
     }
 
     err = lfsr_data_readle32(lfs, data,
-            LFS_IFDEF_CKDATACKSUMS(
+            LFS_IFDEF_CKDATACKSUMREADS(
                 &bptr->data.u.disk.cksum,
                 &bptr->cksum));
     if (err) {
@@ -3503,7 +3503,7 @@ static int lfsr_rbyd_appendtag(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     rbyd->eoff += d;
 
-    #ifdef LFS_CKPARITY
+    #ifdef LFS_CKMETAPARITY
     // keep track of most recent parity
     lfs->ptail.block = rbyd->blocks[0];
     lfs->ptail.off
@@ -3714,7 +3714,7 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
         }
     }
 
-    #ifdef LFS_CKPARITY
+    #ifdef LFS_CKMETAPARITY
     // keep track of most recent parity
     lfs->ptail.block = rbyd->blocks[0];
     lfs->ptail.off
@@ -7163,24 +7163,24 @@ static inline bool lfsr_m_isckfetches(uint32_t flags) {
 }
 #endif
 
-#ifdef LFS_CKPARITY
+#ifdef LFS_CKMETAPARITY
 static inline bool lfsr_m_isckparity(uint32_t flags) {
     (void)flags;
-    #ifdef LFS_YES_CKPARITY
+    #ifdef LFS_YES_CKMETAPARITY
     return true;
     #else
-    return flags & LFS_M_CKPARITY;
+    return flags & LFS_M_CKMETAPARITY;
     #endif
 }
 #endif
 
-#ifdef LFS_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
 static inline bool lfsr_m_isckdatacksums(uint32_t flags) {
     (void)flags;
-    #ifdef LFS_YES_CKDATACKSUMS
+    #ifdef LFS_YES_CKDATACKSUMREADS
     return true;
     #else
-    return flags & LFS_M_CKDATACKSUMS;
+    return flags & LFS_M_CKDATACKSUMREADS;
     #endif
 }
 #endif
@@ -13786,8 +13786,8 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
                 | LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, 0)
                 | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
-                | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
-                | LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, 0))) == 0);
+                | LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, 0)
+                | LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, 0))) == 0);
     #if defined(LFS_REVNOISE) && defined(LFS_REVDBG)
     // LFS_M_REVDBG and LFS_M_REVNOISE are incompatible
     LFS_ASSERT(!lfsr_m_isrevdbg(flags) || !lfsr_m_isrevnoise(flags));
@@ -13898,7 +13898,7 @@ static int lfs_init(lfs_t *lfs, uint32_t flags,
         }
     }
 
-    #ifdef LFS_CKPARITY
+    #ifdef LFS_CKMETAPARITY
     // setup ptail, nothing should actually check off=0
     lfs->ptail.block = 0;
     lfs->ptail.off = 0;
@@ -14632,11 +14632,11 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
     #ifdef LFS_YES_CKFETCHES
     flags |= LFS_M_CKFETCHES;
     #endif
-    #ifdef LFS_YES_CKPARITY
-    flags |= LFS_M_CKPARITY;
+    #ifdef LFS_YES_CKMETAPARITY
+    flags |= LFS_M_CKMETAPARITY;
     #endif
-    #ifdef LFS_YES_CKDATACKSUMS
-    flags |= LFS_M_CKDATACKSUMS;
+    #ifdef LFS_YES_CKDATACKSUMREADS
+    flags |= LFS_M_CKDATACKSUMREADS;
     #endif
     #ifdef LFS_YES_MKCONSISTENT
     flags |= LFS_M_MKCONSISTENT;
@@ -14664,8 +14664,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                 | LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, 0)
                 | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
-                | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
-                | LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, 0)
+                | LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, 0)
+                | LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, 0)
                 | LFS_M_MKCONSISTENT
                 | LFS_M_LOOKAHEAD
                 | LFS_M_COMPACT
@@ -14686,8 +14686,8 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
                     | LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, 0)
                     | LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, 0)
                     | LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, 0)
-                    | LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, 0)
-                    | LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, 0)),
+                    | LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, 0)
+                    | LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, 0)),
             cfg);
     if (err) {
         return err;
@@ -14855,11 +14855,11 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
     #ifdef LFS_YES_CKFETCHES
     flags |= LFS_F_CKFETCHES;
     #endif
-    #ifdef LFS_YES_CKPARITY
-    flags |= LFS_F_CKPARITY;
+    #ifdef LFS_YES_CKMETAPARITY
+    flags |= LFS_F_CKMETAPARITY;
     #endif
-    #ifdef LFS_YES_CKDATACKSUMS
-    flags |= LFS_F_CKDATACKSUMS;
+    #ifdef LFS_YES_CKDATACKSUMREADS
+    flags |= LFS_F_CKDATACKSUMREADS;
     #endif
     #ifdef LFS_YES_CKMETA
     flags |= LFS_F_CKMETA;
@@ -14875,8 +14875,8 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
                 | LFS_IFDEF_REVNOISE(LFS_F_REVNOISE, 0)
                 | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
-                | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
-                | LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, 0)
+                | LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, 0)
+                | LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, 0)
                 | LFS_F_CKMETA
                 | LFS_F_CKDATA)) == 0);
 
@@ -14887,8 +14887,8 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
                     | LFS_IFDEF_REVNOISE(LFS_F_REVNOISE, 0)
                     | LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, 0)
                     | LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, 0)
-                    | LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, 0)
-                    | LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, 0)),
+                    | LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, 0)
+                    | LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, 0)),
             cfg);
     if (err) {
         return err;
@@ -14948,8 +14948,8 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
                 | LFS_IFDEF_REVNOISE(LFS_I_REVNOISE, 0)
                 | LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, 0)
                 | LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, 0)
-                | LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, 0)
-                | LFS_IFDEF_CKDATACKSUMS(LFS_I_CKDATACKSUMS, 0)
+                | LFS_IFDEF_CKMETAPARITY(LFS_I_CKMETAPARITY, 0)
+                | LFS_IFDEF_CKDATACKSUMREADS(LFS_I_CKDATACKSUMREADS, 0)
                 | LFS_I_MKCONSISTENT
                 | LFS_I_LOOKAHEAD
                 | LFS_I_COMPACT

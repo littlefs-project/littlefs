@@ -178,11 +178,12 @@ enum lfs_type {
 #ifdef LFS_CKFETCHES
 #define LFS_F_CKFETCHES 0x00001000  // Check block checksums before first use
 #endif
-#ifdef LFS_CKPARITY
-#define LFS_F_CKPARITY  0x00002000  // Check metadata tag parity bits
+#ifdef LFS_CKMETAPARITY
+#define LFS_F_CKMETAPARITY \
+                        0x00002000  // Check metadata tag parity bits
 #endif
-#ifdef LFS_CKDATACKSUMS
-#define LFS_F_CKDATACKSUMS \
+#ifdef LFS_CKDATACKSUMREADS
+#define LFS_F_CKDATACKSUMREADS \
                         0x00008000  // Check data checksums on reads
 #endif
 
@@ -207,11 +208,12 @@ enum lfs_type {
 #ifdef LFS_CKFETCHES
 #define LFS_M_CKFETCHES 0x00001000  // Check block checksums before first use
 #endif
-#ifdef LFS_CKPARITY
-#define LFS_M_CKPARITY  0x00002000  // Check metadata tag parity bits
+#ifdef LFS_CKMETAPARITY
+#define LFS_M_CKMETAPARITY \
+                        0x00002000  // Check metadata tag parity bits
 #endif
-#ifdef LFS_CKDATACKSUMS
-#define LFS_M_CKDATACKSUMS \
+#ifdef LFS_CKDATACKSUMREADS
+#define LFS_M_CKDATACKSUMREADS \
                         0x00008000  // Check data checksums on reads
 #endif
 
@@ -238,12 +240,13 @@ enum lfs_type {
 #ifdef LFS_CKFETCHES
 #define LFS_I_CKFETCHES 0x00001000  // Mounted with LFS_M_CKFETCHES
 #endif
-#ifdef LFS_CKPARITY
-#define LFS_I_CKPARITY  0x00002000  // Mounted with LFS_M_CKPARITY
+#ifdef LFS_CKMETAPARITY
+#define LFS_I_CKMETAPARITY \
+                        0x00002000  // Mounted with LFS_M_CKMETAPARITY
 #endif
-#ifdef LFS_CKDATACKSUMS
-#define LFS_I_CKDATACKSUMS \
-                        0x00008000  // Mounted with LFS_M_CKDATACKSUMS
+#ifdef LFS_CKDATACKSUMREADS
+#define LFS_I_CKDATACKSUMREADS \
+                        0x00008000  // Mounted with LFS_M_CKDATACKSUMREADS
 #endif
 
 #define LFS_I_MKCONSISTENT \
@@ -641,7 +644,7 @@ typedef struct lfsr_data {
         struct {
             lfs_block_t block;
             lfs_size_t off;
-            #ifdef LFS_CKDATACKSUMS
+            #ifdef LFS_CKDATACKSUMREADS
             // optional context for validating data
             // sign(cksize)=0 => block not erased
             // sign(cksize)=1 => block erased
@@ -658,7 +661,7 @@ typedef struct lfsr_bptr {
     // sign2(size)=0b10 => on-disk data
     // sign2(size)=0b11 => block pointer
     lfsr_data_t data;
-    #ifndef LFS_CKDATACKSUMS
+    #ifndef LFS_CKDATACKSUMREADS
     // sign(cksize)=0 => block not erased
     // sign(cksize)=1 => block erased
     lfs_size_t cksize;
@@ -871,7 +874,7 @@ typedef struct lfs {
         uint8_t *buffer;
     } pcache;
 
-    #ifdef LFS_CKPARITY
+    #ifdef LFS_CKMETAPARITY
     struct {
         lfs_block_t block;
         // sign(off) => tail parity

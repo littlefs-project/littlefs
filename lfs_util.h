@@ -38,11 +38,11 @@
 #ifndef LFS_CKFETCHES
 #define LFS_CKFETCHES
 #endif
-#ifndef LFS_CKPARITY
-#define LFS_CKPARITY
+#ifndef LFS_CKMETAPARITY
+#define LFS_CKMETAPARITY
 #endif
-#ifndef LFS_CKDATACKSUMS
-#define LFS_CKDATACKSUMS
+#ifndef LFS_CKDATACKSUMREADS
+#define LFS_CKDATACKSUMREADS
 #endif
 #ifndef LFS_GC
 #define LFS_GC
@@ -65,14 +65,14 @@
 #ifdef LFS_YES_CKFETCHES
 #define LFS_CKFETCHES
 #endif
-#ifdef LFS_YES_CKPARITY
-#define LFS_CKPARITY
+#ifdef LFS_YES_CKMETAPARITY
+#define LFS_CKMETAPARITY
 #endif
-#ifdef LFS_YES_CKDATACKSUMS
-#define LFS_CKDATACKSUMS
+#ifdef LFS_YES_CKDATACKSUMREADS
+#define LFS_CKDATACKSUMREADS
 #endif
-#ifdef LFS_YES_CKDATACKSUMS
-#define LFS_CKDATACKSUMS
+#ifdef LFS_YES_GC
+#define LFS_GC
 #endif
 
 // LFS_NO_LOG disables all logging macros
@@ -240,16 +240,16 @@
 #define LFS_IFDEF_CKFETCHES(a, b) (b)
 #endif
 
-#ifdef LFS_CKPARITY
-#define LFS_IFDEF_CKPARITY(a, b) (a)
+#ifdef LFS_CKMETAPARITY
+#define LFS_IFDEF_CKMETAPARITY(a, b) (a)
 #else
-#define LFS_IFDEF_CKPARITY(a, b) (b)
+#define LFS_IFDEF_CKMETAPARITY(a, b) (b)
 #endif
 
-#ifdef LFS_CKDATACKSUMS
-#define LFS_IFDEF_CKDATACKSUMS(a, b) (a)
+#ifdef LFS_CKDATACKSUMREADS
+#define LFS_IFDEF_CKDATACKSUMREADS(a, b) (a)
 #else
-#define LFS_IFDEF_CKDATACKSUMS(a, b) (b)
+#define LFS_IFDEF_CKDATACKSUMREADS(a, b) (b)
 #endif
 
 #ifdef LFS_GC

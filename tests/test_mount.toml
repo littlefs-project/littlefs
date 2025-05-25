@@ -21,8 +21,8 @@ defines.REVDBG = [false, true]
 defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
-defines.CKPARITY = [false, true]
-defines.CKDATACKSUMS = [false, true]
+defines.CKMETAPARITY = [false, true]
+defines.CKDATACKSUMREADS = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -34,8 +34,8 @@ if = [
     '!REVDBG || !REVNOISE',
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
     '!RDONLY || !COMPACT',
@@ -51,9 +51,11 @@ code = '''
                 | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, -1)
                     : 0)
                 | ((MKCONSISTENT) ? LFS_M_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_M_LOOKAHEAD : 0)
@@ -73,9 +75,11 @@ code = '''
                 | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_I_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_I_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_I_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_I_CKDATACKSUMREADS, -1)
                     : 0)
                 | ((!MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
@@ -95,8 +99,8 @@ defines.REVDBG = [false, true]
 defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
-defines.CKPARITY = [false, true]
-defines.CKDATACKSUMS = [false, true]
+defines.CKMETAPARITY = [false, true]
+defines.CKDATACKSUMREADS = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
@@ -105,8 +109,8 @@ if = [
     '!REVDBG || !REVNOISE',
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
 ]
 code = '''
     lfs_t lfs;
@@ -116,9 +120,11 @@ code = '''
                 | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_F_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, -1)
                     : 0)
                 | ((CKMETA) ? LFS_F_CKMETA : 0)
                 | ((CKDATA) ? LFS_F_CKDATA : 0),

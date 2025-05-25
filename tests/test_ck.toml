@@ -2313,7 +2313,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
-ifdef = 'LFS_CKPARITY'
+ifdef = 'LFS_CKMETAPARITY'
 code = '''
     // test all bad bits in the mroot
     for (lfs_size_t i = 0;
@@ -2342,12 +2342,12 @@ code = '''
 
         // format
         lfs_t lfs;
-        int err = lfsr_format(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG);
+        int err = lfsr_format(&lfs, LFS_M_RDWR | LFS_M_CKMETAPARITY, CFG);
         assert(!err || err == LFS_ERR_CORRUPT);
         if (err == LFS_ERR_CORRUPT) {
             goto corrupt;
         }
-        err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG);
+        err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKMETAPARITY, CFG);
         assert(!err || err == LFS_ERR_CORRUPT);
         if (err == LFS_ERR_CORRUPT) {
             goto corrupt;
@@ -2383,7 +2383,8 @@ code = '''
                 // remount?
                 if (remount) {
                     lfsr_unmount(&lfs) => 0;
-                    err = lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG);
+                    err = lfsr_mount(&lfs,
+                            LFS_M_RDWR | LFS_M_CKMETAPARITY, CFG);
                     if (err == LFS_ERR_CORRUPT) {
                         goto corrupt;
                     }
@@ -2433,7 +2434,7 @@ defines.INLINE_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*FRAGMENT_SIZE'
-ifdef = 'LFS_CKPARITY'
+ifdef = 'LFS_CKMETAPARITY'
 code = '''
     // first we need to figure out where the btree block will actually
     // end up, fortunately our block randomization is intentionally
@@ -2441,8 +2442,8 @@ code = '''
 
     // format
     lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKPARITY, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKMETAPARITY, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKMETAPARITY, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2499,8 +2500,8 @@ code = '''
 
         // format
         lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKPARITY, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKMETAPARITY, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKMETAPARITY, CFG) => 0;
 
         {
             // create a file
@@ -2528,7 +2529,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfsr_unmount(&lfs) => 0;
-                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKPARITY, CFG) => 0;
+                    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKMETAPARITY, CFG) => 0;
                 }
 
                 // yes reads can fail here
@@ -2575,7 +2576,7 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
-ifdef = 'LFS_CKDATACKSUMS'
+ifdef = 'LFS_CKDATACKSUMREADS'
 code = '''
     // first we need to figure out where the data block will actually
     // end up, fortunately our block randomization is intentionally
@@ -2583,8 +2584,8 @@ code = '''
 
     // format
     lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKDATACKSUMS, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKDATACKSUMS, CFG) => 0;
+    lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKDATACKSUMREADS, CFG) => 0;
+    lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKDATACKSUMREADS, CFG) => 0;
 
     // create a file
     lfsr_file_t file;
@@ -2634,8 +2635,8 @@ code = '''
 
         // format
         lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKDATACKSUMS, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKDATACKSUMS, CFG) => 0;
+        lfsr_format(&lfs, LFS_F_RDWR | LFS_F_CKDATACKSUMREADS, CFG) => 0;
+        lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKDATACKSUMREADS, CFG) => 0;
 
         {
             // create a file
@@ -2664,7 +2665,7 @@ code = '''
                 if (remount) {
                     lfsr_unmount(&lfs) => 0;
                     lfsr_mount(&lfs,
-                            LFS_M_RDWR | LFS_M_CKDATACKSUMS,
+                            LFS_M_RDWR | LFS_M_CKDATACKSUMREADS,
                             CFG) => 0;
                 }
 
@@ -2734,16 +2735,16 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = 'METHOD == 2'
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKPARITY      = false
-defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CKMETAPARITY      = false
+defines.CKDATACKSUMREADS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 'range(10)'
 fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
 ]
 code = '''
     // seed our block device with our seed so we have different error
@@ -2764,18 +2765,22 @@ code = '''
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
 
@@ -2954,11 +2959,13 @@ code = '''
                         | ((CKFETCHES)
                             ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1)
                             : 0)
-                        | ((CKPARITY)
-                            ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
+                        | ((CKMETAPARITY)
+                            ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
                             : 0)
-                        | ((CKDATACKSUMS)
-                            ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                        | ((CKDATACKSUMREADS)
+                            ? LFS_IFDEF_CKDATACKSUMREADS(
+                                LFS_M_CKDATACKSUMREADS,
+                                -1)
                             : 0),
                     CFG) => 0;
         }
@@ -3035,8 +3042,8 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = 'METHOD == 2'
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKPARITY      = false
-defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CKMETAPARITY      = false
+defines.CKDATACKSUMREADS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -3052,8 +3059,8 @@ fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -3075,18 +3082,22 @@ code = '''
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
 
@@ -3312,11 +3323,13 @@ code = '''
                         | ((CKFETCHES)
                             ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1)
                             : 0)
-                        | ((CKPARITY)
-                            ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
+                        | ((CKMETAPARITY)
+                            ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
                             : 0)
-                        | ((CKDATACKSUMS)
-                            ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                        | ((CKDATACKSUMREADS)
+                            ? LFS_IFDEF_CKDATACKSUMREADS(
+                                LFS_M_CKDATACKSUMREADS,
+                                -1)
                             : 0),
                     CFG) => 0;
         }
@@ -3416,8 +3429,8 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKPARITY      = false
-defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CKMETAPARITY      = false
+defines.CKDATACKSUMREADS  = 'METHOD == 3'
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
     '2*FILE_CACHE_SIZE',
@@ -3438,8 +3451,8 @@ fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -3463,18 +3476,22 @@ code = '''
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
 
@@ -3627,11 +3644,13 @@ code = '''
                         | ((CKFETCHES)
                             ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1)
                             : 0)
-                        | ((CKPARITY)
-                            ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1)
+                        | ((CKMETAPARITY)
+                            ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
                             : 0)
-                        | ((CKDATACKSUMS)
-                            ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                        | ((CKDATACKSUMREADS)
+                            ? LFS_IFDEF_CKDATACKSUMREADS(
+                                LFS_M_CKDATACKSUMREADS,
+                                -1)
                             : 0),
                     CFG) => 0;
         }
@@ -3711,8 +3730,8 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKPARITY      = false
-defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CKMETAPARITY      = false
+defines.CKDATACKSUMREADS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -3728,8 +3747,8 @@ fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -3751,18 +3770,22 @@ code = '''
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
 
@@ -4306,8 +4329,8 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKPARITY      = false
-defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CKMETAPARITY      = false
+defines.CKDATACKSUMREADS  = 'METHOD == 3'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -4323,8 +4346,8 @@ fuzz = 'SEED'
 if = [
     'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKPARITY(true, !CKPARITY)',
-    'LFS_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -4346,18 +4369,22 @@ code = '''
             LFS_F_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_F_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_F_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
     lfsr_mount(&lfs,
             LFS_M_RDWR
                 | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
-                | ((CKPARITY) ? LFS_IFDEF_CKPARITY(LFS_M_CKPARITY, -1) : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS_IFDEF_CKDATACKSUMS(LFS_M_CKDATACKSUMS, -1)
+                | ((CKMETAPARITY)
+                    ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
+                    : 0)
+                | ((CKDATACKSUMREADS)
+                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, -1)
                     : 0),
             CFG) => 0;
 
