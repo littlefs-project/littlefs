@@ -884,14 +884,12 @@ def main(csv_paths, output, *,
 
         # yes this is svg
         f.write('<svg '
+                'xmlns="http://www.w3.org/2000/svg" '
                 'viewBox="0,0,%(width)d,%(height)d" '
                 'width="%(width)d" '
                 'height="%(height)d" '
-                'style="max-width: 100%%; '
-                    'height: auto; '
-                    'font: %(font_size)dpx %(font)s; '
-                    'background-color: %(background)s;" '
-                'xmlns="http://www.w3.org/2000/svg">' % dict(
+                'style="font: %(font_size)dpx %(font)s; '
+                        'background-color: %(background)s;">' % dict(
                     width=width_,
                     height=height_,
                     font=','.join(font),

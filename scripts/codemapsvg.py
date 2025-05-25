@@ -1185,9 +1185,7 @@ def main(paths, output, *,
                 'viewBox="0,0,%(width)d,%(height)d" '
                 'width="%(width)d" '
                 'height="%(height)d" '
-                'style="max-width: 100%%; '
-                        'height: auto; '
-                        'font: %(font_size)dpx %(font)s; '
+                'style="font: %(font_size)dpx %(font)s; '
                         'background-color: %(background)s; '
                         'user-select: %(user_select)s;">' % dict(
                     width=width_,
