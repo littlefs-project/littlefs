@@ -6142,6 +6142,57 @@ static int lfsr_btree_commit_(lfs_t *lfs, lfsr_btree_t *btree,
     }
 }
 
+// commit/alloc a new btree root
+static int lfsr_btree_commitroot_(lfs_t *lfs, lfsr_btree_t *btree,
+        bool split,
+        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
+relocate:;
+    lfsr_rbyd_t rbyd_;
+    int err = lfsr_rbyd_alloc(lfs, &rbyd_);
+    if (err) {
+        return err;
+    }
+
+    #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
+    // append a revision count?
+    err = lfsr_rbyd_appendrev(lfs, &rbyd_, lfsr_rev_btree(lfs));
+    if (err) {
+        // bad prog? try another block
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
+        return err;
+    }
+    #endif
+
+    // bshrubs may call this just to migrate rattrs to a btree
+    if (!split) {
+        err = lfsr_rbyd_compact(lfs, &rbyd_, btree, -1, -1);
+        if (err) {
+            LFS_ASSERT(err != LFS_ERR_RANGE);
+            // bad prog? try another block
+            if (err == LFS_ERR_CORRUPT) {
+                goto relocate;
+            }
+            return err;
+        }
+    }
+
+    err = lfsr_rbyd_commit(lfs, &rbyd_, bid, rattrs, rattr_count);
+    if (err) {
+        LFS_ASSERT(err != LFS_ERR_RANGE);
+        // bad prog? try another block
+        if (err == LFS_ERR_CORRUPT) {
+            goto relocate;
+        }
+        return err;
+    }
+
+    // update the root
+    *btree = rbyd_;
+    return 0;
+}
+
 // commit to a btree, this is atomic
 static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
         lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
@@ -6157,37 +6208,11 @@ static int lfsr_btree_commit(lfs_t *lfs, lfsr_btree_t *btree,
     if (err == LFS_ERR_RANGE) {
         LFS_ASSERT(rattr_count > 0);
 
-    relocate:;
-        lfsr_rbyd_t rbyd_;
-        err = lfsr_rbyd_alloc(lfs, &rbyd_);
+        err = lfsr_btree_commitroot_(lfs, btree, true,
+                bid, rattrs, rattr_count);
         if (err) {
             return err;
         }
-
-        #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
-        // append a revision count?
-        err = lfsr_rbyd_appendrev(lfs, &rbyd_, lfsr_rev_btree(lfs));
-        if (err) {
-            // bad prog? try another block
-            if (err == LFS_ERR_CORRUPT) {
-                goto relocate;
-            }
-            return err;
-        }
-        #endif
-
-        err = lfsr_rbyd_commit(lfs, &rbyd_, bid, rattrs, rattr_count);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            // bad prog? try another block
-            if (err == LFS_ERR_CORRUPT) {
-                goto relocate;
-            }
-            return err;
-        }
-
-        // udpate the root
-        *btree = rbyd_;
     }
 
     LFS_ASSERT(lfsr_rbyd_trunk(btree));
@@ -6691,9 +6716,84 @@ static int lfsr_bshrub_traverse(lfs_t *lfs, const lfsr_bshrub_t *bshrub,
             bid_, tag_, data_);
 }
 
-// needed in lfsr_bshrub_commit
+// needed in lfsr_bshrub_commitroot_
 static int lfsr_mdir_commit(lfs_t *lfs, lfsr_mdir_t *mdir,
         const lfsr_rattr_t *rattrs, lfs_size_t rattr_count);
+
+// commit to the bshrub root, i.e. the bshrub's shrub
+static int lfsr_bshrub_commitroot_(lfs_t *lfs, lfsr_bshrub_t *bshrub,
+        bool split,
+        lfsr_bid_t bid, const lfsr_rattr_t *rattrs, lfs_size_t rattr_count) {
+    // we need to prevent our shrub from overflowing our mdir somehow
+    //
+    // maintaining an accurate estimate is tricky and error-prone,
+    // but recalculating an estimate every commit is expensive
+    //
+    // Instead, we keep track of an estimate of how many bytes have
+    // been progged to the shrub since the last estimate, and recalculate
+    // the estimate when this overflows our inline_size. This mirrors how
+    // block_size and rbyds interact, and amortizes the estimate cost.
+
+    // figure out how much data this commit progs
+    lfs_size_t commit_estimate = 0;
+    for (lfs_size_t i = 0; i < rattr_count; i++) {
+        commit_estimate += lfs->rattr_estimate
+                + lfsr_rattr_dsize(rattrs[i]);
+    }
+
+    // does our estimate exceed our inline_size? need to recalculate an
+    // accurate estimate
+    lfs_ssize_t estimate = (split) ? (lfs_size_t)-1 : bshrub->shrub.eoff;
+    // this double condition avoids overflow issues
+    if ((lfs_size_t)estimate > lfs->cfg->inline_size
+            || estimate + commit_estimate > lfs->cfg->inline_size) {
+        estimate = lfsr_bshrub_estimate(lfs, bshrub);
+        if (estimate < 0) {
+            return estimate;
+        }
+
+        // two cases where we evict:
+        // - overflow inline_size/2 - don't penalize for commits here
+        // - overflow inline_size - must include commits or risk overflow
+        //
+        // the 1/2 here prevents runaway performance with the shrub is
+        // near full, but it's a heuristic, so including the commit would
+        // just be mean
+        //
+        if ((lfs_size_t)estimate > lfs->cfg->inline_size/2
+                || estimate + commit_estimate > lfs->cfg->inline_size) {
+            return LFS_ERR_RANGE;
+        }
+    }
+
+    // include our pending commit in the new estimate
+    estimate += commit_estimate;
+
+    // commit to shrub
+    int err = lfsr_mdir_commit(lfs, &bshrub->o.mdir, LFSR_RATTRS(
+            LFSR_RATTR_SHRUBCOMMIT(
+                (&(lfsr_shrubcommit_t){
+                    .bshrub=bshrub,
+                    .rid=bid,
+                    .rattrs=rattrs,
+                    .rattr_count=rattr_count}))));
+    if (err) {
+        return err;
+    }
+    LFS_ASSERT(bshrub->shrub.blocks[0] == bshrub->o.mdir.rbyd.blocks[0]);
+
+    // update _all_ shrubs with the new estimate
+    for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
+        if (lfsr_o_isbshrub(o->flags)
+                && o->mdir.mid == bshrub->o.mdir.mid
+                && lfsr_bshrub_isbshrub((lfsr_bshrub_t*)o)) {
+            ((lfsr_bshrub_t*)o)->shrub.eoff = estimate;
+        }
+    }
+    LFS_ASSERT(bshrub->shrub.eoff == (lfs_size_t)estimate);
+
+    return 0;
+}
 
 // commit to bshrub, this is atomic
 static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_bshrub_t *bshrub,
@@ -6720,78 +6820,26 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_bshrub_t *bshrub,
         return err;
     }
     LFS_ASSERT(!err || rattr_count > 0);
-    bool alloc = (err == LFS_ERR_RANGE);
+    bool split = (err == LFS_ERR_RANGE);
 
     // when btree is shrubbed, lfsr_btree_commit_ stops at the root
     // and returns with pending rattrs
     if (rattr_count > 0) {
-        // we need to prevent our shrub from overflowing our mdir somehow
-        //
-        // maintaining an accurate estimate is tricky and error-prone,
-        // but recalculating an estimate every commit is expensive
-        //
-        // Instead, we keep track of an estimate of how many bytes have
-        // been progged to the shrub since the last estimate, and recalculate
-        // the estimate when this overflows our inline_size. This mirrors how
-        // block_size and rbyds interact, and amortizes the estimate cost.
-
-        // figure out how much data this commit progs
-        lfs_size_t commit_estimate = 0;
-        for (lfs_size_t i = 0; i < rattr_count; i++) {
-            commit_estimate += lfs->rattr_estimate
-                    + lfsr_rattr_dsize(rattrs[i]);
-        }
-
-        // does our estimate exceed our inline_size? need to recalculate an
-        // accurate estimate
-        lfs_ssize_t estimate = (alloc) ? (lfs_size_t)-1 : bshrub->shrub.eoff;
-        // this double condition avoids overflow issues
-        if ((lfs_size_t)estimate > lfs->cfg->inline_size
-                || estimate + commit_estimate > lfs->cfg->inline_size) {
-            estimate = lfsr_bshrub_estimate(lfs, bshrub);
-            if (estimate < 0) {
-                return estimate;
-            }
-
-            // two cases where we evict:
-            // - overflow inline_size/2 - don't penalize for commits here
-            // - overflow inline_size - must include commits or risk overflow
-            //
-            // the 1/2 here prevents runaway performance with the shrub is
-            // near full, but it's a heuristic, so including the commit would
-            // just be mean
-            //
-            if ((lfs_size_t)estimate > lfs->cfg->inline_size/2
-                    || estimate + commit_estimate > lfs->cfg->inline_size) {
-                goto relocate;
-            }
-        }
-
-        // include our pending commit in the new estimate
-        estimate += commit_estimate;
-
-        // commit to shrub
-        int err = lfsr_mdir_commit(lfs, &bshrub->o.mdir, LFSR_RATTRS(
-                LFSR_RATTR_SHRUBCOMMIT(
-                    (&(lfsr_shrubcommit_t){
-                        .bshrub=bshrub,
-                        .rid=bid,
-                        .rattrs=rattrs,
-                        .rattr_count=rattr_count}))));
-        if (err) {
+        // try to commit to shrub root
+        err = lfsr_bshrub_commitroot_(lfs, bshrub, split,
+                bid, rattrs, rattr_count);
+        if (err && err != LFS_ERR_RANGE) {
             return err;
         }
-        LFS_ASSERT(bshrub->shrub.blocks[0] == bshrub->o.mdir.rbyd.blocks[0]);
 
-        // update _all_ shrubs with the new estimate
-        for (lfsr_omdir_t *o = lfs->omdirs; o; o = o->next) {
-            if (lfsr_o_isbshrub(o->flags)
-                    && o->mdir.mid == bshrub->o.mdir.mid
-                    && lfsr_bshrub_isbshrub((lfsr_bshrub_t*)o)) {
-                ((lfsr_bshrub_t*)o)->shrub.eoff = estimate;
+        // if we don't fit, convert to btree
+        if (err == LFS_ERR_RANGE) {
+            err = lfsr_btree_commitroot_(lfs, &bshrub->shrub, split,
+                    bid, rattrs, rattr_count);
+            if (err) {
+                return err;
             }
         }
-        LFS_ASSERT(bshrub->shrub.eoff == (lfs_size_t)estimate);
     }
 
     LFS_ASSERT(lfsr_shrub_trunk(&bshrub->shrub));
@@ -6809,61 +6857,6 @@ static int lfsr_bshrub_commit(lfs_t *lfs, lfsr_bshrub_t *bshrub,
                 bshrub->shrub.weight,
                 bshrub->shrub.cksum);
     }
-    #endif
-    return 0;
-
-relocate:;
-    // convert to btree
-    err = lfsr_rbyd_alloc(lfs, &bshrub->shrub_);
-    if (err) {
-        return err;
-    }
-
-    #if defined(LFS_REVDBG) || defined(LFS_REVNOISE)
-    // append a revision count?
-    err = lfsr_rbyd_appendrev(lfs, &bshrub->shrub_, lfsr_rev_btree(lfs));
-    if (err) {
-        // bad prog? try another block
-        if (err == LFS_ERR_CORRUPT) {
-            goto relocate;
-        }
-        return err;
-    }
-    #endif
-
-    // note this may be a new root
-    if (!alloc) {
-        err = lfsr_rbyd_compact(lfs, &bshrub->shrub_, &bshrub->shrub, -1, -1);
-        if (err) {
-            LFS_ASSERT(err != LFS_ERR_RANGE);
-            // bad prog? try another block
-            if (err == LFS_ERR_CORRUPT) {
-                goto relocate;
-            }
-            return err;
-        }
-    }
-
-    err = lfsr_rbyd_commit(lfs, &bshrub->shrub_, bid, rattrs, rattr_count);
-    if (err) {
-        LFS_ASSERT(err != LFS_ERR_RANGE);
-        // bad prog? try another block
-        if (err == LFS_ERR_CORRUPT) {
-            goto relocate;
-        }
-        return err;
-    }
-
-    // udpate the root
-    bshrub->shrub = bshrub->shrub_;
-
-    LFS_ASSERT(lfsr_rbyd_trunk(&bshrub->shrub));
-    #ifdef LFS_DBGBTREECOMMITS
-    LFS_DEBUG("Committed btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
-                "cksum %"PRIx32,
-            bshrub->shrub.blocks[0], lfsr_shrub_trunk(&bshrub->shrub),
-            bshrub->shrub.weight,
-            bshrub->shrub.cksum);
     #endif
     return 0;
 }
