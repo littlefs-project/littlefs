@@ -138,18 +138,18 @@ enum lfs_type {
 #define LFS_O_APPEND    0x00000020  // Move to end of file on every write
 #define LFS_O_FLUSH     0x00000040  // Flush data on every write
 #define LFS_O_SYNC      0x00000080  // Sync metadata on every write
-#define LFS_O_DESYNC    0x00000100  // Do not sync or recieve file updates
-#define LFS_O_CKMETA    0x00100000  // Check metadata checksums
-#define LFS_O_CKDATA    0x00200000  // Check metadata + data checksums
+#define LFS_O_DESYNC    0x04000000  // Do not sync or recieve file updates
+#define LFS_O_CKMETA    0x00001000  // Check metadata checksums
+#define LFS_O_CKDATA    0x00002000  // Check metadata + data checksums
 
 // internally used flags, don't use these
 #define LFS_o_TYPE      0xf0000000  // The file's type
-#define LFS_o_UNCRYST   0x00400000  // File's leaf not fully crystallized
-#define LFS_o_UNGRAFT   0x00800000  // File's leaf does not match bshrub/btree
-#define LFS_o_UNFLUSH   0x01000000  // File's data does not match disk
-#define LFS_o_UNSYNC    0x02000000  // File's metadata does not match disk
-#define LFS_o_UNCREAT   0x04000000  // File does not exist yet
 #define LFS_o_ZOMBIE    0x08000000  // File has been removed
+#define LFS_o_UNCREAT   0x02000000  // File does not exist yet
+#define LFS_o_UNSYNC    0x01000000  // File's metadata does not match disk
+#define LFS_o_UNCRYST   0x00800000  // File's leaf not fully crystallized
+#define LFS_o_UNGRAFT   0x00400000  // File's leaf does not match bshrub/btree
+#define LFS_o_UNFLUSH   0x00200000  // File's data does not match disk
 
 // File seek flags
 #define LFS_SEEK_SET 0  // Seek relative to an absolute position
@@ -173,22 +173,22 @@ enum lfs_type {
 #define LFS_F_REVNOISE  0x00000020  // Add noise to revision counts
 #endif
 #ifdef LFS_CKPROGS
-#define LFS_F_CKPROGS   0x00000800  // Check progs by reading back progged data
+#define LFS_F_CKPROGS   0x00080000  // Check progs by reading back progged data
 #endif
 #ifdef LFS_CKFETCHES
-#define LFS_F_CKFETCHES 0x00001000  // Check block checksums before first use
+#define LFS_F_CKFETCHES 0x00100000  // Check block checksums before first use
 #endif
 #ifdef LFS_CKMETAPARITY
 #define LFS_F_CKMETAPARITY \
-                        0x00002000  // Check metadata tag parity bits
+                        0x00200000  // Check metadata tag parity bits
 #endif
 #ifdef LFS_CKDATACKSUMREADS
 #define LFS_F_CKDATACKSUMREADS \
-                        0x00008000  // Check data checksums on reads
+                        0x00800000  // Check data checksums on reads
 #endif
 
-#define LFS_F_CKMETA    0x00100000  // Check metadata checksums
-#define LFS_F_CKDATA    0x00200000  // Check metadata + data checksums
+#define LFS_F_CKMETA    0x00001000  // Check metadata checksums
+#define LFS_F_CKDATA    0x00002000  // Check metadata + data checksums
 
 // Filesystem mount flags
 #define LFS_M_MODE               1  // Mount's access mode
@@ -203,26 +203,26 @@ enum lfs_type {
 #define LFS_M_REVNOISE  0x00000020  // Add noise to revision counts
 #endif
 #ifdef LFS_CKPROGS
-#define LFS_M_CKPROGS   0x00000800  // Check progs by reading back progged data
+#define LFS_M_CKPROGS   0x00080000  // Check progs by reading back progged data
 #endif
 #ifdef LFS_CKFETCHES
-#define LFS_M_CKFETCHES 0x00001000  // Check block checksums before first use
+#define LFS_M_CKFETCHES 0x00100000  // Check block checksums before first use
 #endif
 #ifdef LFS_CKMETAPARITY
 #define LFS_M_CKMETAPARITY \
-                        0x00002000  // Check metadata tag parity bits
+                        0x00200000  // Check metadata tag parity bits
 #endif
 #ifdef LFS_CKDATACKSUMREADS
 #define LFS_M_CKDATACKSUMREADS \
-                        0x00008000  // Check data checksums on reads
+                        0x00800000  // Check data checksums on reads
 #endif
 
 #define LFS_M_MKCONSISTENT \
-                        0x00010000  // Make the filesystem consistent
-#define LFS_M_LOOKAHEAD 0x00020000  // Populate lookahead buffer
-#define LFS_M_COMPACT   0x00080000  // Compact metadata logs
-#define LFS_M_CKMETA    0x00100000  // Check metadata checksums
-#define LFS_M_CKDATA    0x00200000  // Check metadata + data checksums
+                        0x00000100  // Make the filesystem consistent
+#define LFS_M_LOOKAHEAD 0x00000200  // Populate lookahead buffer
+#define LFS_M_COMPACT   0x00000800  // Compact metadata logs
+#define LFS_M_CKMETA    0x00001000  // Check metadata checksums
+#define LFS_M_CKDATA    0x00002000  // Check metadata + data checksums
 
 // Filesystem info flags
 #define LFS_I_RDONLY    0x00000001  // Mounted read only
@@ -235,30 +235,30 @@ enum lfs_type {
 #define LFS_I_REVNOISE  0x00000020  // Mounted with LFS_M_REVNOISE
 #endif
 #ifdef LFS_CKPROGS
-#define LFS_I_CKPROGS   0x00000800  // Mounted with LFS_M_CKPROGS
+#define LFS_I_CKPROGS   0x00080000  // Mounted with LFS_M_CKPROGS
 #endif
 #ifdef LFS_CKFETCHES
-#define LFS_I_CKFETCHES 0x00001000  // Mounted with LFS_M_CKFETCHES
+#define LFS_I_CKFETCHES 0x00100000  // Mounted with LFS_M_CKFETCHES
 #endif
 #ifdef LFS_CKMETAPARITY
 #define LFS_I_CKMETAPARITY \
-                        0x00002000  // Mounted with LFS_M_CKMETAPARITY
+                        0x00200000  // Mounted with LFS_M_CKMETAPARITY
 #endif
 #ifdef LFS_CKDATACKSUMREADS
 #define LFS_I_CKDATACKSUMREADS \
-                        0x00008000  // Mounted with LFS_M_CKDATACKSUMREADS
+                        0x00800000  // Mounted with LFS_M_CKDATACKSUMREADS
 #endif
 
 #define LFS_I_MKCONSISTENT \
-                        0x00010000  // Filesystem needs mkconsistent to write
-#define LFS_I_LOOKAHEAD 0x00020000  // Lookahead buffer is not full
-#define LFS_I_COMPACT   0x00080000  // Filesystem may have uncompacted metadata
-#define LFS_I_CKMETA    0x00100000  // Metadata checksums not checked recently
-#define LFS_I_CKDATA    0x00200000  // Data checksums not checked recently
+                        0x00000100  // Filesystem needs mkconsistent to write
+#define LFS_I_LOOKAHEAD 0x00000200  // Lookahead buffer is not full
+#define LFS_I_COMPACT   0x00000800  // Filesystem may have uncompacted metadata
+#define LFS_I_CKMETA    0x00001000  // Metadata checksums not checked recently
+#define LFS_I_CKDATA    0x00002000  // Data checksums not checked recently
 
 // internally used flags, don't use these
 #ifdef LFS_REVDBG
-#define LFS_i_INMTREE   0x01000000  // Committing to mtree
+#define LFS_i_INMTREE   0x08000000  // Committing to mtree
 #endif
 
 
@@ -270,29 +270,30 @@ enum lfs_btype {
 };
 
 // Traversal flags
-#define LFS_T_MTREEONLY 0x00000010  // Only traverse the mtree
+#define LFS_T_MTREEONLY 0x00000004  // Only traverse the mtree
 #define LFS_T_MKCONSISTENT \
-                        0x00010000  // Make the filesystem consistent
-#define LFS_T_LOOKAHEAD 0x00020000  // Populate lookahead buffer
-#define LFS_T_COMPACT   0x00080000  // Compact metadata logs
-#define LFS_T_CKMETA    0x00100000  // Check metadata checksums
-#define LFS_T_CKDATA    0x00200000  // Check metadata + data checksums
+                        0x00000100  // Make the filesystem consistent
+#define LFS_T_LOOKAHEAD 0x00000200  // Populate lookahead buffer
+#define LFS_T_COMPACT   0x00000800  // Compact metadata logs
+#define LFS_T_CKMETA    0x00001000  // Check metadata checksums
+#define LFS_T_CKDATA    0x00002000  // Check metadata + data checksums
 
 // internally used flags, don't use these
-#define LFS_t_TSTATE    0x0000000f  // The traversal's current tstate
-#define LFS_t_BTYPE     0x00000f00  // The traversal's current btype
-#define LFS_t_DIRTY     0x01000000  // Filesystem modified during traversal
-#define LFS_t_MUTATED   0x02000000  // Filesystem modified by traversal
+#define LFS_t_TYPE      0xf0000000  // The traversal's type
+#define LFS_t_TSTATE    0x000f0000  // The current traversal state
+#define LFS_t_BTYPE     0x00f00000  // The current block type
 #define LFS_t_ZOMBIE    0x08000000  // File has been removed
+#define LFS_t_DIRTY     0x02000000  // Filesystem modified during traversal
+#define LFS_t_MUTATED   0x01000000  // Filesystem modified by traversal
 
 // GC flags
 #define LFS_GC_MKCONSISTENT \
-                        0x00010000  // Make the filesystem consistent
+                        0x00000100  // Make the filesystem consistent
 #define LFS_GC_LOOKAHEAD \
-                        0x00020000  // Populate lookahead buffer
-#define LFS_GC_COMPACT  0x00080000  // Compact metadata logs
-#define LFS_GC_CKMETA   0x00100000  // Check metadata checksums
-#define LFS_GC_CKDATA   0x00200000  // Check metadata + data checksums
+                        0x00000200  // Populate lookahead buffer
+#define LFS_GC_COMPACT  0x00000800  // Compact metadata logs
+#define LFS_GC_CKMETA   0x00001000  // Check metadata checksums
+#define LFS_GC_CKDATA   0x00002000  // Check metadata + data checksums
 
 
 // Configuration provided during initialization of the littlefs

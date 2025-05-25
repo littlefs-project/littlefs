@@ -7022,6 +7022,18 @@ static inline bool lfsr_o_isbshrub(uint32_t flags) {
             || lfsr_o_type(flags) == LFS_type_TRAVERSAL;
 }
 
+static inline bool lfsr_o_iszombie(uint32_t flags) {
+    return flags & LFS_o_ZOMBIE;
+}
+
+static inline bool lfsr_o_isuncreat(uint32_t flags) {
+    return flags & LFS_o_UNCREAT;
+}
+
+static inline bool lfsr_o_isunsync(uint32_t flags) {
+    return flags & LFS_o_UNSYNC;
+}
+
 static inline bool lfsr_o_isuncryst(uint32_t flags) {
     return flags & LFS_o_UNCRYST;
 }
@@ -7032,18 +7044,6 @@ static inline bool lfsr_o_isungraft(uint32_t flags) {
 
 static inline bool lfsr_o_isunflush(uint32_t flags) {
     return flags & LFS_o_UNFLUSH;
-}
-
-static inline bool lfsr_o_isunsync(uint32_t flags) {
-    return flags & LFS_o_UNSYNC;
-}
-
-static inline bool lfsr_o_isuncreat(uint32_t flags) {
-    return flags & LFS_o_UNCREAT;
-}
-
-static inline bool lfsr_o_iszombie(uint32_t flags) {
-    return flags & LFS_o_ZOMBIE;
 }
 
 // custom attr flags
@@ -7078,11 +7078,11 @@ static inline bool lfsr_t_isckdata(uint32_t flags) {
 
 // internal traversal flags
 static inline uint8_t lfsr_t_tstate(uint32_t flags) {
-    return (flags >> 0) & 0xf;
+    return (flags >> 16) & 0xf;
 }
 
 static inline uint32_t lfsr_t_tstateflags(uint8_t tstate) {
-    return (uint32_t)tstate << 0;
+    return (uint32_t)tstate << 16;
 }
 
 static inline void lfsr_t_settstate(uint32_t *flags, uint8_t tstate) {
@@ -7090,11 +7090,11 @@ static inline void lfsr_t_settstate(uint32_t *flags, uint8_t tstate) {
 }
 
 static inline uint8_t lfsr_t_btype(uint32_t flags) {
-    return (flags >> 8) & 0x0f;
+    return (flags >> 20) & 0x0f;
 }
 
 static inline uint32_t lfsr_t_btypeflags(uint8_t btype) {
-    return (uint32_t)btype << 8;
+    return (uint32_t)btype << 20;
 }
 
 static inline void lfsr_t_setbtype(uint32_t *flags, uint8_t btype) {
@@ -7110,8 +7110,8 @@ static inline bool lfsr_t_ismutated(uint32_t flags) {
 }
 
 static inline uint32_t lfsr_t_swapdirty(uint32_t flags) {
-    uint32_t x = ((flags >> 25) ^ (flags >> 24)) & 0x1;
-    return flags ^ (x << 25) ^ (x << 24);
+    uint32_t x = ((flags >> 24) ^ (flags >> 25)) & 0x1;
+    return flags ^ (x << 24) ^ (x << 25);
 }
 
 // mount flags
