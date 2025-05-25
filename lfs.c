@@ -13309,15 +13309,19 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                 file_->b.shrub = file->b.shrub;
                 // update leaves
                 file_->leaf = file->leaf;
-                // TODO wait, what if cache sizes don't match?
+
                 // update caches
-                file_->cache.pos = file->cache.pos;
-                LFS_ASSERT(file->cache.size
-                        <= lfsr_file_cachesize(lfs, file));
-                lfs_memcpy(file_->cache.buffer,
-                        file->cache.buffer,
+                //
+                // note we need to be careful if caches have different
+                // sizes, prefer the most recent data in this case
+                lfs_size_t d = file->cache.size - lfs_min(
+                        lfsr_file_cachesize(lfs, file_),
                         file->cache.size);
-                file_->cache.size = file->cache.size;
+                file_->cache.pos = file->cache.pos + d;
+                lfs_memcpy(file_->cache.buffer,
+                        file->cache.buffer + d,
+                        file->cache.size - d);
+                file_->cache.size = file->cache.size - d;
 
                 // update any custom attrs
                 for (lfs_size_t i = 0; i < file->cfg->attr_count; i++) {
