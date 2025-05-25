@@ -32,7 +32,14 @@ except ModuleNotFoundError:
 
 # we don't actually need that many chars/colors thanks to the
 # 4-colorability of all 2d maps
-COLORS = ['34', '31', '32', '35', '33', '36']
+COLORS = [
+    '34', # blue
+    '31', # red
+    '32', # green
+    '35', # purple
+    '33', # yellow
+    '36', # cyan
+]
 
 CHARS_DOTS = " .':"
 CHARS_BRAILLE = (

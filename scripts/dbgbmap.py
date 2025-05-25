@@ -85,12 +85,12 @@ CHARS = {
     'unused':   '-',
 }
 COLORS = {
-    'mdir':     '33',
-    'btree':    '34',
-    'data':     '32',
-    'corrupt':  '31',
-    'conflict': '30;41',
-    'unused':   '1;30',
+    'mdir':     '33',    # yellow
+    'btree':    '34',    # blue
+    'data':     '32',    # green
+    'corrupt':  '31',    # red
+    'conflict': '30;41', # background red
+    'unused':   '1;30',  # bold gray
 }
 
 # give more interesting objects a higher priority
