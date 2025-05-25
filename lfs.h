@@ -270,7 +270,10 @@ enum lfs_btype {
 };
 
 // Traversal flags
-#define LFS_T_MTREEONLY 0x00000004  // Only traverse the mtree
+#define LFS_T_MODE               1  // The traversal's access mode
+#define LFS_T_RDWR               0  // Open traversal as read and write
+#define LFS_T_RDONLY             1  // Open traversal as read only
+#define LFS_T_MTREEONLY 0x00000002  // Only traverse the mtree
 #define LFS_T_MKCONSISTENT \
                         0x00000100  // Make the filesystem consistent
 #define LFS_T_LOOKAHEAD 0x00000200  // Populate lookahead buffer

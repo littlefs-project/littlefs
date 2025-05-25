@@ -7052,6 +7052,10 @@ static inline bool lfsr_a_islazy(uint32_t flags) {
 }
 
 // traversal flags
+static inline bool lfsr_t_isrdonly(uint32_t flags) {
+    return flags & LFS_T_RDONLY;
+}
+
 static inline bool lfsr_t_ismtreeonly(uint32_t flags) {
     return flags & LFS_T_MTREEONLY;
 }
@@ -10259,7 +10263,7 @@ static lfs_sblock_t lfs_alloc(lfs_t *lfs, bool erase) {
         // in-use in the next lookahead window
         //
         lfsr_traversal_t t;
-        lfsr_traversal_init(&t, LFS_T_LOOKAHEAD);
+        lfsr_traversal_init(&t, LFS_T_RDONLY | LFS_T_LOOKAHEAD);
         while (true) {
             lfsr_tag_t tag;
             lfsr_bptr_t bptr;
@@ -13753,7 +13757,8 @@ int lfsr_file_ckmeta(lfs_t *lfs, lfsr_file_t *file) {
     // can't read from writeonly files
     LFS_ASSERT(!lfsr_o_iswronly(file->b.o.flags));
 
-    return lfsr_file_ck(lfs, file, LFS_T_CKMETA);
+    return lfsr_file_ck(lfs, file,
+            LFS_T_RDONLY | LFS_T_CKMETA);
 }
 
 int lfsr_file_ckdata(lfs_t *lfs, lfsr_file_t *file) {
@@ -13761,7 +13766,8 @@ int lfsr_file_ckdata(lfs_t *lfs, lfsr_file_t *file) {
     // can't read from writeonly files
     LFS_ASSERT(!lfsr_o_iswronly(file->b.o.flags));
 
-    return lfsr_file_ck(lfs, file, LFS_T_CKMETA | LFS_T_CKDATA);
+    return lfsr_file_ck(lfs, file,
+            LFS_T_RDONLY | LFS_T_CKMETA | LFS_T_CKDATA);
 }
 
 
@@ -14453,7 +14459,7 @@ static int lfsr_mountinited(lfs_t *lfs) {
     // mdirs are valid if we haven't checked the btree inner nodes at
     // least once?
     lfsr_traversal_t t;
-    lfsr_traversal_init(&t, LFS_T_MTREEONLY | LFS_T_CKMETA);
+    lfsr_traversal_init(&t, LFS_T_RDONLY | LFS_T_MTREEONLY | LFS_T_CKMETA);
     while (true) {
         lfsr_tag_t tag;
         lfsr_bptr_t bptr;
@@ -14970,7 +14976,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo) {
 lfs_ssize_t lfsr_fs_usage(lfs_t *lfs) {
     lfs_size_t count = 0;
     lfsr_traversal_t t;
-    lfsr_traversal_init(&t, 0);
+    lfsr_traversal_init(&t, LFS_T_RDONLY);
     while (true) {
         lfsr_tag_t tag;
         lfsr_bptr_t bptr;
@@ -15107,7 +15113,8 @@ failed:;
 static int lfsr_fs_fixorphans(lfs_t *lfs) {
     // LFS_T_MKCONSISTENT really just removes orphans
     lfsr_traversal_t t;
-    lfsr_traversal_init(&t, LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
+    lfsr_traversal_init(&t,
+            LFS_T_RDWR | LFS_T_MTREEONLY | LFS_T_MKCONSISTENT);
     while (true) {
         lfsr_bptr_t bptr;
         int err = lfsr_mtree_gc(lfs, &t,
@@ -15172,11 +15179,11 @@ static int lfsr_fs_ck(lfs_t *lfs, uint32_t flags) {
 }
 
 int lfsr_fs_ckmeta(lfs_t *lfs) {
-    return lfsr_fs_ck(lfs, LFS_T_CKMETA);
+    return lfsr_fs_ck(lfs, LFS_T_RDONLY | LFS_T_CKMETA);
 }
 
 int lfsr_fs_ckdata(lfs_t *lfs) {
-    return lfsr_fs_ck(lfs, LFS_T_CKMETA | LFS_T_CKDATA);
+    return lfsr_fs_ck(lfs, LFS_T_RDONLY | LFS_T_CKMETA | LFS_T_CKDATA);
 }
 
 // get the filesystem checksum
@@ -15398,16 +15405,20 @@ int lfsr_traversal_open(lfs_t *lfs, lfsr_traversal_t *t, uint32_t flags) {
     LFS_ASSERT(!lfsr_omdir_isopen(lfs, &t->b.o));
     // unknown flags?
     LFS_ASSERT((flags & ~(
-            LFS_T_MTREEONLY
+            LFS_T_RDONLY
+                | LFS_T_RDWR
+                | LFS_T_MTREEONLY
                 | LFS_T_MKCONSISTENT
                 | LFS_T_LOOKAHEAD
                 | LFS_T_COMPACT
                 | LFS_T_CKMETA
                 | LFS_T_CKDATA)) == 0);
-    // these flags require a writable filesystem
-    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_ismkconsistent(flags));
-    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_islookahead(flags));
-    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || !lfsr_t_iscompact(flags));
+    // writeable traversals require a writeable filesystem
+    LFS_ASSERT(!lfsr_m_isrdonly(lfs->flags) || lfsr_t_isrdonly(flags));
+    // these flags require a writable traversal
+    LFS_ASSERT(!lfsr_t_isrdonly(flags) || !lfsr_t_ismkconsistent(flags));
+    LFS_ASSERT(!lfsr_t_isrdonly(flags) || !lfsr_t_islookahead(flags));
+    LFS_ASSERT(!lfsr_t_isrdonly(flags) || !lfsr_t_iscompact(flags));
     // some flags don't make sense when only traversing the mtree
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_islookahead(flags));
     LFS_ASSERT(!lfsr_t_ismtreeonly(flags) || !lfsr_t_isckdata(flags));

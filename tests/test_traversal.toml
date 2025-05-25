@@ -22,7 +22,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -55,7 +56,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -97,7 +99,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -148,7 +151,8 @@ code = '''
 
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((CKMETA) ? LFS_T_CKMETA : 0)
+            LFS_T_RDONLY
+                | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -269,7 +273,8 @@ code = '''
 
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((CKMETA) ? LFS_T_CKMETA : 0)
+            LFS_T_RDONLY
+                | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -383,7 +388,8 @@ code = '''
 
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((CKMETA) ? LFS_T_CKMETA : 0)
+            LFS_T_RDONLY
+                | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
     for (lfs_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -499,7 +505,8 @@ code = '''
 
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((CKMETA) ? LFS_T_CKMETA : 0)
+            LFS_T_RDONLY
+                | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
     lfs_block_t r = 0;
     for (lfs_block_t i = 0;; i++) {
@@ -629,7 +636,8 @@ code = '''
 
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((CKMETA) ? LFS_T_CKMETA : 0)
+            LFS_T_RDONLY
+                | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
     lfs_block_t r = 0;
     for (lfs_block_t i = 0;; i++) {
@@ -752,7 +760,8 @@ code = '''
 
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((CKMETA) ? LFS_T_CKMETA : 0)
+            LFS_T_RDONLY
+                | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
     lfs_block_t r = 0;
     for (lfs_block_t i = 0;; i++) {
@@ -875,7 +884,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -909,7 +918,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKMETA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -971,7 +980,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1005,7 +1014,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKMETA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1066,7 +1075,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1103,7 +1112,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKMETA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1149,7 +1158,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1181,7 +1190,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKMETA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1243,7 +1252,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1275,7 +1284,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKMETA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1336,7 +1345,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1371,7 +1380,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKMETA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKMETA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1417,7 +1426,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1449,7 +1458,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKDATA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKDATA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1511,7 +1520,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1543,7 +1552,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKDATA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKDATA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1604,7 +1613,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1639,7 +1648,7 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfsr_traversal_open(&lfs, &t, LFS_T_CKDATA) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKDATA) => 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1689,7 +1698,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -1731,7 +1741,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -1793,7 +1804,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
     struct lfs_tinfo tinfo;
@@ -1866,7 +1878,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -1925,7 +1938,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -1984,7 +1998,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2058,7 +2073,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2139,7 +2155,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2231,7 +2248,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2319,7 +2337,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2420,7 +2439,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2515,7 +2535,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2605,7 +2626,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2708,7 +2730,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2806,7 +2829,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -2903,7 +2927,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3013,7 +3038,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3115,7 +3141,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3212,7 +3239,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3315,7 +3343,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3404,7 +3433,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3517,7 +3547,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3639,7 +3670,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3749,7 +3781,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3848,7 +3881,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -3955,7 +3989,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -4068,7 +4103,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -4209,7 +4245,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -4384,7 +4421,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -4566,7 +4604,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -4748,7 +4787,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -4921,7 +4961,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -5106,7 +5147,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -5285,7 +5327,8 @@ code = '''
     // try traversing
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
+            LFS_T_RDWR
+                | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
 
@@ -5434,7 +5477,8 @@ code = '''
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_COMPACT
+            LFS_T_RDWR
+                | LFS_T_COMPACT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -5564,7 +5608,8 @@ code = '''
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_COMPACT
+            LFS_T_RDWR
+                | LFS_T_COMPACT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -5686,7 +5731,8 @@ code = '''
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_COMPACT
+            LFS_T_RDWR
+                | LFS_T_COMPACT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -5827,7 +5873,8 @@ code = '''
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_COMPACT
+            LFS_T_RDWR
+                | LFS_T_COMPACT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -6035,7 +6082,8 @@ code = '''
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_COMPACT
+            LFS_T_RDWR
+                | LFS_T_COMPACT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -6257,7 +6305,8 @@ code = '''
     // try traversing and compacting
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_COMPACT
+            LFS_T_RDWR
+                | LFS_T_COMPACT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -6447,7 +6496,8 @@ code = '''
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_MKCONSISTENT
+            LFS_T_RDWR
+                | LFS_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -6570,7 +6620,8 @@ code = '''
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_MKCONSISTENT
+            LFS_T_RDWR
+                | LFS_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -6734,7 +6785,8 @@ code = '''
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_MKCONSISTENT
+            LFS_T_RDWR
+                | LFS_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -6894,7 +6946,8 @@ code = '''
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_MKCONSISTENT
+            LFS_T_RDWR
+                | LFS_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -7055,7 +7108,8 @@ code = '''
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_MKCONSISTENT
+            LFS_T_RDWR
+                | LFS_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -7224,7 +7278,8 @@ code = '''
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_MKCONSISTENT
+            LFS_T_RDWR
+                | LFS_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
                 | ((CKDATA) ? LFS_T_CKDATA : 0)) => 0;
@@ -7411,7 +7466,8 @@ code = '''
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_MKCONSISTENT
+            LFS_T_RDWR
+                | LFS_T_MKCONSISTENT
                 | LFS_T_COMPACT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -7584,7 +7640,8 @@ code = '''
     // try traversing with mkconsistent
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            LFS_T_MKCONSISTENT
+            LFS_T_RDWR
+                | LFS_T_MKCONSISTENT
                 | LFS_T_COMPACT
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -7711,7 +7768,8 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -7828,7 +7886,8 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -8012,7 +8071,8 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -8124,7 +8184,8 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -8399,7 +8460,8 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -8541,7 +8603,8 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)
@@ -8992,7 +9055,8 @@ code = '''
     // open a traversal
     lfsr_traversal_t t;
     lfsr_traversal_open(&lfs, &t,
-            ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
+            LFS_T_RDWR
+                | ((MKCONSISTENT) ? LFS_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS_T_LOOKAHEAD : 0)
                 | ((COMPACT) ? LFS_T_COMPACT : 0)
                 | ((CKMETA) ? LFS_T_CKMETA : 0)

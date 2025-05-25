@@ -126,7 +126,10 @@ FLAGS = [
     ('i', 'INMTREE',   0x08000000, "Committing to mtree"                      ),
 
     # Traversal flags
-    ('T', 'MTREEONLY', 0x00000004, "Only traverse the mtree"                  ),
+    ('T', 'MODE',               1, "The traversal's access mode"              ),
+    ('^', 'RDWR',               0, "Open traversal as read and write"         ),
+    ('^', 'RDONLY',             1, "Open traversal as read only"              ),
+    ('T', 'MTREEONLY', 0x00000002, "Only traverse the mtree"                  ),
     ('T', 'MKCONSISTENT',
                        0x00000100, "Make the filesystem consistent"           ),
     ('T', 'LOOKAHEAD', 0x00000200, "Populate lookahead buffer"                ),

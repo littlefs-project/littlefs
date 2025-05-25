@@ -231,7 +231,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -283,7 +283,7 @@ code = '''
         // find clobbered blocks with lfsr_traversal_read
         } else if (METHOD == 2) {
             lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, LFS_T_CKMETA) => 0;
+            lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKMETA) => 0;
             for (lfs_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 LFS_ASSERT(i < 2*BLOCK_COUNT);
@@ -368,7 +368,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -421,7 +421,7 @@ code = '''
         // find clobbered blocks with lfsr_traversal_read
         } else if (METHOD == 2) {
             lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, LFS_T_CKDATA) => 0;
+            lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY | LFS_T_CKDATA) => 0;
             for (lfs_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 LFS_ASSERT(i < 2*BLOCK_COUNT);
@@ -510,7 +510,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         lfs_block_t badblock;
         for (lfs_block_t j = 0;; j++) {
@@ -573,7 +573,8 @@ code = '''
             // find clobbered blocks with lfsr_traversal_read
             } else if (METHOD == 2) {
                 lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t, LFS_T_CKMETA) => 0;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_RDONLY | LFS_T_CKMETA) => 0;
                 for (lfs_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS_ASSERT(i < 2*BLOCK_COUNT);
@@ -764,7 +765,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         lfs_block_t badblock;
         for (lfs_block_t j = 0;; j++) {
@@ -828,7 +829,8 @@ code = '''
             // find clobbered blocks with lfsr_traversal_read
             } else if (METHOD == 2) {
                 lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t, LFS_T_CKDATA) => 0;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_RDONLY | LFS_T_CKDATA) => 0;
                 for (lfs_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS_ASSERT(i < 2*BLOCK_COUNT);
@@ -1006,7 +1008,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1103,7 +1105,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1207,7 +1209,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         lfs_block_t badblock;
         for (lfs_block_t j = 0;; j++) {
@@ -1355,7 +1357,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         lfs_block_t badblock;
         for (lfs_block_t j = 0;; j++) {
@@ -1577,7 +1579,7 @@ code = '''
 
     // find the data block
     lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t, 0) => 0;
+    lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
     lfs_block_t badblock;
     while (true) {
         struct lfs_tinfo tinfo;
@@ -1688,7 +1690,7 @@ code = '''
 
     // find the btree block
     lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t, 0) => 0;
+    lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
     lfs_block_t badblock;
     while (true) {
         struct lfs_tinfo tinfo;
@@ -2085,7 +2087,7 @@ code = '''
 
     // find the data block
     lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t, 0) => 0;
+    lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
     lfs_block_t badblock;
     while (true) {
         struct lfs_tinfo tinfo;
@@ -2196,7 +2198,7 @@ code = '''
 
     // find the btree block
     lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t, 0) => 0;
+    lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
     lfs_block_t badblock;
     while (true) {
         struct lfs_tinfo tinfo;
@@ -2459,7 +2461,7 @@ code = '''
 
     // find the btree block
     lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t, 0) => 0;
+    lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
     lfs_block_t badblock;
     while (true) {
         struct lfs_tinfo tinfo;
@@ -2601,7 +2603,7 @@ code = '''
 
     // find the data block
     lfsr_traversal_t t;
-    lfsr_traversal_open(&lfs, &t, 0) => 0;
+    lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
     lfs_block_t badblock;
     while (true) {
         struct lfs_tinfo tinfo;
@@ -2830,7 +2832,7 @@ code = '''
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
-                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                        LFS_T_RDONLY | LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
                 for (lfs_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS_ASSERT(i < 2*BLOCK_COUNT);
@@ -3148,7 +3150,7 @@ code = '''
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
-                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                        LFS_T_RDONLY | LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
                 for (lfs_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS_ASSERT(i < 2*BLOCK_COUNT);
@@ -3564,7 +3566,7 @@ code = '''
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
-                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                        LFS_T_RDONLY | LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
                 for (lfs_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS_ASSERT(i < 2*BLOCK_COUNT);
@@ -3847,7 +3849,7 @@ code = '''
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
-                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                        LFS_T_RDONLY | LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
                 for (lfs_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS_ASSERT(i < 2*BLOCK_COUNT);
@@ -4447,7 +4449,7 @@ code = '''
                 // need an explicit traversal for this
                 lfsr_traversal_t t;
                 lfsr_traversal_open(&lfs, &t,
-                        LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
+                        LFS_T_RDONLY | LFS_T_MTREEONLY | LFS_T_CKMETA) => 0;
                 for (lfs_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS_ASSERT(i < 2*BLOCK_COUNT);

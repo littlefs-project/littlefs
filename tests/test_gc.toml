@@ -710,7 +710,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -810,7 +810,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -912,7 +912,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -999,7 +999,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1118,7 +1118,7 @@ code = '''
         // run lfsr_traversal_t
         } else if (AFTER == 2) {
             lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, GC_FLAGS) => 0;
+            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs_tinfo tinfo;
                 int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1152,7 +1152,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1281,7 +1281,7 @@ code = '''
         // run lfsr_traversal_t
         } else if (AFTER == 2) {
             lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, GC_FLAGS) => 0;
+            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs_tinfo tinfo;
                 int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1315,7 +1315,7 @@ code = '''
 
         // traverse to find blocks
         lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, 0) => 0;
+        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
         lfs_block_t k = 0;
         for (lfs_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1471,7 +1471,7 @@ code = '''
             }
 
             lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, GC_FLAGS) => 0;
+            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs_tinfo tinfo;
                 int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1506,7 +1506,8 @@ code = '''
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
                 lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t, LFS_T_LOOKAHEAD) => 0;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_RDWR | LFS_T_LOOKAHEAD) => 0;
                 while (true) {
                     struct lfs_tinfo tinfo;
                     int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1521,7 +1522,8 @@ code = '''
             if (COMPACT) {
                 // we need an explicit traversal for this
                 lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t, LFS_T_COMPACT) => 0;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_RDWR | LFS_T_COMPACT) => 0;
                 while (true) {
                     struct lfs_tinfo tinfo;
                     int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1658,7 +1660,7 @@ code = '''
             }
 
             lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, GC_FLAGS) => 0;
+            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs_tinfo tinfo;
                 int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1693,7 +1695,8 @@ code = '''
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
                 lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t, LFS_T_LOOKAHEAD) => 0;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_RDWR | LFS_T_LOOKAHEAD) => 0;
                 while (true) {
                     struct lfs_tinfo tinfo;
                     int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1708,7 +1711,8 @@ code = '''
             if (COMPACT) {
                 // we need an explicit traversal for this
                 lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t, LFS_T_COMPACT) => 0;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_RDWR | LFS_T_COMPACT) => 0;
                 while (true) {
                     struct lfs_tinfo tinfo;
                     int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1785,7 +1789,7 @@ code = '''
             }
 
             lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, GC_FLAGS) => 0;
+            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs_tinfo tinfo;
                 int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1820,7 +1824,8 @@ code = '''
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
                 lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t, LFS_T_LOOKAHEAD) => 0;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_RDWR | LFS_T_LOOKAHEAD) => 0;
                 while (true) {
                     struct lfs_tinfo tinfo;
                     int err = lfsr_traversal_read(&lfs, &t, &tinfo);
@@ -1835,7 +1840,8 @@ code = '''
             if (COMPACT) {
                 // we need an explicit traversal for this
                 lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t, LFS_T_COMPACT) => 0;
+                lfsr_traversal_open(&lfs, &t,
+                        LFS_T_RDWR | LFS_T_COMPACT) => 0;
                 while (true) {
                     struct lfs_tinfo tinfo;
                     int err = lfsr_traversal_read(&lfs, &t, &tinfo);
