@@ -26,8 +26,8 @@ TAG_RCOMPAT     = 0x0035    #  0x0035  v--- ---- --11 -1-1
 TAG_WCOMPAT     = 0x0036    #  0x0036  v--- ---- --11 -11-
 TAG_OCOMPAT     = 0x0037    #  0x0037  v--- ---- --11 -111
 TAG_GEOMETRY    = 0x0038    #  0x0038  v--- ---- --11 1---
-TAG_FILELIMIT   = 0x0039    #  0x0039  v--- ---- --11 1--1
-TAG_NAMELIMIT   = 0x003a    #  0x003a  v--- ---- --11 1-1-
+TAG_NAMELIMIT   = 0x0039    #  0x0039  v--- ---- --11 1--1
+TAG_FILELIMIT   = 0x003a    #  0x003a  v--- ---- --11 1-1-
 TAG_GDELTA      = 0x0100    ## 0x01tt  v--- ---1 -ttt ttrr
 TAG_GRMDELTA    = 0x0100    #  0x0100  v--- ---1 ---- ----
 TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
@@ -200,8 +200,8 @@ def tagrepr(tag, weight=None, size=None, *,
                     else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
                     else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
                     else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
-                    else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
                     else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
+                    else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
                     else 'config 0x%02x' % (tag & 0xff),
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')

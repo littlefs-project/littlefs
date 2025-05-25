@@ -1102,8 +1102,8 @@ enum lfsr_tag {
     LFSR_TAG_WCOMPAT        = 0x0036,
     LFSR_TAG_OCOMPAT        = 0x0037,
     LFSR_TAG_GEOMETRY       = 0x0038,
-    LFSR_TAG_FILELIMIT      = 0x0039,
-    LFSR_TAG_NAMELIMIT      = 0x003a,
+    LFSR_TAG_NAMELIMIT      = 0x0039,
+    LFSR_TAG_FILELIMIT      = 0x003a,
     // in-device only, to help find unknown config tags
     LFSR_TAG_UNKNOWNCONFIG  = 0x003b,
 
@@ -3588,8 +3588,8 @@ static int lfsr_rbyd_appendrattr_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
 
     // leb128?
     } else if (rattr.count >= 0
-            && (rattr.tag == LFSR_TAG_FILELIMIT
-                || rattr.tag == LFSR_TAG_NAMELIMIT
+            && (rattr.tag == LFSR_TAG_NAMELIMIT
+                || rattr.tag == LFSR_TAG_FILELIMIT
                 || rattr.tag == LFSR_TAG_DID)) {
         // leb128s should not exceed 31-bits
         LFS_ASSERT(rattr.u.leb128 <= 0x7fffffff);
@@ -14362,32 +14362,6 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
 
     lfs->block_count = geometry.block_count;
 
-    // read the file limit
-    lfs_off_t file_limit = 0x7fffffff;
-    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_FILELIMIT,
-            NULL, &data);
-    if (err && err != LFS_ERR_NOENT) {
-        return err;
-    }
-    if (err != LFS_ERR_NOENT) {
-        err = lfsr_data_readleb128(lfs, &data, &file_limit);
-        if (err && err != LFS_ERR_CORRUPT) {
-            return err;
-        }
-        if (err == LFS_ERR_CORRUPT) {
-            file_limit = -1;
-        }
-    }
-
-    if (file_limit > lfs->file_limit) {
-        LFS_ERROR("Incompatible file limit %"PRId32" (> %"PRId32")",
-                file_limit,
-                lfs->file_limit);
-        return LFS_ERR_NOTSUP;
-    }
-
-    lfs->file_limit = file_limit;
-
     // read the name limit
     lfs_size_t name_limit = 0xff;
     err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_NAMELIMIT,
@@ -14413,6 +14387,32 @@ static int lfsr_mountmroot(lfs_t *lfs, const lfsr_mdir_t *mroot) {
     }
 
     lfs->name_limit = name_limit;
+
+    // read the file limit
+    lfs_off_t file_limit = 0x7fffffff;
+    err = lfsr_mdir_lookup(lfs, mroot, LFSR_TAG_FILELIMIT,
+            NULL, &data);
+    if (err && err != LFS_ERR_NOENT) {
+        return err;
+    }
+    if (err != LFS_ERR_NOENT) {
+        err = lfsr_data_readleb128(lfs, &data, &file_limit);
+        if (err && err != LFS_ERR_CORRUPT) {
+            return err;
+        }
+        if (err == LFS_ERR_CORRUPT) {
+            file_limit = -1;
+        }
+    }
+
+    if (file_limit > lfs->file_limit) {
+        LFS_ERROR("Incompatible file limit %"PRId32" (> %"PRId32")",
+                file_limit,
+                lfs->file_limit);
+        return LFS_ERR_NOTSUP;
+    }
+
+    lfs->file_limit = file_limit;
 
     // check for unknown configs
     lfsr_tag_t tag;
