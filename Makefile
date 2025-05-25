@@ -71,6 +71,8 @@ CFLAGS += -I.
 CFLAGS += -std=c99 -Wall -Wextra -pedantic
 # labels are useful for debugging, in-function organization, etc
 CFLAGS += -Wno-unused-label
+# life's too short to not use this flag
+CFLAGS += -Wno-unused-function
 # compiler bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101854
 CFLAGS += -Wno-stringop-overflow
 CFLAGS += -ftrack-macro-expansion=0
