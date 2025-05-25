@@ -463,7 +463,7 @@ codemap: $(BUILDDIR)/lfs.codemap.svg
 ## Generate a tiny codemap, where 1 pixel ~= 1 byte
 .PHONY: codemap-tiny
 codemap-tiny: CODEMAPFLAGS+=--dark
-codemap-tiny: $(BUILDDIR)/lfs.codemap-tiny.svg
+codemap-tiny: $(BUILDDIR)/lfs.codemap_tiny.svg
 
 
 ## Build the test-runner
@@ -615,7 +615,7 @@ $(BUILDDIR)/lfs.codemap.svg: $(OBJ) $(CI)
 	$(strip ./scripts/codemapsvg.py $^ $(CODEMAPFLAGS) -o$@ \
 		&& ./scripts/codemap.py $^ --no-header)
 
-$(BUILDDIR)/lfs.codemap-tiny.svg: $(OBJ) $(CI)
+$(BUILDDIR)/lfs.codemap_tiny.svg: $(OBJ) $(CI)
 	$(strip ./scripts/codemapsvg.py $^ --tiny $(CODEMAPFLAGS) -o$@ \
 		&& ./scripts/codemap.py $^ --no-header)
 
@@ -677,7 +677,7 @@ clean:
 	rm -f $(BUILDDIR)/lfs.perf.csv
 	rm -f $(BUILDDIR)/lfs.perfbd.csv
 	rm -f $(BUILDDIR)/lfs.codemap.svg
-	rm -f $(BUILDDIR)/lfs.codemap-tiny.svg
+	rm -f $(BUILDDIR)/lfs.codemap_tiny.svg
 	rm -f $(BUILDDIR)/lfs.test.csv
 	rm -f $(BUILDDIR)/lfs.bench.csv
 	rm -f $(OBJ)
