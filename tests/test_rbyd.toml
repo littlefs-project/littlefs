@@ -122,11 +122,6 @@ code = '''
     lfsr_rbyd_fetch(&lfs, &rbyd, rbyd.blocks[0], 0) => 0;
 '''
 
-# [cases.test_rbyd_atomic_fetchmatch]
-# [cases.test_rbyd_fetchmatch]
-
-# TODO we really need to test dense keys...
-
 [cases.test_rbyd_atomic_lookup]
 in = 'lfs.c'
 code = '''

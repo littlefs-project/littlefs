@@ -3310,17 +3310,3 @@ code = '''
     lfsr_unmount(&lfs) => 0;
 '''
 
-
-# TODO
-# [cases.test_files_multi_readers]
-# [cases.test_files_multi_readers_one_writer]
-# [cases.test_files_multi_writers]
-# [cases.test_files_multi_readers_multi_writers]
-
-# [cases.test_files_interleaved]
-# [cases.test_files_interleaved_fuzz]
-# [cases.test_files_interleaved_fuzz_fuzz]
-# [cases.test_files_dtree_fuzz]
-# [cases.test_files_dtree_fuzz_fuzz]
-
-
