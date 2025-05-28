@@ -1,22 +1,22 @@
 /*
- * lfs util functions
+ * lfs3 util functions
  *
  * Copyright (c) 2022, The littlefs authors.
  * Copyright (c) 2017, Arm Limited. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include "lfs_util.h"
+#include "lfs3_util.h"
 
 // Only compile if user does not provide custom config
-#ifndef LFS_CONFIG
+#ifndef LFS3_CONFIG
 
-// Need lfs.h for error codes
-// TODO should we actually move the error codes to lfs_util.h?
-#include "lfs.h"
+// Need lfs3.h for error codes
+// TODO should we actually move the error codes to lfs3_util.h?
+#include "lfs3.h"
 
 
 // Convert to/from leb128 encoding
-ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size) {
+ssize_t lfs3_toleb128(uint32_t word, void *buffer, size_t size) {
     uint8_t *data = buffer;
 
     for (size_t i = 0; i < size; i++) {
@@ -31,10 +31,10 @@ ssize_t lfs_toleb128(uint32_t word, void *buffer, size_t size) {
     }
 
     // buffer overflow?
-    LFS_UNREACHABLE();
+    LFS3_UNREACHABLE();
 }
 
-ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
+ssize_t lfs3_fromleb128(uint32_t *word, const void *buffer, size_t size) {
     const uint8_t *data = buffer;
 
     int32_t word_ = 0;
@@ -44,7 +44,7 @@ ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
         if (!(dat & 0x80)) {
             // did we overflow?
             if ((word_ >> 7*i) != dat) {
-                return LFS_ERR_CORRUPT;
+                return LFS3_ERR_CORRUPT;
             }
 
             *word = word_;
@@ -53,15 +53,15 @@ ssize_t lfs_fromleb128(uint32_t *word, const void *buffer, size_t size) {
     }
 
     // truncated?
-    return LFS_ERR_CORRUPT;
+    return LFS3_ERR_CORRUPT;
 }
 
 
-// crc32c tables (see lfs_crc32c for more info)
-#if !defined(LFS_SMALLER_CRC32C) \
-        && !defined(LFS_FASTER_CRC32C) \
-        && !defined(LFS_PMUL_CRC32C)
-static const uint32_t lfs_crc32c_table[16] = {
+// crc32c tables (see lfs3_crc32c for more info)
+#if !defined(LFS3_SMALLER_CRC32C) \
+        && !defined(LFS3_FASTER_CRC32C) \
+        && !defined(LFS3_PMUL_CRC32C)
+static const uint32_t lfs3_crc32c_table[16] = {
     0x00000000, 0x105ec76f, 0x20bd8ede, 0x30e349b1,
     0x417b1dbc, 0x5125dad3, 0x61c69362, 0x7198540d,
     0x82f63b78, 0x92a8fc17, 0xa24bb5a6, 0xb21572c9,
@@ -69,10 +69,10 @@ static const uint32_t lfs_crc32c_table[16] = {
 };
 #endif
 
-#if defined(LFS_FASTER_CRC32C) \
-        && !defined(LFS_SMALLER_CRC32C) \
-        && !defined(LFS_PMUL_CRC32C)
-static const uint32_t lfs_crc32c_table[256] = {
+#if defined(LFS3_FASTER_CRC32C) \
+        && !defined(LFS3_SMALLER_CRC32C) \
+        && !defined(LFS3_PMUL_CRC32C)
+static const uint32_t lfs3_crc32c_table[256] = {
     0x00000000, 0xf26b8303, 0xe13b70f7, 0x1350f3f4,
     0xc79a971f, 0x35f1141c, 0x26a1e7e8, 0xd4ca64eb,
     0x8ad958cf, 0x78b2dbcc, 0x6be22838, 0x9989ab3b,
@@ -142,7 +142,7 @@ static const uint32_t lfs_crc32c_table[256] = {
 
 
 // Calculate crc32c incrementally
-uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
+uint32_t lfs3_crc32c(uint32_t crc, const void *buffer, size_t size) {
     // init with 0xffffffff so prefixed zeros affect the crc
     const uint8_t *buffer_ = buffer;
     crc ^= 0xffffffff;
@@ -179,7 +179,7 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
     // PCLMULQDQ Instruction whitepaper is an excellent resource on this
     // topic.
     //
-    #if defined(LFS_SMALLER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    #if defined(LFS3_SMALLER_CRC32C) && !defined(LFS3_PMUL_CRC32C)
     // naive reduce
     for (size_t i = 0; i < size; i++) {
         crc = crc ^ buffer_[i];
@@ -188,36 +188,36 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
         }
     }
 
-    #elif !defined(LFS_FASTER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    #elif !defined(LFS3_FASTER_CRC32C) && !defined(LFS3_PMUL_CRC32C)
     // reduce via small table
     for (size_t i = 0; i < size; i++) {
-        crc = (crc >> 4) ^ lfs_crc32c_table[0xf & (crc ^ (buffer_[i] >> 0))];
-        crc = (crc >> 4) ^ lfs_crc32c_table[0xf & (crc ^ (buffer_[i] >> 4))];
+        crc = (crc >> 4) ^ lfs3_crc32c_table[0xf & (crc ^ (buffer_[i] >> 0))];
+        crc = (crc >> 4) ^ lfs3_crc32c_table[0xf & (crc ^ (buffer_[i] >> 4))];
     }
 
-    #elif defined(LFS_FASTER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    #elif defined(LFS3_FASTER_CRC32C) && !defined(LFS3_PMUL_CRC32C)
     // reduce via big table
     for (size_t i = 0; i < size; i++) {
-        crc = (crc >> 8) ^ lfs_crc32c_table[0xff & (crc ^ buffer_[i])];
+        crc = (crc >> 8) ^ lfs3_crc32c_table[0xff & (crc ^ buffer_[i])];
     }
 
-    #elif defined(LFS_PMUL_CRC32C)
+    #elif defined(LFS3_PMUL_CRC32C)
     // reduce via Barret reduction
     for (size_t i = 0; i < size;) {
         // align to 32-bits
         if ((uintptr_t)&buffer_[i] % sizeof(uint32_t) == 0
                 && i+sizeof(uint32_t) < size) {
-            crc = crc ^ lfs_fromle32_(&buffer_[i]);
-            crc = lfs_pmul(
-                        lfs_pmul(crc, 0xdea713f1),
+            crc = crc ^ lfs3_fromle32_(&buffer_[i]);
+            crc = lfs3_pmul(
+                        lfs3_pmul(crc, 0xdea713f1),
                         0x82f63b78)
                     >> 31;
             i += 4;
         } else {
             crc = crc ^ buffer_[i];
             crc = (crc >> 8)
-                    ^ (lfs_pmul(
-                            lfs_pmul(crc << 24, 0xdea713f1),
+                    ^ (lfs3_pmul(
+                            lfs3_pmul(crc << 24, 0xdea713f1),
                             0x82f63b78)
                         >> 31);
             i += 1;
@@ -232,7 +232,7 @@ uint32_t lfs_crc32c(uint32_t crc, const void *buffer, size_t size) {
 }
 
 // Multiply two crc32cs in the crc32c ring
-uint32_t lfs_crc32c_mul(uint32_t a, uint32_t b) {
+uint32_t lfs3_crc32c_mul(uint32_t a, uint32_t b) {
     // Multiplication in a crc32c ring involves polynomial
     // multiplication modulo the crc32c polynomial to keep things
     // finite:
@@ -247,33 +247,33 @@ uint32_t lfs_crc32c_mul(uint32_t a, uint32_t b) {
     // This gets a bit funky because crc32cs are little-endian, but
     // fortunately pmul is symmetric. Though the result is awkwardly
     // 63-bits, so we need to shift by 1.
-    uint64_t r = lfs_pmul(a, b) << 1;
+    uint64_t r = lfs3_pmul(a, b) << 1;
 
     // We can accelerate our module with crc32c tables if present, these
     // loops may look familiar.
-    #if defined(LFS_SMALLER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    #if defined(LFS3_SMALLER_CRC32C) && !defined(LFS3_PMUL_CRC32C)
     // naive reduce
     for (int i = 0; i < 32; i++) {
         r = (r >> 1) ^ ((r & 1) ? 0x82f63b78 : 0);
     }
 
-    #elif !defined(LFS_FASTER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    #elif !defined(LFS3_FASTER_CRC32C) && !defined(LFS3_PMUL_CRC32C)
     // reduce via small table
     for (int i = 0; i < 8; i++) {
-        r = (r >> 4) ^ lfs_crc32c_table[0xf & r];
+        r = (r >> 4) ^ lfs3_crc32c_table[0xf & r];
     }
 
-    #elif defined(LFS_FASTER_CRC32C) && !defined(LFS_PMUL_CRC32C)
+    #elif defined(LFS3_FASTER_CRC32C) && !defined(LFS3_PMUL_CRC32C)
     // reduce via big table
     for (int i = 0; i < 4; i++) {
-        r = (r >> 8) ^ lfs_crc32c_table[0xff & r];
+        r = (r >> 8) ^ lfs3_crc32c_table[0xff & r];
     }
 
-    #elif defined(LFS_PMUL_CRC32C)
+    #elif defined(LFS3_PMUL_CRC32C)
     // reduce via Barret reduction
     r = (r >> 32)
-            ^ (lfs_pmul(
-                    lfs_pmul(r, 0xdea713f1),
+            ^ (lfs3_pmul(
+                    lfs3_pmul(r, 0xdea713f1),
                     0x82f63b78)
                 >> 31);
     #endif

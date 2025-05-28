@@ -2,9 +2,9 @@
 BUILDDIR ?= .
 # overrideable target, default to building a library
 ifneq ($(wildcard test.c main.c),)
-TARGET ?= $(BUILDDIR)/lfs
+TARGET ?= $(BUILDDIR)/lfs3
 else
-TARGET ?= $(BUILDDIR)/liblfs.a
+TARGET ?= $(BUILDDIR)/liblfs3.a
 endif
 
 
@@ -82,7 +82,7 @@ else
 CFLAGS += -Os
 endif
 ifdef TRACE
-CFLAGS += -DLFS_YES_TRACE
+CFLAGS += -DLFS3_YES_TRACE
 endif
 ifdef COVGEN
 CFLAGS += --coverage
@@ -94,8 +94,8 @@ ifdef PERFBDGEN
 CFLAGS += -fno-omit-frame-pointer
 endif
 
-# also forward all LFS_* environment variables
-CFLAGS += $(foreach D,$(filter LFS_%,$(.VARIABLES)),-D$D=$($D))
+# also forward all LFS3_* environment variables
+CFLAGS += $(foreach D,$(filter LFS3_%,$(.VARIABLES)),-D$D=$($D))
 
 TEST_CFLAGS += -Wno-unused-function
 TEST_CFLAGS += -Wno-format-overflow
@@ -231,12 +231,12 @@ code: $(OBJ)
 
 ## Save the per-function code size
 .PHONY: code-csv
-code-csv: $(BUILDDIR)/lfs.code.csv
+code-csv: $(BUILDDIR)/lfs3.code.csv
 
 ## Compare per-function code size
 .PHONY: code-diff
 code-diff: $(OBJ)
-	./scripts/code.py $^ $(CODEFLAGS) -d $(BUILDDIR)/lfs.code.csv
+	./scripts/code.py $^ $(CODEFLAGS) -d $(BUILDDIR)/lfs3.code.csv
 
 ## Find the per-function data size
 .PHONY: data
@@ -246,12 +246,12 @@ data: $(OBJ)
 
 ## Save the per-function data size
 .PHONY: data-csv
-data-csv: $(BUILDDIR)/lfs.data.csv
+data-csv: $(BUILDDIR)/lfs3.data.csv
 
 ## Compare per-function data size
 .PHONY: data-diff
 data-diff: $(OBJ)
-	./scripts/data.py $^ $(DATAFLAGS) -d $(BUILDDIR)/lfs.data.csv
+	./scripts/data.py $^ $(DATAFLAGS) -d $(BUILDDIR)/lfs3.data.csv
 
 ## Find the per-function stack usage
 .PHONY: stack
@@ -261,12 +261,12 @@ stack: $(CI)
 
 ## Save the per-function stack usage
 .PHONY: stack-csv
-stack-csv: $(BUILDDIR)/lfs.stack.csv
+stack-csv: $(BUILDDIR)/lfs3.stack.csv
 
 ## Compare per-function stack usage
 .PHONY: stack-diff
 stack-diff: $(CI)
-	./scripts/stack.py $^ $(STACKFLAGS) -d $(BUILDDIR)/lfs.stack.csv
+	./scripts/stack.py $^ $(STACKFLAGS) -d $(BUILDDIR)/lfs3.stack.csv
 
 ## Find the per-function context
 .PHONY: ctx
@@ -276,12 +276,12 @@ ctx: $(OBJ)
 
 ## Save the per-function context
 .PHONY: ctx-csv
-ctx-csv: $(BUILDDIR)/lfs.ctx.csv
+ctx-csv: $(BUILDDIR)/lfs3.ctx.csv
 
 ## Compare per-function context
 .PHONY: ctx-diff
 ctx-diff: $(CI)
-	./scripts/ctx.py $^ $(CTXFLAGS) -d $(BUILDDIR)/lfs.ctx.csv
+	./scripts/ctx.py $^ $(CTXFLAGS) -d $(BUILDDIR)/lfs3.ctx.csv
 
 ## Find function sizes
 .PHONY: funcs
@@ -302,9 +302,9 @@ funcs: $(OBJ) $(CI)
 .PHONY: funcs-csv
 funcs-csv: SHELL=/bin/bash
 funcs-csv: \
-		$(BUILDDIR)/lfs.code.csv \
-		$(BUILDDIR)/lfs.stack.csv \
-		$(BUILDDIR)/lfs.ctx.csv
+		$(BUILDDIR)/lfs3.code.csv \
+		$(BUILDDIR)/lfs3.stack.csv \
+		$(BUILDDIR)/lfs3.ctx.csv
 
 ## Compare function sizes
 .PHONY: funcs-diff
@@ -319,9 +319,9 @@ funcs-diff: $(OBJ) $(CI)
 		-fstack='max(stack_limit)' \
 		-fctx='max(ctx_size)' \
 		-d <(./scripts/csv.py \
-			$(BUILDDIR)/lfs.code.csv \
-			$(BUILDDIR)/lfs.stack.csv \
-			$(BUILDDIR)/lfs.ctx.csv \
+			$(BUILDDIR)/lfs3.code.csv \
+			$(BUILDDIR)/lfs3.stack.csv \
+			$(BUILDDIR)/lfs3.ctx.csv \
 			-fcode_size=code_size \
 			-fstack_limit='max(stack_limit)' \
 			-fctx_size='max(ctx_size)' \
@@ -336,12 +336,12 @@ structs: $(OBJ)
 
 ## Save struct sizes
 .PHONY: structs-csv
-structs-csv: $(BUILDDIR)/lfs.structs.csv
+structs-csv: $(BUILDDIR)/lfs3.structs.csv
 
 ## Compare struct sizes
 .PHONY: structs-diff
 structs-diff: $(OBJ)
-	./scripts/structs.py $^ $(STRUCTSFLAGS) -d $(BUILDDIR)/lfs.structs.csv
+	./scripts/structs.py $^ $(STRUCTSFLAGS) -d $(BUILDDIR)/lfs3.structs.csv
 
 ## Find the line/branch coverage after a test run
 .PHONY: cov
@@ -353,14 +353,14 @@ cov: $(GCDA)
 
 ## Save line/branch coverage
 .PHONY: cov-csv
-cov-csv: $(BUILDDIR)/lfs.cov.csv
+cov-csv: $(BUILDDIR)/lfs3.cov.csv
 
 ## Compare line/branch coverage
 .PHONY: cov-diff
 cov-diff: $(GCDA)
 	$(strip ./scripts/cov.py $^ \
 		$(patsubst %,-F%,$(SRC)) \
-		$(COVFLAGS) -d $(BUILDDIR)/lfs.cov.csv)
+		$(COVFLAGS) -d $(BUILDDIR)/lfs3.cov.csv)
 
 ## Find the perf results after bench run with PERFGEN
 .PHONY: perf
@@ -372,14 +372,14 @@ perf: $(BENCH_PERF)
 
 ## Save perf results
 .PHONY: perf-csv
-perf-csv: $(BUILDDIR)/lfs.perf.csv
+perf-csv: $(BUILDDIR)/lfs3.perf.csv
 
 ## Compare perf results
 .PHONY: perf-diff
 perf-diff: $(BENCH_PERF)
 	$(strip ./scripts/perf.py $^ \
 		$(patsubst %,-F%,$(SRC)) \
-		$(PERFFLAGS) -d $(BUILDDIR)/lfs.perf.csv)
+		$(PERFFLAGS) -d $(BUILDDIR)/lfs3.perf.csv)
 
 ## Find the perfbd results after a bench run
 .PHONY: perfbd
@@ -391,14 +391,14 @@ perfbd: $(BENCH_TRACE)
 
 ## Save perfbd results
 .PHONY: perfbd-csv
-perfbd-csv: $(BUILDDIR)/lfs.perfbd.csv
+perfbd-csv: $(BUILDDIR)/lfs3.perfbd.csv
 
 ## Compare perfbd results
 .PHONY: perfbd-diff
 perfbd-diff: $(BENCH_TRACE)
 	$(strip ./scripts/perfbd.py $(BENCH_RUNNER) $^ \
 		$(patsubst %,-F%,$(SRC)) \
-		$(PERFBDFLAGS) -d $(BUILDDIR)/lfs.perfbd.csv)
+		$(PERFBDFLAGS) -d $(BUILDDIR)/lfs3.perfbd.csv)
 
 ## Find a summary of compile-time sizes
 .PHONY: summary sizes
@@ -420,10 +420,10 @@ summary sizes: $(OBJ) $(CI)
 .PHONY: summary-csv sizes-csv
 summary-csv sizes-csv: SHELL=/bin/bash
 summary-csv sizes-csv: \
-		$(BUILDDIR)/lfs.code.csv \
-		$(BUILDDIR)/lfs.data.csv \
-		$(BUILDDIR)/lfs.stack.csv \
-		$(BUILDDIR)/lfs.ctx.csv
+		$(BUILDDIR)/lfs3.code.csv \
+		$(BUILDDIR)/lfs3.data.csv \
+		$(BUILDDIR)/lfs3.stack.csv \
+		$(BUILDDIR)/lfs3.ctx.csv
 
 ## Compare compile-time sizes
 .PHONY: summary-diff sizes-diff
@@ -442,10 +442,10 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 			-fctx='max(ctx_size)' \
 			-o-) \
 		<(./scripts/csv.py \
-			$(BUILDDIR)/lfs.code.csv \
-			$(BUILDDIR)/lfs.data.csv \
-			$(BUILDDIR)/lfs.stack.csv \
-			$(BUILDDIR)/lfs.ctx.csv \
+			$(BUILDDIR)/lfs3.code.csv \
+			$(BUILDDIR)/lfs3.data.csv \
+			$(BUILDDIR)/lfs3.stack.csv \
+			$(BUILDDIR)/lfs3.ctx.csv \
 			-bbuild=BEFORE \
 			-fcode=code_size \
 			-fdata=data_size \
@@ -458,12 +458,12 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 ## Generate a codemap svg
 .PHONY: codemap
 codemap: CODEMAPFLAGS+=-W1400 -H750 --dark
-codemap: $(BUILDDIR)/lfs.codemap.svg
+codemap: $(BUILDDIR)/lfs3.codemap.svg
 
 ## Generate a tiny codemap, where 1 pixel ~= 1 byte
 .PHONY: codemap-tiny
 codemap-tiny: CODEMAPFLAGS+=--dark
-codemap-tiny: $(BUILDDIR)/lfs.codemap_tiny.svg
+codemap-tiny: $(BUILDDIR)/lfs3.codemap_tiny.svg
 
 
 ## Build the test-runner
@@ -504,7 +504,7 @@ testmarks: $(TEST_CSV)
 
 ## Save the test results
 .PHONY: testmarks-csv
-testmarks-csv: $(BUILDDIR)/lfs.test.csv
+testmarks-csv: $(BUILDDIR)/lfs3.test.csv
 
 ## Compare test results against a previous run
 .PHONY: testmarks-diff
@@ -513,7 +513,7 @@ testmarks-diff: $(TEST_CSV)
 		-bsuite \
 		-fpassed=test_passed \
 		-ftime=test_time \
-		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs.test.csv)
+		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs3.test.csv)
 
 ## Build the bench-runner
 .PHONY: bench-runner build-benches
@@ -554,7 +554,7 @@ benchmarks: $(BENCH_CSV)
 
 ## Save the bench results
 .PHONY: benchmarks-csv
-benchmarks-csv: $(BUILDDIR)/lfs.bench.csv
+benchmarks-csv: $(BUILDDIR)/lfs3.bench.csv
 
 ## Compare bench results against a previous run
 .PHONY: benchmarks-diff
@@ -564,7 +564,7 @@ benchmarks-diff: $(BENCH_CSV)
 		-freaded=bench_readed \
 		-fproged=bench_proged \
 		-ferased=bench_erased \
-		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs.bench.csv)
+		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs3.bench.csv)
 
 
 
@@ -575,54 +575,54 @@ benchmarks-diff: $(BENCH_CSV)
 .SUFFIXES:
 .SECONDARY:
 
-$(BUILDDIR)/lfs: $(OBJ)
+$(BUILDDIR)/lfs3: $(OBJ)
 	$(CC) $(CFLAGS) $^ $(LFLAGS) -o$@
 
-$(BUILDDIR)/liblfs.a: $(OBJ)
+$(BUILDDIR)/liblfs3.a: $(OBJ)
 	$(AR) rcs $@ $^
 
-$(BUILDDIR)/lfs.code.csv: $(OBJ)
+$(BUILDDIR)/lfs3.code.csv: $(OBJ)
 	./scripts/code.py $^ $(CODEFLAGS) -o$@
 
-$(BUILDDIR)/lfs.data.csv: $(OBJ)
+$(BUILDDIR)/lfs3.data.csv: $(OBJ)
 	./scripts/data.py $^ $(DATAFLAGS) -o$@
 
-$(BUILDDIR)/lfs.stack.csv: $(CI)
+$(BUILDDIR)/lfs3.stack.csv: $(CI)
 	./scripts/stack.py $^ $(STACKFLAGS) -o$@
 
-$(BUILDDIR)/lfs.ctx.csv: $(OBJ)
+$(BUILDDIR)/lfs3.ctx.csv: $(OBJ)
 	./scripts/ctx.py $^ $(CTXFLAGS) -o$@
 
-$(BUILDDIR)/lfs.structs.csv: $(OBJ)
+$(BUILDDIR)/lfs3.structs.csv: $(OBJ)
 	./scripts/structs.py $^ $(STRUCTSFLAGS) -o$@
 
-$(BUILDDIR)/lfs.cov.csv: $(GCDA)
+$(BUILDDIR)/lfs3.cov.csv: $(GCDA)
 	$(strip ./scripts/cov.py $^ \
 		$(patsubst %,-F%,$(SRC)) \
 		$(COVFLAGS) -o$@)
 
-$(BUILDDIR)/lfs.perf.csv: $(BENCH_PERF)
+$(BUILDDIR)/lfs3.perf.csv: $(BENCH_PERF)
 	$(strip ./scripts/perf.py $^ \
 		$(patsubst %,-F%,$(SRC)) \
 		$(PERFFLAGS) -o$@)
 
-$(BUILDDIR)/lfs.perfbd.csv: $(BENCH_TRACE)
+$(BUILDDIR)/lfs3.perfbd.csv: $(BENCH_TRACE)
 	$(strip ./scripts/perfbd.py $(BENCH_RUNNER) $^ \
 		$(patsubst %,-F%,$(SRC)) \
 		$(PERFBDFLAGS) -o$@)
 
-$(BUILDDIR)/lfs.codemap.svg: $(OBJ) $(CI)
+$(BUILDDIR)/lfs3.codemap.svg: $(OBJ) $(CI)
 	$(strip ./scripts/codemapsvg.py $^ $(CODEMAPFLAGS) -o$@ \
 		&& ./scripts/codemap.py $^ --no-header)
 
-$(BUILDDIR)/lfs.codemap_tiny.svg: $(OBJ) $(CI)
+$(BUILDDIR)/lfs3.codemap_tiny.svg: $(OBJ) $(CI)
 	$(strip ./scripts/codemapsvg.py $^ --tiny $(CODEMAPFLAGS) -o$@ \
 		&& ./scripts/codemap.py $^ --no-header)
 
-$(BUILDDIR)/lfs.test.csv: $(TEST_CSV)
+$(BUILDDIR)/lfs3.test.csv: $(TEST_CSV)
 	cp $^ $@
 
-$(BUILDDIR)/lfs.bench.csv: $(BENCH_CSV)
+$(BUILDDIR)/lfs3.bench.csv: $(BENCH_CSV)
 	cp $^ $@
 
 $(BUILDDIR)/runners/test_runner: $(TEST_OBJ)
@@ -666,20 +666,20 @@ $(BUILDDIR)/%.b.c: %.c $(BENCHES)
 ## Clean everything
 .PHONY: clean
 clean:
-	rm -f $(BUILDDIR)/lfs
-	rm -f $(BUILDDIR)/liblfs.a
-	rm -f $(BUILDDIR)/lfs.code.csv
-	rm -f $(BUILDDIR)/lfs.data.csv
-	rm -f $(BUILDDIR)/lfs.stack.csv
-	rm -f $(BUILDDIR)/lfs.ctx.csv
-	rm -f $(BUILDDIR)/lfs.structs.csv
-	rm -f $(BUILDDIR)/lfs.cov.csv
-	rm -f $(BUILDDIR)/lfs.perf.csv
-	rm -f $(BUILDDIR)/lfs.perfbd.csv
-	rm -f $(BUILDDIR)/lfs.codemap.svg
-	rm -f $(BUILDDIR)/lfs.codemap_tiny.svg
-	rm -f $(BUILDDIR)/lfs.test.csv
-	rm -f $(BUILDDIR)/lfs.bench.csv
+	rm -f $(BUILDDIR)/lfs3
+	rm -f $(BUILDDIR)/liblfs3.a
+	rm -f $(BUILDDIR)/lfs3.code.csv
+	rm -f $(BUILDDIR)/lfs3.data.csv
+	rm -f $(BUILDDIR)/lfs3.stack.csv
+	rm -f $(BUILDDIR)/lfs3.ctx.csv
+	rm -f $(BUILDDIR)/lfs3.structs.csv
+	rm -f $(BUILDDIR)/lfs3.cov.csv
+	rm -f $(BUILDDIR)/lfs3.perf.csv
+	rm -f $(BUILDDIR)/lfs3.perfbd.csv
+	rm -f $(BUILDDIR)/lfs3.codemap.svg
+	rm -f $(BUILDDIR)/lfs3.codemap_tiny.svg
+	rm -f $(BUILDDIR)/lfs3.test.csv
+	rm -f $(BUILDDIR)/lfs3.bench.csv
 	rm -f $(OBJ)
 	rm -f $(DEP)
 	rm -f $(ASM)

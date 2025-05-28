@@ -8,20 +8,20 @@
 #define TEST_RUNNER_H
 
 
-// override LFS_TRACE
+// override LFS3_TRACE
 void test_trace(const char *fmt, ...);
 
-#define LFS_TRACE_(fmt, ...) \
+#define LFS3_TRACE_(fmt, ...) \
     test_trace("%s:%d:trace: " fmt "%s\n", \
         __FILE__, \
         __LINE__, \
         __VA_ARGS__)
-#define LFS_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")
-#define LFS_EMUBD_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")
+#define LFS3_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
+#define LFS3_EMUBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 
 
 // note these are indirectly included in any generated files
-#include "bd/lfs_emubd.h"
+#include "bd/lfs3_emubd.h"
 #include <stdio.h>
 
 // give source a chance to define feature macros
@@ -30,7 +30,7 @@ void test_trace(const char *fmt, ...);
 
 
 // generated test configurations
-struct lfs_config;
+struct lfs3_config;
 
 enum test_flags {
     TEST_INTERNAL  = 0x1,
@@ -56,7 +56,7 @@ struct test_case {
     size_t permutations;
 
     bool (*if_)(void);
-    void (*run)(struct lfs_config *cfg);
+    void (*run)(struct lfs3_config *cfg);
 };
 
 struct test_suite {
@@ -101,21 +101,21 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(BLOCK_COUNT,        DISK_SIZE/BLOCK_SIZE                    ) \
     TEST_DEFINE(DISK_SIZE,          1024*1024                               ) \
     TEST_DEFINE(BLOCK_RECYCLES,     -1                                      ) \
-    TEST_DEFINE(RCACHE_SIZE,        LFS_MAX(16, READ_SIZE)                  ) \
-    TEST_DEFINE(PCACHE_SIZE,        LFS_MAX(16, PROG_SIZE)                  ) \
+    TEST_DEFINE(RCACHE_SIZE,        LFS3_MAX(16, READ_SIZE)                 ) \
+    TEST_DEFINE(PCACHE_SIZE,        LFS3_MAX(16, PROG_SIZE)                 ) \
     TEST_DEFINE(FILE_CACHE_SIZE,    16                                      ) \
     TEST_DEFINE(LOOKAHEAD_SIZE,     16                                      ) \
     TEST_DEFINE(GC_FLAGS,           0                                       ) \
     TEST_DEFINE(GC_STEPS,           0                                       ) \
     TEST_DEFINE(GC_COMPACT_THRESH,  0                                       ) \
     TEST_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                            ) \
-    TEST_DEFINE(FRAGMENT_SIZE,      LFS_MIN(BLOCK_SIZE/8, 512)              ) \
+    TEST_DEFINE(FRAGMENT_SIZE,      LFS3_MIN(BLOCK_SIZE/8, 512)             ) \
     TEST_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                            ) \
     TEST_DEFINE(FRAGMENT_THRESH,    -1                                      ) \
     TEST_DEFINE(ERASE_VALUE,        0xff                                    ) \
     TEST_DEFINE(ERASE_CYCLES,       0                                       ) \
-    TEST_DEFINE(BADBLOCK_BEHAVIOR,  LFS_EMUBD_BADBLOCK_PROGERROR            ) \
-    TEST_DEFINE(POWERLOSS_BEHAVIOR, LFS_EMUBD_POWERLOSS_ATOMIC              ) \
+    TEST_DEFINE(BADBLOCK_BEHAVIOR,  LFS3_EMUBD_BADBLOCK_PROGERROR           ) \
+    TEST_DEFINE(POWERLOSS_BEHAVIOR, LFS3_EMUBD_POWERLOSS_ATOMIC             ) \
     TEST_DEFINE(EMUBD_SEED,         0                                       )
 
 // declare defines as global intmax_ts
@@ -143,7 +143,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .crystal_thresh     = CRYSTAL_THRESH,       \
     .fragment_thresh    = FRAGMENT_THRESH,
 
-#ifdef LFS_GC
+#ifdef LFS3_GC
 #define TEST_GC_CFG                             \
     .gc_flags           = GC_FLAGS,             \
     .gc_steps           = GC_STEPS,

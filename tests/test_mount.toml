@@ -5,14 +5,14 @@ after = ['test_mtree', 'test_traversal']
 # test we can mount
 [cases.test_mount_simple]
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that various mount flags don't assert and are returned by
-# lfsr_fs_stat
+# lfs3_fs_stat
 [cases.test_mount_flags]
 defines.RDONLY = [false, true]
 defines.FLUSH = [false, true]
@@ -29,66 +29,66 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
-    'LFS_IFDEF_REVDBG(true, !REVDBG)',
-    'LFS_IFDEF_REVNOISE(true, !REVNOISE)',
+    'LFS3_IFDEF_REVDBG(true, !REVDBG)',
+    'LFS3_IFDEF_REVNOISE(true, !REVNOISE)',
     '!REVDBG || !REVNOISE',
-    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
-    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
+    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
+    'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
+    'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS3_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
     '!RDONLY || !COMPACT',
 ]
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs,
-            ((RDONLY) ? LFS_M_RDONLY : LFS_M_RDWR)
-                | ((FLUSH) ? LFS_M_FLUSH : 0)
-                | ((SYNC) ? LFS_M_SYNC : 0)
-                | ((REVDBG) ? LFS_IFDEF_REVDBG(LFS_M_REVDBG, -1) : 0)
-                | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, -1) : 0)
-                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_M_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_M_CKFETCHES, -1) : 0)
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            ((RDONLY) ? LFS3_M_RDONLY : LFS3_M_RDWR)
+                | ((FLUSH) ? LFS3_M_FLUSH : 0)
+                | ((SYNC) ? LFS3_M_SYNC : 0)
+                | ((REVDBG) ? LFS3_IFDEF_REVDBG(LFS3_M_REVDBG, -1) : 0)
+                | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, -1) : 0)
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
+                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1) : 0)
                 | ((CKMETAPARITY)
-                    ? LFS_IFDEF_CKMETAPARITY(LFS_M_CKMETAPARITY, -1)
+                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
                     : 0)
                 | ((CKDATACKSUMREADS)
-                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_M_CKDATACKSUMREADS, -1)
+                    ? LFS3_IFDEF_CKDATACKSUMREADS(LFS3_M_CKDATACKSUMREADS, -1)
                     : 0)
-                | ((MKCONSISTENT) ? LFS_M_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS_M_LOOKAHEAD : 0)
-                | ((COMPACT) ? LFS_M_COMPACT : 0)
-                | ((CKMETA) ? LFS_M_CKMETA : 0)
-                | ((CKDATA) ? LFS_M_CKDATA : 0),
+                | ((MKCONSISTENT) ? LFS3_M_MKCONSISTENT : 0)
+                | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | ((COMPACT) ? LFS3_M_COMPACT : 0)
+                | ((CKMETA) ? LFS3_M_CKMETA : 0)
+                | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
 
-    // lfsr_fs_stat only returns some flags
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    // lfs3_fs_stat only returns some flags
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((RDONLY) ? LFS_I_RDONLY : 0)
-                | ((FLUSH) ? LFS_I_FLUSH : 0)
-                | ((SYNC) ? LFS_I_SYNC : 0)
-                | ((REVDBG) ? LFS_IFDEF_REVDBG(LFS_M_REVDBG, -1) : 0)
-                | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_M_REVNOISE, -1) : 0)
-                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_I_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_I_CKFETCHES, -1) : 0)
+            ((RDONLY) ? LFS3_I_RDONLY : 0)
+                | ((FLUSH) ? LFS3_I_FLUSH : 0)
+                | ((SYNC) ? LFS3_I_SYNC : 0)
+                | ((REVDBG) ? LFS3_IFDEF_REVDBG(LFS3_M_REVDBG, -1) : 0)
+                | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, -1) : 0)
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, -1) : 0)
+                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, -1) : 0)
                 | ((CKMETAPARITY)
-                    ? LFS_IFDEF_CKMETAPARITY(LFS_I_CKMETAPARITY, -1)
+                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, -1)
                     : 0)
                 | ((CKDATACKSUMREADS)
-                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_I_CKDATACKSUMREADS, -1)
+                    ? LFS3_IFDEF_CKDATACKSUMREADS(LFS3_I_CKDATACKSUMREADS, -1)
                     : 0)
-                | ((!MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS_I_COMPACT : 0)
+                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS_I_CKDATA : 0)));
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that various format flags don't, uh, assert or anything
@@ -104,34 +104,34 @@ defines.CKDATACKSUMREADS = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
-    'LFS_IFDEF_REVDBG(true, !REVDBG)',
-    'LFS_IFDEF_REVNOISE(true, !REVNOISE)',
+    'LFS3_IFDEF_REVDBG(true, !REVDBG)',
+    'LFS3_IFDEF_REVNOISE(true, !REVNOISE)',
     '!REVDBG || !REVNOISE',
-    'LFS_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
-    'LFS_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
+    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
+    'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
+    'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
+    'LFS3_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
 ]
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs,
-            LFS_F_RDWR
-                | ((REVDBG) ? LFS_IFDEF_REVDBG(LFS_F_REVDBG, -1) : 0)
-                | ((REVNOISE) ? LFS_IFDEF_REVNOISE(LFS_F_REVNOISE, -1) : 0)
-                | ((CKPROGS) ? LFS_IFDEF_CKPROGS(LFS_F_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS_IFDEF_CKFETCHES(LFS_F_CKFETCHES, -1) : 0)
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((REVDBG) ? LFS3_IFDEF_REVDBG(LFS3_F_REVDBG, -1) : 0)
+                | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_F_REVNOISE, -1) : 0)
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, -1) : 0)
                 | ((CKMETAPARITY)
-                    ? LFS_IFDEF_CKMETAPARITY(LFS_F_CKMETAPARITY, -1)
+                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, -1)
                     : 0)
                 | ((CKDATACKSUMREADS)
-                    ? LFS_IFDEF_CKDATACKSUMREADS(LFS_F_CKDATACKSUMREADS, -1)
+                    ? LFS3_IFDEF_CKDATACKSUMREADS(LFS3_F_CKDATACKSUMREADS, -1)
                     : 0)
-                | ((CKMETA) ? LFS_F_CKMETA : 0)
-                | ((CKDATA) ? LFS_F_CKDATA : 0),
+                | ((CKMETA) ? LFS3_F_CKMETA : 0)
+                | ((CKDATA) ? LFS3_F_CKDATA : 0),
             CFG) => 0;
 
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 
@@ -141,36 +141,36 @@ code = '''
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // by default we need a lookahead scan
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_MKCONSISTENT
-                | LFS_I_LOOKAHEAD
-                | LFS_I_COMPACT
-                | LFS_I_CKMETA
-                | LFS_I_CKDATA));
-    lfsr_unmount(&lfs) => 0;
+            LFS3_I_MKCONSISTENT
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA));
+    lfs3_unmount(&lfs3) => 0;
 
-    // with LFS_M_LOOKAHEAD, mount performs a lookahead scan
-    lfsr_mount(&lfs,
-            LFS_M_RDWR
-                | LFS_M_LOOKAHEAD
-                | ((CKMETA) ? LFS_M_CKMETA : 0)
-                | ((CKDATA) ? LFS_M_CKDATA : 0),
+    // with LFS3_M_LOOKAHEAD, mount performs a lookahead scan
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | LFS3_M_LOOKAHEAD
+                | ((CKMETA) ? LFS3_M_CKMETA : 0)
+                | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_MKCONSISTENT
-                | LFS_I_COMPACT
+            LFS3_I_MKCONSISTENT
+                | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS_I_CKDATA : 0)));
-    lfsr_unmount(&lfs) => 0;
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_t_compact]
@@ -188,72 +188,72 @@ defines.SIZE = [
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // first lets create a compactable filesystem
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // write to our mdir until >gc_compact_thresh full
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "jellyfish",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
     while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
-        lfsr_file_rewind(&lfs, &file) => 0;
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_sync(&lfs, &file) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_sync(&lfs3, &file) => 0;
     }
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // by default mount does not compact
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_MKCONSISTENT
-                | LFS_I_LOOKAHEAD
-                | LFS_I_COMPACT
-                | LFS_I_CKMETA
-                | LFS_I_CKDATA));
-    lfsr_unmount(&lfs) => 0;
+            LFS3_I_MKCONSISTENT
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA));
+    lfs3_unmount(&lfs3) => 0;
 
-    // with LFS_M_COMPACT, mount compact any uncompacted blocks
-    lfsr_mount(&lfs,
-            LFS_M_RDWR
-                | LFS_M_COMPACT
-                | ((LOOKAHEAD) ? LFS_M_LOOKAHEAD : 0)
-                | ((CKMETA) ? LFS_M_CKMETA : 0)
-                | ((CKDATA) ? LFS_M_CKDATA : 0),
+    // with LFS3_M_COMPACT, mount compact any uncompacted blocks
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | LFS3_M_COMPACT
+                | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_M_CKMETA : 0)
+                | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_MKCONSISTENT
-                | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
+            LFS3_I_MKCONSISTENT
+                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS_I_CKDATA : 0)));
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
 
     // mdir should have been compacted
-    lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
+    lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
     assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // check we can still read the file
     uint8_t rbuf[SIZE];
-    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_t_mkconsistent]
@@ -266,33 +266,33 @@ defines.SIZE = 'FILE_CACHE_SIZE/2'
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // first lets create some orphans
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create two files
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "cuttlefish",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "cuttlefish",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf1[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file, wbuf1, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf1, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_file_open(&lfs, &file, "octopus",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_open(&lfs3, &file, "octopus",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf2[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file, wbuf2, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf2, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
 
     // create this many orphaned files
     //
@@ -301,61 +301,64 @@ code = '''
     // to close them after all open calls, otherwise we just end up with
     // one orphan (littlefs is eager to clean up orphans)
     //
-    lfsr_file_t orphans[ORPHANS];
-    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+    lfs3_file_t orphans[ORPHANS];
+    for (lfs3_size_t i = 0; i < ORPHANS; i++) {
         char name[256];
         sprintf(name, "jellyfish%03x", i);
-        lfsr_file_open(&lfs, &orphans[i], name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfs3_file_open(&lfs3, &orphans[i], name,
+                LFS3_O_WRONLY
+                    | LFS3_O_CREAT
+                    | LFS3_O_EXCL
+                    | LFS3_O_DESYNC) => 0;
     }
-    for (lfs_size_t i = 0; i < ORPHANS; i++) {
-        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    for (lfs3_size_t i = 0; i < ORPHANS; i++) {
+        lfs3_file_close(&lfs3, &orphans[i]) => 0;
     }
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // by default we clean up orphans lazily
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_MKCONSISTENT
-                | LFS_I_LOOKAHEAD
-                | LFS_I_COMPACT
-                | LFS_I_CKMETA
-                | LFS_I_CKDATA));
-    lfsr_unmount(&lfs) => 0;
+            LFS3_I_MKCONSISTENT
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA));
+    lfs3_unmount(&lfs3) => 0;
 
-    // with LFS_M_MKCONSISTENT, mount cleans up orphans eagerly
-    lfsr_mount(&lfs,
-            LFS_M_RDWR
-                | LFS_M_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS_M_LOOKAHEAD : 0)
-                | ((COMPACT) ? LFS_M_COMPACT : 0)
-                | ((CKMETA) ? LFS_M_CKMETA : 0)
-                | ((CKDATA) ? LFS_M_CKDATA : 0),
+    // with LFS3_M_MKCONSISTENT, mount cleans up orphans eagerly
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | LFS3_M_MKCONSISTENT
+                | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | ((COMPACT) ? LFS3_M_COMPACT : 0)
+                | ((CKMETA) ? LFS3_M_CKMETA : 0)
+                | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS_I_COMPACT : 0)
+            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS_I_CKDATA : 0)));
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
 
     // check we can still read the files
-    lfsr_file_open(&lfs, &file, "cuttlefish", LFS_O_RDONLY) => 0;
+    lfs3_file_open(&lfs3, &file, "cuttlefish", LFS3_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
-    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf1, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_file_open(&lfs, &file, "octopus", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    lfs3_file_open(&lfs3, &file, "octopus", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf2, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test we can detect at least fully clobbered blocks
@@ -374,53 +377,53 @@ defines.SIZE = [
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
-    lfs_block_t i = 0;
+    lfs3_block_t i = 0;
     while (true) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_t lfs3;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
         uint32_t prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "squid%03x", i);
 
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
 
         // traverse to find blocks
-        lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
-        lfs_block_t k = 0;
-        for (lfs_block_t j = 0;; j++) {
+        lfs3_traversal_t t;
+        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_block_t k = 0;
+        for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs_tinfo tinfo;
-            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                lfsr_traversal_close(&lfs, &t) => 0;
-                lfsr_unmount(&lfs) => 0;
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS_BTYPE_MDIR
-                    || tinfo.btype == LFS_BTYPE_BTREE) {
+            if (tinfo.btype == LFS3_BTYPE_MDIR
+                    || tinfo.btype == LFS3_BTYPE_BTREE) {
                 if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -429,10 +432,10 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
-                        lfsr_traversal_close(&lfs, &t) => 0;
-                        lfsr_unmount(&lfs) => 0;
+                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_unmount(&lfs3) => 0;
                         goto clobbered;
                     }
                 }
@@ -441,11 +444,11 @@ code = '''
         }
 
     clobbered:;
-        // mount with LFS_M_CKMETA, we should detect clobbered blocks
-        lfsr_mount(&lfs,
-                LFS_M_RDWR
-                    | LFS_M_CKMETA,
-                CFG) => LFS_ERR_CORRUPT;
+        // mount with LFS3_M_CKMETA, we should detect clobbered blocks
+        lfs3_mount(&lfs3,
+                LFS3_M_RDWR
+                    | LFS3_M_CKMETA,
+                CFG) => LFS3_ERR_CORRUPT;
     }
 done:;
 '''
@@ -463,54 +466,54 @@ defines.SIZE = [
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
-    lfs_block_t i = 0;
+    lfs3_block_t i = 0;
     while (true) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_t lfs3;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
         uint32_t prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "squid%03x", i);
 
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
 
         // traverse to find blocks
-        lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
-        lfs_block_t k = 0;
-        for (lfs_block_t j = 0;; j++) {
+        lfs3_traversal_t t;
+        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_block_t k = 0;
+        for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs_tinfo tinfo;
-            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                lfsr_traversal_close(&lfs, &t) => 0;
-                lfsr_unmount(&lfs) => 0;
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS_BTYPE_MDIR
-                    || tinfo.btype == LFS_BTYPE_BTREE
-                    || tinfo.btype == LFS_BTYPE_DATA) {
+            if (tinfo.btype == LFS3_BTYPE_MDIR
+                    || tinfo.btype == LFS3_BTYPE_BTREE
+                    || tinfo.btype == LFS3_BTYPE_DATA) {
                 if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -519,10 +522,10 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
-                        lfsr_traversal_close(&lfs, &t) => 0;
-                        lfsr_unmount(&lfs) => 0;
+                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_unmount(&lfs3) => 0;
                         goto clobbered;
                     }
                 }
@@ -531,13 +534,13 @@ code = '''
         }
 
     clobbered:;
-        // mount with LFS_M_CKDATA, we should detect clobbered blocks
+        // mount with LFS3_M_CKDATA, we should detect clobbered blocks
         //
-        // note LFS_M_CKDATA implies LFS_M_CKMETA
-        lfsr_mount(&lfs,
-                LFS_M_RDWR
-                    | LFS_M_CKDATA,
-                CFG) => LFS_ERR_CORRUPT;
+        // note LFS3_M_CKDATA implies LFS3_M_CKMETA
+        lfs3_mount(&lfs3,
+                LFS3_M_RDWR
+                    | LFS3_M_CKDATA,
+                CFG) => LFS3_ERR_CORRUPT;
     }
 done:;
 '''
@@ -548,248 +551,248 @@ done:;
 
 # test that we fail if we find no magic
 [cases.test_mount_incompat_no_magic]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // delete the magic string
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR(
-                LFSR_TAG_RM | LFSR_TAG_MAGIC, 0))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR(
+                LFS3_TAG_RM | LFS3_TAG_MAGIC, 0))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_CORRUPT;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_CORRUPT;
 '''
 
 # test that we fail if we find bad magic
 [cases.test_mount_incompat_bad_magic]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // tweak the magic string
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_BUF(
-                LFSR_TAG_MAGIC, 0,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_BUF(
+                LFS3_TAG_MAGIC, 0,
                 "lottlefs", 8))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_CORRUPT;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_CORRUPT;
 '''
 
 # test that we fail to mount after a major version bump
 [cases.test_mount_incompat_major]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // bump the major version
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_BUF(
-                LFSR_TAG_VERSION, 0,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_BUF(
+                LFS3_TAG_VERSION, 0,
                 ((const uint8_t[2]){
-                    LFS_DISK_VERSION_MAJOR+1,
+                    LFS3_DISK_VERSION_MAJOR+1,
                     0}), 2))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after a minor version bump
 [cases.test_mount_incompat_minor]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // bump the minor version
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_BUF(
-                LFSR_TAG_VERSION, 0,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_BUF(
+                LFS3_TAG_VERSION, 0,
                 ((const uint8_t[2]){
-                    LFS_DISK_VERSION_MAJOR,
-                    LFS_DISK_VERSION_MINOR+1}), 2))) => 0;
-    lfsr_unmount(&lfs) => 0;
+                    LFS3_DISK_VERSION_MAJOR,
+                    LFS3_DISK_VERSION_MINOR+1}), 2))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # test that we fail to mount incompatible rcompat flags
 [cases.test_mount_incompat_rcompat]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set the nonstandard rcompat flag, this will always be incompatible
     // with standard littlefs
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32(
-                LFSR_TAG_RCOMPAT, 0,
-                LFSR_RCOMPAT_COMPAT
-                    | LFSR_RCOMPAT_NONSTANDARD))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_LE32(
+                LFS3_TAG_RCOMPAT, 0,
+                LFS3_RCOMPAT_COMPAT
+                    | LFS3_RCOMPAT_NONSTANDARD))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # test that we fail to mount incompatible wcompat flags
 [cases.test_mount_incompat_wcompat]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set the nonstandard rcompat flag, this will always be incompatible
     // with standard littlefs
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32(
-                LFSR_TAG_WCOMPAT, 0,
-                LFSR_WCOMPAT_COMPAT
-                    | LFSR_WCOMPAT_NONSTANDARD))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_LE32(
+                LFS3_TAG_WCOMPAT, 0,
+                LFS3_WCOMPAT_COMPAT
+                    | LFS3_WCOMPAT_NONSTANDARD))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
 
     // but we _can_ mount readonly
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that an incompatible ocompat flag is a noop
 [cases.test_mount_incompat_ocompat]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set the nonstandard ocompat flag, this will always be incompatible
     // with standard littlefs
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32(
-                LFSR_TAG_OCOMPAT, 0,
-                LFSR_OCOMPAT_COMPAT
-                    | LFSR_OCOMPAT_NONSTANDARD))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_LE32(
+                LFS3_TAG_OCOMPAT, 0,
+                LFS3_OCOMPAT_COMPAT
+                    | LFS3_OCOMPAT_NONSTANDARD))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should _not_ fail, ocompat should always be ignored
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that we fail to mount rdonly images
 [cases.test_mount_incompat_rdonly]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set the rdonly flag, this prevents writing from a littlefs image
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32(
-                LFSR_TAG_WCOMPAT, 0,
-                LFSR_WCOMPAT_COMPAT
-                    | LFSR_WCOMPAT_RDONLY))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_LE32(
+                LFS3_TAG_WCOMPAT, 0,
+                LFS3_WCOMPAT_COMPAT
+                    | LFS3_WCOMPAT_RDONLY))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
 
     // but we _can_ mount readonly
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that we fail to mount wronly images
 [cases.test_mount_incompat_wronly]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set the wronly flag, this prevents reading from a littlefs image
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LE32(
-                LFSR_TAG_RCOMPAT, 0,
-                LFSR_RCOMPAT_COMPAT
-                    | LFSR_RCOMPAT_WRONLY))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_LE32(
+                LFS3_TAG_RCOMPAT, 0,
+                LFS3_RCOMPAT_COMPAT
+                    | LFS3_RCOMPAT_WRONLY))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # these are just a bit harder to detect
 [cases.test_mount_incompat_rcompat_overflow]
 defines.OVERFLOW = 72
 defines.FLAG = 'range(72)'
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set a really far rcompat flag
     //
@@ -799,28 +802,28 @@ code = '''
     memset(overflow, 0, sizeof(overflow));
     overflow[FLAG / 8] |= 1 << (FLAG % 8);
 
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t rcompat_buf[LFSR_LE32_DSIZE];
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_RCOMPAT, 0,
-                lfsr_data_fromle32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
-                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint8_t rcompat_buf[LFS3_LE32_DSIZE];
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_RCOMPAT, 0,
+                lfs3_data_fromle32(LFS3_RCOMPAT_COMPAT, rcompat_buf),
+                LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 [cases.test_mount_incompat_wcompat_overflow]
 defines.OVERFLOW = 72
 defines.FLAG = 'range(72)'
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     uint8_t flags[9] = {0};
     flags[FLAG / 8] |= 1 << (FLAG % 8);
@@ -833,31 +836,31 @@ code = '''
     memset(overflow, 0, sizeof(overflow));
     overflow[FLAG / 8] |= 1 << (FLAG % 8);
 
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t wcompat_buf[LFSR_LE32_DSIZE];
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_WCOMPAT, 0,
-                lfsr_data_fromle32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
-                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint8_t wcompat_buf[LFS3_LE32_DSIZE];
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_WCOMPAT, 0,
+                lfs3_data_fromle32(LFS3_WCOMPAT_COMPAT, wcompat_buf),
+                LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
 
     // but we _can_ mount readonly
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_ocompat_overflow]
 defines.OVERFLOW = 72
 defines.FLAG = 'range(72)'
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set a really far ocompat flag
     //
@@ -867,30 +870,30 @@ code = '''
     memset(overflow, 0, sizeof(overflow));
     overflow[FLAG / 8] |= 1 << (FLAG % 8);
 
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t ocompat_buf[LFSR_LE32_DSIZE];
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_OCOMPAT, 0,
-                lfsr_data_fromle32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
-                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint8_t ocompat_buf[LFS3_LE32_DSIZE];
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_OCOMPAT, 0,
+                lfs3_data_fromle32(LFS3_OCOMPAT_COMPAT, ocompat_buf),
+                LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should _not_ fail, ocompat should always be ignored
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # but just appending zeros is _not_ an error
 [cases.test_mount_incompat_rcompat_padding]
 defines.OVERFLOW = 72
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set a really far rcompat flag
     //
@@ -899,29 +902,29 @@ code = '''
     uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
 
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t rcompat_buf[LFSR_LE32_DSIZE];
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_RCOMPAT, 0,
-                lfsr_data_fromle32(LFSR_RCOMPAT_COMPAT, rcompat_buf),
-                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint8_t rcompat_buf[LFS3_LE32_DSIZE];
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_RCOMPAT, 0,
+                lfs3_data_fromle32(LFS3_RCOMPAT_COMPAT, rcompat_buf),
+                LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should _not_ fail, extra zeros should be ignored
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_wcompat_padding]
 defines.OVERFLOW = 72
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     uint8_t flags[9] = {0};
     flags[FLAG / 8] |= 1 << (FLAG % 8);
@@ -933,29 +936,29 @@ code = '''
     uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
 
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t wcompat_buf[LFSR_LE32_DSIZE];
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_WCOMPAT, 0,
-                lfsr_data_fromle32(LFSR_WCOMPAT_COMPAT, wcompat_buf),
-                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint8_t wcompat_buf[LFS3_LE32_DSIZE];
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_WCOMPAT, 0,
+                lfs3_data_fromle32(LFS3_WCOMPAT_COMPAT, wcompat_buf),
+                LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should _not_ fail, extra zeros should be ignored
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_ocompat_padding]
 defines.OVERFLOW = 72
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set a really far ocompat flag
     //
@@ -964,1010 +967,1010 @@ code = '''
     uint8_t overflow[OVERFLOW / 8];
     memset(overflow, 0, sizeof(overflow));
 
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t ocompat_buf[LFSR_LE32_DSIZE];
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_OCOMPAT, 0,
-                lfsr_data_fromle32(LFSR_OCOMPAT_COMPAT, ocompat_buf),
-                LFSR_DATA_BUF(overflow, sizeof(overflow))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint8_t ocompat_buf[LFS3_LE32_DSIZE];
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_OCOMPAT, 0,
+                lfs3_data_fromle32(LFS3_OCOMPAT_COMPAT, ocompat_buf),
+                LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should _not_ fail, extra zeros should be ignored
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that we fail to mount incompatible block sizes
 [cases.test_mount_incompat_block_size]
 defines.INC_BLOCK_SIZE = ['BLOCK_SIZE/2', 'BLOCK_SIZE*2']
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set an incompatible block size
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_GEOMETRY(
-                LFSR_TAG_GEOMETRY, 0,
-                (&(lfsr_geometry_t){
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_GEOMETRY(
+                LFS3_TAG_GEOMETRY, 0,
+                (&(lfs3_geometry_t){
                     INC_BLOCK_SIZE,
                     BLOCK_COUNT})))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible block counts
 [cases.test_mount_incompat_block_count]
 defines.INC_BLOCK_COUNT = ['BLOCK_COUNT*2']
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set an incompatible block count
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_GEOMETRY(
-                LFSR_TAG_GEOMETRY, 0,
-                (&(lfsr_geometry_t){
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_GEOMETRY(
+                LFS3_TAG_GEOMETRY, 0,
+                (&(lfs3_geometry_t){
                     BLOCK_SIZE,
                     INC_BLOCK_COUNT})))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible name limit
 [cases.test_mount_incompat_name_limit]
-defines.INC_NAME_LIMIT = ['LFS_NAME_MAX*2']
-in = 'lfs.c'
+defines.INC_NAME_LIMIT = ['LFS3_NAME_MAX*2']
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set an incompatible block size
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_LEB128(
-                LFSR_TAG_NAMELIMIT, 0,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_LEB128(
+                LFS3_TAG_NAMELIMIT, 0,
                 INC_NAME_LIMIT))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # test that we fail to mount after incompatible file limit
 [cases.test_mount_incompat_file_limit]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // set an incompatible file limit
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    uint8_t file_limit_buf[LFSR_LEB128_DSIZE];
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_FILELIMIT, 0,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint8_t file_limit_buf[LFS3_LEB128_DSIZE];
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_FILELIMIT, 0,
                 // it's a bit difficult to test this since file limit
                 // is usually our integer limit, but we can force a
                 // larger value by inserting an extra byte into our
                 // leb128 encoding
-                LFSR_DATA_BUF("\xff", 1),
-                lfsr_data_fromleb128(LFS_FILE_MAX, file_limit_buf)))) => 0;
-    lfsr_unmount(&lfs) => 0;
+                LFS3_DATA_BUF("\xff", 1),
+                lfs3_data_fromleb128(LFS3_FILE_MAX, file_limit_buf)))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # test what happens if we find an unknown config
 [cases.test_mount_incompat_unknown_config]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create an unknown config
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_mdir_commit(&lfs, &lfs.mroot, LFSR_RATTRS(
-            LFSR_RATTR_BUF(
-                LFSR_TAG_CONFIG + 0x42, 0,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+            LFS3_RATTR_BUF(
+                LFS3_TAG_CONFIG + 0x42, 0,
                 "oh no!", strlen("oh no!")))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_NOTSUP;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
 '''
 
 # test what happens if we find an unknown file type
 [cases.test_mount_incompat_unknown_type]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "c",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "c",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi c!", strlen("hi c!")) => strlen("hi c!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mdir_t mdir;
+    lfs3_did_t did;
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
-    struct lfs_info info;
-    lfsr_stat(&lfs, "b", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
     // open/mkdir should error
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_RDONLY) => LFS_ERR_NOTSUP;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT) => LFS_ERR_NOTSUP;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_RDONLY) => LFS3_ERR_NOTSUP;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT) => LFS3_ERR_NOTSUP;
 
-    lfsr_mkdir(&lfs, "b") => LFS_ERR_EXIST;
+    lfs3_mkdir(&lfs3, "b") => LFS3_ERR_EXIST;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_unknown_type_rm]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "c",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "c",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi c!", strlen("hi c!")) => strlen("hi c!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mdir_t mdir;
+    lfs3_did_t did;
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
-    struct lfs_info info;
-    lfsr_stat(&lfs, "b", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
     // removing unknown files should still work, if this would leak
     // resources the new type should set a wcompat flag
-    lfsr_remove(&lfs, "b") => 0;
+    lfs3_remove(&lfs3, "b") => 0;
 
     // check that things look reasonable
-    lfsr_stat(&lfs, "b", &info) => LFS_ERR_NOENT;
+    lfs3_stat(&lfs3, "b", &info) => LFS3_ERR_NOENT;
 
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_unknown_type_mv_src]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "c",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "c",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi c!", strlen("hi c!")) => strlen("hi c!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mdir_t mdir;
+    lfs3_did_t did;
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
-    struct lfs_info info;
-    lfsr_stat(&lfs, "b", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
     // renaming unknown files should still work, if this would leak
     // resources the new type should set a wcompat flag
-    lfsr_rename(&lfs, "b", "c") => 0;
+    lfs3_rename(&lfs3, "b", "c") => 0;
 
     // check that things look reasonable after renaming/removing
-    lfsr_stat(&lfs, "c", &info) => 0;
+    lfs3_stat(&lfs3, "c", &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_unknown_type_mv_dst]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "c",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "c",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi c!", strlen("hi c!")) => strlen("hi c!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mdir_t mdir;
+    lfs3_did_t did;
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
-    struct lfs_info info;
-    lfsr_stat(&lfs, "b", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
     // renaming unknown files should still work, if this would leak
     // resources the new type should set a wcompat flag
-    lfsr_rename(&lfs, "c", "b") => 0;
+    lfs3_rename(&lfs3, "c", "b") => 0;
 
     // check that things look reasonable after renaming/removing
-    lfsr_stat(&lfs, "b", &info) => 0;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
 
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_unknown_type_mv_src_dst]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "c",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "c",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh hi!", strlen("oh hi!")) => strlen("oh hi!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mdir_t mdir;
+    lfs3_did_t did;
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "c";
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
-    struct lfs_info info;
-    lfsr_stat(&lfs, "b", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
     // renaming unknown files should still work, if this would leak
     // resources the new type should set a wcompat flag
-    lfsr_rename(&lfs, "b", "c") => 0;
+    lfs3_rename(&lfs3, "b", "c") => 0;
 
     // check that things look reasonable after renaming/removing
-    lfsr_stat(&lfs, "c", &info) => 0;
+    lfs3_stat(&lfs3, "c", &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_unknown_type_mv_noop]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "c",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "c",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi c!", strlen("hi c!")) => strlen("hi c!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mdir_t mdir;
+    lfs3_did_t did;
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
-    struct lfs_info info;
-    lfsr_stat(&lfs, "b", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
     // renaming unknown files should still work, if this would leak
     // resources the new type should set a wcompat flag
-    lfsr_rename(&lfs, "b", "b") => 0;
+    lfs3_rename(&lfs3, "b", "b") => 0;
 
     // check that things look reasonable after renaming/removing
-    lfsr_stat(&lfs, "b", &info) => 0;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi c!"));
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_unknown_type_mv_notdir]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_mkdir(&lfs, "c") => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_mkdir(&lfs3, "c") => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mdir_t mdir;
+    lfs3_did_t did;
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
-    struct lfs_info info;
-    lfsr_stat(&lfs, "b", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
     // renaming unknown files should still work, if this would leak
     // resources the new type should set a wcompat flag
-    lfsr_rename(&lfs, "c", "b") => LFS_ERR_NOTDIR;
+    lfs3_rename(&lfs3, "c", "b") => LFS3_ERR_NOTDIR;
 
     // check that things look reasonable after renaming/removing
-    lfsr_stat(&lfs, "b", &info) => 0;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_mount_incompat_unknown_type_mv_isdir]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // create some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "a",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "hi a!", strlen("hi a!")) => strlen("hi a!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "b",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-    lfsr_file_write(&lfs, &file,
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file,
             "oh no!", strlen("oh no!")) => strlen("oh no!");
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_mkdir(&lfs, "c") => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_mkdir(&lfs3, "c") => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // change a file's type to something unknown
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     const char *path = "b";
-    lfsr_mdir_t mdir;
-    lfsr_did_t did;
-    lfsr_mtree_pathlookup(&lfs, &path,
+    lfs3_mdir_t mdir;
+    lfs3_did_t did;
+    lfs3_mtree_pathlookup(&lfs3, &path,
             &mdir, NULL, &did) => 0;
-    lfsr_mdir_commit(&lfs, &mdir, LFSR_RATTRS(
-            LFSR_RATTR_CAT(
-                LFSR_TAG_MASK8 | (LFSR_TAG_NAME + 0x13), 0,
-                lfsr_data_fromleb128(did, (uint8_t[LFSR_LEB128_DSIZE]){0}),
-                LFSR_DATA_BUF(path, lfsr_path_namelen(path))))) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            LFS3_RATTR_CAT(
+                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
+                LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // mount
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // our file should appear as an unknown type
-    struct lfs_info info;
-    lfsr_stat(&lfs, "b", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
     // renaming unknown files should still work, if this would leak
     // resources the new type should set a wcompat flag
-    lfsr_rename(&lfs, "b", "c") => LFS_ERR_ISDIR;
+    lfs3_rename(&lfs3, "b", "c") => LFS3_ERR_ISDIR;
 
     // check that things look reasonable after renaming/removing
-    lfsr_stat(&lfs, "b", &info) => 0;
+    lfs3_stat(&lfs3, "b", &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
 
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "a") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == strlen("hi a!"));
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "b") == 0);
-    assert(info.type == LFS_TYPE_UNKNOWN);
+    assert(info.type == LFS3_TYPE_UNKNOWN);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "c") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 
@@ -1982,30 +1985,30 @@ code = '''
 #
 [cases.test_mount_incompat_out_of_phase]
 defines.PHASE = [1, 2, 3, 4]
-in = 'lfs.c'
+in = 'lfs3.c'
 code = '''
     // create a superblock
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // with some files
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "r2d2",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "r2d2",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     char wbuf[256];
     strcpy(wbuf, "beep boop");
-    lfsr_file_write(&lfs, &file, wbuf, strlen(wbuf)) => strlen(wbuf);
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_file_open(&lfs, &file, "c3po",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, strlen(wbuf)) => strlen(wbuf);
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "c3po",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     strcpy(wbuf, "we seem to be made to suffer");
-    lfsr_file_write(&lfs, &file, wbuf, strlen(wbuf)) => strlen(wbuf);
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, strlen(wbuf)) => strlen(wbuf);
+    lfs3_file_close(&lfs3, &file) => 0;
 
     // shift the filesystem out-of-phase
     uint8_t shift_buf[BLOCK_SIZE];
-    for (lfs_size_t i = 0; i < 4; i++) {
+    for (lfs3_size_t i = 0; i < 4; i++) {
         CFG->read(CFG, 4-1-i, 0, shift_buf, BLOCK_SIZE) => 0;
         CFG->erase(CFG, 4-1-i + PHASE) => 0;
         CFG->prog(CFG, 4-1-i + PHASE, 0, shift_buf, BLOCK_SIZE) => 0;
@@ -2018,6 +2021,6 @@ code = '''
     }
 
     // mount should now fail
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => LFS_ERR_CORRUPT;
-    lfsr_mount(&lfs, LFS_M_RDONLY, CFG) => LFS_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_CORRUPT;
 '''

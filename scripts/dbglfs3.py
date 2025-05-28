@@ -2726,7 +2726,7 @@ class Gstate:
 
 
 # high-level littlefs representation
-class Lfs:
+class Lfs3:
     def __init__(self, bd, mtree, config=None, gstate=None, cksum=None, *,
             corrupt=False):
         self.bd = bd
@@ -2975,7 +2975,7 @@ class Lfs:
 
         # empty path?
         if path_ == b'':
-            raise Lfs.PathError("invalid path: %r" % path)
+            raise Lfs3.PathError("invalid path: %r" % path)
 
         path__ = []
         for p in path_.split(b'/'):
@@ -2996,7 +2996,7 @@ class Lfs:
             else:
                 path__.append(p)
         if dotdots:
-            raise Lfs.PathError("invalid path: %r" % path)
+            raise Lfs3.PathError("invalid path: %r" % path)
         path__.reverse()
         path_ = path__
 
@@ -3527,7 +3527,7 @@ class Lfs:
             super().__init__(lfs, mid, mdir, tag, name)
 
             # we're recursable if we're a non-grmed directory with a did
-            if (isinstance(self, Lfs.Dir)
+            if (isinstance(self, Lfs3.Dir)
                     and not self.grmed
                     and self.did is not None):
                 self.recursable = True
@@ -4157,7 +4157,7 @@ def dbg_files(lfs, paths, *,
         try:
             dir = lfs.pathlookup(path,
                     all=args.get('all'))
-        except Lfs.PathError as e:
+        except Lfs3.PathError as e:
             print("error: %s" % e,
                     file=sys.stderr)
             sys.exit(-1)
@@ -4178,7 +4178,7 @@ def dbg_files(lfs, paths, *,
 
         # include any orphaned entries in the root directory to help
         # debugging (these don't actually live in the root directory)
-        if not no_orphans and isinstance(dir, Lfs.Root):
+        if not no_orphans and isinstance(dir, Lfs3.Root):
             # finding orphans is expensive, so cache this
             if not hasattr(iter_dir, 'orphans'):
                 iter_dir.orphans = dir.lfs.orphans()
@@ -4224,7 +4224,7 @@ def dbg_files(lfs, paths, *,
             if file.orphaned:
                 notes.append('orphaned')
             # missing bookmark/did?
-            if isinstance(file, Lfs.Dir):
+            if isinstance(file, Lfs3.Dir):
                 if file.did is None:
                     notes.append('missing did')
                 elif lfs.namelookup(file.did, b'') is None:
@@ -4582,7 +4582,7 @@ def main(disk, mroots=None, paths=None, *,
 
         # fetch the filesystem
         bd = Bd(f, block_size, block_count)
-        lfs = Lfs.fetch(bd, mroots, trunk)
+        lfs = Lfs3.fetch(bd, mroots, trunk)
 
         # print some information about the filesystem
         if not quiet:

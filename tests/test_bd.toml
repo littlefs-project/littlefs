@@ -10,23 +10,23 @@
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[LFS_MAX(READ, PROG)];
+    uint8_t buffer[LFS3_MAX(READ, PROG)];
 
     // write data
     CFG->erase(CFG, 0) => 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
-        for (lfs_off_t j = 0; j < PROG; j++) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += PROG) {
+        for (lfs3_off_t j = 0; j < PROG; j++) {
             buffer[j] = (i+j) % 251;
         }
         CFG->prog(CFG, 0, i, buffer, PROG) => 0;
     }
 
     // read data
-    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
         CFG->read(CFG, 0, i, buffer, READ) => 0;
 
-        for (lfs_off_t j = 0; j < READ; j++) {
-            LFS_ASSERT(buffer[j] == (i+j) % 251);
+        for (lfs3_off_t j = 0; j < READ; j++) {
+            LFS3_ASSERT(buffer[j] == (i+j) % 251);
         }
     }
 '''
@@ -35,14 +35,14 @@ code = '''
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[LFS_MAX(READ, PROG)];
-    lfs_block_t block;
+    uint8_t buffer[LFS3_MAX(READ, PROG)];
+    lfs3_block_t block;
 
     // write block 0
     block = 0;
     CFG->erase(CFG, block) => 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
-        for (lfs_off_t j = 0; j < PROG; j++) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += PROG) {
+        for (lfs3_off_t j = 0; j < PROG; j++) {
             buffer[j] = (block+i+j) % 251;
         }
         CFG->prog(CFG, block, i, buffer, PROG) => 0;
@@ -50,19 +50,19 @@ code = '''
 
     // read block 0
     block = 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
         CFG->read(CFG, block, i, buffer, READ) => 0;
 
-        for (lfs_off_t j = 0; j < READ; j++) {
-            LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+        for (lfs3_off_t j = 0; j < READ; j++) {
+            LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
         }
     }
 
     // write block 1
     block = 1;
     CFG->erase(CFG, block) => 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
-        for (lfs_off_t j = 0; j < PROG; j++) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += PROG) {
+        for (lfs3_off_t j = 0; j < PROG; j++) {
             buffer[j] = (block+i+j) % 251;
         }
         CFG->prog(CFG, block, i, buffer, PROG) => 0;
@@ -70,21 +70,21 @@ code = '''
 
     // read block 1
     block = 1;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
         CFG->read(CFG, block, i, buffer, READ) => 0;
 
-        for (lfs_off_t j = 0; j < READ; j++) {
-            LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+        for (lfs3_off_t j = 0; j < READ; j++) {
+            LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
         }
     }
 
     // read block 0 again
     block = 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
         CFG->read(CFG, block, i, buffer, READ) => 0;
 
-        for (lfs_off_t j = 0; j < READ; j++) {
-            LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+        for (lfs3_off_t j = 0; j < READ; j++) {
+            LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
         }
     }
 '''
@@ -93,14 +93,14 @@ code = '''
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[LFS_MAX(READ, PROG)];
-    lfs_block_t block;
+    uint8_t buffer[LFS3_MAX(READ, PROG)];
+    lfs3_block_t block;
 
     // write block 0
     block = 0;
     CFG->erase(CFG, block) => 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
-        for (lfs_off_t j = 0; j < PROG; j++) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += PROG) {
+        for (lfs3_off_t j = 0; j < PROG; j++) {
             buffer[j] = (block+i+j) % 251;
         }
         CFG->prog(CFG, block, i, buffer, PROG) => 0;
@@ -108,19 +108,19 @@ code = '''
 
     // read block 0
     block = 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
         CFG->read(CFG, block, i, buffer, READ) => 0;
 
-        for (lfs_off_t j = 0; j < READ; j++) {
-            LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+        for (lfs3_off_t j = 0; j < READ; j++) {
+            LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
         }
     }
 
     // write block n-1
     block = CFG->block_count-1;
     CFG->erase(CFG, block) => 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
-        for (lfs_off_t j = 0; j < PROG; j++) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += PROG) {
+        for (lfs3_off_t j = 0; j < PROG; j++) {
             buffer[j] = (block+i+j) % 251;
         }
         CFG->prog(CFG, block, i, buffer, PROG) => 0;
@@ -128,21 +128,21 @@ code = '''
 
     // read block n-1
     block = CFG->block_count-1;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
         CFG->read(CFG, block, i, buffer, READ) => 0;
 
-        for (lfs_off_t j = 0; j < READ; j++) {
-            LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+        for (lfs3_off_t j = 0; j < READ; j++) {
+            LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
         }
     }
 
     // read block 0 again
     block = 0;
-    for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+    for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
         CFG->read(CFG, block, i, buffer, READ) => 0;
 
-        for (lfs_off_t j = 0; j < READ; j++) {
-            LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+        for (lfs3_off_t j = 0; j < READ; j++) {
+            LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
         }
     }
 '''
@@ -151,26 +151,26 @@ code = '''
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[LFS_MAX(READ, PROG)];
+    uint8_t buffer[LFS3_MAX(READ, PROG)];
 
     // write/read every power of 2
-    lfs_block_t block = 1;
+    lfs3_block_t block = 1;
     while (block < CFG->block_count) {
         // write
         CFG->erase(CFG, block) => 0;
-        for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
-            for (lfs_off_t j = 0; j < PROG; j++) {
+        for (lfs3_off_t i = 0; i < CFG->block_size; i += PROG) {
+            for (lfs3_off_t j = 0; j < PROG; j++) {
                 buffer[j] = (block+i+j) % 251;
             }
             CFG->prog(CFG, block, i, buffer, PROG) => 0;
         }
 
         // read
-        for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
             CFG->read(CFG, block, i, buffer, READ) => 0;
 
-            for (lfs_off_t j = 0; j < READ; j++) {
-                LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+            for (lfs3_off_t j = 0; j < READ; j++) {
+                LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
             }
         }
 
@@ -181,11 +181,11 @@ code = '''
     block = 1;
     while (block < CFG->block_count) {
         // read
-        for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
             CFG->read(CFG, block, i, buffer, READ) => 0;
 
-            for (lfs_off_t j = 0; j < READ; j++) {
-                LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+            for (lfs3_off_t j = 0; j < READ; j++) {
+                LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
             }
         }
 
@@ -197,31 +197,31 @@ code = '''
 defines.READ = ['READ_SIZE', 'BLOCK_SIZE']
 defines.PROG = ['PROG_SIZE', 'BLOCK_SIZE']
 code = '''
-    uint8_t buffer[LFS_MAX(READ, PROG)];
+    uint8_t buffer[LFS3_MAX(READ, PROG)];
 
     // write/read every fibonacci number on our device
-    lfs_block_t block = 1;
-    lfs_block_t block_ = 1;
+    lfs3_block_t block = 1;
+    lfs3_block_t block_ = 1;
     while (block < CFG->block_count) {
         // write
         CFG->erase(CFG, block) => 0;
-        for (lfs_off_t i = 0; i < CFG->block_size; i += PROG) {
-            for (lfs_off_t j = 0; j < PROG; j++) {
+        for (lfs3_off_t i = 0; i < CFG->block_size; i += PROG) {
+            for (lfs3_off_t j = 0; j < PROG; j++) {
                 buffer[j] = (block+i+j) % 251;
             }
             CFG->prog(CFG, block, i, buffer, PROG) => 0;
         }
 
         // read
-        for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
             CFG->read(CFG, block, i, buffer, READ) => 0;
 
-            for (lfs_off_t j = 0; j < READ; j++) {
-                LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+            for (lfs3_off_t j = 0; j < READ; j++) {
+                LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
             }
         }
 
-        lfs_block_t nblock = block + block_;
+        lfs3_block_t nblock = block + block_;
         block_ = block;
         block = nblock;
     }
@@ -231,15 +231,15 @@ code = '''
     block_ = 1;
     while (block < CFG->block_count) {
         // read
-        for (lfs_off_t i = 0; i < CFG->block_size; i += READ) {
+        for (lfs3_off_t i = 0; i < CFG->block_size; i += READ) {
             CFG->read(CFG, block, i, buffer, READ) => 0;
 
-            for (lfs_off_t j = 0; j < READ; j++) {
-                LFS_ASSERT(buffer[j] == (block+i+j) % 251);
+            for (lfs3_off_t j = 0; j < READ; j++) {
+                LFS3_ASSERT(buffer[j] == (block+i+j) % 251);
             }
         }
 
-        lfs_block_t nblock = block + block_;
+        lfs3_block_t nblock = block + block_;
         block_ = block;
         block = nblock;
     }

@@ -77,8 +77,8 @@ FLAGS = [
     ('M', 'MODE',               1, "Mount's access mode"                      ),
     ('^', 'RDWR',               0, "Mount the filesystem as read and write"   ),
     ('^', 'RDONLY',             1, "Mount the filesystem as read only"        ),
-    ('M', 'FLUSH',     0x00000040, "Open all files with LFS_O_FLUSH"          ),
-    ('M', 'SYNC',      0x00000080, "Open all files with LFS_O_SYNC"           ),
+    ('M', 'FLUSH',     0x00000040, "Open all files with LFS3_O_FLUSH"         ),
+    ('M', 'SYNC',      0x00000080, "Open all files with LFS3_O_SYNC"          ),
     ('M', 'REVDBG',    0x00000010, "Add debug info to revision counts"        ),
     ('M', 'REVNOISE',  0x00000020, "Add noise to revision counts"             ),
     ('M', 'CKPROGS',   0x00080000, "Check progs by reading back progged data" ),
@@ -105,16 +105,16 @@ FLAGS = [
 
     # Filesystem info flags
     ('I', 'RDONLY',    0x00000001, "Mounted read only"                        ),
-    ('I', 'FLUSH',     0x00000040, "Mounted with LFS_M_FLUSH"                 ),
-    ('I', 'SYNC',      0x00000080, "Mounted with LFS_M_SYNC"                  ),
-    ('I', 'REVDBG',    0x00000010, "Mounted with LFS_M_REVDBG"                ),
-    ('I', 'REVNOISE',  0x00000020, "Mounted with LFS_M_REVNOISE"              ),
-    ('I', 'CKPROGS',   0x00080000, "Mounted with LFS_M_CKPROGS"               ),
-    ('I', 'CKFETCHES', 0x00100000, "Mounted with LFS_M_CKFETCHES"             ),
+    ('I', 'FLUSH',     0x00000040, "Mounted with LFS3_M_FLUSH"                ),
+    ('I', 'SYNC',      0x00000080, "Mounted with LFS3_M_SYNC"                 ),
+    ('I', 'REVDBG',    0x00000010, "Mounted with LFS3_M_REVDBG"               ),
+    ('I', 'REVNOISE',  0x00000020, "Mounted with LFS3_M_REVNOISE"             ),
+    ('I', 'CKPROGS',   0x00080000, "Mounted with LFS3_M_CKPROGS"              ),
+    ('I', 'CKFETCHES', 0x00100000, "Mounted with LFS3_M_CKFETCHES"            ),
     ('I', 'CKMETAPARITY',
-                       0x00200000, "Mounted with LFS_M_CKMETAPARITY"          ),
+                       0x00200000, "Mounted with LFS3_M_CKMETAPARITY"         ),
     ('I', 'CKDATACKSUMREADS', 
-                       0x00800000, "Mounted with LFS_M_CKDATACKSUMREADS"      ),
+                       0x00800000, "Mounted with LFS3_M_CKDATACKSUMREADS"     ),
  
     ('I', 'MKCONSISTENT',
                        0x00000100, "Filesystem needs mkconsistent to write"   ),
@@ -233,10 +233,10 @@ def main(flags, *,
         # accept prefix prefix
         if f.upper() in prefixes:
             prefix.update(prefixes[f.upper()])
-        # accept LFS_+prefix prefix
-        elif (f.upper().startswith('LFS_')
-                and f.upper()[len('LFS_'):] in prefixes):
-            prefix.update(prefixes[f.upper()[len('LFS_'):]])
+        # accept LFS3_+prefix prefix
+        elif (f.upper().startswith('LFS3_')
+                and f.upper()[len('LFS3_'):] in prefixes):
+            prefix.update(prefixes[f.upper()[len('LFS3_'):]])
         else:
             flags_.append(f)
 
@@ -261,30 +261,30 @@ def main(flags, *,
         for p, t, n, f, h in flags__:
             if not all_ and (t is not None or p[0].islower()):
                 continue
-            lines.append(('LFS_%s_%s' % (p, n), '0x%08x' % f, h))
+            lines.append(('LFS3_%s_%s' % (p, n), '0x%08x' % f, h))
 
     # find flags by name or value
     else:
         for f_ in flags_:
             found = False
-            # find by LFS_+prefix+_+name
+            # find by LFS3_+prefix+_+name
             for p, t, n, f, h in flags__:
-                if 'LFS_%s_%s' % (p, n) == f_.upper():
-                    lines.append(('LFS_%s_%s' % (p, n), '0x%08x' % f, h))
+                if 'LFS3_%s_%s' % (p, n) == f_.upper():
+                    lines.append(('LFS3_%s_%s' % (p, n), '0x%08x' % f, h))
                     found = True
             if found:
                 continue
             # find by prefix+_+name
             for p, t, n, f, h in flags__:
                 if '%s_%s' % (p, n) == f_.upper():
-                    lines.append(('LFS_%s_%s' % (p, n), '0x%08x' % f, h))
+                    lines.append(('LFS3_%s_%s' % (p, n), '0x%08x' % f, h))
                     found = True
             if found:
                 continue
             # find by name
             for p, t, n, f, h in flags__:
                 if n == f_.upper():
-                    lines.append(('LFS_%s_%s' % (p, n), '0x%08x' % f, h))
+                    lines.append(('LFS3_%s_%s' % (p, n), '0x%08x' % f, h))
                     found = True
             if found:
                 continue
@@ -298,11 +298,11 @@ def main(flags, *,
                         continue
                     # matches flag?
                     if t is None and (f__ & f) == f:
-                        lines.append(('LFS_%s_%s' % (p, n), '0x%08x' % f, h))
+                        lines.append(('LFS3_%s_%s' % (p, n), '0x%08x' % f, h))
                         f___ &= ~f
                     # matches type?
                     elif t is not None and (f__ & t) == f:
-                        lines.append(('LFS_%s_%s' % (p, n), '0x%08x' % f, h))
+                        lines.append(('LFS3_%s_%s' % (p, n), '0x%08x' % f, h))
                         f___ &= ~t
                 if f___:
                     lines.append(('?', '0x%08x' % f___, 'Unknown flags'))

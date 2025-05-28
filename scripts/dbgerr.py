@@ -35,14 +35,14 @@ def main(errs, *,
     # list all known error codes
     if list_:
         for n, e, h in ERRS:
-            lines.append(('LFS_ERR_'+n, str(e), h))
+            lines.append(('LFS3_ERR_'+n, str(e), h))
 
     # find these errors
     else:
         def find_err(err):
-            # find by LFS_ERR_+name
+            # find by LFS3_ERR_+name
             for n, e, h in ERRS:
-                if 'LFS_ERR_'+n == err.upper():
+                if 'LFS3_ERR_'+n == err.upper():
                     return n, e, h
             # find by ERR_+name
             for n, e, h in ERRS:
@@ -73,7 +73,7 @@ def main(errs, *,
         for err in errs:
             try:
                 n, e, h = find_err(err)
-                lines.append(('LFS_ERR_'+n, str(e), h))
+                lines.append(('LFS3_ERR_'+n, str(e), h))
             except KeyError:
                 lines.append(('?', err, 'Unknown err code'))
 

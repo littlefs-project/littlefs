@@ -9,9 +9,9 @@ after = ['test_traversal']
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS_GC_LOOKAHEAD
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    LFS3_GC_LOOKAHEAD
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.SIZE = [
@@ -22,52 +22,52 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "spider",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
 
     // expect dirty initial state or else our test doesn't work
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_LOOKAHEAD);
-    assert(lfs.omdirs != &lfs.gc.t.b.o);
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(lfs3.omdirs != &lfs3.gc.t.b.o);
 
     // run GC until we make progress
-    for (lfs_block_t i = 0;; i++) {
+    for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        LFS_ASSERT(i < 2*BLOCK_COUNT);
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS_I_LOOKAHEAD)) {
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
             break;
         }
     }
 
     // check the file contents
-    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
-    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that lookahead dirtying still works with the GC API
@@ -75,9 +75,9 @@ code = '''
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS_GC_LOOKAHEAD
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    LFS3_GC_LOOKAHEAD
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.SIZE = [
     'FILE_CACHE_SIZE/2',
@@ -89,61 +89,61 @@ defines.SIZE = [
 ]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "spider",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
 
     // expect dirty initial state or else our test doesn't work
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_LOOKAHEAD);
-    assert(lfs.omdirs != &lfs.gc.t.b.o);
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(lfs3.omdirs != &lfs3.gc.t.b.o);
 
     // run GC one step
-    lfsr_fs_gc(&lfs) => 0;
-    assert(lfs.omdirs == &lfs.gc.t.b.o);
+    lfs3_fs_gc(&lfs3) => 0;
+    assert(lfs3.omdirs == &lfs3.gc.t.b.o);
 
     // mutate the filesystem
-    lfsr_file_open(&lfs, &file, "spider",
-            LFS_O_WRONLY | LFS_O_TRUNC) => 0;
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.t.b.o) {
-        lfsr_fs_gc(&lfs) => 0;
+    while (lfs3.omdirs == &lfs3.gc.t.b.o) {
+        lfs3_fs_gc(&lfs3) => 0;
     }
 
     // we should _not_ make progress
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_LOOKAHEAD);
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
 
     // check the file contents
-    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
-    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 
@@ -153,10 +153,10 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS_GC_COMPACT
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    LFS3_GC_COMPACT
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -169,45 +169,45 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // write to our mdir until >gc_compact_thresh full
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "jellyfish",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
     while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
-        lfsr_file_rewind(&lfs, &file) => 0;
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_sync(&lfs, &file) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_sync(&lfs3, &file) => 0;
     }
 
     // expect dirty initial state or else our test doesn't work
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_COMPACT);
-    assert(lfs.omdirs != &lfs.gc.t.b.o);
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_COMPACT);
+    assert(lfs3.omdirs != &lfs3.gc.t.b.o);
 
     // run GC until we make progress
-    for (lfs_block_t i = 0;; i++) {
+    for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        LFS_ASSERT(i < 2*BLOCK_COUNT);
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS_I_COMPACT)) {
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS3_I_COMPACT)) {
             break;
         }
     }
@@ -219,20 +219,20 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_file_close(&lfs, &file) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-            lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
         }
 
-        lfsr_file_rewind(&lfs, &file) => 0;
+        lfs3_file_rewind(&lfs3, &file) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that compact dirtying still works with the GC API
@@ -241,10 +241,10 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS_GC_COMPACT
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    LFS3_GC_COMPACT
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
@@ -258,83 +258,83 @@ defines.SIZE = [
 ]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // write to our mdir until >gc_compact_thresh full
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "jellyfish",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
     while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
-        lfsr_file_rewind(&lfs, &file) => 0;
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_sync(&lfs, &file) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_sync(&lfs3, &file) => 0;
     }
 
     // expect dirty initial state or else our test doesn't work
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_COMPACT);
-    assert(lfs.omdirs != &lfs.gc.t.b.o);
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_COMPACT);
+    assert(lfs3.omdirs != &lfs3.gc.t.b.o);
 
     // run GC one traversal + one step
     while (true) {
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
         // internal traversal done?
-        if (lfs.omdirs != &lfs.gc.t.b.o) {
+        if (lfs3.omdirs != &lfs3.gc.t.b.o) {
             break;
         }
     }
-    lfsr_fs_gc(&lfs) => 0;
-    assert(lfs.omdirs == &lfs.gc.t.b.o);
+    lfs3_fs_gc(&lfs3) => 0;
+    assert(lfs3.omdirs == &lfs3.gc.t.b.o);
 
     // mutate the filesystem
-    lfsr_file_rewind(&lfs, &file) => 0;
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    lfs3_file_rewind(&lfs3, &file) => 0;
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-    lfsr_file_sync(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file) => 0;
 
     // run GC until our traversal is done (twice for compact)
-    while (lfs.omdirs == &lfs.gc.t.b.o) {
-        lfsr_fs_gc(&lfs) => 0;
+    while (lfs3.omdirs == &lfs3.gc.t.b.o) {
+        lfs3_fs_gc(&lfs3) => 0;
     }
 
     // we should _not_ make progress
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_COMPACT);
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_COMPACT);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_file_close(&lfs, &file) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-            lfsr_file_open(&lfs, &file, "jellyfish", LFS_O_RDONLY) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
         }
 
-        lfsr_file_rewind(&lfs, &file) => 0;
+        lfs3_file_rewind(&lfs3, &file) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
-    lfsr_file_close(&lfs, &file) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 
@@ -345,45 +345,45 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS_GC_MKCONSISTENT
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    LFS3_GC_MKCONSISTENT
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [1, 2, 3, 100]
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // create two files
-    lfsr_file_t file1;
-    lfsr_file_open(&lfs, &file1, "cuttlefish",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file1;
+    lfs3_file_open(&lfs3, &file1, "cuttlefish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf1[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
-    lfsr_file_sync(&lfs, &file1) => 0;
+    lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file1) => 0;
 
-    lfsr_file_t file2;
-    lfsr_file_open(&lfs, &file2, "octopus",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file2;
+    lfs3_file_open(&lfs3, &file2, "octopus",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf2[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
-    lfsr_file_sync(&lfs, &file2) => 0;
+    lfs3_file_write(&lfs3, &file2, wbuf2, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file2) => 0;
 
     // create this many orphaned files
     //
@@ -392,32 +392,35 @@ code = '''
     // to close them after all open calls, otherwise we just end up with
     // one orphan (littlefs is eager to clean up orphans)
     //
-    lfsr_file_t orphans[ORPHANS];
-    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+    lfs3_file_t orphans[ORPHANS];
+    for (lfs3_size_t i = 0; i < ORPHANS; i++) {
         char name[256];
         sprintf(name, "jellyfish%03x", i);
-        lfsr_file_open(&lfs, &orphans[i], name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfs3_file_open(&lfs3, &orphans[i], name,
+                LFS3_O_WRONLY
+                    | LFS3_O_CREAT
+                    | LFS3_O_EXCL
+                    | LFS3_O_DESYNC) => 0;
     }
-    for (lfs_size_t i = 0; i < ORPHANS; i++) {
-        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    for (lfs3_size_t i = 0; i < ORPHANS; i++) {
+        lfs3_file_close(&lfs3, &orphans[i]) => 0;
     }
 
     // expect dirty initial state or else our test doesn't work
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_MKCONSISTENT);
-    assert(lfs.omdirs != &lfs.gc.t.b.o);
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
+    assert(lfs3.omdirs != &lfs3.gc.t.b.o);
 
     // run GC until we make progress
-    for (lfs_block_t i = 0;; i++) {
+    for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        LFS_ASSERT(i < 2*BLOCK_COUNT);
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS_I_MKCONSISTENT)) {
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS3_I_MKCONSISTENT)) {
             break;
         }
     }
@@ -426,30 +429,30 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_file_close(&lfs, &file1) => 0;
-            lfsr_file_close(&lfs, &file2) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-            lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
-            lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
+            lfs3_file_close(&lfs3, &file1) => 0;
+            lfs3_file_close(&lfs3, &file2) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file1, "cuttlefish", LFS3_O_RDONLY) => 0;
+            lfs3_file_open(&lfs3, &file2, "octopus", LFS3_O_RDONLY) => 0;
         }
 
-        lfsr_file_rewind(&lfs, &file1) => 0;
+        lfs3_file_rewind(&lfs3, &file1) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file1, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &file1, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf1, SIZE) == 0);
 
-        lfsr_file_rewind(&lfs, &file2) => 0;
-        lfsr_file_read(&lfs, &file2, rbuf, SIZE) => SIZE;
+        lfs3_file_rewind(&lfs3, &file2) => 0;
+        lfs3_file_read(&lfs3, &file2, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf2, SIZE) == 0);
     }
 
-    lfsr_file_close(&lfs, &file1) => 0;
-    lfsr_file_close(&lfs, &file2) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file1) => 0;
+    lfs3_file_close(&lfs3, &file2) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that an explicit lfsr_fs_mkconsistent call also works, this calls
+# test that an explicit lfs3_fs_mkconsistent call also works, this calls
 # the same logic internally
 [cases.test_gc_mkconsistent_explicit]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -457,32 +460,32 @@ defines.SIZE = 'FILE_CACHE_SIZE/2'
 #  >2 => requires orphans
 defines.ORPHANS = [1, 2, 3, 100]
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // create two files
-    lfsr_file_t file1;
-    lfsr_file_open(&lfs, &file1, "cuttlefish",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file1;
+    lfs3_file_open(&lfs3, &file1, "cuttlefish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf1[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
-    lfsr_file_sync(&lfs, &file1) => 0;
+    lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file1) => 0;
 
-    lfsr_file_t file2;
-    lfsr_file_open(&lfs, &file2, "octopus",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file2;
+    lfs3_file_open(&lfs3, &file2, "octopus",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf2[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
-    lfsr_file_sync(&lfs, &file2) => 0;
+    lfs3_file_write(&lfs3, &file2, wbuf2, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file2) => 0;
 
     // create this many orphaned files
     //
@@ -491,57 +494,60 @@ code = '''
     // to close them after all open calls, otherwise we just end up with
     // one orphan (littlefs is eager to clean up orphans)
     //
-    lfsr_file_t orphans[ORPHANS];
-    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+    lfs3_file_t orphans[ORPHANS];
+    for (lfs3_size_t i = 0; i < ORPHANS; i++) {
         char name[256];
         sprintf(name, "jellyfish%03x", i);
-        lfsr_file_open(&lfs, &orphans[i], name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfs3_file_open(&lfs3, &orphans[i], name,
+                LFS3_O_WRONLY
+                    | LFS3_O_CREAT
+                    | LFS3_O_EXCL
+                    | LFS3_O_DESYNC) => 0;
     }
-    for (lfs_size_t i = 0; i < ORPHANS; i++) {
-        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    for (lfs3_size_t i = 0; i < ORPHANS; i++) {
+        lfs3_file_close(&lfs3, &orphans[i]) => 0;
     }
 
     // expect dirty initial state or else our test doesn't work
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_MKCONSISTENT);
-    #ifdef LFS_GC
-    assert(lfs.omdirs != &lfs.gc.t.b.o);
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
+    #ifdef LFS3_GC
+    assert(lfs3.omdirs != &lfs3.gc.t.b.o);
     #endif
 
-    // call lfsr_fs_mkconsistent
-    lfsr_fs_mkconsistent(&lfs) => 0;
+    // call lfs3_fs_mkconsistent
+    lfs3_fs_mkconsistent(&lfs3) => 0;
 
     // we should have made progress
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS_I_MKCONSISTENT));
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS3_I_MKCONSISTENT));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_file_close(&lfs, &file1) => 0;
-            lfsr_file_close(&lfs, &file2) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-            lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
-            lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
+            lfs3_file_close(&lfs3, &file1) => 0;
+            lfs3_file_close(&lfs3, &file2) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file1, "cuttlefish", LFS3_O_RDONLY) => 0;
+            lfs3_file_open(&lfs3, &file2, "octopus", LFS3_O_RDONLY) => 0;
         }
 
-        lfsr_file_rewind(&lfs, &file1) => 0;
+        lfs3_file_rewind(&lfs3, &file1) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file1, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &file1, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf1, SIZE) == 0);
 
-        lfsr_file_rewind(&lfs, &file2) => 0;
-        lfsr_file_read(&lfs, &file2, rbuf, SIZE) => SIZE;
+        lfs3_file_rewind(&lfs3, &file2) => 0;
+        lfs3_file_read(&lfs3, &file2, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf2, SIZE) == 0);
     }
 
-    lfsr_file_close(&lfs, &file1) => 0;
-    lfsr_file_close(&lfs, &file2) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file1) => 0;
+    lfs3_file_close(&lfs3, &file2) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that mkconsistent dirtying still works with the GC API
@@ -551,11 +557,11 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS_GC_MKCONSISTENT
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    LFS3_GC_MKCONSISTENT
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.SIZE = 'FILE_CACHE_SIZE/2'
 # <=2 => grm-able
@@ -563,102 +569,108 @@ defines.SIZE = 'FILE_CACHE_SIZE/2'
 defines.ORPHANS = [3, 100]
 # we need something to keep the traversal running
 if = 'CKMETA || CKDATA'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // create two files
-    lfsr_file_t file1;
-    lfsr_file_open(&lfs, &file1, "cuttlefish",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file1;
+    lfs3_file_open(&lfs3, &file1, "cuttlefish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf1[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file1, wbuf1, SIZE) => SIZE;
-    lfsr_file_sync(&lfs, &file1) => 0;
+    lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file1) => 0;
 
-    lfsr_file_t file2;
-    lfsr_file_open(&lfs, &file2, "octopus",
-            LFS_O_RDWR | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file2;
+    lfs3_file_open(&lfs3, &file2, "octopus",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf2[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file2, wbuf2, SIZE) => SIZE;
-    lfsr_file_sync(&lfs, &file2) => 0;
+    lfs3_file_write(&lfs3, &file2, wbuf2, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file2) => 0;
 
     // create at least 3 orphans so GC will start
-    lfsr_file_t orphans[ORPHANS];
-    for (lfs_size_t i = 0; i < 3; i++) {
+    lfs3_file_t orphans[ORPHANS];
+    for (lfs3_size_t i = 0; i < 3; i++) {
         char name[256];
         sprintf(name, "jellyfish%03x", i);
-        lfsr_file_open(&lfs, &orphans[i], name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfs3_file_open(&lfs3, &orphans[i], name,
+                LFS3_O_WRONLY
+                    | LFS3_O_CREAT
+                    | LFS3_O_EXCL
+                    | LFS3_O_DESYNC) => 0;
     }
-    for (lfs_size_t i = 0; i < 3; i++) {
-        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    for (lfs3_size_t i = 0; i < 3; i++) {
+        lfs3_file_close(&lfs3, &orphans[i]) => 0;
     }
 
     // run GC one step
-    assert(lfs.omdirs != &lfs.gc.t.b.o);
-    lfsr_fs_gc(&lfs) => 0;
-    assert(lfs.omdirs == &lfs.gc.t.b.o);
+    assert(lfs3.omdirs != &lfs3.gc.t.b.o);
+    lfs3_fs_gc(&lfs3) => 0;
+    assert(lfs3.omdirs == &lfs3.gc.t.b.o);
 
     // create the rest of the orphans after GC has started
-    for (lfs_size_t i = 0; i < ORPHANS; i++) {
+    for (lfs3_size_t i = 0; i < ORPHANS; i++) {
         char name[256];
         sprintf(name, "jellyfish%03x", i);
-        lfsr_file_open(&lfs, &orphans[i], name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL | LFS_O_DESYNC) => 0;
+        lfs3_file_open(&lfs3, &orphans[i], name,
+                LFS3_O_WRONLY
+                    | LFS3_O_CREAT
+                    | LFS3_O_EXCL
+                    | LFS3_O_DESYNC) => 0;
     }
-    for (lfs_size_t i = 0; i < ORPHANS; i++) {
-        lfsr_file_close(&lfs, &orphans[i]) => 0;
+    for (lfs3_size_t i = 0; i < ORPHANS; i++) {
+        lfs3_file_close(&lfs3, &orphans[i]) => 0;
     }
 
     // we should now have dirty state
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_MKCONSISTENT);
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
 
     // run GC until our traversal is done
-    while (lfs.omdirs == &lfs.gc.t.b.o) {
-        lfsr_fs_gc(&lfs) => 0;
+    while (lfs3.omdirs == &lfs3.gc.t.b.o) {
+        lfs3_fs_gc(&lfs3) => 0;
     }
 
     // we should _not_ make progress
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS_I_MKCONSISTENT);
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_file_close(&lfs, &file1) => 0;
-            lfsr_file_close(&lfs, &file2) => 0;
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
-            lfsr_file_open(&lfs, &file1, "cuttlefish", LFS_O_RDONLY) => 0;
-            lfsr_file_open(&lfs, &file2, "octopus", LFS_O_RDONLY) => 0;
+            lfs3_file_close(&lfs3, &file1) => 0;
+            lfs3_file_close(&lfs3, &file2) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file1, "cuttlefish", LFS3_O_RDONLY) => 0;
+            lfs3_file_open(&lfs3, &file2, "octopus", LFS3_O_RDONLY) => 0;
         }
 
-        lfsr_file_rewind(&lfs, &file1) => 0;
+        lfs3_file_rewind(&lfs3, &file1) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &file1, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &file1, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf1, SIZE) == 0);
 
-        lfsr_file_rewind(&lfs, &file2) => 0;
-        lfsr_file_read(&lfs, &file2, rbuf, SIZE) => SIZE;
+        lfs3_file_rewind(&lfs3, &file2) => 0;
+        lfs3_file_read(&lfs3, &file2, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf2, SIZE) == 0);
     }
 
-    lfsr_file_close(&lfs, &file1) => 0;
-    lfsr_file_close(&lfs, &file2) => 0;
-    lfsr_unmount(&lfs) => 0;
+    lfs3_file_close(&lfs3, &file1) => 0;
+    lfs3_file_close(&lfs3, &file2) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 
@@ -666,7 +678,7 @@ code = '''
 #
 # these are tested more thoroughly in test_ck
 [cases.test_gc_ckmeta]
-defines.GC_FLAGS = 'LFS_GC_CKMETA'
+defines.GC_FLAGS = 'LFS3_GC_CKMETA'
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -679,55 +691,55 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_block_t i = 0;
+    lfs3_block_t i = 0;
     while (true) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_t lfs3;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
         uint32_t prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "squid%03x", i);
 
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
 
         // traverse to find blocks
-        lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
-        lfs_block_t k = 0;
-        for (lfs_block_t j = 0;; j++) {
+        lfs3_traversal_t t;
+        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_block_t k = 0;
+        for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs_tinfo tinfo;
-            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                lfsr_traversal_close(&lfs, &t) => 0;
-                lfsr_unmount(&lfs) => 0;
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS_BTYPE_MDIR
-                    || tinfo.btype == LFS_BTYPE_BTREE) {
+            if (tinfo.btype == LFS3_BTYPE_MDIR
+                    || tinfo.btype == LFS3_BTYPE_BTREE) {
                 if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -736,9 +748,9 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
-                        lfsr_traversal_close(&lfs, &t) => 0;
+                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                        lfs3_traversal_close(&lfs3, &t) => 0;
                         goto clobbered;
                     }
                 }
@@ -747,26 +759,26 @@ code = '''
         }
 
     clobbered:;
-        // running lfsr_fs_gc should eventually find the clobbered block
-        for (lfs_block_t i = 0;; i++) {
+        // running lfs3_fs_gc should eventually find the clobbered block
+        for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
-            LFS_ASSERT(i < 2*BLOCK_COUNT);
+            LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_fs_gc(&lfs);
-            assert(!err || err == LFS_ERR_CORRUPT);
+            int err = lfs3_fs_gc(&lfs3);
+            assert(!err || err == LFS3_ERR_CORRUPT);
             // found it
-            if (err == LFS_ERR_CORRUPT) {
+            if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
 
-        lfsr_unmount(&lfs) => 0;
+        lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
 [cases.test_gc_ckdata]
-defines.GC_FLAGS = 'LFS_GC_CKDATA'
+defines.GC_FLAGS = 'LFS3_GC_CKDATA'
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -779,56 +791,56 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_block_t i = 0;
+    lfs3_block_t i = 0;
     while (true) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_t lfs3;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
         uint32_t prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "squid%03x", i);
 
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
 
         // traverse to find blocks
-        lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
-        lfs_block_t k = 0;
-        for (lfs_block_t j = 0;; j++) {
+        lfs3_traversal_t t;
+        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_block_t k = 0;
+        for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs_tinfo tinfo;
-            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                lfsr_traversal_close(&lfs, &t) => 0;
-                lfsr_unmount(&lfs) => 0;
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS_BTYPE_MDIR
-                    || tinfo.btype == LFS_BTYPE_BTREE
-                    || tinfo.btype == LFS_BTYPE_DATA) {
+            if (tinfo.btype == LFS3_BTYPE_MDIR
+                    || tinfo.btype == LFS3_BTYPE_BTREE
+                    || tinfo.btype == LFS3_BTYPE_DATA) {
                 if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -837,9 +849,9 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
-                        lfsr_traversal_close(&lfs, &t) => 0;
+                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                        lfs3_traversal_close(&lfs3, &t) => 0;
                         goto clobbered;
                     }
                 }
@@ -848,27 +860,27 @@ code = '''
         }
 
     clobbered:;
-        // running lfsr_fs_gc should eventually find the clobbered block
+        // running lfs3_fs_gc should eventually find the clobbered block
         //
-        // note LFS_GC_CKDATA implies LFS_GC_CKMETA
-        for (lfs_block_t i = 0;; i++) {
+        // note LFS3_GC_CKDATA implies LFS3_GC_CKMETA
+        for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
-            LFS_ASSERT(i < 2*BLOCK_COUNT);
+            LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_fs_gc(&lfs);
-            assert(!err || err == LFS_ERR_CORRUPT);
+            int err = lfs3_fs_gc(&lfs3);
+            assert(!err || err == LFS3_ERR_CORRUPT);
             // found it
-            if (err == LFS_ERR_CORRUPT) {
+            if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
 
-        lfsr_unmount(&lfs) => 0;
+        lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
-# test that our explicit functions (lfsr_fs_ckmeta/ckdata) work as well,
+# test that our explicit functions (lfs3_fs_ckmeta/ckdata) work as well,
 # these call the same logic internally
 [cases.test_gc_ckmeta_explicit]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -883,53 +895,53 @@ defines.SIZE = [
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
-    lfs_block_t i = 0;
+    lfs3_block_t i = 0;
     while (true) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_t lfs3;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
         uint32_t prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "squid%03x", i);
 
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
 
         // traverse to find blocks
-        lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
-        lfs_block_t k = 0;
-        for (lfs_block_t j = 0;; j++) {
+        lfs3_traversal_t t;
+        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_block_t k = 0;
+        for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs_tinfo tinfo;
-            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                lfsr_traversal_close(&lfs, &t) => 0;
-                lfsr_unmount(&lfs) => 0;
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS_BTYPE_MDIR
-                    || tinfo.btype == LFS_BTYPE_BTREE) {
+            if (tinfo.btype == LFS3_BTYPE_MDIR
+                    || tinfo.btype == LFS3_BTYPE_BTREE) {
                 if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -938,9 +950,9 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
-                        lfsr_traversal_close(&lfs, &t) => 0;
+                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                        lfs3_traversal_close(&lfs3, &t) => 0;
                         goto clobbered;
                     }
                 }
@@ -949,10 +961,10 @@ code = '''
         }
 
     clobbered:;
-        // lfsr_fs_ckmeta should find the clobbered block
-        lfsr_fs_ckmeta(&lfs) => LFS_ERR_CORRUPT;
+        // lfs3_fs_ckmeta should find the clobbered block
+        lfs3_fs_ckmeta(&lfs3) => LFS3_ERR_CORRUPT;
 
-        lfsr_unmount(&lfs) => 0;
+        lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
@@ -970,54 +982,54 @@ defines.SIZE = [
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
-    lfs_block_t i = 0;
+    lfs3_block_t i = 0;
     while (true) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_t lfs3;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
         uint32_t prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "squid%03x", i);
 
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
 
         // traverse to find blocks
-        lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
-        lfs_block_t k = 0;
-        for (lfs_block_t j = 0;; j++) {
+        lfs3_traversal_t t;
+        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_block_t k = 0;
+        for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs_tinfo tinfo;
-            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                lfsr_traversal_close(&lfs, &t) => 0;
-                lfsr_unmount(&lfs) => 0;
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS_BTYPE_MDIR
-                    || tinfo.btype == LFS_BTYPE_BTREE
-                    || tinfo.btype == LFS_BTYPE_DATA) {
+            if (tinfo.btype == LFS3_BTYPE_MDIR
+                    || tinfo.btype == LFS3_BTYPE_BTREE
+                    || tinfo.btype == LFS3_BTYPE_DATA) {
                 if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -1026,9 +1038,9 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
-                        lfsr_traversal_close(&lfs, &t) => 0;
+                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                        lfs3_traversal_close(&lfs3, &t) => 0;
                         goto clobbered;
                     }
                 }
@@ -1037,24 +1049,24 @@ code = '''
         }
 
     clobbered:;
-        // lfsr_fs_ckdata should find the clobbered block
-        lfsr_fs_ckdata(&lfs) => LFS_ERR_CORRUPT;
+        // lfs3_fs_ckdata should find the clobbered block
+        lfs3_fs_ckdata(&lfs3) => LFS3_ERR_CORRUPT;
 
-        lfsr_unmount(&lfs) => 0;
+        lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
 # test we can detect fully clobbered blocks after a ck pass, if we call
-# lfsr_fs_unck
+# lfs3_fs_unck
 [cases.test_gc_ckmeta_unck]
-# AFTER=0 => after running lfsr_fs_gc once
-# AFTER=1 => after running lfsr_fs_gc to completion
-# AFTER=2 => after running lfsr_traversal_t
-# AFTER=3 => after lfsr_fs_ckmeta
-# AFTER=4 => after remounting with LFS_M_CKMETA
+# AFTER=0 => after running lfs3_fs_gc once
+# AFTER=1 => after running lfs3_fs_gc to completion
+# AFTER=2 => after running lfs3_traversal_t
+# AFTER=3 => after lfs3_fs_ckmeta
+# AFTER=4 => after remounting with LFS3_M_CKMETA
 defines.AFTER = [0, 1, 2, 3, 4]
-defines.GC_FLAGS = 'LFS_GC_CKMETA'
+defines.GC_FLAGS = 'LFS3_GC_CKMETA'
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -1067,109 +1079,109 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_block_t i = 0;
+    lfs3_block_t i = 0;
     while (true) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_t lfs3;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
         uint32_t prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "squid%03x", i);
 
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
 
-        // run lfsr_fs_gc before clobbering, this should not find
+        // run lfs3_fs_gc before clobbering, this should not find
         // anything
 
-        // run lfsr_fs_gc once
+        // run lfs3_fs_gc once
         if (AFTER == 0) {
-            lfsr_fs_gc(&lfs) => 0;
+            lfs3_fs_gc(&lfs3) => 0;
 
-        // run lfsr_fs_gc to completion
+        // run lfs3_fs_gc to completion
         } else if (AFTER == 1) {
             while (true) {
-                struct lfs_fsinfo fsinfo;
-                lfsr_fs_stat(&lfs, &fsinfo) => 0;
-                if (!(fsinfo.flags & LFS_I_CKMETA)) {
+                struct lfs3_fsinfo fsinfo;
+                lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+                if (!(fsinfo.flags & LFS3_I_CKMETA)) {
                     break;
                 }
 
-                lfsr_fs_gc(&lfs) => 0;
+                lfs3_fs_gc(&lfs3) => 0;
             }
 
-        // run lfsr_traversal_t
+        // run lfs3_traversal_t
         } else if (AFTER == 2) {
-            lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
+            lfs3_traversal_t t;
+            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
-                struct lfs_tinfo tinfo;
-                int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                assert(err == 0 || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_NOENT) {
+                struct lfs3_tinfo tinfo;
+                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                assert(err == 0 || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfsr_traversal_close(&lfs, &t) => 0;
+            lfs3_traversal_close(&lfs3, &t) => 0;
 
-        // run lfsr_fs_ckmeta
+        // run lfs3_fs_ckmeta
         } else if (AFTER == 3) {
-            lfsr_fs_ckmeta(&lfs) => 0;
+            lfs3_fs_ckmeta(&lfs3) => 0;
 
-            struct lfs_fsinfo fsinfo;
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS_I_CKMETA));
+            struct lfs3_fsinfo fsinfo;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+            assert(!(fsinfo.flags & LFS3_I_CKMETA));
 
-        // remount with LFS_M_CKMETA
+        // remount with LFS3_M_CKMETA
         } else if (AFTER == 4) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKMETA, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKMETA, CFG) => 0;
 
-            struct lfs_fsinfo fsinfo;
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS_I_CKMETA));
+            struct lfs3_fsinfo fsinfo;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+            assert(!(fsinfo.flags & LFS3_I_CKMETA));
 
         } else {
             assert(false);
         }
 
         // traverse to find blocks
-        lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
-        lfs_block_t k = 0;
-        for (lfs_block_t j = 0;; j++) {
+        lfs3_traversal_t t;
+        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_block_t k = 0;
+        for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs_tinfo tinfo;
-            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                lfsr_traversal_close(&lfs, &t) => 0;
-                lfsr_unmount(&lfs) => 0;
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS_BTYPE_MDIR
-                    || tinfo.btype == LFS_BTYPE_BTREE) {
+            if (tinfo.btype == LFS3_BTYPE_MDIR
+                    || tinfo.btype == LFS3_BTYPE_BTREE) {
                 if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -1178,9 +1190,9 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
-                        lfsr_traversal_close(&lfs, &t) => 0;
+                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                        lfs3_traversal_close(&lfs3, &t) => 0;
                         goto clobbered;
                     }
                 }
@@ -1190,34 +1202,34 @@ code = '''
 
     clobbered:;
         // clear relevant ck flags
-        lfsr_fs_unck(&lfs, LFS_I_CKMETA) => 0;
+        lfs3_fs_unck(&lfs3, LFS3_I_CKMETA) => 0;
 
-        // running lfsr_fs_gc should eventually find the clobbered block
-        for (lfs_block_t i = 0;; i++) {
+        // running lfs3_fs_gc should eventually find the clobbered block
+        for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
-            LFS_ASSERT(i < 2*BLOCK_COUNT);
+            LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_fs_gc(&lfs);
-            assert(!err || err == LFS_ERR_CORRUPT);
+            int err = lfs3_fs_gc(&lfs3);
+            assert(!err || err == LFS3_ERR_CORRUPT);
             // found it
-            if (err == LFS_ERR_CORRUPT) {
+            if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
 
-        lfsr_unmount(&lfs) => 0;
+        lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
 [cases.test_gc_ckdata_unck]
-# AFTER=0 => after running lfsr_fs_gc once
-# AFTER=1 => after running lfsr_fs_gc to completion
-# AFTER=2 => after running lfsr_traversal_t
-# AFTER=3 => after lfsr_fs_ckdata
-# AFTER=4 => after remounting with LFS_M_CKDATA
+# AFTER=0 => after running lfs3_fs_gc once
+# AFTER=1 => after running lfs3_fs_gc to completion
+# AFTER=2 => after running lfs3_traversal_t
+# AFTER=3 => after lfs3_fs_ckdata
+# AFTER=4 => after remounting with LFS3_M_CKDATA
 defines.AFTER = [0, 1, 2, 3, 4]
-defines.GC_FLAGS = 'LFS_GC_CKDATA'
+defines.GC_FLAGS = 'LFS3_GC_CKDATA'
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -1230,110 +1242,110 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_block_t i = 0;
+    lfs3_block_t i = 0;
     while (true) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs_t lfs;
-        lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_t lfs3;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
         uint32_t prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "squid%03x", i);
 
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
 
-        // run lfsr_fs_gc before clobbering, this should not find
+        // run lfs3_fs_gc before clobbering, this should not find
         // anything
 
-        // run lfsr_fs_gc once
+        // run lfs3_fs_gc once
         if (AFTER == 0) {
-            lfsr_fs_gc(&lfs) => 0;
+            lfs3_fs_gc(&lfs3) => 0;
 
-        // run lfsr_fs_gc to completion
+        // run lfs3_fs_gc to completion
         } else if (AFTER == 1) {
             while (true) {
-                struct lfs_fsinfo fsinfo;
-                lfsr_fs_stat(&lfs, &fsinfo) => 0;
-                if (!(fsinfo.flags & LFS_I_CKDATA)) {
+                struct lfs3_fsinfo fsinfo;
+                lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+                if (!(fsinfo.flags & LFS3_I_CKDATA)) {
                     break;
                 }
 
-                lfsr_fs_gc(&lfs) => 0;
+                lfs3_fs_gc(&lfs3) => 0;
             }
 
-        // run lfsr_traversal_t
+        // run lfs3_traversal_t
         } else if (AFTER == 2) {
-            lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
+            lfs3_traversal_t t;
+            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
-                struct lfs_tinfo tinfo;
-                int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                assert(err == 0 || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_NOENT) {
+                struct lfs3_tinfo tinfo;
+                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                assert(err == 0 || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfsr_traversal_close(&lfs, &t) => 0;
+            lfs3_traversal_close(&lfs3, &t) => 0;
 
-        // run lfsr_fs_ckdata
+        // run lfs3_fs_ckdata
         } else if (AFTER == 3) {
-            lfsr_fs_ckdata(&lfs) => 0;
+            lfs3_fs_ckdata(&lfs3) => 0;
 
-            struct lfs_fsinfo fsinfo;
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS_I_CKDATA));
+            struct lfs3_fsinfo fsinfo;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+            assert(!(fsinfo.flags & LFS3_I_CKDATA));
 
-        // remount with LFS_M_CKDATA
+        // remount with LFS3_M_CKDATA
         } else if (AFTER == 4) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR | LFS_M_CKDATA, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKDATA, CFG) => 0;
 
-            struct lfs_fsinfo fsinfo;
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS_I_CKDATA));
+            struct lfs3_fsinfo fsinfo;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+            assert(!(fsinfo.flags & LFS3_I_CKDATA));
 
         } else {
             assert(false);
         }
 
         // traverse to find blocks
-        lfsr_traversal_t t;
-        lfsr_traversal_open(&lfs, &t, LFS_T_RDONLY) => 0;
-        lfs_block_t k = 0;
-        for (lfs_block_t j = 0;; j++) {
+        lfs3_traversal_t t;
+        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_block_t k = 0;
+        for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs_tinfo tinfo;
-            int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
-                lfsr_traversal_close(&lfs, &t) => 0;
-                lfsr_unmount(&lfs) => 0;
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS_BTYPE_MDIR
-                    || tinfo.btype == LFS_BTYPE_BTREE
-                    || tinfo.btype == LFS_BTYPE_DATA) {
+            if (tinfo.btype == LFS3_BTYPE_MDIR
+                    || tinfo.btype == LFS3_BTYPE_BTREE
+                    || tinfo.btype == LFS3_BTYPE_DATA) {
                 if (k == i || k == i+1) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -1342,9 +1354,9 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS_BTYPE_MDIR) ? 2 : 1;
-                        lfsr_traversal_close(&lfs, &t) => 0;
+                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                        lfs3_traversal_close(&lfs3, &t) => 0;
                         goto clobbered;
                     }
                 }
@@ -1354,33 +1366,33 @@ code = '''
 
     clobbered:;
         // clear relevant ck flags
-        lfsr_fs_unck(&lfs, LFS_I_CKDATA) => 0;
+        lfs3_fs_unck(&lfs3, LFS3_I_CKDATA) => 0;
 
-        // running lfsr_fs_gc should eventually find the clobbered block
+        // running lfs3_fs_gc should eventually find the clobbered block
         //
-        // note LFS_GC_CKDATA implies LFS_GC_CKMETA
-        for (lfs_block_t i = 0;; i++) {
+        // note LFS3_GC_CKDATA implies LFS3_GC_CKMETA
+        for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
-            LFS_ASSERT(i < 2*BLOCK_COUNT);
+            LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfsr_fs_gc(&lfs);
-            assert(!err || err == LFS_ERR_CORRUPT);
+            int err = lfs3_fs_gc(&lfs3);
+            assert(!err || err == LFS3_ERR_CORRUPT);
             // found it
-            if (err == LFS_ERR_CORRUPT) {
+            if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
 
-        lfsr_unmount(&lfs) => 0;
+        lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
 
-# test that gc work clears flags in lfsr_fs_stat
+# test that gc work clears flags in lfs3_fs_stat
 [cases.test_gc_iflags]
-# AFTER=0 => after running lfsr_fs_gc
-# AFTER=1 => after running lfsr_traversal_t
+# AFTER=0 => after running lfs3_fs_gc
+# AFTER=1 => after running lfs3_traversal_t
 # AFTER=2 => after explicit operations
 # AFTER=3 => after remounting
 defines.AFTER = [0, 1, 2, 3]
@@ -1390,11 +1402,11 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = -1
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1409,78 +1421,78 @@ defines.SIZE = [
 ]
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
-    'LFS_IFDEF_GC(true, AFTER != 0)',
+    'LFS3_IFDEF_GC(true, AFTER != 0)',
 ]
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create an interesting filesystem
     uint32_t prng = 42;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs3_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "squid%03x", i);
 
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
 
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_close(&lfs, &file) => 0;
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
     }
 
     // remount to reset flags
-    lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // check that flags were reset
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_MKCONSISTENT
-                | LFS_I_LOOKAHEAD
-                | LFS_I_COMPACT
-                | LFS_I_CKMETA
-                | LFS_I_CKDATA));
+            LFS3_I_MKCONSISTENT
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA));
 
     // run gc
     if (AFTER == 0) {
-        #ifdef LFS_GC
-        lfsr_fs_gc(&lfs) => 0;
+        #ifdef LFS3_GC
+        lfs3_fs_gc(&lfs3) => 0;
         #else
         assert(false);
         #endif
 
-    // run lfsr_traversal_t
+    // run lfs3_traversal_t
     } else if (AFTER == 1) {
         while (true) {
             // it may take multiple traversals to do all pending work
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                        | ((COMPACT) ? LFS_I_COMPACT : 0)
-                        | ((CKMETA) ? LFS_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS_I_CKDATA : 0)))) {
+                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
-            lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
+            lfs3_traversal_t t;
+            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
-                struct lfs_tinfo tinfo;
-                int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                assert(err == 0 || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_NOENT) {
+                struct lfs3_tinfo tinfo;
+                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                assert(err == 0 || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfsr_traversal_close(&lfs, &t) => 0;
+            lfs3_traversal_close(&lfs3, &t) => 0;
         }
 
     // run explicit operations
@@ -1489,87 +1501,87 @@ code = '''
     } else if (AFTER == 2) {
         while (true) {
             // it may take multiple traversals to do all pending work
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                        | ((COMPACT) ? LFS_I_COMPACT : 0)
-                        | ((CKMETA) ? LFS_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS_I_CKDATA : 0)))) {
+                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
             if (MKCONSISTENT) {
-                lfsr_fs_mkconsistent(&lfs) => 0;
+                lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
-                lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t,
-                        LFS_T_RDWR | LFS_T_LOOKAHEAD) => 0;
+                lfs3_traversal_t t;
+                lfs3_traversal_open(&lfs3, &t,
+                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
                 while (true) {
-                    struct lfs_tinfo tinfo;
-                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                    assert(err == 0 || err == LFS_ERR_NOENT);
-                    if (err == LFS_ERR_NOENT) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfsr_traversal_close(&lfs, &t) => 0;
+                lfs3_traversal_close(&lfs3, &t) => 0;
             }
 
             if (COMPACT) {
                 // we need an explicit traversal for this
-                lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t,
-                        LFS_T_RDWR | LFS_T_COMPACT) => 0;
+                lfs3_traversal_t t;
+                lfs3_traversal_open(&lfs3, &t,
+                        LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
                 while (true) {
-                    struct lfs_tinfo tinfo;
-                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                    assert(err == 0 || err == LFS_ERR_NOENT);
-                    if (err == LFS_ERR_NOENT) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfsr_traversal_close(&lfs, &t) => 0;
+                lfs3_traversal_close(&lfs3, &t) => 0;
             }
 
             if (CKMETA) {
-                lfsr_fs_ckmeta(&lfs) => 0;
+                lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
             if (CKDATA) {
-                lfsr_fs_ckdata(&lfs) => 0;
+                lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
 
     // remount with gc flags
     } else if (AFTER == 3) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR | GC_FLAGS, CFG) => 0;
+        lfs3_unmount(&lfs3) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR | GC_FLAGS, CFG) => 0;
 
     } else {
         assert(false);
     }
 
     // did these clear the right flags?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS_I_COMPACT : 0)
+            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS_I_CKDATA : 0)));
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that gc work clears flags in lfsr_fs_stat after lfsr_fs_unck
+# test that gc work clears flags in lfs3_fs_stat after lfs3_fs_unck
 [cases.test_gc_iflags_unck]
-# AFTER=0 => after running lfsr_fs_gc
-# AFTER=1 => after running lfsr_traversal_t
+# AFTER=0 => after running lfs3_fs_gc
+# AFTER=1 => after running lfs3_traversal_t
 # AFTER=2 => after explicit operations
 # AFTER=3 => after remounting
 defines.AFTER = [0, 1, 2, 3]
@@ -1579,11 +1591,11 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = -1
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1598,78 +1610,78 @@ defines.SIZE = [
 ]
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
-    'LFS_IFDEF_GC(true, AFTER != 0)',
+    'LFS3_IFDEF_GC(true, AFTER != 0)',
 ]
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create an interesting filesystem
     uint32_t prng = 42;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs3_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "squid%03x", i);
 
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
 
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_close(&lfs, &file) => 0;
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
     }
 
     // remount to reset flags
-    lfsr_unmount(&lfs) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // check that flags were reset
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_MKCONSISTENT
-                | LFS_I_LOOKAHEAD
-                | LFS_I_COMPACT
-                | LFS_I_CKMETA
-                | LFS_I_CKDATA));
+            LFS3_I_MKCONSISTENT
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA));
 
     // run gc
     if (AFTER == 0) {
-        #ifdef LFS_GC
-        lfsr_fs_gc(&lfs) => 0;
+        #ifdef LFS3_GC
+        lfs3_fs_gc(&lfs3) => 0;
         #else
         assert(false);
         #endif
 
-    // run lfsr_traversal_t
+    // run lfs3_traversal_t
     } else if (AFTER == 1) {
         while (true) {
             // it may take multiple traversals to do all pending work
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                        | ((COMPACT) ? LFS_I_COMPACT : 0)
-                        | ((CKMETA) ? LFS_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS_I_CKDATA : 0)))) {
+                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
-            lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
+            lfs3_traversal_t t;
+            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
-                struct lfs_tinfo tinfo;
-                int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                assert(err == 0 || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_NOENT) {
+                struct lfs3_tinfo tinfo;
+                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                assert(err == 0 || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfsr_traversal_close(&lfs, &t) => 0;
+            lfs3_traversal_close(&lfs3, &t) => 0;
         }
 
     // run explicit operations
@@ -1678,127 +1690,127 @@ code = '''
     } else if (AFTER == 2) {
         while (true) {
             // it may take multiple traversals to do all pending work
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                        | ((COMPACT) ? LFS_I_COMPACT : 0)
-                        | ((CKMETA) ? LFS_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS_I_CKDATA : 0)))) {
+                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
             if (MKCONSISTENT) {
-                lfsr_fs_mkconsistent(&lfs) => 0;
+                lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
-                lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t,
-                        LFS_T_RDWR | LFS_T_LOOKAHEAD) => 0;
+                lfs3_traversal_t t;
+                lfs3_traversal_open(&lfs3, &t,
+                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
                 while (true) {
-                    struct lfs_tinfo tinfo;
-                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                    assert(err == 0 || err == LFS_ERR_NOENT);
-                    if (err == LFS_ERR_NOENT) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfsr_traversal_close(&lfs, &t) => 0;
+                lfs3_traversal_close(&lfs3, &t) => 0;
             }
 
             if (COMPACT) {
                 // we need an explicit traversal for this
-                lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t,
-                        LFS_T_RDWR | LFS_T_COMPACT) => 0;
+                lfs3_traversal_t t;
+                lfs3_traversal_open(&lfs3, &t,
+                        LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
                 while (true) {
-                    struct lfs_tinfo tinfo;
-                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                    assert(err == 0 || err == LFS_ERR_NOENT);
-                    if (err == LFS_ERR_NOENT) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfsr_traversal_close(&lfs, &t) => 0;
+                lfs3_traversal_close(&lfs3, &t) => 0;
             }
 
             if (CKMETA) {
-                lfsr_fs_ckmeta(&lfs) => 0;
+                lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
             if (CKDATA) {
-                lfsr_fs_ckdata(&lfs) => 0;
+                lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
 
     // remount with gc flags
     } else if (AFTER == 3) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR | GC_FLAGS, CFG) => 0;
+        lfs3_unmount(&lfs3) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR | GC_FLAGS, CFG) => 0;
 
     } else {
         assert(false);
     }
 
     // did these clear the right flags?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS_I_COMPACT : 0)
+            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS_I_CKDATA : 0)));
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
 
-    // test that we can reset flags with lfsr_fs_unck
-    lfsr_fs_unck(&lfs, GC_FLAGS) => 0;
+    // test that we can reset flags with lfs3_fs_unck
+    lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
 
     // check that flags were reset
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS_I_MKCONSISTENT
-                | LFS_I_LOOKAHEAD
-                | LFS_I_COMPACT
+            LFS3_I_MKCONSISTENT
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
                 // note ckdata implies ckmeta, but uncking ckdata does
                 // _not_ imply uncking ckmeta
-                | ((!(CKDATA && !CKMETA)) ? LFS_I_CKMETA : 0)
-                | LFS_I_CKDATA));
+                | ((!(CKDATA && !CKMETA)) ? LFS3_I_CKMETA : 0)
+                | LFS3_I_CKDATA));
 
     // run gc
     if (AFTER == 0) {
-        #ifdef LFS_GC
-        lfsr_fs_gc(&lfs) => 0;
+        #ifdef LFS3_GC
+        lfs3_fs_gc(&lfs3) => 0;
         #else
         assert(false);
         #endif
 
-    // run lfsr_traversal_t
+    // run lfs3_traversal_t
     } else if (AFTER == 1) {
         while (true) {
             // it may take multiple traversals to do all pending work
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                        | ((COMPACT) ? LFS_I_COMPACT : 0)
-                        | ((CKMETA) ? LFS_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS_I_CKDATA : 0)))) {
+                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
-            lfsr_traversal_t t;
-            lfsr_traversal_open(&lfs, &t, LFS_T_RDWR | GC_FLAGS) => 0;
+            lfs3_traversal_t t;
+            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
-                struct lfs_tinfo tinfo;
-                int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                assert(err == 0 || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_NOENT) {
+                struct lfs3_tinfo tinfo;
+                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                assert(err == 0 || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfsr_traversal_close(&lfs, &t) => 0;
+            lfs3_traversal_close(&lfs3, &t) => 0;
         }
 
     // run explicit operations
@@ -1807,81 +1819,81 @@ code = '''
     } else if (AFTER == 2) {
         while (true) {
             // it may take multiple traversals to do all pending work
-            lfsr_fs_stat(&lfs, &fsinfo) => 0;
+            lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                        | ((COMPACT) ? LFS_I_COMPACT : 0)
-                        | ((CKMETA) ? LFS_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS_I_CKDATA : 0)))) {
+                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
             if (MKCONSISTENT) {
-                lfsr_fs_mkconsistent(&lfs) => 0;
+                lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
-                lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t,
-                        LFS_T_RDWR | LFS_T_LOOKAHEAD) => 0;
+                lfs3_traversal_t t;
+                lfs3_traversal_open(&lfs3, &t,
+                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
                 while (true) {
-                    struct lfs_tinfo tinfo;
-                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                    assert(err == 0 || err == LFS_ERR_NOENT);
-                    if (err == LFS_ERR_NOENT) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfsr_traversal_close(&lfs, &t) => 0;
+                lfs3_traversal_close(&lfs3, &t) => 0;
             }
 
             if (COMPACT) {
                 // we need an explicit traversal for this
-                lfsr_traversal_t t;
-                lfsr_traversal_open(&lfs, &t,
-                        LFS_T_RDWR | LFS_T_COMPACT) => 0;
+                lfs3_traversal_t t;
+                lfs3_traversal_open(&lfs3, &t,
+                        LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
                 while (true) {
-                    struct lfs_tinfo tinfo;
-                    int err = lfsr_traversal_read(&lfs, &t, &tinfo);
-                    assert(err == 0 || err == LFS_ERR_NOENT);
-                    if (err == LFS_ERR_NOENT) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfsr_traversal_close(&lfs, &t) => 0;
+                lfs3_traversal_close(&lfs3, &t) => 0;
             }
 
             if (CKMETA) {
-                lfsr_fs_ckmeta(&lfs) => 0;
+                lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
             if (CKDATA) {
-                lfsr_fs_ckdata(&lfs) => 0;
+                lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
 
     // remount with gc flags
     } else if (AFTER == 3) {
-        lfsr_unmount(&lfs) => 0;
-        lfsr_mount(&lfs, LFS_M_RDWR | GC_FLAGS, CFG) => 0;
+        lfs3_unmount(&lfs3) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR | GC_FLAGS, CFG) => 0;
 
     } else {
         assert(false);
     }
 
     // did these clear the right flags?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS_I_LOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS_I_COMPACT : 0)
+            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS_I_CKDATA : 0)));
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 
@@ -1894,11 +1906,11 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -1911,50 +1923,50 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "spider",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
 
     for (uint32_t i = 0; i < N; i++) {
         // rewrite the file every gc cycle
-        lfsr_file_open(&lfs, &file, "spider",
-                LFS_O_WRONLY | LFS_O_TRUNC) => 0;
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        lfs3_file_open(&lfs3, &file, "spider",
+                LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_close(&lfs, &file) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
     }
 
     // check the file contents
-    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
-    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
-# pseudo-fuzz test that spamming lfsr_fs_unck doesn't break anything
+# pseudo-fuzz test that spamming lfs3_fs_unck doesn't break anything
 [cases.test_gc_mutation_unck]
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
@@ -1963,11 +1975,11 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -1980,51 +1992,51 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
 
     // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "spider",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[SIZE];
-    for (lfs_size_t j = 0; j < SIZE; j++) {
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
         wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
     }
-    lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
 
     for (uint32_t i = 0; i < N; i++) {
         // rewrite the file every gc cycle
-        lfsr_file_open(&lfs, &file, "spider",
-                LFS_O_WRONLY | LFS_O_TRUNC) => 0;
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        lfs3_file_open(&lfs3, &file, "spider",
+                LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_close(&lfs, &file) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
 
         // choose a random set of flags to unck every cycle
         uint32_t flags = GC_FLAGS & TEST_PRNG(&prng);
-        lfsr_fs_unck(&lfs, flags) => 0;
+        lfs3_fs_unck(&lfs3, flags) => 0;
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
     }
 
     // check the file contents
-    lfsr_file_open(&lfs, &file, "spider", LFS_O_RDONLY) => 0;
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
     uint8_t rbuf[SIZE];
-    lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
     assert(memcmp(rbuf, wbuf, SIZE) == 0);
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 
@@ -2040,100 +2052,100 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
     // test creating directories
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // make this many directories
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs3_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "dir%03x", i);
-        int err = lfsr_mkdir(&lfs, name);
-        assert(!err || (TEST_PLS && err == LFS_ERR_EXIST));
+        int err = lfs3_mkdir(&lfs3, name);
+        assert(!err || (TEST_PLS && err == LFS3_ERR_EXIST));
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
-        assert(lfs.grm_p[0] == 0);
+        assert(lfs3.grm_p[0] == 0);
 
         // check that our mkdir worked
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "dir%03x", i);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         }
 
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "dir%03x", i);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
 
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "dir%03x", i);
-            lfsr_dir_open(&lfs, &dir, name) => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_open(&lfs3, &dir, name) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, ".") == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, "..") == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-            lfsr_dir_close(&lfs, &dir) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+            lfs3_dir_close(&lfs3, &dir) => 0;
         }
     }
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_gc_spam_dir_fuzz]
@@ -2144,11 +2156,11 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -2157,27 +2169,27 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
     // test fuzz with dirs
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
-    lfs_size_t sim_size = 0;
+    lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
+    lfs3_size_t sim_size = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
         // choose a pseudo-random op, either mkdir, remove, or rename
         uint8_t op = TEST_PRNG(&prng) % 3;
 
         if (op == 0 || sim_size == 0) {
             // choose a pseudo-random number, truncate to 3 hexadecimals
-            lfs_size_t x = TEST_PRNG(&prng) % N;
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
             // insert into our sim
-            for (lfs_size_t j = 0;; j++) {
+            for (lfs3_size_t j = 0;; j++) {
                 if (j >= sim_size || sim[j] >= x) {
                     // already seen?
                     if (j < sim_size && sim[j] == x) {
@@ -2185,7 +2197,7 @@ code = '''
                     } else {
                         // insert
                         memmove(&sim[j+1], &sim[j],
-                                (sim_size-j)*sizeof(lfs_size_t));
+                                (sim_size-j)*sizeof(lfs3_size_t));
                         sim_size += 1;
                         sim[j] = x;
                     }
@@ -2196,47 +2208,47 @@ code = '''
             // create a directory here
             char name[256];
             sprintf(name, "dir%03x", x);
-            int err = lfsr_mkdir(&lfs, name);
-            assert(!err || err == LFS_ERR_EXIST);
+            int err = lfs3_mkdir(&lfs3, name);
+            assert(!err || err == LFS3_ERR_EXIST);
 
         } else if (op == 1) {
             // choose a pseudo-random entry to delete
-            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
-            lfs_size_t x = sim[j];
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs3_size_t x = sim[j];
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
-                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                    (sim_size-(j+1))*sizeof(lfs3_size_t));
             sim_size -= 1;
 
             // remove this directory
             char name[256];
             sprintf(name, "dir%03x", x);
-            lfsr_remove(&lfs, name) => 0;
+            lfs3_remove(&lfs3, name) => 0;
 
         } else {
             // choose a pseudo-random entry to rename, and a pseudo-random
             // number to rename to
-            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
-            lfs_size_t x = sim[j];
-            lfs_size_t y = TEST_PRNG(&prng) % N;
-            for (lfs_size_t k = 0;; k++) {
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs3_size_t x = sim[j];
+            lfs3_size_t y = TEST_PRNG(&prng) % N;
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // already seen and not a noop?
                     if (k < sim_size && sim[k] == y && x != y) {
                         // just delete the original entry
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         sim_size -= 1;
                     } else {
                         // first delete
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         if (k > j) {
                             k -= 1;
                         }
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         sim[k] = y;
                     }
                     break;
@@ -2248,67 +2260,67 @@ code = '''
             sprintf(old_name, "dir%03x", x);
             char new_name[256];
             sprintf(new_name, "dir%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
+            lfs3_rename(&lfs3, old_name, new_name) => 0;
         }
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
-        assert(lfs.grm_p[0] == 0);
+        assert(lfs3.grm_p[0] == 0);
 
         // test that our directories match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "dir%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
             char name2[256];
             sprintf(name2, "dir%03x", sim[j]);
             assert(strcmp(info.name, name2) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         }
 
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "dir%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
     }
 
-    // clean up sim/lfs
+    // clean up sim/lfs3
     free(sim);
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_gc_spam_file_many]
@@ -2319,11 +2331,11 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -2339,74 +2351,74 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
     // test creating files
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create this many files
     uint32_t prng = 42;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs3_size_t i = 0; i < N; i++) {
         char name[256];
         sprintf(name, "amethyst%03x", i);
 
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
 
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
-        lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-        lfsr_file_close(&lfs, &file) => 0;
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our writes worked
         prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             // check with stat
             char name[256];
             sprintf(name, "amethyst%03x", i);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
 
             // try reading the file, note we reset prng above
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
+            lfs3_file_t file;
             uint8_t rbuf[SIZE];
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
     }
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_gc_spam_file_fuzz]
@@ -2417,11 +2429,11 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -2440,32 +2452,32 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
     // test fuzz with files
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
-    lfs_size_t sim_size = 0;
+    lfs3_size_t sim_size = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
         // choose which operation to do
         uint8_t op = TEST_PRNG(&prng) % 3;
 
         // creating a new file?
         if (op == 0 || sim_size == 0) {
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng) % N;
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
             // associate each file with a prng that generates its contents
             uint32_t wprng = TEST_PRNG(&prng);
 
             // insert into our sim
-            for (lfs_size_t j = 0;; j++) {
+            for (lfs3_size_t j = 0;; j++) {
                 if (j >= sim_size || sim[j] >= x) {
                     // already seen?
                     if (j < sim_size && sim[j] == x) {
@@ -2474,7 +2486,7 @@ code = '''
                     } else {
                         // insert
                         memmove(&sim[j+1], &sim[j],
-                                (sim_size-j)*sizeof(lfs_size_t));
+                                (sim_size-j)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j+1], &sim_prngs[j],
                                 (sim_size-j)*sizeof(uint32_t));
                         sim_size += 1;
@@ -2489,24 +2501,24 @@ code = '''
             char name[256];
             sprintf(name, "amethyst%03x", x);
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
             }
 
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
-            lfsr_file_write(&lfs, &file, wbuf, SIZE) => SIZE;
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
 
         // deleting a file?
         } else if (op == 1) {
             // choose a random file to delete
-            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
-            lfs_size_t x = sim[j];
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs3_size_t x = sim[j];
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
-                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                    (sim_size-(j+1))*sizeof(lfs3_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
             sim_size -= 1;
@@ -2514,25 +2526,25 @@ code = '''
             // delete this file
             char name[256];
             sprintf(name, "amethyst%03x", x);
-            lfsr_remove(&lfs, name) => 0;
+            lfs3_remove(&lfs3, name) => 0;
 
         // renaming a file?
         } else {
             // choose a random file to rename, and a random number to
             // rename to
-            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
-            lfs_size_t x = sim[j];
-            lfs_size_t y = TEST_PRNG(&prng) % N;
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs3_size_t x = sim[j];
+            lfs3_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
 
             // update our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         sim_size -= 1;
@@ -2545,7 +2557,7 @@ code = '''
                     } else {
                         // first delete
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         if (k > j) {
@@ -2553,7 +2565,7 @@ code = '''
                         }
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         sim[k] = y;
@@ -2568,82 +2580,82 @@ code = '''
             sprintf(old_name, "amethyst%03x", x);
             char new_name[256];
             sprintf(new_name, "amethyst%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
+            lfs3_rename(&lfs3, old_name, new_name) => 0;
         }
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our files match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "amethyst%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
 
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
 
         // check the file contents
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
 
             uint32_t wprng = sim_prngs[j];
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
             }
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
     }
 
-    // clean up sim/lfs
+    // clean up sim/lfs3
     free(sim);
     free(sim_prngs);
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_gc_spam_fwrite_fuzz]
@@ -2654,11 +2666,11 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -2686,121 +2698,121 @@ if = [
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
     // test with complex file writes
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     // simulate our file in ram
     uint8_t sim[SIZE];
-    lfs_off_t size;
+    lfs3_off_t size;
     uint32_t prng = SEED;
     if (INIT == 0) {
         memset(sim, 0, SIZE);
         size = 0;
     } else if (INIT == 1) {
-        for (lfs_size_t i = 0; i < SIZE; i++) {
+        for (lfs3_size_t i = 0; i < SIZE; i++) {
             sim[i] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        lfsr_file_write(&lfs, &file, sim, SIZE) => SIZE;
+        lfs3_file_write(&lfs3, &file, sim, SIZE) => SIZE;
         size = SIZE;
     } else {
         memset(sim, 0, SIZE);
-        lfsr_file_truncate(&lfs, &file, SIZE) => 0;
+        lfs3_file_truncate(&lfs3, &file, SIZE) => 0;
         size = SIZE;
     }
 
     // sync?
     if (SYNC) {
-        lfsr_file_sync(&lfs, &file) => 0;
+        lfs3_file_sync(&lfs3, &file) => 0;
     }
 
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
         // choose a random location
-        lfs_off_t off = TEST_PRNG(&prng) % SIZE;
+        lfs3_off_t off = TEST_PRNG(&prng) % SIZE;
         // and a random size, up to the chunk size
-        lfs_size_t chunk = lfs_min(
+        lfs3_size_t chunk = lfs3_min(
                 (TEST_PRNG(&prng) % (CHUNK+1-1)) + 1,
                 SIZE - off);
 
         // update sim
-        for (lfs_size_t j = 0; j < chunk; j++) {
+        for (lfs3_size_t j = 0; j < chunk; j++) {
             sim[off+j] = 'a' + (TEST_PRNG(&prng) % 26);
         }
-        size = lfs_max(size, off+chunk);
+        size = lfs3_max(size, off+chunk);
 
         // update file
-        lfsr_file_seek(&lfs, &file, off, LFS_SEEK_SET) => off;
-        lfsr_file_write(&lfs, &file, &sim[off], chunk) => chunk;
+        lfs3_file_seek(&lfs3, &file, off, LFS3_SEEK_SET) => off;
+        lfs3_file_write(&lfs3, &file, &sim[off], chunk) => chunk;
 
         // sync?
         if (SYNC) {
-            lfsr_file_sync(&lfs, &file) => 0;
+            lfs3_file_sync(&lfs3, &file) => 0;
         }
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_close(&lfs3, &file) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
-        struct lfs_info info;
-        lfsr_stat(&lfs, "hello", &info) => 0;
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, "hello", &info) => 0;
         assert(strcmp(info.name, "hello") == 0);
-        assert(info.type == LFS_TYPE_REG);
+        assert(info.type == LFS3_TYPE_REG);
         assert(info.size == size);
 
         // and with dir read
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "hello") == 0);
-        assert(info.type == LFS_TYPE_REG);
+        assert(info.type == LFS3_TYPE_REG);
         assert(info.size == size);
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
 
         // try reading our file
-        lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         // is size correct?
-        lfsr_file_size(&lfs, &file) => size;
+        lfs3_file_size(&lfs3, &file) => size;
         // try reading
         uint8_t rbuf[2*SIZE];
         memset(rbuf, 0xaa, 2*SIZE);
-        lfsr_file_read(&lfs, &file, rbuf, 2*SIZE) => size;
+        lfs3_file_read(&lfs3, &file, rbuf, 2*SIZE) => size;
         // does our file match our simulation?
         assert(memcmp(rbuf, sim, size) == 0);
-        lfsr_file_close(&lfs, &file) => 0;
+        lfs3_file_close(&lfs3, &file) => 0;
     }
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_gc_spam_uz_fuzz]
@@ -2811,11 +2823,11 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -2834,31 +2846,31 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
     // test with uncreats, zombies, etc
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
     bool *sim_isstickys = malloc(N*sizeof(bool));
-    lfs_size_t sim_size = 0;
+    lfs3_size_t sim_size = 0;
 
     typedef struct sim_file {
-        lfs_size_t x;
+        lfs3_size_t x;
         bool sticky;
         bool zombie;
         uint32_t prng;
-        lfsr_file_t file;
+        lfs3_file_t file;
     } sim_file_t;
     sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
-    lfs_size_t sim_file_count = 0;
+    lfs3_size_t sim_file_count = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
     nonsense:;
         // choose which operation to do
         uint8_t op = TEST_PRNG(&prng) % 5;
@@ -2869,13 +2881,13 @@ code = '''
                 goto nonsense;
             }
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng) % N;
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
             bool exist = false;
             uint32_t wprng = 0;
             bool sticky = true;
-            for (lfs_size_t j = 0; j < sim_size; j++) {
+            for (lfs3_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     exist = true;
                     wprng = sim_prngs[j];
@@ -2889,23 +2901,23 @@ code = '''
                 sticky = true;
             }
 
-            lfs_size_t j = sim_file_count;
+            lfs3_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
 
             // open the actual file
             char name[256];
             sprintf(name, "batman%03x", x);
-            lfsr_file_open(&lfs, &sim_files[j]->file, name,
-                    LFS_O_RDWR | LFS_O_CREAT) => 0;
+            lfs3_file_open(&lfs3, &sim_files[j]->file, name,
+                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
 
             // write some initial data if we don't exist
             if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
                 uint32_t wprng_ = wprng;
-                for (lfs_size_t k = 0; k < SIZE; k++) {
+                for (lfs3_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                lfs3_file_write(&lfs3, &sim_files[j]->file, wbuf, SIZE)
                         => SIZE;
             }
 
@@ -2917,7 +2929,7 @@ code = '''
             sim_file_count++;
 
             // insert into our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
@@ -2926,7 +2938,7 @@ code = '''
                     } else {
                         // insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -2946,26 +2958,26 @@ code = '''
                 goto nonsense;
             }
             // choose a random file handle
-            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
-            lfs_size_t x = sim_files[j]->x;
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs3_size_t x = sim_files[j]->x;
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng);
 
             // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_rewind(&lfs3, &sim_files[j]->file) => 0;
             uint8_t wbuf[SIZE];
             uint32_t wprng_ = wprng;
-            for (lfs_size_t k = 0; k < SIZE; k++) {
+            for (lfs3_size_t k = 0; k < SIZE; k++) {
                 wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
-            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_write(&lfs3, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfs3_file_sync(&lfs3, &sim_files[j]->file) => 0;
 
             // update sim
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
                 // update in our sim
-                for (lfs_size_t k = 0;; k++) {
+                for (lfs3_size_t k = 0;; k++) {
                     if (sim[k] == x) {
                         // new prng
                         sim_prngs[k] = wprng;
@@ -2976,7 +2988,7 @@ code = '''
                 }
 
                 // update related sim files
-                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
                         // new prng
                         sim_files[k]->prng = wprng;
@@ -2992,8 +3004,8 @@ code = '''
                 goto nonsense;
             }
             // choose a random file handle
-            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
-            lfs_size_t x = sim_files[j]->x;
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs3_size_t x = sim_files[j]->x;
             bool sticky = sim_files[j]->sticky;
             bool zombie = sim_files[j]->zombie;
 
@@ -3001,10 +3013,10 @@ code = '''
             // files eventually everything will end up zombies
 
             // close the file without affected disk
-            lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
-            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_desync(&lfs3, &sim_files[j]->file) => 0;
+            lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
             // clobber closed files to try to catch lingering references
-            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfs3_file_t));
 
             // remove from list
             free(sim_files[j]);
@@ -3015,7 +3027,7 @@ code = '''
             if (sticky && !zombie) {
                 // orphaned?
                 bool orphan = true;
-                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
                         orphan = false;
                     }
@@ -3023,10 +3035,10 @@ code = '''
 
                 // if we were never synced, delete from sim
                 if (orphan) {
-                    for (lfs_size_t k = 0;; k++) {
+                    for (lfs3_size_t k = 0;; k++) {
                         if (sim[k] == x) {
                             memmove(&sim[k], &sim[k+1],
-                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                                    (sim_size-(k+1))*sizeof(lfs3_size_t));
                             memmove(&sim_prngs[k], &sim_prngs[k+1],
                                     (sim_size-(k+1))*sizeof(uint32_t));
                             memmove(&sim_isstickys[k], &sim_isstickys[k+1],
@@ -3044,17 +3056,17 @@ code = '''
                 goto nonsense;
             }
             // choose a random file to delete
-            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
-            lfs_size_t x = sim[j];
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs3_size_t x = sim[j];
 
             // delete this file
             char name[256];
             sprintf(name, "batman%03x", x);
-            lfsr_remove(&lfs, name) => 0;
+            lfs3_remove(&lfs3, name) => 0;
 
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
-                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                    (sim_size-(j+1))*sizeof(lfs3_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
             memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -3062,7 +3074,7 @@ code = '''
             sim_size -= 1;
 
             // mark any related sim files as zombied
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 if (sim_files[k]->x == x) {
                     sim_files[k]->zombie = true;
                 }
@@ -3075,9 +3087,9 @@ code = '''
             }
             // choose a random file to rename, and a random number to
             // rename to
-            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
-            lfs_size_t x = sim[j];
-            lfs_size_t y = TEST_PRNG(&prng) % N;
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs3_size_t x = sim[j];
+            lfs3_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
             bool sticky = sim_isstickys[j];
 
@@ -3086,16 +3098,16 @@ code = '''
             sprintf(old_name, "batman%03x", x);
             char new_name[256];
             sprintf(new_name, "batman%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
+            lfs3_rename(&lfs3, old_name, new_name) => 0;
 
             // update our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -3111,7 +3123,7 @@ code = '''
                     } else {
                         // first delete
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -3121,7 +3133,7 @@ code = '''
                         }
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -3135,7 +3147,7 @@ code = '''
             }
 
             // update any related sim files
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 // move source files
                 if (sim_files[k]->x == x) {
                     sim_files[k]->x = y;
@@ -3148,103 +3160,103 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
     // check that disk matches our simulation
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         if (sim_isstickys[j]) {
-            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.type == LFS3_TYPE_STICKYNOTE);
             assert(info.size == 0);
         } else {
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
     }
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    struct lfs3_info info;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         if (sim_isstickys[j]) {
-            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.type == LFS3_TYPE_STICKYNOTE);
             assert(info.size == 0);
         } else {
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
     }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
 
         uint32_t wprng = sim_prngs[j];
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
         }
 
         uint8_t rbuf[SIZE];
         if (sim_isstickys[j]) {
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => 0;
         } else {
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
         }
-        lfsr_file_close(&lfs, &file) => 0;
+        lfs3_file_close(&lfs3, &file) => 0;
     }
 
     // check that our file handles match our simulation
-    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+    for (lfs3_size_t j = 0; j < sim_file_count; j++) {
         uint32_t wprng = sim_files[j]->prng;
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
         }
 
-        lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+        lfs3_file_rewind(&lfs3, &sim_files[j]->file) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &sim_files[j]->file, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
-    // clean up sim/lfs
+    // clean up sim/lfs3
     free(sim);
     free(sim_prngs);
     free(sim_isstickys);
-    for (lfs_size_t j = 0; j < sim_file_count; j++) {
-        lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+    for (lfs3_size_t j = 0; j < sim_file_count; j++) {
+        lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
         free(sim_files[j]);
     }
     free(sim_files);
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_gc_spam_uzd_fuzz]
@@ -3255,11 +3267,11 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS_GC_COMPACT : 0)
-        | ((CKMETA) ? LFS_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS_GC_CKDATA : 0)
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -3278,32 +3290,32 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
-ifdef = 'LFS_GC'
+ifdef = 'LFS3_GC'
 code = '''
     // test with uncreats, zombies, dirs, etc
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, CFG) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
     bool *sim_isstickys = malloc(N*sizeof(bool));
     bool *sim_isdirs = malloc(N*sizeof(bool));
-    lfs_size_t sim_size = 0;
+    lfs3_size_t sim_size = 0;
 
     typedef struct sim_file {
-        lfs_size_t x;
+        lfs3_size_t x;
         bool sticky;
         bool zombie;
         uint32_t prng;
-        lfsr_file_t file;
+        lfs3_file_t file;
     } sim_file_t;
     sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
-    lfs_size_t sim_file_count = 0;
+    lfs3_size_t sim_file_count = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
     nonsense:;
         // choose which operation to do
         uint8_t op = TEST_PRNG(&prng) % 8;
@@ -3314,13 +3326,13 @@ code = '''
                 goto nonsense;
             }
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng) % N;
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
 
             // already exists?
             bool exist = true;
             uint32_t wprng = 0;
             bool sticky = true;
-            for (lfs_size_t j = 0; j < sim_size; j++) {
+            for (lfs3_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
@@ -3337,23 +3349,23 @@ code = '''
                 sticky = true;
             }
 
-            lfs_size_t j = sim_file_count;
+            lfs3_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
 
             // open the actual file
             char name[256];
             sprintf(name, "batman%03x", x);
-            lfsr_file_open(&lfs, &sim_files[j]->file, name,
-                    LFS_O_RDWR | LFS_O_CREAT) => 0;
+            lfs3_file_open(&lfs3, &sim_files[j]->file, name,
+                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
 
             // write some initial data if we don't exist
             if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
                 uint32_t wprng_ = wprng;
-                for (lfs_size_t k = 0; k < SIZE; k++) {
+                for (lfs3_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE)
+                lfs3_file_write(&lfs3, &sim_files[j]->file, wbuf, SIZE)
                         => SIZE;
             }
 
@@ -3365,7 +3377,7 @@ code = '''
             sim_file_count++;
 
             // insert into our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
@@ -3374,7 +3386,7 @@ code = '''
                     } else {
                         // insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -3397,26 +3409,26 @@ code = '''
                 goto nonsense;
             }
             // choose a random file handle
-            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
-            lfs_size_t x = sim_files[j]->x;
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs3_size_t x = sim_files[j]->x;
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng);
 
             // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_rewind(&lfs3, &sim_files[j]->file) => 0;
             uint8_t wbuf[SIZE];
             uint32_t wprng_ = wprng;
-            for (lfs_size_t k = 0; k < SIZE; k++) {
+            for (lfs3_size_t k = 0; k < SIZE; k++) {
                 wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
-            lfsr_file_write(&lfs, &sim_files[j]->file, wbuf, SIZE) => SIZE;
-            lfsr_file_sync(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_write(&lfs3, &sim_files[j]->file, wbuf, SIZE) => SIZE;
+            lfs3_file_sync(&lfs3, &sim_files[j]->file) => 0;
 
             // update sim
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
                 // update in our sim
-                for (lfs_size_t k = 0;; k++) {
+                for (lfs3_size_t k = 0;; k++) {
                     if (k >= sim_size || sim[k] >= x) {
                         // new prng
                         sim_prngs[k] = wprng;
@@ -3427,7 +3439,7 @@ code = '''
                 }
 
                 // update related sim files
-                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
                         // new prng
                         sim_files[k]->prng = wprng;
@@ -3443,19 +3455,19 @@ code = '''
                 goto nonsense;
             }
             // choose a random file handle
-            lfs_size_t j = TEST_PRNG(&prng) % sim_file_count;
-            lfs_size_t x = sim_files[j]->x;
-            lfs_size_t sticky = sim_files[j]->sticky;
-            lfs_size_t zombie = sim_files[j]->zombie;
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_file_count;
+            lfs3_size_t x = sim_files[j]->x;
+            lfs3_size_t sticky = sim_files[j]->sticky;
+            lfs3_size_t zombie = sim_files[j]->zombie;
 
             // this doesn't really test anything, but if we don't close
             // files eventually everything will end up zombies
 
             // close the file without affected disk
-            lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
-            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_desync(&lfs3, &sim_files[j]->file) => 0;
+            lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
             // clobber closed files to try to catch lingering references
-            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfs3_file_t));
 
             // remove from list
             free(sim_files[j]);
@@ -3466,7 +3478,7 @@ code = '''
             if (sticky && !zombie) {
                 // orphaned?
                 bool orphan = true;
-                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
                         orphan = false;
                     }
@@ -3474,10 +3486,10 @@ code = '''
 
                 // if we were never synced, delete from sim
                 if (orphan) {
-                    for (lfs_size_t k = 0;; k++) {
+                    for (lfs3_size_t k = 0;; k++) {
                         if (sim[k] == x) {
                             memmove(&sim[k], &sim[k+1],
-                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                                    (sim_size-(k+1))*sizeof(lfs3_size_t));
                             memmove(&sim_prngs[k], &sim_prngs[k+1],
                                     (sim_size-(k+1))*sizeof(uint32_t));
                             memmove(&sim_isstickys[k], &sim_isstickys[k+1],
@@ -3497,17 +3509,17 @@ code = '''
                 goto nonsense;
             }
             // choose a random file to delete
-            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
-            lfs_size_t x = sim[j];
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs3_size_t x = sim[j];
 
             // delete this file
             char name[256];
             sprintf(name, "batman%03x", x);
-            lfsr_remove(&lfs, name) => 0;
+            lfs3_remove(&lfs3, name) => 0;
 
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
-                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                    (sim_size-(j+1))*sizeof(lfs3_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
             memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -3517,7 +3529,7 @@ code = '''
             sim_size -= 1;
 
             // mark any related sim files as zombied
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 if (sim_files[k]->x == x) {
                     sim_files[k]->zombie = true;
                 }
@@ -3530,14 +3542,14 @@ code = '''
             }
             // choose a random file to rename, and a random number to
             // rename to
-            lfs_size_t j = TEST_PRNG(&prng) % sim_size;
-            lfs_size_t x = sim[j];
-            lfs_size_t y = TEST_PRNG(&prng) % N;
+            lfs3_size_t j = TEST_PRNG(&prng) % sim_size;
+            lfs3_size_t x = sim[j];
+            lfs3_size_t y = TEST_PRNG(&prng) % N;
             uint32_t wprng = sim_prngs[j];
             bool sticky = sim_isstickys[j];
             bool dir = sim_isdirs[j];
 
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
@@ -3555,16 +3567,16 @@ code = '''
             sprintf(old_name, "batman%03x", x);
             char new_name[256];
             sprintf(new_name, "batman%03x", y);
-            lfsr_rename(&lfs, old_name, new_name) => 0;
+            lfs3_rename(&lfs3, old_name, new_name) => 0;
 
             // update our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -3583,7 +3595,7 @@ code = '''
                     } else {
                         // first delete
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -3595,7 +3607,7 @@ code = '''
                         }
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -3612,7 +3624,7 @@ code = '''
             }
 
             // update any related sim files
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 // move source files
                 if (sim_files[k]->x == x) {
                     sim_files[k]->x = y;
@@ -3626,9 +3638,9 @@ code = '''
         // toss a directory into the mix
         } else if (op == 5) {
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng) % N;
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
 
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
@@ -3641,14 +3653,14 @@ code = '''
             // make the directory
             char name[256];
             sprintf(name, "batman%03x", x);
-            lfsr_mkdir(&lfs, name) => 0;
+            lfs3_mkdir(&lfs3, name) => 0;
 
             // insert into our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // insert
                     memmove(&sim[k+1], &sim[k],
-                            (sim_size-k)*sizeof(lfs_size_t));
+                            (sim_size-k)*sizeof(lfs3_size_t));
                     memmove(&sim_prngs[k+1], &sim_prngs[k],
                             (sim_size-k)*sizeof(uint32_t));
                     memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -3664,7 +3676,7 @@ code = '''
             }
 
             // mark any related sim files as zombied
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 if (sim_files[k]->x == x) {
                     sim_files[k]->zombie = true;
                 }
@@ -3672,118 +3684,118 @@ code = '''
         }
 
         // gc!
-        lfsr_fs_gc(&lfs) => 0;
+        lfs3_fs_gc(&lfs3) => 0;
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfsr_fs_unck(&lfs, LFS_I_CKMETA | LFS_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
     // check that disk matches our simulation
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         } else if (sim_isstickys[j]) {
-            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.type == LFS3_TYPE_STICKYNOTE);
             assert(info.size == 0);
         } else {
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
     }
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    struct lfs3_info info;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         } else if (sim_isstickys[j]) {
-            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.type == LFS3_TYPE_STICKYNOTE);
             assert(info.size == 0);
         } else {
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
     }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         if (sim_isdirs[j]) {
             char name[256];
             sprintf(name, "batman%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY)
-                    => LFS_ERR_ISDIR;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY)
+                    => LFS3_ERR_ISDIR;
 
         } else {
             char name[256];
             sprintf(name, "batman%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
 
             uint32_t wprng = sim_prngs[j];
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
             }
 
             uint8_t rbuf[SIZE];
             if (sim_isstickys[j]) {
-                lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+                lfs3_file_read(&lfs3, &file, rbuf, SIZE) => 0;
             } else {
-                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
                 assert(memcmp(rbuf, wbuf, SIZE) == 0);
             }
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
     }
 
     // check that our file handles match our simulation
-    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+    for (lfs3_size_t j = 0; j < sim_file_count; j++) {
         uint32_t wprng = sim_files[j]->prng;
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
         }
 
-        lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+        lfs3_file_rewind(&lfs3, &sim_files[j]->file) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &sim_files[j]->file, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
-    // clean up sim/lfs
+    // clean up sim/lfs3
     free(sim);
     free(sim_prngs);
     free(sim_isstickys);
     free(sim_isdirs);
-    for (lfs_size_t j = 0; j < sim_file_count; j++) {
-        lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+    for (lfs3_size_t j = 0; j < sim_file_count; j++) {
+        lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
         free(sim_files[j]);
     }
     free(sim_files);
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 

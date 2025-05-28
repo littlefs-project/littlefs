@@ -9,7 +9,7 @@
 #endif
 
 #include "runners/test_runner.h"
-#include "bd/lfs_emubd.h"
+#include "bd/lfs3_emubd.h"
 
 #include <getopt.h>
 #include <sys/types.h>
@@ -117,7 +117,7 @@ typedef struct test_powerloss {
             const struct test_powerloss *powerloss,
             const struct test_suite *suite,
             const struct test_case *case_);
-    const lfs_emubd_powercycles_t *cycles;
+    const lfs3_emubd_powercycles_t *cycles;
     size_t cycle_count;
 } test_powerloss_t;
 
@@ -450,9 +450,9 @@ FILE *test_trace_file = NULL;
 uint32_t test_trace_cycles = 0;
 uint64_t test_trace_time = 0;
 uint64_t test_trace_open_time = 0;
-lfs_emubd_sleep_t test_read_sleep = 0.0;
-lfs_emubd_sleep_t test_prog_sleep = 0.0;
-lfs_emubd_sleep_t test_erase_sleep = 0.0;
+lfs3_emubd_sleep_t test_read_sleep = 0.0;
+lfs3_emubd_sleep_t test_prog_sleep = 0.0;
+lfs3_emubd_sleep_t test_erase_sleep = 0.0;
 
 volatile size_t TEST_PLS = 0;
 
@@ -623,7 +623,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size) {
 static void perm_printid(
         const struct test_suite *suite,
         const struct test_case *case_,
-        const lfs_emubd_powercycles_t *cycles,
+        const lfs3_emubd_powercycles_t *cycles,
         size_t cycle_count) {
     (void)suite;
     // case[:permutation[:powercycles]]
@@ -1299,18 +1299,18 @@ static void run_powerloss_none(
     (void)powerloss;
 
     // create block device and configuration
-    lfs_emubd_t bd;
+    lfs3_emubd_t bd;
 
-    struct lfs_config cfg = {
+    struct lfs3_config cfg = {
         .context            = &bd,
-        .read               = lfs_emubd_read,
-        .prog               = lfs_emubd_prog,
-        .erase              = lfs_emubd_erase,
-        .sync               = lfs_emubd_sync,
+        .read               = lfs3_emubd_read,
+        .prog               = lfs3_emubd_prog,
+        .erase              = lfs3_emubd_erase,
+        .sync               = lfs3_emubd_sync,
         TEST_CFG
     };
 
-    struct lfs_emubd_config bdcfg = {
+    struct lfs3_emubd_config bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1318,7 +1318,7 @@ static void run_powerloss_none(
         TEST_BDCFG
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1339,7 +1339,7 @@ static void run_powerloss_none(
     printf("\n");
 
     // cleanup
-    err = lfs_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(&cfg);
     if (err) {
         fprintf(stderr, "error: could not destroy block device: %d\n", err);
         exit(-1);
@@ -1359,19 +1359,19 @@ static void run_powerloss_linear(
     TEST_PLS = 0;
 
     // create block device and configuration
-    lfs_emubd_t bd;
+    lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs_config cfg = {
+    struct lfs3_config cfg = {
         .context            = &bd,
-        .read               = lfs_emubd_read,
-        .prog               = lfs_emubd_prog,
-        .erase              = lfs_emubd_erase,
-        .sync               = lfs_emubd_sync,
+        .read               = lfs3_emubd_read,
+        .prog               = lfs3_emubd_prog,
+        .erase              = lfs3_emubd_erase,
+        .sync               = lfs3_emubd_sync,
         TEST_CFG
     };
 
-    struct lfs_emubd_config bdcfg = {
+    struct lfs3_emubd_config bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1384,7 +1384,7 @@ static void run_powerloss_linear(
         TEST_BDCFG
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1411,7 +1411,7 @@ static void run_powerloss_linear(
 
         // increment pls
         TEST_PLS += 1;
-        lfs_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+        lfs3_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
                 ? TEST_PLS+1
                 : 0);
     }
@@ -1421,7 +1421,7 @@ static void run_powerloss_linear(
     printf("\n");
 
     // cleanup
-    err = lfs_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(&cfg);
     if (err) {
         fprintf(stderr, "error: could not destroy block device: %d\n", err);
         exit(-1);
@@ -1436,19 +1436,19 @@ static void run_powerloss_log(
     TEST_PLS = 0;
 
     // create block device and configuration
-    lfs_emubd_t bd;
+    lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs_config cfg = {
+    struct lfs3_config cfg = {
         .context            = &bd,
-        .read               = lfs_emubd_read,
-        .prog               = lfs_emubd_prog,
-        .erase              = lfs_emubd_erase,
-        .sync               = lfs_emubd_sync,
+        .read               = lfs3_emubd_read,
+        .prog               = lfs3_emubd_prog,
+        .erase              = lfs3_emubd_erase,
+        .sync               = lfs3_emubd_sync,
         TEST_CFG
     };
 
-    struct lfs_emubd_config bdcfg = {
+    struct lfs3_emubd_config bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1461,7 +1461,7 @@ static void run_powerloss_log(
         TEST_BDCFG
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1488,7 +1488,7 @@ static void run_powerloss_log(
 
         // increment pls
         TEST_PLS += 1;
-        lfs_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+        lfs3_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
                 ? 1 << TEST_PLS
                 : 0);
     }
@@ -1498,7 +1498,7 @@ static void run_powerloss_log(
     printf("\n");
 
     // cleanup
-    err = lfs_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(&cfg);
     if (err) {
         fprintf(stderr, "error: could not destroy block device: %d\n", err);
         exit(-1);
@@ -1513,19 +1513,19 @@ static void run_powerloss_cycles(
     TEST_PLS = 0;
 
     // create block device and configuration
-    lfs_emubd_t bd;
+    lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs_config cfg = {
+    struct lfs3_config cfg = {
         .context            = &bd,
-        .read               = lfs_emubd_read,
-        .prog               = lfs_emubd_prog,
-        .erase              = lfs_emubd_erase,
-        .sync               = lfs_emubd_sync,
+        .read               = lfs3_emubd_read,
+        .prog               = lfs3_emubd_prog,
+        .erase              = lfs3_emubd_erase,
+        .sync               = lfs3_emubd_sync,
         TEST_CFG
     };
 
-    struct lfs_emubd_config bdcfg = {
+    struct lfs3_emubd_config bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1538,7 +1538,7 @@ static void run_powerloss_cycles(
         TEST_BDCFG
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -1564,7 +1564,7 @@ static void run_powerloss_cycles(
 
         // increment pls
         TEST_PLS += 1;
-        lfs_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+        lfs3_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
                 ? powerloss->cycles[TEST_PLS]
                 : 0);
     }
@@ -1574,7 +1574,7 @@ static void run_powerloss_cycles(
     printf("\n");
 
     // cleanup
-    err = lfs_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(&cfg);
     if (err) {
         fprintf(stderr, "error: could not destroy block device: %d\n", err);
         exit(-1);
@@ -1582,15 +1582,15 @@ static void run_powerloss_cycles(
 }
 
 struct powerloss_exhaustive_state {
-    struct lfs_config *cfg;
+    struct lfs3_config *cfg;
 
-    lfs_emubd_t *branches;
+    lfs3_emubd_t *branches;
     size_t branch_count;
     size_t branch_capacity;
 };
 
 struct powerloss_exhaustive_cycles {
-    lfs_emubd_powercycles_t *cycles;
+    lfs3_emubd_powercycles_t *cycles;
     size_t cycle_count;
     size_t cycle_capacity;
 };
@@ -1598,9 +1598,9 @@ struct powerloss_exhaustive_cycles {
 static void powerloss_exhaustive_branch(void *c) {
     struct powerloss_exhaustive_state *state = c;
     // append to branches
-    lfs_emubd_t *branch = mappend(
+    lfs3_emubd_t *branch = mappend(
             (void**)&state->branches,
-            sizeof(lfs_emubd_t),
+            sizeof(lfs3_emubd_t),
             &state->branch_count,
             &state->branch_capacity);
     if (!branch) {
@@ -1609,22 +1609,22 @@ static void powerloss_exhaustive_branch(void *c) {
     }
 
     // create copy-on-write copy
-    int err = lfs_emubd_cpy(state->cfg, branch);
+    int err = lfs3_emubd_cpy(state->cfg, branch);
     if (err) {
         fprintf(stderr, "error: exhaustive: could not create bd copy\n");
         exit(-1);
     }
 
     // also trigger on next power cycle
-    lfs_emubd_setpowercycles(state->cfg, 1);
+    lfs3_emubd_setpowercycles(state->cfg, 1);
 }
 
 static void run_powerloss_exhaustive_layer(
         struct powerloss_exhaustive_cycles *cycles,
         const struct test_suite *suite,
         const struct test_case *case_,
-        struct lfs_config *cfg,
-        struct lfs_emubd_config *bdcfg,
+        struct lfs3_config *cfg,
+        struct lfs3_emubd_config *bdcfg,
         size_t depth,
         size_t pls) {
     struct powerloss_exhaustive_state state = {
@@ -1639,14 +1639,14 @@ static void run_powerloss_exhaustive_layer(
 
     // run through the test without additional powerlosses, collecting possible
     // branches as we do so
-    lfs_emubd_setpowercycles(state.cfg, (depth > 0) ? 1 : 0);
+    lfs3_emubd_setpowercycles(state.cfg, (depth > 0) ? 1 : 0);
     bdcfg->powerloss_data = &state;
 
     // run the tests
     case_->run(cfg);
 
     // aggressively clean up memory here to try to keep our memory usage low
-    int err = lfs_emubd_destroy(cfg);
+    int err = lfs3_emubd_destroy(cfg);
     if (err) {
         fprintf(stderr, "error: could not destroy block device: %d\n", err);
         exit(-1);
@@ -1655,9 +1655,9 @@ static void run_powerloss_exhaustive_layer(
     // recurse into each branch
     for (size_t i = 0; i < state.branch_count; i++) {
         // first push and print the branch
-        lfs_emubd_powercycles_t *cycle = mappend(
+        lfs3_emubd_powercycles_t *cycle = mappend(
                 (void**)&cycles->cycles,
-                sizeof(lfs_emubd_powercycles_t),
+                sizeof(lfs3_emubd_powercycles_t),
                 &cycles->cycle_count,
                 &cycles->cycle_capacity);
         if (!cycle) {
@@ -1689,18 +1689,18 @@ static void run_powerloss_exhaustive(
         const struct test_suite *suite,
         const struct test_case *case_) {
     // create block device and configuration
-    lfs_emubd_t bd;
+    lfs3_emubd_t bd;
 
-    struct lfs_config cfg = {
+    struct lfs3_config cfg = {
         .context            = &bd,
-        .read               = lfs_emubd_read,
-        .prog               = lfs_emubd_prog,
-        .erase              = lfs_emubd_erase,
-        .sync               = lfs_emubd_sync,
+        .read               = lfs3_emubd_read,
+        .prog               = lfs3_emubd_prog,
+        .erase              = lfs3_emubd_erase,
+        .sync               = lfs3_emubd_sync,
         TEST_CFG
     };
 
-    struct lfs_emubd_config bdcfg = {
+    struct lfs3_emubd_config bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1710,7 +1710,7 @@ static void run_powerloss_exhaustive(
         TEST_BDCFG
     };
 
-    int err = lfs_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
         fprintf(stderr, "error: could not create block device: %d\n", err);
         exit(-1);
@@ -2234,16 +2234,16 @@ int main(int argc, char **argv) {
 
                 // comma-separated permutation
                 if (*optarg == '{') {
-                    lfs_emubd_powercycles_t *cycles = NULL;
+                    lfs3_emubd_powercycles_t *cycles = NULL;
                     size_t cycle_count = 0;
                     size_t cycle_capacity = 0;
 
                     char *s = optarg + 1;
                     while (true) {
                         parsed = NULL;
-                        *(lfs_emubd_powercycles_t*)mappend(
+                        *(lfs3_emubd_powercycles_t*)mappend(
                                 (void**)&cycles,
-                                sizeof(lfs_emubd_powercycles_t),
+                                sizeof(lfs3_emubd_powercycles_t),
                                 &cycle_count,
                                 &cycle_capacity)
                                 = strtoumax(s, &parsed, 0);
@@ -2295,7 +2295,7 @@ int main(int argc, char **argv) {
 
                     // otherwise explicit power cycles
                     } else {
-                        lfs_emubd_powercycles_t *cycles = NULL;
+                        lfs3_emubd_powercycles_t *cycles = NULL;
                         size_t cycle_count = 0;
                         size_t cycle_capacity = 0;
 
@@ -2307,9 +2307,9 @@ int main(int argc, char **argv) {
                                 break;
                             }
 
-                            *(lfs_emubd_powercycles_t*)mappend(
+                            *(lfs3_emubd_powercycles_t*)mappend(
                                     (void**)&cycles,
-                                    sizeof(lfs_emubd_powercycles_t),
+                                    sizeof(lfs3_emubd_powercycles_t),
                                     &cycle_count,
                                     &cycle_capacity) = x;
                             s = parsed;
@@ -2538,7 +2538,7 @@ getopt_done:;
 
                 if (d >= define_count) {
                     // align to power of two to avoid any superlinear growth
-                    size_t ncount = 1 << lfs_nlog2(d+1);
+                    size_t ncount = 1 << lfs3_nlog2(d+1);
                     defines = realloc(defines,
                             ncount*sizeof(test_define_t));
                     memset(defines+define_count, 0,
@@ -2588,14 +2588,14 @@ getopt_done:;
             // otherwise explicit power cycles
             } else if (cycles_) {
                 // parse power cycles
-                lfs_emubd_powercycles_t *cycles = NULL;
+                lfs3_emubd_powercycles_t *cycles = NULL;
                 size_t cycle_count = 0;
                 size_t cycle_capacity = 0;
                 while (*cycles_ != '\0') {
                     char *parsed = NULL;
-                    *(lfs_emubd_powercycles_t*)mappend(
+                    *(lfs3_emubd_powercycles_t*)mappend(
                             (void**)&cycles,
-                            sizeof(lfs_emubd_powercycles_t),
+                            sizeof(lfs3_emubd_powercycles_t),
                             &cycle_count,
                             &cycle_capacity)
                             = leb16_parse(cycles_, &parsed);

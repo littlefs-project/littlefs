@@ -9,21 +9,21 @@
 *.gcno
 *.gcda
 *.perf
-lfs
-liblfs.a
+lfs3
+liblfs3.a
 
 # Testing things
 runners/test_runner
 runners/bench_runner
-lfs.code.csv
-lfs.data.csv
-lfs.stack.csv
-lfs.structs.csv
-lfs.cov.csv
-lfs.perf.csv
-lfs.perfbd.csv
-lfs.test.csv
-lfs.bench.csv
+lfs3.code.csv
+lfs3.data.csv
+lfs3.stack.csv
+lfs3.structs.csv
+lfs3.cov.csv
+lfs3.perf.csv
+lfs3.perfbd.csv
+lfs3.test.csv
+lfs3.bench.csv
 
 # Misc
 tags

@@ -2769,7 +2769,7 @@ class Gstate:
 
 
 # high-level littlefs representation
-class Lfs:
+class Lfs3:
     def __init__(self, bd, mtree, config=None, gstate=None, cksum=None, *,
             corrupt=False):
         self.bd = bd
@@ -3018,7 +3018,7 @@ class Lfs:
 
         # empty path?
         if path_ == b'':
-            raise Lfs.PathError("invalid path: %r" % path)
+            raise Lfs3.PathError("invalid path: %r" % path)
 
         path__ = []
         for p in path_.split(b'/'):
@@ -3039,7 +3039,7 @@ class Lfs:
             else:
                 path__.append(p)
         if dotdots:
-            raise Lfs.PathError("invalid path: %r" % path)
+            raise Lfs3.PathError("invalid path: %r" % path)
         path__.reverse()
         path_ = path__
 
@@ -3570,7 +3570,7 @@ class Lfs:
             super().__init__(lfs, mid, mdir, tag, name)
 
             # we're recursable if we're a non-grmed directory with a did
-            if (isinstance(self, Lfs.Dir)
+            if (isinstance(self, Lfs3.Dir)
                     and not self.grmed
                     and self.did is not None):
                 self.recursable = True
@@ -4507,7 +4507,7 @@ def main_(ring, disk, mroots=None, *,
 
         # fetch the filesystem
         bd = Bd(f, block_size, block_count)
-        lfs = Lfs.fetch(bd, mroots, trunk,
+        lfs = Lfs3.fetch(bd, mroots, trunk,
                 # don't bother to check things if we're not reporting errors
                 no_ck=not args.get('error_on_corrupt'))
         corrupted = not bool(lfs)

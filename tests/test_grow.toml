@@ -26,106 +26,106 @@ defines.BIGGER_BLOCK_COUNT = [
 if = 'BIGGER_BLOCK_COUNT > SMALLER_BLOCK_COUNT'
 code = '''
     // create a smaller fs
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // do some work
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[1024] = "Hello World!";
-    lfs_size_t wsize = strlen((char*)wbuf);
-    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_size_t wsize = strlen((char*)wbuf);
+    lfs3_file_write(&lfs3, &file, wbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
     uint8_t rbuf[1024];
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     //////
 
     // try to mount with a bigger block count
     cfg = *CFG;
     cfg.block_count = BIGGER_BLOCK_COUNT;
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // file still exists?
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
     // do some work
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
     strcpy((char*)wbuf, "Chris was here!");
     wsize = strlen((char*)wbuf);
-    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // stays after a mount?
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // file still exists?
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test we _can't_ mount a filesystem with more blocks
@@ -145,48 +145,48 @@ defines.BIGGER_BLOCK_COUNT = [
 if = 'BIGGER_BLOCK_COUNT > SMALLER_BLOCK_COUNT'
 code = '''
     // create a bigger fs
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = BIGGER_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BIGGER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // do some work
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[1024] = "Hello World!";
-    lfs_size_t wsize = strlen((char*)wbuf);
-    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_size_t wsize = strlen((char*)wbuf);
+    lfs3_file_write(&lfs3, &file, wbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
     uint8_t rbuf[1024];
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     //////
 
     // try to mount with a smaller block count
     cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => LFS_ERR_NOTSUP;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => LFS3_ERR_NOTSUP;
 '''
 
 # test we can grow a filesystem
@@ -206,108 +206,108 @@ defines.BIGGER_BLOCK_COUNT = [
 if = 'BIGGER_BLOCK_COUNT > SMALLER_BLOCK_COUNT'
 code = '''
     // create a smaller fs
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // do some work
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[1024] = "Hello World!";
-    lfs_size_t wsize = strlen((char*)wbuf);
-    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_size_t wsize = strlen((char*)wbuf);
+    lfs3_file_write(&lfs3, &file, wbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
     uint8_t rbuf[1024];
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     //////
 
     // try to grow our filesystem
     cfg = *CFG;
     cfg.block_count = BIGGER_BLOCK_COUNT;
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
-    lfsr_fs_grow(&lfs, BIGGER_BLOCK_COUNT) => 0;
+    lfs3_fs_grow(&lfs3, BIGGER_BLOCK_COUNT) => 0;
 
     // fsstat up to date?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BIGGER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // file still exists?
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
     // do some work
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
     strcpy((char*)wbuf, "Chris was here!");
     wsize = strlen((char*)wbuf);
-    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // stays after a mount?
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == BIGGER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // file still exists?
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # growing to the same size should do nothing
@@ -321,114 +321,114 @@ defines.SMALLER_BLOCK_COUNT = [
 ]
 code = '''
     // create a smaller fs
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // do some work
-    lfsr_file_t file;
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[1024] = "Hello World!";
-    lfs_size_t wsize = strlen((char*)wbuf);
-    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_size_t wsize = strlen((char*)wbuf);
+    lfs3_file_write(&lfs3, &file, wbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    struct lfs_info info;
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
     uint8_t rbuf[1024];
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     //////
 
     // try to grow to same size
     cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
-    lfsr_fs_grow(&lfs, SMALLER_BLOCK_COUNT) => 0;
+    lfs3_fs_grow(&lfs3, SMALLER_BLOCK_COUNT) => 0;
 
     // fsstat up to date?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // file still exists?
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
     // do some work
-    lfsr_file_open(&lfs, &file, "hello",
-            LFS_O_WRONLY | LFS_O_TRUNC) => 0;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
     strcpy((char*)wbuf, "Chris was here!");
     wsize = strlen((char*)wbuf);
-    lfsr_file_write(&lfs, &file, wbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_write(&lfs3, &file, wbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
 
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 
     // stays after a mount?
-    lfsr_mount(&lfs, LFS_M_RDWR, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == SMALLER_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // file still exists?
-    lfsr_stat(&lfs, "hello", &info) => 0;
+    lfs3_stat(&lfs3, "hello", &info) => 0;
     assert(strcmp(info.name, "hello") == 0);
-    assert(info.type == LFS_TYPE_REG);
+    assert(info.type == LFS3_TYPE_REG);
     assert(info.size == wsize);
-    lfsr_file_open(&lfs, &file, "hello", LFS_O_RDONLY) => 0;
-    lfsr_file_read(&lfs, &file, rbuf, wsize) => wsize;
-    lfsr_file_close(&lfs, &file) => 0;
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, wsize) => wsize;
+    lfs3_file_close(&lfs3, &file) => 0;
     assert(memcmp(rbuf, wbuf, wsize) == 0);
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 
 
 # These tests try various fuzz tests while incrementally growing the
-# filesystem. When encountering LFS_ERR_NOSPC, the filesystem is grown by
+# filesystem. When encountering LFS3_ERR_NOSPC, the filesystem is grown by
 # one block. Hopefully this will catch most grow-related bugs.
 #
 
@@ -438,29 +438,29 @@ defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     // start with a small number of blocks
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // make this many directories
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs3_size_t i = 0; i < N; i++) {
     again:;
         char name[256];
         sprintf(name, "dir%03x", i);
-        int err = lfsr_mkdir(&lfs, name);
-        assert(!err || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        int err = lfs3_mkdir(&lfs3, name);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
 
@@ -468,21 +468,21 @@ code = '''
 
     grow:;
         // try growing the filesystem
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs_ssize_t used = lfsr_fs_usage(&lfs);
+        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
-        lfs_size_t block_count_ = fsinfo.block_count;
+        lfs3_size_t block_count_ = fsinfo.block_count;
         while (true) {
             assert(block_count_ < BLOCK_COUNT);
             block_count_ += 1;
-            err = lfsr_fs_grow(&lfs, block_count_);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            err = lfs3_fs_grow(&lfs3, block_count_);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 continue;
             }
 
@@ -495,16 +495,16 @@ code = '''
 
         // remount?
         if (REMOUNT) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // fsstat up to date?
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
         goto again;
     }
@@ -512,64 +512,64 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
-        assert(lfs.grm_p[0] == 0);
+        assert(lfs3.grm_p[0] == 0);
 
         // check that our mkdir worked
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "dir%03x", i);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         }
 
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "dir%03x", i);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
 
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             char name[256];
             sprintf(name, "dir%03x", i);
-            lfsr_dir_open(&lfs, &dir, name) => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_open(&lfs3, &dir, name) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, ".") == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, "..") == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-            lfsr_dir_close(&lfs, &dir) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+            lfs3_dir_close(&lfs3, &dir) => 0;
         }
     }
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_grow_incr_spam_dir_fuzz]
@@ -581,27 +581,27 @@ defines.SEED = 'range(10)'
 fuzz = 'SEED'
 code = '''
     // start with a small number of blocks
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
-    lfs_size_t sim_size = 0;
+    lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
+    lfs3_size_t sim_size = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
     again:;
         uint32_t prng_ = prng;
         // choose a pseudo-random op, either mkdir, remove, or rename
@@ -609,19 +609,19 @@ code = '''
 
         if (op == 0 || sim_size == 0) {
             // choose a pseudo-random number, truncate to 3 hexadecimals
-            lfs_size_t x = TEST_PRNG(&prng_) % N;
+            lfs3_size_t x = TEST_PRNG(&prng_) % N;
 
             // create a directory here
             char name[256];
             sprintf(name, "dir%03x", x);
-            int err = lfsr_mkdir(&lfs, name);
-            assert(!err || err == LFS_ERR_EXIST || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_mkdir(&lfs3, name);
+            assert(!err || err == LFS3_ERR_EXIST || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // insert into our sim
-            for (lfs_size_t j = 0;; j++) {
+            for (lfs3_size_t j = 0;; j++) {
                 if (j >= sim_size || sim[j] >= x) {
                     // already seen?
                     if (j < sim_size && sim[j] == x) {
@@ -629,7 +629,7 @@ code = '''
                     } else {
                         // insert
                         memmove(&sim[j+1], &sim[j],
-                                (sim_size-j)*sizeof(lfs_size_t));
+                                (sim_size-j)*sizeof(lfs3_size_t));
                         sim_size += 1;
                         sim[j] = x;
                     }
@@ -639,59 +639,59 @@ code = '''
 
         } else if (op == 1) {
             // choose a pseudo-random entry to delete
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_size;
-            lfs_size_t x = sim[j];
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_size;
+            lfs3_size_t x = sim[j];
 
             // remove this directory
             char name[256];
             sprintf(name, "dir%03x", x);
-            int err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_remove(&lfs3, name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
-                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                    (sim_size-(j+1))*sizeof(lfs3_size_t));
             sim_size -= 1;
 
         } else {
             // choose a pseudo-random entry to rename, and a pseudo-random
             // number to rename to
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_size;
-            lfs_size_t x = sim[j];
-            lfs_size_t y = TEST_PRNG(&prng_) % N;
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_size;
+            lfs3_size_t x = sim[j];
+            lfs3_size_t y = TEST_PRNG(&prng_) % N;
 
             // rename this directory
             char old_name[256];
             sprintf(old_name, "dir%03x", x);
             char new_name[256];
             sprintf(new_name, "dir%03x", y);
-            int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_rename(&lfs3, old_name, new_name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // already seen and not a noop?
                     if (k < sim_size && sim[k] == y && x != y) {
                         // just delete the original entry
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         sim_size -= 1;
                     } else {
                         // first delete
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         if (k > j) {
                             k -= 1;
                         }
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         sim[k] = y;
                     }
                     break;
@@ -704,21 +704,21 @@ code = '''
 
     grow:;
         // try growing the filesystem
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs_ssize_t used = lfsr_fs_usage(&lfs);
+        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
-        lfs_size_t block_count_ = fsinfo.block_count;
+        lfs3_size_t block_count_ = fsinfo.block_count;
         while (true) {
             assert(block_count_ < BLOCK_COUNT);
             block_count_ += 1;
-            int err = lfsr_fs_grow(&lfs, block_count_);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_fs_grow(&lfs3, block_count_);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 continue;
             }
 
@@ -731,16 +731,16 @@ code = '''
 
         // remount?
         if (REMOUNT) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // fsstat up to date?
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
         goto again;
     }
@@ -748,52 +748,52 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
-        assert(lfs.grm_p[0] == 0);
+        assert(lfs3.grm_p[0] == 0);
 
         // test that our directories match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "dir%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
             char name2[256];
             sprintf(name2, "dir%03x", sim[j]);
             assert(strcmp(info.name, name2) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         }
 
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "dir%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
     }
 
-    // clean up sim/lfs
+    // clean up sim/lfs3
     free(sim);
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_grow_incr_spam_file_many]
@@ -812,23 +812,23 @@ defines.SIZE = [
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     // start with a small number of blocks
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     uint32_t prng = 42;
-    for (lfs_size_t i = 0; i < N; i++) {
+    for (lfs3_size_t i = 0; i < N; i++) {
     again:;
         uint32_t prng_ = prng;
         // create this many files
@@ -836,26 +836,26 @@ code = '''
         sprintf(name, "amethyst%03x", i);
 
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
         }
 
-        lfsr_file_t file;
-        int err = lfsr_file_open(&lfs, &file, name,
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL);
-        assert(!err || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        lfs3_file_t file;
+        int err = lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
-        lfs_ssize_t d = lfsr_file_write(&lfs, &file, wbuf, SIZE);
-        assert(d == SIZE || d == LFS_ERR_NOSPC);
-        if (d == LFS_ERR_NOSPC) {
-            lfsr_file_close(&lfs, &file) => 0;
+        lfs3_ssize_t d = lfs3_file_write(&lfs3, &file, wbuf, SIZE);
+        assert(d == SIZE || d == LFS3_ERR_NOSPC);
+        if (d == LFS3_ERR_NOSPC) {
+            lfs3_file_close(&lfs3, &file) => 0;
             goto grow;
         }
-        err = lfsr_file_close(&lfs, &file);
-        assert(!err || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        err = lfs3_file_close(&lfs3, &file);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
 
@@ -864,21 +864,21 @@ code = '''
 
     grow:;
         // try growing the filesystem
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs_ssize_t used = lfsr_fs_usage(&lfs);
+        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
-        lfs_size_t block_count_ = fsinfo.block_count;
+        lfs3_size_t block_count_ = fsinfo.block_count;
         while (true) {
             assert(block_count_ < BLOCK_COUNT);
             block_count_ += 1;
-            err = lfsr_fs_grow(&lfs, block_count_);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            err = lfs3_fs_grow(&lfs3, block_count_);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 continue;
             }
 
@@ -891,16 +891,16 @@ code = '''
 
         // remount?
         if (REMOUNT) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // fsstat up to date?
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
         goto again;
     }
@@ -908,38 +908,38 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our writes worked
         prng = 42;
-        for (lfs_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t i = 0; i < N; i++) {
             // check with stat
             char name[256];
             sprintf(name, "amethyst%03x", i);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
 
             // try reading the file, note we reset prng above
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
             }
 
-            lfsr_file_t file;
+            lfs3_file_t file;
             uint8_t rbuf[SIZE];
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
     }
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_grow_incr_spam_file_fuzz]
@@ -961,28 +961,28 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
-    lfs_size_t sim_size = 0;
+    lfs3_size_t sim_size = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
     again:;
         uint32_t prng_ = prng;
         // choose which operation to do
@@ -991,7 +991,7 @@ code = '''
         // creating a new file?
         if (op == 0 || sim_size == 0) {
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng_) % N;
+            lfs3_size_t x = TEST_PRNG(&prng_) % N;
             // associate each file with a prng that generates its contents
             uint32_t wprng = TEST_PRNG(&prng_);
 
@@ -1000,31 +1000,31 @@ code = '''
             sprintf(name, "amethyst%03x", x);
             uint8_t wbuf[SIZE];
             uint32_t wprng_ = wprng;
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
 
-            lfsr_file_t file;
-            int err = lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            lfs3_file_t file;
+            int err = lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
-            lfs_ssize_t d = lfsr_file_write(&lfs, &file, wbuf, SIZE);
-            assert(d == SIZE || d == LFS_ERR_NOSPC);
-            if (d == LFS_ERR_NOSPC) {
-                lfsr_file_close(&lfs, &file) => 0;
+            lfs3_ssize_t d = lfs3_file_write(&lfs3, &file, wbuf, SIZE);
+            assert(d == SIZE || d == LFS3_ERR_NOSPC);
+            if (d == LFS3_ERR_NOSPC) {
+                lfs3_file_close(&lfs3, &file) => 0;
                 goto grow;
             }
-            err = lfsr_file_close(&lfs, &file);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            err = lfs3_file_close(&lfs3, &file);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // insert into our sim
-            for (lfs_size_t j = 0;; j++) {
+            for (lfs3_size_t j = 0;; j++) {
                 if (j >= sim_size || sim[j] >= x) {
                     // already seen?
                     if (j < sim_size && sim[j] == x) {
@@ -1033,7 +1033,7 @@ code = '''
                     } else {
                         // insert
                         memmove(&sim[j+1], &sim[j],
-                                (sim_size-j)*sizeof(lfs_size_t));
+                                (sim_size-j)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j+1], &sim_prngs[j],
                                 (sim_size-j)*sizeof(uint32_t));
                         sim_size += 1;
@@ -1047,21 +1047,21 @@ code = '''
         // deleting a file?
         } else if (op == 1) {
             // choose a random file to delete
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_size;
-            lfs_size_t x = sim[j];
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_size;
+            lfs3_size_t x = sim[j];
 
             // delete this file
             char name[256];
             sprintf(name, "amethyst%03x", x);
-            int err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_remove(&lfs3, name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
-                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                    (sim_size-(j+1))*sizeof(lfs3_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
             sim_size -= 1;
@@ -1070,9 +1070,9 @@ code = '''
         } else {
             // choose a random file to rename, and a random number to
             // rename to
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_size;
-            lfs_size_t x = sim[j];
-            lfs_size_t y = TEST_PRNG(&prng_) % N;
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_size;
+            lfs3_size_t x = sim[j];
+            lfs3_size_t y = TEST_PRNG(&prng_) % N;
             uint32_t wprng = sim_prngs[j];
 
             // rename this file
@@ -1080,20 +1080,20 @@ code = '''
             sprintf(old_name, "amethyst%03x", x);
             char new_name[256];
             sprintf(new_name, "amethyst%03x", y);
-            int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_rename(&lfs3, old_name, new_name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // update our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         sim_size -= 1;
@@ -1106,7 +1106,7 @@ code = '''
                     } else {
                         // first delete
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         if (k > j) {
@@ -1114,7 +1114,7 @@ code = '''
                         }
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         sim[k] = y;
@@ -1130,21 +1130,21 @@ code = '''
 
     grow:;
         // try growing the filesystem
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs_ssize_t used = lfsr_fs_usage(&lfs);
+        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
-        lfs_size_t block_count_ = fsinfo.block_count;
+        lfs3_size_t block_count_ = fsinfo.block_count;
         while (true) {
             assert(block_count_ < BLOCK_COUNT);
             block_count_ += 1;
-            int err = lfsr_fs_grow(&lfs, block_count_);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_fs_grow(&lfs3, block_count_);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 continue;
             }
 
@@ -1157,16 +1157,16 @@ code = '''
 
         // remount?
         if (REMOUNT) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // fsstat up to date?
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
         goto again;
     }
@@ -1174,67 +1174,67 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our files match our simulation
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "amethyst%03x", sim[j]);
-            struct lfs_info info;
-            lfsr_stat(&lfs, name, &info) => 0;
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
 
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "/") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, name) == 0);
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
-        lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
 
         // check the file contents
-        for (lfs_size_t j = 0; j < sim_size; j++) {
+        for (lfs3_size_t j = 0; j < sim_size; j++) {
             char name[256];
             sprintf(name, "amethyst%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
 
             uint32_t wprng = sim_prngs[j];
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
             }
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
     }
 
-    // clean up sim/lfs
+    // clean up sim/lfs3
     free(sim);
     free(sim_prngs);
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_grow_incr_spam_uz_fuzz]
@@ -1255,39 +1255,39 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
     bool *sim_isstickys = malloc(N*sizeof(bool));
-    lfs_size_t sim_size = 0;
+    lfs3_size_t sim_size = 0;
 
     typedef struct sim_file {
-        lfs_size_t x;
+        lfs3_size_t x;
         bool sticky;
         bool zombie;
         uint32_t prng;
-        lfsr_file_t file;
+        lfs3_file_t file;
     } sim_file_t;
     sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
-    lfs_size_t sim_file_count = 0;
+    lfs3_size_t sim_file_count = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
     again:;
         uint32_t prng_ = prng;
     nonsense:;
@@ -1300,13 +1300,13 @@ code = '''
                 goto nonsense;
             }
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng_) % N;
+            lfs3_size_t x = TEST_PRNG(&prng_) % N;
 
             // already exists?
             bool exist = false;
             uint32_t wprng = 0;
             bool sticky = true;
-            for (lfs_size_t j = 0; j < sim_size; j++) {
+            for (lfs3_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     exist = true;
                     wprng = sim_prngs[j];
@@ -1320,16 +1320,16 @@ code = '''
                 sticky = true;
             }
 
-            lfs_size_t j = sim_file_count;
+            lfs3_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
 
             // open the actual file
             char name[256];
             sprintf(name, "batman%03x", x);
-            int err = lfsr_file_open(&lfs, &sim_files[j]->file, name,
-                    LFS_O_RDWR | LFS_O_CREAT);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_file_open(&lfs3, &sim_files[j]->file, name,
+                    LFS3_O_RDWR | LFS3_O_CREAT);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 free(sim_files[j]);
                 goto grow;
             }
@@ -1338,14 +1338,14 @@ code = '''
             if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
                 uint32_t wprng_ = wprng;
-                for (lfs_size_t k = 0; k < SIZE; k++) {
+                for (lfs3_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfs_ssize_t d = lfsr_file_write(&lfs, &sim_files[j]->file,
+                lfs3_ssize_t d = lfs3_file_write(&lfs3, &sim_files[j]->file,
                         wbuf, SIZE);
-                LFS_ASSERT(d == SIZE || d == LFS_ERR_NOSPC);
-                if (d == LFS_ERR_NOSPC) {
-                    lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+                LFS3_ASSERT(d == SIZE || d == LFS3_ERR_NOSPC);
+                if (d == LFS3_ERR_NOSPC) {
+                    lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
                     free(sim_files[j]);
                     goto grow;
                 }
@@ -1359,7 +1359,7 @@ code = '''
             sim_file_count++;
 
             // insert into our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
@@ -1368,7 +1368,7 @@ code = '''
                     } else {
                         // insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -1388,27 +1388,27 @@ code = '''
                 goto nonsense;
             }
             // choose a random file handle
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_file_count;
-            lfs_size_t x = sim_files[j]->x;
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_file_count;
+            lfs3_size_t x = sim_files[j]->x;
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng_);
 
             // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_rewind(&lfs3, &sim_files[j]->file) => 0;
             uint8_t wbuf[SIZE];
             uint32_t wprng_ = wprng;
-            for (lfs_size_t k = 0; k < SIZE; k++) {
+            for (lfs3_size_t k = 0; k < SIZE; k++) {
                 wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
-            lfs_ssize_t d = lfsr_file_write(&lfs, &sim_files[j]->file,
+            lfs3_ssize_t d = lfs3_file_write(&lfs3, &sim_files[j]->file,
                     wbuf, SIZE);
-            assert(d == SIZE || d == LFS_ERR_NOSPC);
-            if (d == LFS_ERR_NOSPC) {
+            assert(d == SIZE || d == LFS3_ERR_NOSPC);
+            if (d == LFS3_ERR_NOSPC) {
                 goto grow;
             }
-            int err = lfsr_file_sync(&lfs, &sim_files[j]->file);
-            assert(err == 0 || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_file_sync(&lfs3, &sim_files[j]->file);
+            assert(err == 0 || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
@@ -1416,7 +1416,7 @@ code = '''
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
                 // update in our sim
-                for (lfs_size_t k = 0;; k++) {
+                for (lfs3_size_t k = 0;; k++) {
                     if (sim[k] == x) {
                         // new prng
                         sim_prngs[k] = wprng;
@@ -1427,7 +1427,7 @@ code = '''
                 }
 
                 // update related sim files
-                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
                         // new prng
                         sim_files[k]->prng = wprng;
@@ -1443,8 +1443,8 @@ code = '''
                 goto nonsense;
             }
             // choose a random file handle
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_file_count;
-            lfs_size_t x = sim_files[j]->x;
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_file_count;
+            lfs3_size_t x = sim_files[j]->x;
             bool sticky = sim_files[j]->sticky;
             bool zombie = sim_files[j]->zombie;
 
@@ -1452,10 +1452,10 @@ code = '''
             // files eventually everything will end up zombies
 
             // close the file without affected disk
-            lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
-            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_desync(&lfs3, &sim_files[j]->file) => 0;
+            lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
             // clobber closed files to try to catch lingering references
-            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfs3_file_t));
 
             // remove from list
             free(sim_files[j]);
@@ -1466,7 +1466,7 @@ code = '''
             if (sticky && !zombie) {
                 // orphaned?
                 bool orphan = true;
-                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
                         orphan = false;
                     }
@@ -1474,10 +1474,10 @@ code = '''
 
                 // if we were never synced, delete from sim
                 if (orphan) {
-                    for (lfs_size_t k = 0;; k++) {
+                    for (lfs3_size_t k = 0;; k++) {
                         if (sim[k] == x) {
                             memmove(&sim[k], &sim[k+1],
-                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                                    (sim_size-(k+1))*sizeof(lfs3_size_t));
                             memmove(&sim_prngs[k], &sim_prngs[k+1],
                                     (sim_size-(k+1))*sizeof(uint32_t));
                             memmove(&sim_isstickys[k], &sim_isstickys[k+1],
@@ -1495,21 +1495,21 @@ code = '''
                 goto nonsense;
             }
             // choose a random file to delete
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_size;
-            lfs_size_t x = sim[j];
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_size;
+            lfs3_size_t x = sim[j];
 
             // delete this file
             char name[256];
             sprintf(name, "batman%03x", x);
-            int err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_remove(&lfs3, name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
-                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                    (sim_size-(j+1))*sizeof(lfs3_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
             memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -1517,7 +1517,7 @@ code = '''
             sim_size -= 1;
 
             // mark any related sim files as zombied
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 if (sim_files[k]->x == x) {
                     sim_files[k]->zombie = true;
                 }
@@ -1530,9 +1530,9 @@ code = '''
             }
             // choose a random file to rename, and a random number to
             // rename to
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_size;
-            lfs_size_t x = sim[j];
-            lfs_size_t y = TEST_PRNG(&prng_) % N;
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_size;
+            lfs3_size_t x = sim[j];
+            lfs3_size_t y = TEST_PRNG(&prng_) % N;
             uint32_t wprng = sim_prngs[j];
             bool sticky = sim_isstickys[j];
 
@@ -1541,20 +1541,20 @@ code = '''
             sprintf(old_name, "batman%03x", x);
             char new_name[256];
             sprintf(new_name, "batman%03x", y);
-            int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_rename(&lfs3, old_name, new_name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // update our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -1570,7 +1570,7 @@ code = '''
                     } else {
                         // first delete
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -1580,7 +1580,7 @@ code = '''
                         }
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -1594,7 +1594,7 @@ code = '''
             }
 
             // update any related sim files
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 // move source files
                 if (sim_files[k]->x == x) {
                     sim_files[k]->x = y;
@@ -1611,21 +1611,21 @@ code = '''
 
     grow:;
         // try growing the filesystem
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs_ssize_t used = lfsr_fs_usage(&lfs);
+        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
-        lfs_size_t block_count_ = fsinfo.block_count;
+        lfs3_size_t block_count_ = fsinfo.block_count;
         while (true) {
             assert(block_count_ < BLOCK_COUNT);
             block_count_ += 1;
-            int err = lfsr_fs_grow(&lfs, block_count_);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_fs_grow(&lfs3, block_count_);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 continue;
             }
 
@@ -1637,104 +1637,104 @@ code = '''
                 used, block_count_);
 
         // fsstat up to date?
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
         goto again;
     }
 
     // check that disk matches our simulation
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         if (sim_isstickys[j]) {
-            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.type == LFS3_TYPE_STICKYNOTE);
             assert(info.size == 0);
         } else {
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
     }
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    struct lfs3_info info;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         if (sim_isstickys[j]) {
-            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.type == LFS3_TYPE_STICKYNOTE);
             assert(info.size == 0);
         } else {
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
     }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        lfsr_file_t file;
-        lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
 
         uint32_t wprng = sim_prngs[j];
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
         }
 
         uint8_t rbuf[SIZE];
         if (sim_isstickys[j]) {
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => 0;
         } else {
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
             assert(memcmp(rbuf, wbuf, SIZE) == 0);
         }
-        lfsr_file_close(&lfs, &file) => 0;
+        lfs3_file_close(&lfs3, &file) => 0;
     }
 
     // check that our file handles match our simulation
-    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+    for (lfs3_size_t j = 0; j < sim_file_count; j++) {
         uint32_t wprng = sim_files[j]->prng;
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
         }
 
-        lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+        lfs3_file_rewind(&lfs3, &sim_files[j]->file) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &sim_files[j]->file, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
-    // clean up sim/lfs
+    // clean up sim/lfs3
     free(sim);
     free(sim_prngs);
     free(sim_isstickys);
-    for (lfs_size_t j = 0; j < sim_file_count; j++) {
-        lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+    for (lfs3_size_t j = 0; j < sim_file_count; j++) {
+        lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
         free(sim_files[j]);
     }
     free(sim_files);
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 [cases.test_grow_incr_spam_uzd_fuzz]
@@ -1755,40 +1755,40 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
-    struct lfs_config cfg = *CFG;
+    struct lfs3_config cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
-    lfs_t lfs;
-    lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
     // mount with maximum block count
-    lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // fsstat up to date?
-    struct lfs_fsinfo fsinfo;
-    lfsr_fs_stat(&lfs, &fsinfo) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
     assert(fsinfo.block_count == INIT_BLOCK_COUNT);
-    assert(fsinfo.name_limit == LFS_NAME_MAX);
-    assert(fsinfo.file_limit == LFS_FILE_MAX);
+    assert(fsinfo.name_limit == LFS3_NAME_MAX);
+    assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
     // set up a simulation to compare against
-    lfs_size_t *sim = malloc(N*sizeof(lfs_size_t));
+    lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
     uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
     bool *sim_isstickys = malloc(N*sizeof(bool));
     bool *sim_isdirs = malloc(N*sizeof(bool));
-    lfs_size_t sim_size = 0;
+    lfs3_size_t sim_size = 0;
 
     typedef struct sim_file {
-        lfs_size_t x;
+        lfs3_size_t x;
         bool sticky;
         bool zombie;
         uint32_t prng;
-        lfsr_file_t file;
+        lfs3_file_t file;
     } sim_file_t;
     sim_file_t **sim_files = malloc(N*sizeof(sim_file_t*));
-    lfs_size_t sim_file_count = 0;
+    lfs3_size_t sim_file_count = 0;
 
     uint32_t prng = SEED;
-    for (lfs_size_t i = 0; i < OPS; i++) {
+    for (lfs3_size_t i = 0; i < OPS; i++) {
     again:;
         uint32_t prng_ = prng;
     nonsense:;
@@ -1801,13 +1801,13 @@ code = '''
                 goto nonsense;
             }
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng_) % N;
+            lfs3_size_t x = TEST_PRNG(&prng_) % N;
 
             // already exists?
             bool exist = true;
             uint32_t wprng = 0;
             bool sticky = true;
-            for (lfs_size_t j = 0; j < sim_size; j++) {
+            for (lfs3_size_t j = 0; j < sim_size; j++) {
                 if (sim[j] == x) {
                     if (sim_isdirs[j]) {
                         goto nonsense;
@@ -1824,16 +1824,16 @@ code = '''
                 sticky = true;
             }
 
-            lfs_size_t j = sim_file_count;
+            lfs3_size_t j = sim_file_count;
             sim_files[j] = malloc(sizeof(sim_file_t));
 
             // open the actual file
             char name[256];
             sprintf(name, "batman%03x", x);
-            int err = lfsr_file_open(&lfs, &sim_files[j]->file, name,
-                    LFS_O_RDWR | LFS_O_CREAT);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_file_open(&lfs3, &sim_files[j]->file, name,
+                    LFS3_O_RDWR | LFS3_O_CREAT);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 free(sim_files[j]);
                 goto grow;
             }
@@ -1842,15 +1842,15 @@ code = '''
             if (!exist || sticky) {
                 uint8_t wbuf[SIZE];
                 uint32_t wprng_ = wprng;
-                for (lfs_size_t k = 0; k < SIZE; k++) {
+                for (lfs3_size_t k = 0; k < SIZE; k++) {
                     wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
                 }
-                lfs_ssize_t d = lfsr_file_write(&lfs, &sim_files[j]->file,
+                lfs3_ssize_t d = lfs3_file_write(&lfs3, &sim_files[j]->file,
                         wbuf, SIZE);
-                assert(d == SIZE || d == LFS_ERR_NOSPC);
-                if (d == LFS_ERR_NOSPC) {
+                assert(d == SIZE || d == LFS3_ERR_NOSPC);
+                if (d == LFS3_ERR_NOSPC) {
                     free(sim_files[j]);
-                    lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+                    lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
                     goto grow;
                 }
             }
@@ -1863,7 +1863,7 @@ code = '''
             sim_file_count++;
 
             // insert into our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
@@ -1872,7 +1872,7 @@ code = '''
                     } else {
                         // insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -1895,27 +1895,27 @@ code = '''
                 goto nonsense;
             }
             // choose a random file handle
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_file_count;
-            lfs_size_t x = sim_files[j]->x;
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_file_count;
+            lfs3_size_t x = sim_files[j]->x;
             // choose a random seed
             uint32_t wprng = TEST_PRNG(&prng_);
 
             // write to the file
-            lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_rewind(&lfs3, &sim_files[j]->file) => 0;
             uint8_t wbuf[SIZE];
             uint32_t wprng_ = wprng;
-            for (lfs_size_t k = 0; k < SIZE; k++) {
+            for (lfs3_size_t k = 0; k < SIZE; k++) {
                 wbuf[k] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
-            lfs_ssize_t d = lfsr_file_write(&lfs, &sim_files[j]->file,
+            lfs3_ssize_t d = lfs3_file_write(&lfs3, &sim_files[j]->file,
                     wbuf, SIZE);
-            assert(d == SIZE || d == LFS_ERR_NOSPC);
-            if (d == LFS_ERR_NOSPC) {
+            assert(d == SIZE || d == LFS3_ERR_NOSPC);
+            if (d == LFS3_ERR_NOSPC) {
                 goto grow;
             }
-            int err = lfsr_file_sync(&lfs, &sim_files[j]->file);
-            assert(err == 0 || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_file_sync(&lfs3, &sim_files[j]->file);
+            assert(err == 0 || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
@@ -1923,7 +1923,7 @@ code = '''
             sim_files[j]->prng = wprng;
             if (!sim_files[j]->zombie) {
                 // update in our sim
-                for (lfs_size_t k = 0;; k++) {
+                for (lfs3_size_t k = 0;; k++) {
                     if (k >= sim_size || sim[k] >= x) {
                         // new prng
                         sim_prngs[k] = wprng;
@@ -1934,7 +1934,7 @@ code = '''
                 }
 
                 // update related sim files
-                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
                         // new prng
                         sim_files[k]->prng = wprng;
@@ -1950,19 +1950,19 @@ code = '''
                 goto nonsense;
             }
             // choose a random file handle
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_file_count;
-            lfs_size_t x = sim_files[j]->x;
-            lfs_size_t sticky = sim_files[j]->sticky;
-            lfs_size_t zombie = sim_files[j]->zombie;
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_file_count;
+            lfs3_size_t x = sim_files[j]->x;
+            lfs3_size_t sticky = sim_files[j]->sticky;
+            lfs3_size_t zombie = sim_files[j]->zombie;
 
             // this doesn't really test anything, but if we don't close
             // files eventually everything will end up zombies
 
             // close the file without affected disk
-            lfsr_file_desync(&lfs, &sim_files[j]->file) => 0;
-            lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+            lfs3_file_desync(&lfs3, &sim_files[j]->file) => 0;
+            lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
             // clobber closed files to try to catch lingering references
-            memset(&sim_files[j]->file, 0xcc, sizeof(lfsr_file_t));
+            memset(&sim_files[j]->file, 0xcc, sizeof(lfs3_file_t));
 
             // remove from list
             free(sim_files[j]);
@@ -1973,7 +1973,7 @@ code = '''
             if (sticky && !zombie) {
                 // orphaned?
                 bool orphan = true;
-                for (lfs_size_t k = 0; k < sim_file_count; k++) {
+                for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                     if (sim_files[k]->x == x && !sim_files[k]->zombie) {
                         orphan = false;
                     }
@@ -1981,10 +1981,10 @@ code = '''
 
                 // if we were never synced, delete from sim
                 if (orphan) {
-                    for (lfs_size_t k = 0;; k++) {
+                    for (lfs3_size_t k = 0;; k++) {
                         if (sim[k] == x) {
                             memmove(&sim[k], &sim[k+1],
-                                    (sim_size-(k+1))*sizeof(lfs_size_t));
+                                    (sim_size-(k+1))*sizeof(lfs3_size_t));
                             memmove(&sim_prngs[k], &sim_prngs[k+1],
                                     (sim_size-(k+1))*sizeof(uint32_t));
                             memmove(&sim_isstickys[k], &sim_isstickys[k+1],
@@ -2004,21 +2004,21 @@ code = '''
                 goto nonsense;
             }
             // choose a random file to delete
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_size;
-            lfs_size_t x = sim[j];
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_size;
+            lfs3_size_t x = sim[j];
 
             // delete this file
             char name[256];
             sprintf(name, "batman%03x", x);
-            int err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_remove(&lfs3, name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // delete from our sim
             memmove(&sim[j], &sim[j+1],
-                    (sim_size-(j+1))*sizeof(lfs_size_t));
+                    (sim_size-(j+1))*sizeof(lfs3_size_t));
             memmove(&sim_prngs[j], &sim_prngs[j+1],
                     (sim_size-(j+1))*sizeof(uint32_t));
             memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -2028,7 +2028,7 @@ code = '''
             sim_size -= 1;
 
             // mark any related sim files as zombied
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 if (sim_files[k]->x == x) {
                     sim_files[k]->zombie = true;
                 }
@@ -2041,14 +2041,14 @@ code = '''
             }
             // choose a random file to rename, and a random number to
             // rename to
-            lfs_size_t j = TEST_PRNG(&prng_) % sim_size;
-            lfs_size_t x = sim[j];
-            lfs_size_t y = TEST_PRNG(&prng_) % N;
+            lfs3_size_t j = TEST_PRNG(&prng_) % sim_size;
+            lfs3_size_t x = sim[j];
+            lfs3_size_t y = TEST_PRNG(&prng_) % N;
             uint32_t wprng = sim_prngs[j];
             bool sticky = sim_isstickys[j];
             bool dir = sim_isdirs[j];
 
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
@@ -2066,20 +2066,20 @@ code = '''
             sprintf(old_name, "batman%03x", x);
             char new_name[256];
             sprintf(new_name, "batman%03x", y);
-            int err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_rename(&lfs3, old_name, new_name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // update our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= y) {
                     // renaming and replacing
                     if (k < sim_size && sim[k] == y && x != y) {
                         // delete the original entry
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -2098,7 +2098,7 @@ code = '''
                     } else {
                         // first delete
                         memmove(&sim[j], &sim[j+1],
-                                (sim_size-(j+1))*sizeof(lfs_size_t));
+                                (sim_size-(j+1))*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[j], &sim_prngs[j+1],
                                 (sim_size-(j+1))*sizeof(uint32_t));
                         memmove(&sim_isstickys[j], &sim_isstickys[j+1],
@@ -2110,7 +2110,7 @@ code = '''
                         }
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs_size_t));
+                                (sim_size-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
                                 (sim_size-k)*sizeof(uint32_t));
                         memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -2127,7 +2127,7 @@ code = '''
             }
 
             // update any related sim files
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 // move source files
                 if (sim_files[k]->x == x) {
                     sim_files[k]->x = y;
@@ -2141,9 +2141,9 @@ code = '''
         // toss a directory into the mix
         } else if (op == 5) {
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng_) % N;
+            lfs3_size_t x = TEST_PRNG(&prng_) % N;
 
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // already seen?
                     if (k < sim_size && sim[k] == x) {
@@ -2156,18 +2156,18 @@ code = '''
             // make the directory
             char name[256];
             sprintf(name, "batman%03x", x);
-            int err = lfsr_mkdir(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_mkdir(&lfs3, name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
             // insert into our sim
-            for (lfs_size_t k = 0;; k++) {
+            for (lfs3_size_t k = 0;; k++) {
                 if (k >= sim_size || sim[k] >= x) {
                     // insert
                     memmove(&sim[k+1], &sim[k],
-                            (sim_size-k)*sizeof(lfs_size_t));
+                            (sim_size-k)*sizeof(lfs3_size_t));
                     memmove(&sim_prngs[k+1], &sim_prngs[k],
                             (sim_size-k)*sizeof(uint32_t));
                     memmove(&sim_isstickys[k+1], &sim_isstickys[k],
@@ -2183,7 +2183,7 @@ code = '''
             }
 
             // mark any related sim files as zombied
-            for (lfs_size_t k = 0; k < sim_file_count; k++) {
+            for (lfs3_size_t k = 0; k < sim_file_count; k++) {
                 if (sim_files[k]->x == x) {
                     sim_files[k]->zombie = true;
                 }
@@ -2195,21 +2195,21 @@ code = '''
 
     grow:;
         // try growing the filesystem
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs_ssize_t used = lfsr_fs_usage(&lfs);
+        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
-        lfs_size_t block_count_ = fsinfo.block_count;
+        lfs3_size_t block_count_ = fsinfo.block_count;
         while (true) {
             assert(block_count_ < BLOCK_COUNT);
             block_count_ += 1;
-            int err = lfsr_fs_grow(&lfs, block_count_);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            int err = lfs3_fs_grow(&lfs3, block_count_);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 continue;
             }
 
@@ -2221,120 +2221,120 @@ code = '''
                 used, block_count_);
 
         // fsstat up to date?
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
         goto again;
     }
 
     // check that disk matches our simulation
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        struct lfs_info info;
-        lfsr_stat(&lfs, name, &info) => 0;
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, name, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         } else if (sim_isstickys[j]) {
-            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.type == LFS3_TYPE_STICKYNOTE);
             assert(info.size == 0);
         } else {
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
     }
 
-    lfsr_dir_t dir;
-    lfsr_dir_open(&lfs, &dir, "/") => 0;
-    struct lfs_info info;
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_t dir;
+    lfs3_dir_open(&lfs3, &dir, "/") => 0;
+    struct lfs3_info info;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, ".") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    lfsr_dir_read(&lfs, &dir, &info) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => 0;
     assert(strcmp(info.name, "..") == 0);
-    assert(info.type == LFS_TYPE_DIR);
+    assert(info.type == LFS3_TYPE_DIR);
     assert(info.size == 0);
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         char name[256];
         sprintf(name, "batman%03x", sim[j]);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, name) == 0);
         if (sim_isdirs[j]) {
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
         } else if (sim_isstickys[j]) {
-            assert(info.type == LFS_TYPE_STICKYNOTE);
+            assert(info.type == LFS3_TYPE_STICKYNOTE);
             assert(info.size == 0);
         } else {
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
         }
     }
-    lfsr_dir_read(&lfs, &dir, &info) => LFS_ERR_NOENT;
-    lfsr_dir_close(&lfs, &dir) => 0;
+    lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+    lfs3_dir_close(&lfs3, &dir) => 0;
 
-    for (lfs_size_t j = 0; j < sim_size; j++) {
+    for (lfs3_size_t j = 0; j < sim_size; j++) {
         if (sim_isdirs[j]) {
             char name[256];
             sprintf(name, "batman%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY)
-                    => LFS_ERR_ISDIR;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY)
+                    => LFS3_ERR_ISDIR;
 
         } else {
             char name[256];
             sprintf(name, "batman%03x", sim[j]);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
 
             uint32_t wprng = sim_prngs[j];
             uint8_t wbuf[SIZE];
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
             }
 
             uint8_t rbuf[SIZE];
             if (sim_isstickys[j]) {
-                lfsr_file_read(&lfs, &file, rbuf, SIZE) => 0;
+                lfs3_file_read(&lfs3, &file, rbuf, SIZE) => 0;
             } else {
-                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
                 assert(memcmp(rbuf, wbuf, SIZE) == 0);
             }
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
     }
 
     // check that our file handles match our simulation
-    for (lfs_size_t j = 0; j < sim_file_count; j++) {
+    for (lfs3_size_t j = 0; j < sim_file_count; j++) {
         uint32_t wprng = sim_files[j]->prng;
         uint8_t wbuf[SIZE];
-        for (lfs_size_t j = 0; j < SIZE; j++) {
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
         }
 
-        lfsr_file_rewind(&lfs, &sim_files[j]->file) => 0;
+        lfs3_file_rewind(&lfs3, &sim_files[j]->file) => 0;
         uint8_t rbuf[SIZE];
-        lfsr_file_read(&lfs, &sim_files[j]->file, rbuf, SIZE) => SIZE;
+        lfs3_file_read(&lfs3, &sim_files[j]->file, rbuf, SIZE) => SIZE;
         assert(memcmp(rbuf, wbuf, SIZE) == 0);
     }
 
-    // clean up sim/lfs
+    // clean up sim/lfs3
     free(sim);
     free(sim_prngs);
     free(sim_isstickys);
     free(sim_isdirs);
-    for (lfs_size_t j = 0; j < sim_file_count; j++) {
-        lfsr_file_close(&lfs, &sim_files[j]->file) => 0;
+    for (lfs3_size_t j = 0; j < sim_file_count; j++) {
+        lfs3_file_close(&lfs3, &sim_files[j]->file) => 0;
         free(sim_files[j]);
     }
     free(sim_files);
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # A general purpose powerloss fuzz test
@@ -2365,86 +2365,86 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 reentrant = true
 code = '''
     // format once per test
-    lfs_t lfs;
-    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
+    lfs3_t lfs3;
+    int err = lfs3_mount(&lfs3, LFS3_M_RDWR, CFG);
     if (err) {
         // start with a small number of blocks
-        struct lfs_config cfg = *CFG;
+        struct lfs3_config cfg = *CFG;
         cfg.block_count = INIT_BLOCK_COUNT;
-        lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
         // mount with maximum block count
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // fsstat up to date?
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == INIT_BLOCK_COUNT);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
     }
 
     // keep some test state on disk to survive powerloss
     typedef struct fuzz_state {
-        lfs_size_t i;
+        lfs3_size_t i;
         uint32_t prng;
     } fuzz_state_t;
     fuzz_state_t state = {.i = 0, .prng = SEED};
 
-    lfsr_file_t state_file;
-    err = lfsr_file_open(&lfs, &state_file, "state", LFS_O_RDONLY);
-    assert(!err || err == LFS_ERR_NOENT);
+    lfs3_file_t state_file;
+    err = lfs3_file_open(&lfs3, &state_file, "state", LFS3_O_RDONLY);
+    assert(!err || err == LFS3_ERR_NOENT);
     if (!err) {
-        lfsr_file_read(&lfs, &state_file,
+        lfs3_file_read(&lfs3, &state_file,
                 &state, sizeof(state)) => sizeof(state);
-        lfsr_file_close(&lfs, &state_file) => 0;
+        lfs3_file_close(&lfs3, &state_file) => 0;
     }
 
     uint32_t prng = state.prng;
-    for (lfs_size_t i = state.i; i < OPS; i++) {
+    for (lfs3_size_t i = state.i; i < OPS; i++) {
     again:;
         uint32_t prng_ = prng;
         // choose which operation to do
         uint8_t op = TEST_PRNG(&prng_) % 3;
 
         // keep test files in a separate directory
-        err = lfsr_mkdir(&lfs, "test");
-        assert(!err || err == LFS_ERR_EXIST || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        err = lfs3_mkdir(&lfs3, "test");
+        assert(!err || err == LFS3_ERR_EXIST || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
 
         // how many files do we have?
-        lfs_size_t count = 0;
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "test") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_size_t count = 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "test") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
         while (true) {
-            err = lfsr_dir_read(&lfs, &dir, &info);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
+            err = lfs3_dir_read(&lfs3, &dir, &info);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
                 break;
             }
             assert(strlen(info.name) == strlen("amethyst..."));
             assert(memcmp(info.name, "amethyst", strlen("amethyst")) == 0);
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
             count++;
         }
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_close(&lfs3, &dir) => 0;
 
         // creating a new file?
         if (op == 0 || count == 0) {
             // choose a pseudo-random number
-            lfs_size_t x = TEST_PRNG(&prng_) % N;
+            lfs3_size_t x = TEST_PRNG(&prng_) % N;
             uint32_t wprng = TEST_PRNG(&prng_);
 
             // create a file here
@@ -2452,7 +2452,7 @@ code = '''
             sprintf(name, "test/amethyst%03x", x);
             uint8_t wbuf[SIZE];
             uint8_t ck = 0;
-            for (lfs_size_t j = 0; j < SIZE-1; j++) {
+            for (lfs3_size_t j = 0; j < SIZE-1; j++) {
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
                 ck = (ck + (wbuf[j] - 'a')) % 26;
             }
@@ -2461,45 +2461,45 @@ code = '''
                 wbuf[SIZE-1] = 'a' + ((26 - ck) % 26);
             }
 
-            lfsr_file_t file;
-            err = lfsr_file_open(&lfs, &file, name,
-                    LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            lfs3_file_t file;
+            err = lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
-            lfs_ssize_t d = lfsr_file_write(&lfs, &file, wbuf, SIZE);
-            assert(d == SIZE || d == LFS_ERR_NOSPC);
-            if (d == LFS_ERR_NOSPC) {
-                lfsr_file_close(&lfs, &file) => 0;
+            lfs3_ssize_t d = lfs3_file_write(&lfs3, &file, wbuf, SIZE);
+            assert(d == SIZE || d == LFS3_ERR_NOSPC);
+            if (d == LFS3_ERR_NOSPC) {
+                lfs3_file_close(&lfs3, &file) => 0;
                 goto grow;
             }
-            err = lfsr_file_close(&lfs, &file);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            err = lfs3_file_close(&lfs3, &file);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
         // deleting a file?
         } else if (op == 1) {
             // choose a random file to delete
-            lfs_size_t j = TEST_PRNG(&prng_) % count;
+            lfs3_size_t j = TEST_PRNG(&prng_) % count;
             // find the file
-            lfsr_dir_open(&lfs, &dir, "test") => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            for (lfs_size_t k = 0; k <= j; k++) {
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_open(&lfs3, &dir, "test") => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            for (lfs3_size_t k = 0; k <= j; k++) {
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
             }
-            lfsr_dir_close(&lfs, &dir) => 0;
+            lfs3_dir_close(&lfs3, &dir) => 0;
 
             // delete this file
             char name[256];
             assert(strlen(info.name) == strlen("amethyst..."));
             sprintf(name, "test/%s", info.name);
-            err = lfsr_remove(&lfs, name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            err = lfs3_remove(&lfs3, name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
 
@@ -2507,16 +2507,16 @@ code = '''
         } else {
             // choose a random file to rename, and a random number to
             // rename to
-            lfs_size_t j = TEST_PRNG(&prng_) % count;
-            lfs_size_t y = TEST_PRNG(&prng_) % N;
+            lfs3_size_t j = TEST_PRNG(&prng_) % count;
+            lfs3_size_t y = TEST_PRNG(&prng_) % N;
             // find the file
-            lfsr_dir_open(&lfs, &dir, "test") => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            for (lfs_size_t k = 0; k <= j; k++) {
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_open(&lfs3, &dir, "test") => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            for (lfs3_size_t k = 0; k <= j; k++) {
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
             }
-            lfsr_dir_close(&lfs, &dir) => 0;
+            lfs3_dir_close(&lfs3, &dir) => 0;
 
             // rename this file
             char old_name[256];
@@ -2524,9 +2524,9 @@ code = '''
             sprintf(old_name, "test/%s", info.name);
             char new_name[256];
             sprintf(new_name, "test/amethyst%03x", y);
-            err = lfsr_rename(&lfs, old_name, new_name);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            err = lfs3_rename(&lfs3, old_name, new_name);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 goto grow;
             }
         }
@@ -2534,22 +2534,22 @@ code = '''
         // update our state file
         state.i = i;
         state.prng = prng_;
-        err = lfsr_file_open(&lfs, &state_file, "state",
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
-        assert(!err || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        err = lfs3_file_open(&lfs3, &state_file, "state",
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
-        lfs_ssize_t d = lfsr_file_write(&lfs, &state_file,
+        lfs3_ssize_t d = lfs3_file_write(&lfs3, &state_file,
                 &state, sizeof(state));
-        assert(d == sizeof(state) || d == LFS_ERR_NOSPC);
-        if (d == LFS_ERR_NOSPC) {
-            lfsr_file_close(&lfs, &state_file) => 0;
+        assert(d == sizeof(state) || d == LFS3_ERR_NOSPC);
+        if (d == LFS3_ERR_NOSPC) {
+            lfs3_file_close(&lfs3, &state_file) => 0;
             goto grow;
         }
-        err = lfsr_file_close(&lfs, &state_file);
-        assert(!err || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        err = lfs3_file_close(&lfs3, &state_file);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
 
@@ -2558,21 +2558,21 @@ code = '''
 
     grow:;
         // try growing the filesystem
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs_ssize_t used = lfsr_fs_usage(&lfs);
+        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
-        lfs_size_t block_count_ = fsinfo.block_count;
+        lfs3_size_t block_count_ = fsinfo.block_count;
         while (true) {
             assert(block_count_ < BLOCK_COUNT);
             block_count_ += 1;
-            err = lfsr_fs_grow(&lfs, block_count_);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            err = lfs3_fs_grow(&lfs3, block_count_);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 continue;
             }
 
@@ -2584,11 +2584,11 @@ code = '''
                 used, block_count_);
 
         // fsstat up to date?
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
         goto again;
     }
@@ -2596,57 +2596,57 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that things look more-or-less ok
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "test") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "test") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
         while (true) {
-            int err = lfsr_dir_read(&lfs, &dir, &info);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
+            int err = lfs3_dir_read(&lfs3, &dir, &info);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
                 break;
             }
             assert(strlen(info.name) == strlen("amethyst..."));
             assert(memcmp(info.name, "amethyst", strlen("amethyst")) == 0);
-            assert(info.type == LFS_TYPE_REG);
+            assert(info.type == LFS3_TYPE_REG);
             assert(info.size == SIZE);
 
             // at least try to read the files
             char name[256];
             sprintf(name, "test/%s", info.name);
-            lfsr_file_t file;
-            lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
 
             uint8_t rbuf[SIZE];
-            lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
             // all data should be lowercase ascii
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 assert(rbuf[j] >= 'a' && rbuf[j] <= 'z');
             }
             // sum should be equal to 'a' mod 26
             uint8_t ck = 0;
-            for (lfs_size_t j = 0; j < SIZE; j++) {
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
                 ck = (ck + (rbuf[j] - 'a')) % 26;
             }
             assert(ck == 0);
-            lfsr_file_close(&lfs, &file) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_close(&lfs3, &dir) => 0;
     }
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # A general purpose powerloss fuzz test, with directories!
@@ -2678,120 +2678,120 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 reentrant = true
 code = '''
     // format once per test
-    lfs_t lfs;
-    int err = lfsr_mount(&lfs, LFS_M_RDWR, CFG);
+    lfs3_t lfs3;
+    int err = lfs3_mount(&lfs3, LFS3_M_RDWR, CFG);
     if (err) {
         // start with a small number of blocks
-        struct lfs_config cfg = *CFG;
+        struct lfs3_config cfg = *CFG;
         cfg.block_count = INIT_BLOCK_COUNT;
-        lfsr_format(&lfs, LFS_F_RDWR, &cfg) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
         // mount with maximum block count
-        lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // fsstat up to date?
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == INIT_BLOCK_COUNT);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
     }
 
     // keep some test state on disk to survive powerloss
     typedef struct fuzz_state {
-        lfs_size_t i;
+        lfs3_size_t i;
         uint32_t prng;
     } fuzz_state_t;
     fuzz_state_t state = {.i = 0, .prng = SEED};
 
-    lfsr_file_t state_file;
-    err = lfsr_file_open(&lfs, &state_file, "state", LFS_O_RDONLY);
-    assert(!err || err == LFS_ERR_NOENT);
+    lfs3_file_t state_file;
+    err = lfs3_file_open(&lfs3, &state_file, "state", LFS3_O_RDONLY);
+    assert(!err || err == LFS3_ERR_NOENT);
     if (!err) {
-        lfsr_file_read(&lfs, &state_file,
+        lfs3_file_read(&lfs3, &state_file,
                 &state, sizeof(state)) => sizeof(state);
-        lfsr_file_close(&lfs, &state_file) => 0;
+        lfs3_file_close(&lfs3, &state_file) => 0;
     }
 
     uint32_t prng = state.prng;
-    for (lfs_size_t i = state.i; i < OPS; i++) {
+    for (lfs3_size_t i = state.i; i < OPS; i++) {
     again:;
         uint32_t prng_ = prng;
         // choose which operation to do
         uint8_t op = TEST_PRNG(&prng_) % 6;
 
         // keep test files in a separate directory
-        err = lfsr_mkdir(&lfs, "test");
-        assert(!err || err == LFS_ERR_EXIST || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        err = lfs3_mkdir(&lfs3, "test");
+        assert(!err || err == LFS3_ERR_EXIST || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
 
         // how many dirs do we have?
-        lfs_size_t dir_count = 0;
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "test") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_size_t dir_count = 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "test") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
         while (true) {
-            err = lfsr_dir_read(&lfs, &dir, &info);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
+            err = lfs3_dir_read(&lfs3, &dir, &info);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
                 break;
             }
             assert(strlen(info.name) == strlen("quartz..."));
             assert(memcmp(info.name, "quartz", strlen("quartz")) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
             dir_count++;
         }
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_close(&lfs3, &dir) => 0;
 
         // dir op?
         if (op < 3 || dir_count == 0) {
             // creating a new dir?
             if (op == 0 || dir_count == 0) {
                 // choose a pseudo-random number
-                lfs_size_t x = TEST_PRNG(&prng_) % N;
+                lfs3_size_t x = TEST_PRNG(&prng_) % N;
 
                 // create a dir here
                 char name[256];
                 sprintf(name, "test/quartz%03x", x);
-                err = lfsr_mkdir(&lfs, name);
-                assert(!err || err == LFS_ERR_EXIST || err == LFS_ERR_NOSPC);
-                if (err == LFS_ERR_NOSPC) {
+                err = lfs3_mkdir(&lfs3, name);
+                assert(!err || err == LFS3_ERR_EXIST || err == LFS3_ERR_NOSPC);
+                if (err == LFS3_ERR_NOSPC) {
                     goto grow;
                 }
 
             // deleting a dir?
             } else if (op == 1) {
                 // choose a random dir to delete
-                lfs_size_t j = TEST_PRNG(&prng_) % dir_count;
+                lfs3_size_t j = TEST_PRNG(&prng_) % dir_count;
                 // find the dir
-                lfsr_dir_open(&lfs, &dir, "test") => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                for (lfs_size_t k = 0; k <= j; k++) {
-                    lfsr_dir_read(&lfs, &dir, &info) => 0;
+                lfs3_dir_open(&lfs3, &dir, "test") => 0;
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
+                for (lfs3_size_t k = 0; k <= j; k++) {
+                    lfs3_dir_read(&lfs3, &dir, &info) => 0;
                 }
-                lfsr_dir_close(&lfs, &dir) => 0;
+                lfs3_dir_close(&lfs3, &dir) => 0;
 
                 // try to delete this dir, ignore non-empty dirs!
                 char name[256];
                 assert(strlen(info.name) == strlen("quartz..."));
                 sprintf(name, "test/%s", info.name);
-                err = lfsr_remove(&lfs, name);
+                err = lfs3_remove(&lfs3, name);
                 assert(!err
-                        || err == LFS_ERR_NOTEMPTY
-                        || err == LFS_ERR_NOSPC);
-                if (err == LFS_ERR_NOSPC) {
+                        || err == LFS3_ERR_NOTEMPTY
+                        || err == LFS3_ERR_NOSPC);
+                if (err == LFS3_ERR_NOSPC) {
                     goto grow;
                 }
 
@@ -2799,16 +2799,16 @@ code = '''
             } else {
                 // choose a random dir to rename, and a random number to
                 // rename to
-                lfs_size_t j = TEST_PRNG(&prng_) % dir_count;
-                lfs_size_t y = TEST_PRNG(&prng_) % N;
+                lfs3_size_t j = TEST_PRNG(&prng_) % dir_count;
+                lfs3_size_t y = TEST_PRNG(&prng_) % N;
                 // find the dir
-                lfsr_dir_open(&lfs, &dir, "test") => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                for (lfs_size_t k = 0; k <= j; k++) {
-                    lfsr_dir_read(&lfs, &dir, &info) => 0;
+                lfs3_dir_open(&lfs3, &dir, "test") => 0;
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
+                for (lfs3_size_t k = 0; k <= j; k++) {
+                    lfs3_dir_read(&lfs3, &dir, &info) => 0;
                 }
-                lfsr_dir_close(&lfs, &dir) => 0;
+                lfs3_dir_close(&lfs3, &dir) => 0;
 
                 // rename this dir, ignore conflicts!
                 char old_name[256];
@@ -2816,11 +2816,11 @@ code = '''
                 sprintf(old_name, "test/%s", info.name);
                 char new_name[256];
                 sprintf(new_name, "test/quartz%03x", y);
-                err = lfsr_rename(&lfs, old_name, new_name);
+                err = lfs3_rename(&lfs3, old_name, new_name);
                 assert(!err
-                        || err == LFS_ERR_NOTEMPTY
-                        || err == LFS_ERR_NOSPC);
-                if (err == LFS_ERR_NOSPC) {
+                        || err == LFS3_ERR_NOTEMPTY
+                        || err == LFS3_ERR_NOSPC);
+                if (err == LFS3_ERR_NOSPC) {
                     goto grow;
                 }
             }
@@ -2828,49 +2828,49 @@ code = '''
         // file op?
         } else {
             // choose a pseudo-random dir
-            lfs_size_t dir_i = TEST_PRNG(&prng_) % dir_count;
+            lfs3_size_t dir_i = TEST_PRNG(&prng_) % dir_count;
             // find the dir
-            lfsr_dir_open(&lfs, &dir, "test") => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
-            for (lfs_size_t k = 0; k <= dir_i; k++) {
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_open(&lfs3, &dir, "test") => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            for (lfs3_size_t k = 0; k <= dir_i; k++) {
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
             }
-            lfsr_dir_close(&lfs, &dir) => 0;
+            lfs3_dir_close(&lfs3, &dir) => 0;
             char dir_path[256];
             sprintf(dir_path, "test/%s", info.name);
 
             // how many files do we have?
-            lfs_size_t count = 0;
-            lfsr_dir_open(&lfs, &dir, dir_path) => 0;
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_size_t count = 0;
+            lfs3_dir_open(&lfs3, &dir, dir_path) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, ".") == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
-            lfsr_dir_read(&lfs, &dir, &info) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
             assert(strcmp(info.name, "..") == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
             while (true) {
-                err = lfsr_dir_read(&lfs, &dir, &info);
-                assert(!err || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_NOENT) {
+                err = lfs3_dir_read(&lfs3, &dir, &info);
+                assert(!err || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
                     break;
                 }
                 assert(strlen(info.name) == strlen("amethyst..."));
                 assert(memcmp(
                         info.name,
                         "amethyst", strlen("amethyst")) == 0);
-                assert(info.type == LFS_TYPE_REG);
+                assert(info.type == LFS3_TYPE_REG);
                 assert(info.size == SIZE);
                 count++;
             }
-            lfsr_dir_close(&lfs, &dir) => 0;
+            lfs3_dir_close(&lfs3, &dir) => 0;
 
             // creating a new file?
             if (op == 3 || count == 0) {
                 // choose a pseudo-random number
-                lfs_size_t x = TEST_PRNG(&prng_) % M;
+                lfs3_size_t x = TEST_PRNG(&prng_) % M;
                 uint32_t wprng = TEST_PRNG(&prng_);
 
                 // create a file here
@@ -2878,7 +2878,7 @@ code = '''
                 sprintf(name, "%s/amethyst%03x", dir_path, x);
                 uint8_t wbuf[SIZE];
                 uint8_t ck = 0;
-                for (lfs_size_t j = 0; j < SIZE-1; j++) {
+                for (lfs3_size_t j = 0; j < SIZE-1; j++) {
                     wbuf[j] = 'a' + (TEST_PRNG(&wprng) % 26);
                     ck = (ck + (wbuf[j] - 'a')) % 26;
                 }
@@ -2887,75 +2887,75 @@ code = '''
                     wbuf[SIZE-1] = 'a' + ((26 - ck) % 26);
                 }
 
-                lfsr_file_t file;
-                err = lfsr_file_open(&lfs, &file, name,
-                        LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
-                assert(!err || err == LFS_ERR_NOSPC);
-                if (err == LFS_ERR_NOSPC) {
+                lfs3_file_t file;
+                err = lfs3_file_open(&lfs3, &file, name,
+                        LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC);
+                assert(!err || err == LFS3_ERR_NOSPC);
+                if (err == LFS3_ERR_NOSPC) {
                     goto grow;
                 }
-                lfs_ssize_t d = lfsr_file_write(&lfs, &file, wbuf, SIZE);
-                assert(d == SIZE || d == LFS_ERR_NOSPC);
-                if (d == LFS_ERR_NOSPC) {
-                    lfsr_file_close(&lfs, &file) => 0;
+                lfs3_ssize_t d = lfs3_file_write(&lfs3, &file, wbuf, SIZE);
+                assert(d == SIZE || d == LFS3_ERR_NOSPC);
+                if (d == LFS3_ERR_NOSPC) {
+                    lfs3_file_close(&lfs3, &file) => 0;
                     goto grow;
                 }
-                err = lfsr_file_close(&lfs, &file);
-                assert(!err || err == LFS_ERR_NOSPC);
-                if (err == LFS_ERR_NOSPC) {
+                err = lfs3_file_close(&lfs3, &file);
+                assert(!err || err == LFS3_ERR_NOSPC);
+                if (err == LFS3_ERR_NOSPC) {
                     goto grow;
                 }
 
             // deleting a file?
             } else if (op == 4) {
                 // choose a random file to delete
-                lfs_size_t j = TEST_PRNG(&prng_) % count;
+                lfs3_size_t j = TEST_PRNG(&prng_) % count;
                 // find the file
-                lfsr_dir_open(&lfs, &dir, dir_path) => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                for (lfs_size_t k = 0; k <= j; k++) {
-                    lfsr_dir_read(&lfs, &dir, &info) => 0;
+                lfs3_dir_open(&lfs3, &dir, dir_path) => 0;
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
+                for (lfs3_size_t k = 0; k <= j; k++) {
+                    lfs3_dir_read(&lfs3, &dir, &info) => 0;
                 }
-                lfsr_dir_close(&lfs, &dir) => 0;
+                lfs3_dir_close(&lfs3, &dir) => 0;
 
                 // delete this file
                 char name[256];
                 assert(strlen(info.name) == strlen("amethyst..."));
                 sprintf(name, "%s/%s", dir_path, info.name);
-                err = lfsr_remove(&lfs, name);
-                assert(!err || err == LFS_ERR_NOSPC);
-                if (err == LFS_ERR_NOSPC) {
+                err = lfs3_remove(&lfs3, name);
+                assert(!err || err == LFS3_ERR_NOSPC);
+                if (err == LFS3_ERR_NOSPC) {
                     goto grow;
                 }
 
             // renaming a file?
             } else {
                 // choose a random file to rename
-                lfs_size_t j = TEST_PRNG(&prng_) % count;
+                lfs3_size_t j = TEST_PRNG(&prng_) % count;
                 // find the file
-                lfsr_dir_open(&lfs, &dir, dir_path) => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                lfsr_dir_read(&lfs, &dir, &info) => 0;
-                for (lfs_size_t k = 0; k <= j; k++) {
-                    lfsr_dir_read(&lfs, &dir, &info) => 0;
+                lfs3_dir_open(&lfs3, &dir, dir_path) => 0;
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
+                lfs3_dir_read(&lfs3, &dir, &info) => 0;
+                for (lfs3_size_t k = 0; k <= j; k++) {
+                    lfs3_dir_read(&lfs3, &dir, &info) => 0;
                 }
-                lfsr_dir_close(&lfs, &dir) => 0;
+                lfs3_dir_close(&lfs3, &dir) => 0;
 
                 // choose a random dir to rename to
-                lfs_size_t dir_j = TEST_PRNG(&prng_) % dir_count;
+                lfs3_size_t dir_j = TEST_PRNG(&prng_) % dir_count;
                 // find the dir
-                struct lfs_info info_;
-                lfsr_dir_open(&lfs, &dir, "test") => 0;
-                lfsr_dir_read(&lfs, &dir, &info_) => 0;
-                lfsr_dir_read(&lfs, &dir, &info_) => 0;
-                for (lfs_size_t k = 0; k <= dir_j; k++) {
-                    lfsr_dir_read(&lfs, &dir, &info_) => 0;
+                struct lfs3_info info_;
+                lfs3_dir_open(&lfs3, &dir, "test") => 0;
+                lfs3_dir_read(&lfs3, &dir, &info_) => 0;
+                lfs3_dir_read(&lfs3, &dir, &info_) => 0;
+                for (lfs3_size_t k = 0; k <= dir_j; k++) {
+                    lfs3_dir_read(&lfs3, &dir, &info_) => 0;
                 }
-                lfsr_dir_close(&lfs, &dir) => 0;
+                lfs3_dir_close(&lfs3, &dir) => 0;
 
                 // choose a random file to rename to
-                lfs_size_t y = TEST_PRNG(&prng_) % M;
+                lfs3_size_t y = TEST_PRNG(&prng_) % M;
 
                 // rename this file
                 char old_name[256];
@@ -2963,9 +2963,9 @@ code = '''
                 sprintf(old_name, "%s/%s", dir_path, info.name);
                 char new_name[256];
                 sprintf(new_name, "test/%s/amethyst%03x", info_.name, y);
-                err = lfsr_rename(&lfs, old_name, new_name);
-                assert(!err || err == LFS_ERR_NOSPC);
-                if (err == LFS_ERR_NOSPC) {
+                err = lfs3_rename(&lfs3, old_name, new_name);
+                assert(!err || err == LFS3_ERR_NOSPC);
+                if (err == LFS3_ERR_NOSPC) {
                     goto grow;
                 }
             }
@@ -2974,22 +2974,22 @@ code = '''
         // update our state file
         state.i = i;
         state.prng = prng_;
-        err = lfsr_file_open(&lfs, &state_file, "state",
-                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC);
-        assert(!err || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        err = lfs3_file_open(&lfs3, &state_file, "state",
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
-        lfs_ssize_t d = lfsr_file_write(&lfs, &state_file,
+        lfs3_ssize_t d = lfs3_file_write(&lfs3, &state_file,
                 &state, sizeof(state));
-        assert(d == sizeof(state) || d == LFS_ERR_NOSPC);
-        if (d == LFS_ERR_NOSPC) {
-            lfsr_file_close(&lfs, &state_file) => 0;
+        assert(d == sizeof(state) || d == LFS3_ERR_NOSPC);
+        if (d == LFS3_ERR_NOSPC) {
+            lfs3_file_close(&lfs3, &state_file) => 0;
             goto grow;
         }
-        err = lfsr_file_close(&lfs, &state_file);
-        assert(!err || err == LFS_ERR_NOSPC);
-        if (err == LFS_ERR_NOSPC) {
+        err = lfs3_file_close(&lfs3, &state_file);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
             goto grow;
         }
 
@@ -2998,21 +2998,21 @@ code = '''
 
     grow:;
         // try growing the filesystem
-        struct lfs_fsinfo fsinfo;
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs_ssize_t used = lfsr_fs_usage(&lfs);
+        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
-        lfs_size_t block_count_ = fsinfo.block_count;
+        lfs3_size_t block_count_ = fsinfo.block_count;
         while (true) {
             assert(block_count_ < BLOCK_COUNT);
             block_count_ += 1;
-            err = lfsr_fs_grow(&lfs, block_count_);
-            assert(!err || err == LFS_ERR_NOSPC);
-            if (err == LFS_ERR_NOSPC) {
+            err = lfs3_fs_grow(&lfs3, block_count_);
+            assert(!err || err == LFS3_ERR_NOSPC);
+            if (err == LFS3_ERR_NOSPC) {
                 continue;
             }
 
@@ -3024,11 +3024,11 @@ code = '''
                 used, block_count_);
 
         // fsstat up to date?
-        lfsr_fs_stat(&lfs, &fsinfo) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
         assert(fsinfo.block_count == block_count_);
-        assert(fsinfo.name_limit == LFS_NAME_MAX);
-        assert(fsinfo.file_limit == LFS_FILE_MAX);
+        assert(fsinfo.name_limit == LFS3_NAME_MAX);
+        assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
         goto again;
     }
@@ -3036,85 +3036,85 @@ code = '''
     for (int remount = 0; remount < 2; remount++) {
         // remount?
         if (remount) {
-            lfsr_unmount(&lfs) => 0;
-            lfsr_mount(&lfs, LFS_M_RDWR, CFG) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that things look more-or-less ok
-        lfsr_dir_t dir;
-        lfsr_dir_open(&lfs, &dir, "test") => 0;
-        struct lfs_info info;
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "test") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, ".") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
-        lfsr_dir_read(&lfs, &dir, &info) => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
         assert(strcmp(info.name, "..") == 0);
-        assert(info.type == LFS_TYPE_DIR);
+        assert(info.type == LFS3_TYPE_DIR);
         assert(info.size == 0);
         while (true) {
-            int err = lfsr_dir_read(&lfs, &dir, &info);
-            assert(!err || err == LFS_ERR_NOENT);
-            if (err == LFS_ERR_NOENT) {
+            int err = lfs3_dir_read(&lfs3, &dir, &info);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
                 break;
             }
             assert(strlen(info.name) == strlen("quartz..."));
             assert(memcmp(info.name, "quartz", strlen("quartz")) == 0);
-            assert(info.type == LFS_TYPE_DIR);
+            assert(info.type == LFS3_TYPE_DIR);
             assert(info.size == 0);
 
             // check that our dirs look more-or-less ok
             char name[256];
             sprintf(name, "test/%s", info.name);
-            lfsr_dir_t dir_;
-            lfsr_dir_open(&lfs, &dir_, name) => 0;
-            struct lfs_info info_;
-            lfsr_dir_read(&lfs, &dir_, &info_) => 0;
+            lfs3_dir_t dir_;
+            lfs3_dir_open(&lfs3, &dir_, name) => 0;
+            struct lfs3_info info_;
+            lfs3_dir_read(&lfs3, &dir_, &info_) => 0;
             assert(strcmp(info_.name, ".") == 0);
-            assert(info_.type == LFS_TYPE_DIR);
+            assert(info_.type == LFS3_TYPE_DIR);
             assert(info_.size == 0);
-            lfsr_dir_read(&lfs, &dir_, &info_) => 0;
+            lfs3_dir_read(&lfs3, &dir_, &info_) => 0;
             assert(strcmp(info_.name, "..") == 0);
-            assert(info_.type == LFS_TYPE_DIR);
+            assert(info_.type == LFS3_TYPE_DIR);
             assert(info_.size == 0);
 
             while (true) {
-                err = lfsr_dir_read(&lfs, &dir_, &info_);
-                assert(!err || err == LFS_ERR_NOENT);
-                if (err == LFS_ERR_NOENT) {
+                err = lfs3_dir_read(&lfs3, &dir_, &info_);
+                assert(!err || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
                     break;
                 }
                 assert(strlen(info_.name) == strlen("amethyst..."));
                 assert(memcmp(
                         info_.name,
                         "amethyst", strlen("amethyst")) == 0);
-                assert(info_.type == LFS_TYPE_REG);
+                assert(info_.type == LFS3_TYPE_REG);
                 assert(info_.size == SIZE);
 
                 // at least try to read the files
                 sprintf(name, "test/%s/%s", info.name, info_.name);
-                lfsr_file_t file;
-                lfsr_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+                lfs3_file_t file;
+                lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
 
                 uint8_t rbuf[SIZE];
-                lfsr_file_read(&lfs, &file, rbuf, SIZE) => SIZE;
+                lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
                 // all data should be lowercase ascii
-                for (lfs_size_t j = 0; j < SIZE; j++) {
+                for (lfs3_size_t j = 0; j < SIZE; j++) {
                     assert(rbuf[j] >= 'a' && rbuf[j] <= 'z');
                 }
                 // sum should be equal to 'a' mod 26
                 uint8_t ck = 0;
-                for (lfs_size_t j = 0; j < SIZE; j++) {
+                for (lfs3_size_t j = 0; j < SIZE; j++) {
                     ck = (ck + (rbuf[j] - 'a')) % 26;
                 }
                 assert(ck == 0);
-                lfsr_file_close(&lfs, &file) => 0;
+                lfs3_file_close(&lfs3, &file) => 0;
             }
-            lfsr_dir_close(&lfs, &dir_) => 0;
+            lfs3_dir_close(&lfs3, &dir_) => 0;
         }
-        lfsr_dir_close(&lfs, &dir) => 0;
+        lfs3_dir_close(&lfs3, &dir) => 0;
     }
 
-    lfsr_unmount(&lfs) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
