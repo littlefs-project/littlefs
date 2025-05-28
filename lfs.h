@@ -69,22 +69,6 @@ typedef int32_t  lfsr_sdid_t;
 #define LFS_FILE_MAX 2147483647
 #endif
 
-// TODO rm me
-//// Maximum size of custom attributes in bytes, may be redefined, but there is
-//// no real benefit to using a smaller LFS_ATTR_MAX. Limited to <= 1022.
-//#ifndef LFS_ATTR_MAX
-//#define LFS_ATTR_MAX 1022
-//#endif
-//
-//// TODO document
-//#ifndef LFS_UATTR_MAX
-//#define LFS_UATTR_MAX 255
-//#endif
-//
-//#ifndef LFS_SATTR_MAX
-//#define LFS_SATTR_MAX 255
-//#endif
-
 
 // Possible error codes, these are negative to allow
 // valid positive return values
@@ -436,25 +420,6 @@ struct lfs_config {
     // in superblock and must be respected by other littlefs drivers.
     lfs_size_t file_limit;
 
-// TODO rm me
-//    // Optional upper limit on custom attributes in bytes. No downside for
-//    // larger attributes size but must be <= LFS_ATTR_MAX. Defaults to
-//    // LFS_ATTR_MAX when zero.
-//    lfs_size_t attr_max;
-//
-//    // Optional upper limit on total space given to metadata pairs in bytes. On
-//    // devices with large blocks (e.g. 128kB) setting this to a low size (2-8kB)
-//    // can help bound the metadata compaction time. Must be <= block_size.
-//    // Defaults to block_size when zero.
-//    lfs_size_t metadata_max;
-//
-//    // Maximum size of inlined files in bytes. Inlined files decrease storage
-//    // requirements, but may impact metadata-related performance. Must be <=
-//    // block_size/4.
-//    //
-//    // 0 disables inline files.
-//    lfs_size_t inline_size;
-
     // TODO these are pretty low-level details, should we have reasonable
     // defaults? need to benchmark.
 
@@ -534,20 +499,6 @@ struct lfs_tinfo {
     lfs_block_t block;
 };
 
-//// Custom attribute structure, used to describe custom attributes
-//// committed atomically during file writes.
-//struct lfs_attr {
-//    // 8-bit type of attribute, provided by user and used to
-//    // identify the attribute
-//    uint8_t type;
-//
-//    // Pointer to buffer containing the attribute
-//    void *buffer;
-//
-//    // Size of attribute in bytes, limited to LFS_ATTR_MAX
-//    lfs_size_t size;
-//};
-
 // Custom attribute structure, used to describe custom attributes
 // committed atomically during file writes.
 struct lfs_attr {
@@ -586,22 +537,6 @@ struct lfs_file_config {
     // accesses. Defaults to file_cache_size.
     lfs_size_t cache_size;
 
-//    // Optional list of custom attributes related to the file. If the file
-//    // is opened with read access, these attributes will be read from disk
-//    // during the open call. If the file is opened with write access, the
-//    // attributes will be written to disk every file sync or close. This
-//    // write occurs atomically with update to the file's contents.
-//    //
-//    // Custom attributes are uniquely identified by an 8-bit type and limited
-//    // to LFS_ATTR_MAX bytes. When read, if the stored attribute is smaller
-//    // than the buffer, it will be padded with zeros. If the stored attribute
-//    // is larger, then it will be silently truncated. If the attribute is not
-//    // found, it will be created implicitly.
-//    struct lfs_attr *attrs;
-//
-//    // Number of custom attributes in the list
-//    lfs_size_t attr_count;
-
     // Optional list of custom attributes attached to the file. If readable,
     // these attributes will be kept up to date with the attributes on-disk.
     // If writeable, these attributes will be written to disk atomically on
@@ -614,24 +549,6 @@ struct lfs_file_config {
 
 
 /// internal littlefs data structures ///
-
-//typedef struct lfs_cache {
-//    lfs_block_t block;
-//    lfs_size_t off;
-//    lfs_size_t size;
-//    uint8_t *buffer;
-//} lfs_cache_t;
-
-//typedef struct lfs_mdir {
-//    lfs_block_t pair[2];
-//    uint32_t rev;
-//    lfs_off_t off;
-//    uint32_t etag;
-//    uint16_t count;
-//    bool erased;
-//    bool split;
-//    lfs_block_t tail[2];
-//} lfs_mdir_t;
 
 // either an on-disk or in-RAM data pointer
 //
@@ -721,27 +638,6 @@ typedef struct lfsr_bshrub {
 } lfsr_bshrub_t;
 
 // littlefs file type
-
-//typedef struct lfs_file {
-//    struct lfs_file *next;
-//    uint16_t id;
-//    uint8_t type;
-//    lfs_mdir_t m;
-//
-//    struct lfs_ctz {
-//        lfs_block_t head;
-//        lfs_size_t size;
-//    } ctz;
-//
-//    uint32_t flags;
-//    lfs_off_t pos;
-//    lfs_block_t block;
-//    lfs_off_t off;
-//    lfs_cache_t cache;
-//
-//    const struct lfs_file_config *cfg;
-//} lfs_file_t;
-
 typedef struct lfsr_file {
     // btree/bshrub stuff is in here
     lfsr_bshrub_t b;
@@ -768,24 +664,11 @@ typedef struct lfsr_file {
 } lfsr_file_t;
 
 // littlefs directory type
-
-//typedef struct lfs_dir {
-//    struct lfs_dir *next;
-//    uint16_t id;
-//    uint8_t type;
-//    lfs_mdir_t m;
-//
-//    lfs_off_t pos;
-//    lfs_block_t head[2];
-//} lfs_dir_t;
-
 typedef struct lfsr_dir {
     lfsr_omdir_t o;
     lfsr_did_t did;
     lfs_off_t pos;
 } lfsr_dir_t;
-
-// littlefs traversal type
 
 typedef struct lfsr_btraversal {
     lfsr_bid_t bid;
@@ -794,6 +677,7 @@ typedef struct lfsr_btraversal {
     lfsr_rbyd_t rbyd;
 } lfsr_btraversal_t;
 
+// littlefs traversal type
 typedef struct lfsr_traversal {
     // mdir/bshrub/btree state, this also includes our traversal
     // state machine
@@ -817,21 +701,6 @@ typedef struct lfsr_traversal {
     lfs_sblock_t blocks[2];
 } lfsr_traversal_t;
 
-
-//typedef struct lfs_superblock {
-//    uint32_t version;
-//    lfs_size_t block_size;
-//    lfs_size_t block_count;
-//    lfs_size_t name_max;
-//    lfs_size_t file_max;
-//    lfs_size_t attr_max;
-//} lfs_superblock_t;
-//
-//typedef struct lfs_gstate {
-//    uint32_t tag;
-//    lfs_block_t pair[2];
-//} lfs_gstate_t;
-
 // grm encoding:
 // .- -+- -+- -+- -+- -.  mids:  2 leb128s  <=2x5 bytes
 // ' mids              '  total:            <=10 bytes
@@ -844,6 +713,7 @@ typedef struct lfsr_traversal {
 typedef struct lfsr_grm {
     lfsr_smid_t queue[2];
 } lfsr_grm_t;
+
 
 // The littlefs filesystem type
 typedef struct lfs {
@@ -922,7 +792,6 @@ typedef struct lfs {
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-//int lfs_format(lfs_t *lfs, const struct lfs_config *config);
 int lfsr_format(lfs_t *lfs, uint32_t flags,
         const struct lfs_config *cfg);
 #endif
@@ -935,7 +804,6 @@ int lfsr_format(lfs_t *lfs, uint32_t flags,
 // be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-//int lfs_mount(lfs_t *lfs, const struct lfs_config *config);
 int lfsr_mount(lfs_t *lfs, uint32_t flags,
         const struct lfs_config *cfg);
 
@@ -943,7 +811,6 @@ int lfsr_mount(lfs_t *lfs, uint32_t flags,
 //
 // Does nothing besides releasing any allocated resources.
 // Returns a negative error code on failure.
-//int lfs_unmount(lfs_t *lfs);
 int lfsr_unmount(lfs_t *lfs);
 
 /// General operations ///
@@ -953,7 +820,6 @@ int lfsr_unmount(lfs_t *lfs);
 //
 // If removing a directory, the directory must be empty.
 // Returns a negative error code on failure.
-//int lfs_remove(lfs_t *lfs, const char *path);
 int lfsr_remove(lfs_t *lfs, const char *path);
 #endif
 
@@ -964,7 +830,6 @@ int lfsr_remove(lfs_t *lfs, const char *path);
 // If the destination is a directory, the directory must be empty.
 //
 // Returns a negative error code on failure.
-//int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path);
 #endif
 
@@ -972,7 +837,6 @@ int lfsr_rename(lfs_t *lfs, const char *old_path, const char *new_path);
 //
 // Fills out the info structure, based on the specified file or directory.
 // Returns a negative error code on failure.
-//int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 
 // Get a custom attribute
@@ -980,8 +844,6 @@ int lfsr_stat(lfs_t *lfs, const char *path, struct lfs_info *info);
 // Returns the number of bytes read, or a negative error code on failure.
 // Note this may be less than the on-disk attr size if the buffer is not
 // large enough.
-//lfs_ssize_t lfs_getattr(lfs_t *lfs, const char *path,
-//        uint8_t type, void *buffer, lfs_size_t size);
 lfs_ssize_t lfsr_getattr(lfs_t *lfs, const char *path, uint8_t type,
         void *buffer, lfs_size_t size);
 
@@ -994,8 +856,6 @@ lfs_ssize_t lfsr_sizeattr(lfs_t *lfs, const char *path, uint8_t type);
 // Set a custom attributes
 //
 // Returns a negative error code on failure.
-//int lfs_setattr(lfs_t *lfs, const char *path,
-//        uint8_t type, const void *buffer, lfs_size_t size);
 int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
         const void *buffer, lfs_size_t size);
 #endif
@@ -1004,7 +864,6 @@ int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
 // Removes a custom attribute
 //
 // Returns a negative error code on failure.
-//int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 #endif
 
@@ -1018,8 +877,6 @@ int lfsr_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 // are values from the enum lfs_open_flags that are bitwise-ored together.
 //
 // Returns a negative error code on failure.
-//int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
-//        const char *path, int flags);
 int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags);
 
@@ -1037,9 +894,6 @@ int lfsr_file_open(lfs_t *lfs, lfsr_file_t *file,
 // the config struct must be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
-//int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
-//        const char *path, int flags,
-//        const struct lfs_file_config *config);
 int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs_file_config *cfg);
@@ -1055,7 +909,6 @@ int lfsr_file_opencfg(lfs_t *lfs, lfsr_file_t *file,
 // return 0.
 //
 // Returns a negative error code on failure.
-//int lfs_file_close(lfs_t *lfs, lfs_file_t *file);
 int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file);
 
 // Synchronize a file on storage
@@ -1066,7 +919,6 @@ int lfsr_file_close(lfs_t *lfs, lfsr_file_t *file);
 // now recieve file updates and syncs on close.
 //
 // Returns a negative error code on failure.
-//int lfs_file_sync(lfs_t *lfs, lfs_file_t *file);
 int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file);
 
 // Flush any buffered data
@@ -1105,8 +957,6 @@ int lfsr_file_resync(lfs_t *lfs, lfsr_file_t *file);
 //
 // Takes a buffer and size indicating where to store the read data.
 // Returns the number of bytes read, or a negative error code on failure.
-//lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
-//        void *buffer, lfs_size_t size);
 lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
         void *buffer, lfs_size_t size);
 
@@ -1117,8 +967,6 @@ lfs_ssize_t lfsr_file_read(lfs_t *lfs, lfsr_file_t *file,
 // actually be updated on the storage until either sync or close is called.
 //
 // Returns the number of bytes written, or a negative error code on failure.
-//lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
-//        const void *buffer, lfs_size_t size);
 lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
         const void *buffer, lfs_size_t size);
 #endif
@@ -1127,8 +975,6 @@ lfs_ssize_t lfsr_file_write(lfs_t *lfs, lfsr_file_t *file,
 //
 // The change in position is determined by the offset and whence flag.
 // Returns the new position of the file, or a negative error code on failure.
-//lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
-//        lfs_soff_t off, int whence);
 lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
         lfs_soff_t off, uint8_t whence);
 
@@ -1139,7 +985,6 @@ lfs_soff_t lfsr_file_seek(lfs_t *lfs, lfsr_file_t *file,
 // as if the file was filled with zeros.
 //
 // Returns a negative error code on failure.
-//int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size);
 int lfsr_file_truncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size);
 #endif
 
@@ -1157,21 +1002,18 @@ int lfsr_file_fruncate(lfs_t *lfs, lfsr_file_t *file, lfs_off_t size);
 //
 // Equivalent to lfs_file_seek(lfs, file, 0, LFS_SEEK_CUR)
 // Returns the position of the file, or a negative error code on failure.
-//lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file);
 lfs_soff_t lfsr_file_tell(lfs_t *lfs, lfsr_file_t *file);
 
 // Change the position of the file to the beginning of the file
 //
 // Equivalent to lfs_file_seek(lfs, file, 0, LFS_SEEK_SET)
 // Returns a negative error code on failure.
-//int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 int lfsr_file_rewind(lfs_t *lfs, lfsr_file_t *file);
 
 // Return the size of the file
 //
 // Similar to lfs_file_seek(lfs, file, 0, LFS_SEEK_END)
 // Returns the size of the file, or a negative error code on failure.
-//lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 lfs_soff_t lfsr_file_size(lfs_t *lfs, lfsr_file_t *file);
 
 // Check a file for metadata errors
@@ -1193,7 +1035,6 @@ int lfsr_file_ckdata(lfs_t *lfs, lfsr_file_t *file);
 // Create a directory
 //
 // Returns a negative error code on failure.
-//int lfs_mkdir(lfs_t *lfs, const char *path);
 int lfsr_mkdir(lfs_t *lfs, const char *path);
 #endif
 
@@ -1201,14 +1042,12 @@ int lfsr_mkdir(lfs_t *lfs, const char *path);
 //
 // Once open a directory can be used with read to iterate over files.
 // Returns a negative error code on failure.
-//int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
 int lfsr_dir_open(lfs_t *lfs, lfsr_dir_t *dir, const char *path);
 
 // Close a directory
 //
 // Releases any allocated resources.
 // Returns a negative error code on failure.
-//int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
 int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir);
 
 // Read an entry in the directory
@@ -1216,7 +1055,6 @@ int lfsr_dir_close(lfs_t *lfs, lfsr_dir_t *dir);
 // Fills out the info structure, based on the specified file or directory.
 // Returns 0 on success, LFS_ERR_NOENT at the end of directory, or a
 // negative error code on failure.
-//int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
 int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info);
 
 // Change the position of the directory
@@ -1225,7 +1063,6 @@ int lfsr_dir_read(lfs_t *lfs, lfsr_dir_t *dir, struct lfs_info *info);
 // an absolute offset in the directory seek.
 //
 // Returns a negative error code on failure.
-//int lfs_dir_seek(lfs_t *lfs, lfs_dir_t *dir, lfs_off_t off);
 int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off);
 
 // Return the position of the directory
@@ -1234,13 +1071,11 @@ int lfsr_dir_seek(lfs_t *lfs, lfsr_dir_t *dir, lfs_soff_t off);
 // sense, but does indicate the current position in the directory iteration.
 //
 // Returns the position of the directory, or a negative error code on failure.
-//lfs_soff_t lfs_dir_tell(lfs_t *lfs, lfs_dir_t *dir);
 lfs_soff_t lfsr_dir_tell(lfs_t *lfs, lfsr_dir_t *dir);
 
 // Change the position of the directory to the beginning of the directory
 //
 // Returns a negative error code on failure.
-//int lfs_dir_rewind(lfs_t *lfs, lfs_dir_t *dir);
 int lfsr_dir_rewind(lfs_t *lfs, lfsr_dir_t *dir);
 
 
@@ -1289,17 +1124,7 @@ int lfsr_fs_stat(lfs_t *lfs, struct lfs_fsinfo *fsinfo);
 // usage may be larger than the filesystem actually is.
 //
 // Returns the number of allocated blocks, or a negative error code on failure.
-//lfs_ssize_t lfs_fs_size(lfs_t *lfs);
 lfs_ssize_t lfsr_fs_usage(lfs_t *lfs);
-
-// Traverse through all blocks in use by the filesystem
-//
-// The provided callback will be called with each block address that is
-// currently in use by the filesystem. This can be used to determine which
-// blocks are in use or how much of the storage is available.
-//
-// Returns a negative error code on failure.
-//int lfs_fs_traverse(lfs_t *lfs, int (*cb)(void*, lfs_block_t), void *data);
 
 #ifndef LFS_READONLY
 // Attempt to make the filesystem consistent and ready for writing
@@ -1379,23 +1204,6 @@ int lfsr_fs_unck(lfs_t *lfs, uint32_t flags);
 //
 // Returns a negative error code on failure.
 int lfsr_fs_grow(lfs_t *lfs, lfs_size_t block_count);
-#endif
-
-#ifndef LFS_READONLY
-#ifdef LFS_MIGRATE
-// Attempts to migrate a previous version of littlefs
-//
-// Behaves similarly to the lfs_format function. Attempts to mount
-// the previous version of littlefs and update the filesystem so it can be
-// mounted with the current version of littlefs.
-//
-// Requires a littlefs object and config struct. This clobbers the littlefs
-// object, and does not leave the filesystem mounted. The config struct must
-// be zeroed for defaults and backwards compatibility.
-//
-// Returns a negative error code on failure.
-//int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg);
-#endif
 #endif
 
 
