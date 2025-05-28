@@ -1723,7 +1723,7 @@ static int lfsr_data_readle32(lfs_t *lfs, lfsr_data_t *data,
         return LFS_ERR_CORRUPT;
     }
 
-    *word = lfs_fromle32_(buf);
+    *word = lfs_fromle32(buf);
     return 0;
 }
 
@@ -1904,7 +1904,7 @@ static int lfsr_bd_progdata(lfs_t *lfs,
 
 static inline lfsr_data_t lfsr_data_fromle32(uint32_t word,
         uint8_t buffer[static LFSR_LE32_DSIZE]) {
-    lfs_tole32_(word, buffer);
+    lfs_tole32(word, buffer);
     return LFSR_DATA_BUF(buffer, LFSR_LE32_DSIZE);
 }
 
@@ -2329,7 +2329,7 @@ static lfsr_data_t lfsr_data_fromecksum(const lfsr_ecksum_t *ecksum,
     }
     d += d_;
 
-    lfs_tole32_(ecksum->cksum, &buffer[d]);
+    lfs_tole32(ecksum->cksum, &buffer[d]);
     d += 4;
 
     return LFSR_DATA_BUF(buffer, d);
@@ -2473,7 +2473,7 @@ static lfsr_data_t lfsr_data_frombptr(const lfsr_bptr_t *bptr,
     }
     d += d_;
 
-    lfs_tole32_(lfsr_bptr_cksum(bptr), &buffer[d]);
+    lfs_tole32(lfsr_bptr_cksum(bptr), &buffer[d]);
     d += 4;
 
     return LFSR_DATA_BUF(buffer, d);
@@ -2779,7 +2779,7 @@ static int lfsr_rbyd_fetch_(lfs_t *lfs,
                     }
                     return err;
                 }
-                cksum__ = lfs_fromle32_(&cksum__);
+                cksum__ = lfs_fromle32(&cksum__);
 
                 if (cksum_ != cksum__) {
                     // uh oh, checksums don't match
@@ -3140,7 +3140,7 @@ static int lfsr_rbyd_appendrev(lfs_t *lfs, lfsr_rbyd_t *rbyd, uint32_t rev) {
     // revision count stored as le32, we don't use a leb128 encoding as we
     // intentionally allow the revision count to overflow
     uint8_t rev_buf[sizeof(uint32_t)];
-    lfs_tole32_(rev, &rev_buf);
+    lfs_tole32(rev, &rev_buf);
 
     int err = lfsr_bd_prog(lfs,
             rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
@@ -4264,7 +4264,7 @@ static int lfsr_rbyd_appendcksum_(lfs_t *lfs, lfsr_rbyd_t *rbyd,
     // note the odd-parity zero preserves our position in the crc32c
     // ring while only changing the parity
     cksum_ ^= (lfsr_rbyd_isperturb(rbyd)) ? LFS_CRC32C_ODDZERO : 0;
-    lfs_tole32_(cksum_, &cksum_buf[2+1+4]);
+    lfs_tole32(cksum_, &cksum_buf[2+1+4]);
 
     // prog, when this lands on disk commit is committed
     int err = lfsr_bd_prog(lfs, rbyd->blocks[0], lfsr_rbyd_eoff(rbyd),
@@ -4847,7 +4847,7 @@ static lfsr_data_t lfsr_data_frombranch(const lfsr_rbyd_t *branch,
     }
     d += d_;
 
-    lfs_tole32_(branch->cksum, &buffer[d]);
+    lfs_tole32(branch->cksum, &buffer[d]);
     d += 4;
 
     return LFSR_DATA_BUF(buffer, d);
@@ -7284,7 +7284,7 @@ static int lfsr_mdir_fetch(lfs_t *lfs, lfsr_mdir_t *mdir,
         if (err && err != LFS_ERR_CORRUPT) {
             return err;
         }
-        revs[i] = lfs_fromle32_(&revs[i]);
+        revs[i] = lfs_fromle32(&revs[i]);
 
         if (i == 0
                 || err == LFS_ERR_CORRUPT
@@ -7539,7 +7539,7 @@ static int lfsr_mdir_alloc__(lfs_t *lfs, lfsr_mdir_t *mdir,
         return err;
     }
     // note we allow corrupt errors here, as long as they are consistent
-    rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
+    rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32(&rev) : 0;
     // reset recycle bits in revision count and increment
     rev = lfsr_rev_init(lfs, mdir, rev);
 
@@ -7583,7 +7583,7 @@ static int lfsr_mdir_swap__(lfs_t *lfs, lfsr_mdir_t *mdir_,
         return err;
     }
     // note we allow corrupt errors here, as long as they are consistent
-    rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32_(&rev) : 0;
+    rev = (err != LFS_ERR_CORRUPT) ? lfs_fromle32(&rev) : 0;
     // increment our revision count
     rev = lfsr_rev_inc(lfs, rev);
 
@@ -10889,7 +10889,7 @@ int lfsr_setattr(lfs_t *lfs, const char *path, uint8_t type,
             }
 
             lfs_size_t d = lfs_min(size, file->cfg->attrs[i].buffer_size);
-            memcpy(file->cfg->attrs[i].buffer, buffer, d);
+            lfs_memcpy(file->cfg->attrs[i].buffer, buffer, d);
             if (file->cfg->attrs[i].size) {
                 *file->cfg->attrs[i].size = d;
             }
@@ -13018,7 +13018,7 @@ int lfsr_file_sync(lfs_t *lfs, lfsr_file_t *file) {
                             lfs_size_t d = lfs_min(
                                     lfsr_attr_size(&file->cfg->attrs[i]),
                                     file_->cfg->attrs[j].buffer_size);
-                            memcpy(file_->cfg->attrs[j].buffer,
+                            lfs_memcpy(file_->cfg->attrs[j].buffer,
                                     file->cfg->attrs[i].buffer,
                                     d);
                             if (file_->cfg->attrs[j].size) {
@@ -13825,7 +13825,7 @@ static int lfsr_data_readcompat(lfs_t *lfs, lfsr_data_t *data,
     if (d < 0) {
         return d;
     }
-    *compat = lfs_fromle32_(buf);
+    *compat = lfs_fromle32(buf);
 
     // if any out-of-range flags are set, set the internal overflow bit,
     // this is a compromise in correctness and and compat-flag complexity

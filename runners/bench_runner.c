@@ -1920,7 +1920,7 @@ getopt_done: ;
 
                 if (d >= define_count) {
                     // align to power of two to avoid any superlinear growth
-                    size_t ncount = 1 << lfs_npw2(d+1);
+                    size_t ncount = 1 << lfs_nlog2(d+1);
                     defines = realloc(defines,
                             ncount*sizeof(bench_define_t));
                     memset(defines+define_count, 0,

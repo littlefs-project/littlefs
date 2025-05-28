@@ -189,31 +189,6 @@
 #endif
 #endif
 
-// We need to know the endianness of the system for some struct packing
-#if (defined(BYTE_ORDER) \
-            && defined(ORDER_LITTLE_ENDIAN) \
-            && BYTE_ORDER == ORDER_LITTLE_ENDIAN) \
-        || (defined(__BYTE_ORDER) \
-            && defined(__ORDER_LITTLE_ENDIAN) \
-            && __BYTE_ORDER == __ORDER_LITTLE_ENDIAN) \
-        || (defined(__BYTE_ORDER__) \
-            && defined(__ORDER_LITTLE_ENDIAN__) \
-            && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-#define LFS_LITTLE_ENDIAN
-#elif (defined(BYTE_ORDER) \
-            && defined(ORDER_BIG_ENDIAN) \
-            && BYTE_ORDER == ORDER_BIG_ENDIAN) \
-        || (defined(__BYTE_ORDER) \
-            && defined(__ORDER_BIG_ENDIAN) \
-            && __BYTE_ORDER == __ORDER_BIG_ENDIAN) \
-        || (defined(__BYTE_ORDER__) \
-            && defined(__ORDER_BIG_ENDIAN__) \
-            && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-#define LFS_BIG_ENDIAN
-#else
-#error "lfs: Unknown endianness?"
-#endif
-
 
 // Some ifdef conveniences
 #ifdef LFS_REVDBG
@@ -331,7 +306,7 @@ static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
 }
 
 // Find the smallest power of 2 greater than or equal to a
-static inline uint32_t lfs_npw2(uint32_t a) {
+static inline uint32_t lfs_nlog2(uint32_t a) {
     // __builtin_clz of zero is undefined, so treat both 0 and 1 specially
     if (a <= 1) {
         return a;
@@ -351,19 +326,13 @@ static inline uint32_t lfs_npw2(uint32_t a) {
 #endif
 }
 
-// TODO we should eventually adopt this as the new name for npw2
-// Find the ceiling of log base 2 of the given number
-static inline uint32_t lfs_nlog2(uint32_t a) {
-    return lfs_npw2(a);
-}
-
 // Count the number of trailing binary zeros in a
 // lfs_ctz(0) may be undefined
 static inline uint32_t lfs_ctz(uint32_t a) {
 #if !defined(LFS_NO_BUILTINS) && defined(__GNUC__)
     return __builtin_ctz(a);
 #else
-    return lfs_npw2((a & -a) + 1) - 1;
+    return lfs_nlog2((a & -a) + 1) - 1;
 #endif
 }
 
@@ -416,62 +385,15 @@ static inline uint64_t lfs_pmul(uint32_t a, uint32_t b) {
 }
 
 
-// Convert between 32-bit little-endian and native order
-static inline uint32_t lfs_fromle32(uint32_t a) {
-#if !defined(LFS_NO_BUILTINS) && defined(LFS_LITTLE_ENDIAN)
-    return a;
-#elif !defined(LFS_NO_BUILTINS)
-    return __builtin_bswap32(a);
-#else
-    return (((uint8_t*)&a)[0] <<  0) |
-           (((uint8_t*)&a)[1] <<  8) |
-           (((uint8_t*)&a)[2] << 16) |
-           (((uint8_t*)&a)[3] << 24);
-#endif
-}
-
-static inline uint32_t lfs_tole32(uint32_t a) {
-    return lfs_fromle32(a);
-}
-
-// Convert between 32-bit big-endian and native order
-static inline uint32_t lfs_frombe32(uint32_t a) {
-#if !defined(LFS_NO_BUILTINS) && defined(LFS_LITTLE_ENDIAN)
-    return __builtin_bswap32(a);
-#elif !defined(LFS_NO_BUILTINS)
-    return a;
-#else
-    return (((uint8_t*)&a)[0] << 24) |
-           (((uint8_t*)&a)[1] << 16) |
-           (((uint8_t*)&a)[2] <<  8) |
-           (((uint8_t*)&a)[3] <<  0);
-#endif
-}
-
-static inline uint32_t lfs_tobe32(uint32_t a) {
-    return lfs_frombe32(a);
-}
-
-// Convert to/from 16-bit little-endian
-static inline void lfs_tole16_(uint16_t word, void *buffer) {
-    ((uint8_t*)buffer)[0] = word >>  0;
-    ((uint8_t*)buffer)[1] = word >>  8;
-}
-
-static inline uint16_t lfs_fromle16_(const void *buffer) {
-    return (((uint8_t*)buffer)[0] <<  0)
-         | (((uint8_t*)buffer)[1] <<  8);
-}
-
 // Convert to/from 32-bit little-endian
-static inline void lfs_tole32_(uint32_t word, void *buffer) {
+static inline void lfs_tole32(uint32_t word, void *buffer) {
     ((uint8_t*)buffer)[0] = word >>  0;
     ((uint8_t*)buffer)[1] = word >>  8;
     ((uint8_t*)buffer)[2] = word >> 16;
     ((uint8_t*)buffer)[3] = word >> 24;
 }
 
-static inline uint32_t lfs_fromle32_(const void *buffer) {
+static inline uint32_t lfs_fromle32(const void *buffer) {
     return (((uint8_t*)buffer)[0] <<  0)
          | (((uint8_t*)buffer)[1] <<  8)
          | (((uint8_t*)buffer)[2] << 16)
@@ -733,9 +655,6 @@ static inline size_t lfs_strcspn(const char *a, const char *cs) {
 #endif
 
 
-//// Calculate CRC-32 with polynomial = 0x04c11db7
-//uint32_t lfs_crc(uint32_t crc, const void *buffer, size_t size);
-
 // Odd-parity and even-parity zeros in our crc32c ring
 #define LFS_CRC32C_ODDZERO  0xfca42daf
 #define LFS_CRC32C_EVENZERO 0x00000000
@@ -758,7 +677,6 @@ static inline uint32_t lfs_crc32c_cube(uint32_t a) {
 
 
 // Allocate memory, only used if buffers are not provided to littlefs
-// Note, memory must be 64-bit aligned
 #ifndef LFS_NO_MALLOC
 #define lfs_malloc malloc
 #else
