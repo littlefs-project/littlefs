@@ -5225,7 +5225,9 @@ static int lfs_fs_gc_(lfs_t *lfs) {
     }
 
     // try to populate the lookahead buffer, unless it's already full
-    if (lfs->lookahead.size < lfs_min(8 * lfs->cfg->lookahead_size, lfs->block_count)) {
+    if (lfs->lookahead.size < lfs_min(
+            8 * lfs->cfg->lookahead_size,
+            lfs->block_count)) {
         err = lfs_alloc_scan(lfs);
         if (err) {
             return err;
