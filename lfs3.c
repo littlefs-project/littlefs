@@ -9458,7 +9458,6 @@ enum {
     LFS3_TSTATE_MDIRS       = 3,
     LFS3_TSTATE_MDIR        = 4,
     LFS3_TSTATE_BTREE       = 5,
-    // TODO can we skip open-things when LFS3_RDONLY?
     LFS3_TSTATE_OMDIRS      = 6,
     LFS3_TSTATE_OBTREE      = 7,
     LFS3_TSTATE_DONE        = 8,
@@ -9673,12 +9672,16 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
         // scan for blocks/btrees in our opened file list
         case LFS3_TSTATE_OMDIRS:;
             // reached end of opened files? return to mdir traversal
-            if (!t->ot) {
+            if (LFS3_IFDEF_RDONLY(
+                    // we don't need to traverse these if rdonly
+                    true,
+                    !t->ot)) {
                 t->b.o.mdir.mid += 1;
                 lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_MDIR);
                 continue;
             }
 
+            #ifndef LFS3_RDONLY
             // skip unrelated files, we only care about unsync reg files
             // associated with the current mid
             //
@@ -9708,6 +9711,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                 *bptr = file->leaf.bptr;
                 return 0;
             }
+            #endif
 
             continue;
 
@@ -9740,11 +9744,15 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                         lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_OMDIRS);
                         continue;
                     // end of opened btree? go to next opened file
-                    } else if (lfs3_t_tstate(t->b.o.flags)
-                            == LFS3_TSTATE_OBTREE) {
+                    } else if (LFS3_IFDEF_RDONLY(
+                            false,
+                            lfs3_t_tstate(t->b.o.flags)
+                                == LFS3_TSTATE_OBTREE)) {
+                        #ifndef LFS3_RDONLY
                         t->ot = t->ot->next;
                         lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_OMDIRS);
                         continue;
+                        #endif
                     } else {
                         LFS3_UNREACHABLE();
                     }
