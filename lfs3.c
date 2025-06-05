@@ -6926,7 +6926,12 @@ static inline bool lfs3_a_islazy(uint32_t flags) {
 
 // traversal flags
 static inline bool lfs3_t_isrdonly(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_T_RDONLY;
+    #else
+    return true;
+    #endif
 }
 
 static inline bool lfs3_t_ismtreeonly(uint32_t flags) {
@@ -7018,7 +7023,12 @@ static inline uint32_t lfs3_t_swapdirty(uint32_t flags) {
 
 // mount flags
 static inline bool lfs3_m_isrdonly(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_M_RDONLY;
+    #else
+    return true;
+    #endif
 }
 
 #ifdef LFS3_REVDBG
