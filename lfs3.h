@@ -720,8 +720,9 @@ typedef struct lfs3_bshrub {
     // sign(trunk)=1 => bshrub
     // sign(trunk)=0 => btree
     lfs3_shrub_t shrub;
-    // TODO can we actually get rid of shrub_ when LFS3_RDONLY?
+    #ifndef LFS3_RDONLY
     lfs3_shrub_t shrub_;
+    #endif
 } lfs3_bshrub_t;
 
 // littlefs file type

@@ -11341,15 +11341,15 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, bool trunc) {
         }
 
         // note many of these functions leave bshrub undefined if there
-        // is an error, so we first read into the staging bshrub
-        file->b.shrub_ = file->b.shrub;
+        // is an error, so we first read into a temporary bshrub/btree
+        lfs3_rbyd_t shrub = file->b.shrub;
 
         // found a bshrub/btree?
         if (err != LFS3_ERR_NOENT) {
             // may be a bshrub (inlined btree)
             if (tag == LFS3_TAG_BSHRUB) {
                 err = lfs3_data_readshrub(lfs3, &data, &file->b.o.mdir,
-                        &file->b.shrub_);
+                        &shrub);
                 if (err) {
                     return err;
                 }
@@ -11357,7 +11357,7 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, bool trunc) {
             // or a btree
             } else if (tag == LFS3_TAG_BTREE) {
                 err = lfs3_data_fetchbtree(lfs3, &data,
-                        &file->b.shrub_);
+                        &shrub);
                 if (err) {
                     return err;
                 }
@@ -11368,7 +11368,7 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, bool trunc) {
         }
 
         // update the bshrub/btree
-        file->b.shrub = file->b.shrub_;
+        file->b.shrub = shrub;
 
         // mark as in-sync
         file->b.o.flags &= ~LFS3_o_UNSYNC;
