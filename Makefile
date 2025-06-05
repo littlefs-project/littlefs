@@ -646,10 +646,10 @@ $(BUILDDIR)/%.s: $(BUILDDIR)/%.c
 	$(CC) -S $(CFLAGS) $< -o$@
 
 $(BUILDDIR)/%.a.c: %.c
-	$(PRETTYASSERTS) -Plfs_ $< -o$@
+	$(PRETTYASSERTS) -Plfs3_ $< -o$@
 
 $(BUILDDIR)/%.a.c: $(BUILDDIR)/%.c
-	$(PRETTYASSERTS) -Plfs_ $< -o$@
+	$(PRETTYASSERTS) -Plfs3_ $< -o$@
 
 $(BUILDDIR)/%.t.c: %.toml
 	./scripts/test.py -c $< $(TESTCFLAGS) -o$@
