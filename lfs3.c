@@ -47,6 +47,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     return 0;
 }
 
+#ifndef LFS3_RDONLY
 static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         const void *buffer, lfs3_size_t size) {
     // must be in-bounds
@@ -67,7 +68,9 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
@@ -83,7 +86,9 @@ static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_bd_sync__(lfs3_t *lfs3) {
     // bd sync
     int err = lfs3->cfg->sync(lfs3->cfg);
@@ -95,6 +100,7 @@ static int lfs3_bd_sync__(lfs3_t *lfs3) {
 
     return 0;
 }
+#endif
 
 
 /// Caching block device operations ///
@@ -103,9 +109,11 @@ static inline void lfs3_bd_droprcache(lfs3_t *lfs3) {
     lfs3->rcache.size = 0;
 }
 
+#ifndef LFS3_RDONLY
 static inline void lfs3_bd_droppcache(lfs3_t *lfs3) {
     lfs3->pcache.size = 0;
 }
+#endif
 
 // caching read that lends you a buffer
 //
@@ -125,6 +133,7 @@ static int lfs3_bd_readnext(lfs3_t *lfs3,
         lfs3_size_t d = hint_;
 
         // already in pcache?
+        #ifndef LFS3_RDONLY
         if (block == lfs3->pcache.block
                 && off < lfs3->pcache.off + lfs3->pcache.size) {
             if (off >= lfs3->pcache.off) {
@@ -138,6 +147,7 @@ static int lfs3_bd_readnext(lfs3_t *lfs3,
             // pcache takes priority
             d = lfs3_min(d, lfs3->pcache.off - off);
         }
+        #endif
 
         // already in rcache?
         if (block == lfs3->rcache.block
@@ -198,6 +208,7 @@ static int lfs3_bd_read(lfs3_t *lfs3,
         lfs3_size_t d = hint_;
 
         // already in pcache?
+        #ifndef LFS3_RDONLY
         if (block == lfs3->pcache.block
                 && off_ < lfs3->pcache.off + lfs3->pcache.size) {
             if (off_ >= lfs3->pcache.off) {
@@ -218,6 +229,7 @@ static int lfs3_bd_read(lfs3_t *lfs3,
             // pcache takes priority
             d = lfs3_min(d, lfs3->pcache.off - off_);
         }
+        #endif
 
         // already in rcache?
         if (block == lfs3->rcache.block
@@ -288,6 +300,7 @@ static int lfs3_bd_read(lfs3_t *lfs3,
     return 0;
 }
 
+#ifndef LFS3_RDONLY
 // needed in lfs3_bd_prog_ for prog validation
 #ifdef LFS3_CKPROGS
 static inline bool lfs3_m_isckprogs(uint32_t flags);
@@ -295,7 +308,9 @@ static inline bool lfs3_m_isckprogs(uint32_t flags);
 static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         const void *buffer, lfs3_size_t size);
+#endif
 
+#ifndef LFS3_RDONLY
 // low-level prog stuff
 static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         const void *buffer, lfs3_size_t size,
@@ -352,7 +367,9 @@ static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // flush the pcache
 static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t *cksum, bool align) {
     if (lfs3->pcache.size != 0) {
@@ -379,7 +396,9 @@ static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t *cksum, bool align) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // caching prog that lends you a buffer
 //
 // with optional checksum
@@ -430,7 +449,9 @@ static int lfs3_bd_prognext(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         lfs3_memset(lfs3->pcache.buffer, 0xff, lfs3->cfg->pcache_size);
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // caching prog
 //
 // with optional checksum
@@ -515,7 +536,9 @@ static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_bd_sync(lfs3_t *lfs3) {
     // make sure we flush any caches
     int err = lfs3_bd_flush(lfs3, NULL, false);
@@ -525,7 +548,9 @@ static int lfs3_bd_sync(lfs3_t *lfs3) {
 
     return lfs3_bd_sync__(lfs3);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_bd_erase(lfs3_t *lfs3, lfs3_block_t block) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
@@ -540,6 +565,7 @@ static int lfs3_bd_erase(lfs3_t *lfs3, lfs3_block_t block) {
 
     return lfs3_bd_erase__(lfs3, block);
 }
+#endif
 
 
 // other block device utils
@@ -608,6 +634,7 @@ static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
     return LFS3_CMP_EQ;
 }
 
+#ifndef LFS3_RDONLY
 static int lfs3_bd_cpy(lfs3_t *lfs3,
         lfs3_block_t dst_block, lfs3_size_t dst_off,
         lfs3_block_t src_block, lfs3_size_t src_off, lfs3_size_t hint,
@@ -655,7 +682,9 @@ static int lfs3_bd_cpy(lfs3_t *lfs3,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_bd_set(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         uint8_t c, lfs3_size_t size,
         uint32_t *cksum, bool align) {
@@ -688,6 +717,7 @@ static int lfs3_bd_set(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     return 0;
 }
+#endif
 
 
 // lfs3_ptail_t stuff
@@ -695,17 +725,17 @@ static int lfs3_bd_set(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 // ptail tracks the most recent trunk's parity so we can parity-check
 // if it hasn't been written to disk yet
 
-#ifdef LFS3_CKMETAPARITY
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKMETAPARITY)
 #define LFS3_PTAIL_PARITY 0x80000000
 #endif
 
-#ifdef LFS3_CKMETAPARITY
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKMETAPARITY)
 static inline bool lfs3_ptail_parity(const lfs3_t *lfs3) {
     return lfs3->ptail.off & LFS3_PTAIL_PARITY;
 }
 #endif
 
-#ifdef LFS3_CKMETAPARITY
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKMETAPARITY)
 static inline lfs3_size_t lfs3_ptail_off(const lfs3_t *lfs3) {
     return lfs3->ptail.off & ~LFS3_PTAIL_PARITY;
 }
@@ -904,7 +934,7 @@ static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
 }
 #endif
 
-#ifdef LFS3_CKDATACKSUMREADS
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKDATACKSUMREADS)
 static int lfs3_bd_cpyck(lfs3_t *lfs3,
         lfs3_block_t dst_block, lfs3_size_t dst_off,
         lfs3_block_t src_block, lfs3_size_t src_off, lfs3_size_t hint,
@@ -1460,8 +1490,13 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
 
         // parity in in ptail?
         bool parity;
-        if (block == lfs3->ptail.block && off+d_ == lfs3_ptail_off(lfs3)) {
+        if (LFS3_IFDEF_RDONLY(
+                false,
+                block == lfs3->ptail.block
+                    && off+d_ == lfs3_ptail_off(lfs3))) {
+            #ifndef LFS3_RDONLY
             parity = lfs3_ptail_parity(lfs3);
+            #endif
 
         // parity on disk?
         } else {
@@ -1503,6 +1538,7 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
     return d;
 }
 
+#ifndef LFS3_RDONLY
 static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, bool perturb,
         lfs3_tag_t tag, lfs3_rid_t weight, lfs3_size_t size,
@@ -1549,6 +1585,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 
     return d;
 }
+#endif
 
 
 /// lfs3_data_t stuff ///
@@ -1849,6 +1886,7 @@ static lfs3_scmp_t lfs3_data_namecmp(lfs3_t *lfs3, lfs3_data_t data,
     return lfs3_data_cmp(lfs3, data, name, name_len);
 }
 
+#ifndef LFS3_RDONLY
 static int lfs3_bd_progdata(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_data_t data,
         uint32_t *cksum, bool align) {
@@ -1892,6 +1930,7 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
 
     return 0;
 }
+#endif
 
 
 // macros for le32/leb128/lleb128 encoding, these are useful for
@@ -1904,11 +1943,13 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
 //
 #define LFS3_LE32_DSIZE 4
 
+#ifndef LFS3_RDONLY
 static inline lfs3_data_t lfs3_data_fromle32(uint32_t word,
         uint8_t buffer[static LFS3_LE32_DSIZE]) {
     lfs3_tole32(word, buffer);
     return LFS3_DATA_BUF(buffer, LFS3_LE32_DSIZE);
 }
+#endif
 
 // leb128 encoding:
 // .---+- -+- -+- -+- -.  total: 1 leb128  <=5 bytes
@@ -1917,6 +1958,7 @@ static inline lfs3_data_t lfs3_data_fromle32(uint32_t word,
 //
 #define LFS3_LEB128_DSIZE 5
 
+#ifndef LFS3_RDONLY
 static inline lfs3_data_t lfs3_data_fromleb128(uint32_t word,
         uint8_t buffer[static LFS3_LEB128_DSIZE]) {
     // leb128s should not exceed 31-bits
@@ -1929,6 +1971,7 @@ static inline lfs3_data_t lfs3_data_fromleb128(uint32_t word,
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
 // lleb128 encoding:
 // .---+- -+- -+- -.  total: 1 leb128  <=4 bytes
@@ -1937,6 +1980,7 @@ static inline lfs3_data_t lfs3_data_fromleb128(uint32_t word,
 //
 #define LFS3_LLEB128_DSIZE 4
 
+#ifndef LFS3_RDONLY
 static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
         uint8_t buffer[static LFS3_LLEB128_DSIZE]) {
     // little-leb128s should not exceed 28-bits
@@ -1949,6 +1993,7 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
 
 // we need to at least define DSIZE/DATA macros here
@@ -2030,6 +2075,7 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 
 // operations on attribute lists
 
+#ifndef LFS3_RDONLY
 // our core attribute type
 typedef struct lfs3_rattr {
     lfs3_tag_t tag;
@@ -2047,6 +2093,7 @@ typedef struct lfs3_rattr {
         const void *etc;
     } u;
 } lfs3_rattr_t;
+#endif
 
 // low-level attr macro
 #define LFS3_RATTR_(_tag, _weight, _u, _count) \
@@ -2123,12 +2170,14 @@ typedef struct lfs3_rattr {
         .weight=_weight, \
         .u.lleb128=_lleb128})
 
+#ifndef LFS3_RDONLY
 // helper macro for did + name pairs
 typedef struct lfs3_name {
     uint32_t did;
     const char *name;
     lfs3_size_t name_len;
 } lfs3_name_t;
+#endif
 
 #define LFS3_RATTR_NAME_(_tag, _weight, _name) \
     ((lfs3_rattr_t){ \
@@ -2226,16 +2275,21 @@ typedef struct lfs3_name {
     sizeof((const lfs3_rattr_t[]){__VA_ARGS__}) / sizeof(lfs3_rattr_t)
 
 // rattr helpers
+#ifndef LFS3_RDONLY
 static inline bool lfs3_rattr_isnoop(lfs3_rattr_t rattr) {
     // noop rattrs must have zero weight
     LFS3_ASSERT(rattr.tag || rattr.weight == 0);
     return !rattr.tag;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_rattr_isinsert(lfs3_rattr_t rattr) {
     return !lfs3_tag_isgrow(rattr.tag) && rattr.weight > 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline lfs3_srid_t lfs3_rattr_nextrid(lfs3_rattr_t rattr,
         lfs3_srid_t rid) {
     if (lfs3_rattr_isinsert(rattr)) {
@@ -2244,7 +2298,9 @@ static inline lfs3_srid_t lfs3_rattr_nextrid(lfs3_rattr_t rattr,
         return rid + rattr.weight;
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline lfs3_tag_t lfs3_rattr_dtag(lfs3_rattr_t rattr) {
     // lazily tag encoding can be bypassed with explicit data, this is
     // necessary to allow copies during compaction, relocation, etc
@@ -2254,7 +2310,9 @@ static inline lfs3_tag_t lfs3_rattr_dtag(lfs3_rattr_t rattr) {
         return LFS3_TAG_DATA;
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline lfs3_size_t lfs3_rattr_dsize(lfs3_rattr_t rattr) {
     // note this does not include the tag size
     //
@@ -2271,6 +2329,7 @@ static inline lfs3_size_t lfs3_rattr_dsize(lfs3_rattr_t rattr) {
         return size;
     }
 }
+#endif
 
 
 // operations on custom attribute lists
@@ -2309,13 +2368,16 @@ static lfs3_scmp_t lfs3_attr_cmp(lfs3_t *lfs3, const struct lfs3_attr *attr,
 
 // operations on erased-state checksums
 
+#ifndef LFS3_RDONLY
 // erased-state checksum
 typedef struct lfs3_ecksum {
     // cksize=-1 indicates no ecksum
     lfs3_ssize_t cksize;
     uint32_t cksum;
 } lfs3_ecksum_t;
+#endif
 
+#ifndef LFS3_RDONLY
 // erased-state checksum on-disk encoding
 static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
         uint8_t buffer[static LFS3_ECKSUM_DSIZE]) {
@@ -2336,7 +2398,9 @@ static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_ecksum_t *ecksum) {
     int err = lfs3_data_readlleb128(lfs3, data, (lfs3_size_t*)&ecksum->cksize);
@@ -2351,6 +2415,7 @@ static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
 
     return 0;
 }
+#endif
 
 
 
@@ -2359,7 +2424,9 @@ static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
 #define LFS3_BPTR_ONDISK LFS3_DATA_ONDISK
 #define LFS3_BPTR_ISBPTR LFS3_DATA_ISBPTR
 
+#ifndef LFS3_RDONLY
 #define LFS3_BPTR_ISERASED 0x80000000
+#endif
 
 static void lfs3_bptr_init(lfs3_bptr_t *bptr,
         lfs3_data_t data, lfs3_size_t cksize, uint32_t cksum) {
@@ -2385,6 +2452,7 @@ static inline void lfs3_bptr_discard(lfs3_bptr_t *bptr) {
     #endif
 }
 
+#ifndef LFS3_RDONLY
 static inline void lfs3_bptr_claim(lfs3_bptr_t *bptr) {
     #ifdef LFS3_CKDATACKSUMREADS
     bptr->data.u.disk.cksize &= ~LFS3_BPTR_ISERASED;
@@ -2392,6 +2460,7 @@ static inline void lfs3_bptr_claim(lfs3_bptr_t *bptr) {
     bptr->cksize &= ~LFS3_BPTR_ISERASED;
     #endif
 }
+#endif
 
 static inline bool lfs3_bptr_isbptr(const lfs3_bptr_t *bptr) {
     return bptr->data.size & LFS3_BPTR_ISBPTR;
@@ -2409,6 +2478,7 @@ static inline lfs3_size_t lfs3_bptr_size(const lfs3_bptr_t *bptr) {
     return bptr->data.size & ~LFS3_BPTR_ONDISK & ~LFS3_BPTR_ISBPTR;
 }
 
+#ifndef LFS3_RDONLY
 // checked reads adds ck info to lfs3_data_t that we don't want to
 // unnecessarily duplicate, this makes accessing ck info annoyingly
 // messy...
@@ -2419,12 +2489,17 @@ static inline bool lfs3_bptr_iserased(const lfs3_bptr_t *bptr) {
     return bptr->cksize & LFS3_BPTR_ISERASED;
     #endif
 }
+#endif
 
 static inline lfs3_size_t lfs3_bptr_cksize(const lfs3_bptr_t *bptr) {
     #ifdef LFS3_CKDATACKSUMREADS
-    return bptr->data.u.disk.cksize & ~LFS3_BPTR_ISERASED;
+    return LFS3_IFDEF_RDONLY(
+            bptr->data.u.disk.cksize,
+            bptr->data.u.disk.cksize & ~LFS3_BPTR_ISERASED);
     #else
-    return bptr->cksize & ~LFS3_BPTR_ISERASED;
+    return LFS3_IFDEF_RDONLY(
+            bptr->cksize,
+            bptr->cksize & ~LFS3_BPTR_ISERASED);
     #endif
 }
 
@@ -2436,6 +2511,7 @@ static inline uint32_t lfs3_bptr_cksum(const lfs3_bptr_t *bptr) {
     #endif
 }
 
+#ifndef LFS3_RDONLY
 // bptr on-disk encoding
 static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
         uint8_t buffer[static LFS3_BPTR_DSIZE]) {
@@ -2480,6 +2556,7 @@ static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
 static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_bptr_t *bptr) {
@@ -2559,13 +2636,17 @@ static void lfs3_rbyd_init(lfs3_rbyd_t *rbyd, lfs3_block_t block) {
     rbyd->blocks[0] = block;
     rbyd->trunk = 0;
     rbyd->weight = 0;
+    #ifndef LFS3_RDONLY
     rbyd->eoff = 0;
     rbyd->cksum = 0;
+    #endif
 }
 
+#ifndef LFS3_RDONLY
 static inline void lfs3_rbyd_claim(lfs3_rbyd_t *rbyd) {
     rbyd->eoff = -1;
 }
+#endif
 
 static inline bool lfs3_rbyd_isshrub(const lfs3_rbyd_t *rbyd) {
     return rbyd->trunk & LFS3_RBYD_ISSHRUB;
@@ -2601,6 +2682,7 @@ static inline int lfs3_rbyd_cmp(
 // needed in lfs3_rbyd_alloc
 static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase);
 
+#ifndef LFS3_RDONLY
 // allocate an rbyd block
 static int lfs3_rbyd_alloc(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     lfs3_sblock_t block = lfs3_alloc(lfs3, true);
@@ -2611,7 +2693,9 @@ static int lfs3_rbyd_alloc(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     lfs3_rbyd_init(rbyd, block);
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_ckecksum(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         const lfs3_ecksum_t *ecksum) {
     // check that the ecksum looks right
@@ -2648,6 +2732,7 @@ static int lfs3_rbyd_ckecksum(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
     // found erased-state?
     return (ecksum_ == ecksum->cksum) ? 0 : LFS3_ERR_CORRUPT;
 }
+#endif
 
 // needed in lfs3_rbyd_fetch_ if debugging rbyd balance
 static int lfs3_rbyd_lookupnext_(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
@@ -2684,9 +2769,11 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     lfs3_rid_t weight = 0;
     lfs3_rid_t weight_ = 0;
 
+    #ifndef LFS3_RDONLY
     // assume unerased until proven otherwise
     lfs3_ecksum_t ecksum = {.cksize=-1};
     lfs3_ecksum_t ecksum_ = {.cksize=-1};
+    #endif
 
     // also find gcksumdelta, though this is only used by mdirs
     uint32_t gcksumdelta_ = 0;
@@ -2728,7 +2815,10 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                 }
 
                 // found an ecksum? save for later
-                if (tag == LFS3_TAG_ECKSUM) {
+                if (LFS3_IFDEF_RDONLY(
+                        false,
+                        tag == LFS3_TAG_ECKSUM)) {
+                    #ifndef LFS3_RDONLY
                     err = lfs3_data_readecksum(lfs3,
                             &LFS3_DATA_DISK(block, off_,
                                 // note this size is to make the hint do
@@ -2741,6 +2831,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                         }
                         return err;
                     }
+                    #endif
 
                 // found gcksumdelta? save for later
                 } else if (tag == LFS3_TAG_GCKSUMDELTA) {
@@ -2796,8 +2887,10 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                 rbyd->cksum = cksum;
                 rbyd->trunk = (LFS3_RBYD_ISSHRUB & rbyd->trunk) | trunk_;
                 rbyd->weight = weight;
+                #ifndef LFS3_RDONLY
                 ecksum = ecksum_;
                 ecksum_.cksize = -1;
+                #endif
                 if (gcksumdelta) {
                     *gcksumdelta = gcksumdelta_;
                 }
@@ -2865,6 +2958,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
 
     // did we end on a valid commit? we may have erased-state
     bool erased = false;
+    #ifndef LFS3_RDONLY
     if (ecksum.cksize != -1) {
         // check the erased-state checksum
         err = lfs3_rbyd_ckecksum(lfs3, rbyd, &ecksum);
@@ -2875,6 +2969,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
         // found valid erased-state?
         erased = (err != LFS3_ERR_CORRUPT);
     }
+    #endif
 
     // used eoff=-1 to indicate when there is no erased-state
     if (!erased) {
@@ -3131,6 +3226,8 @@ static int lfs3_rbyd_lookup(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 
 // rbyd append operations
 
+
+#ifndef LFS3_RDONLY
 // append a revision count
 //
 // this is optional, if not called revision count defaults to 0 (for btrees)
@@ -3155,7 +3252,9 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd, uint32_t rev) {
     rbyd->eoff += sizeof(uint32_t);
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // other low-level appends
 static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag, lfs3_rid_t weight, lfs3_size_t size) {
@@ -3192,6 +3291,7 @@ static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     return 0;
 }
+#endif
 
 // needed in lfs3_rbyd_appendrattr_
 typedef struct lfs3_geometry lfs3_geometry_t;
@@ -3206,6 +3306,7 @@ static lfs3_data_t lfs3_data_frombtree(const lfs3_btree_t *btree,
 static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
         uint8_t buffer[static LFS3_MPTR_DSIZE]);
 
+#ifndef LFS3_RDONLY
 // encode rattrs
 static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_rattr_t rattr) {
@@ -3403,7 +3504,9 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // checks before we append
 static int lfs3_rbyd_appendinit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     // must fetch before mutating!
@@ -3424,7 +3527,9 @@ static int lfs3_rbyd_appendinit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // helper functions for managing the 3-element fifo used in
 // lfs3_rbyd_appendrattr
 typedef struct lfs3_alt {
@@ -3432,7 +3537,9 @@ typedef struct lfs3_alt {
     lfs3_rid_t weight;
     lfs3_size_t jump;
 } lfs3_alt_t;
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_p_flush(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_alt_t p[static 3],
         int count) {
@@ -3459,7 +3566,9 @@ static int lfs3_rbyd_p_flush(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline int lfs3_rbyd_p_push(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_alt_t p[static 3],
         lfs3_tag_t alt, lfs3_rid_t weight, lfs3_size_t jump) {
@@ -3477,13 +3586,17 @@ static inline int lfs3_rbyd_p_push(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     p[0].jump = jump;
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline void lfs3_rbyd_p_pop(
         lfs3_alt_t p[static 3]) {
     lfs3_memmove(p, p+1, 2*sizeof(lfs3_alt_t));
     p[2].alt = 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static void lfs3_rbyd_p_recolor(
         lfs3_alt_t p[static 3]) {
     // propagate a red edge upwards
@@ -3530,7 +3643,9 @@ static void lfs3_rbyd_p_recolor(
         }
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // our core rbyd append algorithm
 static int lfs3_rbyd_appendrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_srid_t rid, lfs3_rattr_t rattr) {
@@ -4153,7 +4268,9 @@ leaf:;
     rbyd->weight += rattr.weight;
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         uint32_t cksum) {
     // align to the next prog unit
@@ -4301,7 +4418,9 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     #endif
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_appendcksum(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     // begin appending
     int err = lfs3_rbyd_appendinit(lfs3, rbyd);
@@ -4312,7 +4431,9 @@ static int lfs3_rbyd_appendcksum(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     // append checksum stuff
     return lfs3_rbyd_appendcksum_(lfs3, rbyd, rbyd->cksum);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_appendrattrs(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_srid_t rid, lfs3_srid_t start_rid, lfs3_srid_t end_rid,
         const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
@@ -4371,8 +4492,10 @@ static int lfs3_rbyd_commit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     return 0;
 }
+#endif
 
 
+#ifndef LFS3_RDONLY
 // Calculate the maximum possible disk usage required by this rbyd after
 // compaction. This uses a conservative estimate so the actual on-disk cost
 // should be smaller.
@@ -4452,7 +4575,9 @@ static lfs3_ssize_t lfs3_rbyd_estimate(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 
     return rbyd_dsize + a_dsize + b_dsize;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // appends a raw tag as a part of compaction, note these must
 // be appended in order!
 //
@@ -4476,7 +4601,9 @@ static int lfs3_rbyd_appendcompactrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_appendcompactrbyd(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
         const lfs3_rbyd_t *rbyd, lfs3_srid_t start_rid, lfs3_srid_t end_rid) {
     // copy over tags in the rbyd in order
@@ -4511,7 +4638,9 @@ static int lfs3_rbyd_appendcompactrbyd(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_appendcompaction(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_size_t off) {
     // begin appending
@@ -4653,7 +4782,9 @@ done:;
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_compact(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
         const lfs3_rbyd_t *rbyd, lfs3_srid_t start_rid, lfs3_srid_t end_rid) {
     // append rbyd
@@ -4671,7 +4802,9 @@ static int lfs3_rbyd_compact(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // append a secondary "shrub" tree
 static int lfs3_rbyd_appendshrub(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         const lfs3_shrub_t *shrub) {
@@ -4694,6 +4827,7 @@ static int lfs3_rbyd_appendshrub(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     return 0;
 }
+#endif
 
 
 // some low-level name things
@@ -4817,9 +4951,11 @@ static void lfs3_btree_init(lfs3_btree_t *btree) {
 }
 
 // convenience operations
+#ifndef LFS3_RDONLY
 static inline void lfs3_btree_claim(lfs3_btree_t *btree) {
     lfs3_rbyd_claim(btree);
 }
+#endif
 
 static inline int lfs3_btree_cmp(
         const lfs3_btree_t *a,
@@ -4829,6 +4965,7 @@ static inline int lfs3_btree_cmp(
 
 
 // branch on-disk encoding
+#ifndef LFS3_RDONLY
 static lfs3_data_t lfs3_data_frombranch(const lfs3_rbyd_t *branch,
         uint8_t buffer[static LFS3_BRANCH_DSIZE]) {
     // block should not exceed 31-bits
@@ -4854,6 +4991,7 @@ static lfs3_data_t lfs3_data_frombranch(const lfs3_rbyd_t *branch,
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
 static int lfs3_data_readbranch(lfs3_t *lfs3,
         lfs3_data_t *data, lfs3_bid_t weight,
@@ -4932,6 +5070,7 @@ static int lfs3_data_fetchbranch(lfs3_t *lfs3,
 //
 // this is the same as the branch on-disk econding, but prefixed with the
 // btree's weight
+#ifndef LFS3_RDONLY
 static lfs3_data_t lfs3_data_frombtree(const lfs3_btree_t *btree,
         uint8_t buffer[static LFS3_BTREE_DSIZE]) {
     // weight should not exceed 31-bits
@@ -4949,6 +5088,7 @@ static lfs3_data_t lfs3_data_frombtree(const lfs3_btree_t *btree,
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
 static int lfs3_data_readbtree(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_btree_t *btree) {
@@ -5109,6 +5249,7 @@ static int lfs3_btree_lookup(lfs3_t *lfs3, const lfs3_btree_t *btree,
             tag_, data_);
 }
 
+#ifndef LFS3_RDONLY
 // TODO should lfs3_btree_lookupnext/lfs3_btree_parent be deduplicated?
 static int lfs3_btree_parent(lfs3_t *lfs3, const lfs3_btree_t *btree,
         lfs3_bid_t bid, const lfs3_rbyd_t *child,
@@ -5175,18 +5316,22 @@ static int lfs3_btree_parent(lfs3_t *lfs3, const lfs3_btree_t *btree,
         }
     }
 }
+#endif
 
 
+#ifndef LFS3_RDONLY
 // extra state needed for non-terminating lfs3_btree_commit_ calls
 typedef struct lfs3_bctx {
     lfs3_rattr_t rattrs[4];
     lfs3_data_t split_name;
     uint8_t buf[2*LFS3_BRANCH_DSIZE];
 } lfs3_bctx_t;
+#endif
 
 // needed in lfs3_btree_commit_
 static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3);
 
+#ifndef LFS3_RDONLY
 // core btree algorithm
 //
 // this commits up to the root, but stops if:
@@ -5819,7 +5964,9 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         continue;
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // commit/alloc a new btree root
 static int lfs3_btree_commitroot_(lfs3_t *lfs3, lfs3_btree_t *btree,
         bool split,
@@ -5870,7 +6017,9 @@ relocate:;
     *btree = rbyd_;
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // commit to a btree, this is atomic
 static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
@@ -5903,6 +6052,7 @@ static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
     #endif
     return 0;
 }
+#endif
 
 // lookup in a btree by name
 static lfs3_scmp_t lfs3_btree_namelookupleaf(lfs3_t *lfs3,
@@ -6131,6 +6281,7 @@ static inline int lfs3_shrub_cmp(
     return lfs3_rbyd_cmp(a, b);
 }
 
+#ifndef LFS3_RDONLY
 // shrub on-disk encoding
 static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
         uint8_t buffer[static LFS3_SHRUB_DSIZE]) {
@@ -6158,6 +6309,7 @@ static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
 static int lfs3_data_readshrub(lfs3_t *lfs3, lfs3_data_t *data,
         const lfs3_mdir_t *mdir,
@@ -6187,6 +6339,7 @@ static int lfs3_data_readshrub(lfs3_t *lfs3, lfs3_data_t *data,
 // needed in lfs3_shrub_estimate
 static inline bool lfs3_o_isbshrub(uint32_t flags);
 
+#ifndef LFS3_RDONLY
 // these are used in mdir commit/compaction
 static lfs3_ssize_t lfs3_shrub_estimate(lfs3_t *lfs3,
         const lfs3_shrub_t *shrub) {
@@ -6207,7 +6360,9 @@ static lfs3_ssize_t lfs3_shrub_estimate(lfs3_t *lfs3,
     return lfs3_rbyd_estimate(lfs3, shrub, -1, -1,
             NULL);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_shrub_compact(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
         lfs3_shrub_t *shrub_, const lfs3_shrub_t *shrub) {
     // save our current trunk/weight
@@ -6243,7 +6398,9 @@ static int lfs3_shrub_compact(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
     rbyd_->weight = weight;
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // this is needed to sneak shrub commits into mdir commits
 typedef struct lfs3_shrubcommit {
     lfs3_bshrub_t *bshrub;
@@ -6251,7 +6408,9 @@ typedef struct lfs3_shrubcommit {
     const lfs3_rattr_t *rattrs;
     lfs3_size_t rattr_count;
 } lfs3_shrubcommit_t;
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_shrub_commit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
         lfs3_shrub_t *shrub, lfs3_srid_t rid,
         const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
@@ -6279,6 +6438,7 @@ static int lfs3_shrub_commit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
     rbyd_->weight = weight;
     return 0;
 }
+#endif
 
 
 // ok, actual bshrub things
@@ -6316,6 +6476,7 @@ static int lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_tag_t tag,
         lfs3_tag_t *tag_, lfs3_data_t *data_);
 
+#ifndef LFS3_RDONLY
 // find a tight upper bound on the _full_ bshrub size, this includes
 // any on-disk bshrubs, and all pending bshrubs
 static lfs3_ssize_t lfs3_bshrub_estimate(lfs3_t *lfs3,
@@ -6363,6 +6524,7 @@ static lfs3_ssize_t lfs3_bshrub_estimate(lfs3_t *lfs3,
 
     return estimate;
 }
+#endif
 
 // bshrub lookup functions
 static int lfs3_bshrub_lookupleaf(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
@@ -6396,9 +6558,12 @@ static int lfs3_bshrub_traverse(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
 }
 
 // needed in lfs3_bshrub_commitroot_
+#ifndef LFS3_RDONLY
 static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count);
+#endif
 
+#ifndef LFS3_RDONLY
 // commit to the bshrub root, i.e. the bshrub's shrub
 static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
         bool split,
@@ -6473,7 +6638,9 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // commit to bshrub, this is atomic
 static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
@@ -6539,6 +6706,7 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     #endif
     return 0;
 }
+#endif
 
 
 
@@ -6595,6 +6763,7 @@ static inline bool lfs3_mptr_ismrootanchor(
     return mptr[0] <= 1;
 }
 
+#ifndef LFS3_RDONLY
 // mptr on-disk encoding
 static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
         uint8_t buffer[static LFS3_MPTR_DSIZE]) {
@@ -6613,6 +6782,7 @@ static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
 static int lfs3_data_readmptr(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_block_t mptr[static 2]) {
@@ -6632,27 +6802,57 @@ static int lfs3_data_readmptr(lfs3_t *lfs3, lfs3_data_t *data,
 
 // open flags
 static inline bool lfs3_o_isrdonly(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return (flags & LFS3_O_MODE) == LFS3_O_RDONLY;
+    #else
+    return true;
+    #endif
 }
 
 static inline bool lfs3_o_iswronly(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return (flags & LFS3_O_MODE) == LFS3_O_WRONLY;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_o_iscreat(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_O_CREAT;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_o_isexcl(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_O_EXCL;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_o_istrunc(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_O_TRUNC;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_o_isappend(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_O_APPEND;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_o_isflush(uint32_t flags) {
@@ -6734,23 +6934,48 @@ static inline bool lfs3_t_ismtreeonly(uint32_t flags) {
 }
 
 static inline bool lfs3_t_ismkconsistent(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_T_MKCONSISTENT;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_t_islookahead(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_T_LOOKAHEAD;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_t_iscompact(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_T_COMPACT;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_t_isckmeta(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_T_CKMETA;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_t_isckdata(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_RDONLY
     return flags & LFS3_T_CKDATA;
+    #else
+    return false;
+    #endif
 }
 
 // internal traversal flags
@@ -6899,9 +7124,11 @@ static void lfs3_omdir_clobber(lfs3_t *lfs3, const lfs3_omdir_t *o,
 
 static void lfs3_omdir_close(lfs3_t *lfs3, lfs3_omdir_t *o) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, o));
+    #ifndef LFS3_RDONLY
     // make sure we're not entangled in any traversals, note we don't
     // set the dirty bit here
     lfs3_omdir_clobber(lfs3, o, 0);
+    #endif
     // remove from opened list
     for (lfs3_omdir_t **o_ = &lfs3->omdirs; *o_; o_ = &(*o_)->next) {
         if (*o_ == o) {
@@ -6933,6 +7160,7 @@ static bool lfs3_omdir_ismidopen(const lfs3_t *lfs3,
 // needed in lfs3_omdir_clobber
 static void lfs3_traversal_clobber(lfs3_t *lfs3, lfs3_traversal_t *t);
 
+#ifndef LFS3_RDONLY
 // clobber any traversals referencing our mdir
 static void lfs3_omdir_clobber(lfs3_t *lfs3, const lfs3_omdir_t *o,
         uint32_t flags) {
@@ -6946,11 +7174,14 @@ static void lfs3_omdir_clobber(lfs3_t *lfs3, const lfs3_omdir_t *o,
         }
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // clobber all traversals
 static void lfs3_fs_clobber(lfs3_t *lfs3, uint32_t flags) {
     lfs3_omdir_clobber(lfs3, NULL, flags);
 }
+#endif
 
 
 
@@ -6961,6 +7192,7 @@ static inline lfs3_size_t lfs3_grm_count(const lfs3_t *lfs3) {
     return (lfs3->grm.queue[0] != 0) + (lfs3->grm.queue[1] != 0);
 }
 
+#ifndef LFS3_RDONLY
 static inline void lfs3_grm_push(lfs3_t *lfs3, lfs3_smid_t mid) {
     // note mid=0.0 always maps to the root bookmark and should never
     // be grmed
@@ -6969,13 +7201,16 @@ static inline void lfs3_grm_push(lfs3_t *lfs3, lfs3_smid_t mid) {
     lfs3->grm.queue[1] = lfs3->grm.queue[0];
     lfs3->grm.queue[0] = mid;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline lfs3_smid_t lfs3_grm_pop(lfs3_t *lfs3) {
     lfs3_smid_t mid = lfs3->grm.queue[0];
     lfs3->grm.queue[0] = lfs3->grm.queue[1];
     lfs3->grm.queue[1] = 0;
     return mid;
 }
+#endif
 
 static inline bool lfs3_grm_ismidrm(const lfs3_t *lfs3, lfs3_smid_t mid) {
     return mid != 0
@@ -6986,6 +7221,7 @@ static inline bool lfs3_grm_ismidrm(const lfs3_t *lfs3, lfs3_smid_t mid) {
 #define LFS3_DATA_GRM(_grm, _buffer) \
     ((struct {lfs3_data_t d;}){lfs3_data_fromgrm(_grm, _buffer)}.d)
 
+#ifndef LFS3_RDONLY
 static lfs3_data_t lfs3_data_fromgrm(const lfs3_t *lfs3,
         uint8_t buffer[static LFS3_GRM_DSIZE]) {
     // make sure to zero so we don't leak any info
@@ -7004,6 +7240,7 @@ static lfs3_data_t lfs3_data_fromgrm(const lfs3_t *lfs3,
 
     return LFS3_DATA_BUF(buffer, lfs3_memlen(buffer, LFS3_GRM_DSIZE));
 }
+#endif
 
 // required by lfs3_data_readgrm
 static inline lfs3_mid_t lfs3_mtree_weight(lfs3_t *lfs3);
@@ -7047,6 +7284,7 @@ static void lfs3_fs_flushgdelta(lfs3_t *lfs3) {
     lfs3_memset(lfs3->grm_d, 0, LFS3_GRM_DSIZE);
 }
 
+#ifndef LFS3_RDONLY
 // commit any pending gdeltas
 static void lfs3_fs_commitgdelta(lfs3_t *lfs3) {
     // keep track of the on-disk gcksum
@@ -7055,7 +7293,9 @@ static void lfs3_fs_commitgdelta(lfs3_t *lfs3) {
     // keep track of the on-disk grm
     lfs3_data_fromgrm(lfs3, lfs3->grm_p);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // revert gstate to on-disk state
 static void lfs3_fs_revertgdelta(lfs3_t *lfs3) {
     // revert to the on-disk gcksum
@@ -7068,7 +7308,9 @@ static void lfs3_fs_revertgdelta(lfs3_t *lfs3) {
         LFS3_UNREACHABLE();
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // append and consume any pending gstate
 static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     // note gcksums are a special case and handled directly in
@@ -7116,6 +7358,7 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
 
     return 0;
 }
+#endif
 
 static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
     // consume any gcksum deltas
@@ -7169,6 +7412,7 @@ static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
 static inline bool lfs3_mdir_ismrootanchor(const lfs3_mdir_t *mdir);
 static inline int lfs3_mdir_cmp(const lfs3_mdir_t *a, const lfs3_mdir_t *b);
 
+#ifndef LFS3_RDONLY
 static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         uint32_t rev) {
     (void)lfs3;
@@ -7197,7 +7441,9 @@ static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     #endif
     return rev;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // btrees don't normally need revision counts, but we make use of them
 // if revdbg or revnoise is enabled
 static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3) {
@@ -7224,7 +7470,9 @@ static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3) {
     #endif
     return rev;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_rev_needsrelocation(lfs3_t *lfs3, uint32_t rev) {
     if (lfs3->recycle_bits == -1) {
         return false;
@@ -7234,7 +7482,9 @@ static inline bool lfs3_rev_needsrelocation(lfs3_t *lfs3, uint32_t rev) {
     uint32_t rev_ = rev + (1 << (28-lfs3_smax(lfs3->recycle_bits, 0)));
     return (rev_ >> 28) != (rev >> 28);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, uint32_t rev) {
     // increment recycle counter/revision
     rev += 1 << (28-lfs3_smax(lfs3->recycle_bits, 0));
@@ -7246,15 +7496,18 @@ static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, uint32_t rev) {
     #endif
     return rev;
 }
+#endif
 
 
 
 /// Metadata pair stuff ///
 
+#ifndef LFS3_RDONLY
 // mdir convenience functions
 static inline void lfs3_mdir_claim(lfs3_mdir_t *mdir) {
     lfs3_rbyd_claim(&mdir->rbyd);
 }
+#endif
 
 static inline int lfs3_mdir_cmp(const lfs3_mdir_t *a, const lfs3_mdir_t *b) {
     return lfs3_mptr_cmp(a->rbyd.blocks, b->rbyd.blocks);
@@ -7487,6 +7740,7 @@ static int lfs3_mtree_lookup(lfs3_t *lfs3, lfs3_smid_t mid,
     }
 }
 
+#ifndef LFS3_RDONLY
 // this is the same as lfs3_btree_commit, but we set the inmtree flag
 // for debugging reasons
 static int lfs3_mtree_commit(lfs3_t *lfs3, lfs3_btree_t *mtree,
@@ -7500,6 +7754,7 @@ static int lfs3_mtree_commit(lfs3_t *lfs3, lfs3_btree_t *mtree,
     #endif
     return err;
 }
+#endif
 
 
 
@@ -7513,6 +7768,7 @@ static int lfs3_mtree_commit(lfs3_t *lfs3, lfs3_btree_t *mtree,
 // up through the mtree/mroot chain, and through any internal structures,
 // making lfs3_mdir_commit quite involved and a bit of a mess.
 
+#ifndef LFS3_RDONLY
 // low-level mdir operations needed by lfs3_mdir_commit
 static int lfs3_mdir_alloc__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         lfs3_smid_t mid, bool partial) {
@@ -7569,7 +7825,9 @@ relocate:;
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
         const lfs3_mdir_t *mdir, bool force) {
     // assign the mid
@@ -7616,7 +7874,9 @@ static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // low-level mdir commit, does not handle mtree/mlist/compaction/etc
 static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         lfs3_srid_t start_rid, lfs3_srid_t end_rid,
@@ -7873,7 +8133,9 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // TODO do we need to include commit overhead here?
 static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_srid_t start_rid, lfs3_srid_t end_rid,
@@ -7988,7 +8250,9 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
 
     return mdir_dsize + a_dsize + b_dsize;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_mdir_compact__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
         const lfs3_mdir_t *mdir, lfs3_srid_t start_rid, lfs3_srid_t end_rid) {
     // this is basically the same as lfs3_rbyd_compact, but with special
@@ -8099,7 +8363,9 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // mid-level mdir commit, this one will at least compact on overflow
 static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         lfs3_srid_t start_rid, lfs3_srid_t end_rid,
@@ -8234,7 +8500,9 @@ compact:;
         }
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_mroot_parent(lfs3_t *lfs3, const lfs3_block_t mptr[static 2],
         lfs3_mdir_t *mparent_) {
     // we only call this when we actually have parents
@@ -8274,10 +8542,12 @@ static int lfs3_mroot_parent(lfs3_t *lfs3, const lfs3_block_t mptr[static 2],
         }
     }
 }
+#endif
 
 // needed in lfs3_mdir_commit
 static inline void lfs3_file_discardleaf(lfs3_file_t *file);
 
+#ifndef LFS3_RDONLY
 // high-level mdir commit
 //
 // this is atomic and updates any opened mdirs, lfs3_t, etc
@@ -8900,13 +9170,16 @@ failed:;
     lfs3_fs_revertgdelta(lfs3);
     return err;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_mdir_compact(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // the easiest way to do this is to just mark mdir as unerased
     // and call lfs3_mdir_commit
     lfs3_mdir_claim(mdir);
     return lfs3_mdir_commit(lfs3, mdir, NULL, 0);
 }
+#endif
 
 
 
@@ -9185,6 +9458,7 @@ enum {
     LFS3_TSTATE_MDIRS       = 3,
     LFS3_TSTATE_MDIR        = 4,
     LFS3_TSTATE_BTREE       = 5,
+    // TODO can we skip open-things when LFS3_RDONLY?
     LFS3_TSTATE_OMDIRS      = 6,
     LFS3_TSTATE_OBTREE      = 7,
     LFS3_TSTATE_DONE        = 8,
@@ -9656,6 +9930,7 @@ dropped:;
         goto failed;
     }
 
+    #ifndef LFS3_RDONLY
     // swap dirty/mutated flags while in lfs3_mtree_gc
     t->b.o.flags = lfs3_t_swapdirty(t->b.o.flags);
 
@@ -9718,12 +9993,14 @@ dropped:;
 
     // swap back dirty/mutated flags
     t->b.o.flags = lfs3_t_swapdirty(t->b.o.flags);
+    #endif
     if (tag_) {
         *tag_ = tag;
     }
     return 0;
 
 eot:;
+    #ifndef LFS3_RDONLY
     // was lookahead scan successful?
     if (lfs3_t_islookahead(t->b.o.flags)
             && !lfs3_t_ismtreeonly(t->b.o.flags)
@@ -9745,19 +10022,23 @@ eot:;
             && !lfs3_t_ismutated(t->b.o.flags)) {
         lfs3->flags &= ~LFS3_I_COMPACT;
     }
+    #endif
 
     return LFS3_ERR_NOENT;
 
+    #ifndef LFS3_RDONLY
 failed:;
     // swap back dirty/mutated flags
     t->b.o.flags = lfs3_t_swapdirty(t->b.o.flags);
     return err;
+    #endif
 }
 
 
 
 /// Block allocator ///
 
+#ifndef LFS3_RDONLY
 // checkpoint the allocator
 //
 // operations that need to alloc should call this to indicate all in-use
@@ -9766,13 +10047,17 @@ failed:;
 static void lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     lfs3->lookahead.ckpoint = lfs3->block_count;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // discard any lookahead state, this is necessary if block_count changes
 static void lfs3_alloc_discard(lfs3_t *lfs3) {
     lfs3->lookahead.size = 0;
     lfs3_memset(lfs3->lookahead.buffer, 0, lfs3->cfg->lookahead_size);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // mark a block as in-use
 static void lfs3_alloc_markinuse_(lfs3_t *lfs3, lfs3_block_t block) {
     // translate to lookahead-relative
@@ -9793,7 +10078,9 @@ static void lfs3_alloc_markinuse_(lfs3_t *lfs3, lfs3_block_t block) {
                 |= 1 << ((lfs3->lookahead.off + block_) % 8);
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // mark some filesystem object as in-use
 static void lfs3_alloc_markinuse(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr) {
@@ -9813,10 +10100,12 @@ static void lfs3_alloc_markinuse(lfs3_t *lfs3,
         LFS3_UNREACHABLE();
     }
 }
+#endif
 
 // needed in lfs3_alloc_markfree
 static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3);
 
+#ifndef LFS3_RDONLY
 // mark any not-in-use blocks as free
 static void lfs3_alloc_markfree(lfs3_t *lfs3) {
     // make lookahead buffer usable
@@ -9832,7 +10121,9 @@ static void lfs3_alloc_markfree(lfs3_t *lfs3) {
     // the most progress
     lfs3_alloc_findfree(lfs3);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // increment lookahead buffer
 static void lfs3_alloc_inc(lfs3_t *lfs3) {
     LFS3_ASSERT(lfs3->lookahead.size > 0);
@@ -9857,7 +10148,9 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     lfs3->lookahead.size -= 1;
     lfs3->lookahead.ckpoint -= 1;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // find next free block in lookahead buffer, if there is one
 static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
     while (lfs3->lookahead.size > 0) {
@@ -9873,7 +10166,9 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
 
     return LFS3_ERR_NOSPC;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase) {
     while (true) {
         // scan our lookahead buffer for free blocks
@@ -9958,12 +10253,14 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase) {
         lfs3_alloc_markfree(lfs3);
     }
 }
+#endif
 
 
 
 
 /// Directory operations ///
 
+#ifndef LFS3_RDONLY
 int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     // prepare our filesystem for writing
     int err = lfs3_fs_mkconsistent(lfs3);
@@ -10138,7 +10435,9 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // push a did to grm, but only if the directory is empty
 static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
     // first lookup the bookmark entry
@@ -10189,10 +10488,12 @@ empty:;
     lfs3_grm_push(lfs3, bookmark_mid);
     return 0;
 }
+#endif
 
 // needed in lfs3_remove
 static int lfs3_fs_fixgrm(lfs3_t *lfs3);
 
+#ifndef LFS3_RDONLY
 int lfs3_remove(lfs3_t *lfs3, const char *path) {
     // prepare our filesystem for writing
     int err = lfs3_fs_mkconsistent(lfs3);
@@ -10311,7 +10612,9 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     // prepare our filesystem for writing
     int err = lfs3_fs_mkconsistent(lfs3);
@@ -10494,6 +10797,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
     return 0;
 }
+#endif
 
 // this just populates the info struct based on what we found
 static int lfs3_stat_(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
@@ -10848,6 +11152,7 @@ lfs3_ssize_t lfs3_sizeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
     return lfs3_data_size(data);
 }
 
+#ifndef LFS3_RDONLY
 int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
         const void *buffer, lfs3_size_t size) {
     // prepare our filesystem for writing
@@ -10901,7 +11206,9 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
     // prepare our filesystem for writing
     int err = lfs3_fs_mkconsistent(lfs3);
@@ -10949,6 +11256,7 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
 
     return 0;
 }
+#endif
 
 
 
@@ -11113,12 +11421,12 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     // unknown flags?
     LFS3_ASSERT((flags & ~(
             LFS3_O_RDONLY
-                | LFS3_O_WRONLY
-                | LFS3_O_RDWR
-                | LFS3_O_CREAT
-                | LFS3_O_EXCL
-                | LFS3_O_TRUNC
-                | LFS3_O_APPEND
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_WRONLY)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_RDWR)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_CREAT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_EXCL)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_TRUNC)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_APPEND)
                 | LFS3_O_FLUSH
                 | LFS3_O_SYNC
                 | LFS3_O_DESYNC
@@ -11142,11 +11450,13 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     flags |= lfs3->flags & (LFS3_M_FLUSH | LFS3_M_SYNC);
 
     if (!lfs3_o_isrdonly(flags)) {
+        #ifndef LFS3_RDONLY
         // prepare our filesystem for writing
         int err = lfs3_fs_mkconsistent(lfs3);
         if (err) {
             return err;
         }
+        #endif
     }
 
     // setup file state
@@ -11174,6 +11484,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         }
         LFS3_ASSERT(!lfs3_o_isrdonly(flags));
 
+        #ifndef LFS3_RDONLY
         // we're a file, don't allow trailing slashes
         if (lfs3_path_isdir(path)) {
             return LFS3_ERR_NOTDIR;
@@ -11206,6 +11517,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
                 }
             }
         }
+        #endif
     } else {
         // wanted to create a new entry?
         if (lfs3_o_isexcl(flags)) {
@@ -11283,6 +11595,10 @@ static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file) {
     // make sure we check _after_ removing ourselves
     if (lfs3_o_isuncreat(file->b.o.flags)
             && !lfs3_omdir_ismidopen(lfs3, file->b.o.mdir.mid, -1)) {
+        // this can only happen in a rdwr filesystem
+        LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
+
+        #ifndef LFS3_RDONLY
         // this gets a bit messy, since we're not able to write to the
         // filesystem if we're rdonly or desynced, fortunately we have
         // a few tricks
@@ -11295,6 +11611,7 @@ static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file) {
         } else {
             lfs3->flags |= LFS3_I_MKCONSISTENT;
         }
+        #endif
     }
 }
 
@@ -11439,10 +11756,15 @@ static lfs3_ssize_t lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
         // we don't want to drag in the extra stack usage
         if (lfs3_o_isungraft(file->b.o.flags)
                 || lfs3_o_isuncryst(file->b.o.flags)) {
+            // readonly files can't be uncrystallized/ungrafted
+            LFS3_ASSERT(!lfs3_o_isrdonly(file->b.o.flags));
+
+            #ifndef LFS3_RDONLY
             int err = lfs3_file_crystallize(lfs3, file);
             if (err) {
                 return err;
             }
+            #endif
         }
 
         // fetch a leaf
@@ -11602,12 +11924,15 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
 
 // low-level file writing
 
+#ifndef LFS3_RDONLY
 static int lfs3_file_commit(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     return lfs3_bshrub_commit(lfs3, &file->b,
             bid, rattrs, rattr_count);
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // graft bptr/fragments into our bshrub/btree
 static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, lfs3_off_t weight, lfs3_soff_t delta,
@@ -11876,7 +12201,9 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t block_pos, lfs3_soff_t crystal_min, lfs3_soff_t crystal_max,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
@@ -12103,7 +12430,9 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
                 0);
     }
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
     bool flushable = (
             file->cache.pos
@@ -12151,7 +12480,9 @@ static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
     // we can skip some btree lookups if we know we are aligned from a
@@ -12563,10 +12894,12 @@ fragment:;
 
     return 0;
 }
+#endif
 
 
 // high-level file writing
 
+#ifndef LFS3_RDONLY
 lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         const void *buffer, lfs3_size_t size) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
@@ -12715,11 +13048,11 @@ failed:;
     file->b.o.flags |= LFS3_O_DESYNC;
     return err;
 }
+#endif
 
 int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
+    (void)lfs3;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
-    // can't write to readonly files
-    LFS3_ASSERT(!lfs3_o_isrdonly(file->b.o.flags));
 
     // do nothing if our file is already flushed, crystallized,
     // and grafted
@@ -12730,7 +13063,10 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     }
     // unflushed files must be unsynced
     LFS3_ASSERT(lfs3_o_isunsync(file->b.o.flags));
+    // unflushed files can't be readonly
+    LFS3_ASSERT(!lfs3_o_isrdonly(file->b.o.flags));
 
+    #ifndef LFS3_RDONLY
     // clobber entangled traversals
     lfs3_omdir_clobber(lfs3, &file->b.o, LFS3_t_DIRTY);
     // checkpoint the allocator
@@ -12754,15 +13090,19 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     if (err) {
         goto failed;
     }
+    #endif
 
     return 0;
 
+    #ifndef LFS3_RDONLY
 failed:;
     // mark as desync so lfs3_file_close doesn't write to disk
     file->b.o.flags |= LFS3_O_DESYNC;
     return err;
+    #endif
 }
 
+#ifndef LFS3_RDONLY
 // this LFS3_NOINLINE is to force lfs3_file_sync_ off the stack hot-path
 LFS3_NOINLINE
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file) {
@@ -12912,19 +13252,18 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file) {
 
     return 0;
 }
+#endif
 
 int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
+    (void)lfs3;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
-    // can't write to readonly files, if you want to resync call
-    // lfs3_file_resync
-    LFS3_ASSERT(!lfs3_o_isrdonly(file->b.o.flags));
 
-    // removed? sync is just a noop in this case
-    int err;
+    // removed? ignore sync requests
     if (lfs3_o_iszombie(file->b.o.flags)) {
         return 0;
     }
 
+    #ifndef LFS3_RDONLY
     // first flush any data in our cache, this is a noop if already
     // flushed
     //
@@ -12934,6 +13273,7 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     //
     // though don't flush quite yet if our file is small and can be
     // combined with sync in a single commit
+    int err;
     if (file->cache.size == lfs3_file_size_(file)
             && file->cache.size <= lfs3->cfg->inline_size
             && file->cache.size <= lfs3->cfg->fragment_size
@@ -13037,6 +13377,7 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
             lfs3_traversal_clobber(lfs3, (lfs3_traversal_t*)o);
         }
     }
+    #endif
 
     // mark as synced
     file->b.o.flags &= ~LFS3_o_UNSYNC
@@ -13047,23 +13388,31 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
             & ~LFS3_O_DESYNC;
     return 0;
 
+    #ifndef LFS3_RDONLY
 failed:;
     file->b.o.flags |= LFS3_O_DESYNC;
     return err;
+    #endif
 }
 
 int lfs3_file_desync(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
+    (void)file;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
 
+    #ifndef LFS3_RDONLY
     // mark as desynced
     file->b.o.flags |= LFS3_O_DESYNC;
+    #endif
     return 0;
 }
 
 int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
+    (void)lfs3;
+    (void)file;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
 
+    #ifndef LFS3_RDONLY
     // removed? we can't resync
     int err;
     if (lfs3_o_iszombie(file->b.o.flags)) {
@@ -13079,14 +13428,17 @@ int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
             goto failed;
         }
     }
+    #endif
 
     // mark as resynced
     file->b.o.flags &= ~LFS3_O_DESYNC;
     return 0;
 
+    #ifndef LFS3_RDONLY
 failed:;
     file->b.o.flags |= LFS3_O_DESYNC;
     return err;
+    #endif
 }
 
 // other file operations
@@ -13141,6 +13493,7 @@ lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file) {
     return lfs3_file_size_(file);
 }
 
+#ifndef LFS3_RDONLY
 int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
     // can't write to readonly files
@@ -13220,7 +13573,9 @@ failed:;
     file->b.o.flags |= LFS3_O_DESYNC;
     return err;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
     // can't write to readonly files
@@ -13336,6 +13691,7 @@ failed:;
     file->b.o.flags |= LFS3_O_DESYNC;
     return err;
 }
+#endif
 
 // file check functions
 
@@ -13462,7 +13818,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_config *cfg) {
     // unknown flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_M_RDWR
+            LFS3_IFDEF_RDONLY(0, LFS3_M_RDWR)
                 | LFS3_M_RDONLY
                 | LFS3_M_FLUSH
                 | LFS3_M_SYNC
@@ -13486,17 +13842,25 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     // validate that the lfs3-cfg sizes were initiated properly before
     // performing any arithmetic logics with them
     LFS3_ASSERT(lfs3->cfg->read_size != 0);
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(lfs3->cfg->prog_size != 0);
+    #endif
     LFS3_ASSERT(lfs3->cfg->rcache_size != 0);
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(lfs3->cfg->pcache_size != 0);
+    #endif
 
     // cache sizes must be a multiple of their operation sizes
     LFS3_ASSERT(lfs3->cfg->rcache_size % lfs3->cfg->read_size == 0);
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(lfs3->cfg->pcache_size % lfs3->cfg->prog_size == 0);
+    #endif
 
     // block_size must be a multiple of both prog/read size
     LFS3_ASSERT(lfs3->cfg->block_size % lfs3->cfg->read_size == 0);
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(lfs3->cfg->block_size % lfs3->cfg->prog_size == 0);
+    #endif
 
     // block_size is currently limited to 28-bits
     LFS3_ASSERT(lfs3->cfg->block_size <= 0x0fffffff);
@@ -13509,7 +13873,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_GC_COMPACT
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
-    #endif
 
     // check that gc_compact_thresh makes sense
     //
@@ -13519,7 +13882,9 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
             || lfs3->cfg->gc_compact_thresh >= lfs3->cfg->block_size/2);
     LFS3_ASSERT(lfs3->cfg->gc_compact_thresh == (lfs3_size_t)-1
             || lfs3->cfg->gc_compact_thresh <= lfs3->cfg->block_size);
+    #endif
 
+    #ifndef LFS3_RDONLY
     // inline_size must be <= block_size/4
     LFS3_ASSERT(lfs3->cfg->inline_size <= lfs3->cfg->block_size/4);
     // fragment_size must be <= block_size/4
@@ -13527,16 +13892,17 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     // fragment_thresh > crystal_thresh is probably a mistake
     LFS3_ASSERT(lfs3->cfg->fragment_thresh == (lfs3_size_t)-1
             || lfs3->cfg->fragment_thresh <= lfs3->cfg->crystal_thresh);
+    #endif
 
     // setup flags
     lfs3->flags = flags
             // assume we contain orphans until proven otherwise
-            | LFS3_I_MKCONSISTENT
+            | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
             // default to an empty lookahead
-            | LFS3_I_LOOKAHEAD
+            | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
             // default to assuming we need compaction somewhere, worst case
             // this just makes lfs3_fs_gc read more than is strictly needed
-            | LFS3_I_COMPACT
+            | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
             // default to needing a ckmeta/ckdata scan
             | LFS3_I_CKMETA
             | LFS3_I_CKDATA;
@@ -13558,6 +13924,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
         }
     }
 
+    #ifndef LFS3_RDONLY
     // setup program cache
     lfs3->pcache.block = 0;
     lfs3->pcache.off = 0;
@@ -13571,6 +13938,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
             goto failed;
         }
     }
+    #endif
 
     #ifdef LFS3_CKMETAPARITY
     // setup ptail, nothing should actually check off=0
@@ -13578,6 +13946,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->ptail.off = 0;
     #endif
 
+    #ifndef LFS3_RDONLY
     // setup lookahead buffer, note mount finishes initializing this after
     // we establish a decent pseudo-random seed
     LFS3_ASSERT(lfs3->cfg->lookahead_size > 0);
@@ -13595,7 +13964,9 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->lookahead.size = 0;
     lfs3->lookahead.ckpoint = 0;
     lfs3_alloc_discard(lfs3);
+    #endif
 
+    #ifndef LFS3_RDONLY
     // check that the size limits are sane
     LFS3_ASSERT(lfs3->cfg->name_limit <= LFS3_NAME_MAX);
     lfs3->name_limit = lfs3->cfg->name_limit;
@@ -13608,9 +13979,11 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     if (!lfs3->file_limit) {
         lfs3->file_limit = LFS3_FILE_MAX;
     }
+    #endif
 
     // TODO do we need to recalculate these after mount?
 
+    #ifndef LFS3_RDONLY
     // find the number of bits to use for recycle counters
     //
     // Add 1, to include the initial erase, multiply by 2, since we
@@ -13624,7 +13997,9 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     } else {
         lfs3->recycle_bits = -1;
     }
+    #endif
 
+    #ifndef LFS3_RDONLY
     // calculate the upper-bound cost of a single rbyd attr after compaction
     //
     // Note that with rebalancing during compaction, we know the number
@@ -13664,7 +14039,9 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
             + (lfs3_nlog2(lfs3->cfg->block_size)+7-1)/7;
     LFS3_ASSERT(tag_estimate <= LFS3_TAG_DSIZE);
     lfs3->rattr_estimate = 3*tag_estimate + 4;
+    #endif
 
+    #ifndef LFS3_RDONLY
     // calculate the upper-bound cost of a single mdir attr after compaction
     //
     // This is the same as rattr_estimate, except we can assume a weight<=1.
@@ -13675,6 +14052,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
             + (lfs3_nlog2(lfs3->cfg->block_size)+7-1)/7;
     LFS3_ASSERT(tag_estimate <= LFS3_TAG_DSIZE);
     lfs3->mattr_estimate = 3*tag_estimate + 4;
+    #endif
 
     // calculate the number of bits we need to reserve for mdir rids
     //
@@ -13719,13 +14097,17 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     // zero gstate
     lfs3->gcksum = 0;
+    #ifndef LFS3_RDONLY
     lfs3->gcksum_p = 0;
     lfs3->gcksum_d = 0;
+    #endif
 
     lfs3->grm.queue[0] = -1;
     lfs3->grm.queue[1] = -1;
+    #ifndef LFS3_RDONLY
     lfs3_memset(lfs3->grm_p, 0, LFS3_GRM_DSIZE);
     lfs3_memset(lfs3->grm_d, 0, LFS3_GRM_DSIZE);
+    #endif
 
     return 0;
 
@@ -13740,13 +14122,17 @@ static int lfs3_deinit(lfs3_t *lfs3) {
         lfs3_free(lfs3->rcache.buffer);
     }
 
+    #ifndef LFS3_RDONLY
     if (!lfs3->cfg->pcache_buffer) {
         lfs3_free(lfs3->pcache.buffer);
     }
+    #endif
 
+    #ifndef LFS3_RDONLY
     if (!lfs3->cfg->lookahead_buffer) {
         lfs3_free(lfs3->lookahead.buffer);
     }
+    #endif
 
     return 0;
 }
@@ -13877,6 +14263,7 @@ struct lfs3_geometry {
     lfs3_off_t block_count;
 };
 
+#ifndef LFS3_RDONLY
 // geometry on-disk encoding
 static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
         uint8_t buffer[static LFS3_GEOMETRY_DSIZE]) {
@@ -13895,6 +14282,7 @@ static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
 
     return LFS3_DATA_BUF(buffer, d);
 }
+#endif
 
 static int lfs3_data_readgeometry(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_geometry_t *geometry) {
@@ -13962,6 +14350,7 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
         return LFS3_ERR_NOTSUP;
     }
 
+    #ifndef LFS3_RDONLY
     // check for any wcompatflags, we must understand these to write
     // the filesystem
     lfs3_wcompat_t wcompat = 0;
@@ -13986,6 +14375,7 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
             return LFS3_ERR_NOTSUP;
         }
     }
+    #endif
 
     // we don't bother to check for any ocompatflags, we would just
     // ignore these anyways
@@ -14229,9 +14619,12 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         return LFS3_ERR_CORRUPT;
     }
 
+    #ifndef LFS3_RDONLY
     // keep track of the current gcksum
     lfs3->gcksum_p = lfs3->gcksum;
+    #endif
 
+    #ifndef LFS3_RDONLY
     // once we've mounted and derived a pseudo-random seed, initialize our
     // block allocator
     //
@@ -14239,14 +14632,17 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     // allocating blocks near the beginning of disk after a power-loss
     //
     lfs3->lookahead.window = lfs3->gcksum % lfs3->block_count;
+    #endif
 
+    #ifndef LFS3_RDONLY
     // TODO should the consumegdelta above take gstate/gdelta as a parameter?
     // keep track of the current gstate on disk
     lfs3_memcpy(lfs3->grm_p, lfs3->grm_d, LFS3_GRM_DSIZE);
+    #endif
 
     // decode grm so we can report any removed files as missing
     int err = lfs3_data_readgrm(lfs3,
-            &LFS3_DATA_BUF(lfs3->grm_p, LFS3_GRM_DSIZE));
+            &LFS3_DATA_BUF(lfs3->grm_d, LFS3_GRM_DSIZE));
     if (err) {
         // TODO switch to read-only?
         return err;
@@ -14319,7 +14715,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
 
     // unknown flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_M_RDWR
+            LFS3_IFDEF_RDONLY(0, LFS3_M_RDWR)
                 | LFS3_M_RDONLY
                 | LFS3_M_FLUSH
                 | LFS3_M_SYNC
@@ -14329,9 +14725,9 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
                 | LFS3_IFDEF_CKDATACKSUMREADS(LFS3_M_CKDATACKSUMREADS, 0)
-                | LFS3_M_MKCONSISTENT
-                | LFS3_M_LOOKAHEAD
-                | LFS3_M_COMPACT
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) == 0);
     // these flags require a writable filesystem
@@ -14341,7 +14737,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
 
     int err = lfs3_init(lfs3,
             flags & (
-                LFS3_M_RDWR
+                LFS3_IFDEF_RDONLY(0, LFS3_M_RDWR)
                     | LFS3_M_RDONLY
                     | LFS3_M_FLUSH
                     | LFS3_M_SYNC
@@ -14363,17 +14759,17 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
 
     // run gc if requested
     if (flags & (
-            LFS3_M_MKCONSISTENT
-                | LFS3_M_LOOKAHEAD
-                | LFS3_M_COMPACT
+            LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) {
         lfs3_traversal_t t;
         err = lfs3_fs_gc_(lfs3, &t,
                 flags & (
-                    LFS3_M_MKCONSISTENT
-                        | LFS3_M_LOOKAHEAD
-                        | LFS3_M_COMPACT
+                    LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                         | LFS3_M_CKMETA
                         | LFS3_M_CKDATA),
                 -1);
@@ -14421,6 +14817,7 @@ int lfs3_unmount(lfs3_t *lfs3) {
 
 /// Format ///
 
+#ifndef LFS3_RDONLY
 static int lfs3_formatinited(lfs3_t *lfs3) {
     for (int i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root mroot to hopefully
@@ -14504,7 +14901,9 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 int lfs3_format(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_config *cfg) {
     #ifdef LFS3_YES_REVDBG
@@ -14597,6 +14996,7 @@ failed:;
     lfs3_deinit(lfs3);
     return err;
 }
+#endif
 
 
 
@@ -14614,13 +15014,15 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 | LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, 0)
                 | LFS3_IFDEF_CKDATACKSUMREADS(LFS3_I_CKDATACKSUMREADS, 0)
-                | LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
-                | LFS3_I_COMPACT
+                | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA);
     // some flags we calculate on demand
+    #ifndef LFS3_RDONLY
     fsinfo->flags |= (lfs3_grm_count(lfs3) > 0) ? LFS3_I_MKCONSISTENT : 0;
+    #endif
 
     // return filesystem config, this may come from disk
     fsinfo->block_size = lfs3->cfg->block_size;
@@ -14668,6 +15070,7 @@ lfs3_ssize_t lfs3_fs_usage(lfs3_t *lfs3) {
 
 // consistency stuff
 
+#ifndef LFS3_RDONLY
 static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
     if (lfs3_grm_count(lfs3) == 2) {
         LFS3_INFO("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
@@ -14714,7 +15117,9 @@ static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // save the current mid
     lfs3_mid_t mid = mdir->mid;
@@ -14767,7 +15172,9 @@ failed:;
     mdir->mid = mid;
     return err;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static int lfs3_fs_fixorphans(lfs3_t *lfs3) {
     // LFS3_T_MKCONSISTENT really just removes orphans
     lfs3_traversal_t t;
@@ -14787,7 +15194,9 @@ static int lfs3_fs_fixorphans(lfs3_t *lfs3) {
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 // prepare the filesystem for mutation
 int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     // filesystem must be writeable
@@ -14815,6 +15224,7 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
 
     return 0;
 }
+#endif
 
 // filesystem check functions
 static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
@@ -14861,11 +15271,11 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_traversal_t *t,
     // we should have check these earlier, but it doesn't hurt to
     // double check
     LFS3_ASSERT((flags & ~(
-            LFS3_GC_MKCONSISTENT
-                | LFS3_GC_LOOKAHEAD
-                | LFS3_GC_COMPACT
-                | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) == 0);
+            LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT)
+                | LFS3_T_CKMETA
+                | LFS3_T_CKDATA)) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_islookahead(flags));
@@ -14874,6 +15284,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_traversal_t *t,
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_islookahead(flags));
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isckdata(flags));
 
+    #ifndef LFS3_RDONLY
     // fix pending grms if requested
     if (lfs3_t_ismkconsistent(flags)
             && lfs3_grm_count(lfs3) > 0) {
@@ -14882,19 +15293,22 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_traversal_t *t,
             return err;
         }
     }
+    #endif
 
     // do we have any pending work?
     uint32_t pending = flags & (
             (lfs3->flags & (
-                LFS3_I_MKCONSISTENT
-                    | LFS3_I_LOOKAHEAD
-                    | LFS3_I_COMPACT
+                LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                     | LFS3_I_CKMETA
                     | LFS3_I_CKDATA)));
 
     while (pending && (lfs3_off_t)steps > 0) {
+        #ifndef LFS3_RDONLY
         // checkpoint the allocator to maximize any lookahead scans
         lfs3_alloc_ckpoint(lfs3);
+        #endif
 
         // start a new traversal?
         if (!lfs3_omdir_isopen(lfs3, &t->b.o)) {
@@ -14902,28 +15316,30 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_traversal_t *t,
             lfs3_omdir_open(lfs3, &t->b.o);
         }
 
+        #ifndef LFS3_RDONLY
         // don't bother with lookahead if we've mutated
         if (lfs3_t_isdirty(t->b.o.flags)
                 || lfs3_t_ismutated(t->b.o.flags)) {
-            t->b.o.flags &= ~LFS3_GC_LOOKAHEAD;
+            t->b.o.flags &= ~LFS3_T_LOOKAHEAD;
         }
+        #endif
 
         // will this traversal still make progress? no? start over
         if (!(t->b.o.flags & (
-                LFS3_GC_MKCONSISTENT
-                    | LFS3_GC_LOOKAHEAD
-                    | LFS3_GC_COMPACT
-                    | LFS3_GC_CKMETA
-                    | LFS3_GC_CKDATA))) {
+                LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT)
+                    | LFS3_T_CKMETA
+                    | LFS3_T_CKDATA))) {
             lfs3_omdir_close(lfs3, &t->b.o);
             continue;
         }
 
         // do we really need a full traversal?
         if (!(t->b.o.flags & (
-                LFS3_GC_LOOKAHEAD
-                    | LFS3_GC_CKMETA
-                    | LFS3_GC_CKDATA))) {
+                LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
+                    | LFS3_T_CKMETA
+                    | LFS3_T_CKDATA))) {
             t->b.o.flags |= LFS3_T_MTREEONLY;
         }
 
@@ -14941,9 +15357,9 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_traversal_t *t,
 
             // clear any pending flags we make progress on
             pending &= lfs3->flags & (
-                    LFS3_I_MKCONSISTENT
-                        | LFS3_I_LOOKAHEAD
-                        | LFS3_I_COMPACT
+                    LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                         | LFS3_I_CKMETA
                         | LFS3_I_CKDATA);
         }
@@ -14974,9 +15390,9 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
 int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
     // unknown flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
-                | LFS3_I_COMPACT
+            LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA)) == 0);
 
@@ -14995,6 +15411,7 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
 }
 
 
+#ifndef LFS3_RDONLY
 // attempt to grow the filesystem
 int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
     // filesystem must be writeable
@@ -15051,6 +15468,7 @@ failed:;
 
     return err;
 }
+#endif
 
 
 
@@ -15064,12 +15482,12 @@ int lfs3_traversal_open(lfs3_t *lfs3, lfs3_traversal_t *t, uint32_t flags) {
     LFS3_ASSERT(!lfs3_omdir_isopen(lfs3, &t->b.o));
     // unknown flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_T_RDONLY
-                | LFS3_T_RDWR
+            LFS3_IFDEF_RDONLY(0, LFS3_T_RDWR)
+                | LFS3_T_RDONLY
                 | LFS3_T_MTREEONLY
-                | LFS3_T_MKCONSISTENT
-                | LFS3_T_LOOKAHEAD
-                | LFS3_T_COMPACT
+                | LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT)
                 | LFS3_T_CKMETA
                 | LFS3_T_CKDATA)) == 0);
     // writeable traversals require a writeable filesystem
@@ -15108,6 +15526,7 @@ int lfs3_traversal_read(lfs3_t *lfs3, lfs3_traversal_t *t,
         struct lfs3_tinfo *tinfo) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &t->b.o));
 
+    #ifndef LFS3_RDONLY
     // check for pending grms every step, just in case some other
     // operation introduced new grms
     if (lfs3_t_ismkconsistent(t->b.o.flags)
@@ -15123,9 +15542,12 @@ int lfs3_traversal_read(lfs3_t *lfs3, lfs3_traversal_t *t,
 
         t->b.o.flags = lfs3_t_swapdirty(t->b.o.flags);
     }
+    #endif
 
+    #ifndef LFS3_RDONLY
     // checkpoint the allocator to maximize any lookahead scans
     lfs3_alloc_ckpoint(lfs3);
+    #endif
 
     while (true) {
         // some redund blocks left over?
@@ -15172,6 +15594,7 @@ int lfs3_traversal_read(lfs3_t *lfs3, lfs3_traversal_t *t,
     }
 }
 
+#ifndef LFS3_RDONLY
 static void lfs3_traversal_clobber(lfs3_t *lfs3, lfs3_traversal_t *t) {
     (void)lfs3;
     // mroot/mtree? transition to mdir iteration
@@ -15201,6 +15624,7 @@ static void lfs3_traversal_clobber(lfs3_t *lfs3, lfs3_traversal_t *t) {
     t->blocks[0] = -1;
     t->blocks[1] = -1;
 }
+#endif
 
 static int lfs3_traversal_rewind_(lfs3_t *lfs3, lfs3_traversal_t *t) {
     (void)lfs3;

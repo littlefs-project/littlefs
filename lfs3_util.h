@@ -191,6 +191,12 @@
 
 
 // Some ifdef conveniences
+#ifdef LFS3_RDONLY
+#define LFS3_IFDEF_RDONLY(a, b) (a)
+#else
+#define LFS3_IFDEF_RDONLY(a, b) (b)
+#endif
+
 #ifdef LFS3_REVDBG
 #define LFS3_IFDEF_REVDBG(a, b) (a)
 #else
