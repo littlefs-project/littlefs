@@ -9686,6 +9686,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
             // note we can skip checking opened files if mounted rdonly,
             // this saves a bit of code when compiled rdonly
             if (lfs3_m_isrdonly(lfs3->flags) || !t->ot) {
+                t->ot = NULL;
                 t->b.o.mdir.mid += 1;
                 lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_MDIR);
                 continue;
