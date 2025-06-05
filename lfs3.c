@@ -9927,7 +9927,9 @@ dropped:;
         if (err == LFS3_ERR_NOENT) {
             goto eot;
         }
-        goto failed;
+        // don't goto failed here, we haven't swapped dirty/mutated
+        // flags yet
+        return err;
     }
 
     #ifndef LFS3_RDONLY
@@ -9999,6 +10001,13 @@ dropped:;
     }
     return 0;
 
+    #ifndef LFS3_RDONLY
+failed:;
+    // swap back dirty/mutated flags
+    t->b.o.flags = lfs3_t_swapdirty(t->b.o.flags);
+    return err;
+    #endif
+
 eot:;
     #ifndef LFS3_RDONLY
     // was lookahead scan successful?
@@ -10025,13 +10034,6 @@ eot:;
     #endif
 
     return LFS3_ERR_NOENT;
-
-    #ifndef LFS3_RDONLY
-failed:;
-    // swap back dirty/mutated flags
-    t->b.o.flags = lfs3_t_swapdirty(t->b.o.flags);
-    return err;
-    #endif
 }
 
 
