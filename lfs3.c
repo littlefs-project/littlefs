@@ -2656,17 +2656,23 @@ static inline lfs3_size_t lfs3_rbyd_trunk(const lfs3_rbyd_t *rbyd) {
     return rbyd->trunk & ~LFS3_RBYD_ISSHRUB;
 }
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_rbyd_isfetched(const lfs3_rbyd_t *rbyd) {
     return !lfs3_rbyd_trunk(rbyd) || rbyd->eoff;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_rbyd_isperturb(const lfs3_rbyd_t *rbyd) {
     return rbyd->eoff & LFS3_RBYD_ISPERTURB;
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline lfs3_size_t lfs3_rbyd_eoff(const lfs3_rbyd_t *rbyd) {
     return rbyd->eoff & ~LFS3_RBYD_ISPERTURB;
 }
+#endif
 
 static inline int lfs3_rbyd_cmp(
         const lfs3_rbyd_t *a,
@@ -2748,26 +2754,33 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     // set up some initial state
     rbyd->blocks[0] = block;
     rbyd->trunk = (trunk & LFS3_RBYD_ISSHRUB) | 0;
+    rbyd->weight = 0;
+    #ifndef LFS3_RDONLY
     rbyd->eoff = 0;
+    #endif
 
     // ignore the shrub bit here
     trunk &= ~LFS3_RBYD_ISSHRUB;
 
+    // keep track of last commit off and perturb bit
+    lfs3_size_t eoff = 0;
+    bool perturb = false;
+
     // checksum the revision count to get the cksum started
-    uint32_t cksum = 0;
+    uint32_t cksum_ = 0;
     int err = lfs3_bd_cksum(lfs3, block, 0, -1, sizeof(uint32_t),
-            &cksum);
+            &cksum_);
     if (err) {
         return err;
     }
 
     // temporary state until we validate a cksum
-    uint32_t cksum_ = cksum;
-    lfs3_size_t off = sizeof(uint32_t);
+    lfs3_size_t off_ = sizeof(uint32_t);
+    uint32_t cksum__ = cksum_;
     lfs3_size_t trunk_ = 0;
     lfs3_size_t trunk__ = 0;
-    lfs3_rid_t weight = 0;
     lfs3_rid_t weight_ = 0;
+    lfs3_rid_t weight__ = 0;
 
     #ifndef LFS3_RDONLY
     // assume unerased until proven otherwise
@@ -2779,34 +2792,34 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     uint32_t gcksumdelta_ = 0;
 
     // scan tags, checking valid bits, cksums, etc
-    while (off < lfs3->cfg->block_size
-            && (!trunk || lfs3_rbyd_eoff(rbyd) <= trunk)) {
+    while (off_ < lfs3->cfg->block_size
+            && (!trunk || eoff <= trunk)) {
         // read next tag
         lfs3_tag_t tag;
-        lfs3_rid_t weight__;
+        lfs3_rid_t weight;
         lfs3_size_t size;
-        lfs3_ssize_t d = lfs3_bd_readtag(lfs3, block, off, -1,
-                &tag, &weight__, &size,
-                &cksum_);
+        lfs3_ssize_t d = lfs3_bd_readtag(lfs3, block, off_, -1,
+                &tag, &weight, &size,
+                &cksum__);
         if (d < 0) {
             if (d == LFS3_ERR_CORRUPT) {
                 break;
             }
             return d;
         }
-        lfs3_size_t off_ = off + d;
+        lfs3_size_t off__ = off_ + d;
 
         // readtag should already check we're in-bounds
         LFS3_ASSERT(lfs3_tag_isalt(tag)
-                || off_ + size <= lfs3->cfg->block_size);
+                || off__ + size <= lfs3->cfg->block_size);
 
         // take care of cksum
         if (!lfs3_tag_isalt(tag)) {
             // not an end-of-commit cksum
             if (lfs3_tag_suptype(tag) != LFS3_TAG_CKSUM) {
                 // cksum the entry, hopefully leaving it in the cache
-                err = lfs3_bd_cksum(lfs3, block, off_, -1, size,
-                        &cksum_);
+                err = lfs3_bd_cksum(lfs3, block, off__, -1, size,
+                        &cksum__);
                 if (err) {
                     if (err == LFS3_ERR_CORRUPT) {
                         break;
@@ -2820,10 +2833,10 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                         tag == LFS3_TAG_ECKSUM)) {
                     #ifndef LFS3_RDONLY
                     err = lfs3_data_readecksum(lfs3,
-                            &LFS3_DATA_DISK(block, off_,
+                            &LFS3_DATA_DISK(block, off__,
                                 // note this size is to make the hint do
                                 // what we want
-                                lfs3->cfg->block_size - off_),
+                                lfs3->cfg->block_size - off__),
                             &ecksum_);
                     if (err) {
                         if (err == LFS3_ERR_CORRUPT) {
@@ -2836,10 +2849,10 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                 // found gcksumdelta? save for later
                 } else if (tag == LFS3_TAG_GCKSUMDELTA) {
                     err = lfs3_data_readle32(lfs3,
-                            &LFS3_DATA_DISK(block, off_,
+                            &LFS3_DATA_DISK(block, off__,
                                 // note this size is to make the hint do
                                 // what we want
-                                lfs3->cfg->block_size - off_),
+                                lfs3->cfg->block_size - off__),
                             &gcksumdelta_);
                     if (err) {
                         if (err == LFS3_ERR_CORRUPT) {
@@ -2863,56 +2876,57 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                 }
 
                 // check checksum
-                uint32_t cksum__ = 0;
-                err = lfs3_bd_read(lfs3, block, off_, -1,
-                        &cksum__, sizeof(uint32_t));
+                uint32_t cksum___ = 0;
+                err = lfs3_bd_read(lfs3, block, off__, -1,
+                        &cksum___, sizeof(uint32_t));
                 if (err) {
                     if (err == LFS3_ERR_CORRUPT) {
                         break;
                     }
                     return err;
                 }
-                cksum__ = lfs3_fromle32(&cksum__);
+                cksum___ = lfs3_fromle32(&cksum___);
 
-                if (cksum_ != cksum__) {
+                if (cksum__ != cksum___) {
                     // uh oh, checksums don't match
                     break;
                 }
 
                 // save what we've found so far
-                rbyd->eoff
-                        = ((lfs3_size_t)lfs3_tag_perturb(tag)
-                            << (8*sizeof(lfs3_size_t)-1))
-                        | (off_ + size);
-                rbyd->cksum = cksum;
+                eoff = off__ + size;
                 rbyd->trunk = (LFS3_RBYD_ISSHRUB & rbyd->trunk) | trunk_;
-                rbyd->weight = weight;
-                #ifndef LFS3_RDONLY
-                ecksum = ecksum_;
-                ecksum_.cksize = -1;
-                #endif
+                rbyd->weight = weight_;
+                rbyd->cksum = cksum_;
                 if (gcksumdelta) {
                     *gcksumdelta = gcksumdelta_;
                 }
                 gcksumdelta_ = 0;
 
+                // update perturb bit
+                perturb = lfs3_tag_perturb(tag);
+
+                #ifndef LFS3_RDONLY
+                rbyd->eoff
+                        = ((lfs3_size_t)perturb << (8*sizeof(lfs3_size_t)-1))
+                        | eoff;
+                ecksum = ecksum_;
+                ecksum_.cksize = -1;
+                #endif
+
                 // revert to canonical checksum and perturb if necessary
-                cksum_ = cksum
-                        ^ ((lfs3_rbyd_isperturb(rbyd))
-                            ? LFS3_CRC32C_ODDZERO
-                            : 0);
+                cksum__ = cksum_ ^ ((perturb) ? LFS3_CRC32C_ODDZERO : 0);
             }
         }
 
         // found a trunk?
         if (lfs3_tag_istrunk(tag)) {
-            if (!(trunk && off > trunk && !trunk__)) {
+            if (!(trunk && off_ > trunk && !trunk__)) {
                 // start of trunk?
                 if (!trunk__) {
                     // keep track of trunk's entry point
-                    trunk__ = off;
+                    trunk__ = off_;
                     // reset weight
-                    weight_ = 0;
+                    weight__ = 0;
                 }
 
                 // derive weight of the tree from alt pointers
@@ -2921,14 +2935,14 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                 // may be overeagerly parsing an invalid commit, it's ok for
                 // this to overflow/underflow as long as we throw it out later
                 // on a bad cksum
-                weight_ += weight__;
+                weight__ += weight;
 
                 // end of trunk?
                 if (!lfs3_tag_isalt(tag)) {
                     // update trunk and weight, unless we are a shrub trunk
                     if (!lfs3_tag_isshrub(tag) || trunk__ == trunk) {
                         trunk_ = trunk__;
-                        weight = weight_;
+                        weight_ = weight__;
                     }
                     trunk__ = 0;
                 }
@@ -2937,18 +2951,15 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
             // update canonical checksum, xoring out any perturb
             // state, we don't want erased-state affecting our
             // canonical checksum
-            cksum = cksum_
-                    ^ ((lfs3_rbyd_isperturb(rbyd))
-                        ? LFS3_CRC32C_ODDZERO
-                        : 0);
+            cksum_ = cksum__ ^ ((perturb) ? LFS3_CRC32C_ODDZERO : 0);
         }
 
         // skip data
         if (!lfs3_tag_isalt(tag)) {
-            off_ += size;
+            off__ += size;
         }
 
-        off = off_;
+        off_ = off__;
     }
 
     // no valid commits?
@@ -2956,9 +2967,9 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
         return LFS3_ERR_CORRUPT;
     }
 
+    #ifndef LFS3_RDONLY
     // did we end on a valid commit? we may have erased-state
     bool erased = false;
-    #ifndef LFS3_RDONLY
     if (ecksum.cksize != -1) {
         // check the erased-state checksum
         err = lfs3_rbyd_ckecksum(lfs3, rbyd, &ecksum);
@@ -2969,21 +2980,23 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
         // found valid erased-state?
         erased = (err != LFS3_ERR_CORRUPT);
     }
-    #endif
 
     // used eoff=-1 to indicate when there is no erased-state
     if (!erased) {
         rbyd->eoff = -1;
     }
+    #endif
 
     #ifdef LFS3_DBGRBYDFETCHES
     LFS3_DEBUG("Fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "eoff %"PRId32", cksum %"PRIx32,
             rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
             rbyd->weight,
-            (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
-                ? -1
-                : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
+            LFS3_IFDEF_RDONLY(
+                -1,
+                (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
+                    ? -1
+                    : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd)),
             rbyd->cksum);
     #endif
 
@@ -4996,9 +5009,12 @@ static lfs3_data_t lfs3_data_frombranch(const lfs3_rbyd_t *branch,
 static int lfs3_data_readbranch(lfs3_t *lfs3,
         lfs3_data_t *data, lfs3_bid_t weight,
         lfs3_rbyd_t *branch) {
-    // setting off to 0 here will trigger asserts if we try to append
+    #ifndef LFS3_RDONLY
+    // setting eoff to 0 here will trigger asserts if we try to append
     // without fetching first
     branch->eoff = 0;
+    #endif
+
     branch->weight = weight;
 
     int err = lfs3_data_readleb128(lfs3, data, &branch->blocks[0]);
@@ -5031,7 +5047,9 @@ static int lfs3_branch_fetch(lfs3_t *lfs3, lfs3_rbyd_t *branch,
     branch->blocks[0] = block;
     branch->trunk = trunk;
     branch->weight = weight;
+    #ifndef LFS3_RDONLY
     branch->eoff = 0;
+    #endif
     branch->cksum = cksum;
 
     #ifdef LFS3_CKFETCHES
@@ -6316,8 +6334,10 @@ static int lfs3_data_readshrub(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_shrub_t *shrub) {
     // copy the mdir block
     shrub->blocks[0] = mdir->rbyd.blocks[0];
+    #ifndef LFS3_RDONLY
     // force estimate recalculation if we write to this shrub
     shrub->eoff = -1;
+    #endif
 
     int err = lfs3_data_readleb128(lfs3, data, &shrub->weight);
     if (err) {
@@ -6449,8 +6469,10 @@ static void lfs3_bshrub_init(lfs3_bshrub_t *bshrub) {
     bshrub->shrub.weight = 0;
     bshrub->shrub.blocks[0] = -1;
     bshrub->shrub.trunk = 0;
+    #ifndef LFS3_RDONLY
     // force estimate recalculation
     bshrub->shrub.eoff = -1;
+    #endif
 }
 
 static inline bool lfs3_bshrub_isbnull(const lfs3_bshrub_t *bshrub) {

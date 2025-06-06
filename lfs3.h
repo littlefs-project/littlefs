@@ -682,12 +682,13 @@ typedef struct lfs3_rbyd {
     // sign(trunk)=0 => normal rbyd
     // sign(trunk)=1 => shrub rbyd
     lfs3_size_t trunk;
-    // TODO can we actually get rid of eoff when LFS3_RDONLY?
+    #ifndef LFS3_RDONLY
     // sign(eoff)       => perturb bit
     // eoff=0, trunk=0  => not yet committed
     // eoff=0, trunk>0  => not yet fetched
     // eoff>=block_size => rbyd not erased/needs compaction
     lfs3_size_t eoff;
+    #endif
     uint32_t cksum;
 } lfs3_rbyd_t;
 
