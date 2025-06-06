@@ -7250,9 +7250,6 @@ static inline bool lfs3_grm_ismidrm(const lfs3_t *lfs3, lfs3_smid_t mid) {
                 || lfs3->grm.queue[1] == mid);
 }
 
-#define LFS3_DATA_GRM(_grm, _buffer) \
-    ((struct {lfs3_data_t d;}){lfs3_data_fromgrm(_grm, _buffer)}.d)
-
 #ifndef LFS3_RDONLY
 static lfs3_data_t lfs3_data_fromgrm(const lfs3_t *lfs3,
         uint8_t buffer[static LFS3_GRM_DSIZE]) {
