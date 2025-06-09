@@ -11316,7 +11316,7 @@ static inline void lfs3_file_discardbshrub(lfs3_file_t *file) {
 
 static inline lfs3_size_t lfs3_file_cachesize(lfs3_t *lfs3,
         const lfs3_file_t *file) {
-    return (file->cfg->cache_size)
+    return (file->cfg->cache_buffer || file->cfg->cache_size)
             ? file->cfg->cache_size
             : lfs3->cfg->file_cache_size;
 }
@@ -11337,7 +11337,16 @@ static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
 
 // file operations
 
-static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, bool trunc) {
+static void lfs3_file_init(lfs3_file_t *file, uint32_t flags,
+        const struct lfs3_file_config *cfg) {
+    file->cfg = cfg;
+    file->b.o.flags = lfs3_o_typeflags(LFS3_TYPE_REG) | flags;
+    file->pos = 0;
+    // default to no cache
+    file->cache.size = 0;
+}
+
+static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     // default data state
     lfs3_file_discardbshrub(file);
     // discard the current cache
@@ -11346,7 +11355,11 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, bool trunc) {
     lfs3_file_discardleaf(file);
 
     // don't bother reading disk if we're not created or truncating
-    if (!lfs3_o_isuncreat(file->b.o.flags) && !trunc) {
+    if (lfs3_o_isuncreat(flags) || lfs3_o_istrunc(flags)) {
+        // but do mark as unsync
+        file->b.o.flags |= LFS3_o_UNSYNC;
+
+    } else {
         // lookup the file struct, if there is one
         lfs3_tag_t tag;
         lfs3_data_t data;
@@ -11399,7 +11412,7 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, bool trunc) {
         }
 
         // don't bother reading disk if we're not created yet
-        if (lfs3_o_isuncreat(file->b.o.flags)) {
+        if (lfs3_o_isuncreat(flags)) {
             if (file->cfg->attrs[i].size) {
                 *file->cfg->attrs[i].size = LFS3_ERR_NOATTR;
             }
@@ -11479,9 +11492,6 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
                 || !lfs3_o_isexcl(cfg->attrs[i].flags));
     }
 
-    // mounted with LFS3_M_FLUSH/SYNC? implies LFS3_O_FLUSH/SYNC
-    flags |= lfs3->flags & (LFS3_M_FLUSH | LFS3_M_SYNC);
-
     if (!lfs3_o_isrdonly(flags)) {
         // prepare our filesystem for writing
         #ifndef LFS3_RDONLY
@@ -11493,12 +11503,10 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // setup file state
-    file->cfg = cfg;
-    file->b.o.flags = flags
-            | lfs3_o_typeflags(LFS3_TYPE_REG)
-            // default to unsynced for uncreated/truncated files
-            | LFS3_o_UNSYNC;
-    file->pos = 0;
+    lfs3_file_init(file,
+            // mounted with LFS3_M_FLUSH/SYNC? implies LFS3_O_FLUSH/SYNC
+            flags | (lfs3->flags & (LFS3_M_FLUSH | LFS3_M_SYNC)),
+            cfg);
 
     // lookup our parent
     lfs3_tag_t tag;
@@ -11508,14 +11516,14 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     if (err && !(err == LFS3_ERR_NOENT && lfs3_path_islast(path))) {
         return err;
     }
-    bool exists = err != LFS3_ERR_NOENT;
+    bool exists = (err != LFS3_ERR_NOENT);
 
     // creating a new entry?
     if (!exists || tag == LFS3_TAG_ORPHAN) {
-        if (!lfs3_o_iscreat(flags)) {
+        if (!lfs3_o_iscreat(file->b.o.flags)) {
             return LFS3_ERR_NOENT;
         }
-        LFS3_ASSERT(!lfs3_o_isrdonly(flags));
+        LFS3_ASSERT(!lfs3_o_isrdonly(file->b.o.flags));
 
         #ifndef LFS3_RDONLY
         // we're a file, don't allow trailing slashes
@@ -11550,10 +11558,13 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
                 }
             }
         }
+
+        // mark as uncreated
+        file->b.o.flags |= LFS3_o_UNCREAT;
         #endif
     } else {
         // wanted to create a new entry?
-        if (lfs3_o_isexcl(flags)) {
+        if (lfs3_o_isexcl(file->b.o.flags)) {
             return LFS3_ERR_EXIST;
         }
 
@@ -11564,14 +11575,13 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         if (tag == LFS3_TAG_UNKNOWN) {
             return LFS3_ERR_NOTSUP;
         }
-    }
 
-    // if stickynote, mark as uncreated, we need to convert to reg file
-    // on first sync
-    if (!exists
-            || tag == LFS3_TAG_STICKYNOTE
-            || tag == LFS3_TAG_ORPHAN) {
-        file->b.o.flags |= LFS3_o_UNCREAT;
+        #ifndef LFS3_RDONLY
+        // if stickynote, mark as uncreated
+        if (tag == LFS3_TAG_STICKYNOTE) {
+            file->b.o.flags |= LFS3_o_UNCREAT;
+        }
+        #endif
     }
 
     // allocate cache if necessary
@@ -11585,14 +11595,15 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // fetch the file struct and custom attrs
-    err = lfs3_file_fetch(lfs3, file, lfs3_o_istrunc(flags));
+    err = lfs3_file_fetch(lfs3, file, file->b.o.flags);
     if (err) {
         goto failed;
     }
 
     // check metadata/data for errors?
-    if (lfs3_t_isckmeta(flags) || lfs3_t_isckdata(flags)) {
-        err = lfs3_file_ck(lfs3, file, flags);
+    if (lfs3_t_isckmeta(file->b.o.flags)
+            || lfs3_t_isckdata(file->b.o.flags)) {
+        err = lfs3_file_ck(lfs3, file, file->b.o.flags);
         if (err) {
             goto failed;
         }
@@ -11609,11 +11620,12 @@ failed:;
 }
 
 // default file config
-static const struct lfs3_file_config lfs3_file_defaults = {0};
+static const struct lfs3_file_config lfs3_file_defaultcfg = {0};
 
 int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags) {
-    return lfs3_file_opencfg(lfs3, file, path, flags, &lfs3_file_defaults);
+    return lfs3_file_opencfg(lfs3, file, path, flags,
+            &lfs3_file_defaultcfg);
 }
 
 // clean up resources
@@ -13456,7 +13468,9 @@ int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
     // do nothing if already in-sync
     if (lfs3_o_isunsync(file->b.o.flags)) {
         // refetch the file struct from disk
-        err = lfs3_file_fetch(lfs3, file, false);
+        err = lfs3_file_fetch(lfs3, file,
+                // don't truncate again!
+                file->b.o.flags & ~LFS3_O_TRUNC);
         if (err) {
             goto failed;
         }
@@ -13837,6 +13851,93 @@ int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file) {
     return lfs3_file_ck(lfs3, file,
             LFS3_T_RDONLY | LFS3_T_CKMETA | LFS3_T_CKDATA);
 }
+
+
+
+/// Simple key-value API ///
+
+// a simple key-value API is easier to use if your file fits in RAM, and
+// if that's all you need you can potentially compile-out the more
+// advanced file operations
+
+// kv file config, we need to explicitly disable the file cache
+static const struct lfs3_file_config lfs3_file_kvconfig = {
+    // TODO is this the best way to do this?
+    .cache_buffer = (uint8_t*)true,
+    .cache_size = 0,
+};
+
+lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
+        void *buffer, lfs3_size_t size) {
+    // we just use the file API here, but with no cache so all reads
+    // bypass the cache
+    lfs3_file_t file;
+    int err = lfs3_file_opencfg(lfs3, &file, path, LFS3_O_RDONLY,
+            &lfs3_file_kvconfig);
+    if (err) {
+        return err;
+    }
+
+    lfs3_ssize_t size_ = lfs3_file_read(lfs3, &file, buffer, size);
+
+    // unconditionally close
+    err = lfs3_file_close(lfs3, &file);
+    // we didn't allocate anything, so this can't fail
+    LFS3_ASSERT(!err);
+
+    return size_;
+}
+
+lfs3_ssize_t lfs3_size(lfs3_t *lfs3, const char *path) {
+    // we just use the file API here, but with no cache so all reads
+    // bypass the cache
+    lfs3_file_t file;
+    int err = lfs3_file_opencfg(lfs3, &file, path, LFS3_O_RDONLY,
+            &lfs3_file_kvconfig);
+    if (err) {
+        return err;
+    }
+
+    lfs3_ssize_t size_ = lfs3_file_size_(&file);
+
+    // unconditionally close
+    err = lfs3_file_close(lfs3, &file);
+    // we didn't allocate anything, so this can't fail
+    LFS3_ASSERT(!err);
+
+    return size_;
+}
+
+#ifndef LFS3_RDONLY
+int lfs3_set(lfs3_t *lfs3, const char *path,
+        const void *buffer, lfs3_size_t size) {
+    // we just use the file API here, but with no cache so all writes
+    // bypass the cache
+    lfs3_file_t file;
+    int err = lfs3_file_opencfg(lfs3, &file, path,
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC,
+            &lfs3_file_kvconfig);
+    if (err) {
+        return err;
+    }
+
+    lfs3_ssize_t size_ = lfs3_file_write(lfs3, &file, buffer, size);
+    if (size_ < 0) {
+        err = size_;
+    }
+
+    // unconditionally close
+    int err_ = lfs3_file_close(lfs3, &file);
+    if (err_) {
+        // we didn't allocate anything, and write failing would set the
+        // desync flag, so only one of write/close can fail
+        LFS3_ASSERT(!err);
+        err = err_;
+    }
+
+    return err;
+}
+#endif
 
 
 

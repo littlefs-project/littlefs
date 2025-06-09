@@ -619,7 +619,7 @@ struct lfs3_file_config {
 
     // Size of the file cache in bytes. In addition to filesystem-wide
     // read/prog caches, each file gets its own cache to reduce disk
-    // accesses. Defaults to file_cache_size.
+    // accesses. Defaults to file_cache_size if cache_buffer is NULL.
     lfs3_size_t cache_size;
 
     // Optional list of custom attributes attached to the file. If readable,
@@ -915,6 +915,27 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
 int lfs3_unmount(lfs3_t *lfs3);
 
 /// General operations ///
+
+// Get the value of a file
+//
+// Returns the number of bytes read, or a negative error code on failure.
+// Note this may be less than the on-disk file size if the buffer is not
+// large enough.
+lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
+        void *buffer, lfs3_size_t size);
+
+// Get a file's size
+//
+// Returns the size of the file, or a negative error code on failure.
+lfs3_ssize_t lfs3_size(lfs3_t *lfs3, const char *path);
+
+// Set the value of a file
+//
+// Returns a negative error code on failure.
+#ifndef LFS3_RDONLY
+int lfs3_set(lfs3_t *lfs3, const char *path,
+        const void *buffer, lfs3_size_t size);
+#endif
 
 // Removes a file or directory
 //

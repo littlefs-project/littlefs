@@ -1,0 +1,1421 @@
+# Tests over the simple key-value API
+after = ['test_files', 'test_fsync', 'test_stickynotes']
+
+
+## General set/get tests
+
+# test some simple kv operations
+[cases.test_kv_set]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create some kv files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_set(&lfs3, "a", a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_set(&lfs3, "b", b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_set(&lfs3, "c", c, strlen(c)) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        lfs3_size(&lfs3, "a") => strlen(a);
+        lfs3_size(&lfs3, "b") => strlen(b);
+        lfs3_size(&lfs3, "c") => strlen(c);
+        // try reading the files
+        uint8_t rbuf[256];
+        lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test truncated get calls still work
+[cases.test_kv_set_trunc]
+defines.BUFSIZE = [1, 4, 7]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create some kv files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_set(&lfs3, "a", a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_set(&lfs3, "b", b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_set(&lfs3, "c", c, strlen(c)) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        lfs3_size(&lfs3, "a") => strlen(a);
+        lfs3_size(&lfs3, "b") => strlen(b);
+        lfs3_size(&lfs3, "c") => strlen(c);
+
+        // mark rbuf so we can detect overflow
+        uint8_t rbuf[256];
+        rbuf[BUFSIZE] = '!';
+        // try reading truncated files
+        lfs3_get(&lfs3, "a", rbuf, BUFSIZE) => BUFSIZE;
+        assert(memcmp(rbuf, a, BUFSIZE) == 0);
+        assert(rbuf[BUFSIZE] == '!');
+        lfs3_get(&lfs3, "b", rbuf, BUFSIZE) => BUFSIZE;
+        assert(memcmp(rbuf, b, BUFSIZE) == 0);
+        assert(rbuf[BUFSIZE] == '!');
+        lfs3_get(&lfs3, "c", rbuf, BUFSIZE) => BUFSIZE;
+        assert(memcmp(rbuf, c, BUFSIZE) == 0);
+        assert(rbuf[BUFSIZE] == '!');
+
+        // try reading the full files
+        lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test ENOENT works
+[cases.test_kv_set_noent]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // try getting the file sizes
+    lfs3_size(&lfs3, "a") => LFS3_ERR_NOENT;
+    lfs3_size(&lfs3, "b") => LFS3_ERR_NOENT;
+    lfs3_size(&lfs3, "c") => LFS3_ERR_NOENT;
+
+    // try reading files
+    uint8_t rbuf[256];
+    lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => LFS3_ERR_NOENT;
+    lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => LFS3_ERR_NOENT;
+    lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => LFS3_ERR_NOENT;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that updating kv files works
+[cases.test_kv_set_update]
+# update based on this mask
+defines.MASK = 'range(0x8)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create some kv files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_set(&lfs3, "a", a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_set(&lfs3, "b", b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_set(&lfs3, "c", c, strlen(c)) => 0;
+
+    // rewrite some kv files
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    if (MASK & 0x1) {
+        lfs3_set(&lfs3, "a", a_, strlen(a_)) => 0;
+    }
+    const char *b_ = "Three slash four cup butter or margarine.";
+    if (MASK & 0x2) {
+        lfs3_set(&lfs3, "b", b_, strlen(b_)) => 0;
+    }
+    const char *c_ = "One and two third cups granulated sugar.";
+    if (MASK & 0x4) {
+        lfs3_set(&lfs3, "c", c_, strlen(c_)) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        if (MASK & 0x1) {
+            lfs3_size(&lfs3, "a") => strlen(a_);
+        } else {
+            lfs3_size(&lfs3, "a") => strlen(a);
+        }
+        if (MASK & 0x2) {
+            lfs3_size(&lfs3, "b") => strlen(b_);
+        } else {
+            lfs3_size(&lfs3, "b") => strlen(b);
+        }
+        if (MASK & 0x4) {
+            lfs3_size(&lfs3, "c") => strlen(c_);
+        } else {
+            lfs3_size(&lfs3, "c") => strlen(c);
+        }
+
+        // try reading files
+        uint8_t rbuf[256];
+        if (MASK & 0x1) {
+            lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a_);
+            assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+        } else {
+            lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a);
+            assert(memcmp(rbuf, a, strlen(a)) == 0);
+        }
+        if (MASK & 0x2) {
+            lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b_);
+            assert(memcmp(rbuf, b_, strlen(b_)) == 0);
+        } else {
+            lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b);
+            assert(memcmp(rbuf, b, strlen(b)) == 0);
+        }
+        if (MASK & 0x4) {
+            lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c_);
+            assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+        } else {
+            lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c);
+            assert(memcmp(rbuf, c, strlen(c)) == 0);
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test removing simple kv files
+#
+# surprise! this is the normal file remove function
+#
+[cases.test_kv_remove]
+# remove based on this mask
+defines.MASK = 'range(0x8)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create some kv files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_set(&lfs3, "a", a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_set(&lfs3, "b", b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_set(&lfs3, "c", c, strlen(c)) => 0;
+
+    // remove some kv files
+    if (MASK & 0x1) {
+        lfs3_remove(&lfs3, "a") => 0;
+    }
+    if (MASK & 0x2) {
+        lfs3_remove(&lfs3, "b") => 0;
+    }
+    if (MASK & 0x4) {
+        lfs3_remove(&lfs3, "c") => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        if (MASK & 0x1) {
+            lfs3_size(&lfs3, "a") => LFS3_ERR_NOENT;
+        } else {
+            lfs3_size(&lfs3, "a") => strlen(a);
+        }
+        if (MASK & 0x2) {
+            lfs3_size(&lfs3, "b") => LFS3_ERR_NOENT;
+        } else {
+            lfs3_size(&lfs3, "b") => strlen(b);
+        }
+        if (MASK & 0x4) {
+            lfs3_size(&lfs3, "c") => LFS3_ERR_NOENT;
+        } else {
+            lfs3_size(&lfs3, "c") => strlen(c);
+        }
+
+        // try reading the full files
+        uint8_t rbuf[256];
+        if (MASK & 0x1) {
+            lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf))
+                    => LFS3_ERR_NOENT;
+        } else {
+            lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf))
+                    => strlen(a);
+            assert(memcmp(rbuf, a, strlen(a)) == 0);
+        }
+        if (MASK & 0x2) {
+            lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf))
+                    => LFS3_ERR_NOENT;
+        } else {
+            lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf))
+                    => strlen(b);
+            assert(memcmp(rbuf, b, strlen(b)) == 0);
+        }
+        if (MASK & 0x4) {
+            lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf))
+                    => LFS3_ERR_NOENT;
+        } else {
+            lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf))
+                    => strlen(c);
+            assert(memcmp(rbuf, c, strlen(c)) == 0);
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test creating a bunch of kv files
+[cases.test_kv_many]
+defines.N = [40, 400]
+defines.SIZE = 4
+defines.COMPACT = [false, true]
+defines.GC_FLAGS = 'LFS3_GC_COMPACT'
+defines.GC_STEPS = -1
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+if = 'LFS3_IFDEF_GC(true, !COMPACT)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create N kv files
+    uint32_t prng = 42;
+    for (lfs3_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "key%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfs3_set(&lfs3, name, wbuf, SIZE) => 0;
+    }
+
+    // try compacting?
+    #ifdef LFS3_GC
+    if (COMPACT) {
+        lfs3_fs_gc(&lfs3) => 0;
+    }
+    #endif
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        for (lfs3_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "key%03x", i);
+            lfs3_size(&lfs3, name) => SIZE;
+        }
+        // try reading the files
+        prng = 42;
+        for (lfs3_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "key%03x", i);
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[256];
+            lfs3_get(&lfs3, name, rbuf, sizeof(rbuf)) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# fuzz kv files
+[cases.test_kv_fuzz]
+defines.N = 10
+defines.SIZE = 4
+defines.OPS = ['4*N', '40*N']
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // set up a simulation to compare against
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*sizeof(uint32_t));
+
+    uint32_t prng = SEED;
+    for (lfs3_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 2;
+
+        // create a kv file?
+        if (op == 0) {
+            // choose a kv file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // create the file
+            char name[256];
+            sprintf(name, "key%03x", x);
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfs3_set(&lfs3, name, wbuf, SIZE) => 0;
+
+            // update our sim
+            sim_prngs[x] = wprng;
+
+        // remove a kv file?
+        } else if (op == 1) {
+            // choose a kv file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+
+            // remove the file
+            char name[256];
+            sprintf(name, "key%03x", x);
+            if (sim_prngs[x]) {
+                lfs3_remove(&lfs3, name) => 0;
+            } else {
+                lfs3_remove(&lfs3, name) => LFS3_ERR_NOENT;
+            }
+
+            // update our sim
+            sim_prngs[x] = 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting each file size
+        for (lfs3_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "key%03x", j);
+            if (sim_prngs[j]) {
+                lfs3_size(&lfs3, name) => SIZE;
+            } else {
+                lfs3_size(&lfs3, name) => LFS3_ERR_NOENT;
+            }
+        }
+        // try reading each file
+        for (lfs3_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "key%03x", j);
+            if (sim_prngs[j]) {
+                uint32_t wprng_ = sim_prngs[j];
+                uint8_t wbuf[SIZE];
+                for (lfs3_size_t i = 0; i < SIZE; i++) {
+                    wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                }
+                uint8_t rbuf[256];
+                lfs3_get(&lfs3, name, rbuf, sizeof(rbuf)) => SIZE;
+                assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            } else {
+                uint8_t rbuf[256];
+                lfs3_get(&lfs3, name, rbuf, sizeof(rbuf))
+                        => LFS3_ERR_NOENT;
+            }
+        }
+    }
+
+    // clean up sim/lfs3
+    free(sim_prngs);
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test creating a bunch of kv files
+[cases.test_kv_many_big]
+defines.N = 40
+# size is more an upper limit here
+defines.SIZE = 40000
+defines.COMPACT = [false, true]
+defines.GC_FLAGS = 'LFS3_GC_COMPACT'
+defines.GC_STEPS = -1
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+if = 'LFS3_IFDEF_GC(true, !COMPACT)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create N kv files
+    uint32_t prng = 42;
+    for (lfs3_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "key%03x", i);
+
+        // choose a random size, bias towards zero
+        lfs3_off_t size = lfs3_abs(
+                (TEST_PRNG(&prng) % SIZE)
+                    + (TEST_PRNG(&prng) % SIZE)
+                    - SIZE);
+        uint8_t wbuf[SIZE];
+        for (lfs3_size_t j = 0; j < size; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfs3_set(&lfs3, name, wbuf, size) => 0;
+    }
+
+    // try compacting?
+    #ifdef LFS3_GC
+    if (COMPACT) {
+        lfs3_fs_gc(&lfs3) => 0;
+    }
+    #endif
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        prng = 42;
+        for (lfs3_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "key%03x", i);
+            lfs3_off_t size = lfs3_abs(
+                    (TEST_PRNG(&prng) % SIZE)
+                        + (TEST_PRNG(&prng) % SIZE)
+                        - SIZE);
+            for (lfs3_size_t j = 0; j < size; j++) {
+                TEST_PRNG(&prng);
+            }
+            lfs3_size(&lfs3, name) => size;
+        }
+        // try reading the files
+        prng = 42;
+        for (lfs3_size_t i = 0; i < N; i++) {
+            char name[256];
+            sprintf(name, "key%03x", i);
+            lfs3_off_t size = lfs3_abs(
+                    (TEST_PRNG(&prng) % SIZE)
+                        + (TEST_PRNG(&prng) % SIZE)
+                        - SIZE);
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < size; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[SIZE];
+            lfs3_get(&lfs3, name, rbuf, sizeof(rbuf)) => size;
+            assert(memcmp(rbuf, wbuf, size) == 0);
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# fuzz kv files
+[cases.test_kv_fuzz_big]
+defines.N = 10
+# size is more an upper limit here
+defines.SIZE = 40000
+defines.OPS = ['4*N', '40*N']
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs3_off_t *sim_sizes = malloc(N*sizeof(lfs3_off_t));
+    memset(sim_sizes, 0, N*sizeof(lfs3_off_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*sizeof(uint32_t));
+
+    uint32_t prng = SEED;
+    for (lfs3_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 2;
+
+        // create a kv file?
+        if (op == 0) {
+            // choose a kv file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+            // choose a size, bias towards zero
+            lfs3_off_t size = lfs3_abs(
+                    (TEST_PRNG(&prng) % SIZE)
+                        + (TEST_PRNG(&prng) % SIZE)
+                        - SIZE);
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // create the file
+            char name[256];
+            sprintf(name, "key%03x", x);
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < size; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfs3_set(&lfs3, name, wbuf, size) => 0;
+
+            // update our sim
+            sim_sizes[x] = size;
+            sim_prngs[x] = wprng;
+
+        // remove a kv file?
+        } else if (op == 1) {
+            // choose a kv file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+
+            // remove the file
+            char name[256];
+            sprintf(name, "key%03x", x);
+            if (sim_prngs[x]) {
+                lfs3_remove(&lfs3, name) => 0;
+            } else {
+                lfs3_remove(&lfs3, name) => LFS3_ERR_NOENT;
+            }
+
+            // update our sim
+            sim_prngs[x] = 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting each file size
+        for (lfs3_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "key%03x", j);
+            if (sim_prngs[j]) {
+                lfs3_size(&lfs3, name) => sim_sizes[j];
+            } else {
+                lfs3_size(&lfs3, name) => LFS3_ERR_NOENT;
+            }
+        }
+        // try reading each file
+        for (lfs3_size_t j = 0; j < N; j++) {
+            char name[256];
+            sprintf(name, "key%03x", j);
+            if (sim_prngs[j]) {
+                uint32_t wprng_ = sim_prngs[j];
+                uint8_t wbuf[SIZE];
+                for (lfs3_size_t i = 0; i < sim_sizes[j]; i++) {
+                    wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+                }
+                uint8_t rbuf[SIZE];
+                lfs3_get(&lfs3, name, rbuf, sizeof(rbuf)) => sim_sizes[j];
+                assert(memcmp(rbuf, wbuf, sim_sizes[j]) == 0);
+            } else {
+                uint8_t rbuf[SIZE];
+                lfs3_get(&lfs3, name, rbuf, sizeof(rbuf))
+                        => LFS3_ERR_NOENT;
+            }
+        }
+    }
+
+    // clean up sim/lfs3
+    free(sim_sizes);
+    free(sim_prngs);
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test kv files can be read as normal files
+[cases.test_kv_interop_reads]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create some kv files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_set(&lfs3, "a", a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_set(&lfs3, "b", b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_set(&lfs3, "c", c, strlen(c)) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        lfs3_size(&lfs3, "a") => strlen(a);
+        lfs3_size(&lfs3, "b") => strlen(b);
+        lfs3_size(&lfs3, "c") => strlen(c);
+        // try reading the files
+        uint8_t rbuf[256];
+        lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+
+        // check our files with stat
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, "a", &info) => 0;
+        assert(strcmp(info.name, "a") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == strlen(a));
+        lfs3_stat(&lfs3, "b", &info) => 0;
+        assert(strcmp(info.name, "b") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == strlen(b));
+        lfs3_stat(&lfs3, "c", &info) => 0;
+        assert(strcmp(info.name, "c") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == strlen(c));
+
+        // and with dir read
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "a") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == strlen(a));
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "b") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == strlen(b));
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "c") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == strlen(c));
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
+
+        // try reading our files
+        lfs3_file_t file_a;
+        lfs3_file_t file_b;
+        lfs3_file_t file_c;
+        lfs3_file_open(&lfs3, &file_a, "a", LFS3_O_RDONLY) => 0;
+        lfs3_file_open(&lfs3, &file_b, "b", LFS3_O_RDONLY) => 0;
+        lfs3_file_open(&lfs3, &file_c, "c", LFS3_O_RDONLY) => 0;
+        // is size correct?
+        lfs3_file_size(&lfs3, &file_a) => strlen(a);
+        lfs3_file_size(&lfs3, &file_b) => strlen(b);
+        lfs3_file_size(&lfs3, &file_c) => strlen(c);
+        // try reading
+        lfs3_file_read(&lfs3, &file_a, rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfs3_file_read(&lfs3, &file_b, rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfs3_file_read(&lfs3, &file_c, rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+        lfs3_file_close(&lfs3, &file_a) => 0;
+        lfs3_file_close(&lfs3, &file_b) => 0;
+        lfs3_file_close(&lfs3, &file_c) => 0;
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test normal files can be read a kv files
+[cases.test_kv_interop_writes]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create some kv files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_file_t file_a;
+    lfs3_file_open(&lfs3, &file_a, "a",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file_a, a, strlen(a)) => strlen(a);
+    lfs3_file_close(&lfs3, &file_a) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_file_t file_b;
+    lfs3_file_open(&lfs3, &file_b, "b",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file_b, b, strlen(b)) => strlen(b);
+    lfs3_file_close(&lfs3, &file_b) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_file_t file_c;
+    lfs3_file_open(&lfs3, &file_c, "c",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file_c, c, strlen(c)) => strlen(c);
+    lfs3_file_close(&lfs3, &file_c) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        lfs3_size(&lfs3, "a") => strlen(a);
+        lfs3_size(&lfs3, "b") => strlen(b);
+        lfs3_size(&lfs3, "c") => strlen(c);
+        // try reading the files
+        uint8_t rbuf[256];
+        lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a);
+        assert(memcmp(rbuf, a, strlen(a)) == 0);
+        lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b);
+        assert(memcmp(rbuf, b, strlen(b)) == 0);
+        lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c);
+        assert(memcmp(rbuf, c, strlen(c)) == 0);
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test kv files broadcast sync updates
+[cases.test_kv_interop_sync]
+defines.STICKYNOTES = [false, true]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // open some files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_file_t file_a;
+    lfs3_file_open(&lfs3, &file_a, "a",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file_a, a, strlen(a)) => strlen(a);
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_file_t file_b;
+    lfs3_file_open(&lfs3, &file_b, "b",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file_b, b, strlen(b)) => strlen(b);
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_file_t file_c;
+    lfs3_file_open(&lfs3, &file_c, "c",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    lfs3_file_write(&lfs3, &file_c, c, strlen(c)) => strlen(c);
+
+    // sync to create if creating
+    if (!STICKYNOTES) {
+        lfs3_file_sync(&lfs3, &file_a) => 0;
+        lfs3_file_sync(&lfs3, &file_b) => 0;
+        lfs3_file_sync(&lfs3, &file_c) => 0;
+    }
+
+    // set the new values
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    lfs3_set(&lfs3, "a", a_, strlen(a_)) => 0;
+    const char *b_ = "Three slash four cup butter or margarine.";
+    lfs3_set(&lfs3, "b", b_, strlen(b_)) => 0;
+    const char *c_ = "One and two third cups granulated sugar.";
+    lfs3_set(&lfs3, "c", c_, strlen(c_)) => 0;
+
+    // files should have been created
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "a", &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(a_));
+    lfs3_stat(&lfs3, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(b_));
+    lfs3_stat(&lfs3, "c", &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(c_));
+
+    // try getting the file sizes
+    lfs3_size(&lfs3, "a") => strlen(a_);
+    lfs3_size(&lfs3, "b") => strlen(b_);
+    lfs3_size(&lfs3, "c") => strlen(c_);
+
+    // try reading files
+    uint8_t rbuf[256];
+    lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a_);
+    assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+    lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b_);
+    assert(memcmp(rbuf, b_, strlen(b_)) == 0);
+    lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c_);
+    assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+
+    // opened files should be updated
+    lfs3_file_rewind(&lfs3, &file_a) => 0;
+    lfs3_file_read(&lfs3, &file_a, rbuf, sizeof(rbuf)) => strlen(a_);
+    assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+    lfs3_file_rewind(&lfs3, &file_b) => 0;
+    lfs3_file_read(&lfs3, &file_b, rbuf, sizeof(rbuf)) => strlen(b_);
+    assert(memcmp(rbuf, b_, strlen(b_)) == 0);
+    lfs3_file_rewind(&lfs3, &file_c) => 0;
+    lfs3_file_read(&lfs3, &file_c, rbuf, sizeof(rbuf)) => strlen(c_);
+    assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+
+    lfs3_file_close(&lfs3, &file_a) => 0;
+    lfs3_file_close(&lfs3, &file_b) => 0;
+    lfs3_file_close(&lfs3, &file_c) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test kv files don't interfere with desync files
+[cases.test_kv_interop_desync]
+defines.STICKYNOTES = [false, true]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // open some files desync
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_file_t file_a;
+    lfs3_file_open(&lfs3, &file_a, "a",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_DESYNC) => 0;
+    lfs3_file_write(&lfs3, &file_a, a, strlen(a)) => strlen(a);
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_file_t file_b;
+    lfs3_file_open(&lfs3, &file_b, "b",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_DESYNC) => 0;
+    lfs3_file_write(&lfs3, &file_b, b, strlen(b)) => strlen(b);
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_file_t file_c;
+    lfs3_file_open(&lfs3, &file_c, "c",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_DESYNC) => 0;
+    lfs3_file_write(&lfs3, &file_c, c, strlen(c)) => strlen(c);
+
+    // sync to create if creating
+    if (!STICKYNOTES) {
+        lfs3_file_sync(&lfs3, &file_a) => 0;
+        lfs3_file_sync(&lfs3, &file_b) => 0;
+        lfs3_file_sync(&lfs3, &file_c) => 0;
+        // but then desync again!
+        lfs3_file_desync(&lfs3, &file_a) => 0;
+        lfs3_file_desync(&lfs3, &file_b) => 0;
+        lfs3_file_desync(&lfs3, &file_c) => 0;
+    }
+
+    // set the new values
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    lfs3_set(&lfs3, "a", a_, strlen(a_)) => 0;
+    const char *b_ = "Three slash four cup butter or margarine.";
+    lfs3_set(&lfs3, "b", b_, strlen(b_)) => 0;
+    const char *c_ = "One and two third cups granulated sugar.";
+    lfs3_set(&lfs3, "c", c_, strlen(c_)) => 0;
+
+    // files should have been created
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "a", &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(a_));
+    lfs3_stat(&lfs3, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(b_));
+    lfs3_stat(&lfs3, "c", &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(c_));
+
+    // try getting the file sizes
+    lfs3_size(&lfs3, "a") => strlen(a_);
+    lfs3_size(&lfs3, "b") => strlen(b_);
+    lfs3_size(&lfs3, "c") => strlen(c_);
+
+    // try reading files
+    uint8_t rbuf[256];
+    lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a_);
+    assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+    lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b_);
+    assert(memcmp(rbuf, b_, strlen(b_)) == 0);
+    lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c_);
+    assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+
+    // opened files should _not_ be updated
+    lfs3_file_rewind(&lfs3, &file_a) => 0;
+    lfs3_file_read(&lfs3, &file_a, rbuf, sizeof(rbuf)) => strlen(a);
+    assert(memcmp(rbuf, a, strlen(a)) == 0);
+    lfs3_file_rewind(&lfs3, &file_b) => 0;
+    lfs3_file_read(&lfs3, &file_b, rbuf, sizeof(rbuf)) => strlen(b);
+    assert(memcmp(rbuf, b, strlen(b)) == 0);
+    lfs3_file_rewind(&lfs3, &file_c) => 0;
+    lfs3_file_read(&lfs3, &file_c, rbuf, sizeof(rbuf)) => strlen(c);
+    assert(memcmp(rbuf, c, strlen(c)) == 0);
+
+    lfs3_file_close(&lfs3, &file_a) => 0;
+    lfs3_file_close(&lfs3, &file_b) => 0;
+    lfs3_file_close(&lfs3, &file_c) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test kv files work with resyncing files
+[cases.test_kv_interop_resync]
+defines.STICKYNOTES = [false, true]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // open some files desync
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_file_t file_a;
+    lfs3_file_open(&lfs3, &file_a, "a",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_DESYNC) => 0;
+    lfs3_file_write(&lfs3, &file_a, a, strlen(a)) => strlen(a);
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_file_t file_b;
+    lfs3_file_open(&lfs3, &file_b, "b",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_DESYNC) => 0;
+    lfs3_file_write(&lfs3, &file_b, b, strlen(b)) => strlen(b);
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_file_t file_c;
+    lfs3_file_open(&lfs3, &file_c, "c",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_DESYNC) => 0;
+    lfs3_file_write(&lfs3, &file_c, c, strlen(c)) => strlen(c);
+
+    // sync to create if creating
+    if (!STICKYNOTES) {
+        lfs3_file_sync(&lfs3, &file_a) => 0;
+        lfs3_file_sync(&lfs3, &file_b) => 0;
+        lfs3_file_sync(&lfs3, &file_c) => 0;
+        // but then desync again!
+        lfs3_file_desync(&lfs3, &file_a) => 0;
+        lfs3_file_desync(&lfs3, &file_b) => 0;
+        lfs3_file_desync(&lfs3, &file_c) => 0;
+    }
+
+    // set the new values
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    lfs3_set(&lfs3, "a", a_, strlen(a_)) => 0;
+    const char *b_ = "Three slash four cup butter or margarine.";
+    lfs3_set(&lfs3, "b", b_, strlen(b_)) => 0;
+    const char *c_ = "One and two third cups granulated sugar.";
+    lfs3_set(&lfs3, "c", c_, strlen(c_)) => 0;
+
+    // files should have been created
+    struct lfs3_info info;
+    lfs3_stat(&lfs3, "a", &info) => 0;
+    assert(strcmp(info.name, "a") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(a_));
+    lfs3_stat(&lfs3, "b", &info) => 0;
+    assert(strcmp(info.name, "b") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(b_));
+    lfs3_stat(&lfs3, "c", &info) => 0;
+    assert(strcmp(info.name, "c") == 0);
+    assert(info.type == LFS3_TYPE_REG);
+    assert(info.size == strlen(c_));
+
+    // try getting the file sizes
+    lfs3_size(&lfs3, "a") => strlen(a_);
+    lfs3_size(&lfs3, "b") => strlen(b_);
+    lfs3_size(&lfs3, "c") => strlen(c_);
+
+    // try reading files
+    uint8_t rbuf[256];
+    lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf)) => strlen(a_);
+    assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+    lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf)) => strlen(b_);
+    assert(memcmp(rbuf, b_, strlen(b_)) == 0);
+    lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf)) => strlen(c_);
+    assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+
+    // opened files should _not_ be updated
+    lfs3_file_rewind(&lfs3, &file_a) => 0;
+    lfs3_file_read(&lfs3, &file_a, rbuf, sizeof(rbuf)) => strlen(a);
+    assert(memcmp(rbuf, a, strlen(a)) == 0);
+    lfs3_file_rewind(&lfs3, &file_b) => 0;
+    lfs3_file_read(&lfs3, &file_b, rbuf, sizeof(rbuf)) => strlen(b);
+    assert(memcmp(rbuf, b, strlen(b)) == 0);
+    lfs3_file_rewind(&lfs3, &file_c) => 0;
+    lfs3_file_read(&lfs3, &file_c, rbuf, sizeof(rbuf)) => strlen(c);
+    assert(memcmp(rbuf, c, strlen(c)) == 0);
+
+    // but if we resync they should be updated
+    lfs3_file_resync(&lfs3, &file_a) => 0;
+    lfs3_file_resync(&lfs3, &file_b) => 0;
+    lfs3_file_resync(&lfs3, &file_c) => 0;
+    lfs3_file_rewind(&lfs3, &file_a) => 0;
+    lfs3_file_read(&lfs3, &file_a, rbuf, sizeof(rbuf)) => strlen(a_);
+    assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+    lfs3_file_rewind(&lfs3, &file_b) => 0;
+    lfs3_file_read(&lfs3, &file_b, rbuf, sizeof(rbuf)) => strlen(b_);
+    assert(memcmp(rbuf, b_, strlen(b_)) == 0);
+    lfs3_file_rewind(&lfs3, &file_c) => 0;
+    lfs3_file_read(&lfs3, &file_c, rbuf, sizeof(rbuf)) => strlen(c_);
+    assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+
+    lfs3_file_close(&lfs3, &file_a) => 0;
+    lfs3_file_close(&lfs3, &file_b) => 0;
+    lfs3_file_close(&lfs3, &file_c) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# fuzz kv files and normal files
+[cases.test_kv_interop_fuzz]
+defines.STICKYNOTES = [false, true]
+defines.N = 10
+defines.SIZE = 4
+defines.OPS = ['4*N', '40*N']
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // set up a simulation to compare against
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*sizeof(uint32_t));
+    // keep track of opened files
+    lfs3_file_t **sim_files = malloc(N*sizeof(lfs3_file_t*));
+    memset(sim_files, 0, N*sizeof(lfs3_file_t*));
+
+    uint32_t prng = SEED;
+    for (lfs3_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 3;
+
+        // create a kv file?
+        if (op == 0) {
+            // choose a kv file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // create the file
+            char name[256];
+            sprintf(name, "key%03x", x);
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfs3_set(&lfs3, name, wbuf, SIZE) => 0;
+
+            // update our sim
+            sim_prngs[x] = wprng;
+
+        // remove a kv file?
+        } else if (op == 1) {
+            // choose a kv file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+
+            // remove the file
+            char name[256];
+            sprintf(name, "key%03x", x);
+            if (sim_prngs[x]) {
+                lfs3_remove(&lfs3, name) => 0;
+            } else {
+                lfs3_remove(&lfs3, name) => LFS3_ERR_NOENT;
+            }
+
+            // update our sim
+            sim_prngs[x] = 0;
+            if (sim_files[x]) {
+                lfs3_file_close(&lfs3, sim_files[x]) => 0;
+                free(sim_files[x]);
+            }
+            sim_files[x] = NULL;
+
+        // open a normal file?
+        } else if (op == 2) {
+            // choose a file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // close if open
+            if (sim_files[x]) {
+                lfs3_file_close(&lfs3, sim_files[x]) => 0;
+                free(sim_files[x]);
+            }
+
+            // create/open the file
+            sim_files[x] = malloc(sizeof(lfs3_file_t));
+            char name[256];
+            sprintf(name, "key%03x", x);
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfs3_file_open(&lfs3, sim_files[x], name,
+                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+            lfs3_file_write(&lfs3, sim_files[x], wbuf, SIZE) => SIZE;
+            lfs3_file_sync(&lfs3, sim_files[x]) => 0;
+
+            // update our sim
+            sim_prngs[x] = wprng;
+        }
+    }
+
+    // try getting each file size
+    for (lfs3_size_t j = 0; j < N; j++) {
+        char name[256];
+        sprintf(name, "key%03x", j);
+        if (sim_prngs[j]) {
+            lfs3_size(&lfs3, name) => SIZE;
+        } else {
+            lfs3_size(&lfs3, name) => LFS3_ERR_NOENT;
+        }
+    }
+
+    // try reading each file
+    for (lfs3_size_t j = 0; j < N; j++) {
+        char name[256];
+        sprintf(name, "key%03x", j);
+        if (sim_prngs[j]) {
+            uint32_t wprng_ = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t i = 0; i < SIZE; i++) {
+                wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            uint8_t rbuf[256];
+            lfs3_get(&lfs3, name, rbuf, sizeof(rbuf)) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        } else {
+            uint8_t rbuf[256];
+            lfs3_get(&lfs3, name, rbuf, sizeof(rbuf))
+                    => LFS3_ERR_NOENT;
+        }
+    }
+
+    // try reading the opened file handles
+    for (lfs3_size_t j = 0; j < N; j++) {
+        if (sim_files[j]) {
+            lfs3_file_rewind(&lfs3, sim_files[j]) => 0;
+            uint32_t wprng_ = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t i = 0; i < SIZE; i++) {
+                wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            uint8_t rbuf[256];
+            lfs3_file_read(&lfs3, sim_files[j], rbuf, sizeof(rbuf)) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        }
+    }
+
+    // clean up sim/files
+    free(sim_prngs);
+    for (lfs3_size_t j = 0; j < N; j++) {
+        if (sim_files[j]) {
+            lfs3_file_close(&lfs3, sim_files[j]) => 0;
+            free(sim_files[j]);
+        }
+    }
+    free(sim_files);
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# fuzz kv files and normal files
+[cases.test_kv_interop_fuzz_big]
+defines.STICKYNOTES = [false, true]
+defines.N = 10
+# size is more an upper limit here
+defines.SIZE = 40000
+defines.OPS = ['4*N', '40*N']
+defines.SEED = 'range(20)'
+fuzz = 'SEED'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // set up a simulation to compare against
+    lfs3_off_t *sim_sizes = malloc(N*sizeof(lfs3_off_t));
+    memset(sim_sizes, 0, N*sizeof(lfs3_off_t));
+    uint32_t *sim_prngs = malloc(N*sizeof(uint32_t));
+    memset(sim_prngs, 0, N*sizeof(uint32_t));
+    // keep track of opened files
+    lfs3_file_t **sim_files = malloc(N*sizeof(lfs3_file_t*));
+    memset(sim_files, 0, N*sizeof(lfs3_file_t*));
+
+    uint32_t prng = SEED;
+    for (lfs3_size_t i = 0; i < OPS; i++) {
+        // choose which operation to do
+        uint8_t op = TEST_PRNG(&prng) % 3;
+
+        // create a kv file?
+        if (op == 0) {
+            // choose a kv file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+            // choose a size, bias towards zero
+            lfs3_off_t size = lfs3_abs(
+                    (TEST_PRNG(&prng) % SIZE)
+                        + (TEST_PRNG(&prng) % SIZE)
+                        - SIZE);
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // create the file
+            char name[256];
+            sprintf(name, "key%03x", x);
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < size; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfs3_set(&lfs3, name, wbuf, size) => 0;
+
+            // update our sim
+            sim_sizes[x] = size;
+            sim_prngs[x] = wprng;
+
+        // remove a kv file?
+        } else if (op == 1) {
+            // choose a kv file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+
+            // remove the file
+            char name[256];
+            sprintf(name, "key%03x", x);
+            if (sim_prngs[x]) {
+                lfs3_remove(&lfs3, name) => 0;
+            } else {
+                lfs3_remove(&lfs3, name) => LFS3_ERR_NOENT;
+            }
+
+            // update our sim
+            sim_prngs[x] = 0;
+            if (sim_files[x]) {
+                lfs3_file_close(&lfs3, sim_files[x]) => 0;
+                free(sim_files[x]);
+            }
+            sim_files[x] = NULL;
+
+        // open a normal file?
+        } else if (op == 2) {
+            // choose a file
+            lfs3_size_t x = TEST_PRNG(&prng) % N;
+            // choose a size, bias towards zero
+            lfs3_off_t size = lfs3_abs(
+                    (TEST_PRNG(&prng) % SIZE)
+                        + (TEST_PRNG(&prng) % SIZE)
+                        - SIZE);
+            // choose a prng
+            uint32_t wprng = TEST_PRNG(&prng);
+
+            // close if open
+            if (sim_files[x]) {
+                lfs3_file_close(&lfs3, sim_files[x]) => 0;
+                free(sim_files[x]);
+            }
+
+            // create/open the file
+            sim_files[x] = malloc(sizeof(lfs3_file_t));
+            char name[256];
+            sprintf(name, "key%03x", x);
+            uint32_t wprng_ = wprng;
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < size; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            lfs3_file_open(&lfs3, sim_files[x], name,
+                    LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+            lfs3_file_write(&lfs3, sim_files[x], wbuf, size) => size;
+            lfs3_file_sync(&lfs3, sim_files[x]) => 0;
+
+            // update our sim
+            sim_sizes[x] = size;
+            sim_prngs[x] = wprng;
+        }
+    }
+
+    // try getting each file size
+    for (lfs3_size_t j = 0; j < N; j++) {
+        char name[256];
+        sprintf(name, "key%03x", j);
+        if (sim_prngs[j]) {
+            lfs3_size(&lfs3, name) => sim_sizes[j];
+        } else {
+            lfs3_size(&lfs3, name) => LFS3_ERR_NOENT;
+        }
+    }
+
+    // try reading each file
+    for (lfs3_size_t j = 0; j < N; j++) {
+        char name[256];
+        sprintf(name, "key%03x", j);
+        if (sim_prngs[j]) {
+            uint32_t wprng_ = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t i = 0; i < sim_sizes[j]; i++) {
+                wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            uint8_t rbuf[SIZE];
+            lfs3_get(&lfs3, name, rbuf, sizeof(rbuf)) => sim_sizes[j];
+            assert(memcmp(rbuf, wbuf, sim_sizes[j]) == 0);
+        } else {
+            uint8_t rbuf[SIZE];
+            lfs3_get(&lfs3, name, rbuf, sizeof(rbuf))
+                    => LFS3_ERR_NOENT;
+        }
+    }
+
+    // try reading the opened file handles
+    for (lfs3_size_t j = 0; j < N; j++) {
+        if (sim_files[j]) {
+            lfs3_file_rewind(&lfs3, sim_files[j]) => 0;
+            uint32_t wprng_ = sim_prngs[j];
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t i = 0; i < sim_sizes[j]; i++) {
+                wbuf[i] = 'a' + (TEST_PRNG(&wprng_) % 26);
+            }
+            uint8_t rbuf[SIZE];
+            lfs3_file_read(&lfs3, sim_files[j], rbuf, sizeof(rbuf))
+                    => sim_sizes[j];
+            assert(memcmp(rbuf, wbuf, sim_sizes[j]) == 0);
+        }
+    }
+
+    // clean up sim/files
+    free(sim_prngs);
+    for (lfs3_size_t j = 0; j < N; j++) {
+        if (sim_files[j]) {
+            lfs3_file_close(&lfs3, sim_files[j]) => 0;
+            free(sim_files[j]);
+        }
+    }
+    free(sim_files);
+    lfs3_unmount(&lfs3) => 0;
+'''
+

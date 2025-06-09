@@ -223,26 +223,6 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
-    for (int remount = 0; remount < 2; remount++) {
-        // remount?
-        if (remount) {
-            lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-        }
-
-        // make sure setattr didn't quietly create attrs
-
-        // try getting the attr sizes
-        lfs3_sizeattr(&lfs3, path, 'a') => LFS3_ERR_NOATTR;
-        lfs3_sizeattr(&lfs3, path, 'b') => LFS3_ERR_NOATTR;
-        lfs3_sizeattr(&lfs3, path, 'c') => LFS3_ERR_NOATTR;
-        // try reading attrs
-        uint8_t rbuf[256];
-        lfs3_getattr(&lfs3, path, 'a', rbuf, sizeof(rbuf)) => LFS3_ERR_NOATTR;
-        lfs3_getattr(&lfs3, path, 'b', rbuf, sizeof(rbuf)) => LFS3_ERR_NOATTR;
-        lfs3_getattr(&lfs3, path, 'c', rbuf, sizeof(rbuf)) => LFS3_ERR_NOATTR;
-    }
-
     lfs3_unmount(&lfs3) => 0;
 '''
 
