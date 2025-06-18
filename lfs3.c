@@ -11321,7 +11321,7 @@ static inline lfs3_size_t lfs3_file_cachesize(lfs3_t *lfs3,
             : lfs3->cfg->file_cache_size;
 }
 
-static inline lfs3_off_t lfs3_file_weight(const lfs3_file_t *file) {
+static inline lfs3_off_t lfs3_file_weight_(const lfs3_file_t *file) {
     return lfs3_max(
             file->leaf.pos + file->leaf.weight,
             file->b.shrub.weight);
@@ -11330,7 +11330,7 @@ static inline lfs3_off_t lfs3_file_weight(const lfs3_file_t *file) {
 static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
     return lfs3_max(
             file->cache.pos + file->cache.size,
-            lfs3_file_weight(file));
+            lfs3_file_weight_(file));
 }
 
 
@@ -11342,24 +11342,14 @@ static void lfs3_file_init(lfs3_file_t *file, uint32_t flags,
     file->cfg = cfg;
     file->b.o.flags = lfs3_o_typeflags(LFS3_TYPE_REG) | flags;
     file->pos = 0;
-    // default to no cache
-    file->cache.size = 0;
+    lfs3_file_discardcache(file);
+    lfs3_file_discardleaf(file);
+    lfs3_file_discardbshrub(file);
 }
 
 static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
-    // default data state
-    lfs3_file_discardbshrub(file);
-    // discard the current cache
-    lfs3_file_discardcache(file);
-    // discard the current leaf
-    lfs3_file_discardleaf(file);
-
     // don't bother reading disk if we're not created or truncating
-    if (lfs3_o_isuncreat(flags) || lfs3_o_istrunc(flags)) {
-        // but do mark as unsync
-        file->b.o.flags |= LFS3_o_UNSYNC;
-
-    } else {
+    if (!lfs3_o_isuncreat(flags) && !lfs3_o_istrunc(flags)) {
         // lookup the file struct, if there is one
         lfs3_tag_t tag;
         lfs3_data_t data;
@@ -11531,15 +11521,15 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
             return LFS3_ERR_NOTDIR;
         }
 
-        // create a stickynote entry if we don't have one, this reserves the
-        // mid until first sync
-        if (!exists) {
-            // check that name fits
-            lfs3_size_t name_len = lfs3_path_namelen(path);
-            if (name_len > lfs3->name_limit) {
-                return LFS3_ERR_NAMETOOLONG;
-            }
+        // check that name fits
+        lfs3_size_t name_len = lfs3_path_namelen(path);
+        if (name_len > lfs3->name_limit) {
+            return LFS3_ERR_NAMETOOLONG;
+        }
 
+        if (!exists) {
+            // create a stickynote entry if we don't have one, this
+            // reserves the mid until first sync
             lfs3_alloc_ckpoint(lfs3);
             err = lfs3_mdir_commit(lfs3, &file->b.o.mdir, LFS3_RATTRS(
                     LFS3_RATTR_NAME(
@@ -11559,8 +11549,8 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
             }
         }
 
-        // mark as uncreated
-        file->b.o.flags |= LFS3_o_UNCREAT;
+        // mark as uncreated + unsync
+        file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
         #endif
     } else {
         // wanted to create a new entry?
@@ -11577,9 +11567,14 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         #ifndef LFS3_RDONLY
-        // if stickynote, mark as uncreated
+        // if stickynote, mark as uncreated + unsync
         if (tag == LFS3_TAG_STICKYNOTE) {
-            file->b.o.flags |= LFS3_o_UNCREAT;
+            file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
+        }
+
+        // if truncating, mark as unsync
+        if (lfs3_o_istrunc(file->b.o.flags)) {
+            file->b.o.flags |= LFS3_o_UNSYNC;
         }
         #endif
     }
@@ -11912,7 +11907,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // any data in our btree?
-        if (pos_ < lfs3_file_weight(file)) {
+        if (pos_ < lfs3_file_weight_(file)) {
             // bypass cache?
             if ((lfs3_size_t)d >= lfs3_file_cachesize(lfs3, file)) {
                 lfs3_ssize_t d_ = lfs3_file_read_(lfs3, file,
@@ -12261,7 +12256,7 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
                 lfs3->cfg->block_size),
             lfs3_max(
                 pos + size,
-                lfs3_file_weight(file)));
+                lfs3_file_weight_(file)));
 
     // do we need to allocate a new block?
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
@@ -12333,7 +12328,7 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // any data on disk?
-            if (pos_ < lfs3_file_weight(file)) {
+            if (pos_ < lfs3_file_weight_(file)) {
                 lfs3_bid_t bid__;
                 lfs3_bid_t weight__;
                 lfs3_bptr_t bptr__;
@@ -12601,7 +12596,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
                 0);
         if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh
                 && crystal_start > 0
-                && poke < lfs3_file_weight(file)
+                && poke < lfs3_file_weight_(file)
                 // don't bother looking up left after the first block
                 && !aligned) {
             lfs3_bid_t bid;
@@ -12634,9 +12629,9 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // find right crystal neighbor
         poke = lfs3_min(
                 crystal_start + (lfs3->cfg->crystal_thresh-1),
-                lfs3_file_weight(file)-1);
+                lfs3_file_weight_(file)-1);
         if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh
-                && crystal_end < lfs3_file_weight(file)) {
+                && crystal_end < lfs3_file_weight_(file)) {
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
@@ -12827,7 +12822,7 @@ fragment:;
         // is already full
         if (fragment_end - fragment_start < lfs3->cfg->fragment_size
                 && fragment_start > 0
-                && fragment_start <= lfs3_file_weight(file)
+                && fragment_start <= lfs3_file_weight_(file)
                 // don't bother to lookup left after first fragment
                 && !aligned) {
             lfs3_bid_t bid;
@@ -12876,7 +12871,7 @@ fragment:;
         //
         // note this may the same as our left sibling
         if (fragment_end - fragment_start < lfs3->cfg->fragment_size
-                && fragment_end < lfs3_file_weight(file)) {
+                && fragment_end < lfs3_file_weight_(file)) {
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
@@ -13183,9 +13178,8 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file) {
         // this only works if the file is entirely in our cache
         LFS3_ASSERT(file->cache.pos == 0);
         LFS3_ASSERT(file->cache.size == lfs3_file_size_(file));
-
-        // reset the bshrub
-        lfs3_file_discardbshrub(file);
+        // bshrub should be discarded here
+        LFS3_ASSERT(lfs3_file_weight_(file) == 0);
 
         // build a small shrub commit
         if (file->cache.size > 0) {
@@ -13295,55 +13289,6 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file) {
         }
     }
 
-    return 0;
-}
-#endif
-
-int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
-    (void)lfs3;
-    LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
-
-    // removed? ignore sync requests
-    if (lfs3_o_iszombie(file->b.o.flags)) {
-        return 0;
-    }
-
-    #ifndef LFS3_RDONLY
-    // first flush any data in our cache, this is a noop if already
-    // flushed
-    //
-    // note that flush does not change the actual file data, so if
-    // flush succeeds but mdir commit fails it's ok to fall back to
-    // our flushed state
-    //
-    // though don't flush quite yet if our file is small and can be
-    // combined with sync in a single commit
-    int err;
-    if (file->cache.size == lfs3_file_size_(file)
-            && file->cache.size <= lfs3->cfg->inline_size
-            && file->cache.size <= lfs3->cfg->fragment_size
-            && file->cache.size < lfs3->cfg->crystal_thresh) {
-        if (lfs3_o_isungraft(file->b.o.flags)) {
-            file->b.o.flags |= LFS3_o_UNFLUSH;
-        }
-        lfs3_file_discardleaf(file);
-    } else {
-        err = lfs3_file_flush(lfs3, file);
-        if (err) {
-            goto failed;
-        }
-    }
-
-    // commit any pending metadata to disk
-    //
-    // the use of a second function here is mainly to isolate the stack
-    // costs of lfs3_file_flush and lfs3_file_sync_
-    //
-    err = lfs3_file_sync_(lfs3, file);
-    if (err) {
-        goto failed;
-    }
-
     // update in-device state
     for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
         if (lfs3_o_type(o->flags) == LFS3_TYPE_REG
@@ -13422,15 +13367,73 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
             lfs3_traversal_clobber(lfs3, (lfs3_traversal_t*)o);
         }
     }
-    #endif
 
     // mark as synced
     file->b.o.flags &= ~LFS3_o_UNSYNC
             & ~LFS3_o_UNFLUSH
             & ~LFS3_o_UNCRYST
             & ~LFS3_o_UNGRAFT
-            & ~LFS3_o_UNCREAT
-            & ~LFS3_O_DESYNC;
+            & ~LFS3_o_UNCREAT;
+    return 0;
+}
+#endif
+
+int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
+    (void)lfs3;
+    LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
+
+    // removed? ignore sync requests
+    if (lfs3_o_iszombie(file->b.o.flags)) {
+        return 0;
+    }
+
+    #ifndef LFS3_RDONLY
+    // first flush any data in our cache, this is a noop if already
+    // flushed
+    //
+    // note that flush does not change the actual file data, so if
+    // flush succeeds but mdir commit fails it's ok to fall back to
+    // our flushed state
+    //
+    // though don't flush quite yet if our file is small and can be
+    // combined with sync in a single commit
+    int err;
+    if (lfs3_o_isunflush(file->b.o.flags)
+            && file->cache.size == lfs3_file_size_(file)
+            && file->cache.size <= lfs3->cfg->inline_size
+            && file->cache.size <= lfs3->cfg->fragment_size
+            && file->cache.size < lfs3->cfg->crystal_thresh) {
+        // size == size implies pos == 0
+        LFS3_ASSERT(file->cache.pos == 0);
+        // map any weird bshrub/btree states to unflush
+        if (lfs3_o_isuncryst(file->b.o.flags)
+                || lfs3_o_isungraft(file->b.o.flags)) {
+            file->b.o.flags |= LFS3_o_UNFLUSH;
+        }
+        // discard any lingering bshrub state
+        lfs3_file_discardleaf(file);
+        lfs3_file_discardbshrub(file);
+
+    } else {
+        err = lfs3_file_flush(lfs3, file);
+        if (err) {
+            goto failed;
+        }
+    }
+
+    // commit any pending metadata to disk
+    //
+    // the use of a second function here is mainly to isolate the
+    // stack costs of lfs3_file_flush and lfs3_file_sync_
+    //
+    err = lfs3_file_sync_(lfs3, file);
+    if (err) {
+        goto failed;
+    }
+    #endif
+
+    // clear desync flag
+    file->b.o.flags &= ~LFS3_O_DESYNC;
     return 0;
 
     #ifndef LFS3_RDONLY
@@ -13467,6 +13470,11 @@ int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
 
     // do nothing if already in-sync
     if (lfs3_o_isunsync(file->b.o.flags)) {
+        // discard cached state
+        lfs3_file_discardbshrub(file);
+        lfs3_file_discardcache(file);
+        lfs3_file_discardleaf(file);
+
         // refetch the file struct from disk
         err = lfs3_file_fetch(lfs3, file,
                 // don't truncate again!
@@ -13477,7 +13485,7 @@ int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
     }
     #endif
 
-    // mark as resynced
+    // clear desync flag
     file->b.o.flags &= ~LFS3_O_DESYNC;
     return 0;
 
@@ -13909,33 +13917,153 @@ lfs3_ssize_t lfs3_size(lfs3_t *lfs3, const char *path) {
 }
 
 #ifndef LFS3_RDONLY
-int lfs3_set(lfs3_t *lfs3, const char *path,
+LFS3_NOINLINE
+static int lfs3_file_openset(lfs3_t *lfs3, lfs3_file_t *file,
+        const char *path,
         const void *buffer, lfs3_size_t size) {
-    // we just use the file API here, but with no cache so all writes
-    // bypass the cache
-    lfs3_file_t file;
-    int err = lfs3_file_opencfg(lfs3, &file, path,
-            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC,
-            &lfs3_file_kvconfig);
+    // prepare our filesystem for writing
+    int err = lfs3_fs_mkconsistent(lfs3);
     if (err) {
         return err;
     }
 
-    lfs3_ssize_t size_ = lfs3_file_write(lfs3, &file, buffer, size);
-    if (size_ < 0) {
-        err = size_;
+    // setup file state
+    lfs3_file_init(file, LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC,
+            &lfs3_file_kvconfig);
+
+    // lookup our parent
+    lfs3_tag_t tag;
+    lfs3_did_t did;
+    err = lfs3_mtree_pathlookup(lfs3, &path,
+            &file->b.o.mdir, &tag, &did);
+    if (err && !(err == LFS3_ERR_NOENT && lfs3_path_islast(path))) {
+        return err;
+    }
+    bool exists = (err != LFS3_ERR_NOENT);
+
+    // creating a new entry?
+    if (!exists || tag == LFS3_TAG_ORPHAN) {
+        // we're a file, don't allow trailing slashes
+        if (lfs3_path_isdir(path)) {
+            return LFS3_ERR_NOTDIR;
+        }
+
+        // check that name fits
+        lfs3_size_t name_len = lfs3_path_namelen(path);
+        if (name_len > lfs3->name_limit) {
+            return LFS3_ERR_NAMETOOLONG;
+        }
+
+        // mark as uncreated + unsync
+        file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
+
+        if (!exists) {
+            // small file? can we atomically commit everything? currently
+            // this is only possible via lfs3_set
+            if (size <= lfs3->cfg->inline_size
+                    && size <= lfs3->cfg->fragment_size
+                    && size < lfs3->cfg->crystal_thresh) {
+                // TODO build commit?
+                // TODO test size=0?
+                // commit create + flush atomically
+                lfs3_alloc_ckpoint(lfs3);
+                err = lfs3_mdir_commit(lfs3, &file->b.o.mdir, LFS3_RATTRS(
+                        LFS3_RATTR_NAME(
+                            LFS3_TAG_REG, +1,
+                            did, path, name_len),
+                        (size > 0)
+                            ? LFS3_RATTR_SHRUBCOMMIT(
+                                (&(lfs3_shrubcommit_t){
+                                    .bshrub=&file->b,
+                                    .rid=0,
+                                    .rattrs=&LFS3_RATTR_DATA(
+                                        LFS3_TAG_DATA, +size,
+                                        &LFS3_DATA_BUF(buffer, size)),
+                                    .rattr_count=1}))
+                            : LFS3_RATTR_NOOP(),
+                        (size > 0)
+                            ? LFS3_RATTR_SHRUB(
+                                LFS3_TAG_BSHRUB, 0,
+                                &file->b.shrub_)
+                            : LFS3_RATTR_NOOP()));
+                if (err) {
+                    return err;
+                }
+
+                // TODO better way to structure this?
+                // clear the uncreated + unsync flags
+                file->b.o.flags &= ~LFS3_o_UNCREAT & ~LFS3_o_UNSYNC;
+
+            } else {
+                // create a stickynote entry if we don't have one, this
+                // reserves the mid until first sync
+                lfs3_alloc_ckpoint(lfs3);
+                err = lfs3_mdir_commit(lfs3, &file->b.o.mdir, LFS3_RATTRS(
+                        LFS3_RATTR_NAME(
+                            LFS3_TAG_STICKYNOTE, +1,
+                            did, path, name_len)));
+                if (err) {
+                    return err;
+                }
+            }
+
+            // TODO move this to lfs3_mdir_commit
+            // update dir positions
+            for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
+                if (lfs3_o_type(o->flags) == LFS3_TYPE_DIR
+                        && ((lfs3_dir_t*)o)->did == did
+                        && o->mdir.mid >= file->b.o.mdir.mid) {
+                    ((lfs3_dir_t*)o)->pos += 1;
+                }
+            }
+        }
+    } else {
+        // wrong type?
+        if (tag == LFS3_TAG_DIR) {
+            return LFS3_ERR_ISDIR;
+        }
+        if (tag == LFS3_TAG_UNKNOWN) {
+            return LFS3_ERR_NOTSUP;
+        }
+
+        // if stickynote, mark as uncreated + unsync
+        if (tag == LFS3_TAG_STICKYNOTE) {
+            file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
+        }
+
+        // if truncating, mark as unsync
+        file->b.o.flags |= LFS3_o_UNSYNC;
     }
 
-    // unconditionally close
-    int err_ = lfs3_file_close(lfs3, &file);
-    if (err_) {
-        // we didn't allocate anything, and write failing would set the
-        // desync flag, so only one of write/close can fail
-        LFS3_ASSERT(!err);
-        err = err_;
+    // add to tracked mdirs
+    lfs3_omdir_open(lfs3, &file->b.o);
+    return 0;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+int lfs3_set(lfs3_t *lfs3, const char *path,
+        const void *buffer, lfs3_size_t size) {
+    lfs3_file_t file;
+    int err = lfs3_file_openset(lfs3, &file, path,
+            buffer, size);
+    if (err) {
+        return err;
     }
 
-    return err;
+    // if not small, pretend the buffer is our cache
+    if (lfs3_o_isunsync(file.b.o.flags)) {
+        file.b.o.flags |= LFS3_o_UNFLUSH;
+        file.cache.buffer = (uint8_t*)buffer;
+        file.cache.pos = 0;
+        file.cache.size = size;
+    }
+
+    // let close do all the remaining work
+    //
+    // this includes grafting our cache into the bshrub/btree, and
+    // broadcasting the changes to any open files
+    return lfs3_file_close(lfs3, &file);
 }
 #endif
 
