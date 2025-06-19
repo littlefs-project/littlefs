@@ -287,6 +287,178 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+# test setting a file to zero size
+#
+# this is _not_ the same as removing
+#
+[cases.test_kv_set_zero]
+# zero based on this mask
+defines.MASK = 'range(0x8)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create some kv files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_set(&lfs3, "a", a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_set(&lfs3, "b", b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_set(&lfs3, "c", c, strlen(c)) => 0;
+
+    // set zero some kv files
+    if (MASK & 0x1) {
+        lfs3_set(&lfs3, "a", (const uint8_t*)1, 0) => 0;
+    }
+    if (MASK & 0x2) {
+        lfs3_set(&lfs3, "b", (const uint8_t*)1, 0) => 0;
+    }
+    if (MASK & 0x4) {
+        lfs3_set(&lfs3, "c", (const uint8_t*)1, 0) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        if (MASK & 0x1) {
+            lfs3_size(&lfs3, "a") => 0;
+        } else {
+            lfs3_size(&lfs3, "a") => strlen(a);
+        }
+        if (MASK & 0x2) {
+            lfs3_size(&lfs3, "b") => 0;
+        } else {
+            lfs3_size(&lfs3, "b") => strlen(b);
+        }
+        if (MASK & 0x4) {
+            lfs3_size(&lfs3, "c") => 0;
+        } else {
+            lfs3_size(&lfs3, "c") => strlen(c);
+        }
+
+        // try reading the full files
+        uint8_t rbuf[256];
+        if (MASK & 0x1) {
+            lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf))
+                    => 0;
+        } else {
+            lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf))
+                    => strlen(a);
+            assert(memcmp(rbuf, a, strlen(a)) == 0);
+        }
+        if (MASK & 0x2) {
+            lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf))
+                    => 0;
+        } else {
+            lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf))
+                    => strlen(b);
+            assert(memcmp(rbuf, b, strlen(b)) == 0);
+        }
+        if (MASK & 0x4) {
+            lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf))
+                    => 0;
+        } else {
+            lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf))
+                    => strlen(c);
+            assert(memcmp(rbuf, c, strlen(c)) == 0);
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test setting a file to zero size + null
+#
+# this can trip up naive internal logic
+#
+[cases.test_kv_set_null]
+# zero based on this mask
+defines.MASK = 'range(0x8)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create some kv files
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_set(&lfs3, "a", a, strlen(a)) => 0;
+    const char *b = "One can prepared coconut pecan frosting.";
+    lfs3_set(&lfs3, "b", b, strlen(b)) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_set(&lfs3, "c", c, strlen(c)) => 0;
+
+    // set zero some kv files
+    if (MASK & 0x1) {
+        lfs3_set(&lfs3, "a", NULL, 0) => 0;
+    }
+    if (MASK & 0x2) {
+        lfs3_set(&lfs3, "b", NULL, 0) => 0;
+    }
+    if (MASK & 0x4) {
+        lfs3_set(&lfs3, "c", NULL, 0) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the file sizes
+        if (MASK & 0x1) {
+            lfs3_size(&lfs3, "a") => 0;
+        } else {
+            lfs3_size(&lfs3, "a") => strlen(a);
+        }
+        if (MASK & 0x2) {
+            lfs3_size(&lfs3, "b") => 0;
+        } else {
+            lfs3_size(&lfs3, "b") => strlen(b);
+        }
+        if (MASK & 0x4) {
+            lfs3_size(&lfs3, "c") => 0;
+        } else {
+            lfs3_size(&lfs3, "c") => strlen(c);
+        }
+
+        // try reading the full files
+        uint8_t rbuf[256];
+        if (MASK & 0x1) {
+            lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf))
+                    => 0;
+        } else {
+            lfs3_get(&lfs3, "a", rbuf, sizeof(rbuf))
+                    => strlen(a);
+            assert(memcmp(rbuf, a, strlen(a)) == 0);
+        }
+        if (MASK & 0x2) {
+            lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf))
+                    => 0;
+        } else {
+            lfs3_get(&lfs3, "b", rbuf, sizeof(rbuf))
+                    => strlen(b);
+            assert(memcmp(rbuf, b, strlen(b)) == 0);
+        }
+        if (MASK & 0x4) {
+            lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf))
+                    => 0;
+        } else {
+            lfs3_get(&lfs3, "c", rbuf, sizeof(rbuf))
+                    => strlen(c);
+            assert(memcmp(rbuf, c, strlen(c)) == 0);
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
 # test creating a bunch of kv files
 [cases.test_kv_many]
 defines.N = [40, 400]
