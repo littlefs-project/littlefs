@@ -6634,6 +6634,9 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     estimate += commit_estimate;
 
     // commit to shrub
+    //
+    // note we do _not_ checkpoint the allocator here, blocks may be
+    // in-flight!
     int err = lfs3_mdir_commit(lfs3, &bshrub->o.mdir, LFS3_RATTRS(
             LFS3_RATTR_SHRUBCOMMIT(
                 (&(lfs3_shrubcommit_t){
@@ -9094,7 +9097,8 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     && o->mdir.mid >= mid_) {
                 // removed?
                 if (o->mdir.mid < mid_ - rattrs[i].weight) {
-                    // we should not be removing opened regular files
+                    // opened files should turn into stickynote, not
+                    // be removed
                     LFS3_ASSERT(lfs3_o_type(o->flags) != LFS3_TYPE_REG);
                     o->flags |= LFS3_o_ZOMBIE;
                     o->mdir.mid = mid_;
@@ -10025,7 +10029,6 @@ dropped:;
 
         // checkpoint the allocator
         lfs3_alloc_ckpoint(lfs3);
-
         // compact the mdir
         err = lfs3_mdir_compact(lfs3, mdir);
         if (err) {
@@ -11566,7 +11569,6 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
                 file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
             }
 
-            // TODO move this to lfs3_mdir_commit
             // update dir positions
             for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
                 if (lfs3_o_type(o->flags) == LFS3_TYPE_DIR
@@ -13350,11 +13352,9 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
 
     // pending metadata? looks like we need to write to disk
     if (rattr_count > 0) {
-        // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
-
         // commit!
         LFS3_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfs3_rattr_t));
+        lfs3_alloc_ckpoint(lfs3);
         int err = lfs3_mdir_commit(lfs3, &file->b.o.mdir,
                 rattrs, rattr_count);
         if (err) {
@@ -15369,7 +15369,9 @@ static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
                 lfs3_dbgmbid(lfs3, mdir->mid),
                 lfs3_dbgmrid(lfs3, mdir->mid));
 
+        // checkpoint the allocator
         lfs3_alloc_ckpoint(lfs3);
+        // remove the orphaned stickynote
         err = lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(
                 LFS3_RATTR(LFS3_TAG_RM, -1)));
         if (err) {
