@@ -462,7 +462,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 
 ## Generate a codemap svg
 .PHONY: codemap
-codemap: CODEMAPFLAGS+=-W1400 -H750 --dark
+codemap: CODEMAPFLAGS+=-W1125 -H525 --dark
 codemap: $(BUILDDIR)/lfs3.codemap.svg
 
 ## Generate a tiny codemap, where 1 pixel ~= 1 byte
