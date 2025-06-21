@@ -201,11 +201,16 @@ size: $(OBJ)
 	$(SIZE) -t $^
 
 ## Generate a ctags file
+#
+# run twice to only include prototypes in header files
 .PHONY: tags ctags
 tags ctags:
 	$(strip $(CTAGS) \
 		--totals --fields=+n --c-types=+p \
-		$(shell find -H -name '*.h') $(SRC))
+		$(shell find -H -name '*.h'))
+	$(strip $(CTAGS) \
+		--totals --append --fields=+n \
+		$(SRC))
 
 ## Show this help text
 .PHONY: help
