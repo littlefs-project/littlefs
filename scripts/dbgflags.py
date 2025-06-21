@@ -36,6 +36,7 @@ FLAGS = [
     ('O', 'CKMETA',    0x00001000, "Check metadata checksums"                 ),
     ('O', 'CKDATA',    0x00002000, "Check metadata + data checksums"          ),
 
+    ('o', 'WRSET',              3, "Open a file as an atomic write"           ),
     ('o', 'TYPE',      0xf0000000, "The file's type"                          ),
     ('^', 'REG',       0x10000000, "Type = regular-file"                      ),
     ('^', 'DIR',       0x20000000, "Type = directory"                         ),

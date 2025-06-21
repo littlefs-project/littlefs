@@ -3310,7 +3310,7 @@ class Lfs3:
                     return 'btree %s' % self.bshrub.addr()
                 # btree?
                 else:
-                    return str(self.struct)
+                    return self.struct.repr()
             else:
                 return ''
 
