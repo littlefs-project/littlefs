@@ -13939,7 +13939,7 @@ int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file) {
 // kv file config, we need to explicitly disable the file cache
 static const struct lfs3_file_config lfs3_file_kvconfig = {
     // TODO is this the best way to do this?
-    .cache_buffer = (uint8_t*)true,
+    .cache_buffer = (uint8_t*)1,
     .cache_size = 0,
 };
 
@@ -13998,7 +13998,7 @@ int lfs3_set(lfs3_t *lfs3, const char *path,
     //   to try to commit small files atomically
     //
     struct lfs3_file_config cfg = {
-        .cache_buffer = (buffer) ? (uint8_t*)buffer : (uint8_t*)true,
+        .cache_buffer = (uint8_t*)buffer,
         .cache_size = size,
     };
     lfs3_file_t file;
