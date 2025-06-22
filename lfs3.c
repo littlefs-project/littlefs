@@ -13220,6 +13220,10 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
     // small unflushed files must be unsync
     LFS3_ASSERT(!lfs3_o_isunflush(file->b.o.flags)
             || lfs3_o_isunsync(file->b.o.flags));
+    LFS3_ASSERT(!lfs3_o_isuncryst(file->b.o.flags)
+            || lfs3_o_isunsync(file->b.o.flags));
+    LFS3_ASSERT(!lfs3_o_isungraft(file->b.o.flags)
+            || lfs3_o_isunsync(file->b.o.flags));
 
     // pending metadata changes?
     if (lfs3_o_isunsync(file->b.o.flags)) {
@@ -13247,12 +13251,16 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // pending small file flush?
-        if (lfs3_o_isunflush(file->b.o.flags)) {
+        if (lfs3_o_isunflush(file->b.o.flags)
+                || lfs3_o_isuncryst(file->b.o.flags)
+                || lfs3_o_isungraft(file->b.o.flags)) {
             // this only works if the file is entirely in our cache
             LFS3_ASSERT(file->cache.pos == 0);
             LFS3_ASSERT(file->cache.size == lfs3_file_size_(file));
-            // bshrub should be discarded here
-            LFS3_ASSERT(lfs3_file_weight_(file) == 0);
+
+            // discard any lingering bshrub state
+            lfs3_file_discardleaf(file);
+            lfs3_file_discardbshrub(file);
 
             // build a small shrub commit
             if (file->cache.size > 0) {
@@ -13270,30 +13278,30 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
             }
         }
 
-        // zero size files should have no bshrub/btree
-        LFS3_ASSERT(lfs3_file_size_(file) > 0
-                || lfs3_bshrub_isbnull(&file->b));
-
-        // TODO is all this logic optimal for zero-length files?
         // make sure data is on-disk before committing metadata
-        if (!lfs3_bshrub_isbnull(&file->b)
-                && !lfs3_o_isunflush(file->b.o.flags)) {
+        if (lfs3_file_size_(file) > 0
+                && !lfs3_o_isunflush(file->b.o.flags)
+                && !lfs3_o_isuncryst(file->b.o.flags)
+                && !lfs3_o_isungraft(file->b.o.flags)) {
             int err = lfs3_bd_sync(lfs3);
             if (err) {
                 return err;
             }
         }
 
+        // zero size files should have no bshrub/btree
+        LFS3_ASSERT(lfs3_file_size_(file) > 0
+                || lfs3_bshrub_isbnull(&file->b));
+
         // no bshrub/btree?
-        if (lfs3_bshrub_isbnull(&file->b)
-                && !(lfs3_o_isunflush(file->b.o.flags)
-                    && file->cache.size > 0)) {
+        if (lfs3_file_size_(file) == 0) {
             rattrs[rattr_count++] = LFS3_RATTR(
                     LFS3_TAG_RM | LFS3_TAG_MASK8 | LFS3_TAG_STRUCT, 0);
         // bshrub?
         } else if (lfs3_bshrub_isbshrub(&file->b)
-                || (lfs3_o_isunflush(file->b.o.flags)
-                    && file->cache.size > 0)) {
+                || lfs3_o_isunflush(file->b.o.flags)
+                || lfs3_o_isuncryst(file->b.o.flags)
+                || lfs3_o_isungraft(file->b.o.flags)) {
             rattrs[rattr_count++] = LFS3_RATTR_SHRUB(
                     LFS3_TAG_MASK8 | LFS3_TAG_BSHRUB, 0,
                     // note we use the staged trunk here
@@ -13471,23 +13479,10 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     // though don't flush quite yet if our file is small and can be
     // combined with sync in a single commit
     int err;
-    if (lfs3_o_isunflush(file->b.o.flags)
-            && file->cache.size == lfs3_file_size_(file)
+    if (!(file->cache.size == lfs3_file_size_(file)
             && file->cache.size <= lfs3->cfg->inline_size
             && file->cache.size <= lfs3->cfg->fragment_size
-            && file->cache.size < lfs3->cfg->crystal_thresh) {
-        // size == size implies pos == 0
-        LFS3_ASSERT(file->cache.pos == 0);
-        // map any weird bshrub/btree states to unflush
-        if (lfs3_o_isuncryst(file->b.o.flags)
-                || lfs3_o_isungraft(file->b.o.flags)) {
-            file->b.o.flags |= LFS3_o_UNFLUSH;
-        }
-        // discard any lingering bshrub state
-        lfs3_file_discardleaf(file);
-        lfs3_file_discardbshrub(file);
-
-    } else {
+            && file->cache.size < lfs3->cfg->crystal_thresh)) {
         err = lfs3_file_flush(lfs3, file);
         if (err) {
             goto failed;
