@@ -10329,6 +10329,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     }
 
     // check that name fits
+    const char *name = path;
     lfs3_size_t name_len = lfs3_path_namelen(path);
     if (name_len > lfs3->name_limit) {
         return LFS3_ERR_NAMETOOLONG;
@@ -10392,7 +10393,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
                     + lfs3_nlog2(lfs3->cfg->block_size/32),
                 31)
             ) - 1;
-    lfs3_did_t did_ = (did ^ lfs3_crc32c(0, path, name_len)) & dmask;
+    lfs3_did_t did_ = (did ^ lfs3_crc32c(0, name, name_len)) & dmask;
 
     // check if we have a collision, if we do, search for the next
     // available did
@@ -10437,7 +10438,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
     // committing our bookmark may have changed the mid of our metadata entry,
     // we need to look it up again, we can at least avoid the full path walk
-    err = lfs3_mtree_namelookup(lfs3, did, path, name_len,
+    err = lfs3_mtree_namelookup(lfs3, did, name, name_len,
             &mdir, NULL, NULL);
     if (err && err != LFS3_ERR_NOENT) {
         return err;
@@ -10451,7 +10452,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_MASK12 | LFS3_TAG_DIR, (!exists) ? +1 : 0,
-                did, path, name_len),
+                did, name, name_len),
             LFS3_RATTR_LEB128(
                 LFS3_TAG_DID, 0, did_)));
     if (err) {
@@ -10698,7 +10699,6 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     bool exists = (err != LFS3_ERR_NOENT);
 
     // there are a few cases we need to watch out for
-    lfs3_size_t new_name_len = lfs3_path_namelen(new_path);
     lfs3_did_t new_did_ = 0;
     if (!exists) {
         // if we're a file, don't allow trailing slashes
@@ -10707,7 +10707,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         }
 
         // check that name fits
-        if (new_name_len > lfs3->name_limit) {
+        if (lfs3_path_namelen(new_path) > lfs3->name_limit) {
             return LFS3_ERR_NAMETOOLONG;
         }
 
@@ -10778,7 +10778,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     err = lfs3_mdir_commit(lfs3, &new_mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_MASK12 | old_tag, (!exists) ? +1 : 0,
-                new_did, new_path, new_name_len),
+                new_did, new_path, lfs3_path_namelen(new_path)),
             LFS3_RATTR_MOVE(&old_mdir)));
     if (err) {
         return err;
@@ -11524,8 +11524,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // check that name fits
-        lfs3_size_t name_len = lfs3_path_namelen(path);
-        if (name_len > lfs3->name_limit) {
+        if (lfs3_path_namelen(path) > lfs3->name_limit) {
             err = LFS3_ERR_NAMETOOLONG;
             goto failed;
         }
@@ -11533,50 +11532,6 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         // if stickynote, mark as uncreated + unsync
         if (exists) {
             file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
-
-        // otherwise we need to create an entry
-        } else {
-            // small file? can we atomically commit everything? currently
-            // this is only possible via lfs3_set
-            if (lfs3_o_iswrset(file->b.o.flags)
-                    && file->cache.size <= lfs3->cfg->inline_size
-                    && file->cache.size <= lfs3->cfg->fragment_size
-                    && file->cache.size < lfs3->cfg->crystal_thresh) {
-                // we need to mark as unsync for sync to do anything
-                file->b.o.flags |= LFS3_o_UNSYNC;
-
-                err = lfs3_file_sync_(lfs3, file, &(lfs3_name_t){
-                        .did=did,
-                        .name=path,
-                        .name_len=name_len});
-                if (err) {
-                    goto failed;
-                }
-
-            } else {
-                // create a stickynote entry if we don't have one, this
-                // reserves the mid until first sync
-                lfs3_alloc_ckpoint(lfs3);
-                err = lfs3_mdir_commit(lfs3, &file->b.o.mdir, LFS3_RATTRS(
-                        LFS3_RATTR_NAME(
-                            LFS3_TAG_STICKYNOTE, +1,
-                            did, path, name_len)));
-                if (err) {
-                    goto failed;
-                }
-
-                // mark as uncreated + unsync
-                file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
-            }
-
-            // update dir positions
-            for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
-                if (lfs3_o_type(o->flags) == LFS3_TYPE_DIR
-                        && ((lfs3_dir_t*)o)->did == did
-                        && o->mdir.mid >= file->b.o.mdir.mid) {
-                    ((lfs3_dir_t*)o)->pos += 1;
-                }
-            }
         }
         #endif
     } else {
@@ -11607,6 +11562,51 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             file->b.o.flags |= LFS3_o_UNSYNC;
         }
         #endif
+    }
+
+    // need to create an entry?
+    if (!exists) {
+        // small file wrset? can we atomically commit everything in one
+        // commit? currently this is only possible via lfs3_set
+        if (lfs3_o_iswrset(file->b.o.flags)
+                && file->cache.size <= lfs3->cfg->inline_size
+                && file->cache.size <= lfs3->cfg->fragment_size
+                && file->cache.size < lfs3->cfg->crystal_thresh) {
+            // we need to mark as unsync for sync to do anything
+            file->b.o.flags |= LFS3_o_UNSYNC;
+
+            err = lfs3_file_sync_(lfs3, file, &(lfs3_name_t){
+                    .did=did,
+                    .name=path,
+                    .name_len=lfs3_path_namelen(path)});
+            if (err) {
+                goto failed;
+            }
+
+        } else {
+            // create a stickynote entry if we don't have one, this
+            // reserves the mid until first sync
+            lfs3_alloc_ckpoint(lfs3);
+            err = lfs3_mdir_commit(lfs3, &file->b.o.mdir, LFS3_RATTRS(
+                    LFS3_RATTR_NAME(
+                        LFS3_TAG_STICKYNOTE, +1,
+                        did, path, lfs3_path_namelen(path))));
+            if (err) {
+                goto failed;
+            }
+
+            // mark as uncreated + unsync
+            file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
+        }
+
+        // update dir positions
+        for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
+            if (lfs3_o_type(o->flags) == LFS3_TYPE_DIR
+                    && ((lfs3_dir_t*)o)->did == did
+                    && o->mdir.mid >= file->b.o.mdir.mid) {
+                ((lfs3_dir_t*)o)->pos += 1;
+            }
+        }
     }
 
     // fetch the file struct and custom attrs
