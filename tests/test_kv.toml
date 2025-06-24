@@ -827,6 +827,7 @@ code = '''
 
 # test kv files can be read as normal files
 [cases.test_kv_interop_reads]
+ifndef = 'LFS3_KVONLY'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -929,6 +930,7 @@ code = '''
 
 # test normal files can be read a kv files
 [cases.test_kv_interop_writes]
+ifndef = 'LFS3_KVONLY'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -981,6 +983,7 @@ code = '''
 # test kv files broadcast sync updates
 [cases.test_kv_interop_sync]
 defines.STICKYNOTES = [false, true]
+ifndef = 'LFS3_KVONLY'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -1068,6 +1071,7 @@ code = '''
 # test kv files don't interfere with desync files
 [cases.test_kv_interop_desync]
 defines.STICKYNOTES = [false, true]
+ifndef = 'LFS3_KVONLY'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -1159,6 +1163,7 @@ code = '''
 # test kv files work with resyncing files
 [cases.test_kv_interop_resync]
 defines.STICKYNOTES = [false, true]
+ifndef = 'LFS3_KVONLY'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -1269,6 +1274,7 @@ defines.SIZE = 4
 defines.OPS = ['4*N', '40*N']
 defines.SEED = 'range(20)'
 fuzz = 'SEED'
+ifndef = 'LFS3_KVONLY'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -1427,6 +1433,7 @@ defines.SIZE = 40000
 defines.OPS = ['4*N', '40*N']
 defines.SEED = 'range(20)'
 fuzz = 'SEED'
+ifndef = 'LFS3_KVONLY'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;

@@ -6940,11 +6940,21 @@ static inline bool lfs3_o_isunsync(uint32_t flags) {
 }
 
 static inline bool lfs3_o_isuncryst(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_KVONLY
     return flags & LFS3_o_UNCRYST;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_o_isungraft(uint32_t flags) {
+    (void)flags;
+    #ifndef LFS3_KVONLY
     return flags & LFS3_o_UNGRAFT;
+    #else
+    return false;
+    #endif
 }
 
 static inline bool lfs3_o_isunflush(uint32_t flags) {
@@ -9169,6 +9179,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
         // if we moved a shrub, we also need to discard any related
         // leaves that moved
+        #ifndef LFS3_KVONLY
         if (lfs3_o_type(o->flags) == LFS3_TYPE_REG
                 && lfs3_bptr_block(&((lfs3_file_t*)o)->leaf.bptr)
                     == ((lfs3_bshrub_t*)o)->shrub.blocks[0]
@@ -9176,6 +9187,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     != ((lfs3_bshrub_t*)o)->shrub.blocks[0]) {
             lfs3_file_discardleaf((lfs3_file_t*)o);
         }
+        #endif
 
         // update the shrub
         if (lfs3_o_isbshrub(o->flags)) {
@@ -9744,6 +9756,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
             lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_OBTREE);
 
             // wait, do we have an ungrafted leaf?
+            #ifndef LFS3_KVONLY
             if (lfs3_o_isungraft(file->b.o.flags)) {
                 if (tag_) {
                     *tag_ = LFS3_TAG_BLOCK;
@@ -9751,6 +9764,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                 *bptr = file->leaf.bptr;
                 return 0;
             }
+            #endif
 
             continue;
 
@@ -11226,6 +11240,7 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
     }
 
     // update any opened files tracking custom attrs
+    #ifndef LFS3_KVONLY
     for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
         if (!(lfs3_o_type(o->flags) == LFS3_TYPE_REG
                 && o->mdir.mid == mdir.mid
@@ -11247,7 +11262,7 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
             }
         }
     }
-
+    #endif
 
     return 0;
 }
@@ -11279,6 +11294,7 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
     }
 
     // update any opened files tracking custom attrs
+    #ifndef LFS3_KVONLY
     for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
         if (!(lfs3_o_type(o->flags) == LFS3_TYPE_REG
                 && o->mdir.mid == mdir.mid
@@ -11298,6 +11314,7 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
             }
         }
     }
+    #endif
 
     return 0;
 }
@@ -11309,18 +11326,23 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
 /// File operations ///
 
 // file helpers
+
 static inline void lfs3_file_discardcache(lfs3_file_t *file) {
     file->b.o.flags &= ~LFS3_o_UNFLUSH;
+    #ifndef LFS3_KVONLY
     file->cache.pos = 0;
+    #endif
     file->cache.size = 0;
 }
 
+#ifndef LFS3_KVONLY
 static inline void lfs3_file_discardleaf(lfs3_file_t *file) {
     file->b.o.flags &= ~LFS3_o_UNCRYST & ~LFS3_o_UNGRAFT;
     file->leaf.pos = 0;
     file->leaf.weight = 0;
     lfs3_bptr_discard(&file->leaf.bptr);
 }
+#endif
 
 static inline void lfs3_file_discardbshrub(lfs3_file_t *file) {
     lfs3_bshrub_init(&file->b);
@@ -11334,14 +11356,18 @@ static inline lfs3_size_t lfs3_file_cachesize(lfs3_t *lfs3,
 }
 
 static inline lfs3_off_t lfs3_file_weight_(const lfs3_file_t *file) {
+    #ifndef LFS3_KVONLY
     return lfs3_max(
             file->leaf.pos + file->leaf.weight,
             file->b.shrub.weight);
+    #else
+    return file->b.shrub.weight;
+    #endif
 }
 
 static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
     return lfs3_max(
-            file->cache.pos + file->cache.size,
+            LFS3_IFDEF_KVONLY(0, file->cache.pos) + file->cache.size,
             lfs3_file_weight_(file));
 }
 
@@ -11353,9 +11379,13 @@ static void lfs3_file_init(lfs3_file_t *file, uint32_t flags,
         const struct lfs3_file_config *cfg) {
     file->cfg = cfg;
     file->b.o.flags = lfs3_o_typeflags(LFS3_TYPE_REG) | flags;
+    #ifndef LFS3_KVONLY
     file->pos = 0;
+    #endif
     lfs3_file_discardcache(file);
+    #ifndef LFS3_KVONLY
     lfs3_file_discardleaf(file);
+    #endif
     lfs3_file_discardbshrub(file);
 }
 
@@ -11407,6 +11437,7 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     }
 
     // try to fetch any custom attributes
+    #ifndef LFS3_KVONLY
     for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
         // skip writeonly attrs
         if (lfs3_o_iswronly(file->cfg->attrs[i].flags)) {
@@ -11450,14 +11481,17 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
             }
         }
     }
+    #endif
 
     return 0;
 }
 
 // needed in lfs3_file_opencfg
 static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file);
+#ifndef LFS3_RDONLY
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_name_t *name);
+#endif
 static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
         uint32_t flags);
 
@@ -11487,15 +11521,21 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     if (lfs3_o_iswrset(file->b.o.flags)) {
         file->b.o.flags |= LFS3_o_UNFLUSH;
         file->cache.buffer = file->cfg->cache_buffer;
+        #ifndef LFS3_KVONLY
         file->cache.pos = 0;
+        #endif
         file->cache.size = file->cfg->cache_size;
     } else if (file->cfg->cache_buffer) {
         file->cache.buffer = file->cfg->cache_buffer;
     } else {
+        #ifndef LFS3_KVONLY
         file->cache.buffer = lfs3_malloc(lfs3_file_cachesize(lfs3, file));
         if (!file->cache.buffer) {
             return LFS3_ERR_NOMEM;
         }
+        #else
+        LFS3_UNREACHABLE();
+        #endif
     }
 
     // lookup our parent
@@ -11565,6 +11605,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // need to create an entry?
+    #ifndef LFS3_RDONLY
     if (!exists) {
         // small file wrset? can we atomically commit everything in one
         // commit? currently this is only possible via lfs3_set
@@ -11608,6 +11649,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             }
         }
     }
+    #endif
 
     // fetch the file struct and custom attrs
     err = lfs3_file_fetch(lfs3, file, file->b.o.flags);
@@ -11616,6 +11658,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // check metadata/data for errors?
+    #ifndef LFS3_KVONLY
     if (lfs3_t_isckmeta(file->b.o.flags)
             || lfs3_t_isckdata(file->b.o.flags)) {
         err = lfs3_file_ck(lfs3, file, file->b.o.flags);
@@ -11623,6 +11666,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             goto failed;
         }
     }
+    #endif
 
     // add to tracked mdirs
     lfs3_omdir_open(lfs3, &file->b.o);
@@ -11661,6 +11705,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !lfs3_o_iscreat(flags));
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !lfs3_o_isexcl(flags));
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !lfs3_o_istrunc(flags));
+    #ifndef LFS3_KVONLY
     for (lfs3_size_t i = 0; i < cfg->attr_count; i++) {
         // these flags require a writable attr
         LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
@@ -11668,6 +11713,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
                 || !lfs3_o_isexcl(cfg->attrs[i].flags));
     }
+    #endif
 
     return lfs3_file_opencfg_(lfs3, file, path, flags,
             cfg);
@@ -11684,6 +11730,7 @@ int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
 
 // clean up resources
 static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file) {
+    (void)lfs3;
     // clean up memory
     if (!file->cfg->cache_buffer) {
         lfs3_free(file->cache.buffer);
@@ -11692,12 +11739,12 @@ static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file) {
     // are we orphaning a file?
     //
     // make sure we check _after_ removing ourselves
+    #ifndef LFS3_RDONLY
     if (lfs3_o_isuncreat(file->b.o.flags)
             && !lfs3_omdir_ismidopen(lfs3, file->b.o.mdir.mid, -1)) {
         // this can only happen in a rdwr filesystem
         LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
 
-        #ifndef LFS3_RDONLY
         // this gets a bit messy, since we're not able to write to the
         // filesystem if we're rdonly or desynced, fortunately we have
         // a few tricks
@@ -11710,11 +11757,14 @@ static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file) {
         } else {
             lfs3->flags |= LFS3_I_MKCONSISTENT;
         }
-        #endif
     }
+    #endif
 }
 
 // needed in lfs3_file_close
+#ifdef LFS3_KVONLY
+static
+#endif
 int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file);
 
 int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file) {
@@ -11738,7 +11788,7 @@ int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file) {
 
 // low-level file reading
 
-static int lfs3_file_lookup_(lfs3_t *lfs3, const lfs3_file_t *file,
+static int lfs3_file_lookupnext_(lfs3_t *lfs3, const lfs3_file_t *file,
         lfs3_bid_t bid,
         lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_bptr_t *bptr_) {
     lfs3_tag_t tag;
@@ -11772,7 +11822,8 @@ static int lfs3_file_lookup_(lfs3_t *lfs3, const lfs3_file_t *file,
     return 0;
 }
 
-static int lfs3_file_lookup(lfs3_t *lfs3, const lfs3_file_t *file,
+#ifndef LFS3_KVONLY
+static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
         lfs3_bid_t bid,
         lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_bptr_t *bptr_) {
     // hits our leaf?
@@ -11804,7 +11855,7 @@ static int lfs3_file_lookup(lfs3_t *lfs3, const lfs3_file_t *file,
     // lookup on disk
     lfs3_bid_t bid__;
     lfs3_bid_t weight__;
-    int err = lfs3_file_lookup_(lfs3, file, bid,
+    int err = lfs3_file_lookupnext_(lfs3, file, bid,
             &bid__, &weight__, bptr_);
     if (err) {
         return err;
@@ -11840,37 +11891,48 @@ static int lfs3_file_lookup(lfs3_t *lfs3, const lfs3_file_t *file,
     }
     return 0;
 }
+#endif
 
-// needed in lfs3_file_read_
+// needed in lfs3_file_readnext
 static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file);
 
-static lfs3_ssize_t lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
+static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, uint8_t *buffer, lfs3_size_t size) {
+    // hit our leaf?
+    lfs3_bid_t bid;
+    lfs3_bid_t weight;
+    lfs3_bptr_t bptr;
+    if (LFS3_IFDEF_KVONLY(
+            false,
+            pos >= file->leaf.pos
+                && pos < file->leaf.pos + file->leaf.weight)) {
+        #ifndef LFS3_KVONLY
+        bid = file->leaf.pos + (file->leaf.weight-1);
+        weight = file->leaf.weight;
+        bptr = file->leaf.bptr;
+        #endif
+
     // need to fetch a new leaf?
-    if (!(pos >= file->leaf.pos
-            && pos < file->leaf.pos + file->leaf.weight)) {
+    } else {
         // leaf in use? we need to crystallize/graft it
         //
         // it would be easier to just call lfs3_file_flush here, but
         // we don't want to drag in the extra stack usage
+        #if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
         if (lfs3_o_isungraft(file->b.o.flags)
                 || lfs3_o_isuncryst(file->b.o.flags)) {
             // readonly files can't be uncrystallized/ungrafted
             LFS3_ASSERT(!lfs3_o_isrdonly(file->b.o.flags));
 
-            #ifndef LFS3_RDONLY
             int err = lfs3_file_crystallize(lfs3, file);
             if (err) {
                 return err;
             }
-            #endif
         }
+        #endif
 
         // fetch a leaf
-        lfs3_bid_t bid;
-        lfs3_bid_t weight;
-        lfs3_bptr_t bptr;
-        int err = lfs3_file_lookup_(lfs3, file, pos,
+        int err = lfs3_file_lookupnext_(lfs3, file, pos,
                 &bid, &weight, &bptr);
         if (err) {
             return err;
@@ -11887,22 +11949,24 @@ static lfs3_ssize_t lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
         }
         #endif
 
+        #ifndef LFS3_KVONLY
         file->leaf.pos = bid - (weight-1);
         file->leaf.weight = weight;
         file->leaf.bptr = bptr;
+        #endif
     }
 
     // any data on disk?
     lfs3_off_t pos_ = pos;
-    if (pos_ < file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr)) {
+    if (pos_ < bid-(weight-1) + lfs3_bptr_size(&bptr)) {
         // note one important side-effect here is a strict
         // data hint
         lfs3_ssize_t d = lfs3_min(
                 size,
-                lfs3_bptr_size(&file->leaf.bptr)
-                    - (pos_ - file->leaf.pos));
-        lfs3_data_t slice = LFS3_DATA_SLICE(file->leaf.bptr.data,
-                pos_ - file->leaf.pos,
+                lfs3_bptr_size(&bptr)
+                    - (pos_ - (bid-(weight-1))));
+        lfs3_data_t slice = LFS3_DATA_SLICE(bptr.data,
+                pos_ - (bid-(weight-1)),
                 d);
         d = lfs3_data_read(lfs3, &slice,
                 buffer, d);
@@ -11918,7 +11982,7 @@ static lfs3_ssize_t lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
     // found a hole? fill with zeros
     lfs3_ssize_t d = lfs3_min(
             size,
-            file->leaf.pos+file->leaf.weight - pos_);
+            bid+1 - pos_);
     lfs3_memset(buffer, 0, d);
 
     pos_ += d;
@@ -11930,6 +11994,37 @@ static lfs3_ssize_t lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
 
 // high-level file reading
 
+#ifdef LFS3_KVONLY
+// a simpler read if we only read files once
+static lfs3_ssize_t lfs3_file_readonce(lfs3_t *lfs3, lfs3_file_t *file,
+        void *buffer, lfs3_size_t size) {
+    LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
+    // can't read from writeonly files
+    LFS3_ASSERT(!lfs3_o_iswronly(file->b.o.flags));
+    LFS3_ASSERT(size <= 0x7fffffff);
+
+    lfs3_off_t pos_ = 0;
+    uint8_t *buffer_ = buffer;
+    while (size > 0 && pos_ < lfs3_file_size_(file)) {
+        // read from the bshrub/btree
+        lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
+                pos_, buffer_, size);
+        if (d_ < 0) {
+            LFS3_ASSERT(d_ != LFS3_ERR_NOENT);
+            return d_;
+        }
+
+        pos_ += d_;
+        buffer_ += d_;
+        size -= d_;
+    }
+
+    // return amount read
+    return pos_;
+}
+#endif
+
+#ifndef LFS3_KVONLY
 lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         void *buffer, lfs3_size_t size) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
@@ -11969,7 +12064,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         if (pos_ < lfs3_file_weight_(file)) {
             // bypass cache?
             if ((lfs3_size_t)d >= lfs3_file_cachesize(lfs3, file)) {
-                lfs3_ssize_t d_ = lfs3_file_read_(lfs3, file,
+                lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
                         pos_, buffer_, d);
                 if (d_ < 0) {
                     LFS3_ASSERT(d_ != LFS3_ERR_NOENT);
@@ -11996,7 +12091,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // try to fill our cache with some data
-            lfs3_ssize_t d_ = lfs3_file_read_(lfs3, file,
+            lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
                     pos_, file->cache.buffer, d);
             if (d_ < 0) {
                 LFS3_ASSERT(d != LFS3_ERR_NOENT);
@@ -12020,6 +12115,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
     file->pos = pos_;
     return read;
 }
+#endif
 
 // low-level file writing
 
@@ -12032,7 +12128,7 @@ static int lfs3_file_commit(lfs3_t *lfs3, lfs3_file_t *file,
 #endif
 
 // graft bptr/fragments into our bshrub/btree
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
 static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, lfs3_off_t weight, lfs3_soff_t delta,
         // data_count=-1 => single bptr
@@ -12080,7 +12176,7 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
     while (pos < file->b.shrub.weight) {
         lfs3_bid_t weight_;
         lfs3_bptr_t bptr_;
-        int err = lfs3_file_lookup_(lfs3, file, pos,
+        int err = lfs3_file_lookupnext_(lfs3, file, pos,
                 &bid, &weight_, &bptr_);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_NOENT);
@@ -12302,7 +12398,7 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
 }
 #endif
 
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
 static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t block_pos, lfs3_soff_t crystal_min, lfs3_soff_t crystal_max,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
@@ -12391,7 +12487,7 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
                 lfs3_bid_t bid__;
                 lfs3_bid_t weight__;
                 lfs3_bptr_t bptr__;
-                int err = lfs3_file_lookup(lfs3, file, pos_,
+                int err = lfs3_file_lookupnext(lfs3, file, pos_,
                         &bid__, &weight__, &bptr__);
                 if (err) {
                     LFS3_ASSERT(err != LFS3_ERR_NOENT);
@@ -12531,7 +12627,7 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
 }
 #endif
 
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
 static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
     bool flushable = (
             file->cache.pos
@@ -12581,7 +12677,91 @@ static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
 }
 #endif
 
-#ifndef LFS3_RDONLY
+#if defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
+// a simpler flush if we only flush files once
+static int lfs3_file_flushonce_(lfs3_t *lfs3, lfs3_file_t *file,
+        const uint8_t *buffer, lfs3_size_t size) {
+    lfs3_off_t pos = 0;
+    while (size > 0) {
+        // enough data for a block?
+        if (size > lfs3->cfg->crystal_thresh) {
+            // align down for prog alignment
+            lfs3_ssize_t d = lfs3_aligndown(
+                    lfs3_min(size, lfs3->cfg->block_size),
+                    lfs3->cfg->prog_size);
+
+        relocate:;
+            // allocate a new block
+            lfs3_sblock_t block = lfs3_alloc(lfs3, true);
+            if (block < 0) {
+                return block;
+            }
+
+            // write our data
+            uint32_t cksum = 0;
+            int err = lfs3_bd_prog(lfs3, block, 0, buffer, d,
+                    &cksum, true);
+            if (err) {
+                // bad prog? try another block
+                if (err == LFS3_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+
+            // finalize our write
+            err = lfs3_bd_flush(lfs3,
+                    &cksum, true);
+            if (err) {
+                // bad prog? try another block
+                if (err == LFS3_ERR_CORRUPT) {
+                    goto relocate;
+                }
+                return err;
+            }
+
+            // create a block pointer
+            lfs3_bptr_t bptr;
+            lfs3_bptr_init(&bptr,
+                    LFS3_DATA_DISK(block, 0, d),
+                    d,
+                    cksum);
+
+            // and commit to bshrub/btree
+            err = lfs3_file_commit(lfs3, file, pos, LFS3_RATTRS(
+                    LFS3_RATTR_BPTR(LFS3_TAG_BLOCK, +d, &bptr)));
+            if (err) {
+                return err;
+            }
+
+            pos += d;
+            buffer += d;
+            size -= d;
+            continue;
+        }
+
+        // fallback to writing fragments
+        lfs3_ssize_t d = lfs3_min(size, lfs3->cfg->fragment_size);
+
+        // commit to bshrub/btree
+        int err = lfs3_file_commit(lfs3, file, pos, LFS3_RATTRS(
+                LFS3_RATTR_DATA(
+                    LFS3_TAG_DATA, +d,
+                    &LFS3_DATA_BUF(buffer, d))));
+        if (err) {
+            return err;
+        }
+
+        pos += d;
+        buffer += d;
+        size -= d;
+    }
+
+    return 0;
+}
+#endif
+
+#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
 static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
     // we can skip some btree lookups if we know we are aligned from a
@@ -12621,7 +12801,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // update buffer state
-            lfs3_soff_t d = lfs3_max(
+            lfs3_ssize_t d = lfs3_max(
                     file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr),
                     pos) - pos;
             pos += d;
@@ -12661,7 +12841,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookup(lfs3, file, poke,
+            int err = lfs3_file_lookupnext(lfs3, file, poke,
                     &bid, &weight, &bptr);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
@@ -12694,7 +12874,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookup(lfs3, file, poke,
+            int err = lfs3_file_lookupnext(lfs3, file, poke,
                     &bid, &weight, &bptr);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
@@ -12749,7 +12929,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // update buffer state, this may or may not make progress
-            lfs3_soff_t d = lfs3_max(
+            lfs3_ssize_t d = lfs3_max(
                     file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr),
                     pos) - pos;
             pos += d;
@@ -12782,7 +12962,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookup(lfs3, file,
+            int err = lfs3_file_lookupnext(lfs3, file,
                     lfs3_min(
                         crystal_start-1,
                         file->b.shrub.weight-1),
@@ -12820,7 +13000,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // update buffer state, this may or may not make progress
-        lfs3_soff_t d = lfs3_max(
+        lfs3_ssize_t d = lfs3_max(
                 file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr),
                 pos) - pos;
         pos += d;
@@ -12887,7 +13067,7 @@ fragment:;
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookup(lfs3, file,
+            int err = lfs3_file_lookupnext(lfs3, file,
                     fragment_start-1,
                     &bid, &weight, &bptr);
             if (err) {
@@ -12934,7 +13114,7 @@ fragment:;
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookup(lfs3, file,
+            int err = lfs3_file_lookupnext(lfs3, file,
                     fragment_end,
                     &bid, &weight, &bptr);
             if (err) {
@@ -12998,7 +13178,7 @@ fragment:;
 
 // high-level file writing
 
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
 lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         const void *buffer, lfs3_size_t size) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
@@ -13149,6 +13329,9 @@ failed:;
 }
 #endif
 
+#ifdef LFS3_KVONLY
+static
+#endif
 int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
@@ -13174,21 +13357,31 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
 
     // flush our cache
     if (lfs3_o_isunflush(file->b.o.flags)) {
+        #ifdef LFS3_KVONLY
+        err = lfs3_file_flushonce_(lfs3, file,
+                file->cache.buffer, file->cache.size);
+        if (err) {
+            goto failed;
+        }
+        #else
         err = lfs3_file_flush_(lfs3, file,
                 file->cache.pos, file->cache.buffer, file->cache.size);
         if (err) {
             goto failed;
         }
+        #endif
 
         // mark as flushed
         file->b.o.flags &= ~LFS3_o_UNFLUSH;
     }
 
     // and crystallize/graft our leaf
+    #ifndef LFS3_KVONLY
     err = lfs3_file_crystallize(lfs3, file);
     if (err) {
         goto failed;
     }
+    #endif
     #endif
 
     return 0;
@@ -13207,7 +13400,7 @@ LFS3_NOINLINE
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_name_t *name) {
     // build a commit of any pending file metadata
-    lfs3_rattr_t rattrs[4];
+    lfs3_rattr_t rattrs[LFS3_IFDEF_KVONLY(3, 4)];
     lfs3_size_t rattr_count = 0;
     lfs3_data_t name_data;
     lfs3_rattr_t shrub_rattrs[1];
@@ -13255,11 +13448,15 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                 || lfs3_o_isuncryst(file->b.o.flags)
                 || lfs3_o_isungraft(file->b.o.flags)) {
             // this only works if the file is entirely in our cache
+            #ifndef LFS3_KVONLY
             LFS3_ASSERT(file->cache.pos == 0);
+            #endif
             LFS3_ASSERT(file->cache.size == lfs3_file_size_(file));
 
             // discard any lingering bshrub state
+            #ifndef LFS3_KVONLY
             lfs3_file_discardleaf(file);
+            #endif
             lfs3_file_discardbshrub(file);
 
             // build a small shrub commit
@@ -13321,6 +13518,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
     // this gets real messy, since users can change custom attributes
     // whenever they want without informing littlefs, the best we can do
     // is read from disk to manually check if any attributes changed
+    #ifndef LFS3_KVONLY
     bool attrs = lfs3_o_isunsync(file->b.o.flags);
     if (!attrs) {
         for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
@@ -13357,6 +13555,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         rattrs[rattr_count++] = LFS3_RATTR_ATTRS(
                 file->cfg->attrs, file->cfg->attr_count);
     }
+    #endif
 
     // pending metadata? looks like we need to write to disk
     if (rattr_count > 0) {
@@ -13372,6 +13571,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
 
     // update in-device state
     for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
+        #ifndef LFS3_KVONLY
         if (lfs3_o_type(o->flags) == LFS3_TYPE_REG
                 && o->mdir.mid == file->b.o.mdir.mid
                 // don't double update
@@ -13441,9 +13641,11 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                     }
                 }
             }
+        }
+        #endif
 
         // clobber entangled traversals
-        } else if (lfs3_o_type(o->flags) == LFS3_type_TRAVERSAL
+        if (lfs3_o_type(o->flags) == LFS3_type_TRAVERSAL
                 && o->mdir.mid == file->b.o.mdir.mid) {
             lfs3_traversal_clobber(lfs3, (lfs3_traversal_t*)o);
         }
@@ -13459,6 +13661,9 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
 }
 #endif
 
+#ifdef LFS3_KVONLY
+static
+#endif
 int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
@@ -13511,6 +13716,7 @@ failed:;
     #endif
 }
 
+#ifndef LFS3_KVONLY
 int lfs3_file_desync(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     (void)file;
@@ -13522,7 +13728,9 @@ int lfs3_file_desync(lfs3_t *lfs3, lfs3_file_t *file) {
     #endif
     return 0;
 }
+#endif
 
+#ifndef LFS3_KVONLY
 int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     (void)file;
@@ -13563,9 +13771,11 @@ failed:;
     return err;
     #endif
 }
+#endif
 
 // other file operations
 
+#ifndef LFS3_KVONLY
 lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_soff_t off, uint8_t whence) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
@@ -13593,14 +13803,18 @@ lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
     file->pos = pos_;
     return pos_;
 }
+#endif
 
+#ifndef LFS3_KVONLY
 lfs3_soff_t lfs3_file_tell(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
 
     return file->pos;
 }
+#endif
 
+#ifndef LFS3_KVONLY
 lfs3_soff_t lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
@@ -13608,15 +13822,18 @@ lfs3_soff_t lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file) {
     file->pos = 0;
     return 0;
 }
+#endif
 
+#ifndef LFS3_KVONLY
 lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
 
     return lfs3_file_size_(file);
 }
+#endif
 
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
 int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
     // can't write to readonly files
@@ -13698,7 +13915,7 @@ failed:;
 }
 #endif
 
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
 int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
     // can't write to readonly files
@@ -13846,13 +14063,16 @@ static int lfs3_file_traverse_(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
     return 0;
 }
 
+#ifndef LFS3_KVONLY
 static int lfs3_file_traverse(lfs3_t *lfs3, const lfs3_file_t *file,
         lfs3_btraversal_t *bt,
         lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bptr_t *bptr) {
     return lfs3_file_traverse_(lfs3, &file->b, bt,
             bid_, tag_, bptr);
 }
+#endif
 
+#ifndef LFS3_KVONLY
 static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
         uint32_t flags) {
     // validate ungrafted data block?
@@ -13909,7 +14129,9 @@ static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
 
     return 0;
 }
+#endif
 
+#ifndef LFS3_KVONLY
 int lfs3_file_ckmeta(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
     // can't read from writeonly files
@@ -13918,7 +14140,9 @@ int lfs3_file_ckmeta(lfs3_t *lfs3, lfs3_file_t *file) {
     return lfs3_file_ck(lfs3, file,
             LFS3_T_RDONLY | LFS3_T_CKMETA);
 }
+#endif
 
+#ifndef LFS3_KVONLY
 int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
     // can't read from writeonly files
@@ -13927,6 +14151,7 @@ int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file) {
     return lfs3_file_ck(lfs3, file,
             LFS3_T_RDONLY | LFS3_T_CKMETA | LFS3_T_CKDATA);
 }
+#endif
 
 
 
@@ -13954,7 +14179,11 @@ lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
         return err;
     }
 
+    #ifdef LFS3_KVONLY
+    lfs3_ssize_t size_ = lfs3_file_readonce(lfs3, &file, buffer, size);
+    #else
     lfs3_ssize_t size_ = lfs3_file_read(lfs3, &file, buffer, size);
+    #endif
 
     // unconditionally close
     err = lfs3_file_close(lfs3, &file);
