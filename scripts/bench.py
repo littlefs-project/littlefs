@@ -87,6 +87,9 @@ class BenchCase:
         self.ifdef = config.pop('ifdef', [])
         if not isinstance(self.ifdef, list):
             self.ifdef = [self.ifdef]
+        self.ifndef = config.pop('ifndef', [])
+        if not isinstance(self.ifndef, list):
+            self.ifndef = [self.ifndef]
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
@@ -224,6 +227,9 @@ class BenchSuite:
             self.ifdef = config.pop('ifdef', [])
             if not isinstance(self.ifdef, list):
                 self.ifdef = [self.ifdef]
+            self.ifndef = config.pop('ifndef', [])
+            if not isinstance(self.ifndef, list):
+                self.ifndef = [self.ifndef]
 
             self.code = config.pop('code', None)
             self.code_lineno = min(
@@ -385,9 +391,11 @@ def compile(bench_paths, **args):
             # the bench defines
             def write_case_functions(f, suite, case):
                     # write any ifdef prologues
-                    if case.ifdef:
+                    if case.ifdef or case.ifndef:
                         for ifdef in case.ifdef:
                             f.writeln('#ifdef %s' % ifdef)
+                        for ifndef in case.ifndef:
+                            f.writeln('#ifndef %s' % ifndef)
                         f.writeln()
 
                     # create case define functions
@@ -446,16 +454,20 @@ def compile(bench_paths, **args):
                     f.writeln()
 
                     # write any ifdef epilogues
-                    if case.ifdef:
+                    if case.ifdef or case.ifndef:
                         for ifdef in case.ifdef:
+                            f.writeln('#endif')
+                        for ifndef in case.ifndef:
                             f.writeln('#endif')
                         f.writeln()
 
             if not args.get('source'):
                 # write any ifdef prologues
-                if suite.ifdef:
+                if suite.ifdef or suite.ifndef:
                     for ifdef in suite.ifdef:
                         f.writeln('#ifdef %s' % ifdef)
+                    for ifndef in suite.ifndef:
+                        f.writeln('#ifndef %s' % ifndef)
                     f.writeln()
 
                 # write any suite defines
@@ -496,8 +508,10 @@ def compile(bench_paths, **args):
                         f.writeln()
 
                 # write any ifdef epilogues
-                if suite.ifdef:
+                if suite.ifdef or suite.ifndef:
                     for ifdef in suite.ifdef:
+                        f.writeln('#endif')
+                    for ifndef in suite.ifndef:
                         f.writeln('#endif')
                     f.writeln()
 
@@ -512,6 +526,8 @@ def compile(bench_paths, **args):
                             or 0))
                 for ifdef in suite.ifdef:
                     f.writeln(4*' '+'#ifdef %s' % ifdef)
+                for ifndef in suite.ifndef:
+                    f.writeln(4*' '+'#ifndef %s' % ifndef)
                 # create suite defines
                 if suite.defines:
                     f.writeln(4*' '+'.defines = (const bench_define_t[]){')
@@ -521,6 +537,8 @@ def compile(bench_paths, **args):
                     f.writeln(4*' '+'},')
                     f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
                 for ifdef in suite.ifdef:
+                    f.writeln(4*' '+'#endif')
+                for ifndef in suite.ifndef:
                     f.writeln(4*' '+'#endif')
                 if suite.cases:
                     f.writeln(4*' '+'.cases = (const struct bench_case[]){')
@@ -536,6 +554,8 @@ def compile(bench_paths, **args):
                                     or 0))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
                             f.writeln(12*' '+'#ifdef %s' % ifdef)
+                        for ifndef in it.chain(suite.ifndef, case.ifndef):
+                            f.writeln(12*' '+'#ifndef %s' % ifndef)
                         # create case defines
                         if case.defines:
                             f.writeln(12*' '+'.defines'
@@ -566,6 +586,8 @@ def compile(bench_paths, **args):
                         f.writeln(12*' '+'.run = __bench__%s__run,' % (
                                 case.name))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
+                            f.writeln(12*' '+'#endif')
+                        for ifndef in it.chain(suite.ifndef, case.ifndef):
                             f.writeln(12*' '+'#endif')
                         f.writeln(8*' '+'},')
                     f.writeln(4*' '+'},')
@@ -600,9 +622,11 @@ def compile(bench_paths, **args):
                 # write any internal benches
                 for suite in suites:
                     # any ifdef prologues
-                    if suite.ifdef:
+                    if suite.ifdef or suite.ifndef:
                         for ifdef in suite.ifdef:
                             f.writeln('#ifdef %s' % ifdef)
+                        for ifndef in suite.ifndef:
+                            f.writeln('#ifndef %s' % ifndef)
                         f.writeln()
 
                     # any suite code
@@ -622,8 +646,10 @@ def compile(bench_paths, **args):
                             write_case_functions(f, suite, case)
 
                     # any ifdef epilogues
-                    if suite.ifdef:
+                    if suite.ifdef or suite.ifndef:
                         for ifdef in suite.ifdef:
+                            f.writeln('#endif')
+                        for ifndef in suite.ifndef:
                             f.writeln('#endif')
                         f.writeln()
 
