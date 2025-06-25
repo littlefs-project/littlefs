@@ -56,6 +56,9 @@
 #ifdef LFS3_YES_KVONLY
 #define LFS3_KVONLY
 #endif
+#ifdef LFS3_YES_2BONLY
+#define LFS3_2BONLY
+#endif
 #ifdef LFS3_YES_REVDBG
 #define LFS3_REVDBG
 #endif
@@ -204,6 +207,12 @@
 #define LFS3_IFDEF_KVONLY(a, b) (a)
 #else
 #define LFS3_IFDEF_KVONLY(a, b) (b)
+#endif
+
+#ifdef LFS3_2BONLY
+#define LFS3_IFDEF_2BONLY(a, b) (a)
+#else
+#define LFS3_IFDEF_2BONLY(a, b) (b)
 #endif
 
 #ifdef LFS3_REVDBG

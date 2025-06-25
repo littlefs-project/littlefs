@@ -672,7 +672,7 @@ typedef struct lfs3_bptr {
     // sign2(size)=0b10 => on-disk data
     // sign2(size)=0b11 => block pointer
     lfs3_data_t data;
-    #ifndef LFS3_CKDATACKSUMREADS
+    #if !defined(LFS3_2BONLY) && !defined(LFS3_CKDATACKSUMREADS)
     // sign(cksize)=0 => block not erased
     // sign(cksize)=1 => block erased
     lfs3_size_t cksize;
@@ -834,7 +834,9 @@ typedef struct lfs3 {
     lfs3_omdir_t *omdirs;
 
     lfs3_mdir_t mroot;
+    #ifndef LFS3_2BONLY
     lfs3_btree_t mtree;
+    #endif
 
     struct lfs3_rcache {
         lfs3_block_t block;
@@ -860,7 +862,7 @@ typedef struct lfs3 {
     } ptail;
     #endif
 
-    #ifndef LFS3_RDONLY
+    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
     struct lfs3_lookahead {
         lfs3_block_t window;
         lfs3_block_t off;
@@ -1110,7 +1112,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
 // actually be updated on the storage until either sync or close is called.
 //
 // Returns the number of bytes written, or a negative error code on failure.
-#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
+#if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY)
 lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         const void *buffer, lfs3_size_t size);
 #endif
@@ -1130,7 +1132,7 @@ lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
 // as if the file was filled with zeros.
 //
 // Returns a negative error code on failure.
-#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
+#if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY)
 int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size);
 #endif
 
@@ -1140,7 +1142,7 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size);
 // as if the file was filled with zeros.
 //
 // Returns a negative error code on failure.
-#if !defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
+#if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY)
 int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size);
 #endif
 
@@ -1354,7 +1356,7 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags);
 // Note: This is irreversible.
 //
 // Returns a negative error code on failure.
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count);
 #endif
 
