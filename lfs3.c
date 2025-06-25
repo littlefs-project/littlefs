@@ -1395,7 +1395,7 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
 
     int err = lfs3_bd_read(lfs3, block, off, hint,
             tag_buf, tag_dsize);
-    if (err < 0) {
+    if (err) {
         return err;
     }
 
@@ -1577,7 +1577,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 
     int err = lfs3_bd_prog(lfs3, block, off, tag_buf, d,
             cksum, align);
-    if (err < 0) {
+    if (err) {
         return err;
     }
 
@@ -1722,7 +1722,7 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
                     lfs3_data_size(*data),
                     buffer, d,
                     lfs3_data_cksize(*data), lfs3_data_cksum(*data));
-            if (err < 0) {
+            if (err) {
                 return err;
             }
             #endif
@@ -1733,7 +1733,7 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
                     // note our hint includes the full data range
                     lfs3_data_size(*data),
                     buffer, d);
-            if (err < 0) {
+            if (err) {
                 return err;
             }
         }
@@ -1870,7 +1870,7 @@ static lfs3_scmp_t lfs3_data_namecmp(lfs3_t *lfs3, lfs3_data_t data,
     // first compare the did
     lfs3_did_t did_;
     int err = lfs3_data_readleb128(lfs3, &data, &did_);
-    if (err < 0) {
+    if (err) {
         return err;
     }
 
@@ -4569,7 +4569,7 @@ static lfs3_ssize_t lfs3_rbyd_estimate(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
             int err = lfs3_rbyd_lookupnext(lfs3, rbyd,
                     a_rid, tag+1,
                     &rid_, &tag, &weight_, &data);
-            if (err < 0) {
+            if (err) {
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
@@ -4876,6 +4876,17 @@ static lfs3_scmp_t lfs3_rbyd_namelookup(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         return LFS3_ERR_NOENT;
     }
 
+    // compiler needs this to be happy about initialization in callers
+    if (rid_) {
+        *rid_ = 0;
+    }
+    if (tag_) {
+        *tag_ = 0;
+    }
+    if (weight_) {
+        *weight_ = 0;
+    }
+
     // binary search for our name
     lfs3_srid_t lower_rid = 0;
     lfs3_srid_t upper_rid = rbyd->weight;
@@ -4890,7 +4901,7 @@ static lfs3_scmp_t lfs3_rbyd_namelookup(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
                 // of a weighted rid with this
                 lower_rid + (upper_rid-1-lower_rid)/2, 0,
                 &rid__, &tag__, &weight__, &data__);
-        if (err < 0) {
+        if (err) {
             LFS3_ASSERT(err != LFS3_ERR_NOENT);
             return err;
         }
@@ -6122,6 +6133,20 @@ static lfs3_scmp_t lfs3_btree_namelookupleaf(lfs3_t *lfs3,
         return LFS3_ERR_NOENT;
     }
 
+    // compiler needs this to be happy about initialization in callers
+    if (bid_) {
+        *bid_ = 0;
+    }
+    if (rid_) {
+        *rid_ = 0;
+    }
+    if (tag_) {
+        *tag_ = 0;
+    }
+    if (weight_) {
+        *weight_ = 0;
+    }
+
     // descend down the btree looking for our name
     *rbyd_ = *btree;
     lfs3_bid_t bid = 0;
@@ -6146,7 +6171,7 @@ static lfs3_scmp_t lfs3_btree_namelookupleaf(lfs3_t *lfs3,
             int err = lfs3_rbyd_lookup(lfs3, rbyd_, rid__,
                     LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
                     &tag__, &data__);
-            if (err < 0) {
+            if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
                 return err;
             }
@@ -6160,7 +6185,7 @@ static lfs3_scmp_t lfs3_btree_namelookupleaf(lfs3_t *lfs3,
             // fetch the next branch
             int err = lfs3_data_fetchbranch(lfs3, &data__, weight__,
                     rbyd_);
-            if (err < 0) {
+            if (err) {
                 return err;
             }
 
@@ -6557,7 +6582,7 @@ static lfs3_ssize_t lfs3_bshrub_estimate(lfs3_t *lfs3,
     lfs3_data_t data;
     int err = lfs3_mdir_lookup(lfs3, &bshrub->o.mdir, LFS3_TAG_BSHRUB,
             &tag, &data);
-    if (err < 0 && err != LFS3_ERR_NOENT) {
+    if (err && err != LFS3_ERR_NOENT) {
         return err;
     }
 
@@ -6565,7 +6590,7 @@ static lfs3_ssize_t lfs3_bshrub_estimate(lfs3_t *lfs3,
         lfs3_shrub_t shrub;
         err = lfs3_data_readshrub(lfs3, &data, &bshrub->o.mdir,
                 &shrub);
-        if (err < 0) {
+        if (err) {
             return err;
         }
 
@@ -8296,7 +8321,7 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
             int err = lfs3_rbyd_lookupnext(lfs3, &mdir->rbyd,
                     a_rid, tag+1,
                     &rid_, &tag, NULL, &data);
-            if (err < 0) {
+            if (err) {
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
@@ -8318,7 +8343,7 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
 
                 lfs3_shrub_t shrub;
                 err = lfs3_data_readshrub(lfs3, &data, mdir, &shrub);
-                if (err < 0) {
+                if (err) {
                     return err;
                 }
 
@@ -9339,8 +9364,8 @@ static int lfs3_mdir_namelookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         return LFS3_ERR_NOENT;
     }
 
-    lfs3_srid_t rid = rid; // TODO
-    lfs3_tag_t tag = tag; // TODO
+    lfs3_srid_t rid;
+    lfs3_tag_t tag;
     lfs3_scmp_t cmp = lfs3_rbyd_namelookup(lfs3, &mdir->rbyd,
             did, name, name_len,
             &rid, &tag, NULL, data_);
