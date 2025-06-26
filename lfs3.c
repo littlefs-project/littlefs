@@ -14208,9 +14208,7 @@ static int lfs3_file_traverse_(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
     }
 
     // decode bptrs
-    if (tag == LFS3_TAG_DATA) {
-        bptr->data = data;
-    } else if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BLOCK)) {
+    if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BLOCK)) {
         #ifndef LFS3_2BONLY
         err = lfs3_data_readbptr(lfs3, &data,
                 bptr);
@@ -14219,7 +14217,7 @@ static int lfs3_file_traverse_(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
         }
         #endif
     } else {
-        LFS3_UNREACHABLE();
+        bptr->data = data;
     }
 
     if (tag_) {
