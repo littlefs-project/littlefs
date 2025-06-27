@@ -5039,7 +5039,7 @@ static lfs3_data_t lfs3_data_frombranch(const lfs3_rbyd_t *branch,
 
 #ifndef LFS3_2BONLY
 static int lfs3_data_readbranch(lfs3_t *lfs3,
-        lfs3_data_t *data, lfs3_bid_t weight,
+        lfs3_bid_t weight, lfs3_data_t *data,
         lfs3_rbyd_t *branch) {
     // setting eoff to 0 here will trigger asserts if we try to append
     // without fetching first
@@ -5108,7 +5108,7 @@ static int lfs3_data_fetchbranch(lfs3_t *lfs3,
         lfs3_data_t *data, lfs3_bid_t weight,
         lfs3_rbyd_t *branch) {
     // decode branch and fetch
-    int err = lfs3_data_readbranch(lfs3, data, weight,
+    int err = lfs3_data_readbranch(lfs3, weight, data,
             branch);
     if (err) {
         return err;
@@ -5154,7 +5154,7 @@ static int lfs3_data_readbtree(lfs3_t *lfs3, lfs3_data_t *data,
         return err;
     }
 
-    err = lfs3_data_readbranch(lfs3, data, weight, btree);
+    err = lfs3_data_readbranch(lfs3, weight, data, btree);
     if (err) {
         return err;
     }
@@ -5361,7 +5361,7 @@ static int lfs3_btree_parent(lfs3_t *lfs3, const lfs3_btree_t *btree,
 
         // fetch the next branch
         lfs3_rbyd_t child_;
-        err = lfs3_data_readbranch(lfs3, &data__, weight__, &child_);
+        err = lfs3_data_readbranch(lfs3, weight__, &data__, &child_);
         if (err) {
             return err;
         }
@@ -6400,8 +6400,8 @@ static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
 }
 #endif
 
-static int lfs3_data_readshrub(lfs3_t *lfs3, lfs3_data_t *data,
-        const lfs3_mdir_t *mdir,
+static int lfs3_data_readshrub(lfs3_t *lfs3,
+        const lfs3_mdir_t *mdir, lfs3_data_t *data,
         lfs3_shrub_t *shrub) {
     // copy the mdir block
     shrub->blocks[0] = mdir->rbyd.blocks[0];
@@ -6564,10 +6564,57 @@ static inline int lfs3_bshrub_cmp(
     return lfs3_rbyd_cmp(&a->shrub, &b->shrub);
 }
 
-// needed in lfs3_bshrub_estimate
+// needed in lfs3_bshrub_fetch
 static int lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_tag_t tag,
         lfs3_tag_t *tag_, lfs3_data_t *data_);
+
+// fetch the bshrub/btree attatched to the current mdir+mid, if there
+// is one
+//
+// note we don't mess with bshrub on error!
+static int lfs3_bshrub_fetch(lfs3_t *lfs3, lfs3_bshrub_t *bshrub) {
+    // lookup the file struct, if there is one
+    lfs3_tag_t tag;
+    lfs3_data_t data;
+    int err = lfs3_mdir_lookup(lfs3, &bshrub->o.mdir,
+            LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &tag, &data);
+    if (err) {
+        return err;
+    }
+
+    // these functions leave bshrub undefined if there is an error, so
+    // first read into the staging shrub
+
+    // found a bshrub? (inlined btree)
+    if (tag == LFS3_TAG_BSHRUB) {
+        err = lfs3_data_readshrub(lfs3, &bshrub->o.mdir, &data,
+                &bshrub->shrub_);
+        if (err) {
+            return err;
+        }
+
+    // found a btree?
+    } else if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BTREE)) {
+        #ifndef LFS3_2BONLY
+        err = lfs3_data_fetchbtree(lfs3, &data,
+                &bshrub->shrub_);
+        if (err) {
+            return err;
+        }
+        #endif
+
+    // we can run into other structs, dids in lfs3_mtree_traverse for
+    // example, just ignore these for now
+    } else {
+        return LFS3_ERR_NOENT;
+    }
+
+    // update the bshrub/btree
+    bshrub->shrub = bshrub->shrub_;
+    return 0;
+}
 
 // find a tight upper bound on the _full_ bshrub size, this includes
 // any on-disk bshrubs, and all pending bshrubs
@@ -6588,7 +6635,7 @@ static lfs3_ssize_t lfs3_bshrub_estimate(lfs3_t *lfs3,
 
     if (err != LFS3_ERR_NOENT) {
         lfs3_shrub_t shrub;
-        err = lfs3_data_readshrub(lfs3, &data, &bshrub->o.mdir,
+        err = lfs3_data_readshrub(lfs3, &bshrub->o.mdir, &data,
                 &shrub);
         if (err) {
             return err;
@@ -8107,7 +8154,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     // as well to bring it along with us
                     if (tag == LFS3_TAG_BSHRUB) {
                         lfs3_shrub_t shrub;
-                        err = lfs3_data_readshrub(lfs3, &data, mdir__,
+                        err = lfs3_data_readshrub(lfs3, mdir__, &data,
                                 &shrub);
                         if (err) {
                             return err;
@@ -8342,7 +8389,8 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
                 dsize_ += LFS3_SHRUB_DSIZE;
 
                 lfs3_shrub_t shrub;
-                err = lfs3_data_readshrub(lfs3, &data, mdir, &shrub);
+                err = lfs3_data_readshrub(lfs3, mdir, &data,
+                        &shrub);
                 if (err) {
                     return err;
                 }
@@ -8445,7 +8493,7 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
         // bring it along with us
         if (tag == LFS3_TAG_BSHRUB) {
             lfs3_shrub_t shrub;
-            err = lfs3_data_readshrub(lfs3, &data, mdir,
+            err = lfs3_data_readshrub(lfs3, mdir, &data,
                     &shrub);
             if (err) {
                 return err;
@@ -9797,38 +9845,14 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
             }
 
             // do we have a bshrub/btree?
-            err = lfs3_mdir_lookup(lfs3, &t->b.o.mdir,
-                    LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                    &tag, &data);
+            err = lfs3_bshrub_fetch(lfs3, &t->b);
             if (err && err != LFS3_ERR_NOENT) {
                 return err;
             }
 
-            // found a bshrub/btree? note we may also run into
-            // dirs/dids here
-            if (err != LFS3_ERR_NOENT
-                    && (tag == LFS3_TAG_BSHRUB
-                        || tag == LFS3_TAG_BTREE)) {
-                // found a bshrub (inlined btree)?
-                if (tag == LFS3_TAG_BSHRUB) {
-                    err = lfs3_data_readshrub(lfs3, &data, &t->b.o.mdir,
-                            &t->b.shrub);
-                    if (err) {
-                        return err;
-                    }
-
-                // found a btree?
-                } else if (tag == LFS3_TAG_BTREE) {
-                    err = lfs3_data_fetchbtree(lfs3, &data,
-                            &t->b.shrub);
-                    if (err) {
-                        return err;
-                    }
-
-                } else {
-                    LFS3_UNREACHABLE();
-                }
-
+            // found a bshrub/btree? note we may also run into dirs/dids
+            // here, lfs3_bshrub_fetch ignores these for us
+            if (err != LFS3_ERR_NOENT) {
                 // start traversing
                 lfs3_btraversal_init(&t->u.bt);
                 lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_BTREE);
@@ -11530,47 +11554,11 @@ static void lfs3_file_init(lfs3_file_t *file, uint32_t flags,
 static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     // don't bother reading disk if we're not created or truncating
     if (!lfs3_o_isuncreat(flags) && !lfs3_o_istrunc(flags)) {
-        // lookup the file struct, if there is one
-        lfs3_tag_t tag;
-        lfs3_data_t data;
-        int err = lfs3_mdir_lookup(lfs3, &file->b.o.mdir,
-                LFS3_TAG_MASK8 | LFS3_TAG_DATA,
-                &tag, &data);
+        // fetch the file's bshrub/btree, if there is one
+        int err = lfs3_bshrub_fetch(lfs3, &file->b);
         if (err && err != LFS3_ERR_NOENT) {
             return err;
         }
-
-        // note many of these functions leave bshrub undefined if there
-        // is an error, so we first read into a temporary bshrub/btree
-        lfs3_rbyd_t shrub = file->b.shrub;
-
-        // found a bshrub/btree?
-        if (err != LFS3_ERR_NOENT) {
-            // may be a bshrub (inlined btree)
-            if (tag == LFS3_TAG_BSHRUB) {
-                err = lfs3_data_readshrub(lfs3, &data, &file->b.o.mdir,
-                        &shrub);
-                if (err) {
-                    return err;
-                }
-
-            // or a btree
-            } else if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BTREE)) {
-                #ifndef LFS3_2BONLY
-                err = lfs3_data_fetchbtree(lfs3, &data,
-                        &shrub);
-                if (err) {
-                    return err;
-                }
-                #endif
-
-            } else {
-                LFS3_UNREACHABLE();
-            }
-        }
-
-        // update the bshrub/btree
-        file->b.shrub = shrub;
 
         // mark as in-sync
         file->b.o.flags &= ~LFS3_o_UNSYNC;
