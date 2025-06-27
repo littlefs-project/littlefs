@@ -2604,6 +2604,51 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
 }
 #endif
 
+// needed in lfs3_bptr_fetch
+#ifdef LFS3_CKFETCHES
+static inline bool lfs3_m_isckfetches(uint32_t flags);
+#endif
+static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr);
+
+// fetch a bptr or data fragment
+static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
+        lfs3_tag_t tag, lfs3_bid_t weight, lfs3_data_t data) {
+    // fragment? (inlined data)
+    if (tag == LFS3_TAG_DATA) {
+        bptr->data = data;
+
+    // bptr?
+    } else if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BLOCK)) {
+        #ifndef LFS3_2BONLY
+        int err = lfs3_data_readbptr(lfs3, &data,
+                bptr);
+        if (err) {
+            return err;
+        }
+        #endif
+
+    } else {
+        LFS3_UNREACHABLE();
+    }
+
+    // limit bptrs to btree weights, this may be useful for
+    // compression in the future
+    bptr->data = LFS3_DATA_TRUNCATE(bptr->data, weight);
+
+    // checking fetches?
+    #ifdef LFS3_CKFETCHES
+    if (lfs3_m_isckfetches(lfs3->flags)
+            && lfs3_bptr_isbptr(bptr)) {
+        int err = lfs3_bptr_ck(lfs3, bptr);
+        if (err) {
+            return err;
+        }
+    }
+    #endif
+
+    return 0;
+}
+
 // check the contents of a bptr
 #ifndef LFS3_2BONLY
 static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr) {
@@ -5066,11 +5111,6 @@ static int lfs3_data_readbranch(lfs3_t *lfs3,
 
     return 0;
 }
-#endif
-
-// needed in lfs3_branch_fetch
-#ifdef LFS3_CKFETCHES
-static inline bool lfs3_m_isckfetches(uint32_t flags);
 #endif
 
 #ifndef LFS3_2BONLY
@@ -9694,11 +9734,6 @@ static void lfs3_traversal_init(lfs3_traversal_t *t, uint32_t flags) {
     t->gcksum = 0;
 }
 
-// needed in lfs3_mtree_traverse_
-static int lfs3_file_traverse_(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
-        lfs3_btraversal_t *bt,
-        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bptr_t *bptr);
-
 // low-level traversal _only_ finds blocks
 static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
         lfs3_tag_t *tag_, lfs3_bptr_t *bptr) {
@@ -9923,12 +9958,8 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
         case LFS3_TSTATE_BTREE:;
         case LFS3_TSTATE_OBTREE:;
             // traverse through our bshrub/btree
-            //
-            // it probably looks a bit weird to go through
-            // lfs3_file_traverse_, but this gets us bptr decoding
-            // for free
-            err = lfs3_file_traverse_(lfs3, &t->b, &t->u.bt,
-                    NULL, &tag, bptr);
+            err = lfs3_bshrub_traverse(lfs3, &t->b, &t->u.bt,
+                    NULL, &tag, &data);
             if (err) {
                 if (err == LFS3_ERR_NOENT) {
                     // clear the bshrub state
@@ -9964,14 +9995,22 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                 if (tag_) {
                     *tag_ = tag;
                 }
+                bptr->data = data;
                 return 0;
 
             // found an indirect block?
-            } else if (tag == LFS3_TAG_BLOCK) {
+            } else if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BLOCK)) {
+                #ifndef LFS3_2BONLY
                 if (tag_) {
                     *tag_ = tag;
                 }
+                err = lfs3_data_readbptr(lfs3, &data,
+                        bptr);
+                if (err) {
+                    return err;
+                }
                 return 0;
+                #endif
             }
 
             continue;
@@ -11930,23 +11969,11 @@ static int lfs3_file_lookupnext_(lfs3_t *lfs3, const lfs3_file_t *file,
     LFS3_ASSERT(tag == LFS3_TAG_DATA
             || tag == LFS3_TAG_BLOCK);
 
-    // decode bptrs
-    if (tag == LFS3_TAG_DATA) {
-        bptr_->data = data;
-    } else if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BLOCK)) {
-        #ifndef LFS3_2BONLY
-        err = lfs3_data_readbptr(lfs3, &data, bptr_);
-        if (err) {
-            return err;
-        }
-        #endif
-    } else {
-        LFS3_UNREACHABLE();
+    // fetch the bptr/data fragment
+    err = lfs3_bptr_fetch(lfs3, bptr_, tag, weight, data);
+    if (err) {
+        return err;
     }
-
-    // limit bptrs to btree weights, this may be useful for
-    // compression in the future
-    bptr_->data = LFS3_DATA_TRUNCATE(bptr_->data, weight);
 
     if (weight_) {
         *weight_ = weight;
@@ -12071,17 +12098,6 @@ static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
         if (err) {
             return err;
         }
-
-        // checking fetches?
-        #ifdef LFS3_CKFETCHES
-        if (lfs3_m_isckfetches(lfs3->flags)
-                && lfs3_bptr_isbptr(&bptr)) {
-            err = lfs3_bptr_ck(lfs3, &bptr);
-            if (err) {
-                return err;
-            }
-        }
-        #endif
 
         #ifndef LFS3_KVONLY
         file->leaf.pos = bid - (weight-1);
@@ -12316,17 +12332,6 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
             LFS3_ASSERT(err != LFS3_ERR_NOENT);
             return err;
         }
-
-        // checking fetches?
-        #ifdef LFS3_CKFETCHES
-        if (lfs3_m_isckfetches(lfs3->flags)
-                && lfs3_bptr_isbptr(&bptr_)) {
-            err = lfs3_bptr_ck(lfs3, &bptr_);
-            if (err) {
-                return err;
-            }
-        }
-        #endif
 
         // note, an entry can be both a left and right sibling
         l = bptr_;
@@ -12627,17 +12632,6 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_ASSERT(err != LFS3_ERR_NOENT);
                     return err;
                 }
-
-                // checking fetches?
-                #ifdef LFS3_CKFETCHES
-                if (lfs3_m_isckfetches(lfs3->flags)
-                        && lfs3_bptr_isbptr(&bptr__)) {
-                    err = lfs3_bptr_ck(lfs3, &bptr__);
-                    if (err) {
-                        return err;
-                    }
-                }
-                #endif
 
                 // is this data a pure hole? stop early to (FUTURE)
                 // better leverage erased-state in sparse files, and to
@@ -13235,17 +13229,6 @@ fragment:;
                 return err;
             }
 
-            // checking fetches?
-            #ifdef LFS3_CKFETCHES
-            if (lfs3_m_isckfetches(lfs3->flags)
-                    && lfs3_bptr_isbptr(&bptr)) {
-                err = lfs3_bptr_ck(lfs3, &bptr);
-                if (err) {
-                    return err;
-                }
-            }
-            #endif
-
             // can we coalesce?
             if (bid-(weight-1) + lfs3_bptr_size(&bptr) >= fragment_start
                     && fragment_end - (bid-(weight-1))
@@ -13281,17 +13264,6 @@ fragment:;
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
                 return err;
             }
-
-            // checking fetches?
-            #ifdef LFS3_CKFETCHES
-            if (lfs3_m_isckfetches(lfs3->flags)
-                    && lfs3_bptr_isbptr(&bptr)) {
-                err = lfs3_bptr_ck(lfs3, &bptr);
-                if (err) {
-                    return err;
-                }
-            }
-            #endif
 
             // can we coalesce?
             if (fragment_end < bid-(weight-1) + lfs3_bptr_size(&bptr)
@@ -14201,47 +14173,6 @@ failed:;
 
 // file check functions
 
-#ifndef LFS3_2BONLY
-static int lfs3_file_traverse_(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
-        lfs3_btraversal_t *bt,
-        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bptr_t *bptr) {
-    lfs3_tag_t tag;
-    lfs3_data_t data;
-    int err = lfs3_bshrub_traverse(lfs3, bshrub, bt,
-            bid_, &tag, &data);
-    if (err) {
-        return err;
-    }
-
-    // decode bptrs
-    if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BLOCK)) {
-        #ifndef LFS3_2BONLY
-        err = lfs3_data_readbptr(lfs3, &data,
-                bptr);
-        if (err) {
-            return err;
-        }
-        #endif
-    } else {
-        bptr->data = data;
-    }
-
-    if (tag_) {
-        *tag_ = tag;
-    }
-    return 0;
-}
-#endif
-
-#if !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
-static int lfs3_file_traverse(lfs3_t *lfs3, const lfs3_file_t *file,
-        lfs3_btraversal_t *bt,
-        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bptr_t *bptr) {
-    return lfs3_file_traverse_(lfs3, &file->b, bt,
-            bid_, tag_, bptr);
-}
-#endif
-
 #if !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
 static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
         uint32_t flags) {
@@ -14260,9 +14191,9 @@ static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
     lfs3_btraversal_init(&bt);
     while (true) {
         lfs3_tag_t tag;
-        lfs3_bptr_t bptr;
-        int err = lfs3_file_traverse(lfs3, file, &bt,
-                NULL, &tag, &bptr);
+        lfs3_data_t data;
+        int err = lfs3_bshrub_traverse(lfs3, &file->b, &bt,
+                NULL, &tag, &data);
         if (err) {
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -14278,7 +14209,7 @@ static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
         if ((lfs3_t_isckmeta(flags)
                     || lfs3_t_isckdata(flags))
                 && tag == LFS3_TAG_BRANCH) {
-            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.data.u.buffer;
+            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
             err = lfs3_rbyd_fetchck(lfs3, rbyd,
                     rbyd->blocks[0], rbyd->trunk,
                     rbyd->cksum);
@@ -14290,6 +14221,13 @@ static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
         // validate data blocks?
         if (lfs3_t_isckdata(flags)
                 && tag == LFS3_TAG_BLOCK) {
+            lfs3_bptr_t bptr;
+            err = lfs3_data_readbptr(lfs3, &data,
+                    &bptr);
+            if (err) {
+                return err;
+            }
+
             err = lfs3_bptr_ck(lfs3, &bptr);
             if (err) {
                 return err;
