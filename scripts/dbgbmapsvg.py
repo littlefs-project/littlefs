@@ -4512,10 +4512,10 @@ def main(disk, output, mroots=None, *,
 
     # create svg file
     with openio(output, 'w') as f:
-        def writeln(s=''):
-            f.write(s)
-            f.write('\n')
-        f.writeln = writeln
+        def writeln(self, s=''):
+            self.write(s)
+            self.write('\n')
+        f.writeln = writeln.__get__(f)
 
         # yes this is svg
         f.write('<svg '

@@ -1284,10 +1284,10 @@ def main(path='-', *,
                         if wear else ''))
 
         # give ring a writeln function
-        def writeln(s=''):
-            ring.write(s)
-            ring.write('\n')
-        ring.writeln = writeln
+        def writeln(self, s=''):
+            self.write(s)
+            self.write('\n')
+        ring.writeln = writeln.__get__(ring)
 
         # figure out width/height
         if width is None:

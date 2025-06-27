@@ -1243,11 +1243,11 @@ def main_(ring, csv_paths, *,
         subplot={},
         subplots=[],
         **args):
-    # give ring an writeln function
-    def writeln(s=''):
-        ring.write(s)
-        ring.write('\n')
-    ring.writeln = writeln
+    # give ring a writeln function
+    def writeln(self, s=''):
+        self.write(s)
+        self.write('\n')
+    ring.writeln = writeln.__get__(ring)
 
     # figure out what color should be
     if color == 'auto':

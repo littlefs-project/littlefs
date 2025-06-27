@@ -583,10 +583,10 @@ def main(input=None, output=None, *,
         p = Parser(in_f.read(), '')
 
         with openio(output or '-', 'w') as f:
-            def writeln(s=''):
-                f.write(s)
-                f.write('\n')
-            f.writeln = writeln
+            def writeln(self, s=''):
+                self.write(s)
+                self.write('\n')
+            f.writeln = writeln.__get__(f)
 
             # write extra verbose asserts
             mkheader(f, limit=limit)
