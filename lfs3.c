@@ -12142,7 +12142,7 @@ static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
 
 #ifdef LFS3_KVONLY
 // a simpler read if we only read files once
-static lfs3_ssize_t lfs3_file_readonce(lfs3_t *lfs3, lfs3_file_t *file,
+static lfs3_ssize_t lfs3_file_readget_(lfs3_t *lfs3, lfs3_file_t *file,
         void *buffer, lfs3_size_t size) {
     LFS3_ASSERT(lfs3_omdir_isopen(lfs3, &file->b.o));
     // can't read from writeonly files
@@ -12831,7 +12831,7 @@ static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
 
 #if defined(LFS3_KVONLY) && !defined(LFS3_RDONLY)
 // a simpler flush if we only flush files once
-static int lfs3_file_flushonce_(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_flushset_(lfs3_t *lfs3, lfs3_file_t *file,
         const uint8_t *buffer, lfs3_size_t size) {
     lfs3_off_t pos = 0;
     while (size > 0) {
@@ -13526,7 +13526,7 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     // flush our cache
     if (lfs3_o_isunflush(file->b.o.flags)) {
         #ifdef LFS3_KVONLY
-        err = lfs3_file_flushonce_(lfs3, file,
+        err = lfs3_file_flushset_(lfs3, file,
                 file->cache.buffer, file->cache.size);
         if (err) {
             goto failed;
@@ -14376,7 +14376,7 @@ lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
     }
 
     #ifdef LFS3_KVONLY
-    lfs3_ssize_t size_ = lfs3_file_readonce(lfs3, &file, buffer, size);
+    lfs3_ssize_t size_ = lfs3_file_readget_(lfs3, &file, buffer, size);
     #else
     lfs3_ssize_t size_ = lfs3_file_read(lfs3, &file, buffer, size);
     #endif
