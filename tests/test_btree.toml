@@ -4281,9 +4281,10 @@ code = '''
 
         lfs3_bid_t bid;
         lfs3_tag_t tag;
+        lfs3_bid_t weight;
         lfs3_data_t data;
         int err = lfs3_btree_traverse(&lfs3, &btree, &bt,
-                &bid, &tag, &data);
+                &bid, &tag, &weight, &data);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
@@ -4291,25 +4292,28 @@ code = '''
 
         if (tag == LFS3_TAG_BRANCH) {
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
+            printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                     bid,
                     tag,
+                    weight,
                     rbyd->blocks[0], rbyd->trunk);
 
             // keep track of seen blocks
             seen[rbyd->blocks[0] / 8] |= 1 << (rbyd->blocks[0] % 8);
 
         } else if (tag == LFS3_TAG_DATA) {
-            printf("traversal: %d 0x%x data %d\n",
+            printf("traversal: %d 0x%x w%d data %d\n",
                     bid,
                     tag,
+                    weight,
                     lfs3_data_size(data));
 
         } else {
             // well this shouldn't happen
-            printf("traversal: %d 0x%x\n",
+            printf("traversal: %d 0x%x w%d\n",
                     bid,
-                    tag);
+                    tag,
+                    weight);
             assert(false);
         }
     }
@@ -4435,9 +4439,10 @@ code = '''
 
         lfs3_bid_t bid;
         lfs3_tag_t tag;
+        lfs3_bid_t weight;
         lfs3_data_t data;
         int err = lfs3_btree_traverse(&lfs3, &btree, &bt,
-                &bid, &tag, &data);
+                &bid, &tag, &weight, &data);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
@@ -4445,25 +4450,28 @@ code = '''
 
         if (tag == LFS3_TAG_BRANCH) {
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-            printf("traversal: %d 0x%x btree 0x%x.%x\n",
+            printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                     bid,
                     tag,
+                    weight,
                     rbyd->blocks[0], rbyd->trunk);
 
             // keep track of seen blocks
             seen[rbyd->blocks[0] / 8] |= 1 << (rbyd->blocks[0] % 8);
 
         } else if (tag == LFS3_TAG_DATA) {
-            printf("traversal: %d 0x%x data %d\n",
+            printf("traversal: %d 0x%x w%d data %d\n",
                     bid,
                     tag,
+                    weight,
                     lfs3_data_size(data));
 
         } else {
             // well this shouldn't happen
-            printf("traversal: %d 0x%x\n",
+            printf("traversal: %d 0x%x w%d\n",
                     bid,
-                    tag);
+                    tag,
+                    weight);
             assert(false);
         }
     }

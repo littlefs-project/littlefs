@@ -191,9 +191,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -201,15 +202,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // keep track of how many fragments we've seen
@@ -219,9 +222,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -232,9 +236,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -334,9 +339,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -344,15 +350,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // if block crystallization is working we shouldn't be
@@ -363,9 +371,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -375,9 +384,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -595,9 +605,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -605,15 +616,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // keep track of how many fragments we've seen
@@ -623,9 +636,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -636,9 +650,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -753,9 +768,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -763,15 +779,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // if block crystallization is working we shouldn't be
@@ -782,9 +800,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -794,9 +813,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -2076,9 +2096,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -2086,15 +2107,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // keep track of how many fragments we've seen
@@ -2104,9 +2127,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -2116,9 +2140,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -2223,9 +2248,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -2233,15 +2259,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // keep track of how many fragments we've seen
@@ -2251,9 +2279,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -2263,9 +2292,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -2517,9 +2547,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -2527,15 +2558,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // keep track of how many fragments we've seen
@@ -2545,9 +2578,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -2558,9 +2592,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -2679,9 +2714,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -2689,15 +2725,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // if block crystallization is working we shouldn't be
@@ -2708,9 +2746,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -2720,9 +2759,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -2967,9 +3007,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -2977,15 +3018,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // keep track of how many fragments we've seen
@@ -2995,9 +3038,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -3008,9 +3052,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
@@ -3133,9 +3178,10 @@ code = '''
 
             lfs3_bid_t bid;
             lfs3_tag_t tag;
+            lfs3_bid_t weight;
             lfs3_data_t data;
             int err = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
-                    &bid, &tag, &data);
+                    &bid, &tag, &weight, &data);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -3143,15 +3189,17 @@ code = '''
 
             if (tag == LFS3_TAG_BRANCH) {
                 lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                printf("traversal: %d 0x%x btree 0x%x.%x\n",
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
                         bid,
                         tag,
+                        weight,
                         rbyd->blocks[0], rbyd->trunk);
 
             } else if (tag == LFS3_TAG_DATA) {
-                printf("traversal: %d 0x%x data %d\n",
+                printf("traversal: %d 0x%x w%d data %d\n",
                         bid,
                         tag,
+                        weight,
                         lfs3_data_size(data));
 
                 // if block crystallization is working we shouldn't be
@@ -3162,9 +3210,10 @@ code = '''
                 lfs3_bptr_t bptr;
                 lfs3_data_readbptr(&lfs3, &data,
                         &bptr) => 0;
-                printf("traversal: %d 0x%x block 0x%x.%x %d\n",
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
                         bid,
                         tag,
+                        weight,
                         bptr.data.u.disk.block,
                         bptr.data.u.disk.off,
                         lfs3_data_size(bptr.data));
@@ -3174,9 +3223,10 @@ code = '''
 
             } else {
                 // well this shouldn't happen
-                printf("traversal: %d 0x%x\n",
+                printf("traversal: %d 0x%x w%d\n",
                         bid,
-                        tag);
+                        tag,
+                        weight);
                 assert(false);
             }
         }
