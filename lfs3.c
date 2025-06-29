@@ -8123,7 +8123,7 @@ static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
 // low-level mdir commit, does not handle mtree/mlist/compaction/etc
 #ifndef LFS3_RDONLY
-static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
+static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
         lfs3_srid_t start_rid, lfs3_srid_t end_rid,
         lfs3_smid_t mid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     // since we only ever commit to one mid or split, we can ignore the
@@ -8164,14 +8164,14 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 // reset shrub if it doesn't live in our block, this happens
                 // when converting from a btree
                 if (!lfs3_bshrub_isbshrub(bshrub_)) {
-                    bshrub_->shrub_.blocks[0] = mdir->rbyd.blocks[0];
+                    bshrub_->shrub_.blocks[0] = mdir_->rbyd.blocks[0];
                     bshrub_->shrub_.trunk = LFS3_RBYD_ISSHRUB | 0;
                     bshrub_->shrub_.weight = 0;
                 }
 
                 // commit to shrub
                 int err = lfs3_shrub_commit(lfs3,
-                        &mdir->rbyd, &bshrub_->shrub_,
+                        &mdir_->rbyd, &bshrub_->shrub_,
                         rid_, rattrs_, rattr_count_);
                 if (err) {
                     return err;
@@ -8212,14 +8212,14 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                         }
 
                         // compact our shrub
-                        err = lfs3_shrub_compact(lfs3, &mdir->rbyd, &shrub,
+                        err = lfs3_shrub_compact(lfs3, &mdir_->rbyd, &shrub,
                                 &shrub);
                         if (err) {
                             return err;
                         }
 
                         // write our new shrub tag
-                        err = lfs3_rbyd_appendrattr(lfs3, &mdir->rbyd,
+                        err = lfs3_rbyd_appendrattr(lfs3, &mdir_->rbyd,
                                 rid - lfs3_smax(start_rid, 0),
                                 LFS3_RATTR_SHRUB(LFS3_TAG_BSHRUB, 0, &shrub));
                         if (err) {
@@ -8228,7 +8228,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
                     // append the rattr
                     } else {
-                        err = lfs3_rbyd_appendrattr(lfs3, &mdir->rbyd,
+                        err = lfs3_rbyd_appendrattr(lfs3, &mdir_->rbyd,
                                 rid - lfs3_smax(start_rid, 0),
                                 LFS3_RATTR_DATA(tag, 0, &data));
                         if (err) {
@@ -8248,8 +8248,8 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                             // only compact once, first compact should
                             // stage the new block
                             && ((lfs3_bshrub_t*)o)->shrub_.blocks[0]
-                                != mdir->rbyd.blocks[0]) {
-                        int err = lfs3_shrub_compact(lfs3, &mdir->rbyd,
+                                != mdir_->rbyd.blocks[0]) {
+                        int err = lfs3_shrub_compact(lfs3, &mdir_->rbyd,
                                 &((lfs3_bshrub_t*)o)->shrub_,
                                 &((lfs3_bshrub_t*)o)->shrub);
                         if (err) {
@@ -8272,7 +8272,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     // first lets check if the attr changed, we don't want
                     // to append attrs unless we have to
                     lfs3_data_t data;
-                    int err = lfs3_mdir_lookup(lfs3, mdir,
+                    int err = lfs3_mdir_lookup(lfs3, mdir_,
                             LFS3_TAG_ATTR(attrs_[j].type),
                             NULL, &data);
                     if (err && err != LFS3_ERR_NOENT) {
@@ -8291,7 +8291,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     }
 
                     // append the custom attr
-                    err = lfs3_rbyd_appendrattr(lfs3, &mdir->rbyd,
+                    err = lfs3_rbyd_appendrattr(lfs3, &mdir_->rbyd,
                             rid - lfs3_smax(start_rid, 0),
                             // removing or updating?
                             (lfs3_attr_isnoattr(&attrs_[j]))
@@ -8311,7 +8311,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
             } else {
                 LFS3_ASSERT(!lfs3_tag_isinternal(rattrs[i].tag));
 
-                int err = lfs3_rbyd_appendrattr(lfs3, &mdir->rbyd,
+                int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->rbyd,
                         rid - lfs3_smax(start_rid, 0),
                         rattrs[i]);
                 if (err) {
@@ -8329,9 +8329,10 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // If we finish the commit it becomes immediately visible, but we really
     // need to atomically remove this mdir from the mtree. Leave the actual
     // remove up to upper layers.
-    if (mdir->rbyd.weight == 0
+    if (mdir_->rbyd.weight == 0
             // unless we are an mroot
-            && !(mdir->mid == -1 || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0)) {
+            && !(mdir_->mid == -1
+                || lfs3_mdir_cmp(mdir_, &lfs3->mroot) == 0)) {
         // note! we can no longer read from this mdir as our pcache may
         // be clobbered
         return LFS3_ERR_NOENT;
@@ -8339,7 +8340,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // append any gstate?
     if (start_rid <= -2) {
-        int err = lfs3_rbyd_appendgdelta(lfs3, &mdir->rbyd);
+        int err = lfs3_rbyd_appendgdelta(lfs3, &mdir_->rbyd);
         if (err) {
             return err;
         }
@@ -8349,24 +8350,24 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     //
     // note this is before we calculate gcksumdelta, otherwise
     // everything would get all self-referential
-    uint32_t cksum = mdir->rbyd.cksum;
+    uint32_t cksum = mdir_->rbyd.cksum;
 
     // append gkcsumdelta?
     if (start_rid <= -2) {
         // figure out changes to our gcksumdelta
-        mdir->gcksumdelta ^= lfs3_crc32c_cube(lfs3->gcksum_p)
+        mdir_->gcksumdelta ^= lfs3_crc32c_cube(lfs3->gcksum_p)
                 ^ lfs3_crc32c_cube(lfs3->gcksum ^ cksum)
                 ^ lfs3->gcksum_d;
 
-        int err = lfs3_rbyd_appendrattr_(lfs3, &mdir->rbyd, LFS3_RATTR_LE32(
-                LFS3_TAG_GCKSUMDELTA, 0, mdir->gcksumdelta));
+        int err = lfs3_rbyd_appendrattr_(lfs3, &mdir_->rbyd, LFS3_RATTR_LE32(
+                LFS3_TAG_GCKSUMDELTA, 0, mdir_->gcksumdelta));
         if (err) {
             return err;
         }
     }
 
     // finalize commit
-    int err = lfs3_rbyd_appendcksum_(lfs3, &mdir->rbyd, cksum);
+    int err = lfs3_rbyd_appendcksum_(lfs3, &mdir_->rbyd, cksum);
     if (err) {
         return err;
     }
@@ -8374,7 +8375,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // success?
 
     // xor our new cksum
-    lfs3->gcksum ^= mdir->rbyd.cksum;
+    lfs3->gcksum ^= mdir_->rbyd.cksum;
 
     return 0;
 }
@@ -8499,8 +8500,9 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_mdir_compact__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
-        const lfs3_mdir_t *mdir, lfs3_srid_t start_rid, lfs3_srid_t end_rid) {
+static int lfs3_mdir_compact__(lfs3_t *lfs3,
+        lfs3_mdir_t *mdir_, const lfs3_mdir_t *mdir,
+        lfs3_srid_t start_rid, lfs3_srid_t end_rid) {
     // this is basically the same as lfs3_rbyd_compact, but with special
     // handling for inlined trees.
     //
@@ -8613,17 +8615,27 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
 // mid-level mdir commit, this one will at least compact on overflow
 #ifndef LFS3_RDONLY
-static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
+static int lfs3_mdir_commit_(lfs3_t *lfs3,
+        lfs3_mdir_t *mdir_, lfs3_mdir_t *mdir,
         lfs3_srid_t start_rid, lfs3_srid_t end_rid,
         lfs3_srid_t *split_rid_,
         lfs3_smid_t mid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     // make a copy
-    lfs3_mdir_t mdir_ = *mdir;
-    // mark as erased in case of failure
+    *mdir_ = *mdir;
+    // mark our mdir as unerased in case we fail
     lfs3_mdir_claim(mdir);
+    // mark any copies of our mdir as unerased in case we fail
+    if (lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
+        lfs3_mdir_claim(&lfs3->mroot);
+    }
+    for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
+        if (lfs3_mdir_cmp(&o->mdir, mdir) == 0) {
+            lfs3_mdir_claim(&o->mdir);
+        }
+    }
 
     // try to commit
-    int err = lfs3_mdir_commit__(lfs3, &mdir_, start_rid, end_rid,
+    int err = lfs3_mdir_commit__(lfs3, mdir_, start_rid, end_rid,
             mid, rattrs, rattr_count);
     if (err) {
         if (err == LFS3_ERR_RANGE || err == LFS3_ERR_CORRUPT) {
@@ -8631,9 +8643,6 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         }
         return err;
     }
-
-    // update mdir
-    *mdir = mdir_;
     return 0;
 
 compact:;
@@ -8642,7 +8651,8 @@ compact:;
     bool overrecyclable = true;
 
     // check if we're within our compaction threshold
-    lfs3_ssize_t estimate = lfs3_mdir_estimate__(lfs3, mdir, start_rid, end_rid,
+    lfs3_ssize_t estimate = lfs3_mdir_estimate__(lfs3, mdir,
+            start_rid, end_rid,
             split_rid_);
     if (estimate < 0) {
         return estimate;
@@ -8654,7 +8664,7 @@ compact:;
     }
 
     // swap blocks, increment revision count
-    err = lfs3_mdir_swap__(lfs3, &mdir_, mdir, false);
+    err = lfs3_mdir_swap__(lfs3, mdir_, mdir, false);
     if (err) {
         if (err == LFS3_ERR_NOSPC || err == LFS3_ERR_CORRUPT) {
             overrecyclable &= (err != LFS3_ERR_CORRUPT);
@@ -8670,7 +8680,7 @@ compact:;
                     "-> 0x{%"PRIx32",%"PRIx32"}",
                 lfs3_dbgmbid(lfs3, mdir->mid),
                 mdir->rbyd.blocks[0], mdir->rbyd.blocks[1],
-                mdir_.rbyd.blocks[0], mdir_.rbyd.blocks[1]);
+                mdir_->rbyd.blocks[0], mdir_->rbyd.blocks[1]);
         #endif
 
         // don't copy over gcksum if relocating
@@ -8680,7 +8690,7 @@ compact:;
         }
 
         // compact our mdir
-        err = lfs3_mdir_compact__(lfs3, &mdir_, mdir, start_rid_, end_rid);
+        err = lfs3_mdir_compact__(lfs3, mdir_, mdir, start_rid_, end_rid);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             // bad prog? try another block
@@ -8695,7 +8705,7 @@ compact:;
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfs3_mdir_commit__(lfs3, &mdir_, start_rid_, end_rid,
+        err = lfs3_mdir_commit__(lfs3, mdir_, start_rid_, end_rid,
                 mid, rattrs, rattr_count);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -8711,14 +8721,12 @@ compact:;
         if (relocated) {
             lfs3->gcksum_d ^= mdir->gcksumdelta;
         }
-        // update mdir
-        *mdir = mdir_;
         return 0;
 
     relocate:;
         #ifndef LFS3_2BONLY
         // needs relocation? bad prog? ok, try allocating a new mdir
-        err = lfs3_mdir_alloc__(lfs3, &mdir_, mdir->mid, relocated);
+        err = lfs3_mdir_alloc__(lfs3, mdir_, mdir->mid, relocated);
         if (err && !(err == LFS3_ERR_NOSPC && overrecyclable)) {
             return err;
         }
@@ -8733,7 +8741,7 @@ compact:;
             relocated = false;
             overrecyclable = false;
 
-            err = lfs3_mdir_swap__(lfs3, &mdir_, mdir, true);
+            err = lfs3_mdir_swap__(lfs3, mdir_, mdir, true);
             if (err) {
                 // bad prog? can't do much here, mdir stuck
                 if (err == LFS3_ERR_CORRUPT) {
@@ -8863,24 +8871,11 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         }
     }
 
-    // create a copy
-    lfs3_mdir_t mdir_[2];
-    mdir_[0] = *mdir;
-    // mark our mdir as unerased in case we fail
-    lfs3_mdir_claim(mdir);
-    // mark any copies of our mdir as unerased in case we fail
-    if (lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
-        lfs3_mdir_claim(&lfs3->mroot);
-    }
-    for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
-        if (lfs3_mdir_cmp(&o->mdir, mdir) == 0) {
-            lfs3_mdir_claim(&o->mdir);
-        }
-    }
-
     // attempt to commit/compact the mdir normally
+    lfs3_mdir_t mdir_[2];
     lfs3_srid_t split_rid;
-    int err = lfs3_mdir_commit_(lfs3, &mdir_[0], -2, -1, &split_rid,
+    int err = lfs3_mdir_commit_(lfs3, &mdir_[0], mdir, -2, -1,
+            &split_rid,
             mdir->mid, rattrs, rattr_count);
     if (err && err != LFS3_ERR_RANGE
             && err != LFS3_ERR_NOENT) {
@@ -9162,19 +9157,12 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
             lfs3->gcksum ^= lfs3->mroot.rbyd.cksum;
         }
 
-        // mark any copies of our mroot as unerased
-        lfs3_mdir_claim(&lfs3->mroot);
-        for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
-            if (lfs3_mdir_cmp(&o->mdir, &lfs3->mroot) == 0) {
-                lfs3_mdir_claim(&o->mdir);
-            }
-        }
-
         // commit new mtree into our mroot
         //
         // note end_rid=0 here will delete any files leftover from a split
         // in our mroot
-        err = lfs3_mdir_commit_(lfs3, &mroot_, -2, 0, NULL,
+        err = lfs3_mdir_commit_(lfs3, &mroot_, &lfs3->mroot, -2, 0,
+                NULL,
                 -1, LFS3_RATTRS(
                     LFS3_RATTR_BTREE(
                         LFS3_TAG_MASK8 | LFS3_TAG_MTREE, 0,
@@ -9198,9 +9186,9 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         while (lfs3_mdir_cmp(&mrootchild_, &mrootchild) != 0
                 && !lfs3_mdir_ismrootanchor(&mrootchild)) {
             // find the mroot's parent
-            lfs3_mdir_t mrootparent_;
+            lfs3_mdir_t mrootparent;
             err = lfs3_mroot_parent(lfs3, mrootchild.rbyd.blocks,
-                    &mrootparent_);
+                    &mrootparent);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
                 goto failed;
@@ -9211,8 +9199,6 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     mrootchild.rbyd.blocks[0], mrootchild.rbyd.blocks[1],
                     mrootchild_.rbyd.blocks[0], mrootchild_.rbyd.blocks[1]);
 
-            mrootchild = mrootparent_;
-
             // make sure mtree/mroot changes are on-disk before committing
             // metadata
             err = lfs3_bd_sync(lfs3);
@@ -9220,11 +9206,13 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 goto failed;
             }
 
-            // xor mrootchild's cksum
-            lfs3->gcksum ^= mrootparent_.rbyd.cksum;
+            // xor mrootparent's cksum
+            lfs3->gcksum ^= mrootparent.rbyd.cksum;
 
             // commit mrootchild
-            err = lfs3_mdir_commit_(lfs3, &mrootparent_, -2, -1, NULL,
+            lfs3_mdir_t mrootparent_;
+            err = lfs3_mdir_commit_(lfs3, &mrootparent_, &mrootparent, -2, -1,
+                    NULL,
                     -1, LFS3_RATTRS(
                         LFS3_RATTR_MPTR(
                             LFS3_TAG_MROOT, 0,
@@ -9235,6 +9223,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 goto failed;
             }
 
+            mrootchild = mrootparent;
             mrootchild_ = mrootparent_;
         }
 
