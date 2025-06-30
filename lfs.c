@@ -828,9 +828,6 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
                 size -= diff;
                 continue;
             }
-
-            // rcache takes priority
-            diff = lfs_min(diff, rcache->off-off);
         }
 
         // load to cache, first condition can no longer fail
