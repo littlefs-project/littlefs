@@ -9722,8 +9722,9 @@ enum {
     LFS3_TSTATE_BTREE       = 5,
     LFS3_TSTATE_OMDIRS      = 6,
     LFS3_TSTATE_OBTREE      = 7,
+    LFS3_TSTATE_GRAFT       = 8,
     #endif
-    LFS3_TSTATE_DONE        = 8,
+    LFS3_TSTATE_DONE        = 9,
 };
 
 static void lfs3_traversal_init(lfs3_traversal_t *t, uint32_t flags) {
@@ -9742,6 +9743,9 @@ static void lfs3_traversal_init(lfs3_traversal_t *t, uint32_t flags) {
     t->u.mtortoise.power = 0;
     t->gcksum = 0;
 }
+
+// needed in lfs3_mtree_traverse_
+static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
 
 // low-level traversal _only_ finds blocks
 static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
@@ -9857,9 +9861,10 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
             err = lfs3_mtree_lookup(lfs3, t->b.o.mdir.mid,
                     &t->b.o.mdir);
             if (err) {
-                // end of mtree? guess we're done
+                // end of mtree? all that's left is any graft state
                 if (err == LFS3_ERR_NOENT) {
-                    lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_DONE);
+                    t->u.gt = 0;
+                    lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_GRAFT);
                     continue;
                 }
                 return err;
@@ -10024,6 +10029,21 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
 
             continue;
         #endif
+
+        // traverse through in-flight grafts
+        case LFS3_TSTATE_GRAFT:;
+            // done?
+            if (t->u.gt >= lfs3_graft_count(lfs3->graft_count)) {
+                lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_DONE);
+                continue;
+            }
+
+            if (tag_) {
+                *tag_ = LFS3_TAG_DATA;
+            }
+            bptr->data = lfs3->graft[t->u.gt];
+            t->u.gt += 1;
+            return 0;
 
         case LFS3_TSTATE_DONE:;
             return LFS3_ERR_NOENT;
@@ -10362,7 +10382,8 @@ static void lfs3_alloc_markinuse(lfs3_t *lfs3,
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->data.u.buffer;
         lfs3_alloc_markinuse_(lfs3, rbyd->blocks[0]);
 
-    } else if (tag == LFS3_TAG_BLOCK) {
+    } else if (tag == LFS3_TAG_BLOCK
+            || tag == LFS3_TAG_DATA) {
         lfs3_alloc_markinuse_(lfs3, lfs3_bptr_block(bptr));
 
     } else {
@@ -12286,13 +12307,22 @@ static int lfs3_file_commit(lfs3_t *lfs3, lfs3_file_t *file,
 }
 #endif
 
+// use this flag to indicate bptr vs concatenated data fragments
+#define LFS3_GRAFT_ISBPTR 0x80000000
+
+static inline bool lfs3_graft_isbptr(lfs3_size_t graft_count) {
+    return graft_count & LFS3_GRAFT_ISBPTR;
+}
+
+static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count) {
+    return graft_count & ~LFS3_GRAFT_ISBPTR;
+}
+
 // graft bptr/fragments into our bshrub/btree
 #if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY)
 static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, lfs3_off_t weight, lfs3_soff_t delta,
-        // data_count=-1 => single bptr
-        // data_count>=0 => list of concatenated fragments
-        const lfs3_data_t *datas, lfs3_ssize_t data_count) {
+        const lfs3_data_t *graft, lfs3_ssize_t graft_count) {
     // note! we must never allow our btree size to overflow, even
     // temporarily
 
@@ -12307,12 +12337,32 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
         return 0;
     }
 
+    // keep track of in-flight graft state
+    //
+    // normally, in-flight state would be protected by the block
+    // allocator's checkpoint mechanism, where checkpoints prevent double
+    // allocation of new blocks while the old copies remain tracked
+    //
+    // but we don't track the original bshrub copy during grafting!
+    //
+    // in theory, we could track 3 copies of the bshrub/btree: before
+    // after, and mid-graft (we need the mid-graft copy to survive mdir
+    // compactions), but that would add a lot of complexity/state to a
+    // critical function on the stack hot-path
+    //
+    // instead, we can just explicitly track any in-flight graft state to
+    // make sure we don't allocate these blocks in-between commits
+    //
+    lfs3->graft = graft;
+    lfs3->graft_count = graft_count;
+
     // try to merge commits where possible
     lfs3_bid_t bid = file->b.shrub.weight;
     lfs3_rattr_t rattrs[3];
     lfs3_size_t rattr_count = 0;
     lfs3_bptr_t l;
     lfs3_bptr_t r;
+    int err;
 
     // need a hole?
     if (pos > file->b.shrub.weight) {
@@ -12335,11 +12385,11 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
     while (pos < file->b.shrub.weight) {
         lfs3_bid_t weight_;
         lfs3_bptr_t bptr_;
-        int err = lfs3_file_lookupnext_(lfs3, file, pos,
+        err = lfs3_file_lookupnext_(lfs3, file, pos,
                 &bid, &weight_, &bptr_);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_NOENT);
-            return err;
+            goto failed;
         }
 
         // note, an entry can be both a left and right sibling
@@ -12374,7 +12424,7 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
                             +(weight_ - lfs3->cfg->fragment_size),
                         &bptr_)));
             if (err) {
-                return err;
+                goto failed;
             }
 
             weight_ -= lfs3->cfg->fragment_size;
@@ -12405,7 +12455,7 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
                         &LFS3_DATA_FRUNCATE(r.data,
                             lfs3->cfg->fragment_size))));
             if (err) {
-                return err;
+                goto failed;
             }
 
             bid -= (weight_-lfs3_bptr_size(&bptr_));
@@ -12454,7 +12504,7 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
             err = lfs3_file_commit(lfs3, file, bid,
                     rattrs, rattr_count);
             if (err) {
-                return err;
+                goto failed;
             }
 
             delta += lfs3_min(weight, bid+1 - pos);
@@ -12492,10 +12542,8 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
     // append our data
     if (weight + delta > 0) {
         lfs3_size_t dsize = 0;
-        for (lfs3_size_t i = 0;
-                i < ((data_count < 0) ? 1 : (lfs3_size_t)data_count);
-                i++) {
-            dsize += lfs3_data_size(datas[i]);
+        for (lfs3_size_t i = 0; i < lfs3_graft_count(graft_count); i++) {
+            dsize += lfs3_data_size(graft[i]);
         }
 
         // can we coalesce a hole?
@@ -12511,18 +12559,18 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_TAG_DATA, +(weight + delta));
 
         // append a new fragment?
-        } else if (data_count >= 0) {
+        } else if (!lfs3_graft_isbptr(graft_count)) {
             bid = lfs3_min(bid, file->b.shrub.weight);
             rattrs[rattr_count++] = LFS3_RATTR_CAT_(
                     LFS3_TAG_DATA, +(weight + delta),
-                    datas, data_count);
+                    graft, graft_count);
 
         // append a new bptr?
         } else {
             bid = lfs3_min(bid, file->b.shrub.weight);
             rattrs[rattr_count++] = LFS3_RATTR_BPTR(
                     LFS3_TAG_BLOCK, +(weight + delta),
-                    (const lfs3_bptr_t*)datas);
+                    (const lfs3_bptr_t*)graft);
         }
     }
 
@@ -12535,14 +12583,21 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file,
     if (rattr_count > 0) {
         LFS3_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfs3_rattr_t));
 
-        int err = lfs3_file_commit(lfs3, file, bid,
+        err = lfs3_file_commit(lfs3, file, bid,
                 rattrs, rattr_count);
         if (err) {
-            return err;
+            goto failed;
         }
     }
 
+    lfs3->graft = NULL;
+    lfs3->graft_count = 0;
     return 0;
+
+failed:;
+    lfs3->graft = NULL;
+    lfs3->graft_count = 0;
+    return err;
 }
 #endif
 
@@ -12800,7 +12855,7 @@ static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
         // and graft
         int err = lfs3_file_graft(lfs3, file,
                 file->leaf.pos, file->leaf.weight, 0,
-                &file->leaf.bptr.data, -1);
+                &file->leaf.bptr.data, LFS3_GRAFT_ISBPTR | 1);
         if (err) {
             return err;
         }
@@ -13181,7 +13236,7 @@ fragment:;
         lfs3_alloc_ckpoint(lfs3);
         int err = lfs3_file_graft(lfs3, file,
                 file->leaf.pos, file->leaf.weight, 0,
-                &file->leaf.bptr.data, -1);
+                &file->leaf.bptr.data, LFS3_GRAFT_ISBPTR | 1);
         if (err) {
             return err;
         }
@@ -14667,6 +14722,10 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     // zero linked-list of opened mdirs
     lfs3->omdirs = NULL;
+
+    // zero in-flight graft state
+    lfs3->graft = NULL;
+    lfs3->graft_count = 0;
 
     // zero gstate
     lfs3->gcksum = 0;

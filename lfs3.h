@@ -793,6 +793,8 @@ typedef struct lfs3_traversal {
         } mtortoise;
         // btree traversal state
         lfs3_btraversal_t bt;
+        // graft traversal state
+        lfs3_size_t gt;
     } u;
 
     // recalculate gcksum when traversing with ckmeta
@@ -870,6 +872,11 @@ typedef struct lfs3 {
         lfs3_block_t ckpoint;
         uint8_t *buffer;
     } lookahead;
+    #endif
+
+    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
+    const lfs3_data_t *graft;
+    lfs3_ssize_t graft_count;
     #endif
 
     // global state
