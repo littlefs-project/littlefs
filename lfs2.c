@@ -828,9 +828,6 @@ static int lfs2_dir_getread(lfs2_t *lfs2, const lfs2_mdir_t *dir,
                 size -= diff;
                 continue;
             }
-
-            // rcache takes priority
-            diff = lfs2_min(diff, rcache->off-off);
         }
 
         // load to cache, first condition can no longer fail
@@ -5225,7 +5222,9 @@ static int lfs2_fs_gc_(lfs2_t *lfs2) {
     }
 
     // try to populate the lookahead buffer, unless it's already full
-    if (lfs2->lookahead.size < 8*lfs2->cfg->lookahead_size) {
+    if (lfs2->lookahead.size < lfs2_min(
+            8 * lfs2->cfg->lookahead_size,
+            lfs2->block_count)) {
         err = lfs2_alloc_scan(lfs2);
         if (err) {
             return err;
