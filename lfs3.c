@@ -5475,7 +5475,8 @@ static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3);
 // insert-after (splits).
 //
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
+static int lfs3_btree_commit_(lfs3_t *lfs3,
+        lfs3_btree_t *btree_, lfs3_btree_t *btree,
         lfs3_bctx_t *bctx,
         lfs3_bid_t *bid,
         const lfs3_rattr_t **rattrs, lfs3_size_t *rattr_count) {
@@ -5506,6 +5507,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
     }
 
     // tail-recursively commit to btree
+    lfs3_rbyd_t *child_ = btree_;
     while (true) {
         // we will always need our parent, so go ahead and find it
         lfs3_rbyd_t parent = {.trunk=0, .weight=0};
@@ -5556,8 +5558,8 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         // is rbyd erased? can we sneak our commit into any remaining
         // erased bytes? note that the btree trunk field prevents this from
         // interacting with other references to the rbyd
-        lfs3_rbyd_t child_ = child;
-        int err = lfs3_rbyd_commit(lfs3, &child_, rid_,
+        *child_ = child;
+        int err = lfs3_rbyd_commit(lfs3, child_, rid_,
                 rattrs_, rattr_count_);
         if (err) {
             if (err == LFS3_ERR_RANGE || err == LFS3_ERR_CORRUPT) {
@@ -5686,9 +5688,9 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
                     rid_ += sibling.weight;
                     pid -= child.weight;
 
-                    child_ = sibling;
+                    *child_ = sibling;
                     sibling = child;
-                    child = child_;
+                    child = *child_;
 
                     goto merge;
                 }
@@ -5697,14 +5699,14 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
 
     relocate:;
         // allocate a new rbyd
-        err = lfs3_rbyd_alloc(lfs3, &child_);
+        err = lfs3_rbyd_alloc(lfs3, child_);
         if (err) {
             return err;
         }
 
         #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
         // append a revision count?
-        err = lfs3_rbyd_appendrev(lfs3, &child_, lfs3_rev_btree(lfs3));
+        err = lfs3_rbyd_appendrev(lfs3, child_, lfs3_rev_btree(lfs3));
         if (err) {
             // bad prog? try another block
             if (err == LFS3_ERR_CORRUPT) {
@@ -5715,7 +5717,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         #endif
 
         // try to compact
-        err = lfs3_rbyd_compact(lfs3, &child_, &child, -1, -1);
+        err = lfs3_rbyd_compact(lfs3, child_, &child, -1, -1);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             // bad prog? try another block
@@ -5727,7 +5729,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
 
         // append any pending rattrs, it's up to upper
         // layers to make sure these always fit
-        err = lfs3_rbyd_commit(lfs3, &child_, rid_,
+        err = lfs3_rbyd_commit(lfs3, child_, rid_,
                 rattrs_, rattr_count_);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -5747,14 +5749,14 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
 
     split_relocate_l:;
         // allocate a new rbyd
-        err = lfs3_rbyd_alloc(lfs3, &child_);
+        err = lfs3_rbyd_alloc(lfs3, child_);
         if (err) {
             return err;
         }
 
         #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
         // append a revision count?
-        err = lfs3_rbyd_appendrev(lfs3, &child_, lfs3_rev_btree(lfs3));
+        err = lfs3_rbyd_appendrev(lfs3, child_, lfs3_rev_btree(lfs3));
         if (err) {
             // bad prog? try another block
             if (err == LFS3_ERR_CORRUPT) {
@@ -5765,7 +5767,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         #endif
 
         // copy over tags < split_rid
-        err = lfs3_rbyd_compact(lfs3, &child_, &child, -1, split_rid);
+        err = lfs3_rbyd_compact(lfs3, child_, &child, -1, split_rid);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             // bad prog? try another block
@@ -5779,7 +5781,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         //
         // upper layers should make sure this can't fail by limiting the
         // maximum commit size
-        err = lfs3_rbyd_appendrattrs(lfs3, &child_, rid_, -1, split_rid,
+        err = lfs3_rbyd_appendrattrs(lfs3, child_, rid_, -1, split_rid,
                 rattrs_, rattr_count_);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -5791,7 +5793,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         }
 
         // finalize commit
-        err = lfs3_rbyd_appendcksum(lfs3, &child_);
+        err = lfs3_rbyd_appendcksum(lfs3, child_);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             // bad prog? try another block
@@ -5859,9 +5861,9 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
 
         // did one of our siblings drop to zero? yes this can happen! revert
         // to a normal commit in that case
-        if (child_.weight == 0 || sibling.weight == 0) {
-            if (child_.weight == 0) {
-                child_ = sibling;
+        if (child_->weight == 0 || sibling.weight == 0) {
+            if (child_->weight == 0) {
+                *child_ = sibling;
             }
             goto commit;
         }
@@ -5879,15 +5881,15 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         }
 
         // prepare commit to parent, tail recursing upwards
-        LFS3_ASSERT(child_.weight > 0);
+        LFS3_ASSERT(child_->weight > 0);
         LFS3_ASSERT(sibling.weight > 0);
         rattr_count_ = 0;
         // new root?
         if (!lfs3_rbyd_trunk(&parent)) {
             lfs3_data_t branch_l = lfs3_data_frombranch(
-                    &child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
+                    child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
             bctx->rattrs[rattr_count_++] = LFS3_RATTR_BUF(
-                    LFS3_TAG_BRANCH, +child_.weight,
+                    LFS3_TAG_BRANCH, +child_->weight,
                     branch_l.u.buffer, lfs3_data_size(branch_l));
             lfs3_data_t branch_r = lfs3_data_frombranch(
                     &sibling, &bctx->buf[1*LFS3_BRANCH_DSIZE]);
@@ -5903,13 +5905,13 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         } else {
             bid_ -= pid - (child.weight-1);
             lfs3_data_t branch_l = lfs3_data_frombranch(
-                    &child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
+                    child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
             bctx->rattrs[rattr_count_++] = LFS3_RATTR_BUF(
                     LFS3_TAG_BRANCH, 0,
                     branch_l.u.buffer, lfs3_data_size(branch_l));
-            if (child_.weight != child.weight) {
+            if (child_->weight != child.weight) {
                 bctx->rattrs[rattr_count_++] = LFS3_RATTR(
-                        LFS3_TAG_GROW, -child.weight + child_.weight);
+                        LFS3_TAG_GROW, -child.weight + child_->weight);
             }
             lfs3_data_t branch_r = lfs3_data_frombranch(
                     &sibling, &bctx->buf[1*LFS3_BRANCH_DSIZE]);
@@ -5931,14 +5933,14 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
     merge:;
     merge_relocate:;
         // allocate a new rbyd
-        err = lfs3_rbyd_alloc(lfs3, &child_);
+        err = lfs3_rbyd_alloc(lfs3, child_);
         if (err) {
             return err;
         }
 
         #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
         // append a revision count?
-        err = lfs3_rbyd_appendrev(lfs3, &child_, lfs3_rev_btree(lfs3));
+        err = lfs3_rbyd_appendrev(lfs3, child_, lfs3_rev_btree(lfs3));
         if (err) {
             // bad prog? try another block
             if (err == LFS3_ERR_CORRUPT) {
@@ -5949,7 +5951,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         #endif
 
         // merge the siblings together
-        err = lfs3_rbyd_appendcompactrbyd(lfs3, &child_, &child, -1, -1);
+        err = lfs3_rbyd_appendcompactrbyd(lfs3, child_, &child, -1, -1);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             // bad prog? try another block
@@ -5959,7 +5961,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
             return err;
         }
 
-        err = lfs3_rbyd_appendcompactrbyd(lfs3, &child_, &sibling, -1, -1);
+        err = lfs3_rbyd_appendcompactrbyd(lfs3, child_, &sibling, -1, -1);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             // bad prog? try another block
@@ -5969,7 +5971,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
             return err;
         }
 
-        err = lfs3_rbyd_appendcompaction(lfs3, &child_, 0);
+        err = lfs3_rbyd_appendcompaction(lfs3, child_, 0);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             // bad prog? try another block
@@ -5981,7 +5983,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
 
         // append any pending rattrs, it's up to upper
         // layers to make sure these always fit
-        err = lfs3_rbyd_commit(lfs3, &child_, rid_,
+        err = lfs3_rbyd_commit(lfs3, child_, rid_,
                 rattrs_, rattr_count_);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -5997,27 +5999,27 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         LFS3_ASSERT(lfs3_rbyd_trunk(&parent));
         if (child.weight+sibling.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
-            *btree = child_;
+            // (note btree_ == child_)
             // no new root needed
             *rattr_count = 0;
             return 0;
         }
 
         // prepare commit to parent, tail recursing upwards
-        LFS3_ASSERT(child_.weight > 0);
+        LFS3_ASSERT(child_->weight > 0);
         rattr_count_ = 0;
         // build attr list
         bid_ -= pid - (child.weight-1);
         bctx->rattrs[rattr_count_++] = LFS3_RATTR(
                 LFS3_TAG_RM, -sibling.weight);
         lfs3_data_t branch = lfs3_data_frombranch(
-                &child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
+                child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
         bctx->rattrs[rattr_count_++] = LFS3_RATTR_BUF(
                 LFS3_TAG_BRANCH, 0,
                 branch.u.buffer, lfs3_data_size(branch));
-        if (child_.weight != child.weight) {
+        if (child_->weight != child.weight) {
             bctx->rattrs[rattr_count_++] = LFS3_RATTR(
-                    LFS3_TAG_GROW, -child.weight + child_.weight);
+                    LFS3_TAG_GROW, -child.weight + child_->weight);
         }
         rattrs_ = bctx->rattrs;
 
@@ -6029,7 +6031,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         // done?
         if (!lfs3_rbyd_trunk(&parent)) {
             // update the root
-            *btree = child_;
+            // (note btree_ == child_)
             // no new root needed
             *rattr_count = 0;
             return 0;
@@ -6038,7 +6040,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         // is our parent the root and is the root degenerate?
         if (child.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
-            *btree = child_;
+            // (note btree_ == child_)
             // no new root needed
             *rattr_count = 0;
             return 0;
@@ -6050,18 +6052,18 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
         // end up removing an rbyd here
         rattr_count_ = 0;
         bid_ -= pid - (child.weight-1);
-        if (child_.weight == 0) {
+        if (child_->weight == 0) {
             bctx->rattrs[rattr_count_++] = LFS3_RATTR(
                     LFS3_TAG_RM, -child.weight);
         } else {
             lfs3_data_t branch = lfs3_data_frombranch(
-                    &child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
+                    child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
             bctx->rattrs[rattr_count_++] = LFS3_RATTR_BUF(
                     LFS3_TAG_BRANCH, 0,
                     branch.u.buffer, lfs3_data_size(branch));
-            if (child_.weight != child.weight) {
+            if (child_->weight != child.weight) {
                 bctx->rattrs[rattr_count_++] = LFS3_RATTR(
-                        LFS3_TAG_GROW, -child.weight + child_.weight);
+                        LFS3_TAG_GROW, -child.weight + child_->weight);
             }
         }
         rattrs_ = bctx->rattrs;
@@ -6075,19 +6077,19 @@ static int lfs3_btree_commit_(lfs3_t *lfs3, lfs3_btree_t *btree,
 
 // commit/alloc a new btree root
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-static int lfs3_btree_commitroot_(lfs3_t *lfs3, lfs3_btree_t *btree,
+static int lfs3_btree_commitroot_(lfs3_t *lfs3,
+        lfs3_btree_t *btree_, lfs3_btree_t *btree,
         bool split,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
 relocate:;
-    lfs3_rbyd_t rbyd_;
-    int err = lfs3_rbyd_alloc(lfs3, &rbyd_);
+    int err = lfs3_rbyd_alloc(lfs3, btree_);
     if (err) {
         return err;
     }
 
     #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
     // append a revision count?
-    err = lfs3_rbyd_appendrev(lfs3, &rbyd_, lfs3_rev_btree(lfs3));
+    err = lfs3_rbyd_appendrev(lfs3, btree_, lfs3_rev_btree(lfs3));
     if (err) {
         // bad prog? try another block
         if (err == LFS3_ERR_CORRUPT) {
@@ -6099,7 +6101,7 @@ relocate:;
 
     // bshrubs may call this just to migrate rattrs to a btree
     if (!split) {
-        err = lfs3_rbyd_compact(lfs3, &rbyd_, btree, -1, -1);
+        err = lfs3_rbyd_compact(lfs3, btree_, btree, -1, -1);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             // bad prog? try another block
@@ -6110,7 +6112,7 @@ relocate:;
         }
     }
 
-    err = lfs3_rbyd_commit(lfs3, &rbyd_, bid, rattrs, rattr_count);
+    err = lfs3_rbyd_commit(lfs3, btree_, bid, rattrs, rattr_count);
     if (err) {
         LFS3_ASSERT(err != LFS3_ERR_RANGE);
         // bad prog? try another block
@@ -6120,8 +6122,6 @@ relocate:;
         return err;
     }
 
-    // update the root
-    *btree = rbyd_;
     return 0;
 }
 #endif
@@ -6131,8 +6131,9 @@ relocate:;
 static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     // try to commit to the btree
+    lfs3_btree_t btree_;
     lfs3_bctx_t bctx;
-    int err = lfs3_btree_commit_(lfs3, btree, &bctx,
+    int err = lfs3_btree_commit_(lfs3, &btree_, btree, &bctx,
             &bid, &rattrs, &rattr_count);
     if (err && err != LFS3_ERR_RANGE) {
         return err;
@@ -6142,12 +6143,15 @@ static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
     if (err == LFS3_ERR_RANGE) {
         LFS3_ASSERT(rattr_count > 0);
 
-        err = lfs3_btree_commitroot_(lfs3, btree, true,
+        err = lfs3_btree_commitroot_(lfs3, &btree_, btree, true,
                 bid, rattrs, rattr_count);
         if (err) {
             return err;
         }
     }
+
+    // update the btree
+    *btree = btree_;
 
     LFS3_ASSERT(lfs3_rbyd_trunk(btree));
     #ifdef LFS3_DBGBTREECOMMITS
@@ -6866,7 +6870,8 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 
     // try to commit to the btree
     lfs3_bctx_t bctx;
-    int err = lfs3_btree_commit_(lfs3, &bshrub->shrub, &bctx,
+    int err = lfs3_btree_commit_(lfs3,
+            &bshrub->shrub_, &bshrub->shrub, &bctx,
             &bid, &rattrs, &rattr_count);
     if (err && err != LFS3_ERR_RANGE) {
         return err;
@@ -6886,7 +6891,8 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 
         // if we don't fit, convert to btree
         if (err == LFS3_ERR_RANGE) {
-            err = lfs3_btree_commitroot_(lfs3, &bshrub->shrub, split,
+            err = lfs3_btree_commitroot_(lfs3,
+                    &bshrub->shrub_, &bshrub->shrub, split,
                     bid, rattrs, rattr_count);
             if (err) {
                 return err;
@@ -6904,6 +6910,9 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
         return err;
     }
     #endif
+
+    // update the bshrub/btree
+    bshrub->shrub = bshrub->shrub_;
 
     LFS3_ASSERT(lfs3_shrub_trunk(&bshrub->shrub));
     #ifdef LFS3_DBGBTREECOMMITS
