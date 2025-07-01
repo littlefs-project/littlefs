@@ -9722,9 +9722,8 @@ enum {
     LFS3_TSTATE_BTREE       = 5,
     LFS3_TSTATE_OMDIRS      = 6,
     LFS3_TSTATE_OBTREE      = 7,
-    LFS3_TSTATE_GRAFT       = 8,
     #endif
-    LFS3_TSTATE_DONE        = 9,
+    LFS3_TSTATE_DONE        = 8,
 };
 
 static void lfs3_traversal_init(lfs3_traversal_t *t, uint32_t flags) {
@@ -9743,9 +9742,6 @@ static void lfs3_traversal_init(lfs3_traversal_t *t, uint32_t flags) {
     t->u.mtortoise.power = 0;
     t->gcksum = 0;
 }
-
-// needed in lfs3_mtree_traverse_
-static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
 
 // low-level traversal _only_ finds blocks
 static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
@@ -9861,10 +9857,9 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
             err = lfs3_mtree_lookup(lfs3, t->b.o.mdir.mid,
                     &t->b.o.mdir);
             if (err) {
-                // end of mtree? all that's left is any graft state
+                // end of mtree? guess we're done
                 if (err == LFS3_ERR_NOENT) {
-                    t->u.gt = 0;
-                    lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_GRAFT);
+                    lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_DONE);
                     continue;
                 }
                 return err;
@@ -10029,21 +10024,6 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
 
             continue;
         #endif
-
-        // traverse through in-flight grafts
-        case LFS3_TSTATE_GRAFT:;
-            // done?
-            if (t->u.gt >= lfs3_graft_count(lfs3->graft_count)) {
-                lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_DONE);
-                continue;
-            }
-
-            if (tag_) {
-                *tag_ = LFS3_TAG_DATA;
-            }
-            bptr->data = lfs3->graft[t->u.gt];
-            t->u.gt += 1;
-            return 0;
 
         case LFS3_TSTATE_DONE:;
             return LFS3_ERR_NOENT;
@@ -10382,8 +10362,7 @@ static void lfs3_alloc_markinuse(lfs3_t *lfs3,
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->data.u.buffer;
         lfs3_alloc_markinuse_(lfs3, rbyd->blocks[0]);
 
-    } else if (tag == LFS3_TAG_BLOCK
-            || tag == LFS3_TAG_DATA) {
+    } else if (tag == LFS3_TAG_BLOCK) {
         lfs3_alloc_markinuse_(lfs3, lfs3_bptr_block(bptr));
 
     } else {
@@ -10457,6 +10436,9 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
     return LFS3_ERR_NOSPC;
 }
 #endif
+
+// needed in lfs3_mtree_traverse_
+static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
 
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase) {
@@ -10537,6 +10519,13 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase) {
 
             // track in-use blocks
             lfs3_alloc_markinuse(lfs3, tag, &bptr);
+        }
+
+        // mask out any in-flight graft state
+        for (lfs3_size_t i = 0;
+                i < lfs3_graft_count(lfs3->graft_count);
+                i++) {
+            lfs3_alloc_markinuse_(lfs3, lfs3->graft[i].u.disk.block);
         }
 
         // mark anything not seen as free
