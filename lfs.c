@@ -4593,7 +4593,9 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
             }
 
             // this is where we get the block_count from disk if block_count=0
-            if (lfs->cfg->block_count
+
+            if ((lfs->cfg->flags & LFS_CFG_DISABLE_BLOCK_COUNT_CHECK) == 0
+                    && lfs->cfg->block_count
                     && superblock.block_count != lfs->cfg->block_count) {
                 LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
                         superblock.block_count, lfs->cfg->block_count);
@@ -4601,7 +4603,11 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
                 goto cleanup;
             }
 
-            lfs->block_count = superblock.block_count;
+            if (lfs->cfg->block_count) {
+                lfs->block_count = lfs->cfg->block_count;
+            } else {
+                lfs->block_count = superblock.block_count;
+            }
 
             if (superblock.block_size != lfs->cfg->block_size) {
                 LFS_ERROR("Invalid block size (%"PRIu32" != %"PRIu32")",
@@ -5249,7 +5255,7 @@ static int lfs_shrink_checkblock(void *data, lfs_block_t block) {
 static int lfs_fs_grow_(lfs_t *lfs, lfs_size_t block_count) {
     int err;
 
-    if (block_count == lfs->block_count) {
+    if (block_count == lfs->block_count && (lfs->cfg->flags & LFS_CFG_DISABLE_BLOCK_COUNT_CHECK) == 0) {
         return 0;
     }
 
