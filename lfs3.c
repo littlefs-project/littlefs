@@ -12074,92 +12074,69 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
 // needed in lfs3_file_readnext
 static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file);
 
+#ifndef LFS3_KVONLY
 static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, uint8_t *buffer, lfs3_size_t size) {
-    // hit our leaf?
-    lfs3_bid_t bid;
-    lfs3_bid_t weight;
-    lfs3_bptr_t bptr;
-    if (LFS3_IFDEF_KVONLY(
-            false,
-            pos >= file->leaf.pos
-                && pos < file->leaf.pos + file->leaf.weight)) {
-        #ifndef LFS3_KVONLY
-        bid = file->leaf.pos + (file->leaf.weight-1);
-        weight = file->leaf.weight;
-        bptr = file->leaf.bptr;
-        #endif
+    // the leaf must not be pinned down here
+    LFS3_ASSERT(!lfs3_o_isuncryst(file->b.o.flags));
+    LFS3_ASSERT(!lfs3_o_isungraft(file->b.o.flags));
 
-    // need to fetch a new leaf?
-    } else {
-        // leaf in use? we need to crystallize/graft it
-        //
-        // it would be easier to just call lfs3_file_flush here, but
-        // we don't want to drag in the extra stack usage
-        #if !defined(LFS3_RDONLY) \
-                && !defined(LFS3_KVONLY) \
-                && !defined(LFS3_2BONLY)
-        if (lfs3_o_isungraft(file->b.o.flags)
-                || lfs3_o_isuncryst(file->b.o.flags)) {
-            // readonly files can't be uncrystallized/ungrafted
-            LFS3_ASSERT(!lfs3_o_isrdonly(file->b.o.flags));
+    while (true) {
+        // any data in our leaf?
+        if (pos >= file->leaf.pos
+                && pos < file->leaf.pos + file->leaf.weight) {
+            // any data on disk?
+            lfs3_off_t pos_ = pos;
+            if (pos_ < file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr)) {
+                // note one important side-effect here is a strict
+                // data hint
+                lfs3_ssize_t d = lfs3_min(
+                        size,
+                        lfs3_bptr_size(&file->leaf.bptr)
+                            - (pos_ - file->leaf.pos));
+                lfs3_data_t slice = LFS3_DATA_SLICE(file->leaf.bptr.data,
+                        pos_ - file->leaf.pos,
+                        d);
+                d = lfs3_data_read(lfs3, &slice,
+                        buffer, d);
+                if (d < 0) {
+                    return d;
+                }
 
-            int err = lfs3_file_crystallize(lfs3, file);
-            if (err) {
-                return err;
+                pos_ += d;
+                buffer += d;
+                size -= d;
             }
-        }
-        #endif
 
-        // fetch a leaf
+            // found a hole? fill with zeros
+            lfs3_ssize_t d = lfs3_min(
+                    size,
+                    file->leaf.pos+file->leaf.weight - pos_);
+            lfs3_memset(buffer, 0, d);
+
+            pos_ += d;
+            buffer += d;
+            size -= d;
+
+            return pos_ - pos;
+        }
+
+        // fetch a new leaf
+        lfs3_bid_t bid;
+        lfs3_bid_t weight;
+        lfs3_bptr_t bptr;
         int err = lfs3_file_lookupnext_(lfs3, file, pos,
                 &bid, &weight, &bptr);
         if (err) {
             return err;
         }
 
-        #ifndef LFS3_KVONLY
         file->leaf.pos = bid - (weight-1);
         file->leaf.weight = weight;
         file->leaf.bptr = bptr;
-        #endif
     }
-
-    // any data on disk?
-    lfs3_off_t pos_ = pos;
-    if (pos_ < bid-(weight-1) + lfs3_bptr_size(&bptr)) {
-        // note one important side-effect here is a strict
-        // data hint
-        lfs3_ssize_t d = lfs3_min(
-                size,
-                lfs3_bptr_size(&bptr)
-                    - (pos_ - (bid-(weight-1))));
-        lfs3_data_t slice = LFS3_DATA_SLICE(bptr.data,
-                pos_ - (bid-(weight-1)),
-                d);
-        d = lfs3_data_read(lfs3, &slice,
-                buffer, d);
-        if (d < 0) {
-            return d;
-        }
-
-        pos_ += d;
-        buffer += d;
-        size -= d;
-    }
-
-    // found a hole? fill with zeros
-    lfs3_ssize_t d = lfs3_min(
-            size,
-            bid+1 - pos_);
-    lfs3_memset(buffer, 0, d);
-
-    pos_ += d;
-    buffer += d;
-    size -= d;
-
-    return pos_ - pos;
 }
+#endif
 
 // high-level file reading
 
@@ -12176,16 +12153,47 @@ static lfs3_ssize_t lfs3_file_readget_(lfs3_t *lfs3, lfs3_file_t *file,
     uint8_t *buffer_ = buffer;
     while (size > 0 && pos_ < lfs3_file_size_(file)) {
         // read from the bshrub/btree
-        lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
-                pos_, buffer_, size);
-        if (d_ < 0) {
-            LFS3_ASSERT(d_ != LFS3_ERR_NOENT);
-            return d_;
+        lfs3_bid_t bid;
+        lfs3_bid_t weight;
+        lfs3_bptr_t bptr;
+        int err = lfs3_file_lookupnext_(lfs3, file, pos_,
+                &bid, &weight, &bptr);
+        if (err) {
+            LFS3_ASSERT(err != LFS3_ERR_NOENT);
+            return err;
         }
 
-        pos_ += d_;
-        buffer_ += d_;
-        size -= d_;
+        // any data on disk?
+        if (pos_ < bid-(weight-1) + lfs3_bptr_size(&bptr)) {
+            // note one important side-effect here is a strict
+            // data hint
+            lfs3_ssize_t d = lfs3_min(
+                    size,
+                    lfs3_bptr_size(&bptr)
+                        - (pos_ - (bid-(weight-1))));
+            lfs3_data_t slice = LFS3_DATA_SLICE(bptr.data,
+                    pos_ - (bid-(weight-1)),
+                    d);
+            d = lfs3_data_read(lfs3, &slice,
+                    buffer_, d);
+            if (d < 0) {
+                return d;
+            }
+
+            pos_ += d;
+            buffer_ += d;
+            size -= d;
+        }
+
+        // found a hole? fill with zeros
+        lfs3_ssize_t d = lfs3_min(
+                size,
+                bid+1 - pos_);
+        lfs3_memset(buffer_, 0, d);
+
+        pos_ += d;
+        buffer_ += d;
+        size -= d;
     }
 
     // return amount read
@@ -12231,43 +12239,47 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
 
         // any data in our btree?
         if (pos_ < lfs3_file_weight_(file)) {
-            // bypass cache?
-            if ((lfs3_size_t)d >= lfs3_file_cachesize(lfs3, file)) {
-                lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
-                        pos_, buffer_, d);
-                if (d_ < 0) {
-                    LFS3_ASSERT(d_ != LFS3_ERR_NOENT);
-                    return d_;
+            if (!lfs3_o_isuncryst(file->b.o.flags)
+                    && !lfs3_o_isungraft(file->b.o.flags)) {
+                // bypass cache?
+                if ((lfs3_size_t)d >= lfs3_file_cachesize(lfs3, file)) {
+                    lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
+                            pos_, buffer_, d);
+                    if (d_ < 0) {
+                        LFS3_ASSERT(d_ != LFS3_ERR_NOENT);
+                        return d_;
+                    }
+
+                    pos_ += d_;
+                    buffer_ += d_;
+                    size -= d_;
+                    continue;
                 }
 
-                pos_ += d_;
-                buffer_ += d_;
-                size -= d_;
-                continue;
+                // try to fill our cache with some data
+                if (!lfs3_o_isunflush(file->b.o.flags)) {
+                    lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
+                            pos_, file->cache.buffer, d);
+                    if (d_ < 0) {
+                        LFS3_ASSERT(d != LFS3_ERR_NOENT);
+                        return d_;
+                    }
+                    file->cache.pos = pos_;
+                    file->cache.size = d_;
+                    continue;
+                }
             }
 
-            // cache in use? we need to flush it
+            // flush our cache so the above can't fail
             //
             // note that flush does not change the actual file data, so if
             // a read fails it's ok to fall back to our flushed state
             //
-            if (lfs3_o_isunflush(file->b.o.flags)) {
-                int err = lfs3_file_flush(lfs3, file);
-                if (err) {
-                    return err;
-                }
-                lfs3_file_discardcache(file);
+            int err = lfs3_file_flush(lfs3, file);
+            if (err) {
+                return err;
             }
-
-            // try to fill our cache with some data
-            lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
-                    pos_, file->cache.buffer, d);
-            if (d_ < 0) {
-                LFS3_ASSERT(d != LFS3_ERR_NOENT);
-                return d_;
-            }
-            file->cache.pos = pos_;
-            file->cache.size = d_;
+            lfs3_file_discardcache(file);
             continue;
         }
 
