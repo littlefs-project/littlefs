@@ -4892,7 +4892,7 @@ static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
     LFS_ASSERT(lfs_tag_size(lfs->gstate.tag) < 0x1ff || orphans <= 0);
     lfs->gstate.tag += orphans;
     lfs->gstate.tag = ((lfs->gstate.tag & ~LFS_MKTAG(0x800, 0, 0)) |
-            ((uint32_t)lfs_gstate_hasorphans(&lfs->gstate) << 31));
+            (lfs_gstate_hasorphans(&lfs->gstate) ? (1ul << 31) : 0));
 
     return 0;
 }
