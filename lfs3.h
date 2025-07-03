@@ -145,8 +145,7 @@ enum lfs3_type {
 #define LFS3_o_UNCREAT  0x02000000  // File does not exist yet
 #define LFS3_o_UNSYNC   0x01000000  // File's metadata does not match disk
 #define LFS3_o_UNCRYST  0x00800000  // File's leaf not fully crystallized
-#define LFS3_o_UNGRAFT  0x00400000  // File's leaf does not match bshrub/btree
-#define LFS3_o_UNFLUSH  0x00200000  // File's data does not match disk
+#define LFS3_o_UNFLUSH  0x00400000  // File's cache does not match disk
 
 // File seek flags
 #define LFS3_SEEK_SET 0  // Seek relative to an absolute position

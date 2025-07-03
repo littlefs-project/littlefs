@@ -49,8 +49,7 @@ FLAGS = [
     ('o', 'UNCREAT',   0x02000000, "File does not exist yet"                  ),
     ('o', 'UNSYNC',    0x01000000, "File's metadata does not match disk"      ),
     ('o', 'UNCRYST',   0x00800000, "File's leaf not fully crystallized"       ),
-    ('o', 'UNGRAFT',   0x00400000, "File's leaf does not match bshrub/btree"  ),
-    ('o', 'UNFLUSH',   0x00200000, "File's data does not match disk"          ),
+    ('o', 'UNFLUSH',   0x00400000, "File's cache does not match disk"         ),
 
     # Custom attribute flags
     ('A', 'MODE',               3, "The attr's access mode"                   ),
