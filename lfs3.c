@@ -13095,9 +13095,17 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
 
         // if we're mid-crystallization, finish crystallizing the block
         // and graft it into our bshrub/btree
-        int err = lfs3_file_crystallize(lfs3, file);
-        if (err) {
-            return err;
+        if (lfs3_o_isuncryst(file->b.o.flags)) {
+            // finish crystallizing
+            int err = lfs3_file_crystallize_(lfs3, file,
+                    file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr), -1, -1,
+                    0, NULL, 0);
+            if (err) {
+                return err;
+            }
+
+            // we should have crystallized
+            LFS3_ASSERT(!lfs3_o_isuncryst(file->b.o.flags));
         }
 
         // before we can crystallize we need to figure out the best
@@ -13138,7 +13146,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // start crystallizing!
         //
         // lfs3_file_crystallize_ handles block allocation/relocation
-        err = lfs3_file_crystallize_(lfs3, file,
+        int err = lfs3_file_crystallize_(lfs3, file,
                 crystal_start, -1, crystal_end - crystal_start,
                 pos, buffer, size);
         if (err) {
@@ -13451,6 +13459,8 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     }
     // unflushed files must be unsynced
     LFS3_ASSERT(lfs3_o_isunsync(file->b.o.flags));
+    // uncrystallized files must be unsynced
+    LFS3_ASSERT(lfs3_o_isunsync(file->b.o.flags));
     // unflushed files can't be readonly
     LFS3_ASSERT(!lfs3_o_isrdonly(file->b.o.flags));
 
@@ -13479,8 +13489,8 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
         file->b.o.flags &= ~LFS3_o_UNFLUSH;
     }
 
-    // and crystallize/graft our leaf
     #if !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
+    // and crystallize/graft our leaf
     err = lfs3_file_crystallize(lfs3, file);
     if (err) {
         goto failed;
