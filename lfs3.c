@@ -12498,18 +12498,27 @@ failed:;
 }
 #endif
 
+// note the slightly unique behavior when crystal_min=-1:
+// - crystal_min=-1 => crystal_min=crystal_max
+// - crystal_max=-1 => crystal_max=unbounded
+//
+// this helps avoid duplicate arguments with tight crystal bounds, if
+// you really want to crystallize as little as possible, use
+// crystal_min=0
+//
 #if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
 // this LFS3_NOINLINE is to force lfs3_file_crystallize__ off the stack
 // hot-path
 LFS3_NOINLINE
 static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
-        lfs3_off_t block_pos, lfs3_ssize_t crystal_size,
+        lfs3_off_t block_pos,
+        lfs3_ssize_t crystal_min, lfs3_ssize_t crystal_max,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
     // align to prog_size, limit to block_size and theoretical file size
     lfs3_off_t crystal_limit = lfs3_min(
             block_pos + lfs3_min(
                 lfs3_aligndown(
-                    (lfs3_off_t)crystal_size,
+                    (lfs3_off_t)crystal_max,
                     lfs3->cfg->prog_size),
                 lfs3->cfg->block_size),
             lfs3_max(
@@ -12607,7 +12616,10 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                         // but make sure to include all of the requested
                         // crystal if explicit, otherwise above loops
                         // may never terminate
-                        && (lfs3_soff_t)(pos_ - block_pos) >= crystal_size) {
+                        && (lfs3_soff_t)(pos_ - block_pos)
+                            >= (lfs3_soff_t)lfs3_min(
+                                crystal_min,
+                                crystal_max)) {
                     // if we hit this condition, mark as crystallized,
                     // attempting resume crystallization will not make
                     // progress
@@ -12736,15 +12748,24 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
 }
 #endif
 
+// note the slightly unique behavior when crystal_min=-1:
+// - crystal_min=-1 => crystal_min=crystal_max
+// - crystal_max=-1 => crystal_max=unbounded
+//
+// this helps avoid duplicate arguments with tight crystal bounds, if
+// you really want to crystallize as little as possible, use
+// crystal_min=0
+//
 #if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
 static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
-        lfs3_off_t block_pos, lfs3_ssize_t crystal_size,
+        lfs3_off_t block_pos,
+        lfs3_ssize_t crystal_min, lfs3_ssize_t crystal_max,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
     // this is split into two functions to try to minimize stack usage
 
     // crystallize
     int err = lfs3_file_crystallize__(lfs3, file,
-            block_pos, crystal_size,
+            block_pos, crystal_min, crystal_max,
             pos, buffer, size);
     if (err) {
         goto failed;
@@ -12789,7 +12810,7 @@ static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
         lfs3_alloc_ckpoint(lfs3);
         // finish crystallizing
         int err = lfs3_file_crystallize_(lfs3, file,
-                file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr), -1,
+                file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr), -1, -1,
                 file->cache.pos, file->cache.buffer, file->cache.size);
         if (err) {
             return err;
@@ -12939,7 +12960,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             file->b.o.flags |= LFS3_o_UNCRYST;
             // crystallize
             int err = lfs3_file_crystallize_(lfs3, file,
-                    block_start, (pos + size) - block_start,
+                    block_start, -1, (pos + size) - block_start,
                     pos, buffer, size);
             if (err) {
                 return err;
@@ -13068,7 +13089,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             file->b.o.flags |= LFS3_o_UNCRYST;
             // crystallize
             int err = lfs3_file_crystallize_(lfs3, file,
-                    block_start, crystal_end - block_start,
+                    block_start, -1, crystal_end - block_start,
                     pos, buffer, size);
             if (err) {
                 return err;
@@ -13133,7 +13154,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         //
         // lfs3_file_crystallize_ handles block allocation/relocation
         err = lfs3_file_crystallize_(lfs3, file,
-                crystal_start, crystal_end - crystal_start,
+                crystal_start, -1, crystal_end - crystal_start,
                 pos, buffer, size);
         if (err) {
             return err;
