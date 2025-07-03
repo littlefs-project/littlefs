@@ -13332,8 +13332,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         // strictly necessary, but enforces a more intuitive write order
         // and avoids weird cases with low-level write heuristics
         //
-        if ((!lfs3_o_isunflush(file->b.o.flags)
-                    || file->cache.size == 0)
+        if (!lfs3_o_isunflush(file->b.o.flags)
                 && size >= lfs3_file_cachesize(lfs3, file)) {
             err = lfs3_file_flush_(lfs3, file,
                     pos, buffer_, size);
@@ -13369,16 +13368,14 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         // 2. Bypassing the cache above means we only write to the
         //    cache once, and flush at most twice.
         //
-        if ((!lfs3_o_isunflush(file->b.o.flags)
-                    || file->cache.size == 0)
+        if (!lfs3_o_isunflush(file->b.o.flags)
                 || (pos >= file->cache.pos
                     && pos <= file->cache.pos + file->cache.size
                     && pos
                         < file->cache.pos
                             + lfs3_file_cachesize(lfs3, file))) {
             // unused cache? we can move it where we need it
-            if ((!lfs3_o_isunflush(file->b.o.flags)
-                    || file->cache.size == 0)) {
+            if (!lfs3_o_isunflush(file->b.o.flags)) {
                 file->cache.pos = pos;
                 file->cache.size = 0;
             }
@@ -14006,6 +14003,10 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
             file->cache.size,
             size_ - lfs3_min(file->cache.pos, size_));
     file->cache.pos = lfs3_min(file->cache.pos, size_);
+    // mark as flushed if this completely truncates our cache
+    if (file->cache.size == 0) {
+        lfs3_file_discardcache(file);
+    }
 
     return 0;
 
@@ -14102,6 +14103,10 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     file->cache.pos -= lfs3_smin(
             size - size_,
             file->cache.pos);
+    // mark as flushed if this completely truncates our cache
+    if (file->cache.size == 0) {
+        lfs3_file_discardcache(file);
+    }
 
     // fruncate _does_ update pos, to keep the same pos relative to end
     // of file, though we can't let pos go negative
