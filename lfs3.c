@@ -11969,9 +11969,6 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
     return 0;
 }
 
-// needed in lfs3_file_readnext
-static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file);
-
 #ifndef LFS3_KVONLY
 static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, uint8_t *buffer, lfs3_size_t size) {
@@ -12530,8 +12527,11 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         goto relocate;
     }
 
-    // if we're resuming crystallization, block pointer shouldn't be
-    // truncated or anything
+    // only blocks can be uncrystallized
+    LFS3_ASSERT(lfs3_bptr_isbptr(&file->leaf.bptr));
+    LFS3_ASSERT(lfs3_bptr_iserased(&file->leaf.bptr));
+
+    // uncrystallized blocks shouldn't be truncated or anything
     LFS3_ASSERT(file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr)
             == block_pos);
     LFS3_ASSERT(lfs3_bptr_off(&file->leaf.bptr)
@@ -12792,41 +12792,26 @@ failed:;
 
 #if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
 static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
-    // TODO do we care about this possibility?
-    // is it possible for this to flush the cache?
-    bool flushing = (
-            file->cache.pos
-                >= file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr));
+    // do nothing if our file is already crystallized
+    if (!lfs3_o_isuncryst(file->b.o.flags)) {
+        return 0;
+    }
 
+    // uncrystallized files must be unsynced
+    LFS3_ASSERT(lfs3_o_isunsync(file->b.o.flags));
+
+    // checkpoint the allocator
+    lfs3_alloc_ckpoint(lfs3);
     // finish crystallizing
-    if (lfs3_o_isuncryst(file->b.o.flags)) {
-        // uncrystallized files must be unsynced
-        LFS3_ASSERT(lfs3_o_isunsync(file->b.o.flags));
-        // only blocks can be uncrystallized
-        LFS3_ASSERT(lfs3_bptr_isbptr(&file->leaf.bptr));
-        LFS3_ASSERT(lfs3_bptr_iserased(&file->leaf.bptr));
-
-        // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
-        // finish crystallizing
-        int err = lfs3_file_crystallize_(lfs3, file,
-                file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr), -1, -1,
-                file->cache.pos, file->cache.buffer, file->cache.size);
-        if (err) {
-            return err;
-        }
-
-        // we should have crystallized
-        LFS3_ASSERT(!lfs3_o_isuncryst(file->b.o.flags));
+    int err = lfs3_file_crystallize_(lfs3, file,
+            file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr), -1, -1,
+            0, NULL, 0);
+    if (err) {
+        return err;
     }
 
-    // eagerly mark as flushed if this included all of our cache
-    if (flushing
-            && file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr)
-                >= file->cache.pos + file->cache.size) {
-        file->b.o.flags &= ~LFS3_o_UNFLUSH;
-    }
-
+    // we should have crystallized
+    LFS3_ASSERT(!lfs3_o_isuncryst(file->b.o.flags));
     return 0;
 }
 #endif
@@ -13974,27 +13959,6 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // mark as unsynced in case we fail
     file->b.o.flags |= LFS3_o_UNSYNC;
 
-    // if our leaf is a fragment or will be fragmented, we need
-    // to go ahead and crystallize + discard it, otherwise we risk
-    // out-of-date fragments as btree commits move things around
-    //
-    // note this is mostly to match the behavior of fruncate, where we
-    // _really_ don't want to discard erased-state
-    if (!lfs3_bptr_isbptr(&file->leaf.bptr)
-            || size_ - lfs3_min(file->leaf.pos, size_)
-                < lfs3_min(
-                    lfs3->cfg->fragment_thresh,
-                    lfs3->cfg->crystal_thresh)) {
-        #ifndef LFS3_2BONLY
-        err = lfs3_file_crystallize(lfs3, file);
-        if (err) {
-            goto failed;
-        }
-        #endif
-
-        lfs3_file_discardleaf(file);
-    }
-
     // checkpoint the allocator
     lfs3_alloc_ckpoint(lfs3);
     // truncate our btree
@@ -14007,12 +13971,9 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // truncate our leaf
-    #ifndef LFS3_2BONLY
-    if (size_ < file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr)) {
-        lfs3_bptr_claim(&file->leaf.bptr);
-        file->b.o.flags &= ~LFS3_o_UNCRYST;
-    }
-    #endif
+    //
+    // note we don't unconditionally discard to match fruncate, where we
+    // _really_ don't want to discard erased-state
     file->leaf.bptr.data = LFS3_DATA_TRUNCATE(
             file->leaf.bptr.data,
             size_ - lfs3_min(file->leaf.pos, size_));
@@ -14020,6 +13981,25 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
             file->leaf.weight,
             size_ - lfs3_min(file->leaf.pos, size_));
     file->leaf.pos = lfs3_min(file->leaf.pos, size_);
+    #ifndef LFS3_2BONLY
+    // mark as crystallized if this truncates our erased-state
+    if (lfs3_bptr_off(&file->leaf.bptr)
+                + lfs3_bptr_size(&file->leaf.bptr)
+            < lfs3_bptr_cksize(&file->leaf.bptr)) {
+        lfs3_bptr_claim(&file->leaf.bptr);
+        file->b.o.flags &= ~LFS3_o_UNCRYST;
+    }
+    #endif
+    // discard if our leaf is a fragment, is fragmented, or is completed
+    // truncated, we can't rely on any in-bshrub/btree state
+    if (!lfs3_bptr_isbptr(&file->leaf.bptr)
+            || lfs3_bptr_size(&file->leaf.bptr)
+                < lfs3_min(
+                    lfs3->cfg->fragment_thresh,
+                    lfs3->cfg->crystal_thresh)
+            || lfs3_bptr_size(&file->leaf.bptr) == 0) {
+        lfs3_file_discardleaf(file);
+    }
 
     // truncate our cache
     file->cache.size = lfs3_min(
@@ -14060,32 +14040,6 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // mark as unsynced in case we fail
     file->b.o.flags |= LFS3_o_UNSYNC;
 
-    // if our leaf is a fragment or will be fragmented, we need
-    // to go ahead and crystallize + discard it, otherwise we risk
-    // out-of-date fragments as btree commits move things around
-    //
-    // note that fruncate is commonly used when logging, where we
-    // _really_ don't want to discard erased-state, otherwise we'd just
-    // discard this unconditionally
-    if (!lfs3_bptr_isbptr(&file->leaf.bptr)
-            || lfs3_bptr_size(&file->leaf.bptr) - lfs3_min(
-                    lfs3_smax(
-                        size - size_ - file->leaf.pos,
-                        0),
-                    lfs3_bptr_size(&file->leaf.bptr))
-                < lfs3_min(
-                    lfs3->cfg->fragment_thresh,
-                    lfs3->cfg->crystal_thresh)) {
-        #ifndef LFS3_2BONLY
-        err = lfs3_file_crystallize(lfs3, file);
-        if (err) {
-            goto failed;
-        }
-        #endif
-
-        lfs3_file_discardleaf(file);
-    }
-
     // checkpoint the allocator
     lfs3_alloc_ckpoint(lfs3);
     // fruncate our btree
@@ -14098,14 +14052,10 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // fruncate our leaf
-    #ifndef LFS3_2BONLY
-    if ((lfs3_soff_t)(size - size_)
-            > (lfs3_soff_t)(file->leaf.pos
-                + lfs3_bptr_size(&file->leaf.bptr))) {
-        lfs3_bptr_claim(&file->leaf.bptr);
-        file->b.o.flags &= ~LFS3_o_UNCRYST;
-    }
-    #endif
+    //
+    // note we _really_ don't want to discard erased-state if possible,
+    // as fruncate is intended for logging operations, otherwise we'd
+    // just unconditionally discard the leaf and avoid this hassle
     file->leaf.bptr.data = LFS3_DATA_FRUNCATE(
             file->leaf.bptr.data,
             lfs3_bptr_size(&file->leaf.bptr) - lfs3_min(
@@ -14121,6 +14071,16 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     file->leaf.pos -= lfs3_smin(
             size - size_,
             file->leaf.pos);
+    // discard if our leaf is a fragment, is fragmented, or is completed
+    // truncated, we can't rely on any in-bshrub/btree state
+    if (!lfs3_bptr_isbptr(&file->leaf.bptr)
+            || lfs3_bptr_size(&file->leaf.bptr)
+                < lfs3_min(
+                    lfs3->cfg->fragment_thresh,
+                    lfs3->cfg->crystal_thresh)
+            || lfs3_bptr_size(&file->leaf.bptr) == 0) {
+        lfs3_file_discardleaf(file);
+    }
 
     // fruncate our cache
     lfs3_memmove(file->cache.buffer,
