@@ -45,21 +45,17 @@ class DbgFlags(gdb.Command):
 
     def invoke(self, args, *_):
         args = args.split()
-        # hack, but don't eval if -l or --list specified
-        if '-l' not in args and '--list' not in args:
-            # find nonflags
-            nonflags = []
-            for i, a in enumerate(args):
-                if not a.startswith('-'):
-                    nonflags.append(i)
-            # parse and eval
-            for i, n in enumerate(nonflags):
-                # dbgflags is special in that first arg may be prefix
-                if i > 0 or len(nonflags) <= 1:
-                    try:
-                        args[n] = '%d' % gdb.parse_and_eval(args[n])
-                    except gdb.error as e:
-                        raise gdb.GdbError(e)
+        # find nonflags
+        nonflags = []
+        for i, a in enumerate(args):
+            if not a.startswith('-'):
+                nonflags.append(i)
+        # parse and eval
+        for i, n in enumerate(nonflags):
+            try:
+                args[n] = '%d' % gdb.parse_and_eval(args[n])
+            except gdb.error as e:
+                raise gdb.GdbError(e)
 
         # execute
         gdb.execute(' '.join(['!./scripts/dbgflags.py'] + args))

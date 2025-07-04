@@ -7,17 +7,17 @@ if __name__ == "__main__":
 import collections as co
 
 
-ALIASES = [
-    {'O', 'OPEN'},
-    {'A', 'ATTR'},
-    {'F', 'FORMAT'},
-    {'M', 'MOUNT'},
-    {'GC'},
-    {'I', 'INFO'},
-    {'T', 'TRAVERSAL'},
-    {'RC', 'RCOMPAT'},
-    {'WC', 'WCOMPAT'},
-    {'OC', 'OCOMPAT'}
+FILTERS = [
+    (['--o', '--open'],      'O',       "Filter by LFS3_O_* flags."),
+    (['--a', '--attr'],      'A',       "Filter by LFS3_A_* flags."),
+    (['--f', '--format'],    'F',       "Filter by LFS3_F_* flags."),
+    (['--m', '--mount'],     'M',       "Filter by LFS3_M_* flags."),
+    ('--gc',                 'GC',      "Filter by LFS3_GC_* flags."),
+    (['--i', '--info'],      'I',       "Filter by LFS3_I_* flags."),
+    (['--t', '--traversal'], 'T',       "Filter by LFS3_T_* flags."),
+    (['--rc', '--rcompat'],  'RCOMPAT', "Filter by LFS3_RCOMPAT_* flags."),
+    (['--wc', '--wcompat'],  'WCOMPAT', "Filter by LFS3_WCOMPAT_* flags."),
+    (['--oc', '--ocompat'],  'OCOMPAT', "Filter by LFS3_OCOMPAT_* flags."),
 ]
 
 FLAGS = [
@@ -212,35 +212,15 @@ FLAGS = [
 
 def main(flags, *,
         list=False,
-        all=False):
+        all=False,
+        filter=[]):
     import builtins
     list_, list = list, builtins.list
     all_, all = all, builtins.all
+    filter_, filter = filter, builtins.filter
 
-    # first compile prefixes
-    prefixes = {}
-    for a in ALIASES:
-        for k in a:
-            prefixes[k] = a
-    for p, n, f, h in FLAGS:
-        if p not in prefixes:
-            prefixes[p] = {p}
-
-    # only look at specific prefix?
-    flags_ = []
-    prefix = set()
-    for f in flags:
-        # accept prefix prefix
-        if f.upper() in prefixes:
-            prefix.update(prefixes[f.upper()])
-        # accept LFS3_+prefix prefix
-        elif (f.upper().startswith('LFS3_')
-                and f.upper()[len('LFS3_'):] in prefixes):
-            prefix.update(prefixes[f.upper()[len('LFS3_'):]])
-        else:
-            flags_.append(f)
-
-    # filter by prefix
+    # filter by prefix if there are any filters
+    filter__ = set(filter_)
     flags__ = []
     types__ = co.defaultdict(lambda: set())
     for p, n, f, h in FLAGS:
@@ -252,7 +232,7 @@ def main(flags, *,
             t = None
             last_p = p
             last_t = f
-        if not prefix or p.upper() in prefix:
+        if not filter__ or p.upper() in filter__:
             flags__.append((p, t, n, f, h))
 
     lines = []
@@ -265,7 +245,7 @@ def main(flags, *,
 
     # find flags by name or value
     else:
-        for f_ in flags_:
+        for f_ in flags:
             found = False
             # find by LFS3_+prefix+_+name
             for p, t, n, f, h in flags__:
@@ -329,25 +309,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
             description="Decode littlefs flags.",
             allow_abbrev=False)
-    class AppendFlags(argparse.Action):
-        def __call__(self, parser, namespace, value, option):
-            if getattr(namespace, 'flags', None) is None:
-                namespace.flags = []
-            if value is None:
-                pass
-            elif isinstance(value, str):
-                namespace.flags.append(value)
-            else:
-                namespace.flags.extend(value)
-    parser.add_argument(
-            'prefix',
-            nargs='?',
-            action=AppendFlags,
-            help="Flag prefix to consider, defaults to all flags.")
     parser.add_argument(
             'flags',
             nargs='*',
-            action=AppendFlags,
             help="Flags or names of flags to decode.")
     parser.add_argument(
             '-l', '--list',
@@ -357,6 +321,19 @@ if __name__ == "__main__":
             '-a', '--all',
             action='store_true',
             help="Also show internal flags and types.")
+    class AppendFilter(argparse.Action):
+        def __init__(self, nargs=None, **kwargs):
+            super().__init__(nargs=0, **kwargs)
+        def __call__(self, parser, namespace, value, option):
+            if getattr(namespace, 'filter', None) is None:
+                namespace.filter = []
+            namespace.filter.append(self.const)
+    for flag, prefix, help in FILTERS:
+        parser.add_argument(
+                *([flag] if isinstance(flag, str) else flag),
+                action=AppendFilter,
+                const=prefix,
+                help=help)
     sys.exit(main(**{k: v
             for k, v in vars(parser.parse_intermixed_args()).items()
             if v is not None}))
