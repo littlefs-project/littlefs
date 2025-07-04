@@ -2003,12 +2003,12 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that carving below fragment_thresh breaks blocks into fragments
+# test that carving to fragment_size breaks blocks into fragments
 [cases.test_fwrite_truncate_litmus_fragment]
 defines.N = [1, 2, 8]
 defines.SIZE = 'N*BLOCK_SIZE'
-# 1 vs multiple fragments are implemented slightly differently
-defines.FRAGMENTS = [1, 2, 3]
+# currently we only support fragmenting blocks <= 1 fragment
+defines.FRAGMENTS = [1]
 defines.TSIZE = 'FRAGMENTS*FRAGMENT_SIZE'
 defines.SYNC = [false, true]
 in = 'lfs3.c'
@@ -2159,8 +2159,8 @@ code = '''
 [cases.test_fwrite_fruncate_litmus_fragment]
 defines.N = [1, 2, 8]
 defines.SIZE = 'N*BLOCK_SIZE'
-# 1 vs multiple fragments are implemented slightly differently
-defines.FRAGMENTS = [1, 2, 3]
+# currently we only support fragmenting blocks <= 1 fragment
+defines.FRAGMENTS = [1]
 defines.TSIZE = 'FRAGMENTS*FRAGMENT_SIZE'
 defines.SYNC = [false, true]
 in = 'lfs3.c'

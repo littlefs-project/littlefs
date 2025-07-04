@@ -525,21 +525,6 @@ struct lfs3_config {
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
     #endif
-
-    // Threshold for breaking a block into fragments. Smaller values will
-    // fragment more lazily, reducing random-write cost, but risk higher
-    // disk usage.
-    //
-    // This can be set lower than crystal_thresh to prevent repeated
-    // compact/break operations in files with heavy random writes, at a
-    // storage cost. Setting this higher than crystal_thresh is probably not
-    // a good idea.
-    //
-    // 0 will never fragment a block once compacted, while -1 will fragment
-    // as soon as a block drops below crystal_thresh.
-    #ifndef LFS3_RDONLY
-    lfs3_size_t fragment_thresh;
-    #endif
 };
 
 // File info structure

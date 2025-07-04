@@ -12296,69 +12296,6 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
                 pos+weight - (bid-(weight_-1)),
                 -1);
 
-        // left sibling needs carving but falls underneath our
-        // fragment threshold? break into fragments
-        while (lfs3_bptr_isbptr(&bptr_)
-                && lfs3_bptr_size(&l) > lfs3->cfg->fragment_size
-                && lfs3_bptr_size(&l) < lfs3_min(
-                    lfs3->cfg->fragment_thresh,
-                    lfs3->cfg->crystal_thresh)) {
-            bptr_.data = LFS3_DATA_SLICE(bptr_.data,
-                    lfs3->cfg->fragment_size,
-                    -1);
-            
-            err = lfs3_file_commit(lfs3, file, bid, LFS3_RATTRS(
-                    LFS3_RATTR_DATA(
-                        LFS3_TAG_GROW | LFS3_TAG_MASK8 | LFS3_TAG_DATA,
-                            -(weight_ - lfs3->cfg->fragment_size),
-                        &LFS3_DATA_TRUNCATE(l.data,
-                                lfs3->cfg->fragment_size)),
-                    LFS3_RATTR_BPTR(
-                        LFS3_TAG_BLOCK,
-                            +(weight_ - lfs3->cfg->fragment_size),
-                        &bptr_)));
-            if (err) {
-                goto failed;
-            }
-
-            weight_ -= lfs3->cfg->fragment_size;
-            l.data = LFS3_DATA_SLICE(bptr_.data,
-                    -1,
-                    pos - (bid-(weight_-1)));
-        }
-
-        // right sibling needs carving but falls underneath our
-        // fragment threshold? break into fragments
-        while (lfs3_bptr_isbptr(&bptr_)
-                && lfs3_bptr_size(&r) > lfs3->cfg->fragment_size
-                && lfs3_bptr_size(&r) < lfs3_min(
-                    lfs3->cfg->fragment_thresh,
-                    lfs3->cfg->crystal_thresh)) {
-            bptr_.data = LFS3_DATA_SLICE(bptr_.data,
-                    -1,
-                    lfs3_bptr_size(&bptr_) - lfs3->cfg->fragment_size);
-
-            err = lfs3_file_commit(lfs3, file, bid, LFS3_RATTRS(
-                    LFS3_RATTR_BPTR(
-                        LFS3_TAG_GROW | LFS3_TAG_MASK8 | LFS3_TAG_BLOCK,
-                            -(weight_ - lfs3_bptr_size(&bptr_)),
-                        &bptr_),
-                    LFS3_RATTR_DATA(
-                        LFS3_TAG_DATA,
-                            +(weight_ - lfs3_bptr_size(&bptr_)),
-                        &LFS3_DATA_FRUNCATE(r.data,
-                            lfs3->cfg->fragment_size))));
-            if (err) {
-                goto failed;
-            }
-
-            bid -= (weight_-lfs3_bptr_size(&bptr_));
-            weight_ -= (weight_-lfs3_bptr_size(&bptr_));
-            r.data = LFS3_DATA_SLICE(bptr_.data,
-                    pos+weight - (bid-(weight_-1)),
-                    -1);
-        }
-
         // found left sibling?
         if (bid-(weight_-1) < pos) {
             // can we get away with a grow attribute?
@@ -12368,6 +12305,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
 
             // carve fragment?
             } else if (!lfs3_bptr_isbptr(&bptr_)
+                    // carve bptr into fragment?
                     || lfs3_bptr_size(&l) <= lfs3->cfg->fragment_size) {
                 rattrs[rattr_count++] = LFS3_RATTR_DATA(
                         LFS3_TAG_GROW | LFS3_TAG_MASK8 | LFS3_TAG_DATA,
@@ -12415,6 +12353,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
 
             // carve fragment?
             } else if (!lfs3_bptr_isbptr(&bptr_)
+                    // carve bptr into fragment?
                     || lfs3_bptr_size(&r) <= lfs3->cfg->fragment_size) {
                 r_rattr_ = LFS3_RATTR_DATA(
                         LFS3_TAG_DATA, bid+1 - (pos+weight),
@@ -14001,10 +13940,7 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // truncated, we can't rely on any in-bshrub/btree state
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
             || lfs3_bptr_size(&file->leaf.bptr)
-                < lfs3_min(
-                    lfs3->cfg->fragment_thresh,
-                    lfs3->cfg->crystal_thresh)
-            || lfs3_bptr_size(&file->leaf.bptr) == 0) {
+                <= lfs3->cfg->fragment_size) {
         lfs3_file_discardleaf(file);
     }
 
@@ -14086,10 +14022,7 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // truncated, we can't rely on any in-bshrub/btree state
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
             || lfs3_bptr_size(&file->leaf.bptr)
-                < lfs3_min(
-                    lfs3->cfg->fragment_thresh,
-                    lfs3->cfg->crystal_thresh)
-            || lfs3_bptr_size(&file->leaf.bptr) == 0) {
+                <= lfs3->cfg->fragment_size) {
         lfs3_file_discardleaf(file);
     }
 
@@ -14405,9 +14338,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT(lfs3->cfg->inline_size <= lfs3->cfg->block_size/4);
     // fragment_size must be <= block_size/4
     LFS3_ASSERT(lfs3->cfg->fragment_size <= lfs3->cfg->block_size/4);
-    // fragment_thresh > crystal_thresh is probably a mistake
-    LFS3_ASSERT(lfs3->cfg->fragment_thresh == (lfs3_size_t)-1
-            || lfs3->cfg->fragment_thresh <= lfs3->cfg->crystal_thresh);
     #endif
 
     // setup flags
