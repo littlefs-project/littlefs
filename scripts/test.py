@@ -41,6 +41,7 @@ RUNNER_PATH = ['./runners/test_runner']
 HEADER_PATH = 'runners/test_runner.h'
 
 GDB_PATH = ['gdb']
+GDB_SCRIPTS = ['./scripts/dbg.gdb.py']
 VALGRIND_PATH = ['valgrind']
 PERF_SCRIPT = ['./scripts/perf.py']
 
@@ -1444,12 +1445,16 @@ def run(runner, test_ids=[], **args):
             or args.get('gdb_pl_after')):
         failure = failures[0]
         cmd = find_runner(runner, failure.id, **args)
+        gdb_path = args['gdb_path']
+        gdb_scripts = (args.get('gdb_script') or GDB_SCRIPTS)
 
         if args.get('gdb_main'):
             # we don't really need the case breakpoint here, but it
             # can be helpful
             path, lineno = find_path(runner, failure.id, **args)
-            cmd[:0] = args['gdb_path'] + [
+            cmd[:0] = [
+                    *gdb_path,
+                    *it.chain.from_iterable(['-x', s] for s in gdb_scripts),
                     '-q',
                     '-ex', 'break main',
                     '-ex', 'break %s:%d' % (path, lineno),
@@ -1457,14 +1462,18 @@ def run(runner, test_ids=[], **args):
                     '--args']
         elif args.get('gdb_perm'):
             path, lineno = find_path(runner, failure.id, **args)
-            cmd[:0] = args['gdb_path'] + [
+            cmd[:0] = [
+                    *gdb_path,
+                    *it.chain.from_iterable(['-x', s] for s in gdb_scripts),
                     '-q',
                     '-ex', 'break %s:%d' % (path, lineno),
                     '-ex', 'run',
                     '--args']
         elif args.get('gdb_pl') is not None:
             path, lineno = find_path(runner, failure.id, **args)
-            cmd[:0] = args['gdb_path'] + [
+            cmd[:0] = [
+                    *gdb_path,
+                    *it.chain.from_iterable(['-x', s] for s in gdb_scripts),
                     '-q',
                     '-ex', 'break %s:%d' % (path, lineno),
                     '-ex', 'ignore 1 %d' % args['gdb_pl'],
@@ -1477,7 +1486,9 @@ def run(runner, test_ids=[], **args):
                             failure.id.split(':', 2)[-1]))
                         if failure.id.count(':') >= 2 else 0)
             path, lineno = find_path(runner, failure.id, **args)
-            cmd[:0] = args['gdb_path'] + [
+            cmd[:0] = [
+                    *gdb_path,
+                    *it.chain.from_iterable(['-x', s] for s in gdb_scripts),
                     '-q',
                     '-ex', 'break %s:%d' % (path, lineno),
                     '-ex', 'ignore 1 %d' % max(powerlosses-1, 0),
@@ -1490,14 +1501,18 @@ def run(runner, test_ids=[], **args):
                             failure.id.split(':', 2)[-1]))
                         if failure.id.count(':') >= 2 else 0)
             path, lineno = find_path(runner, failure.id, **args)
-            cmd[:0] = args['gdb_path'] + [
+            cmd[:0] = [
+                    *gdb_path,
+                    *it.chain.from_iterable(['-x', s] for s in gdb_scripts),
                     '-q',
                     '-ex', 'break %s:%d' % (path, lineno),
                     '-ex', 'ignore 1 %d' % powerlosses,
                     '-ex', 'run',
                     '--args']
         else:
-            cmd[:0] = args['gdb_path'] + [
+            cmd[:0] = [
+                    *gdb_path,
+                    *it.chain.from_iterable(['-x', s] for s in gdb_scripts),
                     '-q',
                     '-ex', 'run',
                     '--args']
@@ -1722,6 +1737,11 @@ if __name__ == "__main__":
             default=GDB_PATH,
             help="Path to the gdb executable, may include flags. "
                 "Defaults to %r." % GDB_PATH)
+    test_parser.add_argument(
+            '--gdb-script',
+            action='append',
+            help="Paths to scripts to execute when dropping into gdb. "
+                "Defaults to %r." % GDB_SCRIPTS)
     test_parser.add_argument(
             '-e', '--exec',
             type=lambda e: e.split(),
