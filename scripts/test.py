@@ -38,7 +38,7 @@ except ModuleNotFoundError:
 
 
 RUNNER_PATH = ['./runners/test_runner']
-HEADER_PATH = 'runners/test_runner.h'
+HEADER_PATHS = ['./runners/test_runner.h']
 
 GDB_PATH = ['gdb']
 GDB_SCRIPTS = ['./scripts/dbg.gdb.py']
@@ -395,7 +395,8 @@ def compile(test_paths, **args):
             f.writeln()
 
             # include test_runner.h in every generated file
-            f.writeln("#include \"%s\"" % args['include'])
+            for header in (args.get('include') or HEADER_PATHS):
+                f.writeln("#include \"%s\"" % header)
             f.writeln()
 
             # write out generated functions, this can end up in different
@@ -1800,9 +1801,8 @@ if __name__ == "__main__":
             help="Source file to compile, possibly injecting internal tests.")
     comp_parser.add_argument(
             '--include',
-            default=HEADER_PATH,
-            help="Inject this header file into every compiled test file. "
-                "Defaults to %r." % HEADER_PATH)
+            help="Inject these header files into every compiled test file. "
+                "Defaults to %r." % HEADER_PATHS)
     comp_parser.add_argument(
             '-o', '--output',
             help="Output file.")
