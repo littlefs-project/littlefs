@@ -3793,8 +3793,8 @@ code = '''
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     // rewrite enough files for mroot to extend
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_open(&lfs3, &file, "uloborus",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -3899,8 +3899,8 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite enough files for mroot to extend
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_open(&lfs3, &file, "uloborus",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -3978,8 +3978,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // rewrite enough files for mroot to extend
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_open(&lfs3, &file, "uloborus",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -4001,9 +4001,9 @@ code = '''
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     // rewrite enough files for mroot to relocate
-    lfs3_block_t orig = lfs3.mroot.rbyd.blocks[0];
-    while (lfs3.mroot.rbyd.blocks[0] == orig
-            || lfs3.mroot.rbyd.blocks[0] == orig) {
+    lfs3_block_t orig = lfs3.mroot.r.blocks[0];
+    while (lfs3.mroot.r.blocks[0] == orig
+            || lfs3.mroot.r.blocks[0] == orig) {
         lfs3_file_open(&lfs3, &file, "uloborus",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -4092,8 +4092,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // rewrite enough files for mroot to extend
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_open(&lfs3, &file, "uloborus",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -4125,9 +4125,9 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite enough files for mroot to relocate
-    lfs3_block_t orig = lfs3.mroot.rbyd.blocks[0];
-    while (lfs3.mroot.rbyd.blocks[0] == orig
-            || lfs3.mroot.rbyd.blocks[0] == orig) {
+    lfs3_block_t orig = lfs3.mroot.r.blocks[0];
+    while (lfs3.mroot.r.blocks[0] == orig
+            || lfs3.mroot.r.blocks[0] == orig) {
         lfs3_file_open(&lfs3, &file, "uloborus",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -4799,8 +4799,8 @@ code = '''
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     // rewrite enough files for mroot to extend
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_open(&lfs3, &file, "vulsor",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -4997,8 +4997,8 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite enough files for mroot to extend
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_open(&lfs3, &file, "vulsor",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -5114,8 +5114,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // rewrite enough files for mroot to extend
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_open(&lfs3, &file, "vulsor",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -5159,9 +5159,9 @@ code = '''
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     // rewrite enough files for mroot to relocate
-    orig = lfs3.mroot.rbyd.blocks[0];
-    while (lfs3.mroot.rbyd.blocks[0] == orig
-            || lfs3.mroot.rbyd.blocks[0] == orig) {
+    orig = lfs3.mroot.r.blocks[0];
+    while (lfs3.mroot.r.blocks[0] == orig
+            || lfs3.mroot.r.blocks[0] == orig) {
         lfs3_file_open(&lfs3, &file, "vulsor",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -5294,8 +5294,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // rewrite enough files for mroot to extend
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_open(&lfs3, &file, "vulsor",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -5367,9 +5367,9 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite enough files for mroot to relocate
-    orig = lfs3.mroot.rbyd.blocks[0];
-    while (lfs3.mroot.rbyd.blocks[0] == orig
-            || lfs3.mroot.rbyd.blocks[0] == orig) {
+    orig = lfs3.mroot.r.blocks[0];
+    while (lfs3.mroot.r.blocks[0] == orig
+            || lfs3.mroot.r.blocks[0] == orig) {
         lfs3_file_open(&lfs3, &file, "vulsor",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
@@ -5456,7 +5456,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfs3_file_rewind(&lfs3, &file) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5493,7 +5493,7 @@ code = '''
     lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
 
     // mdir should have been compacted
-    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5515,7 +5515,7 @@ code = '''
     lfs3_traversal_close(&lfs3, &t) => 0;
 
     // mdir should have been compacted
-    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5568,8 +5568,8 @@ code = '''
             LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
 
     uint8_t wbuf[SIZE];
-    while (lfs3.mroot.rbyd.blocks[0] == 0
-            || lfs3.mroot.rbyd.blocks[0] == 1) {
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
         lfs3_file_rewind(&lfs3, &file) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5584,7 +5584,7 @@ code = '''
         lfs3_mdir_t mrootanchor;
         lfs3_mdir_fetch(&lfs3, &mrootanchor,
                 -1, LFS3_MPTR_MROOTANCHOR()) => 0;
-        if (lfs3_rbyd_eoff(&mrootanchor.rbyd) > GC_COMPACT_THRESH) {
+        if (lfs3_rbyd_eoff(&mrootanchor.r) > GC_COMPACT_THRESH) {
             break;
         }
 
@@ -5632,7 +5632,7 @@ code = '''
     lfs3_mdir_t mrootanchor;
     lfs3_mdir_fetch(&lfs3, &mrootanchor,
             -1, LFS3_MPTR_MROOTANCHOR()) => 0;
-    assert(lfs3_rbyd_eoff(&mrootanchor.rbyd) <= GC_COMPACT_THRESH);
+    assert(lfs3_rbyd_eoff(&mrootanchor.r) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5656,7 +5656,7 @@ code = '''
     // mrootanchor should have been compacted
     lfs3_mdir_fetch(&lfs3, &mrootanchor,
             -1, LFS3_MPTR_MROOTANCHOR()) => 0;
-    assert(lfs3_rbyd_eoff(&mrootanchor.rbyd) <= GC_COMPACT_THRESH);
+    assert(lfs3_rbyd_eoff(&mrootanchor.r) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5710,7 +5710,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfs3_file_rewind(&lfs3, &file) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -5749,7 +5749,7 @@ code = '''
     lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
 
     // mdir should have been compacted
-    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5771,7 +5771,7 @@ code = '''
     lfs3_traversal_close(&lfs3, &t) => 0;
 
     // mdir should have been compacted
-    assert((file.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5847,7 +5847,7 @@ code = '''
                 &file1.b.o.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
-        if ((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
+        if ((file1.b.o.mdir.r.eoff & 0x7fffffff) > GC_COMPACT_THRESH
                 && estimate > BLOCK_SIZE/2) {
             break;
         }
@@ -5902,8 +5902,8 @@ code = '''
     lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
 
     // mdirs should have been compacted
-    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5925,8 +5925,8 @@ code = '''
     lfs3_traversal_close(&lfs3, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6036,7 +6036,7 @@ code = '''
     // write to each file until mdir >gc_compact_thresh full
     if (COMPACTSET & 0x1) {
         // hack, don't use the internals like this
-        while ((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfs3_file_rewind(&lfs3, &file1) => 0;
             for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -6048,7 +6048,7 @@ code = '''
 
     if (COMPACTSET & 0x2) {
         // hack, don't use the internals like this
-        while ((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfs3_file_rewind(&lfs3, &file2) => 0;
             for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -6060,7 +6060,7 @@ code = '''
 
     if (COMPACTSET & 0x4) {
         // hack, don't use the internals like this
-        while ((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file3.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
             lfs3_file_rewind(&lfs3, &file3) => 0;
             for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf3[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -6117,9 +6117,9 @@ code = '''
 
     if (COMPACTSET) {
         // mdirs should have been compacted
-        assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-        assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-        assert((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+        assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+        assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+        assert((file3.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
         // but because we mutated, we're still marked as uncompacted
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6142,9 +6142,9 @@ code = '''
     lfs3_traversal_close(&lfs3, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6279,7 +6279,7 @@ code = '''
                 &file2.b.o.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
-        if ((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) > GC_COMPACT_THRESH
+        if ((file2.b.o.mdir.r.eoff & 0x7fffffff) > GC_COMPACT_THRESH
                 && estimate > BLOCK_SIZE/2) {
             break;
         }
@@ -6344,10 +6344,10 @@ code = '''
     lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
 
     // mdirs should have been compacted
-    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file4.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file4.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6369,10 +6369,10 @@ code = '''
     lfs3_traversal_close(&lfs3, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file4.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file3.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file4.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6536,8 +6536,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
-    assert(file1.b.o.mdir.rbyd.weight <= 3);
-    assert(file2.b.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.r.weight <= 3);
+    assert(file2.b.o.mdir.r.weight <= 3);
 
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6845,8 +6845,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
-    assert(file1.b.o.mdir.rbyd.weight <= 3);
-    assert(file2.b.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.r.weight <= 3);
+    assert(file2.b.o.mdir.r.weight <= 3);
 
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -7009,8 +7009,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
-    assert(file1.b.o.mdir.rbyd.weight <= 3);
-    assert(file2.b.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.r.weight <= 3);
+    assert(file2.b.o.mdir.r.weight <= 3);
 
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -7182,8 +7182,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
-    assert(file1.b.o.mdir.rbyd.weight <= 3);
-    assert(file2.b.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.r.weight <= 3);
+    assert(file2.b.o.mdir.r.weight <= 3);
 
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -7355,8 +7355,8 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
-    assert(file1.b.o.mdir.rbyd.weight <= 3);
-    assert(file2.b.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.r.weight <= 3);
+    assert(file2.b.o.mdir.r.weight <= 3);
 
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -7456,7 +7456,7 @@ code = '''
     // write to our mdirs until >gc_compact_thresh full
     //
     // hack, don't use the internals like this
-    while ((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfs3_file_rewind(&lfs3, &file1) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -7465,7 +7465,7 @@ code = '''
         lfs3_file_sync(&lfs3, &file1) => 0;
     }
 
-    while ((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfs3_file_rewind(&lfs3, &file2) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -7524,12 +7524,12 @@ code = '''
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
-    assert(file1.b.o.mdir.rbyd.weight <= 3);
-    assert(file2.b.o.mdir.rbyd.weight <= 3);
+    assert(file1.b.o.mdir.r.weight <= 3);
+    assert(file2.b.o.mdir.r.weight <= 3);
 
     // mdirs should have been compacted
-    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // we should be marked as consistent, but because we mutated, we're
     // still marked as uncompacted
@@ -7552,8 +7552,8 @@ code = '''
     lfs3_traversal_close(&lfs3, &t) => 0;
 
     // mdirs should have been compacted
-    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -7631,7 +7631,7 @@ code = '''
     // write to our mdirs until >gc_compact_thresh full
     //
     // hack, don't use the internals like this
-    while ((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfs3_file_rewind(&lfs3, &file1) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -7640,7 +7640,7 @@ code = '''
         lfs3_file_sync(&lfs3, &file1) => 0;
     }
 
-    while ((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
         lfs3_file_rewind(&lfs3, &file2) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -7723,8 +7723,8 @@ code = '''
     }
 
     // mdirs should have been compacted
-    assert((file1.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.o.mdir.rbyd.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file2.b.o.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
 
     // if we introduced actual orphans, we _must_ be marked as inconsistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;

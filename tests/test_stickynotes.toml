@@ -8021,7 +8021,7 @@ code = '''
             <= ((1+lfs3_popc(BOOKENDS)) << lfs3.mbits));
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
-    assert(mdir.rbyd.weight <= 1+lfs3_popc(BOOKENDS));
+    assert(mdir.r.weight <= 1+lfs3_popc(BOOKENDS));
 
     // check that other files are unaffected
     for (int remount = 0; remount < 2; remount++) {
@@ -8160,7 +8160,7 @@ code = '''
             <= ((1+lfs3_popc(BOOKENDS)) << lfs3.mbits));
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
-    assert(mdir.rbyd.weight <= 1+lfs3_popc(BOOKENDS));
+    assert(mdir.r.weight <= 1+lfs3_popc(BOOKENDS));
 
     // check that other files are unaffected
     for (int remount = 0; remount < 2; remount++) {
@@ -8313,7 +8313,7 @@ code = '''
             <= ((1+lfs3_popc(BOOKENDS)) << lfs3.mbits));
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
-    assert(mdir.rbyd.weight <= 1+lfs3_popc(BOOKENDS));
+    assert(mdir.r.weight <= 1+lfs3_popc(BOOKENDS));
 
     // check that other files are unaffected
     for (int remount = 0; remount < 2; remount++) {
@@ -8472,7 +8472,7 @@ code = '''
             <= ((1+lfs3_popc(BOOKENDS)) << lfs3.mbits));
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
-    assert(mdir.rbyd.weight <= 1+lfs3_popc(BOOKENDS));
+    assert(mdir.r.weight <= 1+lfs3_popc(BOOKENDS));
 
     // check that other files are unaffected
     if (BOOKENDS & 0x1) {

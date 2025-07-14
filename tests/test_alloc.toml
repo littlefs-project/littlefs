@@ -198,18 +198,18 @@ code = '''
         }
 
         if (tag == LFS3_TAG_MDIR) {
-            lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.data.u.buffer;
+            lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tag,
-                    mdir->rbyd.blocks[0],
-                    mdir->rbyd.blocks[1]);
+                    mdir->r.blocks[0],
+                    mdir->r.blocks[1]);
 
             // keep track of seen blocks
-            seen[mdir->rbyd.blocks[1] / 8] |= 1 << (mdir->rbyd.blocks[1] % 8);
-            seen[mdir->rbyd.blocks[0] / 8] |= 1 << (mdir->rbyd.blocks[0] % 8);
+            seen[mdir->r.blocks[1] / 8] |= 1 << (mdir->r.blocks[1] % 8);
+            seen[mdir->r.blocks[0] / 8] |= 1 << (mdir->r.blocks[0] % 8);
 
         } else if (tag == LFS3_TAG_BRANCH) {
-            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.data.u.buffer;
+            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tag,
                     rbyd->blocks[0], rbyd->trunk);
@@ -369,18 +369,18 @@ code = '''
         }
 
         if (tag == LFS3_TAG_MDIR) {
-            lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.data.u.buffer;
+            lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tag,
-                    mdir->rbyd.blocks[0],
-                    mdir->rbyd.blocks[1]);
+                    mdir->r.blocks[0],
+                    mdir->r.blocks[1]);
 
             // keep track of seen blocks
-            seen[mdir->rbyd.blocks[1] / 8] |= 1 << (mdir->rbyd.blocks[1] % 8);
-            seen[mdir->rbyd.blocks[0] / 8] |= 1 << (mdir->rbyd.blocks[0] % 8);
+            seen[mdir->r.blocks[1] / 8] |= 1 << (mdir->r.blocks[1] % 8);
+            seen[mdir->r.blocks[0] / 8] |= 1 << (mdir->r.blocks[0] % 8);
 
         } else if (tag == LFS3_TAG_BRANCH) {
-            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.data.u.buffer;
+            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tag,
                     rbyd->blocks[0], rbyd->trunk);
@@ -391,11 +391,11 @@ code = '''
         } else if (tag == LFS3_TAG_BLOCK) {
             printf("traversal: 0x%x block 0x%x\n",
                     tag,
-                    bptr.data.u.disk.block);
+                    bptr.d.u.disk.block);
 
             // keep track of seen blocks
-            seen[bptr.data.u.disk.block / 8]
-                    |= 1 << (bptr.data.u.disk.block % 8);
+            seen[bptr.d.u.disk.block / 8]
+                    |= 1 << (bptr.d.u.disk.block % 8);
 
         } else {
             // this shouldn't happen
@@ -526,20 +526,20 @@ code = '''
         }
 
         if (tag == LFS3_TAG_MDIR) {
-            lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.data.u.buffer;
+            lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
             printf("traversal: 0x%x mdir 0x{%x,%x}\n",
                     tag,
-                    mdir->rbyd.blocks[0],
-                    mdir->rbyd.blocks[1]);
+                    mdir->r.blocks[0],
+                    mdir->r.blocks[1]);
 
             // keep track of seen blocks
-            seen[mdir->rbyd.blocks[1] / 8]
-                    |= 1 << (mdir->rbyd.blocks[1] % 8);
-            seen[mdir->rbyd.blocks[0] / 8]
-                    |= 1 << (mdir->rbyd.blocks[0] % 8);
+            seen[mdir->r.blocks[1] / 8]
+                    |= 1 << (mdir->r.blocks[1] % 8);
+            seen[mdir->r.blocks[0] / 8]
+                    |= 1 << (mdir->r.blocks[0] % 8);
 
         } else if (tag == LFS3_TAG_BRANCH) {
-            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.data.u.buffer;
+            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
             printf("traversal: 0x%x btree 0x%x.%x\n",
                     tag,
                     rbyd->blocks[0], rbyd->trunk);
@@ -551,11 +551,11 @@ code = '''
         } else if (tag == LFS3_TAG_BLOCK) {
             printf("traversal: 0x%x block 0x%x\n",
                     tag,
-                    bptr.data.u.disk.block);
+                    bptr.d.u.disk.block);
 
             // keep track of seen blocks
-            seen[bptr.data.u.disk.block / 8]
-                    |= 1 << (bptr.data.u.disk.block % 8);
+            seen[bptr.d.u.disk.block / 8]
+                    |= 1 << (bptr.d.u.disk.block % 8);
 
         } else {
             // this shouldn't happen

@@ -226,9 +226,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // we disabled block crystallization so this shouldn't
                 // happen
@@ -375,9 +375,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // keep track of how many data blocks we've seen
                 blocks += 1;
@@ -640,9 +640,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // we disabled block crystallization so this shouldn't
                 // happen
@@ -804,9 +804,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // keep track of how many data blocks we've seen
                 blocks += 1;
@@ -2131,9 +2131,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // all blocks should have been fragmented
                 assert(false);
@@ -2283,9 +2283,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // all blocks should have been fragmented
                 assert(false);
@@ -2582,9 +2582,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // we disabled block crystallization so this shouldn't
                 // happen
@@ -2750,9 +2750,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // keep track of how many data blocks we've seen
                 blocks += 1;
@@ -3042,9 +3042,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // we disabled block crystallization so this shouldn't
                 // happen
@@ -3214,9 +3214,9 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        bptr.data.u.disk.block,
-                        bptr.data.u.disk.off,
-                        lfs3_data_size(bptr.data));
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
 
                 // keep track of how many data blocks we've seen
                 blocks += 1;

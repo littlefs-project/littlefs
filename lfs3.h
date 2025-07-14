@@ -655,7 +655,7 @@ typedef struct lfs3_bptr {
     // sign2(size)=0b00 => in-RAM buffer
     // sign2(size)=0b10 => on-disk data
     // sign2(size)=0b11 => block pointer
-    lfs3_data_t data;
+    lfs3_data_t d;
     #if !defined(LFS3_2BONLY) && !defined(LFS3_CKDATACKSUMREADS)
     // sign(cksize)=0 => block not erased
     // sign(cksize)=1 => block erased
@@ -687,7 +687,7 @@ typedef lfs3_rbyd_t lfs3_btree_t;
 // littlefs's atomic metadata log type
 typedef struct lfs3_mdir {
     lfs3_smid_t mid;
-    lfs3_rbyd_t rbyd;
+    lfs3_rbyd_t r;
     uint32_t gcksumdelta;
 } lfs3_mdir_t;
 
