@@ -187,13 +187,15 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_ATTR(1), 0,
+                &LFS3_DATA_BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_ATTR(2), 0,
+                &LFS3_DATA_BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
@@ -1287,13 +1289,15 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_ATTR(1), 0,
+                &LFS3_DATA_BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_ATTR(2), 0,
+                &LFS3_DATA_BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
@@ -2356,13 +2360,15 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_ATTR(1), 0,
+                &LFS3_DATA_BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_ATTR(2), 0, buffer, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_ATTR(2), 0,
+                &LFS3_DATA_BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact, this should both uninline and relocate
     lfs3_mdir_t old_mroot = lfs3.mroot;
@@ -3590,13 +3596,15 @@ code = '''
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_ATTR(1), 0,
+                &LFS3_DATA_BUF(buffer, SIZE)))) => 0;
 
     memset(buffer, 'b', SIZE);
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_ATTR(1), 0, buffer, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_ATTR(1), 0,
+                &LFS3_DATA_BUF(buffer, SIZE)))) => 0;
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;

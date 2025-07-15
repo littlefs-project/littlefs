@@ -2485,15 +2485,17 @@ code = '''
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_DATA, 0, buf1, SIZE),
-            LFS3_RATTR_BUF(LFS3_TAG_DATA, +1, buf2, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_DATA, 0,
+                &LFS3_DATA_BUF(buf1, SIZE)),
+            LFS3_RATTR_DATA(LFS3_TAG_DATA, +1,
+                &LFS3_DATA_BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
-            LFS3_RATTR_BUF(
+            LFS3_RATTR_DATA(
                 LFS3_TAG_MASK8 | LFS3_TAG_DATA, 0,
-                buf2, SIZE))) => 0;
+                &LFS3_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down to zero,
@@ -2554,15 +2556,17 @@ code = '''
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_DATA, 0, buf1, SIZE),
-            LFS3_RATTR_BUF(LFS3_TAG_DATA, +1, buf2, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_DATA, 0,
+                &LFS3_DATA_BUF(buf1, SIZE)),
+            LFS3_RATTR_DATA(LFS3_TAG_DATA, +1,
+                &LFS3_DATA_BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
-            LFS3_RATTR_BUF(
+            LFS3_RATTR_DATA(
                 LFS3_TAG_MASK8 | LFS3_TAG_DATA, 0,
-                buf2, SIZE))) => 0;
+                &LFS3_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down this zero,
@@ -2626,8 +2630,10 @@ code = '''
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_DATA, 0, buf1, SIZE),
-            LFS3_RATTR_BUF(LFS3_TAG_DATA, +1, buf2, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_DATA, 0,
+                &LFS3_DATA_BUF(buf1, SIZE)),
+            LFS3_RATTR_DATA(LFS3_TAG_DATA, +1,
+                &LFS3_DATA_BUF(buf2, SIZE)))) => 0;
 
     // force compaction, causing a split, but while we're splitting,
     // also remove an entry, bringing the split rbyd down to zero mid split
@@ -2691,15 +2697,17 @@ code = '''
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR_BUF(LFS3_TAG_DATA, 0, buf1, SIZE),
-            LFS3_RATTR_BUF(LFS3_TAG_DATA, +1, buf2, SIZE))) => 0;
+            LFS3_RATTR_DATA(LFS3_TAG_DATA, 0,
+                &LFS3_DATA_BUF(buf1, SIZE)),
+            LFS3_RATTR_DATA(LFS3_TAG_DATA, +1,
+                &LFS3_DATA_BUF(buf2, SIZE)))) => 0;
     // force compaction
     btree.eoff = -1;
     memset(buf2, 'b', SIZE);
     lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
-            LFS3_RATTR_BUF(
+            LFS3_RATTR_DATA(
                 LFS3_TAG_MASK8 | LFS3_TAG_DATA, 0,
-                buf2, SIZE))) => 0;
+                &LFS3_DATA_BUF(buf2, SIZE)))) => 0;
     assert(btree.weight == 2);
 
     // now make both entries small so they should be merged if either compacts

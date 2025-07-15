@@ -1994,6 +1994,23 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 #endif
 
 
+// rattr layouts/lazy encoders
+enum lfs3_from {
+    LFS3_FROM_BUF       = 0,
+    LFS3_FROM_DATA      = 1,
+
+    LFS3_FROM_LE32      = 2,
+    LFS3_FROM_LEB128    = 3,
+    LFS3_FROM_NAME      = 4,
+
+    LFS3_FROM_ECKSUM    = 5,
+    LFS3_FROM_BPTR      = 6,
+    LFS3_FROM_BTREE     = 7,
+    LFS3_FROM_SHRUB     = 8,
+    LFS3_FROM_MPTR      = 9,
+    LFS3_FROM_GEOMETRY  = 10,
+};
+
 // we need to at least define DSIZE/DATA macros here
 
 // ecksum encoding:
@@ -2004,6 +2021,21 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 // '---+---+---+---'
 //
 #define LFS3_ECKSUM_DSIZE (4+4)
+
+// bptr encoding:
+// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
+// | size          |      block:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
+// | block             |  cksize: 1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
+// | off           |      total:            <=21 bytes
+// +---+- -+- -+- -+
+// | cksize        |
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFS3_BPTR_DSIZE (4+5+4+4+4)
 
 // branch encoding:
 // .---+- -+- -+- -+- -.  block: 1 leb128  <=5 bytes
@@ -2028,21 +2060,6 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 // '---+---+---+---'
 //
 #define LFS3_BTREE_DSIZE (5+LFS3_BRANCH_DSIZE)
-
-// bptr encoding:
-// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
-// | size          |      block:  1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
-// | block             |  cksize: 1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
-// | off           |      total:            <=21 bytes
-// +---+- -+- -+- -+
-// | cksize        |
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFS3_BPTR_DSIZE (4+5+4+4+4)
 
 // shrub encoding:
 // .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
@@ -2077,10 +2094,8 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 #ifndef LFS3_RDONLY
 typedef struct lfs3_rattr {
     lfs3_tag_t tag;
-    // ignoring lazy/special tags
-    // sign(count)=0 => in-RAM buffer or estimate for lazy tags
-    // sign(count)=1 => multiple concatenated datas
-    int16_t count;
+    uint8_t from;
+    uint8_t count;
     lfs3_srid_t weight;
     union {
         const uint8_t *buffer;
@@ -2094,17 +2109,19 @@ typedef struct lfs3_rattr {
 #endif
 
 // low-level attr macro
-#define LFS3_RATTR_(_tag, _weight, _u, _count) \
+#define LFS3_RATTR_(_tag, _weight, _rattr) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
-        .count=_count, \
+        .from=(_rattr).from, \
+        .count=(_rattr).count, \
         .weight=_weight, \
-        .u=_u})
+        .u=(_rattr).u})
 
 // high-level attr macros
 #define LFS3_RATTR(_tag, _weight) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_BUF, \
         .count=0, \
         .weight=_weight, \
         .u.datas=NULL})
@@ -2112,21 +2129,24 @@ typedef struct lfs3_rattr {
 #define LFS3_RATTR_BUF(_tag, _weight, _buffer, _size) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
-        .count=(uint16_t){_size}, \
+        .from=LFS3_FROM_BUF, \
+        .count=_size, \
         .weight=_weight, \
         .u.buffer=(const void*)(_buffer)})
 
 #define LFS3_RATTR_DATA(_tag, _weight, _data) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
-        .count=-1, \
+        .from=LFS3_FROM_DATA, \
+        .count=1, \
         .weight=_weight, \
         .u.datas=_data})
 
 #define LFS3_RATTR_CAT_(_tag, _weight, _datas, _data_count) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
-        .count=-(uint16_t){_data_count}, \
+        .from=LFS3_FROM_DATA, \
+        .count=_data_count, \
         .weight=_weight, \
         .u.datas=_datas})
 
@@ -2140,6 +2160,7 @@ typedef struct lfs3_rattr {
 #define LFS3_RATTR_NOOP() \
     ((lfs3_rattr_t){ \
         .tag=LFS3_TAG_NULL, \
+        .from=LFS3_FROM_BUF, \
         .count=0, \
         .weight=0, \
         .u.buffer=NULL})
@@ -2150,6 +2171,7 @@ typedef struct lfs3_rattr {
 #define LFS3_RATTR_LE32(_tag, _weight, _le32) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_LE32, \
         .count=0, \
         .weight=_weight, \
         .u.le32=_le32})
@@ -2157,6 +2179,7 @@ typedef struct lfs3_rattr {
 #define LFS3_RATTR_LEB128(_tag, _weight, _leb128) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_LEB128, \
         .count=0, \
         .weight=_weight, \
         .u.leb128=_leb128})
@@ -2164,6 +2187,7 @@ typedef struct lfs3_rattr {
 #define LFS3_RATTR_LLEB128(_tag, _weight, _lleb128) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_LEB128, \
         .count=0, \
         .weight=_weight, \
         .u.lleb128=_lleb128})
@@ -2180,6 +2204,7 @@ typedef struct lfs3_name {
 #define LFS3_RATTR_NAME_(_tag, _weight, _name) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_NAME, \
         .count=0, \
         .weight=_weight, \
         .u.etc=(const lfs3_name_t*){_name}})
@@ -2194,61 +2219,69 @@ typedef struct lfs3_name {
             .name_len=_name_len}))
 
 // macros for other lazily encoded attrs
-#define LFS3_RATTR_GEOMETRY(_tag, _weight, _geometry) \
+#define LFS3_RATTR_ECKSUM(_tag, _weight, _ecksum) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_ECKSUM, \
         .count=0, \
         .weight=_weight, \
-        .u.etc=(const lfs3_geometry_t*){_geometry}})
+        .u.etc=(const lfs3_ecksum_t*){_ecksum}})
 
 // note the LFS3_BPTR_DSIZE hint so shrub estimates work
 #define LFS3_RATTR_BPTR(_tag, _weight, _bptr) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_BPTR, \
         .count=LFS3_BPTR_DSIZE, \
         .weight=_weight, \
         .u.etc=(const lfs3_bptr_t*){_bptr}})
 
-#define LFS3_RATTR_SHRUB(_tag, _weight, _shrub) \
-    ((lfs3_rattr_t){ \
-        .tag=_tag, \
-        .count=0, \
-        .weight=_weight, \
-        .u.etc=(const lfs3_shrub_t*){_shrub}})
-
 #define LFS3_RATTR_BTREE(_tag, _weight, _btree) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_BTREE, \
         .count=0, \
         .weight=_weight, \
         .u.etc=(const lfs3_btree_t*){_btree}})
 
+#define LFS3_RATTR_SHRUB(_tag, _weight, _shrub) \
+    ((lfs3_rattr_t){ \
+        .tag=_tag, \
+        .from=LFS3_FROM_SHRUB, \
+        .count=0, \
+        .weight=_weight, \
+        .u.etc=(const lfs3_shrub_t*){_shrub}})
+
 #define LFS3_RATTR_MPTR(_tag, _weight, _mptr) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_MPTR, \
         .count=0, \
         .weight=_weight, \
         .u.etc=(const lfs3_block_t*){_mptr}})
 
-#define LFS3_RATTR_ECKSUM(_tag, _weight, _ecksum) \
+#define LFS3_RATTR_GEOMETRY(_tag, _weight, _geometry) \
     ((lfs3_rattr_t){ \
         .tag=_tag, \
+        .from=LFS3_FROM_GEOMETRY, \
         .count=0, \
         .weight=_weight, \
-        .u.etc=(const lfs3_ecksum_t*){_ecksum}})
+        .u.etc=(const lfs3_geometry_t*){_geometry}})
 
 // these are special attrs that trigger unique behavior in
 // lfs3_mdir_commit__
 #define LFS3_RATTR_RATTRS(_rattrs, _rattr_count) \
     ((lfs3_rattr_t){ \
         .tag=LFS3_TAG_RATTRS, \
-        .count=(uint16_t){_rattr_count}, \
+        .from=LFS3_FROM_BUF, \
+        .count=_rattr_count, \
         .weight=0, \
         .u.etc=(const lfs3_rattr_t*){_rattrs}})
 
 #define LFS3_RATTR_SHRUBCOMMIT(_shrubcommit) \
     ((lfs3_rattr_t){ \
         .tag=LFS3_TAG_SHRUBCOMMIT, \
+        .from=LFS3_FROM_BUF, \
         .count=0, \
         .weight=0, \
         .u.etc=(const lfs3_shrubcommit_t*){_shrubcommit}})
@@ -2256,6 +2289,7 @@ typedef struct lfs3_name {
 #define LFS3_RATTR_MOVE(_move) \
     ((lfs3_rattr_t){ \
         .tag=LFS3_TAG_MOVE, \
+        .from=LFS3_FROM_BUF, \
         .count=0, \
         .weight=0, \
         .u.etc=(const lfs3_mdir_t*){_move}})
@@ -2263,7 +2297,8 @@ typedef struct lfs3_name {
 #define LFS3_RATTR_ATTRS(_attrs, _attr_count) \
     ((lfs3_rattr_t){ \
         .tag=LFS3_TAG_ATTRS, \
-        .count=(uint16_t){_attr_count}, \
+        .from=LFS3_FROM_BUF, \
+        .count=_attr_count, \
         .weight=0, \
         .u.etc=(const struct lfs3_attr*){_attrs}})
 
@@ -2294,37 +2329,6 @@ static inline lfs3_srid_t lfs3_rattr_nextrid(lfs3_rattr_t rattr,
         return rid + rattr.weight-1;
     } else {
         return rid + rattr.weight;
-    }
-}
-#endif
-
-#ifndef LFS3_RDONLY
-static inline lfs3_tag_t lfs3_rattr_dtag(lfs3_rattr_t rattr) {
-    // lazily tag encoding can be bypassed with explicit data, this is
-    // necessary to allow copies during compaction, relocation, etc
-    if (rattr.count >= 0) {
-        return rattr.tag;
-    } else {
-        return LFS3_TAG_DATA;
-    }
-}
-#endif
-
-#ifndef LFS3_RDONLY
-static inline lfs3_size_t lfs3_rattr_dsize(lfs3_rattr_t rattr) {
-    // note this does not include the tag size
-    //
-    // this gets a bit complicated for concatenated data
-    if (rattr.count >= 0) {
-        return rattr.count;
-    } else {
-        const lfs3_data_t *datas = rattr.u.datas;
-        lfs3_size_t data_count = -rattr.count;
-        lfs3_size_t size = 0;
-        for (lfs3_size_t i = 0; i < data_count; i++) {
-            size += lfs3_data_size(datas[i]);
-        }
-        return size;
     }
 }
 #endif
@@ -3362,17 +3366,17 @@ static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 #endif
 
 // needed in lfs3_rbyd_appendrattr_
+static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
+        uint8_t buffer[static LFS3_BPTR_DSIZE]);
+static lfs3_data_t lfs3_data_frombtree(const lfs3_btree_t *btree,
+        uint8_t buffer[static LFS3_BTREE_DSIZE]);
+static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
+        uint8_t buffer[static LFS3_SHRUB_DSIZE]);
+static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
+        uint8_t buffer[static LFS3_MPTR_DSIZE]);
 typedef struct lfs3_geometry lfs3_geometry_t;
 static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
         uint8_t buffer[static LFS3_GEOMETRY_DSIZE]);
-static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
-        uint8_t buffer[static LFS3_BPTR_DSIZE]);
-static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
-        uint8_t buffer[static LFS3_SHRUB_DSIZE]);
-static lfs3_data_t lfs3_data_frombtree(const lfs3_btree_t *btree,
-        uint8_t buffer[static LFS3_BTREE_DSIZE]);
-static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
-        uint8_t buffer[static LFS3_MPTR_DSIZE]);
 
 // encode rattrs
 #ifndef LFS3_RDONLY
@@ -3386,147 +3390,164 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // encode lazy tags?
     //
     // we encode most tags lazily as this heavily reduces stack usage,
-    // though this does make us less gc-able at compile time
+    // though this does make things less gc-able at compile time
     //
-    // note we only encode lazily if the rattr uses a direct buffer,
-    // explicit data bypasses the lazy encoding, which is necessary to
-    // allow copies during compaction, relocation, etc
-    //
-    lfs3_size_t size;
-    const void *data;
-    int16_t count;
+    const lfs3_data_t *datas;
+    lfs3_size_t data_count;
     struct {
-        // uh, there's probably a better way to do this, but I'm not
-        // sure what it is
         union {
-            uint8_t buf[LFS3_MAX(
-                    LFS3_LE32_DSIZE,
-                    LFS3_MAX(
-                        LFS3_LEB128_DSIZE,
-                        LFS3_MAX(
-                            LFS3_GEOMETRY_DSIZE,
-                            LFS3_MAX(
-                                LFS3_BPTR_DSIZE,
-                                LFS3_MAX(
-                                    LFS3_SHRUB_DSIZE,
-                                    LFS3_MAX(
-                                        LFS3_BTREE_DSIZE,
-                                        LFS3_MAX(
-                                            LFS3_MPTR_DSIZE,
-                                            LFS3_ECKSUM_DSIZE)))))))];
+            lfs3_data_t data;
+
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_LE32_DSIZE];
+            } le32;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_LEB128_DSIZE];
+            } leb128;
             struct {
                 lfs3_data_t datas[2];
                 uint8_t buf[LFS3_LEB128_DSIZE];
             } name;
+
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_ECKSUM_DSIZE];
+            } ecksum;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_BPTR_DSIZE];
+            } bptr;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_BTREE_DSIZE];
+            } btree;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_SHRUB_DSIZE];
+            } shrub;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_MPTR_DSIZE];
+            } mptr;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_GEOMETRY_DSIZE];
+            } geometry;
         } u;
     } ctx;
 
+    switch (rattr.from) {
+    // direct buffer?
+    case LFS3_FROM_BUF:;
+        ctx.u.data = LFS3_DATA_BUF(rattr.u.buffer, rattr.count);
+        datas = &ctx.u.data;
+        data_count = 1;
+        break;
+
+    // indirect concatenated data?
+    case LFS3_FROM_DATA:;
+        datas = rattr.u.datas;
+        data_count = rattr.count;
+        break;
+
     // le32?
-    if (rattr.count >= 0
-            && (rattr.tag == LFS3_TAG_RCOMPAT
-                || rattr.tag == LFS3_TAG_WCOMPAT
-                || rattr.tag == LFS3_TAG_OCOMPAT
-                || rattr.tag == LFS3_TAG_GCKSUMDELTA)) {
-        lfs3_data_t data_ = lfs3_data_fromle32(rattr.u.le32, ctx.u.buf);
-        size = lfs3_data_size(data_);
-        data = ctx.u.buf;
-        count = size;
+    case LFS3_FROM_LE32:;
+        ctx.u.le32.data = lfs3_data_fromle32(rattr.u.le32,
+                ctx.u.le32.buf);
+        datas = &ctx.u.le32.data;
+        data_count = 1;
+        break;
 
     // leb128?
-    } else if (rattr.count >= 0
-            && (rattr.tag == LFS3_TAG_NAMELIMIT
-                || rattr.tag == LFS3_TAG_FILELIMIT
-                || rattr.tag == LFS3_TAG_DID)) {
+    case LFS3_FROM_LEB128:;
         // leb128s should not exceed 31-bits
         LFS3_ASSERT(rattr.u.leb128 <= 0x7fffffff);
         // little-leb128s should not exceed 28-bits
         LFS3_ASSERT(rattr.tag != LFS3_TAG_NAMELIMIT
                 || rattr.u.leb128 <= 0x0fffffff);
-        lfs3_data_t data_ = lfs3_data_fromleb128(rattr.u.leb128, ctx.u.buf);
-        size = lfs3_data_size(data_);
-        data = ctx.u.buf;
-        count = size;
-
-    // geometry?
-    } else if (rattr.count >= 0
-            && rattr.tag == LFS3_TAG_GEOMETRY) {
-        lfs3_data_t data_ = lfs3_data_fromgeometry(rattr.u.etc, ctx.u.buf);
-        size = lfs3_data_size(data_);
-        data = ctx.u.buf;
-        count = size;
+        ctx.u.leb128.data = lfs3_data_fromleb128(rattr.u.leb128,
+                ctx.u.leb128.buf);
+        datas = &ctx.u.leb128.data;
+        data_count = 1;
+        break;
 
     // name?
-    } else if (rattr.count >= 0
-            && lfs3_tag_suptype(rattr.tag) == LFS3_TAG_NAME) {
+    case LFS3_FROM_NAME:;
         const lfs3_name_t *name = rattr.u.etc;
         ctx.u.name.datas[0] = lfs3_data_fromleb128(name->did, ctx.u.name.buf);
         ctx.u.name.datas[1] = LFS3_DATA_BUF(name->name, name->name_len);
-        size = lfs3_data_size(ctx.u.name.datas[0]) + name->name_len;
-        data = &ctx.u.name.datas;
-        count = -2;
+        datas = ctx.u.name.datas;
+        data_count = 2;
+        break;
+
+    // ecksum?
+    case LFS3_FROM_ECKSUM:;
+        ctx.u.ecksum.data = lfs3_data_fromecksum(rattr.u.etc,
+                ctx.u.ecksum.buf);
+        datas = &ctx.u.ecksum.data;
+        data_count = 1;
+        break;
 
     // bptr?
-    } else if (LFS3_IFDEF_2BONLY(
-            false,
-            rattr.count >= 0
-                && (rattr.tag == LFS3_TAG_BLOCK
-                    || rattr.tag == (LFS3_TAG_SHRUB | LFS3_TAG_BLOCK)))) {
-        #ifndef LFS3_2BONLY
-        lfs3_data_t data_ = lfs3_data_frombptr(rattr.u.etc, ctx.u.buf);
-        size = lfs3_data_size(data_);
-        data = ctx.u.buf;
-        count = size;
-        #endif
+    #ifndef LFS3_2BONLY
+    case LFS3_FROM_BPTR:;
+        ctx.u.bptr.data = lfs3_data_frombptr(rattr.u.etc,
+                ctx.u.bptr.buf);
+        datas = &ctx.u.bptr.data;
+        data_count = 1;
+        break;
+    #endif
+
+    // btree?
+    #ifndef LFS3_2BONLY
+    case LFS3_FROM_BTREE:;
+        ctx.u.btree.data = lfs3_data_frombtree(rattr.u.etc,
+                ctx.u.btree.buf);
+        datas = &ctx.u.btree.data;
+        data_count = 1;
+        break;
+    #endif
 
     // shrub trunk?
-    } else if (rattr.count >= 0
-            && rattr.tag == LFS3_TAG_BSHRUB) {
+    case LFS3_FROM_SHRUB:;
         // note unlike the other lazy tags, we _need_ to lazily encode
         // shrub trunks, since they change underneath us during mdir
         // compactions, relocations, etc
-        lfs3_data_t data_ = lfs3_data_fromshrub(rattr.u.etc, ctx.u.buf);
-        size = lfs3_data_size(data_);
-        data = ctx.u.buf;
-        count = size;
-
-    // btree?
-    } else if (LFS3_IFDEF_2BONLY(
-            false,
-            rattr.count >= 0
-                && (rattr.tag == LFS3_TAG_BTREE
-                    || rattr.tag == LFS3_TAG_MTREE))) {
-        #ifndef LFS3_2BONLY
-        lfs3_data_t data_ = lfs3_data_frombtree(rattr.u.etc, ctx.u.buf);
-        size = lfs3_data_size(data_);
-        data = ctx.u.buf;
-        count = size;
-        #endif
+        ctx.u.shrub.data = lfs3_data_fromshrub(rattr.u.etc,
+                ctx.u.shrub.buf);
+        datas = &ctx.u.shrub.data;
+        data_count = 1;
+        break;
 
     // mptr?
-    } else if (rattr.count >= 0
-            && (rattr.tag == LFS3_TAG_MROOT
-                || rattr.tag == LFS3_TAG_MDIR)) {
-        lfs3_data_t data_ = lfs3_data_frommptr(rattr.u.etc, ctx.u.buf);
-        size = lfs3_data_size(data_);
-        data = ctx.u.buf;
-        count = size;
+    case LFS3_FROM_MPTR:;
+        ctx.u.mptr.data = lfs3_data_frommptr(rattr.u.etc,
+                ctx.u.mptr.buf);
+        datas = &ctx.u.mptr.data;
+        data_count = 1;
+        break;
 
-    // ecksum?
-    } else if (rattr.count >= 0
-            && rattr.tag == LFS3_TAG_ECKSUM) {
-        lfs3_data_t data_ = lfs3_data_fromecksum(rattr.u.etc, ctx.u.buf);
-        size = lfs3_data_size(data_);
-        data = ctx.u.buf;
-        count = size;
+    // geometry?
+    case LFS3_FROM_GEOMETRY:;
+        ctx.u.geometry.data = lfs3_data_fromgeometry(rattr.u.etc,
+                ctx.u.geometry.buf);
+        datas = &ctx.u.geometry.data;
+        data_count = 1;
+        break;
 
-    // default to raw data
-    } else {
-        size = lfs3_rattr_dsize(rattr);
-        data = rattr.u.datas;
-        count = rattr.count;
+    default:;
+        LFS3_UNREACHABLE();
     }
 
     // now everything should be raw data, either in-ram or on-disk
+
+    // find the concatenated size
+    lfs3_size_t size = 0;
+    for (lfs3_size_t i = 0; i < data_count; i++) {
+        size += lfs3_data_size(datas[i]);
+    }
 
     // do we fit?
     if (lfs3_rbyd_eoff(rbyd) + LFS3_TAG_DSIZE + size
@@ -3541,31 +3562,16 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         return err;
     }
 
-    // direct buffer?
-    if (count >= 0) {
-        err = lfs3_bd_prog(lfs3,
-                rbyd->blocks[0], lfs3_rbyd_eoff(rbyd), data, count,
+    // append data
+    for (lfs3_size_t i = 0; i < data_count; i++) {
+        err = lfs3_bd_progdata(lfs3,
+                rbyd->blocks[0], lfs3_rbyd_eoff(rbyd), datas[i],
                 &rbyd->cksum, false);
         if (err) {
             return err;
         }
 
-        rbyd->eoff += count;
-
-    // indirect concatenated data?
-    } else {
-        const lfs3_data_t *datas = data;
-        lfs3_size_t data_count = -count;
-        for (lfs3_size_t i = 0; i < data_count; i++) {
-            err = lfs3_bd_progdata(lfs3,
-                    rbyd->blocks[0], lfs3_rbyd_eoff(rbyd), datas[i],
-                    &rbyd->cksum, false);
-            if (err) {
-                return err;
-            }
-
-            rbyd->eoff += lfs3_data_size(datas[i]);
-        }
+        rbyd->eoff += lfs3_data_size(datas[i]);
     }
 
     // keep track of most recent parity
@@ -4334,7 +4340,7 @@ leaf:;
                     ? LFS3_TAG_NULL
                     : lfs3_tag_key(rattr.tag)),
             upper_rid - lower_rid + rattr.weight,
-            rattr.u, rattr.count));
+            rattr));
     if (err) {
         return err;
     }
@@ -4670,7 +4676,7 @@ static int lfs3_rbyd_appendcompactrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     err = lfs3_rbyd_appendrattr_(lfs3, rbyd, LFS3_RATTR_(
             (lfs3_rbyd_isshrub(rbyd) ? LFS3_TAG_SHRUB : 0) | rattr.tag,
             rattr.weight,
-            rattr.u, rattr.count));
+            rattr));
     if (err) {
         return err;
     }
@@ -6787,8 +6793,17 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     // figure out how much data this commit progs
     lfs3_size_t commit_estimate = 0;
     for (lfs3_size_t i = 0; i < rattr_count; i++) {
-        commit_estimate += lfs3->rattr_estimate
-                + lfs3_rattr_dsize(rattrs[i]);
+        commit_estimate += lfs3->rattr_estimate;
+        // fortunately the tags we commit to shrubs are actually quite
+        // limited, if lazily encoded the rattr should set rattr.count
+        // to the expected dsize
+        if (rattrs[i].from == LFS3_FROM_DATA) {
+            for (lfs3_size_t j = 0; j < rattrs[i].count; j++) {
+                commit_estimate += lfs3_data_size(rattrs[i].u.datas[j]);
+            }
+        } else {
+            commit_estimate += rattrs[i].count;
+        }
     }
 
     // does our estimate exceed our inline_size? need to recalculate an
@@ -9703,7 +9718,7 @@ static int lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
 
 // traversing littlefs is a bit complex, so we use a state machine to keep
 // track of where we are
-enum {
+enum lfs3_tstate {
     LFS3_TSTATE_MROOTANCHOR = 0,
     #ifndef LFS3_2BONLY
     LFS3_TSTATE_MROOTCHAIN  = 1,
