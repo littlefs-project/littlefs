@@ -708,6 +708,131 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+# test that we can set attrs to a size >256
+#
+# this can trip up internal logic that uses uint8_t sizes
+#
+[cases.test_attrs_setattr_big]
+# type of file to attach attrs to
+# FILETYPE=0 => regular file
+# FILETYPE=1 => stickynote
+# FILETYPE=2 => directory
+# FILETYPE=3 => root
+defines.FILETYPE = [0, 1, 2, 3]
+# update based on this mask
+defines.MASK = 'range(0x8)'
+defines.SIZE = [500, 509, 512, 513]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    const char *path;
+    lfs3_file_t file;
+    // create a file?
+    if (FILETYPE == 0) {
+        path = "cat";
+        lfs3_file_open(&lfs3, &file, path, LFS3_O_WRONLY | LFS3_O_CREAT) => 0;
+        lfs3_file_write(&lfs3, &file, "meow", strlen("meow")) => strlen("meow");
+        lfs3_file_close(&lfs3, &file) => 0;
+
+    // create a stickynote?
+    } else if (FILETYPE == 1) {
+        path = "snail";
+        lfs3_file_open(&lfs3, &file, path, LFS3_O_WRONLY | LFS3_O_CREAT) => 0;
+        lfs3_file_write(&lfs3, &file, "snailnoise", strlen("snailnoise"))
+                => strlen("snailnoise");
+
+    // create a dir?
+    } else if (FILETYPE == 2) {
+        path = "armadillo";
+        lfs3_mkdir(&lfs3, path) => 0;
+
+    // do nothing for root
+    } else {
+        path = "/";
+    }
+
+    // create some attrs
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_setattr(&lfs3, path, 'a', a, strlen(a)) => 0;
+    uint8_t b[1024];
+    memset(b, 'b', SIZE);
+    lfs3_setattr(&lfs3, path, 'b', b, SIZE) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_setattr(&lfs3, path, 'c', c, strlen(c)) => 0;
+
+    // rewrite some attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    if (MASK & 0x1) {
+        lfs3_setattr(&lfs3, path, 'a', a_, strlen(a_)) => 0;
+    }
+    uint8_t b_[1024];
+    memset(b_, 'B', SIZE);
+    if (MASK & 0x2) {
+        lfs3_setattr(&lfs3, path, 'b', b_, SIZE) => 0;
+    }
+    const char *c_ = "One and two third cups granulated sugar.";
+    if (MASK & 0x4) {
+        lfs3_setattr(&lfs3, path, 'c', c_, strlen(c_)) => 0;
+    }
+
+    if (FILETYPE == 1) {
+        lfs3_file_close(&lfs3, &file) => 0;
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        if (MASK & 0x1) {
+            lfs3_sizeattr(&lfs3, path, 'a') => strlen(a_);
+        } else {
+            lfs3_sizeattr(&lfs3, path, 'a') => strlen(a);
+        }
+        if (MASK & 0x2) {
+            lfs3_sizeattr(&lfs3, path, 'b') => SIZE;
+        } else {
+            lfs3_sizeattr(&lfs3, path, 'b') => SIZE;
+        }
+        if (MASK & 0x4) {
+            lfs3_sizeattr(&lfs3, path, 'c') => strlen(c_);
+        } else {
+            lfs3_sizeattr(&lfs3, path, 'c') => strlen(c);
+        }
+
+        // try reading attrs
+        uint8_t rbuf[1024];
+        if (MASK & 0x1) {
+            lfs3_getattr(&lfs3, path, 'a', rbuf, sizeof(rbuf)) => strlen(a_);
+            assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+        } else {
+            lfs3_getattr(&lfs3, path, 'a', rbuf, sizeof(rbuf)) => strlen(a);
+            assert(memcmp(rbuf, a, strlen(a)) == 0);
+        }
+        if (MASK & 0x2) {
+            lfs3_getattr(&lfs3, path, 'b', rbuf, sizeof(rbuf)) => SIZE;
+            assert(memcmp(rbuf, b_, SIZE) == 0);
+        } else {
+            lfs3_getattr(&lfs3, path, 'b', rbuf, sizeof(rbuf)) => SIZE;
+            assert(memcmp(rbuf, b, SIZE) == 0);
+        }
+        if (MASK & 0x4) {
+            lfs3_getattr(&lfs3, path, 'c', rbuf, sizeof(rbuf)) => strlen(c_);
+            assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+        } else {
+            lfs3_getattr(&lfs3, path, 'c', rbuf, sizeof(rbuf)) => strlen(c);
+            assert(memcmp(rbuf, c, strlen(c)) == 0);
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
 # test the full range of attrs
 [cases.test_attrs_all]
 # type of file to attach attrs to
@@ -2785,6 +2910,124 @@ code = '''
         lfs3_getattr(&lfs3, "cat", 'a', rbuf, sizeof(rbuf)) => 0;
         lfs3_getattr(&lfs3, "cat", 'b', rbuf, sizeof(rbuf)) => 0;
         lfs3_getattr(&lfs3, "cat", 'c', rbuf, sizeof(rbuf)) => 0;
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that we can set attrs to a size >256
+#
+# this can trip up internal logic that uses uint8_t sizes
+#
+[cases.test_attrs_fattr_big]
+defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
+defines.MUTSIZE = [false, true]
+defines.SIZE = [500, 509, 512, 513]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "cat", LFS3_O_WRONLY | LFS3_O_CREAT) => 0;
+    lfs3_file_write(&lfs3, &file, "meow", strlen("meow")) => strlen("meow");
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // create some attrs
+    //
+    // we only make one attr big because otherwise we probably won't
+    // fit in the mdir
+    //
+    const char *a = "One 18.25 ounce package chocolate cake mix.";
+    lfs3_setattr(&lfs3, "cat", 'a', a, strlen(a)) => 0;
+    uint8_t b[1024];
+    memset(b, 'b', SIZE);
+    lfs3_setattr(&lfs3, "cat", 'b', b, SIZE) => 0;
+    const char *c = "Three slash four cup vegetable oil.";
+    lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
+
+    // try opening a file with attrs
+    const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
+    uint8_t b_[1024];
+    memset(b_, 'B', SIZE);
+    const char *c_ = "One and two third cups granulated sugar.";
+    uint8_t a_buf[1024];
+    lfs3_ssize_t a_size;
+    uint8_t b_buf[1024];
+    lfs3_ssize_t b_size;
+    uint8_t c_buf[1024];
+    lfs3_ssize_t c_size;
+    struct lfs3_attr attrs[] = {
+        {
+            .type = 'a',
+            .flags = MODE,
+            .buffer = a_buf,
+            .buffer_size = (MUTSIZE) ? sizeof(a_buf) : strlen(a_),
+            .size = (MUTSIZE) ? &a_size : NULL,
+        },
+        {
+            .type = 'b',
+            .flags = MODE,
+            .buffer = b_buf,
+            .buffer_size = (MUTSIZE) ? sizeof(b_buf) : (lfs3_size_t)SIZE,
+            .size = (MUTSIZE) ? &b_size : NULL,
+        },
+        {
+            .type = 'c',
+            .flags = MODE,
+            .buffer = c_buf,
+            .buffer_size = (MUTSIZE) ? sizeof(c_buf) : strlen(c_),
+            .size = (MUTSIZE) ? &c_size : NULL,
+        }
+    };
+    struct lfs3_file_config filecfg = {
+        .attrs = attrs,
+        .attr_count = 3,
+    };
+    lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
+
+    if (MODE == LFS3_A_RDWR && MUTSIZE) {
+        // did we read the attrs correctly?
+        assert(a_size == strlen(a));
+        assert(memcmp(a_buf, a, strlen(a)) == 0);
+        assert(b_size == SIZE);
+        assert(memcmp(b_buf, b, SIZE) == 0);
+        assert(c_size == strlen(c));
+        assert(memcmp(c_buf, c, strlen(c)) == 0);
+    }
+
+    // update the attrs with new values
+    memcpy(a_buf, a_, strlen(a_));
+    memcpy(b_buf, b_, SIZE);
+    memcpy(c_buf, c_, strlen(c_));
+    a_size = strlen(a_);
+    b_size = SIZE;
+    c_size = strlen(c_);
+
+    // write and close our file to write the attrs out to disk
+    lfs3_file_write(&lfs3, &file, "miao", strlen("miao")) => strlen("miao");
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // try getting the attr sizes
+        lfs3_sizeattr(&lfs3, "cat", 'a') => strlen(a_);
+        lfs3_sizeattr(&lfs3, "cat", 'b') => SIZE;
+        lfs3_sizeattr(&lfs3, "cat", 'c') => strlen(c_);
+        // try reading the attrs
+        uint8_t rbuf[1024];
+        lfs3_getattr(&lfs3, "cat", 'a', rbuf, sizeof(rbuf)) => strlen(a_);
+        assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+        lfs3_getattr(&lfs3, "cat", 'b', rbuf, sizeof(rbuf)) => SIZE;
+        assert(memcmp(rbuf, b_, SIZE) == 0);
+        lfs3_getattr(&lfs3, "cat", 'c', rbuf, sizeof(rbuf)) => strlen(c_);
+        assert(memcmp(rbuf, c_, strlen(c_)) == 0);
     }
 
     lfs3_unmount(&lfs3) => 0;

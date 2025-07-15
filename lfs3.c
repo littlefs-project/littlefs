@@ -8313,10 +8313,11 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                                 ? LFS3_RATTR(
                                     LFS3_TAG_RM
                                         | LFS3_TAG_ATTR(attrs_[j].type), 0)
-                                : LFS3_RATTR_BUF(
+                                : LFS3_RATTR_DATA(
                                     LFS3_TAG_ATTR(attrs_[j].type), 0,
-                                    attrs_[j].buffer,
-                                    lfs3_attr_size(&attrs_[j])));
+                                    &LFS3_DATA_BUF(
+                                        attrs_[j].buffer,
+                                        lfs3_attr_size(&attrs_[j]))));
                     if (err) {
                         return err;
                     }
@@ -11446,9 +11447,10 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
     // commit our attr
     lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR_BUF(
+            LFS3_RATTR_DATA(
                 LFS3_TAG_ATTR(type), 0,
-                buffer, size)));
+                &LFS3_DATA_BUF(
+                    buffer, size))));
     if (err) {
         return err;
     }
