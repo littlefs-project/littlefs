@@ -5574,7 +5574,52 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             return err;
         }
 
-        goto commit;
+    recurse:;
+        // propagate successful commits
+
+        // done?
+        if (!lfs3_rbyd_trunk(&parent)) {
+            // update the root
+            // (note btree_ == child_)
+            // no new root needed
+            *rattr_count = 0;
+            return 0;
+        }
+
+        // is our parent the root and is the root degenerate?
+        if (child.weight == btree->weight) {
+            // collapse the root, decreasing the height of the tree
+            // (note btree_ == child_)
+            // no new root needed
+            *rattr_count = 0;
+            return 0;
+        }
+
+        // prepare commit to parent, tail recursing upwards
+        //
+        // note that since we defer merges to compaction time, we can
+        // end up removing an rbyd here
+        rattr_count_ = 0;
+        bid_ -= pid - (child.weight-1);
+        if (child_->weight == 0) {
+            bctx->rattrs[rattr_count_++] = LFS3_RATTR(
+                    LFS3_TAG_RM, -child.weight);
+        } else {
+            lfs3_data_t branch = lfs3_data_frombranch(
+                    child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
+            bctx->rattrs[rattr_count_++] = LFS3_RATTR_BUF(
+                    LFS3_TAG_BRANCH, 0,
+                    branch.u.buffer, lfs3_data_size(branch));
+            if (child_->weight != child.weight) {
+                bctx->rattrs[rattr_count_++] = LFS3_RATTR(
+                        LFS3_TAG_GROW, -child.weight + child_->weight);
+            }
+        }
+        rattrs_ = bctx->rattrs;
+
+        child = parent;
+        rid_ = pid;
+        continue;
 
     compact:;
         // estimate our compacted size
@@ -5746,7 +5791,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             return err;
         }
 
-        goto commit;
+        goto recurse;
 
     split:;
         // we should have something to split here
@@ -5871,9 +5916,10 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             if (child_->weight == 0) {
                 *child_ = sibling;
             }
-            goto commit;
+            goto recurse;
         }
 
+    split_recurse:;
         // lookup first name in sibling to use as the split name
         //
         // note we need to do this after playing out pending rattrs in case
@@ -6000,6 +6046,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             return err;
         }
 
+    merge_recurse:;
         // we must have a parent at this point, but is our parent the root
         // and is the root degenerate?
         LFS3_ASSERT(lfs3_rbyd_trunk(&parent));
@@ -6031,51 +6078,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
 
         child = parent;
         rid_ = pid + sibling.weight;
-        continue;
-
-    commit:;
-        // done?
-        if (!lfs3_rbyd_trunk(&parent)) {
-            // update the root
-            // (note btree_ == child_)
-            // no new root needed
-            *rattr_count = 0;
-            return 0;
-        }
-
-        // is our parent the root and is the root degenerate?
-        if (child.weight == btree->weight) {
-            // collapse the root, decreasing the height of the tree
-            // (note btree_ == child_)
-            // no new root needed
-            *rattr_count = 0;
-            return 0;
-        }
-
-        // prepare commit to parent, tail recursing upwards
-        //
-        // note that since we defer merges to compaction time, we can
-        // end up removing an rbyd here
-        rattr_count_ = 0;
-        bid_ -= pid - (child.weight-1);
-        if (child_->weight == 0) {
-            bctx->rattrs[rattr_count_++] = LFS3_RATTR(
-                    LFS3_TAG_RM, -child.weight);
-        } else {
-            lfs3_data_t branch = lfs3_data_frombranch(
-                    child_, &bctx->buf[0*LFS3_BRANCH_DSIZE]);
-            bctx->rattrs[rattr_count_++] = LFS3_RATTR_BUF(
-                    LFS3_TAG_BRANCH, 0,
-                    branch.u.buffer, lfs3_data_size(branch));
-            if (child_->weight != child.weight) {
-                bctx->rattrs[rattr_count_++] = LFS3_RATTR(
-                        LFS3_TAG_GROW, -child.weight + child_->weight);
-            }
-        }
-        rattrs_ = bctx->rattrs;
-
-        child = parent;
-        rid_ = pid;
         continue;
     }
 }
