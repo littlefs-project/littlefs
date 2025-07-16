@@ -1641,7 +1641,6 @@ static inline uint32_t lfs3_data_cksum(lfs3_data_t data) {
 #endif
 
 // data slicing
-LFS3_FORCEINLINE
 static inline lfs3_data_t lfs3_data_slice(lfs3_data_t data,
         lfs3_ssize_t off, lfs3_ssize_t size) {
     // limit our off/size to data range, note the use of unsigned casts
