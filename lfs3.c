@@ -2499,6 +2499,12 @@ static inline uint32_t lfs3_bptr_cksum(const lfs3_bptr_t *bptr) {
 }
 #endif
 
+// slice a bptr in-place
+static inline void lfs3_bptr_slice(lfs3_bptr_t *bptr,
+        lfs3_ssize_t off, lfs3_ssize_t size) {
+    bptr->d = lfs3_data_slice(bptr->d, off, size);
+}
+
 // bptr on-disk encoding
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
@@ -2617,7 +2623,7 @@ static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
 
     // limit bptrs to btree weights, this may be useful for
     // compression in the future
-    bptr->d = lfs3_data_slice(bptr->d, -1, weight);
+    lfs3_bptr_slice(bptr, -1, weight);
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
@@ -12315,11 +12321,11 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
 
         // note, an entry can be both a left and right sibling
         l = bptr_;
-        l.d = lfs3_data_slice(bptr_.d,
+        lfs3_bptr_slice(&l,
                 -1,
                 pos - (bid-(weight_-1)));
         r = bptr_;
-        r.d = lfs3_data_slice(bptr_.d,
+        lfs3_bptr_slice(&r,
                 pos+weight - (bid-(weight_-1)),
                 -1);
 
@@ -13942,7 +13948,7 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     //
     // note we don't unconditionally discard to match fruncate, where we
     // _really_ don't want to discard erased-state
-    file->leaf.bptr.d = lfs3_data_slice(file->leaf.bptr.d,
+    lfs3_bptr_slice(&file->leaf.bptr,
             -1,
             size_ - lfs3_min(file->leaf.pos, size_));
     file->leaf.weight = lfs3_min(
@@ -14025,7 +14031,7 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // note we _really_ don't want to discard erased-state if possible,
     // as fruncate is intended for logging operations, otherwise we'd
     // just unconditionally discard the leaf and avoid this hassle
-    file->leaf.bptr.d = lfs3_data_slice(file->leaf.bptr.d,
+    lfs3_bptr_slice(&file->leaf.bptr,
             lfs3_min(
                 lfs3_smax(
                     size - size_ - file->leaf.pos,
