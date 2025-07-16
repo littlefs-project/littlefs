@@ -1670,28 +1670,6 @@ static inline lfs3_data_t lfs3_data_fromslice(lfs3_data_t data,
     return data;
 }
 
-#define LFS3_DATA_TRUNCATE(_data, _size) \
-    ((struct {lfs3_data_t d;}){lfs3_data_fromtruncate(_data, _size)}.d)
-
-LFS3_FORCEINLINE
-static inline lfs3_data_t lfs3_data_fromtruncate(lfs3_data_t data,
-        lfs3_size_t size) {
-    return LFS3_DATA_SLICE(data, -1, size);
-}
-
-#define LFS3_DATA_FRUNCATE(_data, _size) \
-    ((struct {lfs3_data_t d;}){lfs3_data_fromfruncate(_data, _size)}.d)
-
-LFS3_FORCEINLINE
-static inline lfs3_data_t lfs3_data_fromfruncate(lfs3_data_t data,
-        lfs3_size_t size) {
-    return LFS3_DATA_SLICE(data,
-            lfs3_data_size(data) - lfs3_min(
-                size,
-                lfs3_data_size(data)),
-            -1);
-}
-
 
 // data <-> bd interactions
 
@@ -2637,7 +2615,7 @@ static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
 
     // limit bptrs to btree weights, this may be useful for
     // compression in the future
-    bptr->d = LFS3_DATA_TRUNCATE(bptr->d, weight);
+    bptr->d = LFS3_DATA_SLICE(bptr->d, -1, weight);
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
@@ -13207,7 +13185,8 @@ fragment:;
             if (bid-(weight-1) + lfs3_bptr_size(&bptr) >= fragment_start
                     && fragment_end - (bid-(weight-1))
                         <= lfs3->cfg->fragment_size) {
-                datas[data_count++] = LFS3_DATA_TRUNCATE(bptr.d,
+                datas[data_count++] = LFS3_DATA_SLICE(bptr.d,
+                        -1,
                         fragment_start - (bid-(weight-1)));
 
                 fragment_start = bid-(weight-1);
@@ -13241,9 +13220,9 @@ fragment:;
                     && bid-(weight-1) + lfs3_bptr_size(&bptr)
                             - fragment_start
                         <= lfs3->cfg->fragment_size) {
-                datas[data_count++] = LFS3_DATA_FRUNCATE(bptr.d,
-                        bid-(weight-1) + lfs3_bptr_size(&bptr)
-                            - fragment_end);
+                datas[data_count++] = LFS3_DATA_SLICE(bptr.d,
+                        fragment_end - (bid-(weight-1)),
+                        -1);
 
                 fragment_end = bid-(weight-1) + lfs3_bptr_size(&bptr);
             }
@@ -13961,8 +13940,8 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     //
     // note we don't unconditionally discard to match fruncate, where we
     // _really_ don't want to discard erased-state
-    file->leaf.bptr.d = LFS3_DATA_TRUNCATE(
-            file->leaf.bptr.d,
+    file->leaf.bptr.d = LFS3_DATA_SLICE(file->leaf.bptr.d,
+            -1,
             size_ - lfs3_min(file->leaf.pos, size_));
     file->leaf.weight = lfs3_min(
             file->leaf.weight,
@@ -14044,13 +14023,13 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // note we _really_ don't want to discard erased-state if possible,
     // as fruncate is intended for logging operations, otherwise we'd
     // just unconditionally discard the leaf and avoid this hassle
-    file->leaf.bptr.d = LFS3_DATA_FRUNCATE(
-            file->leaf.bptr.d,
-            lfs3_bptr_size(&file->leaf.bptr) - lfs3_min(
+    file->leaf.bptr.d = LFS3_DATA_SLICE(file->leaf.bptr.d,
+            lfs3_min(
                 lfs3_smax(
                     size - size_ - file->leaf.pos,
                     0),
-                lfs3_bptr_size(&file->leaf.bptr)));
+                lfs3_bptr_size(&file->leaf.bptr)),
+            -1);
     file->leaf.weight -= lfs3_min(
             lfs3_smax(
                 size - size_ - file->leaf.pos,
