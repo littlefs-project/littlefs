@@ -742,7 +742,7 @@ static inline lfs3_size_t lfs3_ptail_off(const lfs3_t *lfs3) {
 
 // checked read helpers
 
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 static int lfs3_bd_ckprefix(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         lfs3_size_t cksize, uint32_t cksum,
@@ -777,7 +777,7 @@ static int lfs3_bd_ckprefix(lfs3_t *lfs3,
 }
 #endif
 
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 static int lfs3_bd_cksuffix(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         lfs3_size_t cksize, uint32_t cksum,
@@ -818,7 +818,7 @@ static int lfs3_bd_cksuffix(lfs3_t *lfs3,
 // contributes to the relevant parity/checksum, this may be
 // significantly more than the data we actually end up using
 //
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 static int lfs3_bd_readck(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         void *buffer, lfs3_size_t size,
@@ -868,7 +868,7 @@ static int lfs3_bd_readck(lfs3_t *lfs3,
 //
 // we'd also need to worry about early termination in lfs3_bd_cmp/cmpck
 
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         const void *buffer, lfs3_size_t size,
@@ -932,7 +932,7 @@ static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_CKDATACKSUMREADS)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKDATACKSUMS)
 static int lfs3_bd_cpyck(lfs3_t *lfs3,
         lfs3_block_t dst_block, lfs3_size_t dst_off,
         lfs3_block_t src_block, lfs3_size_t src_off, lfs3_size_t hint,
@@ -1591,7 +1591,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 #define LFS3_DATA_ONDISK 0x80000000
 #define LFS3_DATA_ISBPTR 0x40000000
 
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 #define LFS3_DATA_ISERASED 0x80000000
 #endif
 
@@ -1628,13 +1628,13 @@ static inline lfs3_size_t lfs3_data_size(lfs3_data_t data) {
     return data.size & ~LFS3_DATA_ONDISK & ~LFS3_DATA_ISBPTR;
 }
 
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 static inline lfs3_size_t lfs3_data_cksize(lfs3_data_t data) {
     return data.u.disk.cksize & ~LFS3_DATA_ISERASED;
 }
 #endif
 
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 static inline uint32_t lfs3_data_cksum(lfs3_data_t data) {
     return data.u.disk.cksum;
 }
@@ -1679,7 +1679,7 @@ static inline lfs3_data_t lfs3_data_slice(lfs3_data_t data,
 // consuming the data
 
 // needed in lfs3_data_read and friends
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 static inline bool lfs3_m_isckdatacksums(uint32_t flags);
 #endif
 
@@ -1691,11 +1691,11 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
     // on-disk?
     if (lfs3_data_ondisk(*data)) {
         // validating data cksums?
-        if (LFS3_IFDEF_CKDATACKSUMREADS(
+        if (LFS3_IFDEF_CKDATACKSUMS(
                 lfs3_m_isckdatacksums(lfs3->flags)
                     && lfs3_data_isbptr(*data),
                 false)) {
-            #ifdef LFS3_CKDATACKSUMREADS
+            #ifdef LFS3_CKDATACKSUMS
             int err = lfs3_bd_readck(lfs3,
                     data->u.disk.block, data->u.disk.off,
                     // note our hint includes the full data range
@@ -1798,11 +1798,11 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, lfs3_data_t data,
     // on-disk?
     if (lfs3_data_ondisk(data)) {
         // validating data cksums?
-        if (LFS3_IFDEF_CKDATACKSUMREADS(
+        if (LFS3_IFDEF_CKDATACKSUMS(
                 lfs3_m_isckdatacksums(lfs3->flags)
                     && lfs3_data_isbptr(data),
                 false)) {
-            #ifdef LFS3_CKDATACKSUMREADS
+            #ifdef LFS3_CKDATACKSUMS
             int cmp = lfs3_bd_cmpck(lfs3,
                     // note the 0 hint, we don't usually use any
                     // following data
@@ -1871,11 +1871,11 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
     // on-disk?
     if (lfs3_data_ondisk(data)) {
         // validating data cksums?
-        if (LFS3_IFDEF_CKDATACKSUMREADS(
+        if (LFS3_IFDEF_CKDATACKSUMS(
                 lfs3_m_isckdatacksums(lfs3->flags)
                     && lfs3_data_isbptr(data),
                 false)) {
-            #ifdef LFS3_CKDATACKSUMREADS
+            #ifdef LFS3_CKDATACKSUMS
             int err = lfs3_bd_cpyck(lfs3, block, off,
                     data.u.disk.block, data.u.disk.off, lfs3_data_size(data),
                     lfs3_data_size(data),
@@ -2418,7 +2418,7 @@ static void lfs3_bptr_init(lfs3_bptr_t *bptr,
     bptr->d.size = data.size | LFS3_DATA_ONDISK | LFS3_BPTR_ISBPTR;
     bptr->d.u.disk.block = data.u.disk.block;
     bptr->d.u.disk.off = data.u.disk.off;
-    #ifdef LFS3_CKDATACKSUMREADS
+    #ifdef LFS3_CKDATACKSUMS
     bptr->d.u.disk.cksize = cksize;
     bptr->d.u.disk.cksum = cksum;
     #else
@@ -2430,7 +2430,7 @@ static void lfs3_bptr_init(lfs3_bptr_t *bptr,
 
 static inline void lfs3_bptr_discard(lfs3_bptr_t *bptr) {
     bptr->d = LFS3_DATA_NULL();
-    #if !defined(LFS3_2BONLY) && !defined(LFS3_CKDATACKSUMREADS)
+    #if !defined(LFS3_2BONLY) && !defined(LFS3_CKDATACKSUMS)
     bptr->cksize = 0;
     bptr->cksum = 0;
     #endif
@@ -2438,7 +2438,7 @@ static inline void lfs3_bptr_discard(lfs3_bptr_t *bptr) {
 
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static inline void lfs3_bptr_claim(lfs3_bptr_t *bptr) {
-    #ifdef LFS3_CKDATACKSUMREADS
+    #ifdef LFS3_CKDATACKSUMS
     bptr->d.u.disk.cksize &= ~LFS3_BPTR_ISERASED;
     #else
     bptr->cksize &= ~LFS3_BPTR_ISERASED;
@@ -2467,7 +2467,7 @@ static inline lfs3_size_t lfs3_bptr_size(const lfs3_bptr_t *bptr) {
 // messy...
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static inline bool lfs3_bptr_iserased(const lfs3_bptr_t *bptr) {
-    #ifdef LFS3_CKDATACKSUMREADS
+    #ifdef LFS3_CKDATACKSUMS
     return bptr->d.u.disk.cksize & LFS3_BPTR_ISERASED;
     #else
     return bptr->cksize & LFS3_BPTR_ISERASED;
@@ -2477,7 +2477,7 @@ static inline bool lfs3_bptr_iserased(const lfs3_bptr_t *bptr) {
 
 #ifndef LFS3_2BONLY
 static inline lfs3_size_t lfs3_bptr_cksize(const lfs3_bptr_t *bptr) {
-    #ifdef LFS3_CKDATACKSUMREADS
+    #ifdef LFS3_CKDATACKSUMS
     return LFS3_IFDEF_RDONLY(
             bptr->d.u.disk.cksize,
             bptr->d.u.disk.cksize & ~LFS3_BPTR_ISERASED);
@@ -2491,7 +2491,7 @@ static inline lfs3_size_t lfs3_bptr_cksize(const lfs3_bptr_t *bptr) {
 
 #ifndef LFS3_2BONLY
 static inline uint32_t lfs3_bptr_cksum(const lfs3_bptr_t *bptr) {
-    #ifdef LFS3_CKDATACKSUMREADS
+    #ifdef LFS3_CKDATACKSUMS
     return bptr->d.u.disk.cksum;
     #else
     return bptr->cksum;
@@ -2567,7 +2567,7 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
 
     // read the cksize, cksum
     err = lfs3_data_readlleb128(lfs3, data,
-            LFS3_IFDEF_CKDATACKSUMREADS(
+            LFS3_IFDEF_CKDATACKSUMS(
                 &bptr->d.u.disk.cksize,
                 &bptr->cksize));
     if (err) {
@@ -2575,7 +2575,7 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
     }
 
     err = lfs3_data_readle32(lfs3, data,
-            LFS3_IFDEF_CKDATACKSUMREADS(
+            LFS3_IFDEF_CKDATACKSUMS(
                 &bptr->d.u.disk.cksum,
                 &bptr->cksum));
     if (err) {
@@ -7347,13 +7347,13 @@ static inline bool lfs3_m_isckparity(uint32_t flags) {
 }
 #endif
 
-#ifdef LFS3_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
 static inline bool lfs3_m_isckdatacksums(uint32_t flags) {
     (void)flags;
-    #ifdef LFS3_YES_CKDATACKSUMREADS
+    #ifdef LFS3_YES_CKDATACKSUMS
     return true;
     #else
-    return flags & LFS3_M_CKDATACKSUMREADS;
+    return flags & LFS3_M_CKDATACKSUMS;
     #endif
 }
 #endif
@@ -14294,8 +14294,8 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMREADS(
-                    LFS3_M_CKDATACKSUMREADS,
+                | LFS3_IFDEF_CKDATACKSUMS(
+                    LFS3_M_CKDATACKSUMS,
                     0))) == 0);
     // LFS3_M_REVDBG and LFS3_M_REVNOISE are incompatible
     #if defined(LFS3_REVNOISE) && defined(LFS3_REVDBG)
@@ -15170,8 +15170,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_CKMETAPARITY
     flags |= LFS3_M_CKMETAPARITY;
     #endif
-    #ifdef LFS3_YES_CKDATACKSUMREADS
-    flags |= LFS3_M_CKDATACKSUMREADS;
+    #ifdef LFS3_YES_CKDATACKSUMS
+    flags |= LFS3_M_CKDATACKSUMS;
     #endif
     #ifdef LFS3_YES_MKCONSISTENT
     flags |= LFS3_M_MKCONSISTENT;
@@ -15200,7 +15200,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMREADS(LFS3_M_CKDATACKSUMREADS, 0)
+                | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
@@ -15222,7 +15222,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                    | LFS3_IFDEF_CKDATACKSUMREADS(LFS3_M_CKDATACKSUMREADS, 0)),
+                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)),
             cfg);
     if (err) {
         return err;
@@ -15397,8 +15397,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_CKMETAPARITY
     flags |= LFS3_F_CKMETAPARITY;
     #endif
-    #ifdef LFS3_YES_CKDATACKSUMREADS
-    flags |= LFS3_F_CKDATACKSUMREADS;
+    #ifdef LFS3_YES_CKDATACKSUMS
+    flags |= LFS3_F_CKDATACKSUMS;
     #endif
     #ifdef LFS3_YES_CKMETA
     flags |= LFS3_F_CKMETA;
@@ -15415,7 +15415,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMREADS(LFS3_F_CKDATACKSUMREADS, 0)
+                | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA)) == 0);
 
@@ -15427,7 +15427,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
-                    | LFS3_IFDEF_CKDATACKSUMREADS(LFS3_F_CKDATACKSUMREADS, 0)),
+                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)),
             cfg);
     if (err) {
         return err;
@@ -15489,7 +15489,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 | LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMREADS(LFS3_I_CKDATACKSUMREADS, 0)
+                | LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, 0)
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)

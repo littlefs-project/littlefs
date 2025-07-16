@@ -184,8 +184,8 @@ enum lfs3_type {
 #define LFS3_F_CKMETAPARITY \
                         0x00200000  // Check metadata tag parity bits
 #endif
-#ifdef LFS3_CKDATACKSUMREADS
-#define LFS3_F_CKDATACKSUMREADS \
+#ifdef LFS3_CKDATACKSUMS
+#define LFS3_F_CKDATACKSUMS \
                         0x00800000  // Check data checksums on reads
 #endif
 
@@ -218,8 +218,8 @@ enum lfs3_type {
 #define LFS3_M_CKMETAPARITY \
                         0x00200000  // Check metadata tag parity bits
 #endif
-#ifdef LFS3_CKDATACKSUMREADS
-#define LFS3_M_CKDATACKSUMREADS \
+#ifdef LFS3_CKDATACKSUMS
+#define LFS3_M_CKDATACKSUMS \
                         0x00800000  // Check data checksums on reads
 #endif
 
@@ -258,9 +258,9 @@ enum lfs3_type {
 #define LFS3_I_CKMETAPARITY \
                         0x00200000  // Mounted with LFS3_M_CKMETAPARITY
 #endif
-#ifdef LFS3_CKDATACKSUMREADS
-#define LFS3_I_CKDATACKSUMREADS \
-                        0x00800000  // Mounted with LFS3_M_CKDATACKSUMREADS
+#ifdef LFS3_CKDATACKSUMS
+#define LFS3_I_CKDATACKSUMS \
+                        0x00800000  // Mounted with LFS3_M_CKDATACKSUMS
 #endif
 
 #ifndef LFS3_RDONLY
@@ -640,7 +640,7 @@ typedef struct lfs3_data {
             lfs3_block_t block;
             lfs3_size_t off;
             // optional context for validating data
-            #ifdef LFS3_CKDATACKSUMREADS
+            #ifdef LFS3_CKDATACKSUMS
             // sign(cksize)=0 => block not erased
             // sign(cksize)=1 => block erased
             lfs3_size_t cksize;
@@ -656,7 +656,7 @@ typedef struct lfs3_bptr {
     // sign2(size)=0b10 => on-disk data
     // sign2(size)=0b11 => block pointer
     lfs3_data_t d;
-    #if !defined(LFS3_2BONLY) && !defined(LFS3_CKDATACKSUMREADS)
+    #if !defined(LFS3_2BONLY) && !defined(LFS3_CKDATACKSUMS)
     // sign(cksize)=0 => block not erased
     // sign(cksize)=1 => block erased
     lfs3_size_t cksize;

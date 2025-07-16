@@ -66,8 +66,7 @@ FLAGS = [
     ('F_CKPROGS',      0x00080000, "Check progs by reading back progged data" ),
     ('F_CKFETCHES',    0x00100000, "Check block checksums before first use"   ),
     ('F_CKMETAPARITY', 0x00200000, "Check metadata tag parity bits"           ),
-    ('F_CKDATACKSUMREADS',
-                       0x00800000, "Check data checksums on reads"            ),
+    ('F_CKDATACKSUMS', 0x00800000, "Check data checksums on reads"            ),
 
     ('F_CKMETA',       0x00001000, "Check metadata checksums"                 ),
     ('F_CKDATA',       0x00002000, "Check metadata + data checksums"          ),
@@ -83,8 +82,7 @@ FLAGS = [
     ('M_CKPROGS',      0x00080000, "Check progs by reading back progged data" ),
     ('M_CKFETCHES',    0x00100000, "Check block checksums before first use"   ),
     ('M_CKMETAPARITY', 0x00200000, "Check metadata tag parity bits"           ),
-    ('M_CKDATACKSUMREADS',
-                       0x00800000, "Check data checksums on reads"            ),
+    ('M_CKDATACKSUMS', 0x00800000, "Check data checksums on reads"            ),
 
     ('M_MKCONSISTENT', 0x00000100, "Make the filesystem consistent"           ),
     ('M_LOOKAHEAD',    0x00000200, "Populate lookahead buffer"                ),
@@ -108,8 +106,7 @@ FLAGS = [
     ('I_CKPROGS',      0x00080000, "Mounted with LFS3_M_CKPROGS"              ),
     ('I_CKFETCHES',    0x00100000, "Mounted with LFS3_M_CKFETCHES"            ),
     ('I_CKMETAPARITY', 0x00200000, "Mounted with LFS3_M_CKMETAPARITY"         ),
-    ('I_CKDATACKSUMREADS',
-                       0x00800000, "Mounted with LFS3_M_CKDATACKSUMREADS"     ),
+    ('I_CKDATACKSUMS', 0x00800000, "Mounted with LFS3_M_CKDATACKSUMS"         ),
 
     ('I_MKCONSISTENT', 0x00000100, "Filesystem needs mkconsistent to write"   ),
     ('I_LOOKAHEAD',    0x00000200, "Lookahead buffer is not full"             ),

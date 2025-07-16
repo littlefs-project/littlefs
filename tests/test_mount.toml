@@ -22,7 +22,7 @@ defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKMETAPARITY = [false, true]
-defines.CKDATACKSUMREADS = [false, true]
+defines.CKDATACKSUMS = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -35,7 +35,7 @@ if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
-    'LFS3_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
+    'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
     '!RDONLY || !COMPACT',
@@ -54,8 +54,8 @@ code = '''
                 | ((CKMETAPARITY)
                     ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
                     : 0)
-                | ((CKDATACKSUMREADS)
-                    ? LFS3_IFDEF_CKDATACKSUMREADS(LFS3_M_CKDATACKSUMREADS, -1)
+                | ((CKDATACKSUMS)
+                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, -1)
                     : 0)
                 | ((MKCONSISTENT) ? LFS3_M_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
@@ -78,8 +78,8 @@ code = '''
                 | ((CKMETAPARITY)
                     ? LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, -1)
                     : 0)
-                | ((CKDATACKSUMREADS)
-                    ? LFS3_IFDEF_CKDATACKSUMREADS(LFS3_I_CKDATACKSUMREADS, -1)
+                | ((CKDATACKSUMS)
+                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, -1)
                     : 0)
                 | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
@@ -100,7 +100,7 @@ defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKMETAPARITY = [false, true]
-defines.CKDATACKSUMREADS = [false, true]
+defines.CKDATACKSUMS = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
@@ -110,7 +110,7 @@ if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
-    'LFS3_IFDEF_CKDATACKSUMREADS(true, !CKDATACKSUMREADS)',
+    'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -123,8 +123,8 @@ code = '''
                 | ((CKMETAPARITY)
                     ? LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, -1)
                     : 0)
-                | ((CKDATACKSUMREADS)
-                    ? LFS3_IFDEF_CKDATACKSUMREADS(LFS3_F_CKDATACKSUMREADS, -1)
+                | ((CKDATACKSUMS)
+                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
                     : 0)
                 | ((CKMETA) ? LFS3_F_CKMETA : 0)
                 | ((CKDATA) ? LFS3_F_CKDATA : 0),
