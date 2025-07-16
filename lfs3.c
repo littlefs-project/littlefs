@@ -1641,11 +1641,8 @@ static inline uint32_t lfs3_data_cksum(lfs3_data_t data) {
 #endif
 
 // data slicing
-#define LFS3_DATA_SLICE(_data, _off, _size) \
-    ((struct {lfs3_data_t d;}){lfs3_data_fromslice(_data, _off, _size)}.d)
-
 LFS3_FORCEINLINE
-static inline lfs3_data_t lfs3_data_fromslice(lfs3_data_t data,
+static inline lfs3_data_t lfs3_data_slice(lfs3_data_t data,
         lfs3_ssize_t off, lfs3_ssize_t size) {
     // limit our off/size to data range, note the use of unsigned casts
     // here to treat -1 as unbounded
@@ -1669,6 +1666,12 @@ static inline lfs3_data_t lfs3_data_fromslice(lfs3_data_t data,
 
     return data;
 }
+
+// this macro provides an lvalue for use in other macros, but compound
+// literals currently optimize poorly, so measure before use and consider
+// just using lfs3_data_slice instead
+#define LFS3_DATA_SLICE(_data, _off, _size) \
+    ((struct {lfs3_data_t d;}){lfs3_data_slice(_data, _off, _size)}.d)
 
 
 // data <-> bd interactions
@@ -1721,7 +1724,7 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_memcpy(buffer, data->u.buffer, d);
     }
 
-    *data = LFS3_DATA_SLICE(*data, d, -1);
+    *data = lfs3_data_slice(*data, d, -1);
     return d;
 }
 
@@ -1765,7 +1768,7 @@ static int lfs3_data_readleb128(lfs3_t *lfs3, lfs3_data_t *data,
         return LFS3_ERR_CORRUPT;
     }
 
-    *data = LFS3_DATA_SLICE(*data, d, -1);
+    *data = lfs3_data_slice(*data, d, -1);
     return 0;
 }
 
@@ -2615,7 +2618,7 @@ static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
 
     // limit bptrs to btree weights, this may be useful for
     // compression in the future
-    bptr->d = LFS3_DATA_SLICE(bptr->d, -1, weight);
+    bptr->d = lfs3_data_slice(bptr->d, -1, weight);
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
@@ -12013,7 +12016,7 @@ static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
                         size,
                         lfs3_bptr_size(&file->leaf.bptr)
                             - (pos_ - file->leaf.pos));
-                lfs3_data_t slice = LFS3_DATA_SLICE(file->leaf.bptr.d,
+                lfs3_data_t slice = lfs3_data_slice(file->leaf.bptr.d,
                         pos_ - file->leaf.pos,
                         d);
                 d = lfs3_data_read(lfs3, &slice,
@@ -12090,7 +12093,7 @@ static lfs3_ssize_t lfs3_file_readget_(lfs3_t *lfs3, lfs3_file_t *file,
                     size,
                     lfs3_bptr_size(&bptr)
                         - (pos_ - (bid-(weight-1))));
-            lfs3_data_t slice = LFS3_DATA_SLICE(bptr.d,
+            lfs3_data_t slice = lfs3_data_slice(bptr.d,
                     pos_ - (bid-(weight-1)),
                     d);
             d = lfs3_data_read(lfs3, &slice,
@@ -12313,11 +12316,11 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
 
         // note, an entry can be both a left and right sibling
         l = bptr_;
-        l.d = LFS3_DATA_SLICE(bptr_.d,
+        l.d = lfs3_data_slice(bptr_.d,
                 -1,
                 pos - (bid-(weight_-1)));
         r = bptr_;
-        r.d = LFS3_DATA_SLICE(bptr_.d,
+        r.d = lfs3_data_slice(bptr_.d,
                 pos+weight - (bid-(weight_-1)),
                 -1);
 
@@ -12601,7 +12604,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     err = lfs3_bd_progdata(lfs3,
                             lfs3_bptr_block(&file->leaf.bptr),
                             pos_ - block_pos,
-                            LFS3_DATA_SLICE(bptr__.d,
+                            lfs3_data_slice(bptr__.d,
                                 pos_ - (bid__-(weight__-1)),
                                 d_),
                             &cksum_, true);
@@ -13185,7 +13188,7 @@ fragment:;
             if (bid-(weight-1) + lfs3_bptr_size(&bptr) >= fragment_start
                     && fragment_end - (bid-(weight-1))
                         <= lfs3->cfg->fragment_size) {
-                datas[data_count++] = LFS3_DATA_SLICE(bptr.d,
+                datas[data_count++] = lfs3_data_slice(bptr.d,
                         -1,
                         fragment_start - (bid-(weight-1)));
 
@@ -13220,7 +13223,7 @@ fragment:;
                     && bid-(weight-1) + lfs3_bptr_size(&bptr)
                             - fragment_start
                         <= lfs3->cfg->fragment_size) {
-                datas[data_count++] = LFS3_DATA_SLICE(bptr.d,
+                datas[data_count++] = lfs3_data_slice(bptr.d,
                         fragment_end - (bid-(weight-1)),
                         -1);
 
@@ -13940,7 +13943,7 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     //
     // note we don't unconditionally discard to match fruncate, where we
     // _really_ don't want to discard erased-state
-    file->leaf.bptr.d = LFS3_DATA_SLICE(file->leaf.bptr.d,
+    file->leaf.bptr.d = lfs3_data_slice(file->leaf.bptr.d,
             -1,
             size_ - lfs3_min(file->leaf.pos, size_));
     file->leaf.weight = lfs3_min(
@@ -14023,7 +14026,7 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // note we _really_ don't want to discard erased-state if possible,
     // as fruncate is intended for logging operations, otherwise we'd
     // just unconditionally discard the leaf and avoid this hassle
-    file->leaf.bptr.d = LFS3_DATA_SLICE(file->leaf.bptr.d,
+    file->leaf.bptr.d = lfs3_data_slice(file->leaf.bptr.d,
             lfs3_min(
                 lfs3_smax(
                     size - size_ - file->leaf.pos,
