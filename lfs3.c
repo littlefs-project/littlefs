@@ -5445,8 +5445,8 @@ typedef struct lfs3_bcommit {
     struct {
         lfs3_rattr_t rattrs[4];
         lfs3_data_t split_name;
-        uint8_t branch_l_buf[LFS3_BRANCH_DSIZE];
-        uint8_t branch_r_buf[LFS3_BRANCH_DSIZE];
+        uint8_t l_buf[LFS3_BRANCH_DSIZE];
+        uint8_t r_buf[LFS3_BRANCH_DSIZE];
     } ctx;
 } lfs3_bcommit_t;
 #endif
@@ -5602,12 +5602,15 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         // end up removing an rbyd here
         bcommit->bid -= pid - (child.weight-1);
         lfs3_size_t rattr_count = 0;
+        lfs3_data_t branch;
+        // drop child?
         if (child_->weight == 0) {
+            // drop child
             bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR(
                     LFS3_TAG_RM, -child.weight);
         } else {
-            lfs3_data_t branch = lfs3_data_frombranch(
-                    child_, bcommit->ctx.branch_l_buf);
+            // update child
+            branch = lfs3_data_frombranch(child_, bcommit->ctx.l_buf);
             bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_BUF(
                     LFS3_TAG_BRANCH, 0,
                     branch.u.buffer, lfs3_data_size(branch));
@@ -5941,46 +5944,36 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         // prepare commit to parent, tail recursing upwards
         LFS3_ASSERT(child_->weight > 0);
         LFS3_ASSERT(sibling.weight > 0);
-        // new root?
+        // don't worry about bid if new root, we discard it anyways
+        bcommit->bid -= pid - (child.weight-1);
         rattr_count = 0;
+        branch = lfs3_data_frombranch(child_, bcommit->ctx.l_buf);
+        // new root?
         if (!lfs3_rbyd_trunk(&parent)) {
-            lfs3_data_t branch_l = lfs3_data_frombranch(
-                    child_, bcommit->ctx.branch_l_buf);
+            // new child
             bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_BUF(
                     LFS3_TAG_BRANCH, +child_->weight,
-                    branch_l.u.buffer, lfs3_data_size(branch_l));
-            lfs3_data_t branch_r = lfs3_data_frombranch(
-                    &sibling, bcommit->ctx.branch_r_buf);
-            bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_BUF(
-                    LFS3_TAG_BRANCH, +sibling.weight,
-                    branch_r.u.buffer, lfs3_data_size(branch_r));
-            if (lfs3_tag_suptype(split_tag) == LFS3_TAG_NAME) {
-                bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_DATA(
-                        LFS3_TAG_BNAME, 0,
-                        &bcommit->ctx.split_name);
-            }
+                    branch.u.buffer, lfs3_data_size(branch));
         // split root?
         } else {
-            bcommit->bid -= pid - (child.weight-1);
-            lfs3_data_t branch_l = lfs3_data_frombranch(
-                    child_, bcommit->ctx.branch_l_buf);
+            // update child
             bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_BUF(
                     LFS3_TAG_BRANCH, 0,
-                    branch_l.u.buffer, lfs3_data_size(branch_l));
+                    branch.u.buffer, lfs3_data_size(branch));
             if (child_->weight != child.weight) {
                 bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR(
                         LFS3_TAG_GROW, -child.weight + child_->weight);
             }
-            lfs3_data_t branch_r = lfs3_data_frombranch(
-                    &sibling, bcommit->ctx.branch_r_buf);
-            bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_BUF(
-                    LFS3_TAG_BRANCH, +sibling.weight,
-                    branch_r.u.buffer, lfs3_data_size(branch_r));
-            if (lfs3_tag_suptype(split_tag) == LFS3_TAG_NAME) {
-                bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_DATA(
-                        LFS3_TAG_BNAME, 0,
-                        &bcommit->ctx.split_name);
-            }
+        }
+        // new sibling
+        branch = lfs3_data_frombranch(&sibling, bcommit->ctx.r_buf);
+        bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_BUF(
+                LFS3_TAG_BRANCH, +sibling.weight,
+                branch.u.buffer, lfs3_data_size(branch));
+        if (lfs3_tag_suptype(split_tag) == LFS3_TAG_NAME) {
+            bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_DATA(
+                    LFS3_TAG_BNAME, 0,
+                    &bcommit->ctx.split_name);
         }
         LFS3_ASSERT(rattr_count
                 <= sizeof(bcommit->ctx.rattrs)
@@ -6069,13 +6062,13 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
 
         // prepare commit to parent, tail recursing upwards
         LFS3_ASSERT(child_->weight > 0);
-        // build attr list
         bcommit->bid -= pid - (child.weight-1);
         rattr_count = 0;
+        // merge sibling
         bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR(
                 LFS3_TAG_RM, -sibling.weight);
-        lfs3_data_t branch = lfs3_data_frombranch(
-                child_, bcommit->ctx.branch_l_buf);
+        // update child
+        branch = lfs3_data_frombranch(child_, bcommit->ctx.l_buf);
         bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_BUF(
                 LFS3_TAG_BRANCH, 0,
                 branch.u.buffer, lfs3_data_size(branch));
