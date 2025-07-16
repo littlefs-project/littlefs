@@ -2799,12 +2799,18 @@ static int lfs3_rbyd_ckecksum(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 }
 #endif
 
+// optional height calculation for debugging rbyd balance
+typedef struct lfs3_rheight {
+    lfs3_size_t height;
+    lfs3_size_t bheight;
+} lfs3_rheight_t;
+
 // needed in lfs3_rbyd_fetch_ if debugging rbyd balance
 static int lfs3_rbyd_lookupnext_(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         lfs3_srid_t rid, lfs3_tag_t tag,
         lfs3_srid_t *rid_, lfs3_tag_t *tag_, lfs3_rid_t *weight_,
         lfs3_data_t *data_,
-        lfs3_size_t *height_, lfs3_size_t *bheight_);
+        lfs3_rheight_t *rheight_);
 
 // fetch an rbyd
 static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
@@ -3069,12 +3075,11 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     lfs3_size_t min_bheight = 0;
     lfs3_size_t max_bheight = 0;
     while (true) {
-        lfs3_size_t height;
-        lfs3_size_t bheight;
+        lfs3_rheight_t rheight;
         int err = lfs3_rbyd_lookupnext_(lfs3, rbyd,
                 rid, tag+1,
                 &rid, &tag, NULL, NULL,
-                &height, &bheight);
+                &rheight);
         if (err) {
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -3083,10 +3088,18 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
         }
 
         // find the min/max height and bheight
-        min_height = (min_height) ? lfs3_min(min_height, height) : height;
-        max_height = (max_height) ? lfs3_max(max_height, height) : height;
-        min_bheight = (min_bheight) ? lfs3_min(min_bheight, bheight) : bheight;
-        max_bheight = (max_bheight) ? lfs3_max(max_bheight, bheight) : bheight;
+        min_height = (min_height)
+                ? lfs3_min(min_height, rheight.height)
+                : rheight.height;
+        max_height = (max_height)
+                ? lfs3_max(max_height, rheight.height)
+                : rheight.height;
+        min_bheight = (min_bheight)
+                ? lfs3_min(min_bheight, rheight.bheight)
+                : rheight.bheight;
+        max_bheight = (max_bheight)
+                ? lfs3_max(max_bheight, rheight.bheight)
+                : rheight.bheight;
     }
     LFS3_DEBUG("Fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "height %"PRId32"-%"PRId32", "
@@ -3151,7 +3164,8 @@ static int lfs3_rbyd_lookupnext_(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         lfs3_srid_t rid, lfs3_tag_t tag,
         lfs3_srid_t *rid_, lfs3_tag_t *tag_, lfs3_rid_t *weight_,
         lfs3_data_t *data_,
-        lfs3_size_t *height_, lfs3_size_t *bheight_) {
+        lfs3_rheight_t *rheight_) {
+    (void)rheight_;
     // these bits should be clear at this point
     LFS3_ASSERT(lfs3_tag_mode(tag) == 0);
 
@@ -3165,12 +3179,12 @@ static int lfs3_rbyd_lookupnext_(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
     }
 
     // optionally find height/bheight for debugging rbyd balance
-    if (height_) {
-        *height_ = 0;
+    #ifdef LFS3_DBGRBYDBALANCE
+    if (rheight_) {
+        rheight_->height = 0;
+        rheight_->bheight = 0;
     }
-    if (bheight_) {
-        *bheight_ = 0;
-    }
+    #endif
 
     // keep track of bounds as we descend down the tree
     lfs3_size_t branch = lfs3_rbyd_trunk(rbyd);
@@ -3195,18 +3209,20 @@ static int lfs3_rbyd_lookupnext_(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
             lfs3_size_t branch_ = branch + d;
 
             // keep track of height for debugging
-            if (height_) {
-                *height_ += 1;
-            }
-            if (bheight_
-                    // only count black+followed alts towards bheight
-                    && (lfs3_tag_isblack(alt)
+            #ifdef LFS3_DBGRBYDBALANCE
+            if (rheight_) {
+                rheight_->height += 1;
+
+                // only count black+followed alts towards bheight
+                if (lfs3_tag_isblack(alt)
                         || lfs3_tag_follow(
                             alt, weight,
                             lower_rid, upper_rid,
-                            rid, tag))) {
-                *bheight_ += 1;
+                            rid, tag)) {
+                    rheight_->bheight += 1;
+                }
             }
+            #endif
 
             // take alt?
             if (lfs3_tag_follow(
@@ -3266,7 +3282,7 @@ static int lfs3_rbyd_lookupnext(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         lfs3_data_t *data_) {
     return lfs3_rbyd_lookupnext_(lfs3, rbyd, rid, tag,
             rid_, tag_, weight_, data_,
-            NULL, NULL);
+            NULL);
 }
 
 // lookup assumes a known rid
