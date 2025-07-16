@@ -5457,8 +5457,8 @@ static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3);
 // core btree algorithm
 //
 // this commits up to the root, but stops if:
-// 1. we need a new root
-// 2. we have a shrub root
+// 1. we need a new root    => LFS3_ERR_RANGE
+// 2. we have a shrub root  => LFS3_ERR_EXIST
 //
 // ---
 //
@@ -5531,7 +5531,9 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             if (!lfs3_rbyd_trunk(&child)
                     || lfs3_rbyd_isshrub(btree)) {
                 bcommit->bid = rid;
-                return (!lfs3_rbyd_trunk(&child)) ? LFS3_ERR_RANGE : 0;
+                return (!lfs3_rbyd_trunk(&child))
+                        ? LFS3_ERR_RANGE
+                        : LFS3_ERR_EXIST;
             }
 
             // mark btree as unerased in case of failure, our btree rbyd and
@@ -5584,8 +5586,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         if (!lfs3_rbyd_trunk(&parent)) {
             // update the root
             // (note btree_ == child_)
-            // no new root needed
-            bcommit->rattr_count = 0;
             return 0;
         }
 
@@ -5593,8 +5593,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         if (child.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
             // (note btree_ == child_)
-            // no new root needed
-            bcommit->rattr_count = 0;
             return 0;
         }
 
@@ -6066,8 +6064,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         if (child.weight+sibling.weight == btree->weight) {
             // collapse the root, decreasing the height of the tree
             // (note btree_ == child_)
-            // no new root needed
-            bcommit->rattr_count = 0;
             return 0;
         }
 
@@ -6165,13 +6161,12 @@ static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
     int err = lfs3_btree_commit_(lfs3, &btree_, btree,
             &bcommit);
     if (err && err != LFS3_ERR_RANGE) {
+        LFS3_ASSERT(err != LFS3_ERR_EXIST);
         return err;
     }
 
     // needs a new root?
     if (err == LFS3_ERR_RANGE) {
-        LFS3_ASSERT(bcommit.rattr_count > 0);
-
         err = lfs3_btree_commitroot_(lfs3, &btree_, btree, true,
                 bcommit.bid, bcommit.rattrs, bcommit.rattr_count);
         if (err) {
@@ -6913,15 +6908,16 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     bcommit.rattr_count = rattr_count;
     int err = lfs3_btree_commit_(lfs3, &bshrub->shrub_, &bshrub->shrub,
             &bcommit);
-    if (err && err != LFS3_ERR_RANGE) {
+    if (err && err != LFS3_ERR_EXIST
+            && err != LFS3_ERR_RANGE) {
         return err;
     }
-    LFS3_ASSERT(!err || bcommit.rattr_count > 0);
     bool split = (err == LFS3_ERR_RANGE);
 
     // when btree is shrubbed, lfs3_btree_commit_ stops at the root
     // and returns with pending rattrs
-    if (bcommit.rattr_count > 0) {
+    if (err == LFS3_ERR_EXIST
+            || err == LFS3_ERR_RANGE) {
         // try to commit to shrub root
         err = lfs3_bshrub_commitroot_(lfs3, bshrub, split,
                 bcommit.bid, bcommit.rattrs, bcommit.rattr_count);
@@ -9609,9 +9605,9 @@ static inline bool lfs3_path_isdir(const char *path) {
 //
 // the errors get a bit subtle here, and rely on what ends up in the
 // path/mdir:
-// - 0                                      => file found
-// - 0, lfs3_path_isdir(path)               => dir found
-// - 0, mdir.mid=-1                         => root found
+// - 0                                       => file found
+// - 0, lfs3_path_isdir(path)                => dir found
+// - 0, mdir.mid=-1                          => root found
 // - LFS3_ERR_NOENT, lfs3_path_islast(path)  => file not found
 // - LFS3_ERR_NOENT, !lfs3_path_islast(path) => parent not found
 // - LFS3_ERR_NOTDIR                         => parent not a dir
