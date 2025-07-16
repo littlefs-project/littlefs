@@ -9782,7 +9782,7 @@ static void lfs3_traversal_init(lfs3_traversal_t *t, uint32_t flags) {
 
 // low-level traversal _only_ finds blocks
 static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
-        lfs3_tag_t *tag_, lfs3_bptr_t *bptr) {
+        lfs3_tag_t *tag_, lfs3_bptr_t *bptr_) {
     while (true) {
         switch (lfs3_t_tstate(t->b.o.flags)) {
         // start with the mrootanchor 0x{0,1}
@@ -9805,7 +9805,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
             if (tag_) {
                 *tag_ = LFS3_TAG_MDIR;
             }
-            bptr->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
+            bptr_->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
             return 0;
 
         // traverse the mroot chain, checking for mroots/mtrees
@@ -9863,7 +9863,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                 if (tag_) {
                     *tag_ = LFS3_TAG_MDIR;
                 }
-                bptr->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
+                bptr_->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
                 return 0;
 
             // found an mtree?
@@ -9908,7 +9908,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
             if (tag_) {
                 *tag_ = LFS3_TAG_MDIR;
             }
-            bptr->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
+            bptr_->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
             return 0;
         #endif
 
@@ -10029,7 +10029,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                 if (tag_) {
                     *tag_ = tag;
                 }
-                bptr->d = data;
+                bptr_->d = data;
                 return 0;
 
             // found an indirect block?
@@ -10039,7 +10039,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                     *tag_ = tag;
                 }
                 err = lfs3_data_readbptr(lfs3, &data,
-                        bptr);
+                        bptr_);
                 if (err) {
                     return err;
                 }
@@ -10061,16 +10061,16 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
 
 // needed in lfs3_mtree_traverse
 static void lfs3_alloc_markinuse(lfs3_t *lfs3,
-        lfs3_tag_t tag, const lfs3_bptr_t *bptr);
+        lfs3_tag_t tag, const lfs3_bptr_t *bptr_);
 
 // high-level immutable traversal, handle extra features here,
 // but no mutation! (we're called in lfs3_alloc, so things would end up
 // recursive, which would be a bit bad!)
 static int lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_traversal_t *t,
-        lfs3_tag_t *tag_, lfs3_bptr_t *bptr) {
+        lfs3_tag_t *tag_, lfs3_bptr_t *bptr_) {
     lfs3_tag_t tag;
     int err = lfs3_mtree_traverse_(lfs3, t,
-            &tag, bptr);
+            &tag, bptr_);
     if (err) {
         // end of traversal?
         if (err == LFS3_ERR_NOENT) {
@@ -10092,7 +10092,7 @@ static int lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_traversal_t *t,
     if ((lfs3_t_isckmeta(t->b.o.flags)
                 || lfs3_t_isckdata(t->b.o.flags))
             && tag == LFS3_TAG_MDIR) {
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
 
         // check cksum matches our mroot
         if (lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0
@@ -10135,7 +10135,7 @@ static int lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_traversal_t *t,
     if ((lfs3_t_isckmeta(t->b.o.flags)
                 || lfs3_t_isckdata(t->b.o.flags))
             && tag == LFS3_TAG_BRANCH) {
-        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->d.u.buffer;
+        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
         err = lfs3_rbyd_fetchck(lfs3, rbyd,
                 rbyd->blocks[0], rbyd->trunk,
                 rbyd->cksum);
@@ -10148,7 +10148,7 @@ static int lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_traversal_t *t,
     #ifndef LFS3_2BONLY
     if (lfs3_t_isckdata(t->b.o.flags)
             && tag == LFS3_TAG_BLOCK) {
-        err = lfs3_bptr_ck(lfs3, bptr);
+        err = lfs3_bptr_ck(lfs3, bptr_);
         if (err) {
             return err;
         }
@@ -10200,11 +10200,11 @@ static void lfs3_alloc_markfree(lfs3_t *lfs3);
 // high-level mutating traversal, handle extra features that require
 // mutation here, upper layers should call lfs3_alloc_ckpoint as needed
 static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_traversal_t *t,
-        lfs3_tag_t *tag_, lfs3_bptr_t *bptr) {
+        lfs3_tag_t *tag_, lfs3_bptr_t *bptr_) {
 dropped:;
     lfs3_tag_t tag;
     int err = lfs3_mtree_traverse(lfs3, t,
-            &tag, bptr);
+            &tag, bptr_);
     if (err) {
         // end of traversal?
         if (err == LFS3_ERR_NOENT) {
@@ -10222,7 +10222,7 @@ dropped:;
     // track in-use blocks?
     #ifndef LFS3_2BONLY
     if (lfs3_t_islookahead(t->b.o.flags)) {
-        lfs3_alloc_markinuse(lfs3, tag, bptr);
+        lfs3_alloc_markinuse(lfs3, tag, bptr_);
     }
     #endif
 
@@ -10230,7 +10230,7 @@ dropped:;
     if (lfs3_t_ismkconsistent(t->b.o.flags)
             && lfs3_t_ismkconsistent(lfs3->flags)
             && tag == LFS3_TAG_MDIR) {
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         err = lfs3_mdir_mkconsistent(lfs3, mdir);
         if (err) {
             goto failed;
@@ -10255,11 +10255,11 @@ dropped:;
     if (lfs3_t_iscompact(t->b.o.flags)
             && tag == LFS3_TAG_MDIR
             // exceed compaction threshold?
-            && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr->d.u.buffer)->r)
+            && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr_->d.u.buffer)->r)
                 > ((lfs3->cfg->gc_compact_thresh)
                     ? lfs3->cfg->gc_compact_thresh
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         LFS3_INFO("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "(%"PRId32" > %"PRId32")",
                 lfs3_dbgmbid(lfs3, mdir->mid),
