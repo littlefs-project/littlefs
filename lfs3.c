@@ -13211,9 +13211,6 @@ fragment:;
                         fragment_start - (bid-(weight-1)));
 
                 fragment_start = bid-(weight-1);
-                fragment_end = fragment_start + lfs3_min(
-                        fragment_end - (bid-(weight-1)),
-                        lfs3->cfg->fragment_size);
             }
         }
 
@@ -13248,10 +13245,7 @@ fragment:;
                         bid-(weight-1) + lfs3_bptr_size(&bptr)
                             - fragment_end);
 
-                fragment_end = fragment_start + lfs3_min(
-                        bid-(weight-1) + lfs3_bptr_size(&bptr)
-                            - fragment_start,
-                        lfs3->cfg->fragment_size);
+                fragment_end = bid-(weight-1) + lfs3_bptr_size(&bptr);
             }
         }
 
