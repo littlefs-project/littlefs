@@ -5525,24 +5525,22 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         // we will always need our parent, so go ahead and find it
         lfs3_rbyd_t parent = {.trunk=0, .weight=0};
         lfs3_srid_t pid = 0;
-        // are we root?
-        if (!lfs3_rbyd_trunk(&child)
-                || child.blocks[0] == btree->blocks[0]) {
-            // new root? shrub root? yield the final root commit to
-            // higher-level btree/bshrub logic
-            if (!lfs3_rbyd_trunk(&child)
-                    || lfs3_rbyd_isshrub(btree)) {
-                bcommit->bid = rid;
-                return (!lfs3_rbyd_trunk(&child))
-                        ? LFS3_ERR_RANGE
-                        : LFS3_ERR_EXIST;
-            }
+        // new root? shrub root? yield the final root commit to
+        // higher-level btree/bshrub logic
+        if (!lfs3_rbyd_trunk(&child) || lfs3_rbyd_isshrub(&child)) {
+            bcommit->bid = rid;
+            return (!lfs3_rbyd_trunk(&child))
+                    ? LFS3_ERR_RANGE
+                    : LFS3_ERR_EXIST;
 
+        // are we root?
+        } else if (child.blocks[0] == btree->blocks[0]) {
             // mark btree as unerased in case of failure, our btree rbyd and
             // root rbyd can diverge if there's a split, but we would have
             // marked the old root as unerased earlier anyways
             lfs3_btree_claim(btree);
 
+        // need to lookup child's parent
         } else {
             int err = lfs3_btree_parent(lfs3, btree, bcommit->bid, &child,
                     &parent, &pid);
