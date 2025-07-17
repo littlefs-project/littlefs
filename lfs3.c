@@ -10506,8 +10506,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
         return tag;
     }
     // already exists? pretend orphans don't exist
-    bool exists = (tag != LFS3_ERR_NOENT);
-    if (exists && tag != LFS3_TAG_ORPHAN) {
+    if (tag != LFS3_ERR_NOENT && tag != LFS3_TAG_ORPHAN) {
         return LFS3_ERR_EXIST;
     }
 
@@ -10581,13 +10580,13 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     // check if we have a collision, if we do, search for the next
     // available did
     while (true) {
-        tag = lfs3_mtree_namelookup(lfs3, did_, NULL, 0,
+        lfs3_stag_t tag_ = lfs3_mtree_namelookup(lfs3, did_, NULL, 0,
                 &mdir, NULL);
-        if (tag < 0) {
-            if (tag == LFS3_ERR_NOENT) {
+        if (tag_ < 0) {
+            if (tag_ == LFS3_ERR_NOENT) {
                 break;
             }
-            return tag;
+            return tag_;
         }
 
         // try the next did
@@ -10621,12 +10620,14 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
     // committing our bookmark may have changed the mid of our metadata entry,
     // we need to look it up again, we can at least avoid the full path walk
-    tag = lfs3_mtree_namelookup(lfs3, did, name, name_len,
+    lfs3_stag_t tag_ = lfs3_mtree_namelookup(lfs3, did, name, name_len,
             &mdir, NULL);
-    if (tag < 0 && tag != LFS3_ERR_NOENT) {
-        return tag;
+    if (tag_ < 0 && tag_ != LFS3_ERR_NOENT) {
+        return tag_;
     }
-    LFS3_ASSERT((exists) ? tag >= 0 : tag == LFS3_ERR_NOENT);
+    LFS3_ASSERT((tag != LFS3_ERR_NOENT)
+            ? tag_ >= 0
+            : tag_ == LFS3_ERR_NOENT);
 
     // commit our new directory into our parent, zeroing the grm in the
     // process
@@ -10634,7 +10635,8 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
-                LFS3_TAG_MASK12 | LFS3_TAG_DIR, (!exists) ? +1 : 0,
+                LFS3_TAG_MASK12 | LFS3_TAG_DIR,
+                    (tag == LFS3_ERR_NOENT) ? +1 : 0,
                 did, name, name_len),
             LFS3_RATTR_LEB128(
                 LFS3_TAG_DID, 0, did_)));
@@ -10645,7 +10647,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     // update in-device state
     for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
         // mark any clobbered uncreats as zombied
-        if (exists
+        if (tag != LFS3_ERR_NOENT
                 && lfs3_o_type(o->flags) == LFS3_TYPE_REG
                 && o->mdir.mid == mdir.mid) {
             o->flags = (o->flags & ~LFS3_o_UNCREAT)
@@ -10654,7 +10656,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
                     | LFS3_O_DESYNC;
 
         // update dir positions
-        } else if (!exists
+        } else if (tag == LFS3_ERR_NOENT
                 && lfs3_o_type(o->flags) == LFS3_TYPE_DIR
                 && ((lfs3_dir_t*)o)->did == did
                 && o->mdir.mid >= mdir.mid) {
@@ -10878,11 +10880,10 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
                 && lfs3_path_islast(new_path))) {
         return new_tag;
     }
-    bool exists = (new_tag != LFS3_ERR_NOENT);
 
     // there are a few cases we need to watch out for
     lfs3_did_t new_did_ = 0;
-    if (!exists) {
+    if (new_tag == LFS3_ERR_NOENT) {
         // if we're a file, don't allow trailing slashes
         if (old_tag != LFS3_TAG_DIR && lfs3_path_isdir(new_path)) {
               return LFS3_ERR_NOTDIR;
@@ -10921,14 +10922,14 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         if (new_tag == LFS3_TAG_DIR) {
             // TODO deduplicate the isempty check with lfs3_remove?
             // first lets figure out the did
-            lfs3_data_t data;
-            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &new_mdir, LFS3_TAG_DID,
-                    &data);
-            if (tag < 0) {
-                return tag;
+            lfs3_data_t data_;
+            lfs3_stag_t tag_ = lfs3_mdir_lookup(lfs3, &new_mdir, LFS3_TAG_DID,
+                    &data_);
+            if (tag_ < 0) {
+                return tag_;
             }
 
-            err = lfs3_data_readleb128(lfs3, &data, &new_did_);
+            err = lfs3_data_readleb128(lfs3, &data_, &new_did_);
             if (err) {
                 return err;
             }
@@ -10959,7 +10960,8 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &new_mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
-                LFS3_TAG_MASK12 | old_tag, (!exists) ? +1 : 0,
+                LFS3_TAG_MASK12 | old_tag,
+                    (new_tag == LFS3_ERR_NOENT) ? +1 : 0,
                 new_did, new_path, lfs3_path_namelen(new_path)),
             LFS3_RATTR_MOVE(&old_mdir)));
     if (err) {
@@ -10969,7 +10971,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     // update in-device state
     for (lfs3_omdir_t *o = lfs3->omdirs; o; o = o->next) {
         // mark any clobbered uncreats as zombied
-        if (exists
+        if (new_tag != LFS3_ERR_NOENT
                 && lfs3_o_type(o->flags) == LFS3_TYPE_REG
                 && o->mdir.mid == new_mdir.mid) {
             o->flags = (o->flags & ~LFS3_o_UNCREAT)
@@ -10990,7 +10992,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
         // update dir positions
         } else if (lfs3_o_type(o->flags) == LFS3_TYPE_DIR) {
-            if (!exists
+            if (new_tag == LFS3_ERR_NOENT
                     && ((lfs3_dir_t*)o)->did == new_did
                     && o->mdir.mid >= new_mdir.mid) {
                 ((lfs3_dir_t*)o)->pos += 1;
@@ -11007,7 +11009,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
         // clobber entangled traversals
         } else if (lfs3_o_type(o->flags) == LFS3_type_TRAVERSAL
-                && ((exists && o->mdir.mid == new_mdir.mid)
+                && ((new_tag != LFS3_ERR_NOENT && o->mdir.mid == new_mdir.mid)
                     || o->mdir.mid == lfs3->grm.queue[0])) {
             lfs3_traversal_clobber(lfs3, (lfs3_traversal_t*)o);
         }
@@ -11669,10 +11671,9 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         err = tag;
         goto failed;
     }
-    bool exists = (tag != LFS3_ERR_NOENT);
 
     // creating a new entry?
-    if (!exists || tag == LFS3_TAG_ORPHAN) {
+    if (tag == LFS3_ERR_NOENT || tag == LFS3_TAG_ORPHAN) {
         if (!lfs3_o_iscreat(file->b.o.flags)) {
             err = LFS3_ERR_NOENT;
             goto failed;
@@ -11693,7 +11694,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // if stickynote, mark as uncreated + unsync
-        if (exists) {
+        if (tag != LFS3_ERR_NOENT) {
             file->b.o.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
         }
         #endif
@@ -11729,7 +11730,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
 
     // need to create an entry?
     #ifndef LFS3_RDONLY
-    if (!exists) {
+    if (tag == LFS3_ERR_NOENT) {
         // small file wrset? can we atomically commit everything in one
         // commit? currently this is only possible via lfs3_set
         if (lfs3_o_iswrset(file->b.o.flags)
