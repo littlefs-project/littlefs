@@ -5459,8 +5459,8 @@ static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3);
 // core btree algorithm
 //
 // this commits up to the root, but stops if:
-// 1. we need a new root
-// 2. we have a shrub root
+// 1. we need a new root    => LFS3_ERR_RANGE
+// 2. we hit a shrub root   => LFS3_ERR_EXIST
 //
 // ---
 //
@@ -5533,7 +5533,9 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             if (!lfs3_rbyd_trunk(&child)
                     || lfs3_rbyd_isshrub(btree)) {
                 bcommit->bid = rid;
-                return LFS3_ERR_RANGE;
+                return (!lfs3_rbyd_trunk(&child))
+                        ? LFS3_ERR_RANGE
+                        : LFS3_ERR_EXIST;
             }
 
             // mark btree as unerased in case of failure, our btree rbyd and
@@ -6153,6 +6155,7 @@ static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
     int err = lfs3_btree_commit_(lfs3, &btree_, btree,
             &bcommit);
     if (err && err != LFS3_ERR_RANGE) {
+        LFS3_ASSERT(err != LFS3_ERR_EXIST);
         return err;
     }
 
@@ -6900,7 +6903,8 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     bcommit.rattr_count = rattr_count;
     int err = lfs3_btree_commit_(lfs3, &bshrub->shrub_, &bshrub->shrub,
             &bcommit);
-    if (err && err != LFS3_ERR_RANGE) {
+    if (err && err != LFS3_ERR_RANGE
+            && err != LFS3_ERR_EXIST) {
         return err;
     }
 
@@ -6910,7 +6914,12 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     // note that bshrubs can't go straight to splitting, bshrubs are
     // always converted to btrees first, which can't fail (shrub < 1/2
     // block + commit < 1/2 block)
-    if (err == LFS3_ERR_RANGE) {
+    if (err == LFS3_ERR_RANGE
+            || err == LFS3_ERR_EXIST) {
+        // bshrubs can't go straight to splitting
+        LFS3_ASSERT(!lfs3_bshrub_isbshrub(bshrub)
+                || err != LFS3_ERR_RANGE);
+
         // try to commit to shrub root
         err = lfs3_bshrub_commitroot_(lfs3, bshrub,
                 bcommit.bid, bcommit.rattrs, bcommit.rattr_count);
