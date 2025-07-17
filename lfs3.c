@@ -4907,8 +4907,8 @@ static int lfs3_rbyd_appendshrub(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 // with the best matching name if not found
 static lfs3_scmp_t lfs3_rbyd_namelookup(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         lfs3_did_t did, const char *name, lfs3_size_t name_len,
-        lfs3_srid_t *rid_,
-        lfs3_tag_t *tag_, lfs3_rid_t *weight_, lfs3_data_t *data_) {
+        lfs3_srid_t *rid_, lfs3_tag_t *tag_, lfs3_rid_t *weight_,
+        lfs3_data_t *data_) {
     // empty rbyd? leave it up to upper layers to handle this
     if (rbyd->weight == 0) {
         return LFS3_ERR_NOENT;
@@ -6264,8 +6264,8 @@ static lfs3_scmp_t lfs3_btree_namelookupleaf(lfs3_t *lfs3,
 static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
         const lfs3_btree_t *btree,
         lfs3_did_t did, const char *name, lfs3_size_t name_len,
-        lfs3_bid_t *bid_,
-        lfs3_tag_t *tag_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
+        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bid_t *weight_,
+        lfs3_data_t *data_) {
     lfs3_rbyd_t rbyd;
     return lfs3_btree_namelookupleaf(lfs3, btree,
             did, name, name_len,
