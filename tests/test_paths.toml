@@ -4564,7 +4564,7 @@ code = '''
     lfs3_did_t did;
     path = "coffee/drip";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4572,7 +4572,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/coldbrew";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4580,7 +4580,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/turkish";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4588,7 +4588,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/tubruk";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4596,7 +4596,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/vietnamese";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4604,7 +4604,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/thai";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4738,7 +4738,7 @@ code = '''
     lfs3_did_t did;
     path = "drip";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4746,7 +4746,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coldbrew";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4754,7 +4754,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "turkish";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4762,7 +4762,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "tubruk";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4770,7 +4770,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "vietnamese";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -4778,7 +4778,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "thai";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5034,7 +5034,7 @@ code = '''
     lfs3_did_t did;
     path = "coffee/drip";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5042,7 +5042,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/coldbrew";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5050,7 +5050,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/turkish";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5058,7 +5058,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/tubruk";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5066,7 +5066,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/vietnamese";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5074,7 +5074,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/thai";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5276,7 +5276,7 @@ code = '''
     lfs3_did_t did;
     path = "coffee/drip";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5284,7 +5284,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/coldbrew";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5292,7 +5292,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/turkish";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5300,7 +5300,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/tubruk";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5308,7 +5308,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/vietnamese";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5316,7 +5316,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/thai";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5518,7 +5518,7 @@ code = '''
     lfs3_did_t did;
     path = "coffee/drip";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5526,7 +5526,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/coldbrew";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5534,7 +5534,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/turkish";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5542,7 +5542,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/tubruk";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5550,7 +5550,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/vietnamese";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,
@@ -5558,7 +5558,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "coffee/thai";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => LFS3_ERR_NOENT;
+            &mdir, &did) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_NAME + 0x13, +1,

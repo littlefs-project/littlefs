@@ -1147,7 +1147,7 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_did_t did;
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
@@ -1234,7 +1234,7 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_did_t did;
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
@@ -1340,7 +1340,7 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_did_t did;
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
@@ -1449,7 +1449,7 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_did_t did;
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
@@ -1558,7 +1558,7 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_did_t did;
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
@@ -1566,7 +1566,7 @@ code = '''
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "c";
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
@@ -1675,7 +1675,7 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_did_t did;
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
@@ -1784,7 +1784,7 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_did_t did;
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
@@ -1893,7 +1893,7 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_did_t did;
     lfs3_mtree_pathlookup(&lfs3, &path,
-            &mdir, NULL, &did) => 0;
+            &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,

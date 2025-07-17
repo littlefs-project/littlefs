@@ -9565,18 +9565,19 @@ static inline bool lfs3_path_isdir(const char *path) {
 //
 // the errors get a bit subtle here, and rely on what ends up in the
 // path/mdir:
-// - 0                                       => file found
-// - 0, lfs3_path_isdir(path)                => dir found
-// - 0, mdir.mid=-1                          => root found
-// - LFS3_ERR_NOENT, lfs3_path_islast(path)  => file not found
-// - LFS3_ERR_NOENT, !lfs3_path_islast(path) => parent not found
-// - LFS3_ERR_NOTDIR                         => parent not a dir
+// - tag                                        => file found
+// - LFS3_TAG_DIR, mdir.mid>=0                  => dir found
+// - LFS3_TAG_DIR, mdir.mid=-1                  => root found
+// - LFS3_ERR_NOENT, islast(path), !isdir(path) => file not found
+// - LFS3_ERR_NOENT, islast(path), isdir(path)  => dir not found
+// - LFS3_ERR_NOENT, !islast(path)              => parent not found
+// - LFS3_ERR_NOTDIR                            => parent not a dir
 //
-// if not found, mdir/did_ will at least be set up with what should be
-// the parent
+// if not found, mdir/did_ will be set to the parent's mdir/did, all
+// ready for file creation
 //
-static int lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
-        lfs3_mdir_t *mdir_, lfs3_tag_t *tag_, lfs3_did_t *did_) {
+static lfs3_stag_t lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
+        lfs3_mdir_t *mdir_, lfs3_did_t *did_) {
     // setup root
     *mdir_ = lfs3->mroot;
     lfs3_stag_t tag = LFS3_TAG_DIR;
@@ -9636,13 +9637,10 @@ static int lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
 
         // found end of path, we must be done parsing our path now
         if (path_[0] == '\0') {
-            if (tag_) {
-                *tag_ = tag;
-            }
             if (did_) {
                 *did_ = did;
             }
-            return 0;
+            return tag;
         }
 
         // only continue if we hit a directory
@@ -9679,9 +9677,6 @@ static int lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
 
         if (tag == LFS3_ERR_NOENT) {
             // keep track of where to insert if we can't find path
-            if (tag_) {
-                *tag_ = tag;
-            }
             if (did_) {
                 *did_ = did;
             }
@@ -10502,15 +10497,16 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
     // lookup our parent
     lfs3_mdir_t mdir;
-    lfs3_stag_t tag;
     lfs3_did_t did;
-    err = lfs3_mtree_pathlookup(lfs3, &path,
-            &mdir, (lfs3_tag_t*)&tag, &did);
-    if (err && !(err == LFS3_ERR_NOENT && lfs3_path_islast(path))) {
-        return err;
+    lfs3_stag_t tag = lfs3_mtree_pathlookup(lfs3, &path,
+            &mdir, &did);
+    if (tag < 0
+            && !(tag == LFS3_ERR_NOENT
+                && lfs3_path_islast(path))) {
+        return tag;
     }
     // already exists? pretend orphans don't exist
-    bool exists = (err != LFS3_ERR_NOENT);
+    bool exists = (tag != LFS3_ERR_NOENT);
     if (exists && tag != LFS3_TAG_ORPHAN) {
         return LFS3_ERR_EXIST;
     }
@@ -10736,12 +10732,11 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
 
     // lookup our entry
     lfs3_mdir_t mdir;
-    lfs3_tag_t tag;
     lfs3_did_t did;
-    err = lfs3_mtree_pathlookup(lfs3, &path,
-            &mdir, &tag, &did);
-    if (err) {
-        return err;
+    lfs3_stag_t tag = lfs3_mtree_pathlookup(lfs3, &path,
+            &mdir, &did);
+    if (tag < 0) {
+        return tag;
     }
     // pretend orphans don't exist
     if (tag == LFS3_TAG_ORPHAN) {
@@ -10758,14 +10753,14 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
     lfs3_did_t did_ = 0;
     if (tag == LFS3_TAG_DIR) {
         // first lets figure out the did
-        lfs3_data_t data;
-        lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &mdir, LFS3_TAG_DID,
-                &data);
-        if (tag < 0) {
-            return tag;
+        lfs3_data_t data_;
+        lfs3_stag_t tag_ = lfs3_mdir_lookup(lfs3, &mdir, LFS3_TAG_DID,
+                &data_);
+        if (tag_ < 0) {
+            return tag_;
         }
 
-        err = lfs3_data_readleb128(lfs3, &data, &did_);
+        err = lfs3_data_readleb128(lfs3, &data_, &did_);
         if (err) {
             return err;
         }
@@ -10857,12 +10852,11 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
     // lookup old entry
     lfs3_mdir_t old_mdir;
-    lfs3_stag_t old_tag;
     lfs3_did_t old_did;
-    err = lfs3_mtree_pathlookup(lfs3, &old_path,
-            &old_mdir, (lfs3_tag_t*)&old_tag, &old_did);
-    if (err) {
-        return err;
+    lfs3_stag_t old_tag = lfs3_mtree_pathlookup(lfs3, &old_path,
+            &old_mdir, &old_did);
+    if (old_tag < 0) {
+        return old_tag;
     }
     // pretend orphans don't exist
     if (old_tag == LFS3_TAG_ORPHAN) {
@@ -10876,14 +10870,15 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
     // lookup new entry
     lfs3_mdir_t new_mdir;
-    lfs3_tag_t new_tag;
     lfs3_did_t new_did;
-    err = lfs3_mtree_pathlookup(lfs3, &new_path,
-            &new_mdir, &new_tag, &new_did);
-    if (err && !(err == LFS3_ERR_NOENT && lfs3_path_islast(new_path))) {
-        return err;
+    lfs3_stag_t new_tag = lfs3_mtree_pathlookup(lfs3, &new_path,
+            &new_mdir, &new_did);
+    if (new_tag < 0
+            && !(new_tag == LFS3_ERR_NOENT
+                && lfs3_path_islast(new_path))) {
+        return new_tag;
     }
-    bool exists = (err != LFS3_ERR_NOENT);
+    bool exists = (new_tag != LFS3_ERR_NOENT);
 
     // there are a few cases we need to watch out for
     lfs3_did_t new_did_ = 0;
@@ -11075,11 +11070,10 @@ static int lfs3_stat_(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
 int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info) {
     // lookup our entry
     lfs3_mdir_t mdir;
-    lfs3_tag_t tag;
-    int err = lfs3_mtree_pathlookup(lfs3, &path,
-            &mdir, &tag, NULL);
-    if (err) {
-        return err;
+    lfs3_stag_t tag = lfs3_mtree_pathlookup(lfs3, &path,
+            &mdir, NULL);
+    if (tag < 0) {
+        return tag;
     }
     // pretend orphans don't exist
     if (tag == LFS3_TAG_ORPHAN) {
@@ -11112,11 +11106,10 @@ int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
 
     // lookup our directory
     lfs3_mdir_t mdir;
-    lfs3_tag_t tag;
-    int err = lfs3_mtree_pathlookup(lfs3, &path,
-            &mdir, &tag, NULL);
-    if (err) {
-        return err;
+    lfs3_stag_t tag = lfs3_mtree_pathlookup(lfs3, &path,
+            &mdir, NULL);
+    if (tag < 0) {
+        return tag;
     }
     // pretend orphans don't exist
     if (tag == LFS3_TAG_ORPHAN) {
@@ -11140,14 +11133,14 @@ int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
             return tag_;
         }
 
-        err = lfs3_data_readleb128(lfs3, &data_, &dir->did);
+        int err = lfs3_data_readleb128(lfs3, &data_, &dir->did);
         if (err) {
             return err;
         }
     }
 
     // let rewind initialize the pos state
-    err = lfs3_dir_rewind_(lfs3, dir);
+    int err = lfs3_dir_rewind_(lfs3, dir);
     if (err) {
         return err;
     }
@@ -11329,11 +11322,10 @@ int lfs3_dir_rewind(lfs3_t *lfs3, lfs3_dir_t *dir) {
 static int lfs3_lookupattr(lfs3_t *lfs3, const char *path, uint8_t type,
         lfs3_mdir_t *mdir_, lfs3_data_t *data_) {
     // lookup our entry
-    lfs3_tag_t tag;
-    int err = lfs3_mtree_pathlookup(lfs3, &path,
-            mdir_, &tag, NULL);
-    if (err) {
-        return err;
+    lfs3_stag_t tag = lfs3_mtree_pathlookup(lfs3, &path,
+            mdir_, NULL);
+    if (tag < 0) {
+        return tag;
     }
     // pretend orphans don't exist
     if (tag == LFS3_TAG_ORPHAN) {
@@ -11341,13 +11333,13 @@ static int lfs3_lookupattr(lfs3_t *lfs3, const char *path, uint8_t type,
     }
 
     // lookup our attr
-    lfs3_stag_t tag_ = lfs3_mdir_lookup(lfs3, mdir_, LFS3_TAG_ATTR(type),
+    tag = lfs3_mdir_lookup(lfs3, mdir_, LFS3_TAG_ATTR(type),
             data_);
-    if (tag_ < 0) {
-        if (tag_ == LFS3_ERR_NOENT) {
+    if (tag < 0) {
+        if (tag == LFS3_ERR_NOENT) {
             return LFS3_ERR_NOATTR;
         }
-        return tag_;
+        return tag;
     }
 
     return 0;
@@ -11666,15 +11658,18 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         #endif
     }
 
+    int err;
     // lookup our parent
-    lfs3_tag_t tag;
     lfs3_did_t did;
-    int err = lfs3_mtree_pathlookup(lfs3, &path,
-            &file->b.o.mdir, &tag, &did);
-    if (err && !(err == LFS3_ERR_NOENT && lfs3_path_islast(path))) {
+    lfs3_stag_t tag = lfs3_mtree_pathlookup(lfs3, &path,
+            &file->b.o.mdir, &did);
+    if (tag < 0
+            && !(tag == LFS3_ERR_NOENT
+                && lfs3_path_islast(path))) {
+        err = tag;
         goto failed;
     }
-    bool exists = (err != LFS3_ERR_NOENT);
+    bool exists = (tag != LFS3_ERR_NOENT);
 
     // creating a new entry?
     if (!exists || tag == LFS3_TAG_ORPHAN) {
