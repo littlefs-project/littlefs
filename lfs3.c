@@ -3056,9 +3056,9 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     #ifdef LFS3_DBGRBYDBALANCE
     lfs3_srid_t rid = -1;
     lfs3_tag_t tag = 0;
-    lfs3_size_t min_height = 0;
+    lfs3_size_t min_height = -1;
     lfs3_size_t max_height = 0;
-    lfs3_size_t min_bheight = 0;
+    lfs3_size_t min_bheight = -1;
     lfs3_size_t max_bheight = 0;
     while (true) {
         lfs3_rheight_t rheight;
@@ -3074,19 +3074,13 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
         }
 
         // find the min/max height and bheight
-        min_height = (min_height)
-                ? lfs3_min(min_height, rheight.height)
-                : rheight.height;
-        max_height = (max_height)
-                ? lfs3_max(max_height, rheight.height)
-                : rheight.height;
-        min_bheight = (min_bheight)
-                ? lfs3_min(min_bheight, rheight.bheight)
-                : rheight.bheight;
-        max_bheight = (max_bheight)
-                ? lfs3_max(max_bheight, rheight.bheight)
-                : rheight.bheight;
+        min_height = lfs3_min(min_height, rheight.height);
+        max_height = lfs3_max(max_height, rheight.height);
+        min_bheight = lfs3_min(min_bheight, rheight.bheight);
+        max_bheight = lfs3_max(max_bheight, rheight.bheight);
     }
+    min_height = (min_height == (lfs3_size_t)-1) ? 0 : min_height;
+    min_bheight = (min_bheight == (lfs3_size_t)-1) ? 0 : min_bheight;
     LFS3_DEBUG("Fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "height %"PRId32"-%"PRId32", "
                 "bheight %"PRId32"-%"PRId32,
