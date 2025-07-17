@@ -3100,8 +3100,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 0*DID, "aaa", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
@@ -3110,8 +3111,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 1*DID, "aab", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_LT;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
@@ -3165,8 +3167,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 0, "aaa", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
@@ -3175,8 +3178,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 0, "aab", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 1);
     assert(weight_ == 1);
@@ -3185,8 +3189,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 0, "aac", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_LT;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 1);
     assert(weight_ == 1);
@@ -3246,8 +3251,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 0*DID, "aaa", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
@@ -3256,8 +3262,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 1*DID, "aab", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 1);
     assert(weight_ == 1);
@@ -3266,8 +3273,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 2*DID, "aac", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 2);
     assert(weight_ == 1);
@@ -3276,8 +3284,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 3*DID, "aad", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_LT;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 2);
     assert(weight_ == 1);
@@ -3337,8 +3346,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 0*DID, "aaa", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 0);
     assert(weight_ == 1);
@@ -3347,8 +3357,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 1*DID, "aab", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 1);
     assert(weight_ == 1);
@@ -3357,8 +3368,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 2*DID, "aac", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 2);
     assert(weight_ == 1);
@@ -3367,8 +3379,9 @@ code = '''
 
     lfs3_btree_namelookupleaf(&lfs3, &btree, 3*DID, "aad", 3,
             &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_LT;
-    lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag_, &data_) => 0;
+    tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+            rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(bid_ == 2);
     assert(weight_ == 1);
@@ -3444,8 +3457,9 @@ code = '''
 
         lfs3_btree_namelookupleaf(&lfs3, &btree, i*DID, name, 3,
                 &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-        lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                &tag_, &data_) => 0;
+        tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+                rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                &data_);
         assert(tag_ == LFS3_TAG_DATA);
         assert(bid_ == i);
         assert(weight_ == 1);
@@ -3557,8 +3571,9 @@ code = '''
     for (lfs3_size_t i = 0; i < sim_size; i++) {
         lfs3_btree_namelookupleaf(&lfs3, &btree, 0, sim_names[i], 3,
                 &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-        lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                &tag_, &data_) => 0;
+        tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+                rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                &data_);
         assert(tag_ == LFS3_TAG_DATA);
         assert(bid_ == i);
         assert(weight_ == 1);
@@ -3641,8 +3656,9 @@ code = '''
 
         lfs3_btree_namelookupleaf(&lfs3, &btree, i*DID, name, 3,
                 &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-        lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                &tag_, &data_) => 0;
+        tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+                rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                &data_);
         assert(tag_ == LFS3_TAG_DATA);
         assert(bid_ == i*W+W-1);
         assert(weight_ == W);
@@ -3795,8 +3811,9 @@ code = '''
 
         lfs3_btree_namelookupleaf(&lfs3, &btree, 0, sim_names[i], 3,
                 &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-        lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                &tag_, &data_) => 0;
+        tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+                rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                &data_);
         assert(tag_ == LFS3_TAG_DATA);
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(weight_ == sim_weights[i]);
@@ -3979,8 +3996,9 @@ code = '''
     for (lfs3_size_t i = 0; i < sim_size; i++) {
         lfs3_btree_namelookupleaf(&lfs3, &btree, 0, sim_names[i], 3,
                 &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-        lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                &tag_, &data_) => 0;
+        tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+                rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                &data_);
         assert(tag_ == LFS3_TAG_DATA);
         assert(bid_ == i);
         assert(weight_ == 1);
@@ -4207,8 +4225,9 @@ code = '''
 
         lfs3_btree_namelookupleaf(&lfs3, &btree, 0, sim_names[i], 3,
                 &bid_, &rbyd_, &rid_, NULL, &weight_, NULL) => LFS3_CMP_EQ;
-        lfs3_rbyd_lookup(&lfs3, &rbyd_, rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                &tag_, &data_) => 0;
+        tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd_,
+                rid_, LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                &data_);
         assert(tag_ == LFS3_TAG_DATA);
         assert(bid_ == weighted_bid+sim_weights[i]-1);
         assert(weight_ == sim_weights[i]);
