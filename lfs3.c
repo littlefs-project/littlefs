@@ -6603,9 +6603,9 @@ static inline int lfs3_bshrub_cmp(
 }
 
 // needed in lfs3_bshrub_fetch
-static int lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
+static lfs3_stag_t lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_tag_t tag,
-        lfs3_tag_t *tag_, lfs3_data_t *data_);
+        lfs3_data_t *data_);
 
 // fetch the bshrub/btree attatched to the current mdir+mid, if there
 // is one
@@ -6613,13 +6613,12 @@ static int lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
 // note we don't mess with bshrub on error!
 static int lfs3_bshrub_fetch(lfs3_t *lfs3, lfs3_bshrub_t *bshrub) {
     // lookup the file struct, if there is one
-    lfs3_tag_t tag;
     lfs3_data_t data;
-    int err = lfs3_mdir_lookup(lfs3, &bshrub->o.mdir,
+    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &bshrub->o.mdir,
             LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-            &tag, &data);
-    if (err) {
-        return err;
+            &data);
+    if (tag < 0) {
+        return tag;
     }
 
     // these functions leave bshrub undefined if there is an error, so
@@ -6627,7 +6626,7 @@ static int lfs3_bshrub_fetch(lfs3_t *lfs3, lfs3_bshrub_t *bshrub) {
 
     // found a bshrub? (inlined btree)
     if (tag == LFS3_TAG_BSHRUB) {
-        err = lfs3_data_readshrub(lfs3, &bshrub->o.mdir, &data,
+        int err = lfs3_data_readshrub(lfs3, &bshrub->o.mdir, &data,
                 &bshrub->shrub_);
         if (err) {
             return err;
@@ -6636,7 +6635,7 @@ static int lfs3_bshrub_fetch(lfs3_t *lfs3, lfs3_bshrub_t *bshrub) {
     // found a btree?
     } else if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BTREE)) {
         #ifndef LFS3_2BONLY
-        err = lfs3_data_fetchbtree(lfs3, &data,
+        int err = lfs3_data_fetchbtree(lfs3, &data,
                 &bshrub->shrub_);
         if (err) {
             return err;
@@ -6663,17 +6662,16 @@ static lfs3_ssize_t lfs3_bshrub_estimate(lfs3_t *lfs3,
 
     // include all unique shrubs related to our file, including the
     // on-disk shrub
-    lfs3_tag_t tag;
     lfs3_data_t data;
-    int err = lfs3_mdir_lookup(lfs3, &bshrub->o.mdir, LFS3_TAG_BSHRUB,
-            &tag, &data);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &bshrub->o.mdir, LFS3_TAG_BSHRUB,
+            &data);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
 
-    if (err != LFS3_ERR_NOENT) {
+    if (tag != LFS3_ERR_NOENT) {
         lfs3_shrub_t shrub;
-        err = lfs3_data_readshrub(lfs3, &bshrub->o.mdir, &data,
+        int err = lfs3_data_readshrub(lfs3, &bshrub->o.mdir, &data,
                 &shrub);
         if (err) {
             return err;
@@ -7876,9 +7874,9 @@ static lfs3_tag_t lfs3_mdir_nametag(const lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     return tag;
 }
 
-static int lfs3_mdir_lookupnext(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
+static lfs3_stag_t lfs3_mdir_lookupnext(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_tag_t tag,
-        lfs3_tag_t *tag_, lfs3_data_t *data_) {
+        lfs3_data_t *data_) {
     lfs3_srid_t rid__;
     lfs3_stag_t tag__ = lfs3_rbyd_lookupnext(lfs3, &mdir->r,
             lfs3_mrid(lfs3, mdir->mid), tag,
@@ -7898,20 +7896,16 @@ static int lfs3_mdir_lookupnext(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         tag__ = lfs3_mdir_nametag(lfs3, mdir, mdir->mid, tag__);
     }
 
-    if (tag_) {
-        *tag_ = tag__;
-    }
-    return 0;
+    return tag__;
 }
 
-static int lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
+static lfs3_stag_t lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_tag_t tag,
-        lfs3_tag_t *tag_, lfs3_data_t *data_) {
-    lfs3_tag_t tag__;
-    int err = lfs3_mdir_lookupnext(lfs3, mdir, lfs3_tag_key(tag),
-            &tag__, data_);
-    if (err) {
-        return err;
+        lfs3_data_t *data_) {
+    lfs3_stag_t tag__ = lfs3_mdir_lookupnext(lfs3, mdir, lfs3_tag_key(tag),
+            data_);
+    if (tag__ < 0) {
+        return tag__;
     }
 
     // lookup finds the next-smallest tag, all we need to do is fail if it
@@ -7920,10 +7914,7 @@ static int lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         return LFS3_ERR_NOENT;
     }
 
-    if (tag_) {
-        *tag_ = tag__;
-    }
-    return 0;
+    return tag__;
 }
 
 
@@ -8193,23 +8184,23 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                 const lfs3_mdir_t *mdir__ = rattrs[i].u.etc;
 
                 // skip the name tag, this is always replaced by upper layers
-                lfs3_tag_t tag = LFS3_TAG_STRUCT-1;
+                lfs3_stag_t tag = LFS3_TAG_STRUCT-1;
                 while (true) {
                     lfs3_data_t data;
-                    int err = lfs3_mdir_lookupnext(lfs3, mdir__, tag+1,
-                            &tag, &data);
-                    if (err) {
-                        if (err == LFS3_ERR_NOENT) {
+                    tag = lfs3_mdir_lookupnext(lfs3, mdir__, tag+1,
+                            &data);
+                    if (tag < 0) {
+                        if (tag == LFS3_ERR_NOENT) {
                             break;
                         }
-                        return err;
+                        return tag;
                     }
 
                     // found an inlined shrub? we need to compact the shrub
                     // as well to bring it along with us
                     if (tag == LFS3_TAG_BSHRUB) {
                         lfs3_shrub_t shrub;
-                        err = lfs3_data_readshrub(lfs3, mdir__, &data,
+                        int err = lfs3_data_readshrub(lfs3, mdir__, &data,
                                 &shrub);
                         if (err) {
                             return err;
@@ -8232,7 +8223,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
                     // append the rattr
                     } else {
-                        err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
+                        int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
                                 rid - lfs3_smax(start_rid, 0),
                                 LFS3_RATTR_DATA(tag, 0, &data));
                         if (err) {
@@ -8276,16 +8267,16 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                     // first lets check if the attr changed, we don't want
                     // to append attrs unless we have to
                     lfs3_data_t data;
-                    int err = lfs3_mdir_lookup(lfs3, mdir_,
+                    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mdir_,
                             LFS3_TAG_ATTR(attrs_[j].type),
-                            NULL, &data);
-                    if (err && err != LFS3_ERR_NOENT) {
-                        return err;
+                            &data);
+                    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+                        return tag;
                     }
 
                     // does disk match our attr?
                     lfs3_scmp_t cmp = lfs3_attr_cmp(lfs3, &attrs_[j],
-                            (err != LFS3_ERR_NOENT) ? &data : NULL);
+                            (tag != LFS3_ERR_NOENT) ? &data : NULL);
                     if (cmp < 0) {
                         return cmp;
                     }
@@ -8295,7 +8286,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                     }
 
                     // append the custom attr
-                    err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
+                    int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
                             rid - lfs3_smax(start_rid, 0),
                             // removing or updating?
                             (lfs3_attr_isnoattr(&attrs_[j]))
@@ -8785,11 +8776,11 @@ static int lfs3_mroot_parent(lfs3_t *lfs3, const lfs3_block_t mptr[static 2],
 
         // lookup next mroot
         lfs3_data_t data;
-        err = lfs3_mdir_lookup(lfs3, &mdir, LFS3_TAG_MROOT,
-                NULL, &data);
-        if (err) {
-            LFS3_ASSERT(err != LFS3_ERR_NOENT);
-            return err;
+        lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &mdir, LFS3_TAG_MROOT,
+                &data);
+        if (tag < 0) {
+            LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+            return tag;
         }
 
         // decode mdir
@@ -9664,13 +9655,13 @@ static int lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
         // read the next did from the mdir if this is not the root
         if (mdir_->mid != -1) {
             lfs3_data_t data;
-            int err = lfs3_mdir_lookup(lfs3, mdir_, LFS3_TAG_DID,
-                    NULL, &data);
-            if (err) {
-                return err;
+            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mdir_, LFS3_TAG_DID,
+                    &data);
+            if (tag < 0) {
+                return tag;
             }
 
-            err = lfs3_data_readleb128(lfs3, &data, &did);
+            int err = lfs3_data_readleb128(lfs3, &data, &did);
             if (err) {
                 return err;
             }
@@ -9772,20 +9763,19 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
         #ifndef LFS3_2BONLY
         case LFS3_TSTATE_MROOTCHAIN:;
             // lookup mroot, if we find one this is not the active mroot
-            lfs3_stag_t tag;
             lfs3_data_t data;
-            err = lfs3_mdir_lookup(lfs3, &t->b.o.mdir,
+            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &t->b.o.mdir,
                     LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                    (lfs3_tag_t*)&tag, &data);
-            if (err) {
+                    &data);
+            if (tag < 0) {
                 // if we have no mtree (inlined mdir), we need to
                 // traverse any files in our mroot next
-                if (err == LFS3_ERR_NOENT) {
+                if (tag == LFS3_ERR_NOENT) {
                     t->b.o.mdir.mid = 0;
                     lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_MDIR);
                     continue;
                 }
-                return err;
+                return tag;
             }
 
             // found a new mroot
@@ -10731,12 +10721,12 @@ static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
     }
 
     lfs3_data_t data;
-    err = lfs3_mdir_lookup(lfs3, &bookmark_mdir,
+    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &bookmark_mdir,
             LFS3_TAG_MASK8 | LFS3_TAG_NAME,
-            NULL, &data);
-    if (err) {
-        LFS3_ASSERT(err != LFS3_ERR_NOENT);
-        return err;
+            &data);
+    if (tag < 0) {
+        LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+        return tag;
     }
 
     lfs3_did_t did_;
@@ -10791,10 +10781,10 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
     if (tag == LFS3_TAG_DIR) {
         // first lets figure out the did
         lfs3_data_t data;
-        err = lfs3_mdir_lookup(lfs3, &mdir, LFS3_TAG_DID,
-                NULL, &data);
-        if (err) {
-            return err;
+        lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &mdir, LFS3_TAG_DID,
+                &data);
+        if (tag < 0) {
+            return tag;
         }
 
         err = lfs3_data_readleb128(lfs3, &data, &did_);
@@ -10959,10 +10949,10 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
             // TODO deduplicate the isempty check with lfs3_remove?
             // first lets figure out the did
             lfs3_data_t data;
-            err = lfs3_mdir_lookup(lfs3, &new_mdir, LFS3_TAG_DID,
-                    NULL, &data);
-            if (err) {
-                return err;
+            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &new_mdir, LFS3_TAG_DID,
+                    &data);
+            if (tag < 0) {
+                return tag;
             }
 
             err = lfs3_data_readleb128(lfs3, &data, &new_did_);
@@ -11084,18 +11074,17 @@ static int lfs3_stat_(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
 
     // get file size if we're a regular file
     if (tag == LFS3_TAG_REG) {
-        lfs3_tag_t tag;
         lfs3_data_t data;
-        int err = lfs3_mdir_lookup(lfs3, mdir,
+        lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mdir,
                 LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                &tag, &data);
-        if (err && err != LFS3_ERR_NOENT) {
-            return err;
+                &data);
+        if (tag < 0 && tag != LFS3_ERR_NOENT) {
+            return tag;
         }
 
-        if (err != LFS3_ERR_NOENT) {
+        if (tag != LFS3_ERR_NOENT) {
             // in bshrubs/btrees, size is always the first field
-            err = lfs3_data_readleb128(lfs3, &data, &info->size);
+            int err = lfs3_data_readleb128(lfs3, &data, &info->size);
             if (err) {
                 return err;
             }
@@ -11166,14 +11155,14 @@ int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
             return LFS3_ERR_NOTDIR;
         }
 
-        lfs3_data_t data;
-        err = lfs3_mdir_lookup(lfs3, &mdir, LFS3_TAG_DID,
-                NULL, &data);
-        if (err) {
-            return err;
+        lfs3_data_t data_;
+        lfs3_stag_t tag_ = lfs3_mdir_lookup(lfs3, &mdir, LFS3_TAG_DID,
+                &data_);
+        if (tag_ < 0) {
+            return tag_;
         }
 
-        err = lfs3_data_readleb128(lfs3, &data, &dir->did);
+        err = lfs3_data_readleb128(lfs3, &data_, &dir->did);
         if (err) {
             return err;
         }
@@ -11234,18 +11223,17 @@ int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
         }
 
         // lookup the next name tag
-        lfs3_tag_t tag;
         lfs3_data_t data;
-        int err = lfs3_mdir_lookup(lfs3, &dir->o.mdir,
+        lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &dir->o.mdir,
                 LFS3_TAG_MASK8 | LFS3_TAG_NAME,
-                &tag, &data);
-        if (err) {
-            return err;
+                &data);
+        if (tag < 0) {
+            return tag;
         }
 
         // get the did
         lfs3_did_t did;
-        err = lfs3_data_readleb128(lfs3, &data, &did);
+        int err = lfs3_data_readleb128(lfs3, &data, &did);
         if (err) {
             return err;
         }
@@ -11375,13 +11363,13 @@ static int lfs3_lookupattr(lfs3_t *lfs3, const char *path, uint8_t type,
     }
 
     // lookup our attr
-    err = lfs3_mdir_lookup(lfs3, mdir_, LFS3_TAG_ATTR(type),
-            NULL, data_);
-    if (err) {
-        if (err == LFS3_ERR_NOENT) {
+    lfs3_stag_t tag_ = lfs3_mdir_lookup(lfs3, mdir_, LFS3_TAG_ATTR(type),
+            data_);
+    if (tag_ < 0) {
+        if (tag_ == LFS3_ERR_NOENT) {
             return LFS3_ERR_NOATTR;
         }
-        return err;
+        return tag_;
     }
 
     return 0;
@@ -11616,15 +11604,15 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
 
         // lookup the attr
         lfs3_data_t data;
-        int err = lfs3_mdir_lookup(lfs3, &file->b.o.mdir,
+        lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &file->b.o.mdir,
                 LFS3_TAG_ATTR(file->cfg->attrs[i].type),
-                NULL, &data);
-        if (err && err != LFS3_ERR_NOENT) {
-            return err;
+                &data);
+        if (tag < 0 && tag != LFS3_ERR_NOENT) {
+            return tag;
         }
 
         // read the attr, if it exists
-        if (err == LFS3_ERR_NOENT
+        if (tag == LFS3_ERR_NOENT
                 // awkward case here if buffer_size is LFS3_ERR_NOATTR
                 || file->cfg->attrs[i].buffer_size == LFS3_ERR_NOATTR) {
             if (file->cfg->attrs[i].size) {
@@ -13579,16 +13567,16 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
 
             // lookup the attr
             lfs3_data_t data;
-            int err = lfs3_mdir_lookup(lfs3, &file->b.o.mdir,
+            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &file->b.o.mdir,
                     LFS3_TAG_ATTR(file->cfg->attrs[i].type),
-                    NULL, &data);
-            if (err && err != LFS3_ERR_NOENT) {
-                return err;
+                    &data);
+            if (tag < 0 && tag != LFS3_ERR_NOENT) {
+                return tag;
             }
 
             // does disk match our attr?
             lfs3_scmp_t cmp = lfs3_attr_cmp(lfs3, &file->cfg->attrs[i],
-                    (err != LFS3_ERR_NOENT) ? &data : NULL);
+                    (tag != LFS3_ERR_NOENT) ? &data : NULL);
             if (cmp < 0) {
                 return cmp;
             }
@@ -14755,15 +14743,15 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     // check the disk version
     uint8_t version[2] = {0, 0};
     lfs3_data_t data;
-    int err = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_VERSION,
-            NULL, &data);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_VERSION,
+            &data);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
-    if (err != LFS3_ERR_NOENT) {
+    if (tag != LFS3_ERR_NOENT) {
         lfs3_ssize_t d = lfs3_data_read(lfs3, &data, version, 2);
         if (d < 0) {
-            return err;
+            return d;
         }
     }
 
@@ -14781,13 +14769,13 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     // check for any rcompatflags, we must understand these to read
     // the filesystem
     lfs3_rcompat_t rcompat = 0;
-    err = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_RCOMPAT,
-            NULL, &data);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_RCOMPAT,
+            &data);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
-    if (err != LFS3_ERR_NOENT) {
-        err = lfs3_data_readrcompat(lfs3, &data, &rcompat);
+    if (tag != LFS3_ERR_NOENT) {
+        int err = lfs3_data_readrcompat(lfs3, &data, &rcompat);
         if (err) {
             return err;
         }
@@ -14804,13 +14792,13 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     // the filesystem
     #ifndef LFS3_RDONLY
     lfs3_wcompat_t wcompat = 0;
-    err = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_WCOMPAT,
-            NULL, &data);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_WCOMPAT,
+            &data);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
-    if (err != LFS3_ERR_NOENT) {
-        err = lfs3_data_readwcompat(lfs3, &data, &wcompat);
+    if (tag != LFS3_ERR_NOENT) {
+        int err = lfs3_data_readwcompat(lfs3, &data, &wcompat);
         if (err) {
             return err;
         }
@@ -14832,16 +14820,16 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     // check the on-disk geometry
     lfs3_geometry_t geometry;
-    err = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_GEOMETRY,
-            NULL, &data);
-    if (err) {
-        if (err == LFS3_ERR_NOENT) {
+    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_GEOMETRY,
+            &data);
+    if (tag < 0) {
+        if (tag == LFS3_ERR_NOENT) {
             LFS3_ERROR("No geometry found");
             return LFS3_ERR_INVAL;
         }
-        return err;
+        return tag;
     }
-    err = lfs3_data_readgeometry(lfs3, &data, &geometry);
+    int err = lfs3_data_readgeometry(lfs3, &data, &geometry);
     if (err) {
         return err;
     }
@@ -14867,12 +14855,12 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     // read the name limit
     lfs3_size_t name_limit = 0xff;
-    err = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_NAMELIMIT,
-            NULL, &data);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_NAMELIMIT,
+            &data);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
-    if (err != LFS3_ERR_NOENT) {
+    if (tag != LFS3_ERR_NOENT) {
         err = lfs3_data_readleb128(lfs3, &data, &name_limit);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
@@ -14893,12 +14881,12 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     // read the file limit
     lfs3_off_t file_limit = 0x7fffffff;
-    err = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_FILELIMIT,
-            NULL, &data);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_FILELIMIT,
+            &data);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
-    if (err != LFS3_ERR_NOENT) {
+    if (tag != LFS3_ERR_NOENT) {
         err = lfs3_data_readleb128(lfs3, &data, &file_limit);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
@@ -14918,14 +14906,13 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     lfs3->file_limit = file_limit;
 
     // check for unknown configs
-    lfs3_tag_t tag;
-    err = lfs3_mdir_lookupnext(lfs3, mroot, LFS3_TAG_UNKNOWNCONFIG,
-            &tag, NULL);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    tag = lfs3_mdir_lookupnext(lfs3, mroot, LFS3_TAG_UNKNOWNCONFIG,
+            NULL);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
 
-    if (err != LFS3_ERR_NOENT
+    if (tag != LFS3_ERR_NOENT
             && lfs3_tag_suptype(tag) == LFS3_TAG_CONFIG) {
         LFS3_ERROR("Unknown config 0x%04"PRIx16,
                 tag);
@@ -14977,19 +14964,19 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
             // found an mroot?
             if (mdir->mid == -1) {
                 // check for the magic string, all mroot should have this
-                lfs3_data_t data;
-                err = lfs3_mdir_lookup(lfs3, mdir, LFS3_TAG_MAGIC,
-                        NULL, &data);
-                if (err) {
-                    if (err == LFS3_ERR_NOENT) {
+                lfs3_data_t data_;
+                lfs3_stag_t tag_ = lfs3_mdir_lookup(lfs3, mdir, LFS3_TAG_MAGIC,
+                        &data_);
+                if (tag_ < 0) {
+                    if (tag_ == LFS3_ERR_NOENT) {
                         LFS3_ERROR("No littlefs magic found");
                         return LFS3_ERR_CORRUPT;
                     }
-                    return err;
+                    return tag_;
                 }
 
                 // treat corrupted magic as no magic
-                lfs3_scmp_t cmp = lfs3_data_cmp(lfs3, data, "littlefs", 8);
+                lfs3_scmp_t cmp = lfs3_data_cmp(lfs3, data_, "littlefs", 8);
                 if (cmp < 0) {
                     return cmp;
                 }
@@ -14999,12 +14986,12 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
                 }
 
                 // are we the last mroot?
-                err = lfs3_mdir_lookup(lfs3, mdir, LFS3_TAG_MROOT,
-                        NULL, NULL);
-                if (err && err != LFS3_ERR_NOENT) {
-                    return err;
+                tag_ = lfs3_mdir_lookup(lfs3, mdir, LFS3_TAG_MROOT,
+                        NULL);
+                if (tag_ < 0 && tag_ != LFS3_ERR_NOENT) {
+                    return tag_;
                 }
-                if (err == LFS3_ERR_NOENT) {
+                if (tag_ == LFS3_ERR_NOENT) {
                     // track active mroot
                     lfs3->mroot = *mdir;
 
