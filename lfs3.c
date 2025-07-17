@@ -9732,8 +9732,8 @@ static void lfs3_traversal_init(lfs3_traversal_t *t, uint32_t flags) {
 }
 
 // low-level traversal _only_ finds blocks
-static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
-        lfs3_tag_t *tag_, lfs3_bptr_t *bptr_) {
+static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
+        lfs3_bptr_t *bptr_) {
     while (true) {
         switch (lfs3_t_tstate(t->b.o.flags)) {
         // start with the mrootanchor 0x{0,1}
@@ -9753,11 +9753,8 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                     LFS3_TSTATE_DONE,
                     LFS3_TSTATE_MROOTCHAIN));
 
-            if (tag_) {
-                *tag_ = LFS3_TAG_MDIR;
-            }
             bptr_->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
-            return 0;
+            return LFS3_TAG_MDIR;
 
         // traverse the mroot chain, checking for mroots/mtrees
         #ifndef LFS3_2BONLY
@@ -9810,11 +9807,8 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                 }
                 t->u.mtortoise.step += 1;
 
-                if (tag_) {
-                    *tag_ = LFS3_TAG_MDIR;
-                }
                 bptr_->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
-                return 0;
+                return LFS3_TAG_MDIR;
 
             // found an mtree?
             } else if (tag == LFS3_TAG_MTREE) {
@@ -9855,11 +9849,8 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
             // transition to traversing the mdir
             lfs3_t_settstate(&t->b.o.flags, LFS3_TSTATE_MDIR);
 
-            if (tag_) {
-                *tag_ = LFS3_TAG_MDIR;
-            }
             bptr_->d.u.buffer = (const uint8_t*)&t->b.o.mdir;
-            return 0;
+            return LFS3_TAG_MDIR;
         #endif
 
         // scan for blocks/btrees in the current mdir
@@ -9976,24 +9967,19 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
 
             // found an inner btree node?
             if (tag == LFS3_TAG_BRANCH) {
-                if (tag_) {
-                    *tag_ = tag;
-                }
                 bptr_->d = data;
-                return 0;
+                return LFS3_TAG_BRANCH;
 
             // found an indirect block?
             } else if (LFS3_IFDEF_2BONLY(false, tag == LFS3_TAG_BLOCK)) {
                 #ifndef LFS3_2BONLY
-                if (tag_) {
-                    *tag_ = tag;
-                }
                 err = lfs3_data_readbptr(lfs3, &data,
                         bptr_);
                 if (err) {
                     return err;
                 }
-                return 0;
+
+                return LFS3_TAG_BLOCK;
                 #endif
             }
 
@@ -10016,17 +10002,16 @@ static void lfs3_alloc_markinuse(lfs3_t *lfs3,
 // high-level immutable traversal, handle extra features here,
 // but no mutation! (we're called in lfs3_alloc, so things would end up
 // recursive, which would be a bit bad!)
-static int lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_traversal_t *t,
-        lfs3_tag_t *tag_, lfs3_bptr_t *bptr_) {
-    lfs3_tag_t tag;
-    int err = lfs3_mtree_traverse_(lfs3, t,
-            &tag, bptr_);
-    if (err) {
+static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_traversal_t *t,
+        lfs3_bptr_t *bptr_) {
+    lfs3_stag_t tag = lfs3_mtree_traverse_(lfs3, t,
+            bptr_);
+    if (tag < 0) {
         // end of traversal?
-        if (err == LFS3_ERR_NOENT) {
+        if (tag == LFS3_ERR_NOENT) {
             goto eot;
         }
-        return err;
+        return tag;
     }
 
     // validate mdirs? mdir checksums are already validated in
@@ -10086,7 +10071,7 @@ static int lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_traversal_t *t,
                 || lfs3_t_isckdata(t->b.o.flags))
             && tag == LFS3_TAG_BRANCH) {
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
-        err = lfs3_rbyd_fetchck(lfs3, rbyd,
+        int err = lfs3_rbyd_fetchck(lfs3, rbyd,
                 rbyd->blocks[0], rbyd->trunk,
                 rbyd->cksum);
         if (err) {
@@ -10098,17 +10083,14 @@ static int lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_traversal_t *t,
     #ifndef LFS3_2BONLY
     if (lfs3_t_isckdata(t->b.o.flags)
             && tag == LFS3_TAG_BLOCK) {
-        err = lfs3_bptr_ck(lfs3, bptr_);
+        int err = lfs3_bptr_ck(lfs3, bptr_);
         if (err) {
             return err;
         }
     }
     #endif
 
-    if (tag_) {
-        *tag_ = tag;
-    }
-    return 0;
+    return tag;
 
 eot:;
     // compare gcksum with in-RAM gcksum
@@ -10149,25 +10131,25 @@ static void lfs3_alloc_markfree(lfs3_t *lfs3);
 
 // high-level mutating traversal, handle extra features that require
 // mutation here, upper layers should call lfs3_alloc_ckpoint as needed
-static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_traversal_t *t,
-        lfs3_tag_t *tag_, lfs3_bptr_t *bptr_) {
+static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_traversal_t *t,
+        lfs3_bptr_t *bptr_) {
 dropped:;
-    lfs3_tag_t tag;
-    int err = lfs3_mtree_traverse(lfs3, t,
-            &tag, bptr_);
-    if (err) {
+    lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, t,
+            bptr_);
+    if (tag < 0) {
         // end of traversal?
-        if (err == LFS3_ERR_NOENT) {
+        if (tag == LFS3_ERR_NOENT) {
             goto eot;
         }
         // don't goto failed here, we haven't swapped dirty/mutated
         // flags yet
-        return err;
+        return tag;
     }
 
-    // swap dirty/mutated flags while in lfs3_mtree_gc
     #ifndef LFS3_RDONLY
+    // swap dirty/mutated flags while in lfs3_mtree_gc
     t->b.o.flags = lfs3_t_swapdirty(t->b.o.flags);
+    int err;
 
     // track in-use blocks?
     #ifndef LFS3_2BONLY
@@ -10232,10 +10214,7 @@ dropped:;
     // swap back dirty/mutated flags
     t->b.o.flags = lfs3_t_swapdirty(t->b.o.flags);
     #endif
-    if (tag_) {
-        *tag_ = tag;
-    }
-    return 0;
+    return tag;
 
     #ifndef LFS3_RDONLY
 failed:;
@@ -10481,15 +10460,14 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase) {
         lfs3_traversal_t t;
         lfs3_traversal_init(&t, LFS3_T_RDONLY | LFS3_T_LOOKAHEAD);
         while (true) {
-            lfs3_tag_t tag;
             lfs3_bptr_t bptr;
-            int err = lfs3_mtree_traverse(lfs3, &t,
-                    &tag, &bptr);
-            if (err) {
-                if (err == LFS3_ERR_NOENT) {
+            lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &t,
+                    &bptr);
+            if (tag < 0) {
+                if (tag == LFS3_ERR_NOENT) {
                     break;
                 }
-                return err;
+                return tag;
             }
 
             // track in-use blocks
@@ -14947,15 +14925,14 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     lfs3_traversal_t t;
     lfs3_traversal_init(&t, LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA);
     while (true) {
-        lfs3_tag_t tag;
         lfs3_bptr_t bptr;
-        int err = lfs3_mtree_traverse(lfs3, &t,
-                &tag, &bptr);
-        if (err) {
-            if (err == LFS3_ERR_NOENT) {
+        lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &t,
+                &bptr);
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
                 break;
             }
-            return err;
+            return tag;
         }
 
         // found an mdir?
@@ -14996,7 +14973,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
                     lfs3->mroot = *mdir;
 
                     // mount/validate config in active mroot
-                    err = lfs3_mountmroot(lfs3, &lfs3->mroot);
+                    int err = lfs3_mountmroot(lfs3, &lfs3->mroot);
                     if (err) {
                         return err;
                     }
@@ -15007,7 +14984,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
             lfs3->gcksum ^= mdir->r.cksum;
 
             // collect any gdeltas from this mdir
-            err = lfs3_fs_consumegdelta(lfs3, mdir);
+            int err = lfs3_fs_consumegdelta(lfs3, mdir);
             if (err) {
                 return err;
             }
@@ -15479,15 +15456,14 @@ lfs3_ssize_t lfs3_fs_usage(lfs3_t *lfs3) {
     lfs3_traversal_t t;
     lfs3_traversal_init(&t, LFS3_T_RDONLY);
     while (true) {
-        lfs3_tag_t tag;
         lfs3_bptr_t bptr;
-        int err = lfs3_mtree_traverse(lfs3, &t,
-                &tag, &bptr);
-        if (err) {
-            if (err == LFS3_ERR_NOENT) {
+        lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &t,
+                &bptr);
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
                 break;
             }
-            return err;
+            return tag;
         }
 
         // count the number of blocks we see, yes this may result in duplicates
@@ -15626,13 +15602,13 @@ static int lfs3_fs_fixorphans(lfs3_t *lfs3) {
             LFS3_T_RDWR | LFS3_T_MTREEONLY | LFS3_T_MKCONSISTENT);
     while (true) {
         lfs3_bptr_t bptr;
-        int err = lfs3_mtree_gc(lfs3, &t,
-                NULL, &bptr);
-        if (err) {
-            if (err == LFS3_ERR_NOENT) {
+        lfs3_stag_t tag = lfs3_mtree_gc(lfs3, &t,
+                &bptr);
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
                 break;
             }
-            return err;
+            return tag;
         }
     }
 
@@ -15677,13 +15653,13 @@ static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     lfs3_traversal_init(&t, flags);
     while (true) {
         lfs3_bptr_t bptr;
-        int err = lfs3_mtree_traverse(lfs3, &t,
-                NULL, &bptr);
-        if (err) {
-            if (err == LFS3_ERR_NOENT) {
+        lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &t,
+                &bptr);
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
                 break;
             }
-            return err;
+            return tag;
         }
     }
 
@@ -15789,14 +15765,14 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_traversal_t *t,
 
         // progress gc
         lfs3_bptr_t bptr;
-        int err = lfs3_mtree_gc(lfs3, t,
-                NULL, &bptr);
-        if (err && err != LFS3_ERR_NOENT) {
-            return err;
+        lfs3_stag_t tag = lfs3_mtree_gc(lfs3, t,
+                &bptr);
+        if (tag < 0 && tag != LFS3_ERR_NOENT) {
+            return tag;
         }
 
         // end of traversal?
-        if (err == LFS3_ERR_NOENT) {
+        if (tag == LFS3_ERR_NOENT) {
             lfs3_omdir_close(lfs3, &t->b.o);
 
             // clear any pending flags we make progress on
@@ -16006,12 +15982,11 @@ int lfs3_traversal_read(lfs3_t *lfs3, lfs3_traversal_t *t,
         }
 
         // find next block
-        lfs3_tag_t tag;
         lfs3_bptr_t bptr;
-        int err = lfs3_mtree_gc(lfs3, t,
-                &tag, &bptr);
-        if (err) {
-            return err;
+        lfs3_stag_t tag = lfs3_mtree_gc(lfs3, t,
+                &bptr);
+        if (tag < 0) {
+            return tag;
         }
 
         // figure out type/blocks
