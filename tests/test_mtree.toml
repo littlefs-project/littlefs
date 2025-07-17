@@ -274,7 +274,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -283,7 +283,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -369,7 +369,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -378,7 +378,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -398,7 +398,7 @@ code = '''
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -510,7 +510,7 @@ code = '''
         sprintf(name+1, "%03x", i);
         lfs3_mdir_t mdir;
         lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                &mdir, NULL) => LFS3_ERR_NOENT;
         // force a compaction?
         if (FORCE_COMPACTION) {
             lfs3.mroot.r.eoff = -1;
@@ -608,10 +608,10 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", x);
         lfs3_mdir_t mdir;
-        int err = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                &mdir, NULL, NULL);
-        assert(!err || err == LFS3_ERR_NOENT);
-        if (!err) {
+        lfs3_stag_t tag = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
+                &mdir, NULL);
+        assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+        if (tag != LFS3_ERR_NOENT) {
             continue;
         }
         // force a compaction?
@@ -645,14 +645,14 @@ code = '''
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => 0;
+                    &mdir, NULL) => LFS3_TAG_REG;
             lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
                     &data) => LFS3_TAG_REG;
             lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                    &mdir, NULL) => LFS3_ERR_NOENT;
         }
     }
 
@@ -671,14 +671,14 @@ code = '''
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => 0;
+                    &mdir, NULL) => LFS3_TAG_REG;
             lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
                     &data) => LFS3_TAG_REG;
             lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                    &mdir, NULL) => LFS3_ERR_NOENT;
         }
     }
 
@@ -706,7 +706,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -715,7 +715,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -735,7 +735,7 @@ code = '''
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
     assert(mdir.r.weight == 0);
@@ -800,7 +800,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -809,7 +809,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -829,7 +829,7 @@ code = '''
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -896,7 +896,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -905,7 +905,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -915,7 +915,7 @@ code = '''
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact while we're removing
     lfs3.mroot.r.eoff = -1;
     mdir.r.eoff = -1;
@@ -973,7 +973,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -982,7 +982,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1002,7 +1002,7 @@ code = '''
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1012,7 +1012,7 @@ code = '''
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -1093,7 +1093,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1102,7 +1102,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1122,7 +1122,7 @@ code = '''
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1132,7 +1132,7 @@ code = '''
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -1230,10 +1230,10 @@ code = '''
 
             // update mtree
             lfs3_mdir_t mdir;
-            int err = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL);
-            assert(!err || err == LFS3_ERR_NOENT);
-            if (!err) {
+            lfs3_stag_t tag = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
+                    &mdir, NULL);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag != LFS3_ERR_NOENT) {
                 continue;
             }
             // force a compaction?
@@ -1259,10 +1259,10 @@ code = '''
 
             // update mtree
             lfs3_mdir_t mdir;
-            int err = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL);
-            assert(!err || err == LFS3_ERR_NOENT);
-            if (err == LFS3_ERR_NOENT) {
+            lfs3_stag_t tag = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
+                    &mdir, NULL);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag == LFS3_ERR_NOENT) {
                 continue;
             }
             // force a compaction?
@@ -1289,14 +1289,14 @@ code = '''
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => 0;
+                    &mdir, NULL) => LFS3_TAG_REG;
             lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
                     &data) => LFS3_TAG_REG;
             lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                    &mdir, NULL) => LFS3_ERR_NOENT;
         }
     }
 
@@ -1315,14 +1315,14 @@ code = '''
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => 0;
+                    &mdir, NULL) => LFS3_TAG_REG;
             lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
                     &data) => LFS3_TAG_REG;
             lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                    &mdir, NULL) => LFS3_ERR_NOENT;
         }
     }
 
@@ -1478,7 +1478,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1487,7 +1487,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1507,7 +1507,7 @@ code = '''
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -1618,7 +1618,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1627,7 +1627,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1647,7 +1647,7 @@ code = '''
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -1758,7 +1758,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1841,7 +1841,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -1979,7 +1979,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2090,7 +2090,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2099,7 +2099,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2122,7 +2122,7 @@ code = '''
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -2235,7 +2235,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2244,7 +2244,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2264,7 +2264,7 @@ code = '''
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2397,7 +2397,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2406,7 +2406,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2429,7 +2429,7 @@ code = '''
     // remove an entry, forcing the mdir to be dropped
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact twice, this should relocate
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -2602,7 +2602,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2611,7 +2611,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -2719,10 +2719,10 @@ code = '''
 
             // update mtree
             lfs3_mdir_t mdir;
-            int err = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL);
-            assert(!err || err == LFS3_ERR_NOENT);
-            if (!err) {
+            lfs3_stag_t tag = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
+                    &mdir, NULL);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag != LFS3_ERR_NOENT) {
                 continue;
             }
             // force a compaction?
@@ -2747,10 +2747,10 @@ code = '''
 
             // update mtree
             lfs3_mdir_t mdir;
-            int err = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL);
-            assert(!err || err == LFS3_ERR_NOENT);
-            if (err == LFS3_ERR_NOENT) {
+            lfs3_stag_t tag = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
+                    &mdir, NULL);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag == LFS3_ERR_NOENT) {
                 continue;
             }
             // force a compaction?
@@ -2778,10 +2778,10 @@ code = '''
 
             // update mtree
             lfs3_mdir_t mdir;
-            int err = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL);
-            assert(!err || err == LFS3_ERR_NOENT);
-            if (err == LFS3_ERR_NOENT) {
+            lfs3_stag_t tag = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
+                    &mdir, NULL);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag == LFS3_ERR_NOENT) {
                 continue;
             }
             // force a compaction?
@@ -2808,14 +2808,14 @@ code = '''
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => 0;
+                    &mdir, NULL) => LFS3_TAG_REG;
             lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
                     &data) => LFS3_TAG_REG;
             lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                    &mdir, NULL) => LFS3_ERR_NOENT;
         }
     }
 
@@ -2834,14 +2834,14 @@ code = '''
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => 0;
+                    &mdir, NULL) => LFS3_TAG_REG;
             lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
                     &data) => LFS3_TAG_REG;
             lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                    &mdir, NULL) => LFS3_ERR_NOENT;
         }
     }
 
@@ -2862,7 +2862,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -2870,7 +2870,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "c", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "c", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -2879,7 +2879,7 @@ code = '''
     // insert a new entry, this should update our neighbors
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "b", 1))) => 0;
     assert(mdir.r.weight == 4);
@@ -2894,13 +2894,13 @@ code = '''
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
     lfs3_mtree_namelookup(&lfs3, 0, "c", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -2922,7 +2922,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -2930,7 +2930,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "b", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -2939,18 +2939,18 @@ code = '''
     // try removing left neighbor
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
     assert(mdir.r.weight == 2);
 
     // assert neighbor was removed
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -2972,7 +2972,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -2980,7 +2980,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "b", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -2989,18 +2989,18 @@ code = '''
     // try removing right neighbor
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
     assert(mdir.r.weight == 2);
 
     // assert neighbor was removed
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
@@ -3024,7 +3024,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -3032,7 +3032,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "d", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -3044,7 +3044,7 @@ code = '''
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3053,7 +3053,7 @@ code = '''
 
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3071,13 +3071,13 @@ code = '''
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -3101,7 +3101,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -3109,7 +3109,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "e", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "e", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -3121,7 +3121,7 @@ code = '''
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3130,7 +3130,7 @@ code = '''
 
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3144,7 +3144,7 @@ code = '''
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3162,13 +3162,13 @@ code = '''
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
     lfs3_mtree_namelookup(&lfs3, 0, "e", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -3192,7 +3192,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -3200,7 +3200,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "b", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -3218,13 +3218,13 @@ code = '''
     // assert that our neighbors were updated correctly
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -3250,7 +3250,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -3258,7 +3258,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "d", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -3270,7 +3270,7 @@ code = '''
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3279,7 +3279,7 @@ code = '''
 
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3298,7 +3298,7 @@ code = '''
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -3315,13 +3315,13 @@ code = '''
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -3347,7 +3347,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -3355,7 +3355,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "d", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -3367,7 +3367,7 @@ code = '''
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3376,7 +3376,7 @@ code = '''
 
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3395,7 +3395,7 @@ code = '''
     // force mdir to compact twice, this should relocate
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
@@ -3412,13 +3412,13 @@ code = '''
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -3442,7 +3442,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -3450,7 +3450,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "f", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "f", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -3462,7 +3462,7 @@ code = '''
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3471,7 +3471,7 @@ code = '''
 
     memset(buffer+1, 'e', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3485,7 +3485,7 @@ code = '''
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3504,7 +3504,7 @@ code = '''
     // now add _another_ large entry to the middle mdir, forcing another split
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3522,13 +3522,13 @@ code = '''
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
     lfs3_mtree_namelookup(&lfs3, 0, "f", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -3552,7 +3552,7 @@ code = '''
     // setup our neighbors
     lfs3_omdir_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &left.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
@@ -3560,7 +3560,7 @@ code = '''
 
     lfs3_omdir_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "e", 1,
-            &right.mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "e", 1))) => 0;
     assert(right.mdir.r.weight == 3);
@@ -3572,7 +3572,7 @@ code = '''
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3581,7 +3581,7 @@ code = '''
 
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3595,7 +3595,7 @@ code = '''
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3623,13 +3623,13 @@ code = '''
 
     // assert that our neighbors were updated correctly
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(left.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&left.mdir, &mdir) == 0);
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
     lfs3_mtree_namelookup(&lfs3, 0, "e", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     assert(right.mdir.mid == mdir.mid);
     assert(lfs3_mdir_cmp(&right.mdir, &mdir) == 0);
     assert(right.mdir.r.trunk == mdir.r.trunk);
@@ -3656,7 +3656,7 @@ code = '''
     // insert at least one entry
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(mdir.r.weight == 2);
@@ -3727,7 +3727,7 @@ code = '''
     // assert that our entry is still in the mtree
     uint8_t buffer[256];
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
             &data) => LFS3_TAG_REG;
     lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 2;
@@ -3739,7 +3739,7 @@ code = '''
 
     // assert that our entry is still in the mtree
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
             &data) => LFS3_TAG_REG;
     lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 2;
@@ -3906,7 +3906,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -3915,7 +3915,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -4058,7 +4058,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -4067,7 +4067,7 @@ code = '''
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -4086,7 +4086,7 @@ code = '''
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -4239,7 +4239,7 @@ code = '''
     // insert at least one entry
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(mdir.r.weight == 2);
@@ -4322,7 +4322,7 @@ code = '''
     // assert that our entry is still in the mtree
     uint8_t buffer[256];
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
             &data) => LFS3_TAG_REG;
     lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 2;
@@ -4334,7 +4334,7 @@ code = '''
 
     // assert that our entry is still in the mtree
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
-            &mdir, NULL, NULL) => 0;
+            &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
             &data) => LFS3_TAG_REG;
     lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 2;
@@ -4362,7 +4362,7 @@ code = '''
         sprintf(name+1, "%03x", i);
         lfs3_mdir_t mdir;
         lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                &mdir, NULL) => LFS3_ERR_NOENT;
         // force a compaction?
         if (FORCE_COMPACTION) {
             lfs3.mroot.r.eoff = -1;
@@ -4525,10 +4525,10 @@ code = '''
         name[0] = '\0';
         sprintf(name+1, "%03x", x);
         lfs3_mdir_t mdir;
-        int err = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                &mdir, NULL, NULL);
-        assert(!err || err == LFS3_ERR_NOENT);
-        if (!err) {
+        lfs3_stag_t tag = lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
+                &mdir, NULL);
+        assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+        if (tag != LFS3_ERR_NOENT) {
             continue;
         }
         // force a compaction?
@@ -4628,14 +4628,14 @@ code = '''
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => 0;
+                    &mdir, NULL) => LFS3_TAG_REG;
             lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
                     &data) => LFS3_TAG_REG;
             lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                    &mdir, NULL) => LFS3_ERR_NOENT;
         }
     }
 
@@ -4654,14 +4654,14 @@ code = '''
         sprintf(name+1, "%03x", i);
         if (sim[i]) {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => 0;
+                    &mdir, NULL) => LFS3_TAG_REG;
             lfs3_mdir_lookup(&lfs3, &mdir, LFS3_TAG_REG,
                     &data) => LFS3_TAG_REG;
             lfs3_data_read(&lfs3, &data, buffer, sizeof(buffer)) => 4;
             assert(memcmp(buffer, name, 4) == 0);
         } else {
             lfs3_mtree_namelookup(&lfs3, 0, name+1, 3,
-                    &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+                    &mdir, NULL) => LFS3_ERR_NOENT;
         }
     }
 
@@ -5007,7 +5007,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,
@@ -5067,7 +5067,7 @@ code = '''
     memset(buffer+1, 'a', SIZE-1);
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
-            &mdir, NULL, NULL) => LFS3_ERR_NOENT;
+            &mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_REG, +1,

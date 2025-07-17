@@ -9434,10 +9434,10 @@ static int lfs3_mdir_compact(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
 
 // lookup names in an mdir
 //
-// if not found, rid will be the best place to insert
-static int lfs3_mdir_namelookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
+// if not found, mid will be the best place to insert
+static lfs3_stag_t lfs3_mdir_namelookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_did_t did, const char *name, lfs3_size_t name_len,
-        lfs3_smid_t *mid_, lfs3_tag_t *tag_, lfs3_data_t *data_) {
+        lfs3_smid_t *mid_, lfs3_data_t *data_) {
     // default to mid_ = 0, this blanket assignment is the only way to
     // keep GCC happy
     if (mid_) {
@@ -9472,18 +9472,17 @@ static int lfs3_mdir_namelookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     if (mid_) {
         *mid_ = mid;
     }
-    if (tag_) {
-        *tag_ = tag;
-    }
-    return (cmp == LFS3_CMP_EQ) ? 0 : LFS3_ERR_NOENT;
+    return (cmp == LFS3_CMP_EQ)
+            ? tag
+            : LFS3_ERR_NOENT;
 }
 
 // lookup names in our mtree
 //
-// if not found, rid will be the best place to insert
-static int lfs3_mtree_namelookup(lfs3_t *lfs3,
+// if not found, mid will be the best place to insert
+static lfs3_stag_t lfs3_mtree_namelookup(lfs3_t *lfs3,
         lfs3_did_t did, const char *name, lfs3_size_t name_len,
-        lfs3_mdir_t *mdir_, lfs3_tag_t *tag_, lfs3_data_t *data_) {
+        lfs3_mdir_t *mdir_, lfs3_data_t *data_) {
     // do we only have mroot?
     if (LFS3_IFDEF_2BONLY(0, lfs3->mtree.weight) == 0) {
         // treat inlined mdir as mid=0
@@ -9519,7 +9518,7 @@ static int lfs3_mtree_namelookup(lfs3_t *lfs3,
             }
         }
 
-        // fetch mdir
+        // fetch the mdir
         int err = lfs3_data_fetchmdir(lfs3, &data, bid-((1 << lfs3->mbits)-1),
                 mdir_);
         if (err) {
@@ -9530,15 +9529,16 @@ static int lfs3_mtree_namelookup(lfs3_t *lfs3,
 
     // and lookup name in our mdir
     lfs3_smid_t mid;
-    int err = lfs3_mdir_namelookup(lfs3, mdir_, did, name, name_len,
-            &mid, tag_, data_);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    lfs3_stag_t tag = lfs3_mdir_namelookup(lfs3, mdir_,
+            did, name, name_len,
+            &mid, data_);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
 
     // update mdir with best place to insert even if we fail
     mdir_->mid = mid;
-    return err;
+    return tag;
 }
 
 
@@ -9579,7 +9579,7 @@ static int lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
         lfs3_mdir_t *mdir_, lfs3_tag_t *tag_, lfs3_did_t *did_) {
     // setup root
     *mdir_ = lfs3->mroot;
-    lfs3_tag_t tag = LFS3_TAG_DIR;
+    lfs3_stag_t tag = LFS3_TAG_DIR;
     lfs3_did_t did = LFS3_DID_ROOT;
     
     // we reduce path to a single name if we can find it
@@ -9655,7 +9655,7 @@ static int lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
         // read the next did from the mdir if this is not the root
         if (mdir_->mid != -1) {
             lfs3_data_t data;
-            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mdir_, LFS3_TAG_DID,
+            tag = lfs3_mdir_lookup(lfs3, mdir_, LFS3_TAG_DID,
                     &data);
             if (tag < 0) {
                 return tag;
@@ -9671,14 +9671,14 @@ static int lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
         *path = path_;
 
         // lookup up this name in the mtree
-        int err = lfs3_mtree_namelookup(lfs3, did, path_, name_len,
-                mdir_, &tag, NULL);
-        if (err && err != LFS3_ERR_NOENT) {
-            return err;
+        tag = lfs3_mtree_namelookup(lfs3, did, path_, name_len,
+                mdir_, NULL);
+        if (tag < 0 && tag != LFS3_ERR_NOENT) {
+            return tag;
         }
 
-        // keep track of where to insert if we can't find path
-        if (err == LFS3_ERR_NOENT) {
+        if (tag == LFS3_ERR_NOENT) {
+            // keep track of where to insert if we can't find path
             if (tag_) {
                 *tag_ = tag;
             }
@@ -10502,10 +10502,10 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
     // lookup our parent
     lfs3_mdir_t mdir;
-    lfs3_tag_t tag;
+    lfs3_stag_t tag;
     lfs3_did_t did;
     err = lfs3_mtree_pathlookup(lfs3, &path,
-            &mdir, &tag, &did);
+            &mdir, (lfs3_tag_t*)&tag, &did);
     if (err && !(err == LFS3_ERR_NOENT && lfs3_path_islast(path))) {
         return err;
     }
@@ -10585,13 +10585,13 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     // check if we have a collision, if we do, search for the next
     // available did
     while (true) {
-        err = lfs3_mtree_namelookup(lfs3, did_, NULL, 0,
-                &mdir, NULL, NULL);
-        if (err) {
-            if (err == LFS3_ERR_NOENT) {
+        tag = lfs3_mtree_namelookup(lfs3, did_, NULL, 0,
+                &mdir, NULL);
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
                 break;
             }
-            return err;
+            return tag;
         }
 
         // try the next did
@@ -10625,12 +10625,12 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
     // committing our bookmark may have changed the mid of our metadata entry,
     // we need to look it up again, we can at least avoid the full path walk
-    err = lfs3_mtree_namelookup(lfs3, did, name, name_len,
-            &mdir, NULL, NULL);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    tag = lfs3_mtree_namelookup(lfs3, did, name, name_len,
+            &mdir, NULL);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
     }
-    LFS3_ASSERT((exists) ? !err : err == LFS3_ERR_NOENT);
+    LFS3_ASSERT((exists) ? tag >= 0 : tag == LFS3_ERR_NOENT);
 
     // commit our new directory into our parent, zeroing the grm in the
     // process
@@ -10675,11 +10675,11 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
     // first lookup the bookmark entry
     lfs3_mdir_t bookmark_mdir;
-    int err = lfs3_mtree_namelookup(lfs3, did, NULL, 0,
-            &bookmark_mdir, NULL, NULL);
-    if (err) {
-        LFS3_ASSERT(err != LFS3_ERR_NOENT);
-        return err;
+    lfs3_stag_t tag = lfs3_mtree_namelookup(lfs3, did, NULL, 0,
+            &bookmark_mdir, NULL);
+    if (tag < 0) {
+        LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+        return tag;
     }
     lfs3_mid_t bookmark_mid = bookmark_mdir.mid;
 
@@ -10687,19 +10687,19 @@ static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
     bookmark_mdir.mid += 1;
     if (lfs3_mrid(lfs3, bookmark_mdir.mid)
             >= (lfs3_srid_t)bookmark_mdir.r.weight) {
-        err = lfs3_mtree_lookup(lfs3,
+        tag = lfs3_mtree_lookup(lfs3,
                 lfs3_mbid(lfs3, bookmark_mdir.mid-1) + 1,
                 &bookmark_mdir);
-        if (err) {
-            if (err == LFS3_ERR_NOENT) {
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
                 goto empty;
             }
-            return err;
+            return tag;
         }
     }
 
     lfs3_data_t data;
-    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &bookmark_mdir,
+    tag = lfs3_mdir_lookup(lfs3, &bookmark_mdir,
             LFS3_TAG_MASK8 | LFS3_TAG_NAME,
             &data);
     if (tag < 0) {
@@ -10708,7 +10708,7 @@ static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
     }
 
     lfs3_did_t did_;
-    err = lfs3_data_readleb128(lfs3, &data, &did_);
+    int err = lfs3_data_readleb128(lfs3, &data, &did_);
     if (err) {
         return err;
     }
@@ -11301,11 +11301,11 @@ static int lfs3_dir_rewind_(lfs3_t *lfs3, lfs3_dir_t *dir) {
     }
 
     // lookup our bookmark in the mtree
-    int err = lfs3_mtree_namelookup(lfs3, dir->did, NULL, 0,
-            &dir->o.mdir, NULL, NULL);
-    if (err) {
-        LFS3_ASSERT(err != LFS3_ERR_NOENT);
-        return err;
+    lfs3_stag_t tag = lfs3_mtree_namelookup(lfs3, dir->did, NULL, 0,
+            &dir->o.mdir, NULL);
+    if (tag < 0) {
+        LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+        return tag;
     }
 
     // eagerly set to next entry
