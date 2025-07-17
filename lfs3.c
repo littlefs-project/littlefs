@@ -5459,8 +5459,8 @@ static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3);
 // core btree algorithm
 //
 // this commits up to the root, but stops if:
-// 1. we need a new root    => LFS3_ERR_RANGE
-// 2. we have a shrub root  => LFS3_ERR_EXIST
+// 1. we need a new root
+// 2. we have a shrub root
 //
 // ---
 //
@@ -5533,9 +5533,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             if (!lfs3_rbyd_trunk(&child)
                     || lfs3_rbyd_isshrub(btree)) {
                 bcommit->bid = rid;
-                return (!lfs3_rbyd_trunk(&child))
-                        ? LFS3_ERR_RANGE
-                        : LFS3_ERR_EXIST;
+                return LFS3_ERR_RANGE;
             }
 
             // mark btree as unerased in case of failure, our btree rbyd and
@@ -6096,7 +6094,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static int lfs3_btree_commitroot_(lfs3_t *lfs3,
         lfs3_btree_t *btree_, lfs3_btree_t *btree,
-        bool split,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
 relocate:;
     int err = lfs3_rbyd_alloc(lfs3, btree_);
@@ -6117,7 +6114,7 @@ relocate:;
     #endif
 
     // bshrubs may call this just to migrate rattrs to a btree
-    if (!split) {
+    if (lfs3_rbyd_isshrub(btree)) {
         err = lfs3_rbyd_compact(lfs3, btree_, btree, -1, -1);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -6156,13 +6153,12 @@ static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
     int err = lfs3_btree_commit_(lfs3, &btree_, btree,
             &bcommit);
     if (err && err != LFS3_ERR_RANGE) {
-        LFS3_ASSERT(err != LFS3_ERR_EXIST);
         return err;
     }
 
     // needs a new root?
     if (err == LFS3_ERR_RANGE) {
-        err = lfs3_btree_commitroot_(lfs3, &btree_, btree, true,
+        err = lfs3_btree_commitroot_(lfs3, &btree_, btree,
                 bcommit.bid, bcommit.rattrs, bcommit.rattr_count);
         if (err) {
             return err;
@@ -6791,7 +6787,6 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 // commit to the bshrub root, i.e. the bshrub's shrub
 #ifndef LFS3_RDONLY
 static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
-        bool split,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     // we need to prevent our shrub from overflowing our mdir somehow
     //
@@ -6821,7 +6816,9 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 
     // does our estimate exceed our inline_size? need to recalculate an
     // accurate estimate
-    lfs3_ssize_t estimate = (split) ? (lfs3_size_t)-1 : bshrub->shrub.eoff;
+    lfs3_ssize_t estimate = (lfs3_bshrub_isbshrub(bshrub))
+            ? bshrub->shrub.eoff
+            : (lfs3_size_t)-1;
     // this double condition avoids overflow issues
     if ((lfs3_size_t)estimate > lfs3->cfg->inline_size
             || estimate + commit_estimate > lfs3->cfg->inline_size) {
@@ -6903,18 +6900,19 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     bcommit.rattr_count = rattr_count;
     int err = lfs3_btree_commit_(lfs3, &bshrub->shrub_, &bshrub->shrub,
             &bcommit);
-    if (err && err != LFS3_ERR_EXIST
-            && err != LFS3_ERR_RANGE) {
+    if (err && err != LFS3_ERR_RANGE) {
         return err;
     }
-    bool split = (err == LFS3_ERR_RANGE);
 
-    // when btree is shrubbed, lfs3_btree_commit_ stops at the root
-    // and returns with pending rattrs
-    if (err == LFS3_ERR_EXIST
-            || err == LFS3_ERR_RANGE) {
+    // when btree is shrubbed or split, lfs3_btree_commit_ stops at the
+    // root and returns with pending rattrs
+    //
+    // note that bshrubs can't go straight to splitting, bshrubs are
+    // always converted to btrees first, which can't fail (shrub < 1/2
+    // block + commit < 1/2 block)
+    if (err == LFS3_ERR_RANGE) {
         // try to commit to shrub root
-        err = lfs3_bshrub_commitroot_(lfs3, bshrub, split,
+        err = lfs3_bshrub_commitroot_(lfs3, bshrub,
                 bcommit.bid, bcommit.rattrs, bcommit.rattr_count);
         if (err && err != LFS3_ERR_RANGE) {
             return err;
@@ -6923,7 +6921,7 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
         // if we don't fit, convert to btree
         if (err == LFS3_ERR_RANGE) {
             err = lfs3_btree_commitroot_(lfs3,
-                    &bshrub->shrub_, &bshrub->shrub, split,
+                    &bshrub->shrub_, &bshrub->shrub,
                     bcommit.bid, bcommit.rattrs, bcommit.rattr_count);
             if (err) {
                 return err;
@@ -6932,7 +6930,7 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     }
     #else
     // in 2-block mode, just commit to the shrub root
-    int err = lfs3_bshrub_commitroot_(lfs3, bshrub, false,
+    int err = lfs3_bshrub_commitroot_(lfs3, bshrub,
             bcommit.bid, bcommit.rattrs, bcommit.rattr_count);
     if (err) {
         if (err == LFS3_ERR_RANGE) {
