@@ -105,12 +105,12 @@ code = '''
 
         uint8_t buffer[4];
         lfs3_bid_t bid_;
-        lfs3_tag_t tag_;
+        lfs3_stag_t tag_;
         lfs3_size_t weight_;
         lfs3_data_t data_;
         for (lfs3_size_t i = 0; i < sim_size; i++) {
-            lfs3_btree_lookupnext(&lfs3, &btree, i,
-                    &bid_, &tag_, &weight_, &data_) => 0;
+            tag_ = lfs3_btree_lookupnext(&lfs3, &btree, i,
+                    &bid_, &weight_, &data_);
             lfs3_data_read(&lfs3, &data_, buffer, 4) => 1;
             assert(bid_ == i);
             assert(tag_ == LFS3_TAG_DATA);
@@ -120,7 +120,7 @@ code = '''
 
         // and no extra elements
         lfs3_btree_lookupnext(&lfs3, &btree, sim_size,
-                &bid_, &tag_, &weight_, &data_) => LFS3_ERR_NOENT;
+                &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
         // clean up sim
         free(sim);
@@ -2060,12 +2060,12 @@ code = '''
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
-    lfs3_tag_t tag_;
+    lfs3_stag_t tag_;
     lfs3_size_t weight_;
     lfs3_data_t data_;
     for (lfs3_size_t i = 0; i < sim_size; i++) {
-        lfs3_btree_lookupnext(&lfs3, &btree, i,
-                &bid_, &tag_, &weight_, &data_) => 0;
+        tag_ = lfs3_btree_lookupnext(&lfs3, &btree, i,
+                &bid_, &weight_, &data_);
         lfs3_data_read(&lfs3, &data_, buffer, 4) => 1;
         assert(bid_ == i);
         assert(tag_ == LFS3_TAG_DATA);
@@ -2075,7 +2075,7 @@ code = '''
 
     // and no extra elements
     lfs3_btree_lookupnext(&lfs3, &btree, sim_size,
-            &bid_, &tag_, &weight_, &data_) => LFS3_ERR_NOENT;
+            &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // clean up sim
     free(sim);
@@ -4017,12 +4017,12 @@ code = '''
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
-    lfs3_tag_t tag_;
+    lfs3_stag_t tag_;
     lfs3_size_t weight_;
     lfs3_data_t data_;
     for (lfs3_size_t i = 0; i < sim_size; i++) {
-        lfs3_btree_lookupnext(&lfs3, &btree, i,
-                &bid_, &tag_, &weight_, &data_) => 0;
+        tag_ = lfs3_btree_lookupnext(&lfs3, &btree, i,
+                &bid_, &weight_, &data_);
         lfs3_data_read(&lfs3, &data_, buffer, 4) => 1;
         assert(bid_ == i);
         assert(tag_ == LFS3_TAG_DATA);
@@ -4032,7 +4032,7 @@ code = '''
 
     // and no extra elements
     lfs3_btree_lookupnext(&lfs3, &btree, sim_size,
-            &bid_, &tag_, &weight_, &data_) => LFS3_ERR_NOENT;
+            &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // clean up sim
     free(sim);

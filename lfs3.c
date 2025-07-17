@@ -5239,10 +5239,11 @@ static int lfs3_data_fetchbtree(lfs3_t *lfs3, lfs3_data_t *data,
 
 // lookup rbyd/rid containing a given bid
 #ifndef LFS3_2BONLY
-static int lfs3_btree_lookupleaf(lfs3_t *lfs3, const lfs3_btree_t *btree,
+static lfs3_stag_t lfs3_btree_lookupleaf(lfs3_t *lfs3,
+        const lfs3_btree_t *btree,
         lfs3_bid_t bid,
         lfs3_bid_t *bid_, lfs3_rbyd_t *rbyd_, lfs3_srid_t *rid_,
-        lfs3_tag_t *tag_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
+        lfs3_bid_t *weight_, lfs3_data_t *data_) {
     // descend down the btree looking for our bid
     *rbyd_ = *btree;
     lfs3_srid_t rid = bid;
@@ -5290,16 +5291,13 @@ static int lfs3_btree_lookupleaf(lfs3_t *lfs3, const lfs3_btree_t *btree,
             if (rid_) {
                 *rid_ = rid__;
             }
-            if (tag_) {
-                *tag_ = tag__;
-            }
             if (weight_) {
                 *weight_ = weight__;
             }
             if (data_) {
                 *data_ = data__;
             }
-            return 0;
+            return tag__;
         }
     }
 }
@@ -5308,13 +5306,13 @@ static int lfs3_btree_lookupleaf(lfs3_t *lfs3, const lfs3_btree_t *btree,
 // non-leaf lookups discard the rbyd info, which can be a bit more
 // convenient, but may make commits more costly
 #ifndef LFS3_2BONLY
-static int lfs3_btree_lookupnext(lfs3_t *lfs3, const lfs3_btree_t *btree,
+static lfs3_stag_t lfs3_btree_lookupnext(lfs3_t *lfs3,
+        const lfs3_btree_t *btree,
         lfs3_bid_t bid,
-        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bid_t *weight_,
-        lfs3_data_t *data_) {
+        lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
     lfs3_rbyd_t rbyd;
     return lfs3_btree_lookupleaf(lfs3, btree, bid,
-            bid_, &rbyd, NULL, tag_, weight_, data_);
+            bid_, &rbyd, NULL, weight_, data_);
 }
 #endif
 
@@ -5322,17 +5320,17 @@ static int lfs3_btree_lookupnext(lfs3_t *lfs3, const lfs3_btree_t *btree,
 // behavior, if you don't care about the exact bid either first call
 // lfs3_btree_lookupnext, or lfs3_btree_lookupleaf + lfs3_rbyd_lookup
 #ifndef LFS3_2BONLY
-static int lfs3_btree_lookup(lfs3_t *lfs3, const lfs3_btree_t *btree,
+static lfs3_stag_t lfs3_btree_lookup(lfs3_t *lfs3, const lfs3_btree_t *btree,
         lfs3_bid_t bid, lfs3_tag_t tag,
-        lfs3_tag_t *tag_, lfs3_data_t *data_) {
+        lfs3_data_t *data_) {
     // lookup rbyd in btree
     lfs3_bid_t bid__;
     lfs3_rbyd_t rbyd__;
     lfs3_srid_t rid__;
-    int err = lfs3_btree_lookupleaf(lfs3, btree, bid,
-            &bid__, &rbyd__, &rid__, NULL, NULL, NULL);
-    if (err) {
-        return err;
+    lfs3_stag_t tag__ = lfs3_btree_lookupleaf(lfs3, btree, bid,
+            &bid__, &rbyd__, &rid__, NULL, NULL);
+    if (tag__ < 0) {
+        return tag__;
     }
 
     // lookup finds the next-smallest bid, all we need to do is fail if it
@@ -5342,16 +5340,8 @@ static int lfs3_btree_lookup(lfs3_t *lfs3, const lfs3_btree_t *btree,
     }
 
     // lookup tag in rbyd
-    lfs3_stag_t tag__ = lfs3_rbyd_lookup(lfs3, &rbyd__, rid__, tag,
+    return lfs3_rbyd_lookup(lfs3, &rbyd__, rid__, tag,
             data_);
-    if (tag__ < 0) {
-        return tag__;
-    }
-
-    if (tag_) {
-        *tag_ = tag__;
-    }
-    return 0;
 }
 #endif
 
@@ -5497,12 +5487,12 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
     lfs3_srid_t rid = bcommit->bid;
     if (btree->weight > 0) {
         lfs3_srid_t rid_;
-        int err = lfs3_btree_lookupleaf(lfs3, btree,
+        lfs3_stag_t tag = lfs3_btree_lookupleaf(lfs3, btree,
                 lfs3_min(bcommit->bid, btree->weight-1),
-                &bcommit->bid, &child, &rid_, NULL, NULL, NULL);
-        if (err) {
-            LFS3_ASSERT(err != LFS3_ERR_NOENT);
-            return err;
+                &bcommit->bid, &child, &rid_, NULL, NULL);
+        if (tag < 0) {
+            LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+            return tag;
         }
 
         // adjust rid
@@ -6287,10 +6277,10 @@ static void lfs3_btraversal_init(lfs3_btraversal_t *bt) {
 #endif
 
 #ifndef LFS3_2BONLY
-static int lfs3_btree_traverse(lfs3_t *lfs3, const lfs3_btree_t *btree,
+static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3,
+        const lfs3_btree_t *btree,
         lfs3_btraversal_t *bt,
-        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bid_t *weight_,
-        lfs3_data_t *data_) {
+        lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
     // explicitly traverse the root even if weight=0
     if (!bt->branch) {
         bt->branch = btree;
@@ -6305,16 +6295,13 @@ static int lfs3_btree_traverse(lfs3_t *lfs3, const lfs3_btree_t *btree,
             if (bid_) {
                 *bid_ = btree->weight-1;
             }
-            if (tag_) {
-                *tag_ = LFS3_TAG_BRANCH;
-            }
             if (weight_) {
                 *weight_ = btree->weight;
             }
             if (data_) {
                 data_->u.buffer = (const uint8_t*)bt->branch;
             }
-            return 0;
+            return LFS3_TAG_BRANCH;
         }
     }
 
@@ -6365,16 +6352,13 @@ static int lfs3_btree_traverse(lfs3_t *lfs3, const lfs3_btree_t *btree,
                 if (bid_) {
                     *bid_ = bt->bid + (rid__ - bt->rid);
                 }
-                if (tag_) {
-                    *tag_ = LFS3_TAG_BRANCH;
-                }
                 if (weight_) {
                     *weight_ = weight__;
                 }
                 if (data_) {
                     data_->u.buffer = (const uint8_t*)bt->branch;
                 }
-                return 0;
+                return LFS3_TAG_BRANCH;
             }
 
         // found our bid
@@ -6390,16 +6374,13 @@ static int lfs3_btree_traverse(lfs3_t *lfs3, const lfs3_btree_t *btree,
             if (bid_) {
                 *bid_ = bid__;
             }
-            if (tag_) {
-                *tag_ = tag__;
-            }
             if (weight_) {
                 *weight_ = weight__;
             }
             if (data_) {
                 *data_ = data__;
             }
-            return 0;
+            return tag__;
         }
     }
 }
@@ -6725,44 +6706,46 @@ static lfs3_ssize_t lfs3_bshrub_estimate(lfs3_t *lfs3,
 
 // bshrub lookup functions
 #ifndef LFS3_2BONLY
-static int lfs3_bshrub_lookupleaf(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
+static lfs3_stag_t lfs3_bshrub_lookupleaf(lfs3_t *lfs3,
+        const lfs3_bshrub_t *bshrub,
         lfs3_bid_t bid,
         lfs3_bid_t *bid_, lfs3_rbyd_t *rbyd_, lfs3_srid_t *rid_,
-        lfs3_tag_t *tag_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
+        lfs3_bid_t *weight_, lfs3_data_t *data_) {
     return lfs3_btree_lookupleaf(lfs3, &bshrub->shrub, bid,
-            bid_, rbyd_, rid_, tag_, weight_, data_);
+            bid_, rbyd_, rid_, weight_, data_);
 }
 #endif
 
-static int lfs3_bshrub_lookupnext(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
+static lfs3_stag_t lfs3_bshrub_lookupnext(lfs3_t *lfs3,
+        const lfs3_bshrub_t *bshrub,
         lfs3_bid_t bid,
-        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bid_t *weight_,
-        lfs3_data_t *data_) {
+        lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
     #ifndef LFS3_2BONLY
     return lfs3_btree_lookupnext(lfs3, &bshrub->shrub, bid,
-            bid_, tag_, weight_, data_);
+            bid_, weight_, data_);
     #else
     return lfs3_rbyd_lookupnext(lfs3, &bshrub->shrub, bid, 0,
-            (lfs3_srid_t*)bid_, tag_, weight_, data_);
+            (lfs3_srid_t*)bid_, weight_, data_);
     #endif
 }
 
 #ifndef LFS3_2BONLY
-static int lfs3_bshrub_lookup(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
+static lfs3_stag_t lfs3_bshrub_lookup(lfs3_t *lfs3,
+        const lfs3_bshrub_t *bshrub,
         lfs3_bid_t bid, lfs3_tag_t tag,
-        lfs3_tag_t *tag_, lfs3_data_t *data_) {
+        lfs3_data_t *data_) {
     return lfs3_btree_lookup(lfs3, &bshrub->shrub, bid, tag,
-            tag_, data_);
+            data_);
 }
 #endif
 
 #ifndef LFS3_2BONLY
-static int lfs3_bshrub_traverse(lfs3_t *lfs3, const lfs3_bshrub_t *bshrub,
+static lfs3_stag_t lfs3_bshrub_traverse(lfs3_t *lfs3,
+        const lfs3_bshrub_t *bshrub,
         lfs3_btraversal_t *bt,
-        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bid_t *weight_,
-        lfs3_data_t *data_) {
+        lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
     return lfs3_btree_traverse(lfs3, &bshrub->shrub, bt,
-            bid_, tag_, weight_, data_);
+            bid_, weight_, data_);
 }
 #endif
 
@@ -7976,14 +7959,13 @@ static int lfs3_mtree_lookup(lfs3_t *lfs3, lfs3_smid_t mid,
         #ifndef LFS3_2BONLY
         lfs3_bid_t bid;
         lfs3_srid_t rid;
-        lfs3_stag_t tag;
         lfs3_bid_t weight;
         lfs3_data_t data;
-        int err = lfs3_btree_lookupleaf(lfs3, &lfs3->mtree, mid,
-                &bid, &mdir_->r, &rid, (lfs3_tag_t*)&tag, &weight, &data);
-        if (err) {
-            LFS3_ASSERT(err != LFS3_ERR_NOENT);
-            return err;
+        lfs3_stag_t tag = lfs3_btree_lookupleaf(lfs3, &lfs3->mtree, mid,
+                &bid, &mdir_->r, &rid, &weight, &data);
+        if (tag < 0) {
+            LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+            return tag;
         }
         LFS3_ASSERT((lfs3_sbid_t)bid == lfs3_mbid(lfs3, mid));
         LFS3_ASSERT(weight == (lfs3_bid_t)(1 << lfs3->mbits));
@@ -9790,11 +9772,11 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
         #ifndef LFS3_2BONLY
         case LFS3_TSTATE_MROOTCHAIN:;
             // lookup mroot, if we find one this is not the active mroot
-            lfs3_tag_t tag;
+            lfs3_stag_t tag;
             lfs3_data_t data;
             err = lfs3_mdir_lookup(lfs3, &t->b.o.mdir,
                     LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
-                    &tag, &data);
+                    (lfs3_tag_t*)&tag, &data);
             if (err) {
                 // if we have no mtree (inlined mdir), we need to
                 // traverse any files in our mroot next
@@ -9970,10 +9952,10 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
         case LFS3_TSTATE_BTREE:;
         case LFS3_TSTATE_OBTREE:;
             // traverse through our bshrub/btree
-            err = lfs3_bshrub_traverse(lfs3, &t->b, &t->u.bt,
-                    NULL, &tag, NULL, &data);
-            if (err) {
-                if (err == LFS3_ERR_NOENT) {
+            tag = lfs3_bshrub_traverse(lfs3, &t->b, &t->u.bt,
+                    NULL, NULL, &data);
+            if (tag < 0) {
+                if (tag == LFS3_ERR_NOENT) {
                     // clear the bshrub state
                     lfs3_bshrub_init(&t->b);
                     // end of mtree? start iterating over mdirs
@@ -9999,7 +9981,7 @@ static int lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_traversal_t *t,
                         LFS3_UNREACHABLE();
                     }
                 }
-                return err;
+                return tag;
             }
 
             // found an inner btree node?
@@ -11971,19 +11953,18 @@ int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file) {
 static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
         lfs3_bid_t bid,
         lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_bptr_t *bptr_) {
-    lfs3_tag_t tag;
     lfs3_bid_t weight;
     lfs3_data_t data;
-    int err = lfs3_bshrub_lookupnext(lfs3, &file->b, bid,
-            bid_, &tag, &weight, &data);
-    if (err) {
-        return err;
+    lfs3_stag_t tag = lfs3_bshrub_lookupnext(lfs3, &file->b, bid,
+            bid_, &weight, &data);
+    if (tag < 0) {
+        return tag;
     }
     LFS3_ASSERT(tag == LFS3_TAG_DATA
             || tag == LFS3_TAG_BLOCK);
 
     // fetch the bptr/data fragment
-    err = lfs3_bptr_fetch(lfs3, bptr_, tag, weight, data);
+    int err = lfs3_bptr_fetch(lfs3, bptr_, tag, weight, data);
     if (err) {
         return err;
     }
@@ -14095,15 +14076,14 @@ static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
     lfs3_btraversal_t bt;
     lfs3_btraversal_init(&bt);
     while (true) {
-        lfs3_tag_t tag;
         lfs3_data_t data;
-        int err = lfs3_bshrub_traverse(lfs3, &file->b, &bt,
-                NULL, &tag, NULL, &data);
-        if (err) {
-            if (err == LFS3_ERR_NOENT) {
+        lfs3_stag_t tag = lfs3_bshrub_traverse(lfs3, &file->b, &bt,
+                NULL, NULL, &data);
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
                 break;
             }
-            return err;
+            return tag;
         }
 
         // validate btree nodes?
@@ -14115,7 +14095,7 @@ static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
                     || lfs3_t_isckdata(flags))
                 && tag == LFS3_TAG_BRANCH) {
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-            err = lfs3_rbyd_fetchck(lfs3, rbyd,
+            int err = lfs3_rbyd_fetchck(lfs3, rbyd,
                     rbyd->blocks[0], rbyd->trunk,
                     rbyd->cksum);
             if (err) {
@@ -14127,7 +14107,7 @@ static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
         if (lfs3_t_isckdata(flags)
                 && tag == LFS3_TAG_BLOCK) {
             lfs3_bptr_t bptr;
-            err = lfs3_data_readbptr(lfs3, &data,
+            int err = lfs3_data_readbptr(lfs3, &data,
                     &bptr);
             if (err) {
                 return err;
