@@ -11585,7 +11585,7 @@ static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
 // file operations
 
 static void lfs3_file_init(lfs3_file_t *file, uint32_t flags,
-        const struct lfs3_file_config *cfg) {
+        const struct lfs3_file_cfg *cfg) {
     file->cfg = cfg;
     file->b.h.flags = lfs3_o_typeflags(LFS3_TYPE_REG) | flags;
     #ifndef LFS3_KVONLY
@@ -11672,7 +11672,7 @@ static int lfs3_file_ck(lfs3_t *lfs3, const lfs3_file_t *file,
 
 int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
-        const struct lfs3_file_config *cfg) {
+        const struct lfs3_file_cfg *cfg) {
     #ifndef LFS3_RDONLY
     if (!lfs3_o_isrdonly(flags)) {
         // prepare our filesystem for writing
@@ -11857,7 +11857,7 @@ failed:;
 
 int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
-        const struct lfs3_file_config *cfg) {
+        const struct lfs3_file_cfg *cfg) {
     // already open?
     LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &file->b.h));
     // don't allow the forbidden mode!
@@ -11897,7 +11897,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
 }
 
 // default file config
-static const struct lfs3_file_config lfs3_file_defaultcfg = {0};
+static const struct lfs3_file_cfg lfs3_file_defaultcfg = {0};
 
 int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags) {
@@ -14180,7 +14180,7 @@ int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file) {
 // advanced file operations
 
 // kv file config, we need to explicitly disable the file cache
-static const struct lfs3_file_config lfs3_file_kvconfig = {
+static const struct lfs3_file_cfg lfs3_file_kvcfg = {
     // TODO is this the best way to do this?
     .cache_buffer = (uint8_t*)1,
     .cache_size = 0,
@@ -14192,7 +14192,7 @@ lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
     // bypass the cache
     lfs3_file_t file;
     int err = lfs3_file_opencfg(lfs3, &file, path, LFS3_O_RDONLY,
-            &lfs3_file_kvconfig);
+            &lfs3_file_kvcfg);
     if (err) {
         return err;
     }
@@ -14216,7 +14216,7 @@ lfs3_ssize_t lfs3_size(lfs3_t *lfs3, const char *path) {
     // bypass the cache
     lfs3_file_t file;
     int err = lfs3_file_opencfg(lfs3, &file, path, LFS3_O_RDONLY,
-            &lfs3_file_kvconfig);
+            &lfs3_file_kvcfg);
     if (err) {
         return err;
     }
@@ -14244,7 +14244,7 @@ int lfs3_set(lfs3_t *lfs3, const char *path,
     //   normally in lfs3_file_close, lfs3_file_sync has its own logic
     //   to try to commit small files atomically
     //
-    struct lfs3_file_config cfg = {
+    struct lfs3_file_cfg cfg = {
         .cache_buffer = (uint8_t*)buffer,
         .cache_size = size,
     };
@@ -14271,7 +14271,7 @@ static int lfs3_deinit(lfs3_t *lfs3);
 
 // initialize littlefs state, assert on bad configuration
 static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
-        const struct lfs3_config *cfg) {
+        const struct lfs3_cfg *cfg) {
     // unknown flags?
     LFS3_ASSERT((flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_M_RDWR)
@@ -15130,7 +15130,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
         uint32_t flags, lfs3_soff_t steps);
 
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
-        const struct lfs3_config *cfg) {
+        const struct lfs3_cfg *cfg) {
     #ifdef LFS3_YES_RDONLY
     flags |= LFS3_M_RDONLY;
     #endif
@@ -15366,7 +15366,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
 
 #ifndef LFS3_RDONLY
 int lfs3_format(lfs3_t *lfs3, uint32_t flags,
-        const struct lfs3_config *cfg) {
+        const struct lfs3_cfg *cfg) {
     #ifdef LFS3_YES_REVDBG
     flags |= LFS3_F_REVDBG;
     #endif

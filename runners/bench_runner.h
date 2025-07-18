@@ -45,7 +45,7 @@ void bench_fresult(const char *m, uintmax_t n, double result);
 
 
 // generated bench configurations
-struct lfs3_config;
+struct lfs3_cfg;
 
 enum bench_flags {
     BENCH_INTERNAL  = 0x1,
@@ -69,7 +69,7 @@ struct bench_case {
     size_t permutations;
 
     bool (*if_)(void);
-    void (*run)(struct lfs3_config *cfg);
+    void (*run)(struct lfs3_cfg *cfg);
 };
 
 struct bench_suite {

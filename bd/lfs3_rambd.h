@@ -22,7 +22,7 @@
 #endif
 
 // rambd config (optional)
-struct lfs3_rambd_config {
+struct lfs3_rambd_cfg {
     // Optional statically allocated buffer for the block device.
     void *buffer;
 };
@@ -30,36 +30,36 @@ struct lfs3_rambd_config {
 // rambd state
 typedef struct lfs3_rambd {
     uint8_t *buffer;
-    const struct lfs3_rambd_config *cfg;
+    const struct lfs3_rambd_cfg *cfg;
 } lfs3_rambd_t;
 
 
-// Create a RAM block device using the geometry in lfs3_config
-int lfs3_rambd_create(const struct lfs3_config *cfg);
-int lfs3_rambd_createcfg(const struct lfs3_config *cfg,
-        const struct lfs3_rambd_config *bdcfg);
+// Create a RAM block device using the geometry in lfs3_cfg
+int lfs3_rambd_create(const struct lfs3_cfg *cfg);
+int lfs3_rambd_createcfg(const struct lfs3_cfg *cfg,
+        const struct lfs3_rambd_cfg *bdcfg);
 
 // Clean up memory associated with block device
-int lfs3_rambd_destroy(const struct lfs3_config *cfg);
+int lfs3_rambd_destroy(const struct lfs3_cfg *cfg);
 
 // Read a block
-int lfs3_rambd_read(const struct lfs3_config *cfg, lfs3_block_t block,
+int lfs3_rambd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, void *buffer, lfs3_size_t size);
 
 // Program a block
 //
 // The block must have previously been erased.
-int lfs3_rambd_prog(const struct lfs3_config *cfg, lfs3_block_t block,
+int lfs3_rambd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, const void *buffer, lfs3_size_t size);
 
 // Erase a block
 //
 // A block must be erased before being programmed. The
 // state of an erased block is undefined.
-int lfs3_rambd_erase(const struct lfs3_config *cfg, lfs3_block_t block);
+int lfs3_rambd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block);
 
 // Sync the block device
-int lfs3_rambd_sync(const struct lfs3_config *cfg);
+int lfs3_rambd_sync(const struct lfs3_cfg *cfg);
 
 
 #endif

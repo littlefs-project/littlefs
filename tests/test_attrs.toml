@@ -2071,7 +2071,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2153,7 +2153,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2225,7 +2225,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2299,7 +2299,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2365,7 +2365,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2438,7 +2438,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2536,7 +2536,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2647,7 +2647,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2755,7 +2755,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2869,7 +2869,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -2981,7 +2981,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -3092,7 +3092,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -3190,7 +3190,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -3298,7 +3298,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -3406,7 +3406,7 @@ code = '''
             .size = (MUTSIZE) ? &c_size : NULL,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 3,
     };
@@ -3508,7 +3508,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -3532,7 +3532,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -3622,7 +3622,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -3646,7 +3646,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -3727,7 +3727,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -3751,7 +3751,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -3834,7 +3834,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -3858,7 +3858,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -3935,7 +3935,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -3959,7 +3959,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -4126,7 +4126,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -4150,7 +4150,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -4278,7 +4278,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -4302,7 +4302,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -4467,7 +4467,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -4491,7 +4491,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -4617,7 +4617,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -4641,7 +4641,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -4750,7 +4750,7 @@ code = '''
     uint8_t c_buf[3][256];
     lfs3_ssize_t c_size[3];
     struct lfs3_attr attrs[3][3];
-    struct lfs3_file_config filecfg[3];
+    struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
     for (lfs3_size_t i = 0; i < 3; i++) {
         attrs[i][0] = (struct lfs3_attr){
@@ -4774,7 +4774,7 @@ code = '''
             .buffer_size = sizeof(c_buf[i]),
             .size = (MUTSIZE) ? &c_size[i] : NULL,
         };
-        filecfg[i] = (struct lfs3_file_config){
+        filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
             .attr_count = 3,
         };
@@ -4992,7 +4992,7 @@ code = '''
             .size = &a_size,
         }
     };
-    struct lfs3_file_config filecfg = {
+    struct lfs3_file_cfg filecfg = {
         .attrs = attrs,
         .attr_count = 1,
     };
@@ -5069,7 +5069,7 @@ code = '''
                 .buffer_size = SIZE,
             };
         }
-        struct lfs3_file_config filecfg = {
+        struct lfs3_file_cfg filecfg = {
             .attrs = attrs,
             .attr_count = M,
         };
@@ -5136,7 +5136,7 @@ code = '''
     uint8_t a_buf[N][M][SIZE];
     lfs3_ssize_t a_size[N][M];
     struct lfs3_attr attrs[N][M];
-    struct lfs3_file_config filecfg[N];
+    struct lfs3_file_cfg filecfg[N];
     lfs3_file_t file[N];
 
     // create N files
@@ -5152,7 +5152,7 @@ code = '''
                 .size = &a_size[x][a],
             };
         }
-        filecfg[x] = (struct lfs3_file_config){
+        filecfg[x] = (struct lfs3_file_cfg){
             .attrs = attrs[x],
             .attr_count = M,
         };
@@ -5254,7 +5254,7 @@ code = '''
     uint8_t a_buf[N][H][M][SIZE];
     lfs3_ssize_t a_size[N][H][M];
     struct lfs3_attr attrs[N][H][M];
-    struct lfs3_file_config filecfg[N][H];
+    struct lfs3_file_cfg filecfg[N][H];
     lfs3_file_t file[N][H];
 
     // create N files
@@ -5271,7 +5271,7 @@ code = '''
                     .size = &a_size[x][y][a],
                 };
             }
-            filecfg[x][y] = (struct lfs3_file_config){
+            filecfg[x][y] = (struct lfs3_file_cfg){
                 .attrs = attrs[x][y],
                 .attr_count = M,
             };
@@ -5381,7 +5381,7 @@ code = '''
     uint8_t a_buf[N][M][SIZE];
     lfs3_ssize_t a_size[N][M];
     struct lfs3_attr attrs[N][M];
-    struct lfs3_file_config filecfg[N];
+    struct lfs3_file_cfg filecfg[N];
     lfs3_file_t file[N];
 
     // create N files
@@ -5397,7 +5397,7 @@ code = '''
                 .size = &a_size[x][a],
             };
         }
-        filecfg[x] = (struct lfs3_file_config){
+        filecfg[x] = (struct lfs3_file_cfg){
             .attrs = attrs[x],
             .attr_count = M,
         };
@@ -5634,7 +5634,7 @@ code = '''
         uint8_t a_buf[M][SIZE];
         lfs3_ssize_t a_size[M];
         struct lfs3_attr attrs[M];
-        struct lfs3_file_config filecfg;
+        struct lfs3_file_cfg filecfg;
         lfs3_file_t file;
         for (lfs3_size_t a = 0; a < M; a++) {
             attrs[a] = (struct lfs3_attr){
@@ -5645,7 +5645,7 @@ code = '''
                 .size = &a_size[a],
             };
         }
-        filecfg = (struct lfs3_file_config){
+        filecfg = (struct lfs3_file_cfg){
             .attrs = attrs,
             .attr_count = M,
         };
@@ -5710,7 +5710,7 @@ code = '''
             uint8_t a_buf[M][SIZE];
             lfs3_ssize_t a_size[M];
             struct lfs3_attr attrs[M];
-            struct lfs3_file_config filecfg;
+            struct lfs3_file_cfg filecfg;
             lfs3_file_t file;
             for (lfs3_size_t a = 0; a < M; a++) {
                 attrs[a] = (struct lfs3_attr){
@@ -5721,7 +5721,7 @@ code = '''
                     .size = &a_size[a],
                 };
             }
-            filecfg = (struct lfs3_file_config){
+            filecfg = (struct lfs3_file_cfg){
                 .attrs = attrs,
                 .attr_count = M,
             };

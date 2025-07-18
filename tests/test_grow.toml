@@ -26,7 +26,7 @@ defines.BIGGER_BLOCK_COUNT = [
 if = 'BIGGER_BLOCK_COUNT > SMALLER_BLOCK_COUNT'
 code = '''
     // create a smaller fs
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -145,7 +145,7 @@ defines.BIGGER_BLOCK_COUNT = [
 if = 'BIGGER_BLOCK_COUNT > SMALLER_BLOCK_COUNT'
 code = '''
     // create a bigger fs
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = BIGGER_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -206,7 +206,7 @@ defines.BIGGER_BLOCK_COUNT = [
 if = 'BIGGER_BLOCK_COUNT > SMALLER_BLOCK_COUNT'
 code = '''
     // create a smaller fs
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -321,7 +321,7 @@ defines.SMALLER_BLOCK_COUNT = [
 ]
 code = '''
     // create a smaller fs
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -438,7 +438,7 @@ defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     // start with a small number of blocks
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -581,7 +581,7 @@ defines.SEED = 'range(10)'
 fuzz = 'SEED'
 code = '''
     // start with a small number of blocks
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -812,7 +812,7 @@ defines.SIZE = [
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     // start with a small number of blocks
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -961,7 +961,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -1255,7 +1255,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -1755,7 +1755,7 @@ fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = INIT_BLOCK_COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -2369,7 +2369,7 @@ code = '''
     int err = lfs3_mount(&lfs3, LFS3_M_RDWR, CFG);
     if (err) {
         // start with a small number of blocks
-        struct lfs3_config cfg = *CFG;
+        struct lfs3_cfg cfg = *CFG;
         cfg.block_count = INIT_BLOCK_COUNT;
         lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
         // mount with maximum block count
@@ -2682,7 +2682,7 @@ code = '''
     int err = lfs3_mount(&lfs3, LFS3_M_RDWR, CFG);
     if (err) {
         // start with a small number of blocks
-        struct lfs3_config cfg = *CFG;
+        struct lfs3_cfg cfg = *CFG;
         cfg.block_count = INIT_BLOCK_COUNT;
         lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
         // mount with maximum block count

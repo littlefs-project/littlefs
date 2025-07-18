@@ -612,12 +612,12 @@ typedef struct bench_record {
     lfs3_emubd_io_t last_erased;
 } bench_record_t;
 
-static struct lfs3_config *bench_cfg = NULL;
+static struct lfs3_cfg *bench_cfg = NULL;
 static bench_record_t *bench_records;
 size_t bench_record_count;
 size_t bench_record_capacity;
 
-void bench_reset(struct lfs3_config *cfg) {
+void bench_reset(struct lfs3_cfg *cfg) {
     bench_cfg = cfg;
     bench_record_count = 0;
 }
@@ -1337,7 +1337,7 @@ void perm_run(
     // create block device and configuration
     lfs3_emubd_t bd;
 
-    struct lfs3_config cfg = {
+    struct lfs3_cfg cfg = {
         .context            = &bd,
         .read               = lfs3_emubd_read,
         .prog               = lfs3_emubd_prog,
@@ -1346,7 +1346,7 @@ void perm_run(
         BENCH_CFG
     };
 
-    struct lfs3_emubd_config bdcfg = {
+    struct lfs3_emubd_cfg bdcfg = {
         .disk_path          = bench_disk_path,
         .read_sleep         = bench_read_sleep,
         .prog_sleep         = bench_prog_sleep,

@@ -1301,7 +1301,7 @@ static void run_powerloss_none(
     // create block device and configuration
     lfs3_emubd_t bd;
 
-    struct lfs3_config cfg = {
+    struct lfs3_cfg cfg = {
         .context            = &bd,
         .read               = lfs3_emubd_read,
         .prog               = lfs3_emubd_prog,
@@ -1310,7 +1310,7 @@ static void run_powerloss_none(
         TEST_CFG
     };
 
-    struct lfs3_emubd_config bdcfg = {
+    struct lfs3_emubd_cfg bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1362,7 +1362,7 @@ static void run_powerloss_linear(
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs3_config cfg = {
+    struct lfs3_cfg cfg = {
         .context            = &bd,
         .read               = lfs3_emubd_read,
         .prog               = lfs3_emubd_prog,
@@ -1371,7 +1371,7 @@ static void run_powerloss_linear(
         TEST_CFG
     };
 
-    struct lfs3_emubd_config bdcfg = {
+    struct lfs3_emubd_cfg bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1439,7 +1439,7 @@ static void run_powerloss_log(
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs3_config cfg = {
+    struct lfs3_cfg cfg = {
         .context            = &bd,
         .read               = lfs3_emubd_read,
         .prog               = lfs3_emubd_prog,
@@ -1448,7 +1448,7 @@ static void run_powerloss_log(
         TEST_CFG
     };
 
-    struct lfs3_emubd_config bdcfg = {
+    struct lfs3_emubd_cfg bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1516,7 +1516,7 @@ static void run_powerloss_cycles(
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs3_config cfg = {
+    struct lfs3_cfg cfg = {
         .context            = &bd,
         .read               = lfs3_emubd_read,
         .prog               = lfs3_emubd_prog,
@@ -1525,7 +1525,7 @@ static void run_powerloss_cycles(
         TEST_CFG
     };
 
-    struct lfs3_emubd_config bdcfg = {
+    struct lfs3_emubd_cfg bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1582,7 +1582,7 @@ static void run_powerloss_cycles(
 }
 
 struct powerloss_exhaustive_state {
-    struct lfs3_config *cfg;
+    struct lfs3_cfg *cfg;
 
     lfs3_emubd_t *branches;
     size_t branch_count;
@@ -1623,8 +1623,8 @@ static void run_powerloss_exhaustive_layer(
         struct powerloss_exhaustive_cycles *cycles,
         const struct test_suite *suite,
         const struct test_case *case_,
-        struct lfs3_config *cfg,
-        struct lfs3_emubd_config *bdcfg,
+        struct lfs3_cfg *cfg,
+        struct lfs3_emubd_cfg *bdcfg,
         size_t depth,
         size_t pls) {
     struct powerloss_exhaustive_state state = {
@@ -1691,7 +1691,7 @@ static void run_powerloss_exhaustive(
     // create block device and configuration
     lfs3_emubd_t bd;
 
-    struct lfs3_config cfg = {
+    struct lfs3_cfg cfg = {
         .context            = &bd,
         .read               = lfs3_emubd_read,
         .prog               = lfs3_emubd_prog,
@@ -1700,7 +1700,7 @@ static void run_powerloss_exhaustive(
         TEST_CFG
     };
 
-    struct lfs3_emubd_config bdcfg = {
+    struct lfs3_emubd_cfg bdcfg = {
         .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,

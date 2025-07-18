@@ -337,21 +337,21 @@ enum lfs3_btype {
 
 
 // Configuration provided during initialization of the littlefs
-struct lfs3_config {
+struct lfs3_cfg {
     // Opaque user provided context that can be used to pass
     // information to the block device operations
     void *context;
 
     // Read a region in a block. Negative error codes are propagated
     // to the user.
-    int (*read)(const struct lfs3_config *c, lfs3_block_t block,
+    int (*read)(const struct lfs3_cfg *c, lfs3_block_t block,
             lfs3_off_t off, void *buffer, lfs3_size_t size);
 
     // Program a region in a block. The block must have previously
     // been erased. Negative error codes are propagated to the user.
     // May return LFS3_ERR_CORRUPT if the block should be considered bad.
     #ifndef LFS3_RDONLY
-    int (*prog)(const struct lfs3_config *c, lfs3_block_t block,
+    int (*prog)(const struct lfs3_cfg *c, lfs3_block_t block,
             lfs3_off_t off, const void *buffer, lfs3_size_t size);
     #endif
 
@@ -360,23 +360,23 @@ struct lfs3_config {
     // are propagated to the user.
     // May return LFS3_ERR_CORRUPT if the block should be considered bad.
     #ifndef LFS3_RDONLY
-    int (*erase)(const struct lfs3_config *c, lfs3_block_t block);
+    int (*erase)(const struct lfs3_cfg *c, lfs3_block_t block);
     #endif
 
     // Sync the state of the underlying block device. Negative error codes
     // are propagated to the user.
     #ifndef LFS3_RDONLY
-    int (*sync)(const struct lfs3_config *c);
+    int (*sync)(const struct lfs3_cfg *c);
     #endif
 
 #ifdef LFS3_THREADSAFE
     // Lock the underlying block device. Negative error codes
     // are propagated to the user.
-    int (*lock)(const struct lfs3_config *c);
+    int (*lock)(const struct lfs3_cfg *c);
 
     // Unlock the underlying block device. Negative error codes
     // are propagated to the user.
-    int (*unlock)(const struct lfs3_config *c);
+    int (*unlock)(const struct lfs3_cfg *c);
 #endif
 
     // Minimum size of a read in bytes. All read operations will be a
@@ -597,7 +597,7 @@ struct lfs3_attr {
 };
 
 // Optional configuration provided during lfs3_file_opencfg
-struct lfs3_file_config {
+struct lfs3_file_cfg {
     // Optional statically allocated file cache buffer. Must be cache_size.
     // By default lfs3_malloc is used to allocate this buffer.
     void *cache_buffer;
@@ -722,7 +722,7 @@ typedef struct lfs3_bshrub {
 typedef struct lfs3_file {
     // btree/bshrub stuff is in here
     lfs3_bshrub_t b;
-    const struct lfs3_file_config *cfg;
+    const struct lfs3_file_cfg *cfg;
 
     // current file position
     #ifndef LFS3_KVONLY
@@ -804,7 +804,7 @@ typedef struct lfs3_grm {
 
 // The littlefs filesystem type
 typedef struct lfs3 {
-    const struct lfs3_config *cfg;
+    const struct lfs3_cfg *cfg;
     uint32_t flags;
     lfs3_size_t block_count;
     lfs3_size_t name_limit;
@@ -901,7 +901,7 @@ typedef struct lfs3 {
 // Returns a negative error code on failure.
 #ifndef LFS3_RDONLY
 int lfs3_format(lfs3_t *lfs3, uint32_t flags,
-        const struct lfs3_config *cfg);
+        const struct lfs3_cfg *cfg);
 #endif
 
 // Mounts a littlefs
@@ -913,7 +913,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
 //
 // Returns a negative error code on failure.
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
-        const struct lfs3_config *cfg);
+        const struct lfs3_cfg *cfg);
 
 // Unmounts a littlefs
 //
@@ -1023,7 +1023,7 @@ int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
 #ifndef LFS3_KVONLY
 int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
-        const struct lfs3_file_config *cfg);
+        const struct lfs3_file_cfg *cfg);
 #endif
 
 // Close a file

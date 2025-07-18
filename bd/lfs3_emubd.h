@@ -65,7 +65,7 @@ typedef uint64_t lfs3_emubd_sleep_t;
 typedef int64_t lfs3_emubd_ssleep_t;
 
 // emubd config, this is required for testing
-struct lfs3_emubd_config {
+struct lfs3_emubd_cfg {
     // 8-bit erase value to use for simulating erases. -1 simulates a noop
     // erase, which is faster than simulating a fixed erase value.
     int32_t erase_value;
@@ -147,119 +147,119 @@ typedef struct lfs3_emubd {
     lfs3_emubd_block_t **ooo_after;
     lfs3_emubd_disk_t *disk;
 
-    const struct lfs3_emubd_config *cfg;
+    const struct lfs3_emubd_cfg *cfg;
 } lfs3_emubd_t;
 
 
 /// Block device API ///
 
-// Create an emulating block device using the geometry in lfs3_config
+// Create an emulating block device using the geometry in lfs3_cfg
 //
 // Note that filebd is used if a path is provided, if path is NULL
 // emubd will use rambd which can be much faster.
-int lfs3_emubd_create(const struct lfs3_config *cfg, const char *path);
-int lfs3_emubd_createcfg(const struct lfs3_config *cfg, const char *path,
-        const struct lfs3_emubd_config *bdcfg);
+int lfs3_emubd_create(const struct lfs3_cfg *cfg, const char *path);
+int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
+        const struct lfs3_emubd_cfg *bdcfg);
 
 // Clean up memory associated with block device
-int lfs3_emubd_destroy(const struct lfs3_config *cfg);
+int lfs3_emubd_destroy(const struct lfs3_cfg *cfg);
 
 // Read a block
-int lfs3_emubd_read(const struct lfs3_config *cfg, lfs3_block_t block,
+int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, void *buffer, lfs3_size_t size);
 
 // Program a block
 //
 // The block must have previously been erased.
-int lfs3_emubd_prog(const struct lfs3_config *cfg, lfs3_block_t block,
+int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, const void *buffer, lfs3_size_t size);
 
 // Erase a block
 //
 // A block must be erased before being programmed. The
 // state of an erased block is undefined.
-int lfs3_emubd_erase(const struct lfs3_config *cfg, lfs3_block_t block);
+int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block);
 
 // Sync the block device
-int lfs3_emubd_sync(const struct lfs3_config *cfg);
+int lfs3_emubd_sync(const struct lfs3_cfg *cfg);
 
 
 /// Additional extended API for driving test features ///
 
 // Set the current prng state
-void lfs3_emubd_seed(const struct lfs3_config *cfg, uint32_t seed);
+void lfs3_emubd_seed(const struct lfs3_cfg *cfg, uint32_t seed);
 
 // Get a pseudo-random number from emubd's internal prng
-uint32_t lfs3_emubd_prng(const struct lfs3_config *cfg);
+uint32_t lfs3_emubd_prng(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes read
-lfs3_emubd_sio_t lfs3_emubd_readed(const struct lfs3_config *cfg);
+lfs3_emubd_sio_t lfs3_emubd_readed(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes programmed
-lfs3_emubd_sio_t lfs3_emubd_proged(const struct lfs3_config *cfg);
+lfs3_emubd_sio_t lfs3_emubd_proged(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes erased
-lfs3_emubd_sio_t lfs3_emubd_erased(const struct lfs3_config *cfg);
+lfs3_emubd_sio_t lfs3_emubd_erased(const struct lfs3_cfg *cfg);
 
 // Manually set amount of bytes read
-int lfs3_emubd_setreaded(const struct lfs3_config *cfg,
+int lfs3_emubd_setreaded(const struct lfs3_cfg *cfg,
         lfs3_emubd_io_t readed);
 
 // Manually set amount of bytes programmed
-int lfs3_emubd_setproged(const struct lfs3_config *cfg,
+int lfs3_emubd_setproged(const struct lfs3_cfg *cfg,
         lfs3_emubd_io_t proged);
 
 // Manually set amount of bytes erased
-int lfs3_emubd_seterased(const struct lfs3_config *cfg,
+int lfs3_emubd_seterased(const struct lfs3_cfg *cfg,
         lfs3_emubd_io_t erased);
 
 // Get simulated wear on a given block
-lfs3_emubd_swear_t lfs3_emubd_wear(const struct lfs3_config *cfg,
+lfs3_emubd_swear_t lfs3_emubd_wear(const struct lfs3_cfg *cfg,
         lfs3_block_t block);
 
 // Manually set simulated wear on a given block
-int lfs3_emubd_setwear(const struct lfs3_config *cfg,
+int lfs3_emubd_setwear(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_emubd_wear_t wear);
 
 // Mark a block as bad, this is equivalent to setting wear to maximum
-int lfs3_emubd_markbad(const struct lfs3_config *cfg, lfs3_block_t block);
+int lfs3_emubd_markbad(const struct lfs3_cfg *cfg, lfs3_block_t block);
 
 // Clear any simulated wear on a given block
-int lfs3_emubd_markgood(const struct lfs3_config *cfg, lfs3_block_t block);
+int lfs3_emubd_markgood(const struct lfs3_cfg *cfg, lfs3_block_t block);
 
 // Get which bit failed, this changes on erase/power-loss unless manually set
-lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_config *cfg,
+lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block);
 
 // Set which bit should fail in a given block
-int lfs3_emubd_setbadbit(const struct lfs3_config *cfg,
+int lfs3_emubd_setbadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit);
 
 // Randomize the bad bit on erase (the default)
-int lfs3_emubd_randomizebadbit(const struct lfs3_config *cfg,
+int lfs3_emubd_randomizebadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block);
 
 // Mark a block as bad and which bit should fail
-int lfs3_emubd_markbadbit(const struct lfs3_config *cfg,
+int lfs3_emubd_markbadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit);
 
 // Flip a bit in a given block, intended for emulating bit errors
-int lfs3_emubd_flipbit(const struct lfs3_config *cfg,
+int lfs3_emubd_flipbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit);
 
 // Flip all bits marked as bad
-int lfs3_emubd_flip(const struct lfs3_config *cfg);
+int lfs3_emubd_flip(const struct lfs3_cfg *cfg);
 
 // Get the remaining power-cycles
 lfs3_emubd_spowercycles_t lfs3_emubd_powercycles(
-        const struct lfs3_config *cfg);
+        const struct lfs3_cfg *cfg);
 
 // Manually set the remaining power-cycles
-int lfs3_emubd_setpowercycles(const struct lfs3_config *cfg,
+int lfs3_emubd_setpowercycles(const struct lfs3_cfg *cfg,
         lfs3_emubd_powercycles_t power_cycles);
 
 // Create a copy-on-write copy of the state of this block device
-int lfs3_emubd_cpy(const struct lfs3_config *cfg, lfs3_emubd_t *copy);
+int lfs3_emubd_cpy(const struct lfs3_cfg *cfg, lfs3_emubd_t *copy);
 
 
 #endif

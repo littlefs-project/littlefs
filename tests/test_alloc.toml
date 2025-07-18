@@ -23,7 +23,7 @@ defines.ERASE = [false, true]
 in = 'lfs3.c'
 code = '''
     // test various block counts
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -67,7 +67,7 @@ defines.ERASE = [false, true]
 in = 'lfs3.c'
 code = '''
     // test various block counts
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -647,7 +647,7 @@ defines.COUNT = [
 ]
 code = '''
     // test various block counts
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
@@ -729,7 +729,7 @@ defines.SIZE = [
 ]
 code = '''
     // test various block counts
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;

@@ -9,15 +9,15 @@
 #define LFS3_UTIL_H
 
 // Users can override lfs3_util.h with their own configuration by defining
-// LFS3_CONFIG as a header file to include (-DLFS_CONFIG=lfs3_config.h).
+// LFS3_CFG as a header file to include (-DLFS3_CFG=my_cfg.h).
 //
-// If LFS3_CONFIG is used, none of the default utils will be emitted and must be
+// If LFS3_CFG is used, none of the default utils will be emitted and must be
 // provided by the config file. To start, I would suggest copying lfs3_util.h
 // and modifying as needed.
-#ifdef LFS3_CONFIG
+#ifdef LFS3_CFG
 #define LFS3_STRINGIZE(x) LFS3_STRINGIZE2(x)
 #define LFS3_STRINGIZE2(x) #x
-#include LFS3_STRINGIZE(LFS3_CONFIG)
+#include LFS3_STRINGIZE(LFS3_CFG)
 #else
 
 

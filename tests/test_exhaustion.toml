@@ -51,7 +51,7 @@ code = '''
         }
 
         // configure the filesystem size
-        struct lfs3_config cfg = *CFG;
+        struct lfs3_cfg cfg = *CFG;
         cfg.block_count = run_bc[run];
 
         // run the test
@@ -269,7 +269,7 @@ code = '''
         }
 
         // configure the filesystem size
-        struct lfs3_config cfg = *CFG;
+        struct lfs3_cfg cfg = *CFG;
         cfg.block_count = run_bc[run];
 
         // run the test
@@ -557,7 +557,7 @@ code = '''
         }
 
         // configure the filesystem size
-        struct lfs3_config cfg = *CFG;
+        struct lfs3_cfg cfg = *CFG;
         cfg.block_count = run_bc[run];
 
         // run the test
@@ -737,7 +737,7 @@ code = '''
         }
 
         // configure the filesystem size
-        struct lfs3_config cfg = *CFG;
+        struct lfs3_cfg cfg = *CFG;
         cfg.block_count = run_bc[run];
 
         // run the test
@@ -1242,7 +1242,7 @@ code = '''
         }
 
         // configure the filesystem size
-        struct lfs3_config cfg = *CFG;
+        struct lfs3_cfg cfg = *CFG;
         cfg.block_count = run_bc[run];
 
         // run the test

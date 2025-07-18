@@ -15,7 +15,7 @@
 #include <windows.h>
 #endif
 
-int lfs3_filebd_create(const struct lfs3_config *cfg, const char *path) {
+int lfs3_filebd_create(const struct lfs3_cfg *cfg, const char *path) {
     LFS3_FILEBD_TRACE("lfs3_filebd_create(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -45,7 +45,7 @@ int lfs3_filebd_create(const struct lfs3_config *cfg, const char *path) {
     return 0;
 }
 
-int lfs3_filebd_destroy(const struct lfs3_config *cfg) {
+int lfs3_filebd_destroy(const struct lfs3_cfg *cfg) {
     LFS3_FILEBD_TRACE("lfs3_filebd_destroy(%p)", (void*)cfg);
     lfs3_filebd_t *bd = cfg->context;
     int err = close(bd->fd);
@@ -58,7 +58,7 @@ int lfs3_filebd_destroy(const struct lfs3_config *cfg) {
     return 0;
 }
 
-int lfs3_filebd_read(const struct lfs3_config *cfg, lfs3_block_t block,
+int lfs3_filebd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, void *buffer, lfs3_size_t size) {
     LFS3_FILEBD_TRACE("lfs3_filebd_read(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -94,7 +94,7 @@ int lfs3_filebd_read(const struct lfs3_config *cfg, lfs3_block_t block,
     return 0;
 }
 
-int lfs3_filebd_prog(const struct lfs3_config *cfg, lfs3_block_t block,
+int lfs3_filebd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, const void *buffer, lfs3_size_t size) {
     LFS3_FILEBD_TRACE("lfs3_filebd_prog(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -127,7 +127,7 @@ int lfs3_filebd_prog(const struct lfs3_config *cfg, lfs3_block_t block,
     return 0;
 }
 
-int lfs3_filebd_erase(const struct lfs3_config *cfg, lfs3_block_t block) {
+int lfs3_filebd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     LFS3_FILEBD_TRACE("lfs3_filebd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
             (void*)cfg, block, cfg->block_size);
 
@@ -141,7 +141,7 @@ int lfs3_filebd_erase(const struct lfs3_config *cfg, lfs3_block_t block) {
     return 0;
 }
 
-int lfs3_filebd_sync(const struct lfs3_config *cfg) {
+int lfs3_filebd_sync(const struct lfs3_cfg *cfg) {
     LFS3_FILEBD_TRACE("lfs3_filebd_sync(%p)", (void*)cfg);
 
     // file sync

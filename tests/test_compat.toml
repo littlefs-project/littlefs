@@ -37,7 +37,7 @@ code = '''
 #define LFSP_DISK_VERSION_MAJOR LFS3_DISK_VERSION_MAJOR
 #define LFSP_DISK_VERSION_MINOR LFS3_DISK_VERSION_MINOR
 #define lfsp_t lfs3_t
-#define lfsp_config lfs3_config
+#define lfsp_cfg lfs3_cfg
 #define LFSP_ERR_NOENT LFS3_ERR_NOENT
 #define lfsp_format lfs3_format
 #define LFSP_M_RDWR LFS3_M_RDWR
@@ -78,8 +78,8 @@ if = [
 ]
 code = '''
     // create the previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfs3_format(&lfsp, LFS3_F_RDWR, &cfgp) => 0;
@@ -105,8 +105,8 @@ if = [
 ]
 code = '''
     // create the previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfs3_format(&lfsp, LFS3_F_RDWR, &cfgp) => 0;
@@ -165,8 +165,8 @@ if = [
 ]
 code = '''
     // create the previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfs3_format(&lfsp, LFS3_F_RDWR, &cfgp) => 0;
@@ -255,8 +255,8 @@ if = [
 ]
 code = '''
     // create the previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfs3_format(&lfsp, LFS3_F_RDWR, &cfgp) => 0;
@@ -372,8 +372,8 @@ if = [
 ]
 code = '''
     // create the previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfs3_format(&lfsp, LFS3_F_RDWR, &cfgp) => 0;
@@ -439,8 +439,8 @@ if = [
 ]
 code = '''
     // create the previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfs3_format(&lfsp, LFS3_F_RDWR, &cfgp) => 0;
@@ -561,8 +561,8 @@ if = [
 ]
 code = '''
     // create the previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfs3_format(&lfsp, LFS3_F_RDWR, &cfgp) => 0;
@@ -724,8 +724,8 @@ code = '''
     //////
 
     // now mount with previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -757,8 +757,8 @@ code = '''
     //////
 
     // now mount with previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -829,8 +829,8 @@ code = '''
     //////
 
     // now mount with previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -922,8 +922,8 @@ code = '''
     //////
 
     // now mount with previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -1024,8 +1024,8 @@ code = '''
     //////
 
     // now mount with previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -1109,8 +1109,8 @@ code = '''
     //////
 
     // now mount with previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;
@@ -1234,8 +1234,8 @@ code = '''
     //////
 
     // now mount with previous version
-    struct lfsp_config cfgp;
-    assert(sizeof(struct lfsp_config) == sizeof(struct lfs3_config));
+    struct lfsp_cfg cfgp;
+    assert(sizeof(struct lfsp_cfg) == sizeof(struct lfs3_cfg));
     memcpy(&cfgp, CFG, sizeof(cfgp));
     lfsp_t lfsp;
     lfsp_mount(&lfsp, LFSP_M_RDWR, &cfgp) => 0;

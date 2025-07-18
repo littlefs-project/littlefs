@@ -4780,7 +4780,7 @@ code = '''
 
     // switch to early relocations after extending
     lfs3_unmount(&lfs3) => 0;
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_recycles = 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
@@ -4954,7 +4954,7 @@ code = '''
 
     // switch to early relocations after extending
     lfs3_unmount(&lfs3) => 0;
-    struct lfs3_config cfg = *CFG;
+    struct lfs3_cfg cfg = *CFG;
     cfg.block_recycles = 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 

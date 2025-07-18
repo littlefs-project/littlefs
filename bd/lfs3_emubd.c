@@ -46,7 +46,7 @@ static void lfs3_emubd_decblock(lfs3_emubd_block_t *block) {
 }
 
 static lfs3_emubd_block_t *lfs3_emubd_mutblock(
-        const struct lfs3_config *cfg,
+        const struct lfs3_cfg *cfg,
         lfs3_emubd_block_t *block) {
     if (block && block->rc == 1) {
         // rc == 1? can modify
@@ -111,8 +111,8 @@ static uint32_t lfs3_emubd_prng_(uint32_t *state) {
 
 // emubd create/destroy
 
-int lfs3_emubd_createcfg(const struct lfs3_config *cfg, const char *path,
-        const struct lfs3_emubd_config *bdcfg) {
+int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
+        const struct lfs3_emubd_cfg *bdcfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_createcfg(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -241,7 +241,7 @@ failed:;
     return err;
 }
 
-int lfs3_emubd_create(const struct lfs3_config *cfg, const char *path) {
+int lfs3_emubd_create(const struct lfs3_cfg *cfg, const char *path) {
     LFS3_EMUBD_TRACE("lfs3_emubd_create(%p {.context=%p, "
                 ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
                 ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
@@ -252,13 +252,13 @@ int lfs3_emubd_create(const struct lfs3_config *cfg, const char *path) {
             (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
             cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
             path);
-    static const struct lfs3_emubd_config defaults = {.erase_value=-1};
+    static const struct lfs3_emubd_cfg defaults = {.erase_value=-1};
     int err = lfs3_emubd_createcfg(cfg, path, &defaults);
     LFS3_EMUBD_TRACE("lfs3_emubd_create -> %d", err);
     return err;
 }
 
-int lfs3_emubd_destroy(const struct lfs3_config *cfg) {
+int lfs3_emubd_destroy(const struct lfs3_cfg *cfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_destroy(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
@@ -297,7 +297,7 @@ int lfs3_emubd_destroy(const struct lfs3_config *cfg) {
 
 // block device API
 
-int lfs3_emubd_read(const struct lfs3_config *cfg, lfs3_block_t block,
+int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, void *buffer, lfs3_size_t size) {
     LFS3_EMUBD_TRACE("lfs3_emubd_read(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -362,7 +362,7 @@ int lfs3_emubd_read(const struct lfs3_config *cfg, lfs3_block_t block,
     return 0;
 }
 
-int lfs3_emubd_prog(const struct lfs3_config *cfg, lfs3_block_t block,
+int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, const void *buffer, lfs3_size_t size) {
     LFS3_EMUBD_TRACE("lfs3_emubd_prog(%p, "
                 "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
@@ -671,7 +671,7 @@ progged:;
     return 0;
 }
 
-int lfs3_emubd_erase(const struct lfs3_config *cfg, lfs3_block_t block) {
+int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     LFS3_EMUBD_TRACE("lfs3_emubd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
             (void*)cfg, block, cfg->block_size);
     lfs3_emubd_t *bd = cfg->context;
@@ -966,7 +966,7 @@ erased:;
     return 0;
 }
 
-int lfs3_emubd_sync(const struct lfs3_config *cfg) {
+int lfs3_emubd_sync(const struct lfs3_cfg *cfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_sync(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
@@ -985,7 +985,7 @@ int lfs3_emubd_sync(const struct lfs3_config *cfg) {
 
 /// Additional extended API for driving test features ///
 
-void lfs3_emubd_seed(const struct lfs3_config *cfg, uint32_t seed) {
+void lfs3_emubd_seed(const struct lfs3_cfg *cfg, uint32_t seed) {
     LFS3_EMUBD_TRACE("lfs3_emubd_seed(%p, 0x%08"PRIx32")",
             (void*)cfg, seed);
     lfs3_emubd_t *bd = cfg->context;
@@ -995,7 +995,7 @@ void lfs3_emubd_seed(const struct lfs3_config *cfg, uint32_t seed) {
     LFS3_EMUBD_TRACE("lfs3_emubd_seed -> _");
 }
 
-uint32_t lfs3_emubd_prng(const struct lfs3_config *cfg) {
+uint32_t lfs3_emubd_prng(const struct lfs3_cfg *cfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_prng(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
@@ -1005,28 +1005,28 @@ uint32_t lfs3_emubd_prng(const struct lfs3_config *cfg) {
     return x;
 }
 
-lfs3_emubd_sio_t lfs3_emubd_readed(const struct lfs3_config *cfg) {
+lfs3_emubd_sio_t lfs3_emubd_readed(const struct lfs3_cfg *cfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_readed(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
     LFS3_EMUBD_TRACE("lfs3_emubd_readed -> %"PRIu64, bd->readed);
     return bd->readed;
 }
 
-lfs3_emubd_sio_t lfs3_emubd_proged(const struct lfs3_config *cfg) {
+lfs3_emubd_sio_t lfs3_emubd_proged(const struct lfs3_cfg *cfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_proged(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
     LFS3_EMUBD_TRACE("lfs3_emubd_proged -> %"PRIu64, bd->proged);
     return bd->proged;
 }
 
-lfs3_emubd_sio_t lfs3_emubd_erased(const struct lfs3_config *cfg) {
+lfs3_emubd_sio_t lfs3_emubd_erased(const struct lfs3_cfg *cfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_erased(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
     LFS3_EMUBD_TRACE("lfs3_emubd_erased -> %"PRIu64, bd->erased);
     return bd->erased;
 }
 
-int lfs3_emubd_setreaded(const struct lfs3_config *cfg,
+int lfs3_emubd_setreaded(const struct lfs3_cfg *cfg,
         lfs3_emubd_io_t readed) {
     LFS3_EMUBD_TRACE("lfs3_emubd_setreaded(%p, %"PRIu64")", (void*)cfg, readed);
     lfs3_emubd_t *bd = cfg->context;
@@ -1035,7 +1035,7 @@ int lfs3_emubd_setreaded(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_setproged(const struct lfs3_config *cfg,
+int lfs3_emubd_setproged(const struct lfs3_cfg *cfg,
         lfs3_emubd_io_t proged) {
     LFS3_EMUBD_TRACE("lfs3_emubd_setproged(%p, %"PRIu64")", (void*)cfg, proged);
     lfs3_emubd_t *bd = cfg->context;
@@ -1044,7 +1044,7 @@ int lfs3_emubd_setproged(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_seterased(const struct lfs3_config *cfg,
+int lfs3_emubd_seterased(const struct lfs3_cfg *cfg,
         lfs3_emubd_io_t erased) {
     LFS3_EMUBD_TRACE("lfs3_emubd_seterased(%p, %"PRIu64")", (void*)cfg, erased);
     lfs3_emubd_t *bd = cfg->context;
@@ -1053,7 +1053,7 @@ int lfs3_emubd_seterased(const struct lfs3_config *cfg,
     return 0;
 }
 
-lfs3_emubd_swear_t lfs3_emubd_wear(const struct lfs3_config *cfg,
+lfs3_emubd_swear_t lfs3_emubd_wear(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
     LFS3_EMUBD_TRACE("lfs3_emubd_wear(%p, %"PRIu32")", (void*)cfg, block);
     lfs3_emubd_t *bd = cfg->context;
@@ -1074,7 +1074,7 @@ lfs3_emubd_swear_t lfs3_emubd_wear(const struct lfs3_config *cfg,
     return wear;
 }
 
-int lfs3_emubd_setwear(const struct lfs3_config *cfg,
+int lfs3_emubd_setwear(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_emubd_wear_t wear) {
     LFS3_EMUBD_TRACE("lfs3_emubd_setwear(%p, %"PRIu32", %"PRIi32")",
             (void*)cfg, block, wear);
@@ -1098,7 +1098,7 @@ int lfs3_emubd_setwear(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_markbad(const struct lfs3_config *cfg,
+int lfs3_emubd_markbad(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
     LFS3_EMUBD_TRACE("lfs3_emubd_markbad(%p, %"PRIu32")",
             (void*)cfg, block);
@@ -1128,7 +1128,7 @@ int lfs3_emubd_markbad(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_markgood(const struct lfs3_config *cfg,
+int lfs3_emubd_markgood(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
     LFS3_EMUBD_TRACE("lfs3_emubd_markgood(%p, %"PRIu32")",
             (void*)cfg, block);
@@ -1152,7 +1152,7 @@ int lfs3_emubd_markgood(const struct lfs3_config *cfg,
     return 0;
 }
 
-lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_config *cfg,
+lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
     LFS3_EMUBD_TRACE("lfs3_emubd_badbit(%p, %"PRIu32")", (void*)cfg, block);
     lfs3_emubd_t *bd = cfg->context;
@@ -1173,7 +1173,7 @@ lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_config *cfg,
     return bad_bit;
 }
 
-int lfs3_emubd_setbadbit(const struct lfs3_config *cfg,
+int lfs3_emubd_setbadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit) {
     LFS3_EMUBD_TRACE("lfs3_emubd_setbadbit(%p, %"PRIu32", %"PRIu32")",
             (void*)cfg, block, bit);
@@ -1197,7 +1197,7 @@ int lfs3_emubd_setbadbit(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_randomizebadbit(const struct lfs3_config *cfg,
+int lfs3_emubd_randomizebadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
     LFS3_EMUBD_TRACE("lfs3_emubd_randomizebadbit(%p, %"PRIu32")",
             (void*)cfg, block);
@@ -1221,7 +1221,7 @@ int lfs3_emubd_randomizebadbit(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_markbadbit(const struct lfs3_config *cfg,
+int lfs3_emubd_markbadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit) {
     LFS3_EMUBD_TRACE("lfs3_emubd_markbadbit(%p, %"PRIu32", %"PRIu32")",
             (void*)cfg, block, bit);
@@ -1247,7 +1247,7 @@ int lfs3_emubd_markbadbit(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_flipbit_(const struct lfs3_config *cfg,
+int lfs3_emubd_flipbit_(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit) {
     lfs3_emubd_t *bd = cfg->context;
 
@@ -1285,7 +1285,7 @@ int lfs3_emubd_flipbit_(const struct lfs3_config *cfg,
 }
 
 
-int lfs3_emubd_flipbit(const struct lfs3_config *cfg,
+int lfs3_emubd_flipbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit) {
     LFS3_EMUBD_TRACE("lfs3_emubd_flipbit(%p, %"PRIu32", %"PRIu32")",
             (void*)cfg, block, bit);
@@ -1301,7 +1301,7 @@ int lfs3_emubd_flipbit(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_flip(const struct lfs3_config *cfg) {
+int lfs3_emubd_flip(const struct lfs3_cfg *cfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_flip(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
@@ -1323,7 +1323,7 @@ int lfs3_emubd_flip(const struct lfs3_config *cfg) {
 }
 
 lfs3_emubd_spowercycles_t lfs3_emubd_powercycles(
-        const struct lfs3_config *cfg) {
+        const struct lfs3_cfg *cfg) {
     LFS3_EMUBD_TRACE("lfs3_emubd_powercycles(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
@@ -1331,7 +1331,7 @@ lfs3_emubd_spowercycles_t lfs3_emubd_powercycles(
     return bd->power_cycles;
 }
 
-int lfs3_emubd_setpowercycles(const struct lfs3_config *cfg,
+int lfs3_emubd_setpowercycles(const struct lfs3_cfg *cfg,
         lfs3_emubd_powercycles_t power_cycles) {
     LFS3_EMUBD_TRACE("lfs3_emubd_setpowercycles(%p, %"PRIi32")",
             (void*)cfg, power_cycles);
@@ -1343,7 +1343,7 @@ int lfs3_emubd_setpowercycles(const struct lfs3_config *cfg,
     return 0;
 }
 
-int lfs3_emubd_cpy(const struct lfs3_config *cfg, lfs3_emubd_t *copy) {
+int lfs3_emubd_cpy(const struct lfs3_cfg *cfg, lfs3_emubd_t *copy) {
     LFS3_EMUBD_TRACE("lfs3_emubd_cpy(%p, %p)", (void*)cfg, (void*)copy);
     lfs3_emubd_t *bd = cfg->context;
 
