@@ -10955,7 +10955,6 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         // if our destination is a directory, we will be implicitly removing
         // the directory, we need to create a grm for this
         if (new_tag == LFS3_TAG_DIR) {
-            // TODO deduplicate the isempty check with lfs3_remove?
             // first lets figure out the did
             lfs3_data_t data_;
             lfs3_stag_t tag_ = lfs3_mdir_lookup(lfs3, &new_mdir, LFS3_TAG_DID,
