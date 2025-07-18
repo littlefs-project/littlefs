@@ -1,8 +1,8 @@
 # Test GC things
 
-# most of the GC logic is tested in test_traversal, we just test
+# most of the GC logic is tested in test_trvs, we just test
 # GC-API specific things here
-after = ['test_traversal']
+after = ['test_trvs']
 
 # test that lookahead can make progress in isolation
 [cases.test_gc_lookahead_progress]
@@ -45,7 +45,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
-    assert(lfs3.handles != &lfs3.gc.t.b.h);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -112,11 +112,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
-    assert(lfs3.handles != &lfs3.gc.t.b.h);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
 
     // run GC one step
     lfs3_fs_gc(&lfs3) => 0;
-    assert(lfs3.handles == &lfs3.gc.t.b.h);
+    assert(lfs3.handles == &lfs3.gc.trv.b.h);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "spider",
@@ -128,7 +128,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.handles == &lfs3.gc.t.b.h) {
+    while (lfs3.handles == &lfs3.gc.trv.b.h) {
         lfs3_fs_gc(&lfs3) => 0;
     }
 
@@ -197,7 +197,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_COMPACT);
-    assert(lfs3.handles != &lfs3.gc.t.b.h);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -286,19 +286,19 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_COMPACT);
-    assert(lfs3.handles != &lfs3.gc.t.b.h);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
 
     // run GC one traversal + one step
     while (true) {
         lfs3_fs_gc(&lfs3) => 0;
 
         // internal traversal done?
-        if (lfs3.handles != &lfs3.gc.t.b.h) {
+        if (lfs3.handles != &lfs3.gc.trv.b.h) {
             break;
         }
     }
     lfs3_fs_gc(&lfs3) => 0;
-    assert(lfs3.handles == &lfs3.gc.t.b.h);
+    assert(lfs3.handles == &lfs3.gc.trv.b.h);
 
     // mutate the filesystem
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -309,7 +309,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // run GC until our traversal is done (twice for compact)
-    while (lfs3.handles == &lfs3.gc.t.b.h) {
+    while (lfs3.handles == &lfs3.gc.trv.b.h) {
         lfs3_fs_gc(&lfs3) => 0;
     }
 
@@ -410,7 +410,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
-    assert(lfs3.handles != &lfs3.gc.t.b.h);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -513,7 +513,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
     #ifdef LFS3_GC
-    assert(lfs3.handles != &lfs3.gc.t.b.h);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
     #endif
 
     // call lfs3_fs_mkconsistent
@@ -614,9 +614,9 @@ code = '''
     }
 
     // run GC one step
-    assert(lfs3.handles != &lfs3.gc.t.b.h);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
     lfs3_fs_gc(&lfs3) => 0;
-    assert(lfs3.handles == &lfs3.gc.t.b.h);
+    assert(lfs3.handles == &lfs3.gc.trv.b.h);
 
     // create the rest of the orphans after GC has started
     for (lfs3_size_t i = 0; i < ORPHANS; i++) {
@@ -638,7 +638,7 @@ code = '''
     assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
 
     // run GC until our traversal is done
-    while (lfs3.handles == &lfs3.gc.t.b.h) {
+    while (lfs3.handles == &lfs3.gc.trv.b.h) {
         lfs3_fs_gc(&lfs3) => 0;
     }
 
@@ -721,17 +721,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -750,7 +750,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -821,17 +821,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -851,7 +851,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -923,17 +923,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -952,7 +952,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -1010,17 +1010,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -1040,7 +1040,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -1062,7 +1062,7 @@ done:;
 [cases.test_gc_ckmeta_unck]
 # AFTER=0 => after running lfs3_fs_gc once
 # AFTER=1 => after running lfs3_fs_gc to completion
-# AFTER=2 => after running lfs3_traversal_t
+# AFTER=2 => after running lfs3_trv_t
 # AFTER=3 => after lfs3_fs_ckmeta
 # AFTER=4 => after remounting with LFS3_M_CKMETA
 defines.AFTER = [0, 1, 2, 3, 4]
@@ -1127,19 +1127,19 @@ code = '''
                 lfs3_fs_gc(&lfs3) => 0;
             }
 
-        // run lfs3_traversal_t
+        // run lfs3_trv_t
         } else if (AFTER == 2) {
-            lfs3_traversal_t t;
-            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs3_tinfo tinfo;
-                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(err == 0 || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfs3_traversal_close(&lfs3, &t) => 0;
+            lfs3_trv_close(&lfs3, &trv) => 0;
 
         // run lfs3_fs_ckmeta
         } else if (AFTER == 3) {
@@ -1163,17 +1163,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -1192,7 +1192,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -1225,7 +1225,7 @@ done:;
 [cases.test_gc_ckdata_unck]
 # AFTER=0 => after running lfs3_fs_gc once
 # AFTER=1 => after running lfs3_fs_gc to completion
-# AFTER=2 => after running lfs3_traversal_t
+# AFTER=2 => after running lfs3_trv_t
 # AFTER=3 => after lfs3_fs_ckdata
 # AFTER=4 => after remounting with LFS3_M_CKDATA
 defines.AFTER = [0, 1, 2, 3, 4]
@@ -1290,19 +1290,19 @@ code = '''
                 lfs3_fs_gc(&lfs3) => 0;
             }
 
-        // run lfs3_traversal_t
+        // run lfs3_trv_t
         } else if (AFTER == 2) {
-            lfs3_traversal_t t;
-            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs3_tinfo tinfo;
-                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(err == 0 || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfs3_traversal_close(&lfs3, &t) => 0;
+            lfs3_trv_close(&lfs3, &trv) => 0;
 
         // run lfs3_fs_ckdata
         } else if (AFTER == 3) {
@@ -1326,17 +1326,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -1356,7 +1356,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -1392,7 +1392,7 @@ done:;
 # test that gc work clears flags in lfs3_fs_stat
 [cases.test_gc_iflags]
 # AFTER=0 => after running lfs3_fs_gc
-# AFTER=1 => after running lfs3_traversal_t
+# AFTER=1 => after running lfs3_trv_t
 # AFTER=2 => after explicit operations
 # AFTER=3 => after remounting
 defines.AFTER = [0, 1, 2, 3]
@@ -1468,7 +1468,7 @@ code = '''
         assert(false);
         #endif
 
-    // run lfs3_traversal_t
+    // run lfs3_trv_t
     } else if (AFTER == 1) {
         while (true) {
             // it may take multiple traversals to do all pending work
@@ -1482,17 +1482,17 @@ code = '''
                 break;
             }
 
-            lfs3_traversal_t t;
-            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs3_tinfo tinfo;
-                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(err == 0 || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfs3_traversal_close(&lfs3, &t) => 0;
+            lfs3_trv_close(&lfs3, &trv) => 0;
         }
 
     // run explicit operations
@@ -1517,34 +1517,34 @@ code = '''
 
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(err == 0 || err == LFS3_ERR_NOENT);
                     if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
             if (COMPACT) {
                 // we need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(err == 0 || err == LFS3_ERR_NOENT);
                     if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
             if (CKMETA) {
@@ -1581,7 +1581,7 @@ code = '''
 # test that gc work clears flags in lfs3_fs_stat after lfs3_fs_unck
 [cases.test_gc_iflags_unck]
 # AFTER=0 => after running lfs3_fs_gc
-# AFTER=1 => after running lfs3_traversal_t
+# AFTER=1 => after running lfs3_trv_t
 # AFTER=2 => after explicit operations
 # AFTER=3 => after remounting
 defines.AFTER = [0, 1, 2, 3]
@@ -1657,7 +1657,7 @@ code = '''
         assert(false);
         #endif
 
-    // run lfs3_traversal_t
+    // run lfs3_trv_t
     } else if (AFTER == 1) {
         while (true) {
             // it may take multiple traversals to do all pending work
@@ -1671,17 +1671,17 @@ code = '''
                 break;
             }
 
-            lfs3_traversal_t t;
-            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs3_tinfo tinfo;
-                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(err == 0 || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfs3_traversal_close(&lfs3, &t) => 0;
+            lfs3_trv_close(&lfs3, &trv) => 0;
         }
 
     // run explicit operations
@@ -1706,34 +1706,34 @@ code = '''
 
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(err == 0 || err == LFS3_ERR_NOENT);
                     if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
             if (COMPACT) {
                 // we need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(err == 0 || err == LFS3_ERR_NOENT);
                     if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
             if (CKMETA) {
@@ -1786,7 +1786,7 @@ code = '''
         assert(false);
         #endif
 
-    // run lfs3_traversal_t
+    // run lfs3_trv_t
     } else if (AFTER == 1) {
         while (true) {
             // it may take multiple traversals to do all pending work
@@ -1800,17 +1800,17 @@ code = '''
                 break;
             }
 
-            lfs3_traversal_t t;
-            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDWR | GC_FLAGS) => 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDWR | GC_FLAGS) => 0;
             while (true) {
                 struct lfs3_tinfo tinfo;
-                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(err == 0 || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
             }
-            lfs3_traversal_close(&lfs3, &t) => 0;
+            lfs3_trv_close(&lfs3, &trv) => 0;
         }
 
     // run explicit operations
@@ -1835,34 +1835,34 @@ code = '''
 
             if (LOOKAHEAD) {
                 // we need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(err == 0 || err == LFS3_ERR_NOENT);
                     if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
             if (COMPACT) {
                 // we need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(err == 0 || err == LFS3_ERR_NOENT);
                     if (err == LFS3_ERR_NOENT) {
                         break;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
             if (CKMETA) {

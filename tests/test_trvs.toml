@@ -8,7 +8,7 @@ after = [
 ]
 
 # a simple traversal test
-[cases.test_traversal_simple]
+[cases.test_trvs_simple]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -20,8 +20,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -29,20 +29,20 @@ code = '''
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 '''
 
 # can we rewind?
-[cases.test_traversal_rewind]
+[cases.test_trvs_rewind]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -54,8 +54,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -63,29 +63,29 @@ code = '''
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
-    lfs3_traversal_rewind(&lfs3, &t) => 0;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_rewind(&lfs3, &trv) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 '''
 
 # test that we don't get extra anything after end of traversal
-[cases.test_traversal_idempotent]
+[cases.test_trvs_idempotent]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -97,8 +97,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -106,22 +106,22 @@ code = '''
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -129,7 +129,7 @@ code = '''
 
 
 # some simple traversal tests with clobbering
-[cases.test_traversal_clobber_dirs]
+[cases.test_trvs_clobber_dirs]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -149,8 +149,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -159,7 +159,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         struct lfs3_tinfo tinfo;
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
@@ -173,7 +173,7 @@ code = '''
         // keep track of seen blocks
         seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // clobber every other block
     uint8_t clobber_buf[BLOCK_SIZE];
@@ -230,7 +230,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_clobber_files]
+[cases.test_trvs_clobber_files]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -271,8 +271,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -281,7 +281,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         struct lfs3_tinfo tinfo;
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
@@ -296,7 +296,7 @@ code = '''
         // keep track of seen blocks
         seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // clobber every other block
     uint8_t clobber_buf[BLOCK_SIZE];
@@ -346,7 +346,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_clobber_files_opened]
+[cases.test_trvs_clobber_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -386,8 +386,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -396,7 +396,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         struct lfs3_tinfo tinfo;
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
@@ -411,7 +411,7 @@ code = '''
         // keep track of seen blocks
         seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // clobber every other block
     uint8_t clobber_buf[BLOCK_SIZE];
@@ -483,7 +483,7 @@ code = '''
 
 
 # a bit more aggressive rewind tests
-[cases.test_traversal_rewind_clobber_dirs]
+[cases.test_trvs_rewind_clobber_dirs]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -503,8 +503,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -514,7 +514,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         if (i == r) {
-            lfs3_traversal_rewind(&lfs3, &t) => 0;
+            lfs3_trv_rewind(&lfs3, &trv) => 0;
             memset(seen, 0, (BLOCK_COUNT+7)/8);
             r += 1;
             i = -1;
@@ -522,7 +522,7 @@ code = '''
         }
 
         struct lfs3_tinfo tinfo;
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
@@ -536,7 +536,7 @@ code = '''
         // keep track of seen blocks
         seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // clobber every other block
     uint8_t clobber_buf[BLOCK_SIZE];
@@ -593,7 +593,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_rewind_clobber_files]
+[cases.test_trvs_rewind_clobber_files]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -634,8 +634,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -645,7 +645,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         if (i == r) {
-            lfs3_traversal_rewind(&lfs3, &t) => 0;
+            lfs3_trv_rewind(&lfs3, &trv) => 0;
             memset(seen, 0, (BLOCK_COUNT+7)/8);
             r += 1;
             i = -1;
@@ -653,7 +653,7 @@ code = '''
         }
 
         struct lfs3_tinfo tinfo;
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
@@ -668,7 +668,7 @@ code = '''
         // keep track of seen blocks
         seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // clobber every other block
     uint8_t clobber_buf[BLOCK_SIZE];
@@ -718,7 +718,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_rewind_clobber_files_opened]
+[cases.test_trvs_rewind_clobber_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -758,8 +758,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -769,7 +769,7 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         if (i == r) {
-            lfs3_traversal_rewind(&lfs3, &t) => 0;
+            lfs3_trv_rewind(&lfs3, &trv) => 0;
             memset(seen, 0, (BLOCK_COUNT+7)/8);
             r += 1;
             i = -1;
@@ -777,7 +777,7 @@ code = '''
         }
 
         struct lfs3_tinfo tinfo;
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
@@ -792,7 +792,7 @@ code = '''
         // keep track of seen blocks
         seen[tinfo.block / 8] |= 1 << (tinfo.block % 8);
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // clobber every other block
     uint8_t clobber_buf[BLOCK_SIZE];
@@ -864,7 +864,7 @@ code = '''
 
 
 # check that we can detect every clobbered mdir
-[cases.test_traversal_ckmdir_dirs]
+[cases.test_trvs_ckmdir_dirs]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     for (lfs3_block_t i = 0;; i += 2) {
@@ -883,17 +883,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -908,7 +908,7 @@ code = '''
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (k == i+1) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -918,26 +918,26 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
-[cases.test_traversal_ckmdir_files]
+[cases.test_trvs_ckmdir_files]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -979,17 +979,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -1004,7 +1004,7 @@ code = '''
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (k == i+1) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -1014,26 +1014,26 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
-[cases.test_traversal_ckmdir_files_opened]
+[cases.test_trvs_ckmdir_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1074,17 +1074,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 for (lfs3_size_t i = 0; i < N; i++) {
                     lfs3_file_close(&lfs3, &files[i]) => 0;
                 }
@@ -1102,7 +1102,7 @@ code = '''
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (k == i+1) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -1112,19 +1112,19 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         for (lfs3_size_t i = 0; i < N; i++) {
             lfs3_file_desync(&lfs3, &files[i]) => 0;
@@ -1138,7 +1138,7 @@ done:;
 
 
 # check that we can detect every clobbered btree
-[cases.test_traversal_ckbtree_dirs]
+[cases.test_trvs_ckbtree_dirs]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     for (lfs3_block_t i = 0;; i++) {
@@ -1157,17 +1157,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -1181,7 +1181,7 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
                 }
                 k += 1;
@@ -1190,26 +1190,26 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
-[cases.test_traversal_ckbtree_files]
+[cases.test_trvs_ckbtree_files]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1251,17 +1251,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -1275,7 +1275,7 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
                 }
                 k += 1;
@@ -1284,26 +1284,26 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
-[cases.test_traversal_ckbtree_files_opened]
+[cases.test_trvs_ckbtree_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1344,17 +1344,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 for (lfs3_size_t i = 0; i < N; i++) {
                     lfs3_file_close(&lfs3, &files[i]) => 0;
                 }
@@ -1371,7 +1371,7 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
                 }
                 k += 1;
@@ -1380,19 +1380,19 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         for (lfs3_size_t i = 0; i < N; i++) {
             lfs3_file_desync(&lfs3, &files[i]) => 0;
@@ -1406,7 +1406,7 @@ done:;
 
 
 # check that we can detect every clobbered data block
-[cases.test_traversal_ckdata_dirs]
+[cases.test_trvs_ckdata_dirs]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     for (lfs3_block_t i = 0;; i++) {
@@ -1425,17 +1425,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -1449,7 +1449,7 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
                 }
                 k += 1;
@@ -1458,26 +1458,26 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
-[cases.test_traversal_ckdata_files]
+[cases.test_trvs_ckdata_files]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1519,17 +1519,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -1543,7 +1543,7 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
                 }
                 k += 1;
@@ -1552,26 +1552,26 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         lfs3_unmount(&lfs3) => 0;
     }
 done:;
 '''
 
-[cases.test_traversal_ckdata_files_opened]
+[cases.test_trvs_ckdata_files_opened]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1612,17 +1612,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 for (lfs3_size_t i = 0; i < N; i++) {
                     lfs3_file_close(&lfs3, &files[i]) => 0;
                 }
@@ -1639,7 +1639,7 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
                 }
                 k += 1;
@@ -1648,19 +1648,19 @@ code = '''
 
     clobbered:;
         // traverse again, we should detect the clobbered metadata
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (err == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
-        lfs3_traversal_close(&lfs3, &t) => 0;
+        lfs3_trv_close(&lfs3, &trv) => 0;
 
         for (lfs3_size_t i = 0; i < N; i++) {
             lfs3_file_desync(&lfs3, &files[i]) => 0;
@@ -1674,7 +1674,7 @@ done:;
 
 
 # test that in general fsinfo flags work
-[cases.test_traversal_flags]
+[cases.test_trvs_flags]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
@@ -1696,8 +1696,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -1705,14 +1705,14 @@ code = '''
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // check flags after
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1728,7 +1728,7 @@ code = '''
 '''
 
 # test that we detect filesystem mutation during traversal
-[cases.test_traversal_mutation]
+[cases.test_trvs_mutation]
 defines.WHEN = [0, 1, 2]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
@@ -1739,8 +1739,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -1754,7 +1754,7 @@ code = '''
     }
 
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1765,7 +1765,7 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1776,8 +1776,8 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -1792,7 +1792,7 @@ code = '''
 '''
 
 # test that we don't get extra anything after end of traversal
-[cases.test_traversal_mutation_idempotent]
+[cases.test_trvs_mutation_idempotent]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -1802,14 +1802,14 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1819,17 +1819,17 @@ code = '''
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_file_close(&lfs3, &file) => 0;
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -1845,12 +1845,12 @@ code = '''
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_file_close(&lfs3, &file) => 0;
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1860,12 +1860,12 @@ code = '''
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA));
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mkdir]
+[cases.test_trvs_mutation_mkdir]
 defines.WHEN = [0, 1, 2]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
@@ -1876,8 +1876,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -1888,7 +1888,7 @@ code = '''
     }
 
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1896,7 +1896,7 @@ code = '''
         lfs3_mkdir(&lfs3, "spider") => 0;
     }
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1904,8 +1904,8 @@ code = '''
         lfs3_mkdir(&lfs3, "spider") => 0;
     }
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -1919,7 +1919,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_rm]
+[cases.test_trvs_mutation_rm]
 defines.WHEN = [0, 1, 2]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
@@ -1936,8 +1936,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -1948,7 +1948,7 @@ code = '''
     }
 
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1956,7 +1956,7 @@ code = '''
         lfs3_remove(&lfs3, "spider") => 0;
     }
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -1964,8 +1964,8 @@ code = '''
         lfs3_remove(&lfs3, "spider") => 0;
     }
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -1979,7 +1979,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mv]
+[cases.test_trvs_mutation_mv]
 defines.WHEN = [0, 1, 2]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
@@ -1996,8 +1996,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2008,7 +2008,7 @@ code = '''
     }
 
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -2016,7 +2016,7 @@ code = '''
         lfs3_rename(&lfs3, "spider", "scorpion") => 0;
     }
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -2024,8 +2024,8 @@ code = '''
         lfs3_rename(&lfs3, "spider", "scorpion") => 0;
     }
 
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2040,7 +2040,7 @@ code = '''
 '''
 
 # some more complex mutation tests
-[cases.test_traversal_mutation_fwrite]
+[cases.test_trvs_mutation_fwrite]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2071,8 +2071,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2090,14 +2090,14 @@ code = '''
 
         // step traversal
         struct lfs3_tinfo tinfo;
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2118,7 +2118,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_fwrite_opened]
+[cases.test_trvs_mutation_fwrite_opened]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2153,8 +2153,8 @@ code = '''
     }
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2173,14 +2173,14 @@ code = '''
 
         // step traversal
         struct lfs3_tinfo tinfo;
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2212,7 +2212,7 @@ code = '''
 #
 # these assume quite a bit more and may be a bit fragile...
 #
-[cases.test_traversal_mutation_file_bsprout]
+[cases.test_trvs_mutation_file_bsprout]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2246,8 +2246,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2255,10 +2255,10 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -2273,8 +2273,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2300,7 +2300,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_file_btree]
+[cases.test_trvs_mutation_file_btree]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2335,8 +2335,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2344,17 +2344,17 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite the file
@@ -2368,16 +2368,16 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // traverse btree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2403,7 +2403,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_file_bshrub]
+[cases.test_trvs_mutation_file_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2437,8 +2437,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2446,14 +2446,14 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite the file
@@ -2467,13 +2467,13 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2499,7 +2499,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_uncreat_bsprout]
+[cases.test_trvs_mutation_uncreat_bsprout]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2533,8 +2533,8 @@ code = '''
     lfs3_file_flush(&lfs3, &file2) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2542,10 +2542,10 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -2558,8 +2558,8 @@ code = '''
     lfs3_file_flush(&lfs3, &file1) => 0;
 
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2589,7 +2589,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_uncreat_btree]
+[cases.test_trvs_mutation_uncreat_btree]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2624,8 +2624,8 @@ code = '''
     lfs3_file_flush(&lfs3, &file2) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2633,17 +2633,17 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite the file
@@ -2655,16 +2655,16 @@ code = '''
     lfs3_file_flush(&lfs3, &file1) => 0;
 
     // traverse btree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2694,7 +2694,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_uncreat_bshrub]
+[cases.test_trvs_mutation_uncreat_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2728,8 +2728,8 @@ code = '''
     lfs3_file_flush(&lfs3, &file2) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2737,14 +2737,14 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite the file
@@ -2756,13 +2756,13 @@ code = '''
     lfs3_file_flush(&lfs3, &file1) => 0;
 
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -2792,7 +2792,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_close_bsprout]
+[cases.test_trvs_mutation_close_bsprout]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2827,8 +2827,8 @@ code = '''
     lfs3_file_flush(&lfs3, &file2) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2836,10 +2836,10 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -2850,8 +2850,8 @@ code = '''
     lfs3_file_close(&lfs3, &file1) => 0;
 
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs3_fsinfo fsinfo;
@@ -2889,7 +2889,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_close_btree]
+[cases.test_trvs_mutation_close_btree]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2925,8 +2925,8 @@ code = '''
     lfs3_file_flush(&lfs3, &file2) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -2934,17 +2934,17 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse btree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // close the file
@@ -2954,16 +2954,16 @@ code = '''
     lfs3_file_close(&lfs3, &file1) => 0;
 
     // traverse btree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs3_fsinfo fsinfo;
@@ -3001,7 +3001,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_close_bshrub]
+[cases.test_trvs_mutation_close_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3036,8 +3036,8 @@ code = '''
     lfs3_file_flush(&lfs3, &file2) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3045,14 +3045,14 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // close the file
@@ -3062,13 +3062,13 @@ code = '''
     lfs3_file_close(&lfs3, &file1) => 0;
 
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs3_fsinfo fsinfo;
@@ -3106,7 +3106,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_rm_bshrub]
+[cases.test_trvs_mutation_rm_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3139,8 +3139,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3148,27 +3148,27 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // remove the file
     lfs3_remove(&lfs3, "spider") => 0;
 
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs3_fsinfo fsinfo;
@@ -3195,7 +3195,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mv_src_bshrub]
+[cases.test_trvs_mutation_mv_src_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3237,8 +3237,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3246,32 +3246,32 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rename one file over another
     lfs3_rename(&lfs3, "spider", "tarantula") => 0;
 
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -3299,7 +3299,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mv_dst_bshrub]
+[cases.test_trvs_mutation_mv_dst_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3341,8 +3341,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3350,27 +3350,27 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rename one file over another
     lfs3_rename(&lfs3, "tarantula", "spider") => 0;
 
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -3398,7 +3398,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mroot_split]
+[cases.test_trvs_mutation_mroot_split]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3431,8 +3431,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3440,7 +3440,7 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -3456,28 +3456,28 @@ code = '''
     }
 
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -3503,7 +3503,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mroot_split_bshrub_l]
+[cases.test_trvs_mutation_mroot_split_bshrub_l]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3545,8 +3545,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3554,14 +3554,14 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse a data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // create enough files for mroot to split
@@ -3576,26 +3576,26 @@ code = '''
     }
 
     // traverse another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -3626,7 +3626,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mroot_split_bshrub_r]
+[cases.test_trvs_mutation_mroot_split_bshrub_r]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3668,8 +3668,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3677,19 +3677,19 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // and another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // create enough files for mroot to split
@@ -3704,16 +3704,16 @@ code = '''
     }
 
     // traverse another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -3744,7 +3744,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mroot_extend]
+[cases.test_trvs_mutation_mroot_extend]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3779,8 +3779,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3788,7 +3788,7 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -3802,23 +3802,23 @@ code = '''
     }
 
     // traverse mroot
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -3844,7 +3844,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mroot_extend_bshrub]
+[cases.test_trvs_mutation_mroot_extend_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3879,8 +3879,8 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3888,14 +3888,14 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse a data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite enough files for mroot to extend
@@ -3908,16 +3908,16 @@ code = '''
     }
 
     // traverse another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -3943,7 +3943,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mroot_relocate]
+[cases.test_trvs_mutation_mroot_relocate]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3987,8 +3987,8 @@ code = '''
     }
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -3996,7 +3996,7 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -4015,23 +4015,23 @@ code = '''
     // I wouldn't worry too much about it
     //
     // traverse mroot
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -4057,7 +4057,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mroot_relocate_bshrub]
+[cases.test_trvs_mutation_mroot_relocate_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4101,8 +4101,8 @@ code = '''
     }
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -4110,18 +4110,18 @@ code = '''
 
     // traverse mroots
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse a data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite enough files for mroot to relocate
@@ -4135,16 +4135,16 @@ code = '''
     }
 
     // traverse another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -4170,7 +4170,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mtree_split]
+[cases.test_trvs_mutation_mtree_split]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4243,8 +4243,8 @@ code = '''
     }
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -4252,7 +4252,7 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -4269,48 +4269,48 @@ code = '''
     }
 
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -4346,7 +4346,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mtree_split_bshrub_l]
+[cases.test_trvs_mutation_mtree_split_bshrub_l]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4419,8 +4419,8 @@ code = '''
     }
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -4428,32 +4428,32 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // create enough files for mdir to split again
@@ -4469,31 +4469,31 @@ code = '''
     }
 
     // traverse another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -4529,7 +4529,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mtree_split_bshrub_r]
+[cases.test_trvs_mutation_mtree_split_bshrub_r]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4602,8 +4602,8 @@ code = '''
     }
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -4611,37 +4611,37 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // create enough files for mdir to split again
@@ -4656,21 +4656,21 @@ code = '''
         i += 1;
     }
     // traverse another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -4706,7 +4706,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mtree_extend]
+[cases.test_trvs_mutation_mtree_extend]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4785,8 +4785,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -4794,7 +4794,7 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -4808,43 +4808,43 @@ code = '''
     }
 
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -4880,7 +4880,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mtree_extend_bshrub]
+[cases.test_trvs_mutation_mtree_extend_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4959,8 +4959,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -4968,32 +4968,32 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite enough files for mroot to extend
@@ -5006,26 +5006,26 @@ code = '''
     }
 
     // traverse another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -5061,7 +5061,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mtree_relocate]
+[cases.test_trvs_mutation_mtree_relocate]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5145,8 +5145,8 @@ code = '''
     }
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -5154,7 +5154,7 @@ code = '''
 
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -5169,43 +5169,43 @@ code = '''
     }
 
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -5241,7 +5241,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mutation_mtree_relocate_bshrub]
+[cases.test_trvs_mutation_mtree_relocate_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5325,8 +5325,8 @@ code = '''
     }
 
     // try traversing
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
@@ -5334,36 +5334,36 @@ code = '''
 
     // traverse mroots
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse mtree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse one data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
 
     // rewrite enough files for mroot to relocate
@@ -5377,26 +5377,26 @@ code = '''
     }
 
     // traverse another data block
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -5435,7 +5435,7 @@ code = '''
 
 # test traversals with mdir compaction
 
-[cases.test_traversal_compact]
+[cases.test_trvs_compact]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5475,8 +5475,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing and compacting
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -5484,13 +5484,13 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdir should have been compacted
     assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -5504,15 +5504,15 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // running another traversal should clear the uncompacted flag
-    lfs3_traversal_rewind(&lfs3, &t) => 0;
+    lfs3_trv_rewind(&lfs3, &trv) => 0;
     while (true) {
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // mdir should have been compacted
     assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -5545,7 +5545,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_compact_mrootchain]
+[cases.test_trvs_compact_mrootchain]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5606,8 +5606,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing and compacting
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -5615,18 +5615,18 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mrootanchor
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mroot
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mrootanchor should have been compacted
     lfs3_mdir_t mrootanchor;
@@ -5643,15 +5643,15 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // running another traversal should clear the uncompacted flag
-    lfs3_traversal_rewind(&lfs3, &t) => 0;
+    lfs3_trv_rewind(&lfs3, &trv) => 0;
     while (true) {
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // mrootanchor should have been compacted
     lfs3_mdir_fetch(&lfs3, &mrootanchor,
@@ -5686,7 +5686,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_compact_mroot_extend]
+[cases.test_trvs_compact_mroot_extend]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5729,8 +5729,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing and compacting
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -5742,11 +5742,11 @@ code = '''
     //
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdir should have been compacted
     assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -5760,15 +5760,15 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // running another traversal should clear the uncompacted flag
-    lfs3_traversal_rewind(&lfs3, &t) => 0;
+    lfs3_trv_rewind(&lfs3, &trv) => 0;
     while (true) {
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // mdir should have been compacted
     assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -5801,7 +5801,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_compact_mroot_split]
+[cases.test_trvs_compact_mroot_split]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5871,8 +5871,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing and compacting
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -5880,26 +5880,26 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // should have split, traverse mtree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdirs should have been compacted
     assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -5914,15 +5914,15 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // running another traversal should clear the uncompacted flag
-    lfs3_traversal_rewind(&lfs3, &t) => 0;
+    lfs3_trv_rewind(&lfs3, &trv) => 0;
     while (true) {
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // mdirs should have been compacted
     assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -5963,7 +5963,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_compact_mtree]
+[cases.test_trvs_compact_mtree]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6080,8 +6080,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing and compacting
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -6089,31 +6089,31 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    // traverse mdir
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     if (COMPACTSET) {
         // mdirs should have been compacted
@@ -6130,16 +6130,16 @@ code = '''
                     | LFS3_I_CKDATA));
 
         // running another traversal should clear the uncompacted flag
-        lfs3_traversal_rewind(&lfs3, &t) => 0;
+        lfs3_trv_rewind(&lfs3, &trv) => 0;
         while (true) {
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // mdirs should have been compacted
     assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -6188,7 +6188,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_compact_mtree_split]
+[cases.test_trvs_compact_mtree_split]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6303,8 +6303,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing and compacting
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -6312,36 +6312,36 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     // traverse mtree
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // should have split, traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse mdir
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdirs should have been compacted
     assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -6358,15 +6358,15 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // running another traversal should clear the uncompacted flag
-    lfs3_traversal_rewind(&lfs3, &t) => 0;
+    lfs3_trv_rewind(&lfs3, &trv) => 0;
     while (true) {
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // mdirs should have been compacted
     assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -6429,7 +6429,7 @@ code = '''
 
 # test traversals with mkconsistent
 
-[cases.test_traversal_mkconsistent]
+[cases.test_trvs_mkconsistent]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6497,8 +6497,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing with mkconsistent
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -6506,28 +6506,28 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS > 3) {
         // traverse mtree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
     }
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
@@ -6575,7 +6575,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_conflict]
+[cases.test_trvs_mkconsistent_conflict]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6621,8 +6621,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing with mkconsistent
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -6630,7 +6630,7 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -6658,22 +6658,22 @@ code = '''
     // keep traversing
     if (ORPHANS <= 3) {
         // traverse mroot
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         assert(tinfo.block == 0 || tinfo.block == 1);
     } else {
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
     }
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should be able to clean up grms
     assert(lfs3.grm.queue[0] == 0);
@@ -6720,7 +6720,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_btree]
+[cases.test_trvs_mkconsistent_btree]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6792,8 +6792,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing with mkconsistent
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -6801,42 +6801,42 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS <= 3) {
         // traverse btree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse btree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     } else {
         // traverse mtree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         // traverse btree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         // traverse btree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     }
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
@@ -6884,7 +6884,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_btree_uncreat]
+[cases.test_trvs_mkconsistent_btree_uncreat]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -6956,8 +6956,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing with mkconsistent
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -6965,42 +6965,42 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS <= 3) {
         // traverse btree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse btree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     } else {
         // traverse mtree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         // traverse btree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         // traverse btree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     }
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
@@ -7048,7 +7048,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_bshrub]
+[cases.test_trvs_mkconsistent_bshrub]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -7121,8 +7121,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing with mkconsistent
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -7130,50 +7130,50 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS <= 3) {
         // traverse bshrub
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse bshrub
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     } else {
         // traverse mtree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         // traverse bshrub
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         // traverse bshrub
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     }
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
@@ -7221,7 +7221,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_bshrub_uncreat]
+[cases.test_trvs_mkconsistent_bshrub_uncreat]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -7294,8 +7294,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing with mkconsistent
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -7303,50 +7303,50 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS <= 3) {
         // traverse bshrub
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse bshrub
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     } else {
         // traverse mtree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         // traverse bshrub
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         // traverse bshrub
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     }
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
@@ -7394,7 +7394,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_compact]
+[cases.test_trvs_mkconsistent_compact]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -7485,8 +7485,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing with mkconsistent
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | LFS3_T_COMPACT
@@ -7495,27 +7495,27 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS > 3) {
         // traverse mtree
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
     }
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
@@ -7541,15 +7541,15 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // running another traversal should clear the uncompacted flag
-    lfs3_traversal_rewind(&lfs3, &t) => 0;
+    lfs3_trv_rewind(&lfs3, &trv) => 0;
     while (true) {
-        int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // mdirs should have been compacted
     assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
@@ -7590,7 +7590,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_mkconsistent_compact_conflict]
+[cases.test_trvs_mkconsistent_compact_conflict]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -7659,8 +7659,8 @@ code = '''
                 | LFS3_I_CKDATA));
 
     // try traversing with mkconsistent
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | LFS3_T_COMPACT
@@ -7669,7 +7669,7 @@ code = '''
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
     struct lfs3_tinfo tinfo;
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
@@ -7697,22 +7697,22 @@ code = '''
     // keep traversing
     if (ORPHANS <= 3) {
         // traverse mroot
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         assert(tinfo.block == 0 || tinfo.block == 1);
     } else {
         // traverse mdirs
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
     }
-    lfs3_traversal_read(&lfs3, &t, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // we should be able to clean up grms
     assert(lfs3.grm.queue[0] == 0);
@@ -7772,7 +7772,7 @@ code = '''
 # these should hopefully test a bunch of messy traversal state
 #
 
-[cases.test_traversal_spam_dir_many]
+[cases.test_trvs_spam_dir_many]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
@@ -7790,8 +7790,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // open a traversal
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -7809,16 +7809,16 @@ code = '''
         // step the traversal
         for (lfs3_size_t s = 0; s < STEPS; s++) {
             struct lfs3_tinfo tinfo;
-            err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             // restart traversal
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_rewind(&lfs3, &t) => 0;
+                lfs3_trv_rewind(&lfs3, &trv) => 0;
             }
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -7883,7 +7883,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_spam_dir_fuzz]
+[cases.test_trvs_spam_dir_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
@@ -7908,8 +7908,8 @@ code = '''
     lfs3_size_t sim_size = 0;
 
     // open a traversal
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -8003,16 +8003,16 @@ code = '''
         // step the traversal
         for (lfs3_size_t s = 0; s < STEPS; s++) {
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             // restart traversal
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_rewind(&lfs3, &t) => 0;
+                lfs3_trv_rewind(&lfs3, &trv) => 0;
             }
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -8065,7 +8065,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_spam_file_many]
+[cases.test_trvs_spam_file_many]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
@@ -8093,8 +8093,8 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // open a traversal
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -8122,16 +8122,16 @@ code = '''
         // step the traversal
         for (lfs3_size_t s = 0; s < STEPS; s++) {
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             // restart traversal
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_rewind(&lfs3, &t) => 0;
+                lfs3_trv_rewind(&lfs3, &trv) => 0;
             }
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -8170,7 +8170,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_spam_file_fuzz]
+[cases.test_trvs_spam_file_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
@@ -8206,8 +8206,8 @@ code = '''
     lfs3_size_t sim_size = 0;
 
     // open a traversal
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -8337,16 +8337,16 @@ code = '''
         // step the traversal
         for (lfs3_size_t s = 0; s < STEPS; s++) {
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             // restart traversal
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_rewind(&lfs3, &t) => 0;
+                lfs3_trv_rewind(&lfs3, &trv) => 0;
             }
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -8414,7 +8414,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_spam_fwrite_fuzz]
+[cases.test_trvs_spam_fwrite_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
@@ -8482,8 +8482,8 @@ code = '''
     }
 
     // open a traversal
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -8517,16 +8517,16 @@ code = '''
         // step the traversal
         for (lfs3_size_t s = 0; s < STEPS; s++) {
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             // restart traversal
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_rewind(&lfs3, &t) => 0;
+                lfs3_trv_rewind(&lfs3, &trv) => 0;
             }
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_file_close(&lfs3, &file) => 0;
 
@@ -8578,7 +8578,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_spam_uz_fuzz]
+[cases.test_trvs_spam_uz_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
@@ -8625,8 +8625,8 @@ code = '''
     lfs3_size_t sim_file_count = 0;
 
     // open a traversal
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -8927,16 +8927,16 @@ code = '''
         // step the traversal
         for (lfs3_size_t s = 0; s < STEPS; s++) {
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             // restart traversal
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_rewind(&lfs3, &t) => 0;
+                lfs3_trv_rewind(&lfs3, &trv) => 0;
             }
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // check that disk matches our simulation
     for (lfs3_size_t j = 0; j < sim_size; j++) {
@@ -9029,7 +9029,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_traversal_spam_uzd_fuzz]
+[cases.test_trvs_spam_uzd_fuzz]
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
@@ -9077,8 +9077,8 @@ code = '''
     lfs3_size_t sim_file_count = 0;
 
     // open a traversal
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t,
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
@@ -9458,16 +9458,16 @@ code = '''
         // step the traversal
         for (lfs3_size_t s = 0; s < STEPS; s++) {
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             // restart traversal
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_rewind(&lfs3, &t) => 0;
+                lfs3_trv_rewind(&lfs3, &trv) => 0;
             }
         }
     }
 
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // check that disk matches our simulation
     for (lfs3_size_t j = 0; j < sim_size; j++) {

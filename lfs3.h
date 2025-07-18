@@ -108,7 +108,7 @@ enum lfs3_type {
     // internally used types, don't use these
     LFS3_type_BOOKMARK   = 4,  // Directory bookmark
     LFS3_type_ORPHAN     = 5,  // An orphaned stickynote
-    LFS3_type_TRAVERSAL  = 6,  // An open traversal object
+    LFS3_type_TRV        = 6,  // An open traversal object
 };
 
 // File open flags
@@ -757,20 +757,20 @@ typedef struct lfs3_dir {
     lfs3_off_t pos;
 } lfs3_dir_t;
 
-typedef struct lfs3_btraversal {
+typedef struct lfs3_btrv {
     lfs3_bid_t bid;
     const lfs3_rbyd_t *branch;
     lfs3_srid_t rid;
     lfs3_rbyd_t rbyd;
-} lfs3_btraversal_t;
+} lfs3_btrv_t;
 
 // littlefs traversal type
-typedef struct lfs3_traversal {
+typedef struct lfs3_trv {
     // mdir/bshrub/btree state, this also includes our traversal
     // state machine
     lfs3_bshrub_t b;
     // opened file state
-    lfs3_handle_t *ht;
+    lfs3_handle_t *htrv;
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {
@@ -779,16 +779,16 @@ typedef struct lfs3_traversal {
             uint8_t power;
         } mtortoise;
         // btree traversal state
-        lfs3_btraversal_t bt;
+        lfs3_btrv_t btrv;
         // graft traversal state
-        lfs3_size_t gt;
+        lfs3_size_t gtrv;
     } u;
 
     // recalculate gcksum when traversing with ckmeta
     uint32_t gcksum;
-    // pending blocks, only used in lfs3_traversal_read
+    // pending blocks, only used in lfs3_trv_read
     lfs3_sblock_t blocks[2];
-} lfs3_traversal_t;
+} lfs3_trv_t;
 
 // grm encoding:
 // .- -+- -+- -+- -+- -.  mids:  2 leb128s  <=2x5 bytes
@@ -886,7 +886,7 @@ typedef struct lfs3 {
     // optional incremental gc state
     #ifdef LFS3_GC
     struct {
-        lfs3_traversal_t t;
+        lfs3_trv_t trv;
     } gc;
     #endif
 } lfs3_t;
@@ -1241,13 +1241,13 @@ int lfs3_dir_rewind(lfs3_t *lfs3, lfs3_dir_t *dir);
 // the filesystem.
 //
 // Returns a negative error code on failure.
-int lfs3_traversal_open(lfs3_t *lfs3, lfs3_traversal_t *t, uint32_t flags);
+int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags);
 
 // Close a traversal
 //
 // Releases any allocated resources.
 // Returns a negative error code on failure.
-int lfs3_traversal_close(lfs3_t *lfs3, lfs3_traversal_t *t);
+int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv);
 
 // Progress the traversal and read an entry
 //
@@ -1255,13 +1255,13 @@ int lfs3_traversal_close(lfs3_t *lfs3, lfs3_traversal_t *t);
 //
 // Returns 0 on success, LFS3_ERR_NOENT at the end of traversal, or a
 // negative error code on failure.
-int lfs3_traversal_read(lfs3_t *lfs3, lfs3_traversal_t *t,
+int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         struct lfs3_tinfo *tinfo);
 
 // Reset the traversal
 //
 // Returns a negative error code on failure.
-int lfs3_traversal_rewind(lfs3_t *lfs3, lfs3_traversal_t *t);
+int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv);
 
 
 /// Filesystem-level filesystem operations

@@ -1,5 +1,5 @@
 # Advanced mount tests
-after = ['test_mtree', 'test_traversal']
+after = ['test_mtree', 'test_trvs']
 
 
 # test we can mount
@@ -405,17 +405,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -434,7 +434,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         lfs3_unmount(&lfs3) => 0;
                         goto clobbered;
                     }
@@ -494,17 +494,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -524,7 +524,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         lfs3_unmount(&lfs3) => 0;
                         goto clobbered;
                     }

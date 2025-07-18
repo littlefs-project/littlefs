@@ -4,7 +4,7 @@ after = [
     'test_files',
     'test_fwrite',
     'test_stickynotes',
-    'test_traversal',
+    'test_trvs',
     'test_gc',
     'test_mount',
     'test_ck',

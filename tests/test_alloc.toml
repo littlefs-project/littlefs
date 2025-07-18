@@ -180,8 +180,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_init(&t,
+    lfs3_trv_t trv;
+    lfs3_trv_init(&trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
@@ -190,7 +190,7 @@ code = '''
 
         lfs3_stag_t tag;
         lfs3_bptr_t bptr;
-        tag = lfs3_mtree_traverse(&lfs3, &t,
+        tag = lfs3_mtree_traverse(&lfs3, &trv,
                 &bptr);
         assert(tag >= 0 || tag == LFS3_ERR_NOENT);
         if (tag == LFS3_ERR_NOENT) {
@@ -351,8 +351,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_init(&t,
+    lfs3_trv_t trv;
+    lfs3_trv_init(&trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
@@ -361,7 +361,7 @@ code = '''
 
         lfs3_stag_t tag;
         lfs3_bptr_t bptr;
-        tag = lfs3_mtree_traverse(&lfs3, &t,
+        tag = lfs3_mtree_traverse(&lfs3, &trv,
                 &bptr);
         assert(tag >= 0 || tag == LFS3_ERR_NOENT);
         if (tag == LFS3_ERR_NOENT) {
@@ -508,8 +508,8 @@ code = '''
     uint8_t *seen = malloc((BLOCK_COUNT+7)/8);
     memset(seen, 0, (BLOCK_COUNT+7)/8);
 
-    lfs3_traversal_t t;
-    lfs3_traversal_init(&t,
+    lfs3_trv_t trv;
+    lfs3_trv_init(&trv,
             LFS3_T_RDONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
@@ -518,7 +518,7 @@ code = '''
 
         lfs3_stag_t tag;
         lfs3_bptr_t bptr;
-        tag = lfs3_mtree_traverse(&lfs3, &t,
+        tag = lfs3_mtree_traverse(&lfs3, &trv,
                 &bptr);
         assert(tag >= 0 || tag == LFS3_ERR_NOENT);
         if (tag == LFS3_ERR_NOENT) {

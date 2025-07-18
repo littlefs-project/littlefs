@@ -183,8 +183,8 @@ code = '''
         lfs3_size_t fragments = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -193,7 +193,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -331,8 +331,8 @@ code = '''
         lfs3_block_t blocks = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -341,7 +341,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -597,8 +597,8 @@ code = '''
         lfs3_size_t fragments = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -607,7 +607,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -760,8 +760,8 @@ code = '''
         lfs3_block_t blocks = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -770,7 +770,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -2088,8 +2088,8 @@ code = '''
         lfs3_size_t fragments = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -2098,7 +2098,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -2240,8 +2240,8 @@ code = '''
         lfs3_size_t fragments = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -2250,7 +2250,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -2539,8 +2539,8 @@ code = '''
         lfs3_size_t fragments = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -2549,7 +2549,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -2706,8 +2706,8 @@ code = '''
         lfs3_block_t blocks = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -2716,7 +2716,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -2999,8 +2999,8 @@ code = '''
         lfs3_size_t fragments = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -3009,7 +3009,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -3170,8 +3170,8 @@ code = '''
         lfs3_block_t blocks = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        lfs3_btraversal_t bt;
-        lfs3_btraversal_init(&bt);
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -3180,7 +3180,7 @@ code = '''
             lfs3_stag_t tag;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &bt,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {

@@ -1,5 +1,5 @@
 # Test checksum validation things
-after = ['test_traversal', 'test_gc', 'test_mount']
+after = ['test_trvs', 'test_gc', 'test_mount']
 
 
 code = '''
@@ -182,7 +182,7 @@ code = '''
 [cases.test_ck_ckmeta_easy]
 # METHOD=0 => lfs3_fs_ckmeta
 # METHOD=1 => lfs3_fs_gc
-# METHOD=2 => lfs3_traversal_read
+# METHOD=2 => lfs3_trv_read
 # METHOD=3 => lfs3_mount
 defines.METHOD = [0, 1, 2, 3]
 defines.GC_FLAGS = 'LFS3_GC_CKMETA'
@@ -230,17 +230,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -259,7 +259,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -280,22 +280,22 @@ code = '''
             LFS3_UNREACHABLE();
             #endif
 
-        // find clobbered blocks with lfs3_traversal_read
+        // find clobbered blocks with lfs3_trv_read
         } else if (METHOD == 2) {
-            lfs3_traversal_t t;
-            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                 struct lfs3_tinfo tinfo;
-                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     break;
                 }
             }
-            lfs3_traversal_close(&lfs3, &t) => 0;
+            lfs3_trv_close(&lfs3, &trv) => 0;
 
         // find clobbered blocks with lfs3_mount
         } else if (METHOD == 3) {
@@ -319,7 +319,7 @@ done:;
 [cases.test_ck_ckdata_easy]
 # METHOD=0 => lfs3_fs_ckdata
 # METHOD=1 => lfs3_fs_gc
-# METHOD=2 => lfs3_traversal_read
+# METHOD=2 => lfs3_trv_read
 # METHOD=3 => lfs3_mount
 defines.METHOD = [0, 1, 2, 3]
 defines.GC_FLAGS = 'LFS3_GC_CKDATA'
@@ -367,17 +367,17 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -397,7 +397,7 @@ code = '''
                             clobber_buf, BLOCK_SIZE) => 0;
                     if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
                         i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
                 }
@@ -418,22 +418,22 @@ code = '''
             LFS3_UNREACHABLE();
             #endif
 
-        // find clobbered blocks with lfs3_traversal_read
+        // find clobbered blocks with lfs3_trv_read
         } else if (METHOD == 2) {
-            lfs3_traversal_t t;
-            lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                 struct lfs3_tinfo tinfo;
-                int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     break;
                 }
             }
-            lfs3_traversal_close(&lfs3, &t) => 0;
+            lfs3_trv_close(&lfs3, &trv) => 0;
 
         // find clobbered blocks with lfs3_mount
         } else if (METHOD == 3) {
@@ -458,7 +458,7 @@ done:;
 [cases.test_ck_ckmeta_hard]
 # METHOD=0 => lfs3_fs_ckmeta
 # METHOD=1 => lfs3_fs_gc
-# METHOD=2 => lfs3_traversal_read
+# METHOD=2 => lfs3_trv_read
 # METHOD=3 => lfs3_mount
 defines.METHOD = [0, 1, 2, 3]
 defines.GC_FLAGS = 'LFS3_GC_CKMETA'
@@ -509,18 +509,18 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         lfs3_block_t badblock;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -530,7 +530,7 @@ code = '''
                 // found an interesting block?
                 if (k == i) {
                     badblock = tinfo.block;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobber;
                 }
                 k += 1;
@@ -570,17 +570,17 @@ code = '''
                 LFS3_UNREACHABLE();
                 #endif
 
-            // find clobbered blocks with lfs3_traversal_read
+            // find clobbered blocks with lfs3_trv_read
             } else if (METHOD == 2) {
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -588,11 +588,11 @@ code = '''
                         break;
                     }
                     if (err == LFS3_ERR_CORRUPT) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto detected;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
 
             // find clobbered blocks with lfs3_mount
             } else if (METHOD == 3) {
@@ -713,7 +713,7 @@ done:;
 [cases.test_ck_ckdata_hard]
 # METHOD=0 => lfs3_fs_ckdata
 # METHOD=1 => lfs3_fs_gc
-# METHOD=2 => lfs3_traversal_read
+# METHOD=2 => lfs3_trv_read
 # METHOD=3 => lfs3_mount
 defines.METHOD = [0, 1, 2, 3]
 defines.GC_FLAGS = 'LFS3_GC_CKDATA'
@@ -764,18 +764,18 @@ code = '''
         }
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         lfs3_block_t badblock;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
             }
@@ -786,7 +786,7 @@ code = '''
                 // found an interesting block?
                 if (k == i) {
                     badblock = tinfo.block;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobber;
                 }
                 k += 1;
@@ -826,17 +826,17 @@ code = '''
                 LFS3_UNREACHABLE();
                 #endif
 
-            // find clobbered blocks with lfs3_traversal_read
+            // find clobbered blocks with lfs3_trv_read
             } else if (METHOD == 2) {
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -844,11 +844,11 @@ code = '''
                         break;
                     }
                     if (err == LFS3_ERR_CORRUPT) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto detected;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
 
             // find clobbered blocks with lfs3_mount
             } else if (METHOD == 3) {
@@ -1007,17 +1007,17 @@ code = '''
         lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_file_close(&lfs3, &file) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
@@ -1032,7 +1032,7 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
                 }
                 k += 1;
@@ -1104,17 +1104,17 @@ code = '''
         lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_file_close(&lfs3, &file) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
@@ -1130,7 +1130,7 @@ code = '''
                     CFG->erase(CFG, tinfo.block) => 0;
                     CFG->prog(CFG, tinfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
                 }
                 k += 1;
@@ -1208,18 +1208,18 @@ code = '''
         lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         lfs3_block_t badblock;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_file_close(&lfs3, &file) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
@@ -1229,7 +1229,7 @@ code = '''
                 // found an interesting block?
                 if (k == i) {
                     badblock = tinfo.block;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobber;
                 }
                 k += 1;
@@ -1356,18 +1356,18 @@ code = '''
         lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
 
         // traverse to find blocks
-        lfs3_traversal_t t;
-        lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         lfs3_block_t k = 0;
         lfs3_block_t badblock;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
             struct lfs3_tinfo tinfo;
-            int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
                 lfs3_file_close(&lfs3, &file) => 0;
                 lfs3_unmount(&lfs3) => 0;
                 goto done;
@@ -1378,7 +1378,7 @@ code = '''
                 // found an interesting block?
                 if (k == i) {
                     badblock = tinfo.block;
-                    lfs3_traversal_close(&lfs3, &t) => 0;
+                    lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobber;
                 }
                 k += 1;
@@ -1578,18 +1578,18 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // find the data block
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_tinfo tinfo;
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         if (tinfo.btype == LFS3_BTYPE_DATA) {
             badblock = tinfo.block;
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 
@@ -1689,18 +1689,18 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // find the btree block
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_tinfo tinfo;
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             badblock = tinfo.block;
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 
@@ -2088,18 +2088,18 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // find the data block
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_tinfo tinfo;
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         if (tinfo.btype == LFS3_BTYPE_DATA) {
             badblock = tinfo.block;
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 
@@ -2199,18 +2199,18 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // find the btree block
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_tinfo tinfo;
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             badblock = tinfo.block;
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 
@@ -2462,18 +2462,18 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // find the btree block
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_tinfo tinfo;
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             badblock = tinfo.block;
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 
@@ -2606,18 +2606,18 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // find the data block
-    lfs3_traversal_t t;
-    lfs3_traversal_open(&lfs3, &t, LFS3_T_RDONLY) => 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_tinfo tinfo;
-        lfs3_traversal_read(&lfs3, &t, &tinfo) => 0;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         if (tinfo.btype == LFS3_BTYPE_DATA) {
             badblock = tinfo.block;
             break;
         }
     }
-    lfs3_traversal_close(&lfs3, &t) => 0;
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     lfs3_unmount(&lfs3) => 0;
 
@@ -2834,15 +2834,15 @@ code = '''
             // run ckmeta mtreeonly?
             } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -2850,11 +2850,11 @@ code = '''
                         break;
                     }
                     if (err == LFS3_ERR_CORRUPT) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto corrupt_mounted;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
         }
 
@@ -3152,15 +3152,15 @@ code = '''
             // run ckmeta mtreeonly?
             } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -3168,11 +3168,11 @@ code = '''
                         break;
                     }
                     if (err == LFS3_ERR_CORRUPT) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto corrupt_mounted;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
         }
 
@@ -3568,15 +3568,15 @@ code = '''
             // run ckmeta mtreeonly?
             } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -3584,11 +3584,11 @@ code = '''
                         break;
                     }
                     if (err == LFS3_ERR_CORRUPT) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto corrupt_open;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
         }
 
@@ -3851,15 +3851,15 @@ code = '''
             // run ckmeta mtreeonly?
             } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -3867,11 +3867,11 @@ code = '''
                         break;
                     }
                     if (err == LFS3_ERR_CORRUPT) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto corrupt_mounted;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
         }
 
@@ -4451,15 +4451,15 @@ code = '''
             // run ckmeta mtreeonly?
             } else if (CKMETA && MTREEONLY) {
                 // need an explicit traversal for this
-                lfs3_traversal_t t;
-                lfs3_traversal_open(&lfs3, &t,
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
                         LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
                     struct lfs3_tinfo tinfo;
-                    int err = lfs3_traversal_read(&lfs3, &t, &tinfo);
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -4467,11 +4467,11 @@ code = '''
                         break;
                     }
                     if (err == LFS3_ERR_CORRUPT) {
-                        lfs3_traversal_close(&lfs3, &t) => 0;
+                        lfs3_trv_close(&lfs3, &trv) => 0;
                         goto corrupt_mounted;
                     }
                 }
-                lfs3_traversal_close(&lfs3, &t) => 0;
+                lfs3_trv_close(&lfs3, &trv) => 0;
             }
         }
 
