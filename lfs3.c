@@ -2402,7 +2402,7 @@ static void lfs3_bptr_init(lfs3_bptr_t *bptr,
         lfs3_data_t data, lfs3_size_t cksize, uint32_t cksum) {
     // make sure the bptr flag is set
     LFS3_ASSERT(lfs3_data_ondisk(data));
-    bptr->d.size = data.size | LFS3_DATA_ONDISK | LFS3_BPTR_ISBPTR;
+    bptr->d.size = LFS3_DATA_ONDISK | LFS3_BPTR_ISBPTR | data.size;
     bptr->d.u.disk.block = data.u.disk.block;
     bptr->d.u.disk.off = data.u.disk.off;
     #ifdef LFS3_CKDATACKSUMS
@@ -2580,6 +2580,22 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
     return 0;
 }
 #endif
+
+
+// allocate a bptr
+static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_bptr_t *bptr) {
+    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
+    if (block < 0) {
+        return block;
+    }
+
+    lfs3_bptr_init(bptr,
+            LFS3_DATA_DISK(block, 0, 0),
+            // mark as erased
+            LFS3_BPTR_ISERASED | 0,
+            0);
+    return 0;
+}
 
 // needed in lfs3_bptr_fetch
 #ifdef LFS3_CKFETCHES
@@ -12657,14 +12673,16 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         LFS3_ASSERT(pos_ - block_pos <= lfs3->cfg->block_size);
         file->leaf.pos = block_pos + lfs3_bptr_off(&file->leaf.bptr);
         file->leaf.weight = pos_ - file->leaf.pos;
-        lfs3_bptr_init(&file->leaf.bptr,
-                LFS3_DATA_DISK(
-                    lfs3_bptr_block(&file->leaf.bptr),
-                    lfs3_bptr_off(&file->leaf.bptr),
-                    pos_ - file->leaf.pos),
-                // mark as erased
-                (pos_ - block_pos) | LFS3_BPTR_ISERASED,
-                lfs3->pcksum);
+        file->leaf.bptr.d.size = LFS3_DATA_ONDISK | LFS3_BPTR_ISBPTR
+                | (pos_ - file->leaf.pos);
+        // update cksize/cksum, mark as erased
+        LFS3_IFDEF_CKDATACKSUMS(
+                file->leaf.bptr.d.u.disk.cksize,
+                file->leaf.bptr.cksize) = LFS3_BPTR_ISERASED
+                    | (pos_ - block_pos);
+        LFS3_IFDEF_CKDATACKSUMS(
+                file->leaf.bptr.d.u.disk.cksum,
+                file->leaf.bptr.cksum) = lfs3->pcksum;
         return 0;
 
     relocate:;
@@ -12672,16 +12690,10 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         //
         // note if we relocate, we rewrite the entire block from
         // block_pos using what we can find in our tree
-        lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
-        if (block < 0) {
-            return block;
+        err = lfs3_bptr_alloc(lfs3, &file->leaf.bptr);
+        if (err) {
+            return err;
         }
-
-        lfs3_bptr_init(&file->leaf.bptr,
-                LFS3_DATA_DISK(block, 0, 0),
-                // mark as erased
-                LFS3_BPTR_ISERASED | 0,
-                0);
 
         // mark as uncrystallized
         file->b.o.flags |= LFS3_o_UNCRYST;
@@ -14268,9 +14280,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMS(
-                    LFS3_M_CKDATACKSUMS,
-                    0))) == 0);
+                | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0))) == 0);
     // LFS3_M_REVDBG and LFS3_M_REVNOISE are incompatible
     #if defined(LFS3_REVNOISE) && defined(LFS3_REVDBG)
     LFS3_ASSERT(!lfs3_m_isrevdbg(flags) || !lfs3_m_isrevnoise(flags));
