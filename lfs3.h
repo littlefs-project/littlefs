@@ -780,8 +780,6 @@ typedef struct lfs3_trv {
         } mtortoise;
         // btree traversal state
         lfs3_btrv_t btrv;
-        // graft traversal state
-        lfs3_size_t gtrv;
     } u;
 
     // recalculate gcksum when traversing with ckmeta
