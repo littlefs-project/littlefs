@@ -1011,7 +1011,7 @@ static int lfs3_bd_cpyck(lfs3_t *lfs3,
 
 
 
-/// lfs3_tag_t stuff ///
+/// Tags - lfs3_tag_t stuff ///
 
 // 16-bit metadata tags
 enum lfs3_tag {
@@ -1586,7 +1586,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 #endif
 
 
-/// lfs3_data_t stuff ///
+/// Data - lfs3_data_t stuff ///
 
 #define LFS3_DATA_ONDISK 0x80000000
 #define LFS3_DATA_ISBPTR 0x40000000
@@ -1993,15 +1993,6 @@ enum lfs3_from {
 
 // we need to at least define DSIZE/DATA macros here
 
-// ecksum encoding:
-// .---+- -+- -+- -.  cksize: 1 leb128  <=4 bytes
-// | cksize        |  cksum:  1 le32    4 bytes
-// +---+- -+- -+- -+  total:            <=8 bytes
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFS3_ECKSUM_DSIZE (4+4)
-
 // bptr encoding:
 // .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
 // | size          |      block:  1 leb128  <=5 bytes
@@ -2016,6 +2007,15 @@ enum lfs3_from {
 // '---+---+---+---'
 //
 #define LFS3_BPTR_DSIZE (4+5+4+4+4)
+
+// ecksum encoding:
+// .---+- -+- -+- -.  cksize: 1 leb128  <=4 bytes
+// | cksize        |  cksum:  1 le32    4 bytes
+// +---+- -+- -+- -+  total:            <=8 bytes
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFS3_ECKSUM_DSIZE (4+4)
 
 // branch encoding:
 // .---+- -+- -+- -+- -.  block: 1 leb128  <=5 bytes
@@ -2067,6 +2067,8 @@ enum lfs3_from {
 // '---+- -+- -+- -+- -'
 #define LFS3_GEOMETRY_DSIZE (4+5)
 
+
+/// Rattrs - lfs3_rattr_t stuff ///
 
 // operations on attribute lists
 
@@ -2348,60 +2350,38 @@ static lfs3_scmp_t lfs3_attr_cmp(lfs3_t *lfs3, const struct lfs3_attr *attr,
 }
 
 
-// operations on erased-state checksums
 
-// erased-state checksum
-#ifndef LFS3_RDONLY
-typedef struct lfs3_ecksum {
-    // cksize=-1 indicates no ecksum
-    lfs3_ssize_t cksize;
-    uint32_t cksum;
-} lfs3_ecksum_t;
+/// Block allocator definitions ///
+
+// the block allocator is humorously cyclic in its definition
+//
+// to avoid the mess of redeclaring flags and things, just declare
+// everything we need here
+
+// checkpoint the allocator
+//
+// operations that need to alloc should call this when all in-use blocks
+// are tracked, either by the filesystem or an opened mdir
+//
+// blocks are allocated at most once, and never reallocated, between
+// checkpoints
+#if !defined(LFS3_RDONLY)
+static inline void lfs3_alloc_ckpoint(lfs3_t *lfs3);
 #endif
 
-// erased-state checksum on-disk encoding
-#ifndef LFS3_RDONLY
-static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
-        uint8_t buffer[static LFS3_ECKSUM_DSIZE]) {
-    // you shouldn't try to encode a not-ecksum, that doesn't make sense
-    LFS3_ASSERT(ecksum->cksize != -1);
-    // cksize should not exceed 28-bits
-    LFS3_ASSERT((lfs3_size_t)ecksum->cksize <= 0x0fffffff);
-
-    lfs3_ssize_t d = 0;
-    lfs3_ssize_t d_ = lfs3_toleb128(ecksum->cksize, &buffer[d], 4);
-    if (d_ < 0) {
-        LFS3_UNREACHABLE();
-    }
-    d += d_;
-
-    lfs3_tole32(ecksum->cksum, &buffer[d]);
-    d += 4;
-
-    return LFS3_DATA_BUF(buffer, d);
-}
+// discard any lookahead state, this is necessary if block_count changes
+#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
+static inline void lfs3_alloc_discard(lfs3_t *lfs3);
 #endif
 
-#ifndef LFS3_RDONLY
-static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_ecksum_t *ecksum) {
-    int err = lfs3_data_readlleb128(lfs3, data, (lfs3_size_t*)&ecksum->cksize);
-    if (err) {
-        return err;
-    }
-
-    err = lfs3_data_readle32(lfs3, data, &ecksum->cksum);
-    if (err) {
-        return err;
-    }
-
-    return 0;
-}
+// allocate a block
+#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
+static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase);
 #endif
 
 
 
-/// block pointer things ///
+/// Block pointer things ///
 
 #define LFS3_BPTR_ONDISK LFS3_DATA_ONDISK
 #define LFS3_BPTR_ISBPTR LFS3_DATA_ISBPTR
@@ -2669,6 +2649,59 @@ static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr) {
 
 
 
+/// Erased-state checksum stuff ///
+
+// erased-state checksum
+#ifndef LFS3_RDONLY
+typedef struct lfs3_ecksum {
+    // cksize=-1 indicates no ecksum
+    lfs3_ssize_t cksize;
+    uint32_t cksum;
+} lfs3_ecksum_t;
+#endif
+
+// erased-state checksum on-disk encoding
+#ifndef LFS3_RDONLY
+static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
+        uint8_t buffer[static LFS3_ECKSUM_DSIZE]) {
+    // you shouldn't try to encode a not-ecksum, that doesn't make sense
+    LFS3_ASSERT(ecksum->cksize != -1);
+    // cksize should not exceed 28-bits
+    LFS3_ASSERT((lfs3_size_t)ecksum->cksize <= 0x0fffffff);
+
+    lfs3_ssize_t d = 0;
+    lfs3_ssize_t d_ = lfs3_toleb128(ecksum->cksize, &buffer[d], 4);
+    if (d_ < 0) {
+        LFS3_UNREACHABLE();
+    }
+    d += d_;
+
+    lfs3_tole32(ecksum->cksum, &buffer[d]);
+    d += 4;
+
+    return LFS3_DATA_BUF(buffer, d);
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
+        lfs3_ecksum_t *ecksum) {
+    int err = lfs3_data_readlleb128(lfs3, data, (lfs3_size_t*)&ecksum->cksize);
+    if (err) {
+        return err;
+    }
+
+    err = lfs3_data_readle32(lfs3, data, &ecksum->cksum);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+#endif
+
+
+
 /// Red-black-yellow Dhara tree operations ///
 
 #define LFS3_RBYD_ISSHRUB 0x80000000
@@ -2727,11 +2760,6 @@ static inline int lfs3_rbyd_cmp(
     }
 }
 
-
-// needed in lfs3_rbyd_alloc
-#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase);
-#endif
 
 // allocate an rbyd block
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
@@ -3353,8 +3381,6 @@ static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 #endif
 
 // needed in lfs3_rbyd_appendrattr_
-static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
-        uint8_t buffer[static LFS3_BPTR_DSIZE]);
 static lfs3_data_t lfs3_data_frombtree(const lfs3_btree_t *btree,
         uint8_t buffer[static LFS3_BTREE_DSIZE]);
 static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
@@ -3400,12 +3426,12 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
             struct {
                 lfs3_data_t data;
-                uint8_t buf[LFS3_ECKSUM_DSIZE];
-            } ecksum;
-            struct {
-                lfs3_data_t data;
                 uint8_t buf[LFS3_BPTR_DSIZE];
             } bptr;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_ECKSUM_DSIZE];
+            } ecksum;
             struct {
                 lfs3_data_t data;
                 uint8_t buf[LFS3_BTREE_DSIZE];
@@ -3469,14 +3495,6 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         data_count = 2;
         break;
 
-    // ecksum?
-    case LFS3_FROM_ECKSUM:;
-        ctx.u.ecksum.data = lfs3_data_fromecksum(rattr.u.etc,
-                ctx.u.ecksum.buf);
-        datas = &ctx.u.ecksum.data;
-        data_count = 1;
-        break;
-
     // bptr?
     #ifndef LFS3_2BONLY
     case LFS3_FROM_BPTR:;
@@ -3486,6 +3504,14 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         data_count = 1;
         break;
     #endif
+
+    // ecksum?
+    case LFS3_FROM_ECKSUM:;
+        ctx.u.ecksum.data = lfs3_data_fromecksum(rattr.u.etc,
+                ctx.u.ecksum.buf);
+        datas = &ctx.u.ecksum.data;
+        data_count = 1;
+        break;
 
     // btree?
     #ifndef LFS3_2BONLY
@@ -6941,7 +6967,7 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 
 
 
-/// metadata-id things ///
+/// Metadata-id things ///
 
 #define LFS3_MID(_lfs, _bid, _rid) \
     (((_bid) & ~((1 << (_lfs)->mbits)-1)) + (_rid))
@@ -6970,7 +6996,7 @@ static inline lfs3_srid_t lfs3_dbgmrid(const lfs3_t *lfs3, lfs3_smid_t mid) {
 }
 
 
-/// metadata-pointer things ///
+/// Metadata-pointer things ///
 
 // the mroot anchor, mdir 0x{0,1} is the entry point into the filesystem
 #define LFS3_MPTR_MROOTANCHOR() ((const lfs3_block_t[2]){0, 1})
@@ -7028,7 +7054,7 @@ static int lfs3_data_readmptr(lfs3_t *lfs3, lfs3_data_t *data,
 
 
 
-/// various flag things ///
+/// Various flag things ///
 
 // open flags
 static inline bool lfs3_o_isrdonly(uint32_t flags) {
@@ -7346,7 +7372,7 @@ static inline bool lfs3_i_isinmtree(uint32_t flags) {
 
 
 
-/// opened mdir things ///
+/// Opened mdir things ///
 
 // we maintain a linked-list of all opened mdirs, in order to keep
 // metadata state in-sync, these may be casted to specific file types
@@ -7747,7 +7773,7 @@ static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, uint32_t rev) {
 
 
 
-/// Metadata pair stuff ///
+/// Metadata-pair stuff ///
 
 // mdir convenience functions
 #ifndef LFS3_RDONLY
@@ -10121,7 +10147,6 @@ eot:;
 
 // needed in lfs3_mtree_gc
 static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir);
-static void lfs3_alloc_ckpoint(lfs3_t *lfs3);
 static void lfs3_alloc_markfree(lfs3_t *lfs3);
 
 // high-level mutating traversal, handle extra features that require
@@ -10254,11 +10279,13 @@ eot:;
 
 // checkpoint the allocator
 //
-// operations that need to alloc should call this to indicate all in-use
-// blocks are either committed into the filesystem or tracked by an opened
-// mdir
+// operations that need to alloc should call this when all in-use blocks
+// are tracked, either by the filesystem or an opened mdir
+//
+// blocks are allocated at most once, and never reallocated, between
+// checkpoints
 #if !defined(LFS3_RDONLY)
-static void lfs3_alloc_ckpoint(lfs3_t *lfs3) {
+static inline void lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     #ifndef LFS3_2BONLY
     lfs3->lookahead.ckpoint = lfs3->block_count;
     #else
@@ -10269,7 +10296,7 @@ static void lfs3_alloc_ckpoint(lfs3_t *lfs3) {
 
 // discard any lookahead state, this is necessary if block_count changes
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-static void lfs3_alloc_discard(lfs3_t *lfs3) {
+static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
     lfs3->lookahead.size = 0;
     lfs3_memset(lfs3->lookahead.buffer, 0, lfs3->cfg->lookahead_size);
 }
@@ -10389,6 +10416,7 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
 // needed in lfs3_mtree_traverse_
 static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
 
+// allocate a block
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase) {
     while (true) {
