@@ -72,7 +72,7 @@ typedef int32_t  lfs3_sdid_t;
 
 // Possible error codes, these are negative to allow
 // valid positive return values
-enum lfs3_error {
+enum lfs3_err {
     LFS3_ERR_OK          = 0,    // No error
     LFS3_ERR_UNKNOWN     = -1,   // Unknown error
     LFS3_ERR_INVAL       = -22,  // Invalid parameter
