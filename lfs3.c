@@ -12,7 +12,7 @@
 // internally used disk-comparison enum
 //
 // note LT < EQ < GT
-enum lfs3_scmp {
+enum lfs3_cmp {
     LFS3_CMP_LT = 0, // disk < query
     LFS3_CMP_EQ = 1, // disk = query
     LFS3_CMP_GT = 2, // disk > query
