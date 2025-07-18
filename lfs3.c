@@ -2358,6 +2358,13 @@ static lfs3_scmp_t lfs3_attr_cmp(lfs3_t *lfs3, const struct lfs3_attr *attr,
 // to avoid the mess of redeclaring flags and things, just declare
 // everything we need here
 
+// block allocator flags
+#define LFS3_ALLOC_ERASE    0x000000001 // Please erase the block
+
+static inline bool lfs3_alloc_iserase(uint32_t flags) {
+    return flags & LFS3_ALLOC_ERASE;
+}
+
 // checkpoint the allocator
 //
 // operations that need to alloc should call this when all in-use blocks
@@ -2376,7 +2383,7 @@ static inline void lfs3_alloc_discard(lfs3_t *lfs3);
 
 // allocate a block
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase);
+static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags);
 #endif
 
 
@@ -2764,7 +2771,7 @@ static inline int lfs3_rbyd_cmp(
 // allocate an rbyd block
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static int lfs3_rbyd_alloc(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
-    lfs3_sblock_t block = lfs3_alloc(lfs3, true);
+    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
     if (block < 0) {
         return block;
     }
@@ -8045,7 +8052,7 @@ static int lfs3_mdir_alloc__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     if (!partial) {
         // allocate one block without an erase
-        lfs3_sblock_t block = lfs3_alloc(lfs3, false);
+        lfs3_sblock_t block = lfs3_alloc(lfs3, 0);
         if (block < 0) {
             return block;
         }
@@ -8069,7 +8076,7 @@ static int lfs3_mdir_alloc__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
 relocate:;
     // allocate another block with an erase
-    lfs3_sblock_t block = lfs3_alloc(lfs3, true);
+    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
     if (block < 0) {
         return block;
     }
@@ -10418,7 +10425,7 @@ static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
 
 // allocate a block
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase) {
+static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
     while (true) {
         // scan our lookahead buffer for free blocks
         lfs3_sblock_t block = lfs3_alloc_findfree(lfs3);
@@ -10431,7 +10438,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, bool erase) {
             LFS3_ASSERT(block != 0 && block != 1);
 
             // erase requested?
-            if (erase) {
+            if (lfs3_alloc_iserase(flags)) {
                 int err = lfs3_bd_erase(lfs3, block);
                 if (err) {
                     // bad erase? try another block
@@ -12666,7 +12673,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         //
         // note if we relocate, we rewrite the entire block from
         // block_pos using what we can find in our tree
-        lfs3_sblock_t block = lfs3_alloc(lfs3, true);
+        lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
         if (block < 0) {
             return block;
         }
@@ -12770,7 +12777,7 @@ static int lfs3_file_flushset_(lfs3_t *lfs3, lfs3_file_t *file,
 
         relocate:;
             // allocate a new block
-            lfs3_sblock_t block = lfs3_alloc(lfs3, true);
+            lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
             if (block < 0) {
                 return block;
             }

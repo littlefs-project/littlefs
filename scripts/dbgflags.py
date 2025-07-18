@@ -15,6 +15,7 @@ FILTERS = [
     ('--gc',                 'GC',      "Filter by LFS3_GC_* flags."),
     (['--i', '--info'],      'I',       "Filter by LFS3_I_* flags."),
     (['--t', '--traversal'], 'T',       "Filter by LFS3_T_* flags."),
+    ('--alloc',              'ALLOC',   "Filter by LFS3_ALLOC_* flags."),
     (['--rc', '--rcompat'],  'RCOMPAT', "Filter by LFS3_RCOMPAT_* flags."),
     (['--wc', '--wcompat'],  'WCOMPAT', "Filter by LFS3_WCOMPAT_* flags."),
     (['--oc', '--ocompat'],  'OCOMPAT', "Filter by LFS3_OCOMPAT_* flags."),
@@ -154,6 +155,9 @@ FLAGS = [
     ('t_ZOMBIE',       0x08000000, "File has been removed"                    ),
     ('t_DIRTY',        0x02000000, "Filesystem modified during traversal"     ),
     ('t_MUTATED',      0x01000000, "Filesystem modified by traversal"         ),
+
+    # Block allocator flags
+    ('alloc_ERASE',    0x00000001, "Please erase the block"                   ),
 
     # Read-compat flags
     ('RCOMPAT_NONSTANDARD',
