@@ -977,7 +977,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // delete any bshrub/btree
-    lfs3_mdir_commit(&lfs3, &file.b.o.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
             LFS3_RATTR(
                 LFS3_TAG_RM | LFS3_TAG_MASK8 | LFS3_TAG_STRUCT, 0))) => 0;
 
@@ -1093,7 +1093,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // create an empty bshrub
-    lfs3_mdir_commit(&lfs3, &file.b.o.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
             LFS3_RATTR_SHRUBCOMMIT(
                 (&(lfs3_shrubcommit_t){
                     .bshrub=&file.b,
@@ -1101,7 +1101,7 @@ code = '''
                     .rattrs=((lfs3_rattr_t[]){
                         LFS3_RATTR_BUF(LFS3_TAG_DATA, +1, "?", 1)}),
                     .rattr_count=1})))) => 0;
-    lfs3_mdir_commit(&lfs3, &file.b.o.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
             LFS3_RATTR_SHRUBCOMMIT(
                 (&(lfs3_shrubcommit_t){
                     .bshrub=&file.b,
@@ -1109,7 +1109,7 @@ code = '''
                     .rattrs=((lfs3_rattr_t[]){
                         LFS3_RATTR(LFS3_TAG_RM, -1)}),
                     .rattr_count=1})))) => 0;
-    lfs3_mdir_commit(&lfs3, &file.b.o.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
             LFS3_RATTR_SHRUB(
                 LFS3_TAG_MASK8 | LFS3_TAG_BSHRUB, 0,
                 &file.b.shrub_))) => 0;
@@ -1232,7 +1232,7 @@ code = '''
             LFS3_RATTR_BUF(LFS3_TAG_DATA, +1, "?", 1))) => 0;
     lfs3_rbyd_commit(&lfs3, &file.b.shrub, 0, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
-    lfs3_mdir_commit(&lfs3, &file.b.o.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
             LFS3_RATTR_BTREE(
                 LFS3_TAG_MASK8 | LFS3_TAG_BTREE, 0,
                 &file.b.shrub))) => 0;

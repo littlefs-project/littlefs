@@ -2860,21 +2860,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "c", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "c", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // insert a new entry, this should update our neighbors
     lfs3_mdir_t mdir;
@@ -2906,8 +2906,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -2920,21 +2920,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "b", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // try removing left neighbor
     lfs3_mdir_t mdir;
@@ -2956,8 +2956,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -2970,21 +2970,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "b", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // try removing right neighbor
     lfs3_mdir_t mdir;
@@ -3006,8 +3006,8 @@ code = '''
     assert(left.mdir.r.trunk == mdir.r.trunk);
     assert(left.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -3022,21 +3022,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "d", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -3083,8 +3083,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -3099,21 +3099,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "e", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "e", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -3174,8 +3174,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -3190,21 +3190,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "b", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // force mroot to compact twice, this should extend the mroot
     lfs3_mdir_t old_mroot = lfs3.mroot;
@@ -3230,8 +3230,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -3248,21 +3248,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "d", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -3327,8 +3327,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -3345,21 +3345,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "d", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -3424,8 +3424,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -3440,21 +3440,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "f", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "f", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -3534,8 +3534,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -3550,21 +3550,21 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
-    lfs3_omdir_t left = {.flags=0};
+    lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "a", 1))) => 0;
     assert(left.mdir.r.weight == 2);
-    lfs3_omdir_open(&lfs3, &left);
+    lfs3_handle_open(&lfs3, &left);
 
-    lfs3_omdir_t right = {.flags=0};
+    lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "e", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
     lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(LFS3_TAG_REG, +1, 0, "e", 1))) => 0;
     assert(right.mdir.r.weight == 3);
-    lfs3_omdir_open(&lfs3, &right);
+    lfs3_handle_open(&lfs3, &right);
 
     // create 2 large entries that needs to be uninlined and split
     uint8_t buffer[SIZE];
@@ -3635,8 +3635,8 @@ code = '''
     assert(right.mdir.r.trunk == mdir.r.trunk);
     assert(right.mdir.r.cksum == mdir.r.cksum);
 
-    lfs3_omdir_close(&lfs3, &left);
-    lfs3_omdir_close(&lfs3, &right);
+    lfs3_handle_close(&lfs3, &left);
+    lfs3_handle_close(&lfs3, &right);
     lfs3_unmount(&lfs3) => 0;
 '''
 

@@ -691,11 +691,14 @@ typedef struct lfs3_mdir {
     uint32_t gcksumdelta;
 } lfs3_mdir_t;
 
-typedef struct lfs3_omdir {
-    struct lfs3_omdir *next;
+// a handle to an opened mdir for tracking purposes
+typedef struct lfs3_handle {
+    // an invasive linked-list is used to keep things in-sync
+    struct lfs3_handle *next;
+    // flags includes the type and type-specific flags
     uint32_t flags;
     lfs3_mdir_t mdir;
-} lfs3_omdir_t;
+} lfs3_handle_t;
 
 // a shrub is a secondary trunk in an mdir
 typedef lfs3_rbyd_t lfs3_shrub_t;
@@ -703,7 +706,7 @@ typedef lfs3_rbyd_t lfs3_shrub_t;
 // a bshrub is like a btree but with a shrub as a root
 typedef struct lfs3_bshrub {
     // bshrubs need to be tracked for commits to work
-    lfs3_omdir_t o;
+    lfs3_handle_t h;
     // files contain both an active bshrub and staging bshrub, to allow
     // staging during mdir compacts
     // trunk=0       => no bshrub/btree
@@ -749,7 +752,7 @@ typedef struct lfs3_file {
 
 // littlefs directory type
 typedef struct lfs3_dir {
-    lfs3_omdir_t o;
+    lfs3_handle_t h;
     lfs3_did_t did;
     lfs3_off_t pos;
 } lfs3_dir_t;
@@ -767,7 +770,7 @@ typedef struct lfs3_traversal {
     // state machine
     lfs3_bshrub_t b;
     // opened file state
-    lfs3_omdir_t *ot;
+    lfs3_handle_t *ht;
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {
@@ -817,7 +820,7 @@ typedef struct lfs3 {
     #endif
 
     // linked-list of opened mdirs
-    lfs3_omdir_t *omdirs;
+    lfs3_handle_t *handles;
 
     lfs3_mdir_t mroot;
     #ifndef LFS3_2BONLY
