@@ -9422,27 +9422,29 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // update any staged bshrubs
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        // if we moved a shrub, we also need to discard any related
-        // leaves that moved
-        #ifndef LFS3_KVONLY
-        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                && lfs3_bptr_block(&((lfs3_file_t*)h)->leaf.bptr)
-                    == ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]
-                && ((lfs3_bshrub_t*)h)->shrub_.blocks[0]
-                    != ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]) {
-            lfs3_file_discardleaf((lfs3_file_t*)h);
-        }
-        #endif
-
         // update the shrub
         if (lfs3_o_isbshrub(h->flags)) {
+            // if we moved a shrub, we also need to discard any leaves
+            // that moved
+            if (((lfs3_bshrub_t*)h)->shrub_.blocks[0]
+                    != ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]) {
+                // discard any bshrub leaves that moved
+                if (((lfs3_bshrub_t*)h)->shrub.leaf.rbyd.blocks[0]
+                        == ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]) {
+                    lfs3_bshrub_discardleaf((lfs3_bshrub_t*)h);
+                }
+
+                // discard any file leaves that moved
+                #ifndef LFS3_KVONLY
+                if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
+                        && lfs3_bptr_block(&((lfs3_file_t*)h)->leaf.bptr)
+                            == ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]) {
+                    lfs3_file_discardleaf((lfs3_file_t*)h);
+                }
+                #endif
+            }
+
             ((lfs3_bshrub_t*)h)->shrub.r = ((lfs3_bshrub_t*)h)->shrub_;
-            // TODO do we really need to discard all shrub leaves on
-            // every mdir commit? shouldn't we just not cache the root?
-            // (which is already cached!)
-            //
-            // discard any leaves that may have moved
-            lfs3_bshrub_discardleaf((lfs3_bshrub_t*)h);
         }
     }
 
