@@ -255,19 +255,25 @@ class TestSuite:
             reentrant = config.pop('reentrant', False)
 
             self.cases = []
-            for name, case in cases.items():
-                self.cases.append(TestCase(
+            for name, config_ in cases.items():
+                case = TestCase(
                         config={
                             'name': name,
-                            'path': path + (':%d' % case['lineno']
-                                if 'lineno' in case else ''),
+                            'path': path + (':%d' % config_['lineno']
+                                if 'lineno' in config_ else ''),
                             'suite': self.name,
                             'suite_defines': defines,
                             'suite_in': self.in_,
                             'suite_reentrant': reentrant,
                             'suite_fuzz': self.fuzz_,
-                            **case},
-                        args=args))
+                            **config_},
+                        args=args)
+
+                # skipping internal tests?
+                if args.get('no_internal') and case.in_ is not None:
+                    continue
+
+                self.cases.append(case)
 
             # sort for consistency
             self.cases.sort()
@@ -1797,6 +1803,9 @@ if __name__ == "__main__":
             action='store_true',
             help="Compile a test suite or source file.")
     comp_parser.add_argument(
+            '-o', '--output',
+            help="Output file.")
+    comp_parser.add_argument(
             '-s', '--source',
             help="Source file to compile, possibly injecting internal tests.")
     comp_parser.add_argument(
@@ -1804,8 +1813,9 @@ if __name__ == "__main__":
             help="Inject these header files into every compiled test file. "
                 "Defaults to %r." % HEADER_PATHS)
     comp_parser.add_argument(
-            '-o', '--output',
-            help="Output file.")
+            '--no-internal',
+            action='store_true',
+            help="Don't build internal tests.")
 
     # do the thing
     args = parser.parse_intermixed_args()
