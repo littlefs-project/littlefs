@@ -863,6 +863,8 @@ static void summary(void) {
         for (size_t i = 0; i < bench_suite_count; i++) {
             bench_define_suite(&bench_ids[t], bench_suites[i]);
 
+            size_t cases_ = 0;
+
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
                 if (bench_ids[t].name && !(
@@ -874,12 +876,18 @@ static void summary(void) {
                 }
 
                 cases += 1;
+                cases_ += 1;
                 case_forperm(
                         &bench_ids[t],
                         bench_suites[i],
                         &bench_suites[i]->cases[j],
                         perm_count,
                         &perms);
+            }
+
+            // no benches found?
+            if (!cases_) {
+                continue;
             }
 
             suites += 1;
