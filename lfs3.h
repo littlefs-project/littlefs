@@ -681,8 +681,19 @@ typedef struct lfs3_rbyd {
     uint32_t cksum;
 } lfs3_rbyd_t;
 
-// a btree is represented by the root rbyd
-typedef lfs3_rbyd_t lfs3_btree_t;
+// littlefs's btree representation
+//
+// technically all we need for btrees is the root rbyd, but tracking the
+// most recent leaf helps speed up iteration/subattrs/etc without
+// local rbyd allocations -- less code and stack for the same
+// performance
+typedef struct lfs3_btree {
+    lfs3_rbyd_t r;
+    struct {
+        lfs3_bid_t bid;
+        lfs3_rbyd_t rbyd;
+    } leaf;
+} lfs3_btree_t;
 
 // littlefs's atomic metadata log type
 typedef struct lfs3_mdir {
@@ -712,7 +723,7 @@ typedef struct lfs3_bshrub {
     // trunk=0       => no bshrub/btree
     // sign(trunk)=1 => bshrub
     // sign(trunk)=0 => btree
-    lfs3_shrub_t shrub;
+    lfs3_btree_t shrub;
     #ifndef LFS3_RDONLY
     lfs3_shrub_t shrub_;
     #endif

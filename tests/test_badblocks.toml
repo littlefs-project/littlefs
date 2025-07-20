@@ -98,10 +98,10 @@ code = '''
         }
         printf("]\n");
         printf("btree: w%d 0x%x.%x\n",
-                btree.weight,
-                btree.blocks[0],
-                btree.trunk);
-        assert(btree.weight == sim_size);
+                btree.r.weight,
+                btree.r.blocks[0],
+                btree.r.trunk);
+        assert(btree.r.weight == sim_size);
 
         uint8_t buffer[4];
         lfs3_bid_t bid_;
@@ -2053,10 +2053,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.weight,
-            btree.blocks[0],
-            btree.trunk);
-    assert(btree.weight == sim_size);
+            btree.r.weight,
+            btree.r.blocks[0],
+            btree.r.trunk);
+    assert(btree.r.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -4010,10 +4010,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.weight,
-            btree.blocks[0],
-            btree.trunk);
-    assert(btree.weight == sim_size);
+            btree.r.weight,
+            btree.r.blocks[0],
+            btree.r.trunk);
+    assert(btree.r.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;

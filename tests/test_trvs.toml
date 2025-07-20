@@ -3446,7 +3446,7 @@ code = '''
 
     // create enough files for mroot to split
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "uloborus%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -3566,7 +3566,7 @@ code = '''
 
     // create enough files for mroot to split
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "uloborus%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -3694,7 +3694,7 @@ code = '''
 
     // create enough files for mroot to split
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "uloborus%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4222,7 +4222,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4232,8 +4232,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4258,8 +4258,8 @@ code = '''
 
     // create enough files for mdir to split again
     i = 0;
-    orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "vulsor%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4398,7 +4398,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4408,8 +4408,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4458,8 +4458,8 @@ code = '''
 
     // create enough files for mdir to split again
     i = 0;
-    orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "vulsor%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4581,7 +4581,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4591,8 +4591,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4646,8 +4646,8 @@ code = '''
 
     // create enough files for mdir to split again
     i = 0;
-    orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "vulsor%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4758,7 +4758,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4768,8 +4768,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4932,7 +4932,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4942,8 +4942,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5124,7 +5124,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5134,8 +5134,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5304,7 +5304,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5314,8 +5314,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5841,7 +5841,7 @@ code = '''
     lfs3_size_t i = 0;
     while (true) {
         // we should not have split yet
-        assert(lfs3.mtree.weight == 0);
+        assert(lfs3.mtree.r.weight == 0);
         // we need internals to check this
         lfs3_ssize_t estimate = lfs3_mdir_estimate__(&lfs3,
                 &file1.b.h.mdir, -1, -1,
@@ -6011,7 +6011,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "hydroid%03x", i);
         lfs3_file_t file;
@@ -6022,8 +6022,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "medusa%03x", i);
         lfs3_file_t file;
@@ -6246,7 +6246,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.weight == 0) {
+    while (lfs3.mtree.r.weight == 0) {
         char name[256];
         sprintf(name, "hydroid%03x", i);
         lfs3_file_t file;
@@ -6257,8 +6257,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.weight;
-    while (lfs3.mtree.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.r.weight;
+    while (lfs3.mtree.r.weight == orig) {
         char name[256];
         sprintf(name, "polyp%03x", i);
         lfs3_file_t file;
@@ -6270,10 +6270,10 @@ code = '''
 
     // create enough files to both compact and split
     i = 0;
-    orig = lfs3.mtree.weight;
+    orig = lfs3.mtree.r.weight;
     while (true) {
         // we should not have split yet
-        assert(lfs3.mtree.weight == orig);
+        assert(lfs3.mtree.r.weight == orig);
         // we need internals to check this
         lfs3_ssize_t estimate = lfs3_mdir_estimate__(&lfs3,
                 &file2.b.h.mdir, -1, -1,
@@ -6535,7 +6535,7 @@ code = '''
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
+    assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
     assert(file1.b.h.mdir.r.weight <= 3);
     assert(file2.b.h.mdir.r.weight <= 3);
 
@@ -6844,7 +6844,7 @@ code = '''
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
+    assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
     assert(file1.b.h.mdir.r.weight <= 3);
     assert(file2.b.h.mdir.r.weight <= 3);
 
@@ -7008,7 +7008,7 @@ code = '''
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
+    assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
     assert(file1.b.h.mdir.r.weight <= 3);
     assert(file2.b.h.mdir.r.weight <= 3);
 
@@ -7181,7 +7181,7 @@ code = '''
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
+    assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
     assert(file1.b.h.mdir.r.weight <= 3);
     assert(file2.b.h.mdir.r.weight <= 3);
 
@@ -7354,7 +7354,7 @@ code = '''
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
+    assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
     assert(file1.b.h.mdir.r.weight <= 3);
     assert(file2.b.h.mdir.r.weight <= 3);
 
@@ -7523,7 +7523,7 @@ code = '''
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
-    assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
+    assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
     assert(file1.b.h.mdir.r.weight <= 3);
     assert(file2.b.h.mdir.r.weight <= 3);
 
