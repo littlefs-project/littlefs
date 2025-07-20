@@ -5548,7 +5548,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
                 // need to limit our bid to an rid in the tree, which
                 // is what this min is doing
                 lfs3_min(bcommit->bid, btree->r.weight-1),
-                // TODO why are we updating commit->bid at this point?
                 &bcommit->bid, NULL, NULL);
         if (tag < 0) {
             LFS3_ASSERT(tag != LFS3_ERR_NOENT);
