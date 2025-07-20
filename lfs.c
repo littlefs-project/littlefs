@@ -6318,6 +6318,47 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     return res;
 }
 
+int lfs_file_movehandle(lfs_t *lfs, lfs_file_t *old_file, lfs_file_t *new_file)
+{
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_movehandle(%p, %p, %p)", (void*)lfs, (void*)old_file, (void*)new_file);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)old_file));
+    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)new_file));
+
+    *new_file = *old_file;
+    lfs_mlist_remove(lfs, (struct lfs_mlist*)old_file);
+    lfs_mlist_append(lfs, (struct lfs_mlist*)new_file);
+
+    err = LFS_ERR_OK;
+    
+    LFS_TRACE("lfs_file_movehandle -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_file_ishandleopen(lfs_t *lfs, lfs_file_t *file)
+{
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_ishandleopen(%p, %p)", (void*)lfs, (void*)file);
+
+    if(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file)) {
+        err = LFS_ERR_OK;
+    }
+    else {
+        err = LFS_ERR_BADF;    
+    }
+
+    LFS_TRACE("lfs_file_ishandleopen -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
 #ifndef LFS_READONLY
 int lfs_mkdir(lfs_t *lfs, const char *path) {
     int err = LFS_LOCK(lfs->cfg);

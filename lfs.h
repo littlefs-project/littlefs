@@ -656,6 +656,20 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
+// Move a file handle
+//
+// Littlefs file handles are somewhat expensive to move.
+// Try to avoid needing to move them.
+// This allows moving a file handle from old_file to new_file when needed for abstraction.
+// After this call, old_file is invalid.
+//
+// Returns a negative error code on failure.
+int lfs_file_movehandle(lfs_t *lfs, lfs_file_t *old_file, lfs_file_t *new_file);
+
+// Check if a given file handle is open
+//
+// Returns LFS_ERR_OK if the file handle is open, else LFS_ERR_BADF
+int lfs_file_ishandleopen(lfs_t *lfs, lfs_file_t *file);
 
 /// Directory operations ///
 
