@@ -774,7 +774,7 @@ typedef struct lfs3_trv {
     // state machine
     lfs3_bshrub_t b;
     // opened file state
-    lfs3_handle_t *htrv;
+    lfs3_handle_t *h;
     union {
         // cycle detection state, only valid when traversing the mroot chain
         struct {

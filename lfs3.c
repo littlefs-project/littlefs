@@ -7486,7 +7486,7 @@ static void lfs3_handle_clobber(lfs3_t *lfs3, const lfs3_handle_t *h,
         if (lfs3_o_type(h_->flags) == LFS3_type_TRV) {
             h_->flags |= flags;
 
-            if (h && ((lfs3_trv_t*)h_)->htrv == h) {
+            if (h && ((lfs3_trv_t*)h_)->h == h) {
                 lfs3_trv_clobber(lfs3, (lfs3_trv_t*)h_);
             }
         }
@@ -9792,7 +9792,7 @@ static void lfs3_trv_init(lfs3_trv_t *trv, uint32_t flags) {
     trv->b.h.mdir.r.blocks[0] = -1;
     trv->b.h.mdir.r.blocks[1] = -1;
     lfs3_bshrub_init(&trv->b);
-    trv->htrv = NULL;
+    trv->h = NULL;
     trv->u.mtortoise.blocks[0] = -1;
     trv->u.mtortoise.blocks[1] = -1;
     trv->u.mtortoise.step = 0;
@@ -9951,7 +9951,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
 
             // no? next we need to check any opened files
             } else {
-                trv->htrv = lfs3->handles;
+                trv->h = lfs3->handles;
                 lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_HANDLES);
                 continue;
             }
@@ -9965,8 +9965,8 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
             //
             // note we can skip checking opened files if mounted rdonly,
             // this saves a bit of code when compiled rdonly
-            if (lfs3_m_isrdonly(lfs3->flags) || !trv->htrv) {
-                trv->htrv = NULL;
+            if (lfs3_m_isrdonly(lfs3->flags) || !trv->h) {
+                trv->h = NULL;
                 trv->b.h.mdir.mid += 1;
                 lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_MDIR);
                 continue;
@@ -9980,15 +9980,15 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
             // literally every file open, but other things grow O(n^2) with
             // this list anyways
             //
-            if (trv->htrv->mdir.mid != trv->b.h.mdir.mid
-                    || lfs3_o_type(trv->htrv->flags) != LFS3_TYPE_REG
-                    || !lfs3_o_isunsync(trv->htrv->flags)) {
-                trv->htrv = trv->htrv->next;
+            if (trv->h->mdir.mid != trv->b.h.mdir.mid
+                    || lfs3_o_type(trv->h->flags) != LFS3_TYPE_REG
+                    || !lfs3_o_isunsync(trv->h->flags)) {
+                trv->h = trv->h->next;
                 continue;
             }
 
             // transition to traversing the file
-            const lfs3_file_t *file = (const lfs3_file_t*)trv->htrv;
+            const lfs3_file_t *file = (const lfs3_file_t*)trv->h;
             trv->b.shrub = file->b.shrub;
             trv->u.bid = -2;
             lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_HBTREE);
@@ -10017,14 +10017,14 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                     // end of mdir btree? start iterating over opened files
                     } else if (lfs3_t_tstate(trv->b.h.flags)
                             == LFS3_TSTATE_BTREE) {
-                        trv->htrv = lfs3->handles;
+                        trv->h = lfs3->handles;
                         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_HANDLES);
                         continue;
                     // end of opened btree? go to next opened file
                     } else if (lfs3_m_isrdonly(lfs3->flags)
                             || lfs3_t_tstate(trv->b.h.flags)
                                 == LFS3_TSTATE_HBTREE) {
-                        trv->htrv = trv->htrv->next;
+                        trv->h = trv->h->next;
                         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_HANDLES);
                         continue;
                     } else {
@@ -16086,7 +16086,7 @@ static void lfs3_trv_clobber(lfs3_t *lfs3, lfs3_trv_t *trv) {
         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_MDIRS);
         trv->b.h.mdir.mid = 0;
         lfs3_bshrub_init(&trv->b);
-        trv->htrv = NULL;
+        trv->h = NULL;
         #endif
     // in-mtree mdir? increment the mid (to make progress) and reset to
     // mdir iteration
@@ -16097,7 +16097,7 @@ static void lfs3_trv_clobber(lfs3_t *lfs3, lfs3_trv_t *trv) {
         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_MDIR);
         trv->b.h.mdir.mid += 1;
         lfs3_bshrub_init(&trv->b);
-        trv->htrv = NULL;
+        trv->h = NULL;
         #endif
     // opened mdir? skip to next omdir
     } else if (lfs3_t_tstate(trv->b.h.flags) < LFS3_TSTATE_DONE) {
@@ -16105,7 +16105,7 @@ static void lfs3_trv_clobber(lfs3_t *lfs3, lfs3_trv_t *trv) {
                 LFS3_TSTATE_DONE,
                 LFS3_TSTATE_HANDLES));
         lfs3_bshrub_init(&trv->b);
-        trv->htrv = (trv->htrv) ? trv->htrv->next : NULL;
+        trv->h = (trv->h) ? trv->h->next : NULL;
     // done traversals should never need clobbering
     } else {
         LFS3_UNREACHABLE();
