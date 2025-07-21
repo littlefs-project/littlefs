@@ -768,13 +768,6 @@ typedef struct lfs3_dir {
     lfs3_off_t pos;
 } lfs3_dir_t;
 
-typedef struct lfs3_btrv {
-    lfs3_bid_t bid;
-    const lfs3_rbyd_t *branch;
-    lfs3_srid_t rid;
-    lfs3_rbyd_t rbyd;
-} lfs3_btrv_t;
-
 // littlefs traversal type
 typedef struct lfs3_trv {
     // mdir/bshrub/btree state, this also includes our traversal
@@ -790,7 +783,7 @@ typedef struct lfs3_trv {
             uint8_t power;
         } mtortoise;
         // btree traversal state
-        lfs3_btrv_t btrv;
+        lfs3_sbid_t bid;
     } u;
 
     // recalculate gcksum when traversing with ckmeta
