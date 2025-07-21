@@ -691,7 +691,7 @@ typedef struct lfs3_btree {
     lfs3_rbyd_t r;
     struct {
         lfs3_bid_t bid;
-        lfs3_rbyd_t rbyd;
+        lfs3_rbyd_t r;
     } leaf;
 } lfs3_btree_t;
 
