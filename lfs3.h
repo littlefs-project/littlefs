@@ -636,6 +636,7 @@ typedef struct lfs3_data {
     lfs3_size_t size;
     union {
         const uint8_t *buffer;
+        uint8_t *buffer_;
         struct {
             lfs3_block_t block;
             lfs3_size_t off;
@@ -741,14 +742,11 @@ typedef struct lfs3_file {
     #endif
 
     // in-RAM cache
-    //
-    // note this lines up with lfs3_data_t's buffer representation
     struct {
-        lfs3_off_t size;
-        uint8_t *buffer;
         #ifndef LFS3_KVONLY
         lfs3_off_t pos;
         #endif
+        lfs3_data_t d;
     } cache;
 
     // on-disk leaf bptr

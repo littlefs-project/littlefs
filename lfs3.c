@@ -11586,7 +11586,7 @@ static inline void lfs3_file_discardcache(lfs3_file_t *file) {
     #ifndef LFS3_KVONLY
     file->cache.pos = 0;
     #endif
-    file->cache.size = 0;
+    file->cache.d.size = 0;
 }
 
 #ifndef LFS3_KVONLY
@@ -11611,7 +11611,7 @@ static inline lfs3_size_t lfs3_file_cachesize(lfs3_t *lfs3,
 
 static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
     return lfs3_max(
-            LFS3_IFDEF_KVONLY(0, file->cache.pos) + file->cache.size,
+            LFS3_IFDEF_KVONLY(0, file->cache.pos) + file->cache.d.size,
             file->b.shrub.r.weight);
 }
 
@@ -11729,17 +11729,17 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     // the file cache, so make sure not to clobber it
     if (lfs3_o_iswrset(file->b.h.flags)) {
         file->b.h.flags |= LFS3_o_UNFLUSH;
-        file->cache.buffer = file->cfg->cache_buffer;
+        file->cache.d.u.buffer_ = file->cfg->cache_buffer;
         #ifndef LFS3_KVONLY
         file->cache.pos = 0;
         #endif
-        file->cache.size = file->cfg->cache_size;
+        file->cache.d.size = file->cfg->cache_size;
     } else if (file->cfg->cache_buffer) {
-        file->cache.buffer = file->cfg->cache_buffer;
+        file->cache.d.u.buffer_ = file->cfg->cache_buffer;
     } else {
         #ifndef LFS3_KVONLY
-        file->cache.buffer = lfs3_malloc(lfs3_file_cachesize(lfs3, file));
-        if (!file->cache.buffer) {
+        file->cache.d.u.buffer_ = lfs3_malloc(lfs3_file_cachesize(lfs3, file));
+        if (!file->cache.d.u.buffer_) {
             return LFS3_ERR_NOMEM;
         }
         #else
@@ -11821,9 +11821,9 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         // small file wrset? can we atomically commit everything in one
         // commit? currently this is only possible via lfs3_set
         if (lfs3_o_iswrset(file->b.h.flags)
-                && file->cache.size <= lfs3->cfg->inline_size
-                && file->cache.size <= lfs3->cfg->fragment_size
-                && file->cache.size < lfs3->cfg->crystal_thresh) {
+                && file->cache.d.size <= lfs3->cfg->inline_size
+                && file->cache.d.size <= lfs3->cfg->fragment_size
+                && file->cache.d.size < lfs3->cfg->crystal_thresh) {
             // we need to mark as unsync for sync to do anything
             file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -11944,7 +11944,7 @@ static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file) {
     (void)lfs3;
     // clean up memory
     if (!file->cfg->cache_buffer) {
-        lfs3_free(file->cache.buffer);
+        lfs3_free(file->cache.d.u.buffer_);
     }
 
     // are we orphaning a file?
@@ -12165,14 +12165,14 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_ssize_t d = lfs3_min(size, lfs3_file_size_(file) - pos_);
 
         // any data in our cache?
-        if (pos_ < file->cache.pos + file->cache.size
-                && file->cache.size != 0) {
+        if (pos_ < file->cache.pos + file->cache.d.size
+                && file->cache.d.size != 0) {
             if (pos_ >= file->cache.pos) {
                 lfs3_ssize_t d_ = lfs3_min(
                         d,
-                        file->cache.size - (pos_ - file->cache.pos));
+                        file->cache.d.size - (pos_ - file->cache.pos));
                 lfs3_memcpy(buffer_,
-                        &file->cache.buffer[pos_ - file->cache.pos],
+                        &file->cache.d.u.buffer_[pos_ - file->cache.pos],
                         d_);
 
                 pos_ += d_;
@@ -12207,13 +12207,13 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
                 // try to fill our cache with some data
                 if (!lfs3_o_isunflush(file->b.h.flags)) {
                     lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
-                            pos_, file->cache.buffer, d);
+                            pos_, file->cache.d.u.buffer_, d);
                     if (d_ < 0) {
                         LFS3_ASSERT(d != LFS3_ERR_NOENT);
                         return d_;
                     }
                     file->cache.pos = pos_;
-                    file->cache.size = d_;
+                    file->cache.d.size = d_;
                     continue;
                 }
             }
@@ -13338,10 +13338,10 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
             // note we need to clear the cache anyways to avoid any
             // out-of-date data
             file->cache.pos = pos + size - lfs3_file_cachesize(lfs3, file);
-            lfs3_memcpy(file->cache.buffer,
+            lfs3_memcpy(file->cache.d.u.buffer_,
                     &buffer_[size - lfs3_file_cachesize(lfs3, file)],
                     lfs3_file_cachesize(lfs3, file));
-            file->cache.size = lfs3_file_cachesize(lfs3, file);
+            file->cache.d.size = lfs3_file_cachesize(lfs3, file);
 
             file->b.h.flags &= ~LFS3_o_UNFLUSH;
             written += size;
@@ -13363,25 +13363,25 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         //
         if (!lfs3_o_isunflush(file->b.h.flags)
                 || (pos >= file->cache.pos
-                    && pos <= file->cache.pos + file->cache.size
+                    && pos <= file->cache.pos + file->cache.d.size
                     && pos
                         < file->cache.pos
                             + lfs3_file_cachesize(lfs3, file))) {
             // unused cache? we can move it where we need it
             if (!lfs3_o_isunflush(file->b.h.flags)) {
                 file->cache.pos = pos;
-                file->cache.size = 0;
+                file->cache.d.size = 0;
             }
 
             lfs3_size_t d = lfs3_min(
                     size,
                     lfs3_file_cachesize(lfs3, file)
                         - (pos - file->cache.pos));
-            lfs3_memcpy(&file->cache.buffer[pos - file->cache.pos],
+            lfs3_memcpy(&file->cache.d.u.buffer_[pos - file->cache.pos],
                     buffer_,
                     d);
-            file->cache.size = lfs3_max(
-                    file->cache.size,
+            file->cache.d.size = lfs3_max(
+                    file->cache.d.size,
                     pos+d - file->cache.pos);
 
             file->b.h.flags |= LFS3_o_UNFLUSH;
@@ -13394,7 +13394,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
 
         // flush our cache so the above can't fail
         err = lfs3_file_flush_(lfs3, file,
-                file->cache.pos, file->cache.buffer, file->cache.size);
+                file->cache.pos, file->cache.d.u.buffer_, file->cache.d.size);
         if (err) {
             goto failed;
         }
@@ -13458,13 +13458,13 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     if (lfs3_o_isunflush(file->b.h.flags)) {
         #ifdef LFS3_KVONLY
         err = lfs3_file_flushset_(lfs3, file,
-                file->cache.buffer, file->cache.size);
+                file->cache.d.u.buffer_, file->cache.d.size);
         if (err) {
             goto failed;
         }
         #else
         err = lfs3_file_flush_(lfs3, file,
-                file->cache.pos, file->cache.buffer, file->cache.size);
+                file->cache.pos, file->cache.d.u.buffer_, file->cache.d.size);
         if (err) {
             goto failed;
         }
@@ -13547,7 +13547,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
             #ifndef LFS3_KVONLY
             LFS3_ASSERT(file->cache.pos == 0);
             #endif
-            LFS3_ASSERT(file->cache.size == lfs3_file_size_(file));
+            LFS3_ASSERT(file->cache.d.size == lfs3_file_size_(file));
 
             // discard any lingering bshrub state
             #ifndef LFS3_KVONLY
@@ -13556,10 +13556,10 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
             lfs3_file_discardbshrub(file);
 
             // build a small shrub commit
-            if (file->cache.size > 0) {
+            if (file->cache.d.size > 0) {
                 shrub_rattrs[shrub_rattr_count++] = LFS3_RATTR_DATA(
-                        LFS3_TAG_DATA, +file->cache.size,
-                        (const lfs3_data_t*)&file->cache);
+                        LFS3_TAG_DATA, +file->cache.d.size,
+                        &file->cache.d);
 
                 LFS3_ASSERT(shrub_rattr_count
                         <= sizeof(shrub_rattrs)/sizeof(lfs3_rattr_t));
@@ -13695,14 +13695,14 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                 //
                 // note we need to be careful if caches have different
                 // sizes, prefer the most recent data in this case
-                lfs3_size_t d = file->cache.size - lfs3_min(
+                lfs3_size_t d = file->cache.d.size - lfs3_min(
                         lfs3_file_cachesize(lfs3, file_),
-                        file->cache.size);
+                        file->cache.d.size);
                 file_->cache.pos = file->cache.pos + d;
-                lfs3_memcpy(file_->cache.buffer,
-                        file->cache.buffer + d,
-                        file->cache.size - d);
-                file_->cache.size = file->cache.size - d;
+                lfs3_memcpy(file_->cache.d.u.buffer_,
+                        file->cache.d.u.buffer_ + d,
+                        file->cache.d.size - d);
+                file_->cache.d.size = file->cache.d.size - d;
 
                 // update any custom attrs
                 for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
@@ -13778,10 +13778,10 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     // though don't flush quite yet if our file is small and can be
     // combined with sync in a single commit
     int err;
-    if (!(file->cache.size == lfs3_file_size_(file)
-            && file->cache.size <= lfs3->cfg->inline_size
-            && file->cache.size <= lfs3->cfg->fragment_size
-            && file->cache.size < lfs3->cfg->crystal_thresh)) {
+    if (!(file->cache.d.size == lfs3_file_size_(file)
+            && file->cache.d.size <= lfs3->cfg->inline_size
+            && file->cache.d.size <= lfs3->cfg->fragment_size
+            && file->cache.d.size < lfs3->cfg->crystal_thresh)) {
         err = lfs3_file_flush(lfs3, file);
         if (err) {
             goto failed;
@@ -13991,12 +13991,12 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // truncate our cache
-    file->cache.size = lfs3_min(
-            file->cache.size,
+    file->cache.d.size = lfs3_min(
+            file->cache.d.size,
             size_ - lfs3_min(file->cache.pos, size_));
     file->cache.pos = lfs3_min(file->cache.pos, size_);
     // mark as flushed if this completely truncates our cache
-    if (file->cache.size == 0) {
+    if (file->cache.d.size == 0) {
         lfs3_file_discardcache(file);
     }
 
@@ -14073,27 +14073,27 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // fruncate our cache
-    lfs3_memmove(file->cache.buffer,
-            &file->cache.buffer[lfs3_min(
+    lfs3_memmove(file->cache.d.u.buffer_,
+            &file->cache.d.u.buffer_[lfs3_min(
                 lfs3_smax(
                     size - size_ - file->cache.pos,
                     0),
-                file->cache.size)],
-            file->cache.size - lfs3_min(
+                file->cache.d.size)],
+            file->cache.d.size - lfs3_min(
                 lfs3_smax(
                     size - size_ - file->cache.pos,
                     0),
-                file->cache.size));
-    file->cache.size -= lfs3_min(
+                file->cache.d.size));
+    file->cache.d.size -= lfs3_min(
             lfs3_smax(
                 size - size_ - file->cache.pos,
                 0),
-            file->cache.size);
+            file->cache.d.size);
     file->cache.pos -= lfs3_smin(
             size - size_,
             file->cache.pos);
     // mark as flushed if this completely truncates our cache
-    if (file->cache.size == 0) {
+    if (file->cache.d.size == 0) {
         lfs3_file_discardcache(file);
     }
 
