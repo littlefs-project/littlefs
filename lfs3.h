@@ -771,20 +771,12 @@ typedef struct lfs3_dir {
 // littlefs traversal type
 typedef struct lfs3_trv {
     // mdir/bshrub/btree state, this also includes our traversal
-    // state machine
+    // state machine and cycle detection state
     lfs3_bshrub_t b;
     // opened file state
     lfs3_handle_t *h;
-    union {
-        // cycle detection state, only valid when traversing the mroot chain
-        struct {
-            lfs3_block_t blocks[2];
-            lfs3_block_t step;
-            uint8_t power;
-        } mtortoise;
-        // btree traversal state
-        lfs3_sbid_t bid;
-    } u;
+    // bshrub/btree traversal state
+    lfs3_sbid_t bid;
 
     // recalculate gcksum when traversing with ckmeta
     uint32_t gcksum;
