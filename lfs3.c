@@ -9783,13 +9783,6 @@ enum lfs3_tstate {
     LFS3_TSTATE_DONE        = 8,
 };
 
-// tortoise for cycle detection
-typedef struct lfs3_mtortoise {
-    lfs3_block_t blocks[2];
-    lfs3_block_t dist;
-    uint8_t power;
-} lfs3_mtortoise_t;
-
 static void lfs3_trv_init(lfs3_trv_t *trv, uint32_t flags) {
     trv->b.h.flags = lfs3_o_typeflags(LFS3_type_TRV)
             | lfs3_t_tstateflags(LFS3_TSTATE_MROOTANCHOR)
@@ -9799,14 +9792,15 @@ static void lfs3_trv_init(lfs3_trv_t *trv, uint32_t flags) {
     trv->b.h.mdir.r.blocks[0] = -1;
     trv->b.h.mdir.r.blocks[1] = -1;
     lfs3_bshrub_init(&trv->b);
-    // bit of a hack, but we reuse the shrub's leaf as a tortoise for
-    // cycle detection to save memory, see lfs3_mtree_traverse_
-    lfs3_mtortoise_t *mtortoise = (lfs3_mtortoise_t*)&trv->b.shrub.leaf.r;
-    LFS3_ASSERT(sizeof(lfs3_mtortoise_t) <= sizeof(trv->b.shrub.leaf.r));
-    mtortoise->blocks[0] = -1;
-    mtortoise->blocks[1] = -1;
-    mtortoise->dist = 0;
-    mtortoise->power = 0;
+    // reuse the shrub as a tortoise to save memory, see
+    // lfs3_mtree_traverse_:
+    // - shrub.blocks => tortoise blocks
+    // - shrub.weight => cycle distance
+    // - shrub.eoff => power-of-two bound
+    trv->b.shrub.r.blocks[0] = -1;
+    trv->b.shrub.r.blocks[1] = -1;
+    trv->b.shrub.r.weight = 0;
+    trv->b.shrub.r.eoff = 0;
     trv->h = NULL;
     trv->gcksum = 0;
 }
@@ -9870,26 +9864,30 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                 // btree inner nodes require checksums of their pointers,
                 // so creating a valid cycle is actually quite difficult
                 //
-                // a bit of a hack, but we reuse the shrub's leaf as a
-                // tortoise to save memory
-                lfs3_mtortoise_t *mtortoise
-                        = (lfs3_mtortoise_t*)&trv->b.shrub.leaf.r;
+                // the big hack here is we repurpose our shrub as a tortoise
+                // to save memory, unfortunately there's not an easy way to
+                // union these in C:
+                //
+                // - shrub.blocks => tortoise blocks
+                // - shrub.weight => cycle distance
+                // - shrub.eoff => power-of-two bound
+                //
                 if (lfs3_mptr_cmp(
                         trv->b.h.mdir.r.blocks,
-                        mtortoise->blocks) == 0) {
+                        trv->b.shrub.r.blocks) == 0) {
                     LFS3_ERROR("Cycle detected during mtree traversal "
                                 "0x{%"PRIx32",%"PRIx32"}",
                             trv->b.h.mdir.r.blocks[0],
                             trv->b.h.mdir.r.blocks[1]);
                     return LFS3_ERR_CORRUPT;
                 }
-                if (mtortoise->dist == (1U << mtortoise->power)) {
-                    mtortoise->blocks[0] = trv->b.h.mdir.r.blocks[0];
-                    mtortoise->blocks[1] = trv->b.h.mdir.r.blocks[1];
-                    mtortoise->dist = 0;
-                    mtortoise->power += 1;
+                if (trv->b.shrub.r.weight == (1U << trv->b.shrub.r.eoff)) {
+                    trv->b.shrub.r.blocks[0] = trv->b.h.mdir.r.blocks[0];
+                    trv->b.shrub.r.blocks[1] = trv->b.h.mdir.r.blocks[1];
+                    trv->b.shrub.r.weight = 0;
+                    trv->b.shrub.r.eoff += 1;
                 }
-                mtortoise->dist += 1;
+                trv->b.shrub.r.weight += 1;
 
                 bptr_->d.u.buffer = (const uint8_t*)&trv->b.h.mdir;
                 return LFS3_TAG_MDIR;
