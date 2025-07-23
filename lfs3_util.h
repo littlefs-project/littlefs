@@ -47,6 +47,9 @@
 #ifndef LFS3_GC
 #define LFS3_GC
 #endif
+#ifndef LFS3_BMAP
+#define LFS3_BMAP
+#endif
 #endif
 
 // LFS3_YES_* variants imply the relevant LFS3_* macro
@@ -79,6 +82,26 @@
 #endif
 #ifdef LFS3_YES_GC
 #define LFS3_GC
+#endif
+#ifdef LFS3_YES_BMAP
+#define LFS3_BMAP
+#endif
+
+// TODO is this the best way to structure this?
+// LFS3_BMAP mappings
+//
+// LFS3_YES_BMAP => LFS3_YES_BMAPFAST
+#ifdef LFS3_YES_BMAP
+#ifndef LFS3_YES_BMAPFAST
+#define LFS3_YES_BMAPFAST
+#endif
+#endif
+// LFS3_YES_BMAP* => LFS3_BMAP
+#if defined(LFS3_YES_BMAPFAST) \
+        || defined(LFS3_YES_BMAPSLOW) \
+        || defined(LFS3_YES_BMAPCACHE) \
+        || defined(LFS3_YES_BMAPNONE)
+#define LFS3_BMAP
 #endif
 
 // LFS3_NO_LOG disables all logging macros
@@ -255,6 +278,12 @@
 #define LFS3_IFDEF_GC(a, b) (a)
 #else
 #define LFS3_IFDEF_GC(a, b) (b)
+#endif
+
+#ifdef LFS3_BMAP
+#define LFS3_IFDEF_BMAP(a, b) (a)
+#else
+#define LFS3_IFDEF_BMAP(a, b) (b)
 #endif
 
 

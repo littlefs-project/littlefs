@@ -105,6 +105,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(PCACHE_SIZE,        LFS3_MAX(16, PROG_SIZE)                 ) \
     TEST_DEFINE(FILE_CACHE_SIZE,    16                                      ) \
     TEST_DEFINE(LOOKAHEAD_SIZE,     16                                      ) \
+    TEST_DEFINE(TREEDIFF_SIZE,      16                                      ) \
     TEST_DEFINE(GC_FLAGS,           0                                       ) \
     TEST_DEFINE(GC_STEPS,           0                                       ) \
     TEST_DEFINE(GC_COMPACT_THRESH,  0                                       ) \
@@ -135,14 +136,22 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .pcache_size        = PCACHE_SIZE,          \
     .file_cache_size    = FILE_CACHE_SIZE,      \
     .lookahead_size     = LOOKAHEAD_SIZE,       \
+    TEST_BMAP_CFG                               \
     TEST_GC_CFG                                 \
     .gc_compact_thresh  = GC_COMPACT_THRESH,    \
     .inline_size        = INLINE_SIZE,          \
     .fragment_size      = FRAGMENT_SIZE,        \
     .crystal_thresh     = CRYSTAL_THRESH,
 
+#ifdef LFS3_BMAP
+#define TEST_BMAP_CFG \
+    .treediff_size      = TREEDIFF_SIZE,
+#else
+#define TEST_BMAP_CFG
+#endif
+
 #ifdef LFS3_GC
-#define TEST_GC_CFG                             \
+#define TEST_GC_CFG \
     .gc_flags           = GC_FLAGS,             \
     .gc_steps           = GC_STEPS,
 #else

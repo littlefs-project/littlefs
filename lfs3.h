@@ -191,6 +191,15 @@ enum lfs3_type {
 
 #define LFS3_F_CKMETA   0x00001000  // Check metadata checksums
 #define LFS3_F_CKDATA   0x00002000  // Check metadata + data checksums
+
+#ifdef LFS3_BMAP
+#define LFS3_F_BMAPMODE 0x03000000  // On-disk block map mode
+#define LFS3_F_BMAPNONE 0x00000000  // Don't use the bmap
+#define LFS3_F_BMAPCACHE \
+                        0x01000000  // Use the bmap to cache lookahead scans
+#define LFS3_F_BMAPSLOW 0x02000000  // Use the slow bmap algorithm
+#define LFS3_F_BMAPFAST 0x03000000  // Use the fast bmap algorithm
+#endif
 #endif
 
 // Filesystem mount flags
@@ -237,6 +246,16 @@ enum lfs3_type {
 #define LFS3_M_CKMETA   0x00001000  // Check metadata checksums
 #define LFS3_M_CKDATA   0x00002000  // Check metadata + data checksums
 
+#ifdef LFS3_BMAP
+#define LFS3_M_BMAPMODE 0x03000000  // On-disk block map mode
+#define LFS3_M_BMAPNONE 0x00000000  // Don't use the bmap
+#define LFS3_M_BMAPCACHE \
+                        0x01000000  // Use the bmap to cache lookahead scans
+#define LFS3_M_BMAPSLOW 0x02000000  // Use the slow bmap algorithm
+#define LFS3_M_BMAPFAST 0x03000000  // Use the fast bmap algorithm
+#endif
+
+
 // Filesystem info flags
 #define LFS3_I_RDONLY   0x00000001  // Mounted read only
 #define LFS3_I_FLUSH    0x00000040  // Mounted with LFS3_M_FLUSH
@@ -277,9 +296,20 @@ enum lfs3_type {
 #define LFS3_I_CKMETA   0x00001000  // Metadata checksums not checked recently
 #define LFS3_I_CKDATA   0x00002000  // Data checksums not checked recently
 
+#ifdef LFS3_BMAP
+#define LFS3_I_BMAPMODE 0x03000000  // On-disk block map mode
+#define LFS3_I_BMAPNONE 0x00000000  // Mounted with LFS3_M_BMAPNONE
+#define LFS3_I_BMAPCACHE \
+                        0x01000000  // Mounted with LFS3_M_BMAPCACHE
+#define LFS3_I_BMAPSLOW 0x02000000  // Mounted with LFS3_M_BMAPSLOW
+#define LFS3_I_BMAPFAST 0x03000000  // Mounted with LFS3_M_BMAPFAST
+#endif
+
 // internally used flags, don't use these
 #ifdef LFS3_REVDBG
-#define LFS3_i_INMTREE  0x08000000  // Committing to mtree
+#define LFS3_i_INMODE   0x00030000
+#define LFS3_i_INMTREE  0x00010000  // Committing to mtree
+#define LFS3_i_INBMAP   0x00020000  // Committing to bmap
 #endif
 
 
@@ -427,11 +457,18 @@ struct lfs3_cfg {
     lfs3_size_t file_cache_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
-    // increases the number of blocks found during an allocation pass. The
+    // increases the number of blocks found during an allocation scan. The
     // lookahead buffer is stored as a compact bitmap, so each byte of RAM
     // can track 8 blocks.
     #ifndef LFS3_RDONLY
     lfs3_size_t lookahead_size;
+    #endif
+
+    // Size of the treediff buffer in bytes. A larger treediff buffer speeds
+    // up tree diffing in BMAPSLOW and BMAPFAST modes. The treediff buffer
+    // also uses a compact bitmap, and sizes >block_count/8 have no effect.
+    #if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
+    lfs3_size_t treediff_size;
     #endif
 
     // Flags indicating what gc work to do during lfs3_gc calls.
@@ -480,6 +517,12 @@ struct lfs3_cfg {
     // By default lfs3_malloc is used to allocate this buffer.
     #ifndef LFS3_RDONLY
     void *lookahead_buffer;
+    #endif
+
+    // Optional statically allocated treediff buffer. Must be treediff_size.
+    // By default lfs3_malloc is used to allocate this buffer.
+    #if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
+    void *treediff_buffer;
     #endif
 
     // Optional upper limit on length of file names in bytes. No downside for
@@ -784,6 +827,8 @@ typedef struct lfs3_trv {
     lfs3_sblock_t blocks[2];
 } lfs3_trv_t;
 
+// littlefs global state
+
 // grm encoding:
 // .- -+- -+- -+- -+- -.  mids:  2 leb128s  <=2x5 bytes
 // ' mids              '  total:            <=10 bytes
@@ -796,6 +841,26 @@ typedef struct lfs3_trv {
 typedef struct lfs3_grm {
     lfs3_smid_t queue[2];
 } lfs3_grm_t;
+
+// gbmap encoding:
+// .---+- -+- -+- -+- -. cursor: 1 leb128  <=5 bytes
+// | cursor            | known:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -+ block:  1 leb128  <=5 bytes
+// | known             | trunk:  1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -+ cksum:  1 le32    4 bytes
+// | block             | total:            23 bytes
+// +---+- -+- -+- -+- -'
+// | trunk         |
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+#define LFS3_GBMAP_DSIZE (5+5+5+4+4)
+
+typedef struct lfs3_gbmap {
+    lfs3_block_t cursor;
+    lfs3_block_t known;
+    lfs3_btree_t b;
+} lfs3_gbmap_t;
 
 
 // The littlefs filesystem type
@@ -857,6 +922,12 @@ typedef struct lfs3 {
     } lookahead;
     #endif
 
+    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+    struct lfs3_treediff {
+        uint8_t *buffer;
+    } treediff;
+    #endif
+
     #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
     const lfs3_data_t *graft;
     lfs3_ssize_t graft_count;
@@ -876,6 +947,12 @@ typedef struct lfs3 {
     #endif
     // TODO can we actually get rid of grm_d when LFS3_RDONLY?
     uint8_t grm_d[LFS3_GRM_DSIZE];
+
+    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+    lfs3_gbmap_t gbmap;
+    uint8_t gbmap_p[LFS3_GBMAP_DSIZE];
+    uint8_t gbmap_d[LFS3_GBMAP_DSIZE];
+    #endif
 
     // optional incremental gc state
     #ifdef LFS3_GC

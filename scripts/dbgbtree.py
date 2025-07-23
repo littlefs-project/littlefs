@@ -30,6 +30,7 @@ TAG_NAMELIMIT   = 0x0039    #  0x0039  v--- ---- --11 1--1
 TAG_FILELIMIT   = 0x003a    #  0x003a  v--- ---- --11 1-1-
 TAG_GDELTA      = 0x0100    ## 0x01tt  v--- ---1 -ttt ttrr
 TAG_GRMDELTA    = 0x0100    #  0x0100  v--- ---1 ---- ----
+TAG_GBMAPDELTA  = 0x0104    #  0x0104  v--- ---1 ---- -1rr
 TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
 TAG_BNAME       = 0x0200    #  0x0200  v--- --1- ---- ----
 TAG_REG         = 0x0201    #  0x0201  v--- --1- ---- ---1
@@ -47,6 +48,12 @@ TAG_BTREE       = 0x031c    #  0x031c  v--- --11 ---1 11rr
 TAG_MROOT       = 0x0321    #  0x032r  v--- --11 --1- --rr
 TAG_MDIR        = 0x0325    #  0x0324  v--- --11 --1- -1rr
 TAG_MTREE       = 0x032c    #  0x032c  v--- --11 --1- 11rr
+TAG_BMRANGE     = 0x0330    #  0x033u  v--- --11 --11 uuuu
+TAG_BMFREE      = 0x0330    #  0x0330  v--- --11 --11 ----
+TAG_BMINFLIGHT  = 0x0331    #  0x0331  v--- --11 --11 ---1
+TAG_BMINUSE     = 0x0332    #  0x0332  v--- --11 --11 --1-
+TAG_BMBAD       = 0x0333    #  0x0333  v--- --11 --11 --11
+TAG_BMERASED    = 0x0334    #  0x0334  v--- --11 --11 -1--
 TAG_ATTR        = 0x0400    ## 0x04aa  v--- -1-a -aaa aaaa
 TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-- -aaa aaaa
 TAG_SATTR       = 0x0500    #  0x05aa  v--- -1-1 -aaa aaaa
@@ -218,6 +225,7 @@ def tagrepr(tag, weight=None, size=None, *,
             return '%s%s%s%s' % (
                     'shrub' if tag & TAG_SHRUB else '',
                     'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
+                        else 'gbmapdelta' if (tag & 0xfff) == TAG_GBMAPDELTA
                         else 'gdelta 0x%02x' % (tag & 0xff),
                     ' w%d' % weight if weight else '',
                     ' %s' % size if size is not None else '')
@@ -247,6 +255,13 @@ def tagrepr(tag, weight=None, size=None, *,
                     else 'mroot' if (tag & 0xfff) == TAG_MROOT
                     else 'mdir' if (tag & 0xfff) == TAG_MDIR
                     else 'mtree' if (tag & 0xfff) == TAG_MTREE
+                    else 'bmfree' if (tag & 0xfff) == TAG_BMFREE
+                    else 'bminflight' if (tag & 0xfff) == TAG_BMINFLIGHT
+                    else 'bminuse' if (tag & 0xfff) == TAG_BMINUSE
+                    else 'bmbad' if (tag & 0xfff) == TAG_BMBAD
+                    else 'bmerased' if (tag & 0xfff) == TAG_BMERASED
+                    else 'bmrange 0x%x' % (tag & 0xf)
+                        if (tag & 0xff0) == TAG_BMRANGE
                     else 'struct 0x%02x' % (tag & 0xff),
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')

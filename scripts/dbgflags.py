@@ -72,6 +72,12 @@ FLAGS = [
     ('F_CKMETA',       0x00001000, "Check metadata checksums"                 ),
     ('F_CKDATA',       0x00002000, "Check metadata + data checksums"          ),
 
+    ('F_BMAPMODE',     0x03000000, "On-disk block map mode"                   ),
+    ('^_BMAPNONE',     0x00000000, "Don't use the bmap"                       ),
+    ('^_BMAPCACHE',    0x01000000, "Use the bmap to cache lookahead scans"    ),
+    ('^_BMAPSLOW',     0x02000000, "Use the slow bmap algorithm"              ),
+    ('^_BMAPFAST',     0x03000000, "Use the fast bmap algorithm"              ),
+
     # Filesystem mount flags
     ('M_MODE',                  1, "Mount's access mode"                      ),
     ('^_RDWR',                  0, "Mount the filesystem as read and write"   ),
@@ -90,6 +96,12 @@ FLAGS = [
     ('M_COMPACT',      0x00000800, "Compact metadata logs"                    ),
     ('M_CKMETA',       0x00001000, "Check metadata checksums"                 ),
     ('M_CKDATA',       0x00002000, "Check metadata + data checksums"          ),
+
+    ('M_BMAPMODE',     0x03000000, "On-disk block map mode"                   ),
+    ('^_BMAPNONE',     0x00000000, "Don't use the bmap"                       ),
+    ('^_BMAPCACHE',    0x01000000, "Use the bmap to cache lookahead scans"    ),
+    ('^_BMAPSLOW',     0x02000000, "Use the slow bmap algorithm"              ),
+    ('^_BMAPFAST',     0x03000000, "Use the fast bmap algorithm"              ),
 
     # GC flags
     ('GC_MKCONSISTENT',0x00000100, "Make the filesystem consistent"           ),
@@ -115,7 +127,15 @@ FLAGS = [
     ('I_CKMETA',       0x00001000, "Metadata checksums not checked recently"  ),
     ('I_CKDATA',       0x00002000, "Data checksums not checked recently"      ),
 
-    ('i_INMTREE',      0x08000000, "Committing to mtree"                      ),
+    ('I_BMAPMODE',     0x03000000, "On-disk block map mode"                   ),
+    ('^_BMAPNONE',     0x00000000, "Mounted with LFS3_M_BMAPNONE"             ),
+    ('^_BMAPCACHE',    0x01000000, "Mounted with LFS3_M_BMAPCACHE"            ),
+    ('^_BMAPSLOW',     0x02000000, "Mounted with LFS3_M_BMAPSLOW"             ),
+    ('^_BMAPFAST',     0x03000000, "Mounted with LFS3_M_BMAPFAST"             ),
+
+    ('i_INMTREE',      0x00030000, "Committing to mtree"                      ),
+    ('^_INMTREE',      0x00010000, "Committing to mtree"                      ),
+    ('^_INBMAP',       0x00020000, "Committing to bmap"                       ),
 
     # Traversal flags
     ('T_MODE',                  1, "The traversal's access mode"              ),
@@ -181,6 +201,7 @@ FLAGS = [
     ('WCOMPAT_RDONLY', 0x00000002, "Writing is disallowed"                    ),
     ('WCOMPAT_DIR',    0x00000010, "Directory file types in use"              ),
     ('WCOMPAT_GCKSUM', 0x00001000, "Global-checksum in use"                   ),
+    ('WCOMPAT_GBMAP',  0x00002000, "Global block-map in use"                  ),
     ('wcompat_OVERFLOW',
                        0x80000000, "Can't represent all flags"                ),
 

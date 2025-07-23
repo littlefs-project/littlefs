@@ -1034,6 +1034,7 @@ enum lfs3_tag {
     // global-state tags
     LFS3_TAG_GDELTA         = 0x0100,
     LFS3_TAG_GRMDELTA       = 0x0100,
+    LFS3_TAG_GBMAPDELTA     = 0x0104,
 
     // name tags
     LFS3_TAG_NAME           = 0x0200,
@@ -1060,6 +1061,12 @@ enum lfs3_tag {
     LFS3_TAG_MROOT          = 0x0321,
     LFS3_TAG_MDIR           = 0x0325,
     LFS3_TAG_MTREE          = 0x032c,
+    LFS3_TAG_BMRANGE        = 0x0330,
+    LFS3_TAG_BMFREE         = 0x0330,
+    LFS3_TAG_BMINFLIGHT     = 0x0331,
+    LFS3_TAG_BMINUSE        = 0x0332,
+    LFS3_TAG_BMBAD          = 0x0333,
+    LFS3_TAG_BMERASED       = 0x0334,
 
     // user/sys attributes
     LFS3_TAG_ATTR           = 0x0400,
@@ -5133,8 +5140,8 @@ static lfs3_data_t lfs3_data_frombranch(const lfs3_rbyd_t *branch,
 #endif
 
 #ifndef LFS3_2BONLY
-static int lfs3_data_readbranch(lfs3_t *lfs3,
-        lfs3_bid_t weight, lfs3_data_t *data,
+static int lfs3_data_readbranch(lfs3_t *lfs3, lfs3_data_t *data,
+        lfs3_bid_t weight,
         lfs3_rbyd_t *branch) {
     // setting eoff to 0 here will trigger asserts if we try to append
     // without fetching first
@@ -5198,7 +5205,7 @@ static int lfs3_data_fetchbranch(lfs3_t *lfs3,
         lfs3_data_t *data, lfs3_bid_t weight,
         lfs3_rbyd_t *branch) {
     // decode branch and fetch
-    int err = lfs3_data_readbranch(lfs3, weight, data,
+    int err = lfs3_data_readbranch(lfs3, data, weight,
             branch);
     if (err) {
         return err;
@@ -5244,11 +5251,12 @@ static int lfs3_data_readbtree(lfs3_t *lfs3, lfs3_data_t *data,
         return err;
     }
 
-    err = lfs3_data_readbranch(lfs3, weight, data, &btree->r);
+    err = lfs3_data_readbranch(lfs3, data, weight, &btree->r);
     if (err) {
         return err;
     }
 
+    // make sure to zero btree leaf
     lfs3_btree_discardleaf(btree);
     return 0;
 }
@@ -5450,7 +5458,7 @@ static int lfs3_btree_parent(lfs3_t *lfs3, const lfs3_btree_t *btree,
 
         // fetch the next branch
         lfs3_rbyd_t child__;
-        int err = lfs3_data_readbranch(lfs3, weight__, &data__, &child__);
+        int err = lfs3_data_readbranch(lfs3, &data__, weight__, &child__);
         if (err) {
             return err;
         }
@@ -7402,10 +7410,80 @@ static inline bool lfs3_m_isckdatacksums(uint32_t flags) {
 }
 #endif
 
+#ifdef LFS3_BMAP
+static inline bool lfs3_m_isbmapnone(uint32_t flags) {
+    (void)flags;
+    #if defined(LFS3_YES_BMAPNONE)
+    return true;
+    #elif defined(LFS3_YES_BMAPFAST) \
+            || defined(LFS3_YES_BMAPSLOW) \
+            || defined(LFS3_YES_BMAPCACHE) \
+            || defined(LFS3_YES_BMAPNONE)
+    return false;
+    #else
+    return (flags & LFS3_M_BMAPMODE) == LFS3_M_BMAPNONE;
+    #endif
+}
+#endif
+
+#ifdef LFS3_BMAP
+static inline bool lfs3_m_isbmapcache(uint32_t flags) {
+    (void)flags;
+    #if defined(LFS3_YES_BMAPCACHE)
+    return true;
+    #elif defined(LFS3_YES_BMAPFAST) \
+            || defined(LFS3_YES_BMAPSLOW) \
+            || defined(LFS3_YES_BMAPCACHE) \
+            || defined(LFS3_YES_BMAPNONE)
+    return false;
+    #else
+    return (flags & LFS3_M_BMAPMODE) == LFS3_M_BMAPCACHE;
+    #endif
+}
+#endif
+
+#ifdef LFS3_BMAP
+static inline bool lfs3_m_isbmapslow(uint32_t flags) {
+    (void)flags;
+    #if defined(LFS3_YES_BMAPSLOW)
+    return true;
+    #elif defined(LFS3_YES_BMAPFAST) \
+            || defined(LFS3_YES_BMAPSLOW) \
+            || defined(LFS3_YES_BMAPCACHE) \
+            || defined(LFS3_YES_BMAPNONE)
+    return false;
+    #else
+    return (flags & LFS3_M_BMAPMODE) == LFS3_M_BMAPSLOW;
+    #endif
+}
+#endif
+
+#ifdef LFS3_BMAP
+static inline bool lfs3_m_isbmapfast(uint32_t flags) {
+    (void)flags;
+    #if defined(LFS3_YES_BMAPFAST)
+    return true;
+    #elif defined(LFS3_YES_BMAPFAST) \
+            || defined(LFS3_YES_BMAPSLOW) \
+            || defined(LFS3_YES_BMAPCACHE) \
+            || defined(LFS3_YES_BMAPNONE)
+    return false;
+    #else
+    return (flags & LFS3_M_BMAPMODE) == LFS3_M_BMAPFAST;
+    #endif
+}
+#endif
+
 // other internal flags
 #ifdef LFS3_REVDBG
 static inline bool lfs3_i_isinmtree(uint32_t flags) {
-    return flags & LFS3_i_INMTREE;
+    return (flags & LFS3_i_INMODE) == LFS3_i_INMTREE;
+}
+#endif
+
+#ifdef LFS3_REVDBG
+static inline bool lfs3_i_isinbmap(uint32_t flags) {
+    return (flags & LFS3_i_INMODE) == LFS3_i_INBMAP;
 }
 #endif
 
@@ -7716,11 +7794,12 @@ static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
 // on rbyd type, though it may be overwritten by the recycle counter if
 // it overlaps:
 //
-//   vvvv---- --1----1 -11-1--1 -11-1---  (68 69 21 v0  hi!.)  mroot anchor
-//   vvvv---- -111111- -111--1- -11-11-1  (6d 72 7e v0  mr~.)  mroot
-//   vvvv---- -111111- -11--1-- -11-11-1  (6d 64 7e v0  md~.)  mdir
-//   vvvv---- -111111- -111-1-- -11---1-  (62 74 7e v0  bt~.)  file btree node
-//   vvvv---- -111111- -11-11-1 -11---1-  (62 6d 7e v0  bm~.)  mtree node
+//   vvvv---- --1----1 -11-1--1 -11-1---  (68 69 21 v0  hi!r)  mroot anchor
+//   vvvv---- -111111- -111--1- -11-11-1  (6d 72 7e v0  mr~r)  mroot
+//   vvvv---- -111111- -11--1-- -11-11-1  (6d 64 7e v0  md~r)  mdir
+//   vvvv---- -111111- -111-1-- -11---1-  (62 74 7e v0  bt~r)  file btree node
+//   vvvv---- -111111- -11-11-1 -11---1-  (62 6d 7e v0  bm~r)  mtree node
+//   vvvv---- -111111- -11---1- -11---1-  (62 62 7e v0  bb~r)  bmap node
 //
 
 // needed in lfs3_rev_init
@@ -7741,10 +7820,10 @@ static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     if (lfs3_m_isrevdbg(lfs3->flags)) {
         // mroot?
         if (mdir->mid == -1 || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
-            rev |= 0x007e726d;
+            rev |= 0x007e726d; // mr~r
         // mdir?
         } else {
-            rev |= 0x007e646d;
+            rev |= 0x007e646d; // md~r
         }
     }
     #endif
@@ -7769,10 +7848,13 @@ static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3) {
     if (lfs3_m_isrevdbg(lfs3->flags)) {
         // mtree?
         if (lfs3_i_isinmtree(lfs3->flags)) {
-            rev |= 0x007e6d62;
+            rev |= 0x007e6d62; // bm~r
+        // bmap?
+        } else if (lfs3_i_isinbmap(lfs3->flags)) {
+            rev |= 0x007e6262; // bb~r
         // file btree?
         } else {
-            rev |= 0x007e7462;
+            rev |= 0x007e7462; // bt~r
         }
     }
     #endif
@@ -8055,7 +8137,18 @@ static int lfs3_mtree_commit(lfs3_t *lfs3, lfs3_btree_t *mtree,
     #ifdef LFS3_REVDBG
     lfs3->flags |= LFS3_i_INMTREE;
     #endif
+
     int err = lfs3_btree_commit(lfs3, mtree, bid, rattrs, rattr_count);
+    if (err) {
+        goto failed;
+    }
+
+    #ifdef LFS3_REVDBG
+    lfs3->flags &= ~LFS3_i_INMTREE;
+    #endif
+    return 0;
+
+failed:;
     #ifdef LFS3_REVDBG
     lfs3->flags &= ~LFS3_i_INMTREE;
     #endif
@@ -10333,6 +10426,66 @@ eot:;
 
     return LFS3_ERR_NOENT;
 }
+
+
+
+
+/// Optional on-disk block map ///
+
+#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
+        uint8_t buffer[static LFS3_GBMAP_DSIZE]) {
+    // cursor should not exceed 31-bits
+    LFS3_ASSERT(lfs3->gbmap.cursor <= 0x7fffffff);
+    // known should not exceed 31-bits
+    LFS3_ASSERT(lfs3->gbmap.known <= 0x7fffffff);
+
+    // make sure to zero so we don't leak any info
+    lfs3_memset(buffer, 0, LFS3_GBMAP_DSIZE);
+
+    lfs3_ssize_t d = 0;
+    lfs3_ssize_t d_ = lfs3_toleb128(lfs3->gbmap.cursor, &buffer[d], 5);
+    if (d_ < 0) {
+        LFS3_UNREACHABLE();
+    }
+    d += d_;
+
+    d_ = lfs3_toleb128(lfs3->gbmap.known, &buffer[d], 5);
+    if (d_ < 0) {
+        LFS3_UNREACHABLE();
+    }
+    d += d_;
+
+    lfs3_data_t data = lfs3_data_frombranch(&lfs3->gbmap.b.r, &buffer[d]);
+    d += lfs3_data_size(data);
+
+    return LFS3_DATA_BUF(buffer, lfs3_memlen(buffer, LFS3_GBMAP_DSIZE));
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data) {
+    int err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.cursor);
+    if (err) {
+        return err;
+    }
+
+    err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.known);
+    if (err) {
+        return err;
+    }
+
+    err = lfs3_data_readbranch(lfs3, data, lfs3->block_count,
+            &lfs3->gbmap.b.r);
+    if (err) {
+        return err;
+    }
+
+    // make sure to zero btree leaf
+    lfs3_btree_discardleaf(&lfs3->gbmap.b);
+    return 0;
+}
+#endif
 
 
 
@@ -14319,7 +14472,8 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0))) == 0);
+                | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
+                | LFS3_IFDEF_BMAP(LFS3_M_BMAPMODE, 0))) == 0);
     // LFS3_M_REVDBG and LFS3_M_REVNOISE are incompatible
     #if defined(LFS3_REVNOISE) && defined(LFS3_REVDBG)
     LFS3_ASSERT(!lfs3_m_isrevdbg(flags) || !lfs3_m_isrevnoise(flags));
@@ -14455,6 +14609,19 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->lookahead.size = 0;
     lfs3->lookahead.ckpoint = 0;
     lfs3_alloc_discard(lfs3);
+    #endif
+
+    // setup treediff buffer
+    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+    if (lfs3->cfg->treediff_buffer) {
+        lfs3->treediff.buffer = lfs3->cfg->treediff_buffer;
+    } else {
+        lfs3->treediff.buffer = lfs3_malloc(lfs3->cfg->treediff_size);
+        if (!lfs3->treediff.buffer) {
+            err = LFS3_ERR_NOMEM;
+            goto failed;
+        }
+    }
     #endif
 
     // check that the size limits are sane
@@ -14629,6 +14796,12 @@ static int lfs3_deinit(lfs3_t *lfs3) {
     }
     #endif
 
+    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+    if (!lfs3->cfg->treediff_buffer) {
+        lfs3_free(lfs3->treediff.buffer);
+    }
+    #endif
+
     return 0;
 }
 
@@ -14669,12 +14842,17 @@ static int lfs3_deinit(lfs3_t *lfs3) {
 #define LFS3_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
 #define LFS3_WCOMPAT_DIR         0x00000010 // Directory files in use
 #define LFS3_WCOMPAT_GCKSUM      0x00001000 // Global-checksum in use
+#define LFS3_WCOMPAT_GBMAP       0x00002000 // Global block-map in use
 // internal
 #define LFS3_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
+// TODO this should really be calculated at runtime, we should allow no
+// gbmap when bmap mode == LFS3_M_BMAPNONE even when compiling with
+// LFS3_BMAP
 #define LFS3_WCOMPAT_COMPAT \
     (LFS3_WCOMPAT_DIR \
-        | LFS3_WCOMPAT_GCKSUM)
+        | LFS3_WCOMPAT_GCKSUM \
+        | LFS3_IFDEF_BMAP(LFS3_WCOMPAT_GBMAP, 0))
 
 #define LFS3_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 // internal
@@ -15209,6 +15387,15 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_CKDATA
     flags |= LFS3_M_CKDATA
     #endif
+    #if defined(LFS3_YES_BMAPFAST)
+    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPFAST;
+    #elif defined(LFS3_YES_BMAPSLOW)
+    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPSLOW;
+    #elif defined(LFS3_YES_BMAPCACHE)
+    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPCACHE;
+    #elif defined(LFS3_YES_BMAPNONE)
+    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPNONE;
+    #endif
 
     // unknown flags?
     LFS3_ASSERT((flags & ~(
@@ -15226,7 +15413,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                 | LFS3_M_CKMETA
-                | LFS3_M_CKDATA)) == 0);
+                | LFS3_M_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_M_BMAPMODE, 0))) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_islookahead(flags));
@@ -15243,7 +15431,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)),
+                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
+                    | LFS3_IFDEF_BMAP(LFS3_M_BMAPMODE, 0)),
             cfg);
     if (err) {
         return err;
@@ -15314,14 +15503,79 @@ int lfs3_unmount(lfs3_t *lfs3) {
 
 /// Format ///
 
+#ifdef LFS3_BMAP
+static int lfs3_formatbmap(lfs3_t *lfs3) {
+    #ifdef LFS3_REVDBG
+    lfs3->flags |= LFS3_i_INBMAP;
+    #endif
+
+    // TODO should we try multiple blocks?
+    // assume we can write bmap to block 2
+    lfs3->gbmap.cursor = 3;
+    lfs3->gbmap.known = lfs3->cfg->block_count;
+    lfs3->gbmap.b.r.blocks[0] = 2;
+    lfs3->gbmap.b.r.trunk = 0;
+    lfs3->gbmap.b.r.weight = 0;
+    lfs3->gbmap.b.r.eoff = 0;
+    lfs3->gbmap.b.r.cksum = 0;
+
+    int err = lfs3_bd_erase(lfs3, lfs3->gbmap.b.r.blocks[0]);
+    if (err) {
+        goto failed;
+    }
+
+    #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
+    // append a revision count?
+    err = lfs3_rbyd_appendrev(lfs3, &lfs3->gbmap.b.r, lfs3_rev_btree(lfs3));
+    if (err) {
+        goto failed;
+    }
+    #endif
+
+    err = lfs3_rbyd_commit(lfs3, &lfs3->gbmap.b.r, 0, LFS3_RATTRS(
+            // blocks 0..3 - in-use
+            LFS3_RATTR(LFS3_TAG_BMINUSE, +3),
+            // blocks 3..block_count - free
+            LFS3_RATTR(LFS3_TAG_BMFREE, +(lfs3->cfg->block_count - 3))));
+    if (err) {
+        goto failed;
+    }
+
+    #ifdef LFS3_REVDBG
+    lfs3->flags &= ~LFS3_i_INBMAP;
+    #endif
+    return 0;
+
+failed:;
+    #ifdef LFS3_REVDBG
+    lfs3->flags &= ~LFS3_i_INBMAP;
+    #endif
+    return err;
+}
+#endif
+
 #ifndef LFS3_RDONLY
 static int lfs3_formatinited(lfs3_t *lfs3) {
+    int err;
+    // create an initial bmap
+    #ifdef LFS3_BMAP
+    err = lfs3_formatbmap(lfs3);
+    if (err) {
+        return err;
+    }
+    #endif
+
     for (int i = 0; i < 2; i++) {
         // write superblock to both rbyds in the root mroot to hopefully
         // avoid mounting an older filesystem on disk
-        lfs3_rbyd_t rbyd = {.blocks[0]=i, .eoff=0, .trunk=0};
+        lfs3_rbyd_t rbyd;
+        rbyd.blocks[0] = i;
+        rbyd.trunk = 0;
+        rbyd.weight = 0;
+        rbyd.eoff = 0;
+        rbyd.cksum = 0;
 
-        int err = lfs3_bd_erase(lfs3, rbyd.blocks[0]);
+        err = lfs3_bd_erase(lfs3, rbyd.blocks[0]);
         if (err) {
             return err;
         }
@@ -15368,6 +15622,16 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                 LFS3_RATTR_LEB128(
                     LFS3_TAG_FILELIMIT, 0,
                     lfs3->file_limit),
+        // TODO this is no good, switch to a builder pattern?
+        #ifdef LFS3_BMAP
+                (lfs3_m_isbmapfast(lfs3->flags)
+                        || lfs3_m_isbmapslow(lfs3->flags)
+                        || lfs3_m_isbmapcache(lfs3->flags))
+                    ? LFS3_RATTR_DATA(LFS3_TAG_GBMAPDELTA, 0,
+                        (&((struct {lfs3_data_t d;}){
+                            lfs3_data_fromgbmap(lfs3, lfs3->gbmap_d)}).d))
+                    : LFS3_RATTR_NOOP(),
+        #endif
                 LFS3_RATTR_NAME(
                     LFS3_TAG_BOOKMARK, +1,
                     0, NULL, 0)));
@@ -15391,7 +15655,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
     }
 
     // sync on-disk state
-    int err = lfs3_bd_sync(lfs3);
+    err = lfs3_bd_sync(lfs3);
     if (err) {
         return err;
     }
@@ -15427,6 +15691,15 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_CKDATA
     flags |= LFS3_F_CKDATA
     #endif
+    #if defined(LFS3_YES_BMAPFAST)
+    flags = (flags & ~LFS3_F_BMAPMODE) | LFS3_F_BMAPFAST;
+    #elif defined(LFS3_YES_BMAPSLOW)
+    flags = (flags & ~LFS3_F_BMAPMODE) | LFS3_F_BMAPSLOW;
+    #elif defined(LFS3_YES_BMAPCACHE)
+    flags = (flags & ~LFS3_F_BMAPMODE) | LFS3_F_BMAPCACHE;
+    #elif defined(LFS3_YES_BMAPNONE)
+    flags = (flags & ~LFS3_F_BMAPMODE) | LFS3_F_BMAPNONE;
+    #endif
 
     // unknown flags?
     LFS3_ASSERT((flags & ~(
@@ -15438,7 +15711,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
                 | LFS3_F_CKMETA
-                | LFS3_F_CKDATA)) == 0);
+                | LFS3_F_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_F_BMAPMODE, 0))) == 0);
 
     int err = lfs3_init(lfs3,
             flags & (
@@ -15448,7 +15722,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
-                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)),
+                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
+                    | LFS3_IFDEF_BMAP(LFS3_F_BMAPMODE, 0)),
             cfg);
     if (err) {
         return err;
@@ -15515,7 +15790,8 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA);
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPMODE, 0));
     // some flags we calculate on demand
     #ifndef LFS3_RDONLY
     fsinfo->flags |= (lfs3_grm_count(lfs3) > 0) ? LFS3_I_MKCONSISTENT : 0;

@@ -41,6 +41,7 @@ TAG_NAMELIMIT   = 0x0039    #  0x0039  v--- ---- --11 1--1
 TAG_FILELIMIT   = 0x003a    #  0x003a  v--- ---- --11 1-1-
 TAG_GDELTA      = 0x0100    ## 0x01tt  v--- ---1 -ttt ttrr
 TAG_GRMDELTA    = 0x0100    #  0x0100  v--- ---1 ---- ----
+TAG_GBMAPDELTA  = 0x0104    #  0x0104  v--- ---1 ---- -1rr
 TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
 TAG_BNAME       = 0x0200    #  0x0200  v--- --1- ---- ----
 TAG_REG         = 0x0201    #  0x0201  v--- --1- ---- ---1
@@ -58,6 +59,12 @@ TAG_BTREE       = 0x031c    #  0x031c  v--- --11 ---1 11rr
 TAG_MROOT       = 0x0321    #  0x032r  v--- --11 --1- --rr
 TAG_MDIR        = 0x0325    #  0x0324  v--- --11 --1- -1rr
 TAG_MTREE       = 0x032c    #  0x032c  v--- --11 --1- 11rr
+TAG_BMRANGE     = 0x0330    #  0x033u  v--- --11 --11 uuuu
+TAG_BMFREE      = 0x0330    #  0x0330  v--- --11 --11 ----
+TAG_BMINFLIGHT  = 0x0331    #  0x0331  v--- --11 --11 ---1
+TAG_BMINUSE     = 0x0332    #  0x0332  v--- --11 --11 --1-
+TAG_BMBAD       = 0x0333    #  0x0333  v--- --11 --11 --11
+TAG_BMERASED    = 0x0334    #  0x0334  v--- --11 --11 -1--
 TAG_ATTR        = 0x0400    ## 0x04aa  v--- -1-a -aaa aaaa
 TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-- -aaa aaaa
 TAG_SATTR       = 0x0500    #  0x05aa  v--- -1-1 -aaa aaaa
@@ -310,6 +317,7 @@ def tagrepr(tag, weight=None, size=None, *,
             return '%s%s%s%s' % (
                     'shrub' if tag & TAG_SHRUB else '',
                     'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
+                        else 'gbmapdelta' if (tag & 0xfff) == TAG_GBMAPDELTA
                         else 'gdelta 0x%02x' % (tag & 0xff),
                     ' w%d' % weight if weight else '',
                     ' %s' % size if size is not None else '')
@@ -339,6 +347,13 @@ def tagrepr(tag, weight=None, size=None, *,
                     else 'mroot' if (tag & 0xfff) == TAG_MROOT
                     else 'mdir' if (tag & 0xfff) == TAG_MDIR
                     else 'mtree' if (tag & 0xfff) == TAG_MTREE
+                    else 'bmfree' if (tag & 0xfff) == TAG_BMFREE
+                    else 'bminflight' if (tag & 0xfff) == TAG_BMINFLIGHT
+                    else 'bminuse' if (tag & 0xfff) == TAG_BMINUSE
+                    else 'bmbad' if (tag & 0xfff) == TAG_BMBAD
+                    else 'bmerased' if (tag & 0xfff) == TAG_BMERASED
+                    else 'bmrange 0x%x' % (tag & 0xf)
+                        if (tag & 0xff0) == TAG_BMRANGE
                     else 'struct 0x%02x' % (tag & 0xff),
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
@@ -2585,8 +2600,9 @@ class Config:
 
 # lazy gstate object
 class Gstate:
-    def __init__(self, mtree):
+    def __init__(self, mtree, config):
         self.mtree = mtree
+        self.config = config
 
     # lookup a specific tag
     def lookup(self, tag=None, mask=None):
@@ -2662,7 +2678,7 @@ class Gstate:
         tag = None
         mask = None
 
-        def __init__(self, mtree, tag, gdeltas):
+        def __init__(self, mtree, config, tag, gdeltas):
             # replace tag with what we find
             self.tag = tag
             # keep track of gdeltas for debugging
@@ -2712,8 +2728,8 @@ class Gstate:
     class Gcksum(Gstate):
         tag = TAG_GCKSUMDELTA
 
-        def __init__(self, mtree, tag, gdeltas):
-            super().__init__(mtree, tag, gdeltas)
+        def __init__(self, mtree, config, tag, gdeltas):
+            super().__init__(mtree, config, tag, gdeltas)
             self.gcksum = fromle32(self.data)
 
         def __int__(self):
@@ -2726,8 +2742,8 @@ class Gstate:
     class Grm(Gstate):
         tag = TAG_GRMDELTA
 
-        def __init__(self, mtree, tag, gdeltas):
-            super().__init__(mtree, tag, gdeltas)
+        def __init__(self, mtree, config, tag, gdeltas):
+            super().__init__(mtree, config, tag, gdeltas)
             queue = []
             d = 0
             for _ in range(2):
@@ -2745,6 +2761,26 @@ class Gstate:
         def repr(self):
             return 'grm [%s]' % ', '.join(mid.repr() for mid in self.queue)
 
+    # the global block map
+    class Gbmap(Gstate):
+        tag = TAG_GBMAPDELTA
+
+        def __init__(self, mtree, config, tag, gdeltas):
+            super().__init__(mtree, config, tag, gdeltas)
+            d = 0
+            self.cursor, d_ = fromleb128(self.data, d); d += d_
+            self.known, d_ = fromleb128(self.data, d); d += d_
+            block, trunk, cksum, d_ = frombranch(self.data, d); d += d_
+            self.btree = Btree.fetchck(
+                    mtree.bd, block, trunk,
+                    config.geometry.block_count,
+                    cksum)
+
+        def repr(self):
+            return 'gbmap %s k%s+%s' % (
+                    self.btree.addr(),
+                    self.known, self.cursor)
+
     # keep track of known gstate
     _known = [g for g in Gstate.__subclasses__() if g.tag is not None]
 
@@ -2753,10 +2789,10 @@ class Gstate:
         # known config?
         for g in self._known:
             if (g.tag & ~(g.mask or 0)) == (tag & ~(g.mask or 0)):
-                return g(self.mtree, tag, gdeltas)
+                return g(self.mtree, self.config, tag, gdeltas)
         # otherwise return a marker class
         else:
-            return Unknown(self.mtree, tag, gdeltas)
+            return self.Unknown(self.mtree, self.config, tag, gdeltas)
 
     # create cached accessors for known gstate
     def _parser(g):
@@ -2777,7 +2813,7 @@ class Lfs3:
 
         # create lazy config/gstate objects
         self.config = config or Config(self.mroot)
-        self.gstate = gstate or Gstate(self.mtree)
+        self.gstate = gstate or Gstate(self.mtree, self.config)
 
         # go ahead and fetch some expected fields
         self.version = self.config.version

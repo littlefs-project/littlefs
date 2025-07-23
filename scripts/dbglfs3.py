@@ -31,6 +31,7 @@ TAG_NAMELIMIT   = 0x0039    #  0x0039  v--- ---- --11 1--1
 TAG_FILELIMIT   = 0x003a    #  0x003a  v--- ---- --11 1-1-
 TAG_GDELTA      = 0x0100    ## 0x01tt  v--- ---1 -ttt ttrr
 TAG_GRMDELTA    = 0x0100    #  0x0100  v--- ---1 ---- ----
+TAG_GBMAPDELTA  = 0x0104    #  0x0104  v--- ---1 ---- -1rr
 TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
 TAG_BNAME       = 0x0200    #  0x0200  v--- --1- ---- ----
 TAG_REG         = 0x0201    #  0x0201  v--- --1- ---- ---1
@@ -48,6 +49,12 @@ TAG_BTREE       = 0x031c    #  0x031c  v--- --11 ---1 11rr
 TAG_MROOT       = 0x0321    #  0x032r  v--- --11 --1- --rr
 TAG_MDIR        = 0x0325    #  0x0324  v--- --11 --1- -1rr
 TAG_MTREE       = 0x032c    #  0x032c  v--- --11 --1- 11rr
+TAG_BMRANGE     = 0x0330    #  0x033u  v--- --11 --11 uuuu
+TAG_BMFREE      = 0x0330    #  0x0330  v--- --11 --11 ----
+TAG_BMINFLIGHT  = 0x0331    #  0x0331  v--- --11 --11 ---1
+TAG_BMINUSE     = 0x0332    #  0x0332  v--- --11 --11 --1-
+TAG_BMBAD       = 0x0333    #  0x0333  v--- --11 --11 --11
+TAG_BMERASED    = 0x0334    #  0x0334  v--- --11 --11 -1--
 TAG_ATTR        = 0x0400    ## 0x04aa  v--- -1-a -aaa aaaa
 TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-- -aaa aaaa
 TAG_SATTR       = 0x0500    #  0x05aa  v--- -1-1 -aaa aaaa
@@ -267,6 +274,7 @@ def tagrepr(tag, weight=None, size=None, *,
             return '%s%s%s%s' % (
                     'shrub' if tag & TAG_SHRUB else '',
                     'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
+                        else 'gbmapdelta' if (tag & 0xfff) == TAG_GBMAPDELTA
                         else 'gdelta 0x%02x' % (tag & 0xff),
                     ' w%d' % weight if weight else '',
                     ' %s' % size if size is not None else '')
@@ -296,6 +304,13 @@ def tagrepr(tag, weight=None, size=None, *,
                     else 'mroot' if (tag & 0xfff) == TAG_MROOT
                     else 'mdir' if (tag & 0xfff) == TAG_MDIR
                     else 'mtree' if (tag & 0xfff) == TAG_MTREE
+                    else 'bmfree' if (tag & 0xfff) == TAG_BMFREE
+                    else 'bminflight' if (tag & 0xfff) == TAG_BMINFLIGHT
+                    else 'bminuse' if (tag & 0xfff) == TAG_BMINUSE
+                    else 'bmbad' if (tag & 0xfff) == TAG_BMBAD
+                    else 'bmerased' if (tag & 0xfff) == TAG_BMERASED
+                    else 'bmrange 0x%x' % (tag & 0xf)
+                        if (tag & 0xff0) == TAG_BMRANGE
                     else 'struct 0x%02x' % (tag & 0xff),
                 ' w%d' % weight if weight else '',
                 ' %s' % size if size is not None else '')
@@ -2542,8 +2557,9 @@ class Config:
 
 # lazy gstate object
 class Gstate:
-    def __init__(self, mtree):
+    def __init__(self, mtree, config):
         self.mtree = mtree
+        self.config = config
 
     # lookup a specific tag
     def lookup(self, tag=None, mask=None):
@@ -2619,7 +2635,7 @@ class Gstate:
         tag = None
         mask = None
 
-        def __init__(self, mtree, tag, gdeltas):
+        def __init__(self, mtree, config, tag, gdeltas):
             # replace tag with what we find
             self.tag = tag
             # keep track of gdeltas for debugging
@@ -2669,8 +2685,8 @@ class Gstate:
     class Gcksum(Gstate):
         tag = TAG_GCKSUMDELTA
 
-        def __init__(self, mtree, tag, gdeltas):
-            super().__init__(mtree, tag, gdeltas)
+        def __init__(self, mtree, config, tag, gdeltas):
+            super().__init__(mtree, config, tag, gdeltas)
             self.gcksum = fromle32(self.data)
 
         def __int__(self):
@@ -2683,8 +2699,8 @@ class Gstate:
     class Grm(Gstate):
         tag = TAG_GRMDELTA
 
-        def __init__(self, mtree, tag, gdeltas):
-            super().__init__(mtree, tag, gdeltas)
+        def __init__(self, mtree, config, tag, gdeltas):
+            super().__init__(mtree, config, tag, gdeltas)
             queue = []
             d = 0
             for _ in range(2):
@@ -2702,6 +2718,26 @@ class Gstate:
         def repr(self):
             return 'grm [%s]' % ', '.join(mid.repr() for mid in self.queue)
 
+    # the global block map
+    class Gbmap(Gstate):
+        tag = TAG_GBMAPDELTA
+
+        def __init__(self, mtree, config, tag, gdeltas):
+            super().__init__(mtree, config, tag, gdeltas)
+            d = 0
+            self.cursor, d_ = fromleb128(self.data, d); d += d_
+            self.known, d_ = fromleb128(self.data, d); d += d_
+            block, trunk, cksum, d_ = frombranch(self.data, d); d += d_
+            self.btree = Btree.fetchck(
+                    mtree.bd, block, trunk,
+                    config.geometry.block_count,
+                    cksum)
+
+        def repr(self):
+            return 'gbmap %s %s+%s' % (
+                    self.btree.addr(),
+                    self.known, self.cursor)
+
     # keep track of known gstate
     _known = [g for g in Gstate.__subclasses__() if g.tag is not None]
 
@@ -2710,10 +2746,10 @@ class Gstate:
         # known config?
         for g in self._known:
             if (g.tag & ~(g.mask or 0)) == (tag & ~(g.mask or 0)):
-                return g(self.mtree, tag, gdeltas)
+                return g(self.mtree, self.config, tag, gdeltas)
         # otherwise return a marker class
         else:
-            return Unknown(self.mtree, tag, gdeltas)
+            return self.Unknown(self.mtree, self.config, tag, gdeltas)
 
     # create cached accessors for known gstate
     def _parser(g):
@@ -2734,7 +2770,7 @@ class Lfs3:
 
         # create lazy config/gstate objects
         self.config = config or Config(self.mroot)
-        self.gstate = gstate or Gstate(self.mtree)
+        self.gstate = gstate or Gstate(self.mtree, self.config)
 
         # go ahead and fetch some expected fields
         self.version = self.config.version
@@ -4040,6 +4076,7 @@ def dbg_config(lfs, *,
         color=False,
         w_width=2,
         **args):
+    # show config
     for i, config in enumerate(it.chain(
                 lfs.config,
                 lfs.attrs())):
@@ -4078,6 +4115,103 @@ def dbg_gstate(lfs, *,
         color=False,
         w_width=2,
         **args):
+
+    # print gstate structures
+    def dbg_gstruct(gstate):
+        # no tree?
+        if getattr(gstate, 'btree', None) is None:
+            return
+
+        # precompute tree renderings
+        bt_width = 0
+        if (args.get('tree')
+                or args.get('tree_rbyd')
+                or args.get('tree_btree')):
+            treeart = TreeArt.frombtree(gstate.btree, **args)
+            bt_width = treeart.width
+
+        # dynamically size the id field
+        bw_width = mt.ceil(mt.log10(max(1, gstate.btree.weight)+1))
+
+        # only show the rbyd address on rbyd change
+        prbyd = None
+        # recursively print btree branches
+        def dbg_branch(d, bid, rbyd, rid, name):
+            nonlocal prbyd
+
+            # show human-readable representation
+            for rattr in rbyd.rattrs(rid):
+                print('%12s %*s %s%*s %-*s  %s' % (
+                        '%04x.%04x:' % (rbyd.block, rbyd.trunk)
+                            if prbyd is None or rbyd != prbyd
+                            else '',
+                        2*w_width+1, '',
+                        treeart.repr(
+                                (bid-(name.weight-1), d, rattr.tag),
+                                color)
+                            if args.get('tree')
+                                or args.get('tree_rbyd')
+                                or args.get('tree_btree')
+                            else '',
+                        2*bw_width+1, '%d-%d' % (bid-(rattr.weight-1), bid)
+                            if rattr.weight > 1
+                            else bid if rattr.weight > 0
+                            else '',
+                        21+2*bw_width+1, rattr.repr(),
+                        next(xxd(rattr.data, 8), '')
+                            if not args.get('raw')
+                                and not args.get('no_truncate')
+                            else ''))
+                prbyd = rbyd
+
+                # show on-disk encoding of tags/data
+                if args.get('raw'):
+                    for o, line in enumerate(xxd(rattr.tdata)):
+                        print('%11s: %*s %*s%*s %s' % (
+                                '%04x' % (rattr.toff + o*16),
+                                2*w_width+1, '',
+                                bt_width, '',
+                                2*bw_width+1, '',
+                                line))
+                if args.get('raw') or args.get('no_truncate'):
+                    for o, line in enumerate(xxd(rattr.data)):
+                        print('%11s: %*s %*s%*s %s' % (
+                                '%04x' % (rattr.off + o*16),
+                                2*w_width+1, '',
+                                bt_width, '',
+                                2*bw_width+1, '',
+                                line))
+
+        # traverse and print entries
+        ppath = []
+        for bid, rbyd, path in gstate.btree.leaves(
+                path=True,
+                depth=args.get('depth')):
+            # print inner branches if requested
+            if args.get('inner'):
+                for d, (bid_, rbyd_, rid_, name_) in pathdelta(
+                        path, ppath):
+                    dbg_branch(d, bid_, rbyd_, rid_, name_)
+            ppath = path
+
+            # corrupted? try to keep printing the tree
+            if not rbyd:
+                print('%s%11s: %*s %*s%s%s' % (
+                        '\x1b[31m' if color else '',
+                        '%04x.%04x' % (rbyd.block, rbyd.trunk),
+                        2*w_width+1, '',
+                        bt_width, '',
+                        '(corrupted rbyd %s)' % rbyd.addr(),
+                        '\x1b[m' if color else ''))
+                prbyd = None
+                continue
+
+            for rid, name in rbyd.rids():
+                bid_ = bid-(rbyd.weight-1) + rid
+                # show the leaf entry/branch
+                dbg_branch(len(path), bid_, rbyd, rid, name)
+
+    # show gstate
     for i, gstate in enumerate(lfs.gstate):
         # some special situations worth reporting
         notes = []
@@ -4138,6 +4272,10 @@ def dbg_gstate(lfs, *,
                                 '%04x' % (gdelta.off + o*16),
                                 2*w_width+1, '',
                                 line))
+
+        # print gstate structures?
+        if args.get('gstructs'):
+            dbg_gstruct(gstate)
 
 # show the littlefs file tree
 def dbg_files(lfs, paths, *,
@@ -4317,6 +4455,7 @@ def dbg_files(lfs, paths, *,
         def dbg_branch(d, bid, rbyd, rid, name):
             nonlocal pmdir
 
+            # show human-readable representation
             for rattr in rbyd.rattrs(rid):
                 print('%12s %*s %s%*s %-*s  %s' % (
                         '%04x.%04x:' % (rbyd.block, rbyd.trunk)
@@ -4538,7 +4677,8 @@ def main(disk, mroots=None, paths=None, *,
     # can show if requested
     show_config = args.get('config')
     show_gstate = (args.get('gstate')
-            or args.get('gdelta'))
+            or args.get('gdelta')
+            or args.get('gstructs'))
     show_files = (args.get('files')
             or args.get('structs')
             or args.get('attrs'))
@@ -4725,6 +4865,10 @@ if __name__ == "__main__":
             action='store_true',
             help="Show relevant gdeltas used to build the gstate. "
                 "Implies --gstate.")
+    parser.add_argument(
+            '--gstructs',
+            action='store_true',
+            help="Show gstate structures. Implies --gstate.")
     parser.add_argument(
             '--files',
             action='store_true',
