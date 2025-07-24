@@ -2750,7 +2750,8 @@ static void lfs3_rbyd_init(lfs3_rbyd_t *rbyd, lfs3_block_t block) {
 
 #ifndef LFS3_RDONLY
 static inline void lfs3_rbyd_claim(lfs3_rbyd_t *rbyd) {
-    rbyd->eoff = -1;
+    // mark as needing fetch
+    rbyd->eoff = 0;
 }
 #endif
 
@@ -7990,7 +7991,10 @@ static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, uint32_t rev) {
 // mdir convenience functions
 #ifndef LFS3_RDONLY
 static inline void lfs3_mdir_claim(lfs3_mdir_t *mdir) {
-    lfs3_rbyd_claim(&mdir->r);
+    // mark erased state as invalid, we only fallback on this if a
+    // commit fails, and at that point it's unlikely we'll be able to
+    // reuse the block
+    mdir->r.eoff = -1;
 }
 #endif
 
