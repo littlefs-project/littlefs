@@ -2651,6 +2651,11 @@ class Gstate:
             self.data = data
 
         @property
+        def blocks(self):
+            return tuple(it.chain.from_iterable(
+                    gdelta.blocks for _, gdelta in self.gdeltas))
+
+        @property
         def size(self):
             return len(self.data)
 
@@ -3181,6 +3186,7 @@ class Lfs3:
     # traverse the filesystem
     def traverse(self, *,
             mtree_only=False,
+            gstate=True,
             shrubs=False,
             fragments=False,
             path=False):
@@ -3241,6 +3247,24 @@ class Lfs3:
                                     yield data, path_+path__
                                 else:
                                     yield data
+
+        # traverse any gstate
+        if not mtree_only and gstate:
+            for gstate_ in self.gstate:
+                if getattr(gstate_, 'btree', None) is None:
+                    continue
+
+                for r in gstate_.btree.traverse(
+                        path=path):
+                    if path:
+                        bid, rbyd, path_ = r
+                    else:
+                        bid, rbyd = r
+
+                    if path:
+                        yield rbyd, [(self.mid(-1), gstate_)]+path_
+                    else:
+                        yield rbyd
 
     # common file operations, note Reg extends this for regular files
     class File:
