@@ -7665,16 +7665,31 @@ static int lfs3_data_readgrm(lfs3_t *lfs3, lfs3_data_t *data) {
     return 0;
 }
 
+// predeclarations of other gstate, needed below
+#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
+        uint8_t buffer[static LFS3_GBMAP_DSIZE]);
+static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data);
+#endif
+
 
 // some mdir-related gstate things we need
 
 // zero any pending gdeltas
 static void lfs3_fs_flushgdelta(lfs3_t *lfs3) {
+    // TODO one cool trick would be to make these all contiguous so
+    // zeroing is one memset
+
     // zero the gcksumdelta
     lfs3->gcksum_d = 0;
 
     // zero the grmdelta
     lfs3_memset(lfs3->grm_d, 0, LFS3_GRM_DSIZE);
+
+    // zero the gbmapdelta
+    #ifdef LFS3_BMAP
+    lfs3_memset(lfs3->gbmap_d, 0, LFS3_GBMAP_DSIZE);
+    #endif
 }
 
 // commit any pending gdeltas
@@ -7685,6 +7700,11 @@ static void lfs3_fs_commitgdelta(lfs3_t *lfs3) {
 
     // keep track of the on-disk grm
     lfs3_data_fromgrm(lfs3, lfs3->grm_p);
+
+    // keep track of the on-disk gbmap
+    #ifdef LFS3_BMAP
+    lfs3_data_fromgbmap(lfs3, lfs3->gbmap_p);
+    #endif
 }
 #endif
 
@@ -7700,6 +7720,15 @@ static void lfs3_fs_revertgdelta(lfs3_t *lfs3) {
     if (err) {
         LFS3_UNREACHABLE();
     }
+
+    // revert to the on-disk gbmap
+    #ifdef LFS3_BMAP
+    err = lfs3_data_readgbmap(lfs3,
+            &LFS3_DATA_BUF(lfs3->gbmap_p, LFS3_GBMAP_DSIZE));
+    if (err) {
+        LFS3_UNREACHABLE();
+    }
+    #endif
 }
 #endif
 
@@ -7749,6 +7778,48 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
         }
     }
 
+    // pending gbmap state?
+    #ifdef LFS3_BMAP
+    uint8_t gbmapdelta_[LFS3_GBMAP_DSIZE];
+    lfs3_data_fromgbmap(lfs3, gbmapdelta_);
+    lfs3_memxor(gbmapdelta_, lfs3->gbmap_p, LFS3_GBMAP_DSIZE);
+    lfs3_memxor(gbmapdelta_, lfs3->gbmap_d, LFS3_GBMAP_DSIZE);
+
+    if (lfs3_memlen(gbmapdelta_, LFS3_GBMAP_DSIZE) != 0) {
+        // make sure to xor any existing delta
+        lfs3_data_t data;
+        lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, rbyd, -1, LFS3_TAG_GBMAPDELTA,
+                &data);
+        if (tag < 0 && tag != LFS3_ERR_NOENT) {
+            return tag;
+        }
+
+        uint8_t gbmapdelta[LFS3_GBMAP_DSIZE];
+        lfs3_memset(gbmapdelta, 0, LFS3_GBMAP_DSIZE);
+        if (tag != LFS3_ERR_NOENT) {
+            lfs3_ssize_t d = lfs3_data_read(lfs3, &data,
+                    gbmapdelta, LFS3_GBMAP_DSIZE);
+            if (d < 0) {
+                return d;
+            }
+        }
+
+        lfs3_memxor(gbmapdelta_, gbmapdelta, LFS3_GBMAP_DSIZE);
+
+        // append to our rbyd, replacing any existing delta
+        lfs3_size_t size = lfs3_memlen(gbmapdelta_, LFS3_GBMAP_DSIZE);
+        int err = lfs3_rbyd_appendrattr(lfs3, rbyd, -1, LFS3_RATTR_BUF(
+                // opportunistically remove this tag if delta is all zero
+                (size == 0)
+                    ? LFS3_TAG_RM | LFS3_TAG_GBMAPDELTA
+                    : LFS3_TAG_GBMAPDELTA, 0,
+                gbmapdelta_, size));
+        if (err) {
+            return err;
+        }
+    }
+    #endif
+
     return 0;
 }
 #endif
@@ -7767,13 +7838,30 @@ static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
 
     if (tag != LFS3_ERR_NOENT) {
         uint8_t grmdelta[LFS3_GRM_DSIZE];
-        lfs3_ssize_t d = lfs3_data_read(lfs3, &data, grmdelta, LFS3_GRM_DSIZE);
+        lfs3_ssize_t d = lfs3_data_read(lfs3, &data,
+                grmdelta, LFS3_GRM_DSIZE);
         if (d < 0) {
             return d;
         }
 
         lfs3_memxor(lfs3->grm_d, grmdelta, d);
     }
+
+    // consume any gbmap deltas
+    #ifdef LFS3_BMAP
+    tag = lfs3_rbyd_lookup(lfs3, &mdir->r, -1, LFS3_TAG_GBMAPDELTA,
+            &data);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        uint8_t gbmapdelta[LFS3_GBMAP_DSIZE];
+        lfs3_ssize_t d = lfs3_data_read(lfs3, &data,
+                gbmapdelta, LFS3_GBMAP_DSIZE);
+        if (d < 0) {
+            return d;
+        }
+
+        lfs3_memxor(lfs3->gbmap_d, gbmapdelta, d);
+    }
+    #endif
 
     return 0;
 }
@@ -15313,6 +15401,9 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     // keep track of the current gstate on disk
     #ifndef LFS3_RDONLY
     lfs3_memcpy(lfs3->grm_p, lfs3->grm_d, LFS3_GRM_DSIZE);
+    #ifdef LFS3_BMAP
+    lfs3_memcpy(lfs3->gbmap_p, lfs3->gbmap_d, LFS3_GBMAP_DSIZE);
+    #endif
     #endif
 
     // decode grm so we can report any removed files as missing
@@ -15334,6 +15425,16 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         LFS3_INFO("Found pending grm %"PRId32".%"PRId32,
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]));
+    }
+
+    // decode the global block-map
+    //
+    // this one is a bit less exciting
+    err = lfs3_data_readgbmap(lfs3,
+            &LFS3_DATA_BUF(lfs3->gbmap_d, LFS3_GBMAP_DSIZE));
+    if (err) {
+        // TODO switch to read-only?
+        return err;
     }
 
     return 0;
