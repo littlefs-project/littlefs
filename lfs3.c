@@ -5588,9 +5588,9 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
 
         // are we root?
         } else if (child.blocks[0] == btree->r.blocks[0]) {
-            // mark btree as unerased in case of failure, our btree rbyd and
+            // mark btree as unfetched in case of failure, our btree rbyd and
             // root rbyd can diverge if there's a split, but we would have
-            // marked the old root as unerased earlier anyways
+            // marked the old root as unfetched earlier anyways
             lfs3_btree_claim(btree);
 
         // need to lookup child's parent
@@ -6920,15 +6920,19 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     #ifndef LFS3_2BONLY
+    // TODO why are we marking bshrubs as unfetched here? we should either
+    // be marking all btrees in lfs3_btree_commit, or move this to
+    // lfs3_file_commit for finer control...
+    //
     // before we touch anything, we need to mark all other btree references
-    // as unerased
+    // as unfetched
     if (lfs3_bshrub_isbtree(bshrub)) {
         for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
             if (lfs3_o_isbshrub(h->flags)
                     && h != &bshrub->h
                     && ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]
                         == bshrub->shrub.r.blocks[0]) {
-                // mark as unerased
+                // mark as unfetched
                 lfs3_btree_claim(&((lfs3_bshrub_t*)h)->shrub);
             }
         }
@@ -9282,7 +9286,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
         // update our mtree
         } else {
-            // mark as unerased in case of failure
+            // mark as unfetched in case of failure
             lfs3_btree_claim(&lfs3->mtree);
 
             err = lfs3_mtree_commit(lfs3, &mtree_,
@@ -9321,7 +9325,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         // how can we drop if we have no mtree?
         LFS3_ASSERT(lfs3->mtree.r.weight != 0);
 
-        // mark as unerased in case of failure
+        // mark as unfetched in case of failure
         lfs3_btree_claim(&lfs3->mtree);
 
         // update our mtree
@@ -9358,7 +9362,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
         // update our mtree
         } else {
-            // mark as unerased in case of failure
+            // mark as unfetched in case of failure
             lfs3_btree_claim(&lfs3->mtree);
 
             err = lfs3_mtree_commit(lfs3, &mtree_,
@@ -10598,6 +10602,162 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data) {
 }
 #endif
 
+// on-disk block map operations
+//
+// note these take any btree, since we sometimes update the gbmap, and
+// sometimes the gbatc
+
+#ifdef LFS3_BMAP
+static int lfs3_bmap_lookupnext(lfs3_t *lfs3, lfs3_btree_t *bmap,
+        lfs3_bid_t bid,
+        lfs3_bid_t *bid_, lfs3_bid_t *weight_) {
+    return lfs3_btree_lookupnext(lfs3, bmap, bid,
+            bid_, weight_, NULL);
+}
+#endif
+
+// this is the same as lfs3_btree_commit, but we set the inbmap flag
+// for debugging reasons
+#ifdef LFS3_BMAP
+static int lfs3_bmap_commit(lfs3_t *lfs3, lfs3_btree_t *bmap,
+        lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
+    #ifdef LFS3_REVDBG
+    lfs3->flags |= LFS3_i_INBMAP;
+    #endif
+
+    int err = lfs3_btree_commit(lfs3, bmap, bid, rattrs, rattr_count);
+    if (err) {
+        goto failed;
+    }
+
+    #ifdef LFS3_REVDBG
+    lfs3->flags &= ~LFS3_i_INBMAP;
+    #endif
+    return 0;
+
+failed:;
+    #ifdef LFS3_REVDBG
+    lfs3->flags &= ~LFS3_i_INBMAP;
+    #endif
+    return err;
+}
+#endif
+
+#ifdef LFS3_BMAP
+static int lfs3_bmap_set(lfs3_t *lfs3, lfs3_btree_t *bmap,
+        lfs3_block_t block, lfs3_tag_t tag) {
+    // lookup bmap range
+    lfs3_bid_t bid__;
+    lfs3_bid_t weight__;
+    lfs3_stag_t tag__ = lfs3_bmap_lookupnext(lfs3, bmap, block,
+            &bid__, &weight__);
+    if (tag__ < 0) {
+        LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
+        return tag__;
+    }
+
+    // wait, already set to expected type? guess we're done
+    if (tag__ == tag) {
+        return 0;
+    }
+
+    // temporary copy, we definitely _don't_ want to leave this in a
+    // weird state on error
+    lfs3_btree_t bmap_ = *bmap;
+    // TODO should we mark the gbmaps as unfetched as well?
+    // TODO should we just claim all matching btrees in lfs3_btree_commit?
+    // mark as unfetched in case of error
+    lfs3_btree_claim(bmap);
+
+    // TODO should these use builder pattern?
+
+    // first delete block from range, this may split the range into
+    // multiple neighbors
+    //
+    // note this is never unnecessary work, the resulting neighbors
+    // can't share a type or else we would've already returned
+    int err = lfs3_bmap_commit(lfs3, &bmap_, bid__, LFS3_RATTRS(
+            (bid__-(weight__-1) < block)
+                ? LFS3_RATTR(LFS3_TAG_GROW, -((bid__+1) - block))
+                : LFS3_RATTR(LFS3_TAG_RM, -((bid__+1) - block)),
+            (bid__ > block)
+                ? LFS3_RATTR(tag__, +(bid__ - block))
+                : LFS3_RATTR_NOOP()));
+    if (err) {
+        return err;
+    }
+
+    // weight of new range
+    lfs3_bid_t weight = 1;
+
+    // can we merge with right neighbor?
+    if (block < lfs3->block_count-1) {
+        // note the use of the old bmap to try to leverage leaf caching
+        tag__ = lfs3_bmap_lookupnext(lfs3, bmap, block+1,
+                &bid__, &weight__);
+        if (tag__ < 0) {
+            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
+            return tag__;
+        }
+
+        if (tag__ == tag) {
+            LFS3_ASSERT(weight__ == bid__ - block);
+            // merge
+            weight += weight__;
+
+            // delete to prepare merge
+            //
+            // note the shifted bid because of the previous delete
+            err = lfs3_bmap_commit(lfs3, &bmap_, bid__-1, LFS3_RATTRS(
+                    LFS3_RATTR(LFS3_TAG_RM, -weight__)));
+            if (err) {
+                return err;
+            }
+        }
+    }
+
+    // can we merge with left neighbor?
+    if (block > 0) {
+        // note the use of the old bmap to try to leverage leaf caching
+        tag__ = lfs3_bmap_lookupnext(lfs3, bmap, block-1,
+                &bid__, &weight__);
+        if (tag__ < 0) {
+            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
+            return tag__;
+        }
+
+        if (tag__ == tag) {
+            LFS3_ASSERT(bid__ == block-1);
+            // we can merge everything in one commit here
+            err = lfs3_bmap_commit(lfs3, &bmap_, bid__, LFS3_RATTRS(
+                    LFS3_RATTR(LFS3_TAG_GROW, +weight)));
+            if (err) {
+                return err;
+            }
+
+            // done!
+            *bmap = bmap_;
+            return 0;
+        }
+    }
+
+    // needs a new range
+    err = lfs3_bmap_commit(lfs3, &bmap_, block, LFS3_RATTRS(
+            LFS3_RATTR(tag, +weight)));
+    if (err) {
+        return err;
+    }
+
+    // done!
+    *bmap = bmap_;
+    return 0;
+}
+#endif
+
+// TODO lfs3_bmap_relocate
+// TODO lfs3_bmap_mdirdiff
+// TODO lfs3_bmap_btreediff
+
 
 
 /// Block allocator ///
@@ -10878,9 +11038,9 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
         while (lfs3->bmap.known > 0
                 && lfs3->lookahead.ckpoint > 0) {
             lfs3_bid_t bid;
-            lfs3_stag_t tag = lfs3_btree_lookupnext(lfs3, &lfs3->bmap.gbatc,
+            lfs3_stag_t tag = lfs3_bmap_lookupnext(lfs3, &lfs3->bmap.gbatc,
                     lfs3->bmap.cursor,
-                    &bid, NULL, NULL);
+                    &bid, NULL);
             if (tag < 0) {
                 return tag;
             }

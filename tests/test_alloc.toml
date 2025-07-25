@@ -7,7 +7,7 @@
 # since you can usually ignore allocator issues temporarily by making the test
 # device really big
 #
-after = ['test_mtree', 'test_dirs', 'test_files']
+after = ['test_mtree', 'test_bmap', 'test_dirs', 'test_files']
 
 # test that we can alloc
 [cases.test_alloc_alloc]
