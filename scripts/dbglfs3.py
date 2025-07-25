@@ -2739,9 +2739,9 @@ class Gstate:
                     cksum)
 
         def repr(self):
-            return 'gbmap %s %s+%s' % (
+            return 'gbmap %s 0x%x %d' % (
                     self.btree.addr(),
-                    self.known, self.cursor)
+                    self.cursor, self.known)
 
     # keep track of known gstate
     _known = [g for g in Gstate.__subclasses__() if g.tag is not None]

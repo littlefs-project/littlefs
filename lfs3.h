@@ -949,7 +949,18 @@ typedef struct lfs3 {
     uint8_t grm_d[LFS3_GRM_DSIZE];
 
     #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+    // TODO do we only need known for the in-flight block-map?
+    // on-disk block-map
     lfs3_gbmap_t gbmap;
+    // in-flight block-map
+    struct {
+        lfs3_block_t cursor;
+        lfs3_block_t known;
+        lfs3_block_t free;
+        //lfs3_block_t erased; // TODO
+        lfs3_btree_t gbatc;
+    } bmap;
+    // block-map delta state
     uint8_t gbmap_p[LFS3_GBMAP_DSIZE];
     uint8_t gbmap_d[LFS3_GBMAP_DSIZE];
     #endif
