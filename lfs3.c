@@ -10552,8 +10552,10 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
         uint8_t buffer[static LFS3_GBMAP_DSIZE]) {
     // cursor should not exceed 31-bits
     LFS3_ASSERT(lfs3->gbmap.cursor <= 0x7fffffff);
-    // known should not exceed 31-bits
-    LFS3_ASSERT(lfs3->gbmap.known <= 0x7fffffff);
+    // ctrled should not exceed 31-bits
+    LFS3_ASSERT(lfs3->gbmap.ctrled <= 0x7fffffff);
+    // unctrled should not exceed 31-bits
+    LFS3_ASSERT(lfs3->gbmap.known - lfs3->gbmap.ctrled <= 0x7fffffff);
 
     // make sure to zero so we don't leak any info
     lfs3_memset(buffer, 0, LFS3_GBMAP_DSIZE);
@@ -10565,7 +10567,13 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
     }
     d += d_;
 
-    d_ = lfs3_toleb128(lfs3->gbmap.known, &buffer[d], 5);
+    d_ = lfs3_toleb128(lfs3->gbmap.ctrled, &buffer[d], 5);
+    if (d_ < 0) {
+        LFS3_UNREACHABLE();
+    }
+    d += d_;
+
+    d_ = lfs3_toleb128(lfs3->gbmap.known - lfs3->gbmap.ctrled, &buffer[d], 5);
     if (d_ < 0) {
         LFS3_UNREACHABLE();
     }
@@ -10585,10 +10593,17 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.known);
+    err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.ctrled);
     if (err) {
         return err;
     }
+
+    lfs3_block_t unctrled;
+    err = lfs3_data_readleb128(lfs3, data, &unctrled);
+    if (err) {
+        return err;
+    }
+    lfs3->gbmap.known = lfs3->gbmap.ctrled + unctrled;
 
     err = lfs3_data_readbranch(lfs3, data, lfs3->block_count,
             &lfs3->gbmap.b.r);
@@ -15139,6 +15154,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_BMAP
     lfs3_btree_init(&lfs3->gbmap.b);
     lfs3->gbmap.cursor = 0;
+    lfs3->gbmap.ctrled = 0;
     lfs3->gbmap.known = 0;
     lfs3_btree_init(&lfs3->bmap.gbatc);
     lfs3->bmap.known = 0;
