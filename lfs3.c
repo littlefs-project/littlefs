@@ -10555,7 +10555,7 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
     // ctrled should not exceed 31-bits
     LFS3_ASSERT(lfs3->gbmap.ctrled <= 0x7fffffff);
     // unctrled should not exceed 31-bits
-    LFS3_ASSERT(lfs3->gbmap.known - lfs3->gbmap.ctrled <= 0x7fffffff);
+    LFS3_ASSERT(lfs3->gbmap.unctrled <= 0x7fffffff);
 
     // make sure to zero so we don't leak any info
     lfs3_memset(buffer, 0, LFS3_GBMAP_DSIZE);
@@ -10573,7 +10573,10 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
     }
     d += d_;
 
-    d_ = lfs3_toleb128(lfs3->gbmap.known - lfs3->gbmap.ctrled, &buffer[d], 5);
+    // in-driver unctrled contains both unctrled+ctrled airspaces to
+    // simplify bookkeeping
+    d_ = lfs3_toleb128(lfs3->gbmap.unctrled - lfs3->gbmap.ctrled,
+            &buffer[d], 5);
     if (d_ < 0) {
         LFS3_UNREACHABLE();
     }
@@ -10598,12 +10601,14 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data) {
         return err;
     }
 
+    // in-driver unctrled contains both unctrled+ctrled airspaces to
+    // simplify bookkeeping
     lfs3_block_t unctrled;
-    err = lfs3_data_readleb128(lfs3, data, &unctrled);
+    err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.unctrled);
     if (err) {
         return err;
     }
-    lfs3->gbmap.known = lfs3->gbmap.ctrled + unctrled;
+    lfs3->gbmap.unctrled += lfs3->gbmap.ctrled;
 
     err = lfs3_data_readbranch(lfs3, data, lfs3->block_count,
             &lfs3->gbmap.b.r);
@@ -10889,9 +10894,15 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
                     % lfs3->block_count;
     }
 
-    // decrement size/ckpoint
+    // decrement size
     lfs3->lookahead.size -= 1;
+    // decrement ckpoint
     lfs3->lookahead.ckpoint -= 1;
+    // decrement controlled/uncontrolled airspaces
+    #ifdef LFS3_BMAP
+    lfs3->gbmap.ctrled = lfs3_smax(lfs3->gbmap.ctrled-1, 0);
+    lfs3->gbmap.unctrled = lfs3_smax(lfs3->gbmap.unctrled-1, 0);
+    #endif
 }
 #endif
 
@@ -10919,8 +10930,8 @@ static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
 // allocate a block
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
-    //// bmap none algorithm ////
-    #ifndef LFS3_BMAP
+//    //// bmap none algorithm ////
+//    #ifndef LFS3_BMAP
     while (true) {
         // scan our lookahead buffer for free blocks
         lfs3_sblock_t block = lfs3_alloc_findfree(lfs3);
@@ -10978,6 +10989,82 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
         }
 
         // no blocks in our lookahead buffer?
+
+        // controlled airspace in our bmap?
+        #ifdef LFS3_BMAP
+        if (lfs3->gbmap.ctrled > 0) {
+            lfs3_ssize_t d = lfs3_bmap_findairspace(lfs3, lfs3_min(
+                    lfs3->gbmap.ctrled,
+                    lfs3->lookahead.ckpoint));
+            if (err) {
+                return err;
+            }
+
+            // TODO should markinuse, etc, take the lookahead buffer?
+            // TODO do we need to zero now that we're not using the full
+            // buffer?
+
+            // with a controlled airspace, we can trust all blocks
+            // states are exact
+            lfs3_alloc_markfree(lfs3, lfs3_min(
+                    lfs3->gbmap.ctrled,
+                    lfs3->lookahead.ckpoint));
+            continue;
+        }
+        #endif
+
+        // uncontrolled airspace in our bmap?
+        #ifdef LFS3_BMAP
+        if (lfs3->gbmap.unctrled > 0) {
+            // TODO this needs to know if in-flight blocks count?
+            lfs3_ssize_t d = lfs3_bmap_findairspace(lfs3, lfs3_min(
+                    lfs3->gbmap.unctrled,
+                    lfs3->lookahead.ckpoint));
+            if (err) {
+                return err;
+            }
+
+            // TODO should markinuse, etc, take the lookahead buffer?
+            // TODO do we need to zero now that we're not using the full
+            // buffer?
+
+            // with an uncontrolled airspace, we need to check if there
+            // are any in-flight blocks
+            //
+            // note with our current implementation this can not contain
+            // any in-flight graft state
+            lfs3_trv_t trv;
+            lfs3_trv_init(&trv,
+                    LFS3_T_RDONLY
+                        | LFS3_T_LOOKAHEAD
+                        | LFS3_T_INFLIGHTONLY);
+            while (true) {
+                lfs3_bptr_t bptr;
+                lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &trv,
+                        &bptr);
+                if (tag < 0) {
+                    if (tag == LFS3_ERR_NOENT) {
+                        break;
+                    }
+                    return tag;
+                }
+
+                // track in-use blocks
+                lfs3_alloc_markinuse(lfs3, tag, &bptr);
+            }
+
+            // with a controlled airspace, we can trust all blocks
+            // states are exact
+            lfs3_alloc_markfree(lfs3, lfs3_min(
+                    lfs3->gbmap.ctrled,
+                    lfs3->lookahead.ckpoint));
+            continue;
+        }
+        #endif
+ 
+
+
+        // no airspace? fallback to scanning the filesystem
         //
         // traverse the filesystem, building up knowledge of what blocks are
         // in-use in the next lookahead window
@@ -11010,92 +11097,92 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
         lfs3_alloc_markfree(lfs3);
     }
 
-    //// bmap fast algorithm ////
-    #else
-    while (true) {
-    alloc:;
-        // found a free block?
-        if (lfs3->bmap.free > 0) {
-            lfs3_block_t block = lfs3->bmap.cursor;
-            lfs3->bmap.cursor = (lfs3->bmap.cursor + 1) % lfs3->block_count;
-            lfs3->bmap.free -= 1;
-            lfs3->bmap.known -= 1;
-            lfs3->lookahead.ckpoint -= 1;
-
-            // we should never alloc blocks {0,1}
-            LFS3_ASSERT(block != 0 && block != 1);
-
-            // erase requested?
-            if (lfs3_alloc_iserase(flags)) {
-                int err = lfs3_bd_erase(lfs3, block);
-                if (err) {
-                    // bad erase? try another block
-                    if (err == LFS3_ERR_CORRUPT) {
-                        continue;
-                    }
-                    return err;
-                }
-            }
-
-            #ifdef LFS3_DBGALLOCS
-            LFS3_DEBUG("Allocated block 0x%"PRIx32", "
-                        "bmap %"PRId32"/%"PRId32"/%"PRId32"/%"PRId32,
-                    block,
-                    lfs3->bmap.free,
-                    lfs3->bmap.known,
-                    lfs3->lookahead.ckpoint,
-                    lfs3->cfg->block_count);
-            #endif
-            return block;
-        }
-
-        // search for a range of free blocks in our block atc
-        while (lfs3->bmap.known > 0
-                && lfs3->lookahead.ckpoint > 0) {
-            lfs3_bid_t bid;
-            lfs3_stag_t tag = lfs3_bmap_lookupnext(lfs3, &lfs3->bmap.gbatc,
-                    lfs3->bmap.cursor,
-                    &bid, NULL);
-            if (tag < 0) {
-                return tag;
-            }
-            lfs3_block_t d = lfs3_min(
-                    (bid+1) - lfs3->bmap.cursor,
-                    lfs3_min(lfs3->bmap.known, lfs3->lookahead.ckpoint));
-
-            // found free range?
-            if (tag == LFS3_TAG_BMFREE) {
-                lfs3->bmap.free = d;
-                goto alloc;
-            }
-
-            // keep searching...
-            lfs3->bmap.cursor = (lfs3->bmap.cursor + d) % lfs3->block_count;
-            lfs3->bmap.known -= d;
-            lfs3->lookahead.ckpoint -= d;
-        }
-
-        // in order to keep our block allocator from spinning forever when our
-        // filesystem is full, we mark points where there are no in-flight
-        // allocations with a checkpoint before starting a set of allocations
-        //
-        // if we've looked at all blocks since the last checkpoint, we report
-        // the filesystem as out of storage
-        //
-        if (lfs3->lookahead.ckpoint <= 0) {
-            LFS3_ERROR("No more free space "
-                        "(bmap %"PRId32"/%"PRId32"/%"PRId32"/%"PRId32")",
-                    lfs3->bmap.free,
-                    lfs3->bmap.known,
-                    lfs3->lookahead.ckpoint,
-                    lfs3->cfg->block_count);
-            return LFS3_ERR_NOSPC;
-        }
-
-        // TODO rebuild atc based on in-flight blocks
-        LFS3_UNREACHABLE();
-    }
-    #endif
+//    //// bmap fast algorithm ////
+//    #else
+//    while (true) {
+//    alloc:;
+//        // found a free block?
+//        if (lfs3->bmap.free > 0) {
+//            lfs3_block_t block = lfs3->bmap.cursor;
+//            lfs3->bmap.cursor = (lfs3->bmap.cursor + 1) % lfs3->block_count;
+//            lfs3->bmap.free -= 1;
+//            lfs3->bmap.known -= 1;
+//            lfs3->lookahead.ckpoint -= 1;
+//
+//            // we should never alloc blocks {0,1}
+//            LFS3_ASSERT(block != 0 && block != 1);
+//
+//            // erase requested?
+//            if (lfs3_alloc_iserase(flags)) {
+//                int err = lfs3_bd_erase(lfs3, block);
+//                if (err) {
+//                    // bad erase? try another block
+//                    if (err == LFS3_ERR_CORRUPT) {
+//                        continue;
+//                    }
+//                    return err;
+//                }
+//            }
+//
+//            #ifdef LFS3_DBGALLOCS
+//            LFS3_DEBUG("Allocated block 0x%"PRIx32", "
+//                        "bmap %"PRId32"/%"PRId32"/%"PRId32"/%"PRId32,
+//                    block,
+//                    lfs3->bmap.free,
+//                    lfs3->bmap.known,
+//                    lfs3->lookahead.ckpoint,
+//                    lfs3->cfg->block_count);
+//            #endif
+//            return block;
+//        }
+//
+//        // search for a range of free blocks in our block atc
+//        while (lfs3->bmap.known > 0
+//                && lfs3->lookahead.ckpoint > 0) {
+//            lfs3_bid_t bid;
+//            lfs3_stag_t tag = lfs3_bmap_lookupnext(lfs3, &lfs3->bmap.gbatc,
+//                    lfs3->bmap.cursor,
+//                    &bid, NULL);
+//            if (tag < 0) {
+//                return tag;
+//            }
+//            lfs3_block_t d = lfs3_min(
+//                    (bid+1) - lfs3->bmap.cursor,
+//                    lfs3_min(lfs3->bmap.known, lfs3->lookahead.ckpoint));
+//
+//            // found free range?
+//            if (tag == LFS3_TAG_BMFREE) {
+//                lfs3->bmap.free = d;
+//                goto alloc;
+//            }
+//
+//            // keep searching...
+//            lfs3->bmap.cursor = (lfs3->bmap.cursor + d) % lfs3->block_count;
+//            lfs3->bmap.known -= d;
+//            lfs3->lookahead.ckpoint -= d;
+//        }
+//
+//        // in order to keep our block allocator from spinning forever when our
+//        // filesystem is full, we mark points where there are no in-flight
+//        // allocations with a checkpoint before starting a set of allocations
+//        //
+//        // if we've looked at all blocks since the last checkpoint, we report
+//        // the filesystem as out of storage
+//        //
+//        if (lfs3->lookahead.ckpoint <= 0) {
+//            LFS3_ERROR("No more free space "
+//                        "(bmap %"PRId32"/%"PRId32"/%"PRId32"/%"PRId32")",
+//                    lfs3->bmap.free,
+//                    lfs3->bmap.known,
+//                    lfs3->lookahead.ckpoint,
+//                    lfs3->cfg->block_count);
+//            return LFS3_ERR_NOSPC;
+//        }
+//
+//        // TODO rebuild atc based on in-flight blocks
+//        LFS3_UNREACHABLE();
+//    }
+//    #endif
 }
 #endif
 
@@ -15155,7 +15242,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3_btree_init(&lfs3->gbmap.b);
     lfs3->gbmap.cursor = 0;
     lfs3->gbmap.ctrled = 0;
-    lfs3->gbmap.known = 0;
+    lfs3->gbmap.unctrled = 0;
     lfs3_btree_init(&lfs3->bmap.gbatc);
     lfs3->bmap.known = 0;
     lfs3->bmap.free = 0;
@@ -15742,10 +15829,10 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 
     // setup bmap with last known cursor, this will be populated on
     // first alloc
-    LFS3_ASSERT(lfs3->gbmap.known == lfs3->block_count);
+    LFS3_ASSERT(lfs3->gbmap.unctrled == lfs3->block_count);
     lfs3->bmap.gbatc = lfs3->gbmap.b;
     lfs3->bmap.cursor = lfs3->gbmap.cursor;
-    lfs3->bmap.known = lfs3->gbmap.known;
+    lfs3->bmap.known = lfs3->gbmap.unctrled;
     lfs3->bmap.free = 0;
     #endif
 

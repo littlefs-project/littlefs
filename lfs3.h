@@ -861,7 +861,7 @@ typedef struct lfs3_grm {
 typedef struct lfs3_gbmap {
     lfs3_block_t cursor;
     lfs3_block_t ctrled;
-    lfs3_block_t known;
+    lfs3_block_t unctrled;
     lfs3_btree_t b;
 } lfs3_gbmap_t;
 
