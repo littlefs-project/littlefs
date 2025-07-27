@@ -193,12 +193,12 @@ enum lfs3_type {
 #define LFS3_F_CKDATA   0x00002000  // Check metadata + data checksums
 
 #ifdef LFS3_BMAP
-#define LFS3_F_BMAPMODE 0x03000000  // On-disk block map mode
+#define LFS3_F_BMAPMODE 0x03000000  // On-disk block-map mode
 #define LFS3_F_BMAPNONE 0x00000000  // Don't use the bmap
 #define LFS3_F_BMAPCACHE \
                         0x01000000  // Use the bmap to cache lookahead scans
-#define LFS3_F_BMAPSLOW 0x02000000  // Use the slow bmap algorithm
-#define LFS3_F_BMAPFAST 0x03000000  // Use the fast bmap algorithm
+#define LFS3_F_BMAPVFR  0x02000000  // Use the bmap in VFR mode
+#define LFS3_F_BMAPIFR  0x03000000  // Use the bmap in IFR mode
 #endif
 #endif
 
@@ -248,11 +248,11 @@ enum lfs3_type {
 
 #ifdef LFS3_BMAP
 #define LFS3_M_BMAPMODE 0x03000000  // On-disk block map mode
-#define LFS3_M_BMAPNONE 0x00000000  // Don't use the bmap
+#define LFS3_M_BMAPNONE 0x00000000  // Don't use bmap
 #define LFS3_M_BMAPCACHE \
                         0x01000000  // Use the bmap to cache lookahead scans
-#define LFS3_M_BMAPSLOW 0x02000000  // Use the slow bmap algorithm
-#define LFS3_M_BMAPFAST 0x03000000  // Use the fast bmap algorithm
+#define LFS3_M_BMAPVFR  0x02000000  // Use the bmap in VFR mode
+#define LFS3_M_BMAPIFR  0x03000000  // Use the bmap in IFR mode
 #endif
 
 
@@ -301,8 +301,8 @@ enum lfs3_type {
 #define LFS3_I_BMAPNONE 0x00000000  // Mounted with LFS3_M_BMAPNONE
 #define LFS3_I_BMAPCACHE \
                         0x01000000  // Mounted with LFS3_M_BMAPCACHE
-#define LFS3_I_BMAPSLOW 0x02000000  // Mounted with LFS3_M_BMAPSLOW
-#define LFS3_I_BMAPFAST 0x03000000  // Mounted with LFS3_M_BMAPFAST
+#define LFS3_I_BMAPVFR  0x02000000  // Mounted with LFS3_M_BMAPVFR
+#define LFS3_I_BMAPIFR  0x03000000  // Mounted with LFS3_M_BMAPIFR
 #endif
 
 // internally used flags, don't use these
@@ -843,25 +843,22 @@ typedef struct lfs3_grm {
 } lfs3_grm_t;
 
 // gbmap encoding:
-// .---+- -+- -+- -+- -. cursor:   1 leb128  <=5 bytes
-// | cursor            | ctrled:   1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -+ unctrled: 1 leb128  <=5 bytes
-// | ctrled            | block:    1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -+ trunk:    1 leb128  <=4 bytes
-// | unctrled          | cksum:    1 le32    4 bytes
-// +---+- -+- -+- -+- -+ total:              28 bytes
-// | block             |
+// .---+- -+- -+- -+- -. cursor: 1 leb128  <=5 bytes
+// | cursor            | known:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -+ block:  1 leb128  <=5 bytes
+// | known             | trunk:  1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -+ cksum:  1 le32    4 bytes
+// | block             | total:            23 bytes
 // +---+- -+- -+- -+- -'
 // | trunk         |
 // +---+- -+- -+- -+
 // |     cksum     |
 // '---+---+---+---'
-#define LFS3_GBMAP_DSIZE (5+5+5+5+4+4)
+#define LFS3_GBMAP_DSIZE (5+5+5+4+4)
 
 typedef struct lfs3_gbmap {
     lfs3_block_t cursor;
-    lfs3_block_t ctrled;
-    lfs3_block_t unctrled;
+    lfs3_block_t known;
     lfs3_btree_t b;
 } lfs3_gbmap_t;
 
@@ -952,18 +949,7 @@ typedef struct lfs3 {
     uint8_t grm_d[LFS3_GRM_DSIZE];
 
     #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
-    // TODO do we only need known for the in-flight block-map?
-    // on-disk block-map
     lfs3_gbmap_t gbmap;
-    // in-flight block-map
-    struct {
-        lfs3_block_t cursor;
-        lfs3_block_t known;
-        lfs3_block_t free;
-        //lfs3_block_t erased; // TODO
-        lfs3_btree_t gbatc;
-    } bmap;
-    // block-map delta state
     uint8_t gbmap_p[LFS3_GBMAP_DSIZE];
     uint8_t gbmap_d[LFS3_GBMAP_DSIZE];
     #endif

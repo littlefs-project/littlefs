@@ -87,21 +87,23 @@
 #define LFS3_BMAP
 #endif
 
-// TODO is this the best way to structure this?
 // LFS3_BMAP mappings
 //
-// LFS3_YES_BMAP => LFS3_YES_BMAPFAST
-#ifdef LFS3_YES_BMAP
-#ifndef LFS3_YES_BMAPFAST
-#define LFS3_YES_BMAPFAST
-#endif
-#endif
+// TODO eventually allow runtime flags
+//
 // LFS3_YES_BMAP* => LFS3_BMAP
-#if defined(LFS3_YES_BMAPFAST) \
-        || defined(LFS3_YES_BMAPSLOW) \
-        || defined(LFS3_YES_BMAPCACHE) \
-        || defined(LFS3_YES_BMAPNONE)
+#if defined(LFS3_YES_BMAPCACHE) \
+        || defined(LFS3_YES_BMAPVFR) \
+        || defined(LFS3_YES_BMAPIFR)
 #define LFS3_BMAP
+#endif
+// TODO figure out the best default bmap mode
+// if LFS3_BMAP but no algorithm defined, default to LFS3_YES_BMAPCACHE
+#if defined(LFS3_BMAP) \
+        && !defined(LFS3_BMAPCACHE) \
+        && !defined(LFS3_BMAPVFR) \
+        && !defined(LFS3_BMAPIFR)
+#define LFS3_YES_BMAPCACHE
 #endif
 
 // LFS3_NO_LOG disables all logging macros

@@ -10552,10 +10552,8 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
         uint8_t buffer[static LFS3_GBMAP_DSIZE]) {
     // cursor should not exceed 31-bits
     LFS3_ASSERT(lfs3->gbmap.cursor <= 0x7fffffff);
-    // ctrled should not exceed 31-bits
-    LFS3_ASSERT(lfs3->gbmap.ctrled <= 0x7fffffff);
-    // unctrled should not exceed 31-bits
-    LFS3_ASSERT(lfs3->gbmap.unctrled <= 0x7fffffff);
+    // known should not exceed 31-bits
+    LFS3_ASSERT(lfs3->gbmap.known <= 0x7fffffff);
 
     // make sure to zero so we don't leak any info
     lfs3_memset(buffer, 0, LFS3_GBMAP_DSIZE);
@@ -10567,16 +10565,7 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
     }
     d += d_;
 
-    d_ = lfs3_toleb128(lfs3->gbmap.ctrled, &buffer[d], 5);
-    if (d_ < 0) {
-        LFS3_UNREACHABLE();
-    }
-    d += d_;
-
-    // in-driver unctrled contains both unctrled+ctrled airspaces to
-    // simplify bookkeeping
-    d_ = lfs3_toleb128(lfs3->gbmap.unctrled - lfs3->gbmap.ctrled,
-            &buffer[d], 5);
+    d_ = lfs3_toleb128(lfs3->gbmap.known, &buffer[d], 5);
     if (d_ < 0) {
         LFS3_UNREACHABLE();
     }
@@ -10596,19 +10585,10 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.ctrled);
+    err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.known);
     if (err) {
         return err;
     }
-
-    // in-driver unctrled contains both unctrled+ctrled airspaces to
-    // simplify bookkeeping
-    lfs3_block_t unctrled;
-    err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.unctrled);
-    if (err) {
-        return err;
-    }
-    lfs3->gbmap.unctrled += lfs3->gbmap.ctrled;
 
     err = lfs3_data_readbranch(lfs3, data, lfs3->block_count,
             &lfs3->gbmap.b.r);
@@ -10898,11 +10878,6 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     lfs3->lookahead.size -= 1;
     // decrement ckpoint
     lfs3->lookahead.ckpoint -= 1;
-    // decrement controlled/uncontrolled airspaces
-    #ifdef LFS3_BMAP
-    lfs3->gbmap.ctrled = lfs3_smax(lfs3->gbmap.ctrled-1, 0);
-    lfs3->gbmap.unctrled = lfs3_smax(lfs3->gbmap.unctrled-1, 0);
-    #endif
 }
 #endif
 
@@ -10990,77 +10965,77 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 
         // no blocks in our lookahead buffer?
 
-        // controlled airspace in our bmap?
-        #ifdef LFS3_BMAP
-        if (lfs3->gbmap.ctrled > 0) {
-            lfs3_ssize_t d = lfs3_bmap_findairspace(lfs3, lfs3_min(
-                    lfs3->gbmap.ctrled,
-                    lfs3->lookahead.ckpoint));
-            if (err) {
-                return err;
-            }
-
-            // TODO should markinuse, etc, take the lookahead buffer?
-            // TODO do we need to zero now that we're not using the full
-            // buffer?
-
-            // with a controlled airspace, we can trust all blocks
-            // states are exact
-            lfs3_alloc_markfree(lfs3, lfs3_min(
-                    lfs3->gbmap.ctrled,
-                    lfs3->lookahead.ckpoint));
-            continue;
-        }
-        #endif
-
-        // uncontrolled airspace in our bmap?
-        #ifdef LFS3_BMAP
-        if (lfs3->gbmap.unctrled > 0) {
-            // TODO this needs to know if in-flight blocks count?
-            lfs3_ssize_t d = lfs3_bmap_findairspace(lfs3, lfs3_min(
-                    lfs3->gbmap.unctrled,
-                    lfs3->lookahead.ckpoint));
-            if (err) {
-                return err;
-            }
-
-            // TODO should markinuse, etc, take the lookahead buffer?
-            // TODO do we need to zero now that we're not using the full
-            // buffer?
-
-            // with an uncontrolled airspace, we need to check if there
-            // are any in-flight blocks
-            //
-            // note with our current implementation this can not contain
-            // any in-flight graft state
-            lfs3_trv_t trv;
-            lfs3_trv_init(&trv,
-                    LFS3_T_RDONLY
-                        | LFS3_T_LOOKAHEAD
-                        | LFS3_T_INFLIGHTONLY);
-            while (true) {
-                lfs3_bptr_t bptr;
-                lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &trv,
-                        &bptr);
-                if (tag < 0) {
-                    if (tag == LFS3_ERR_NOENT) {
-                        break;
-                    }
-                    return tag;
-                }
-
-                // track in-use blocks
-                lfs3_alloc_markinuse(lfs3, tag, &bptr);
-            }
-
-            // with a controlled airspace, we can trust all blocks
-            // states are exact
-            lfs3_alloc_markfree(lfs3, lfs3_min(
-                    lfs3->gbmap.ctrled,
-                    lfs3->lookahead.ckpoint));
-            continue;
-        }
-        #endif
+//        // controlled airspace in our bmap?
+//        #ifdef LFS3_BMAP
+//        if (lfs3->gbmap.ctrled > 0) {
+//            lfs3_ssize_t d = lfs3_bmap_findairspace(lfs3, lfs3_min(
+//                    lfs3->gbmap.ctrled,
+//                    lfs3->lookahead.ckpoint));
+//            if (err) {
+//                return err;
+//            }
+//
+//            // TODO should markinuse, etc, take the lookahead buffer?
+//            // TODO do we need to zero now that we're not using the full
+//            // buffer?
+//
+//            // with a controlled airspace, we can trust all blocks
+//            // states are exact
+//            lfs3_alloc_markfree(lfs3, lfs3_min(
+//                    lfs3->gbmap.ctrled,
+//                    lfs3->lookahead.ckpoint));
+//            continue;
+//        }
+//        #endif
+//
+//        // uncontrolled airspace in our bmap?
+//        #ifdef LFS3_BMAP
+//        if (lfs3->gbmap.unctrled > 0) {
+//            // TODO this needs to know if in-flight blocks count?
+//            lfs3_ssize_t d = lfs3_bmap_findairspace(lfs3, lfs3_min(
+//                    lfs3->gbmap.unctrled,
+//                    lfs3->lookahead.ckpoint));
+//            if (err) {
+//                return err;
+//            }
+//
+//            // TODO should markinuse, etc, take the lookahead buffer?
+//            // TODO do we need to zero now that we're not using the full
+//            // buffer?
+//
+//            // with an uncontrolled airspace, we need to check if there
+//            // are any in-flight blocks
+//            //
+//            // note with our current implementation this can not contain
+//            // any in-flight graft state
+//            lfs3_trv_t trv;
+//            lfs3_trv_init(&trv,
+//                    LFS3_T_RDONLY
+//                        | LFS3_T_LOOKAHEAD
+//                        | LFS3_T_INFLIGHTONLY);
+//            while (true) {
+//                lfs3_bptr_t bptr;
+//                lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &trv,
+//                        &bptr);
+//                if (tag < 0) {
+//                    if (tag == LFS3_ERR_NOENT) {
+//                        break;
+//                    }
+//                    return tag;
+//                }
+//
+//                // track in-use blocks
+//                lfs3_alloc_markinuse(lfs3, tag, &bptr);
+//            }
+//
+//            // with a controlled airspace, we can trust all blocks
+//            // states are exact
+//            lfs3_alloc_markfree(lfs3, lfs3_min(
+//                    lfs3->gbmap.ctrled,
+//                    lfs3->lookahead.ckpoint));
+//            continue;
+//        }
+//        #endif
  
 
 
@@ -15241,11 +15216,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_BMAP
     lfs3_btree_init(&lfs3->gbmap.b);
     lfs3->gbmap.cursor = 0;
-    lfs3->gbmap.ctrled = 0;
-    lfs3->gbmap.unctrled = 0;
-    lfs3_btree_init(&lfs3->bmap.gbatc);
-    lfs3->bmap.known = 0;
-    lfs3->bmap.free = 0;
+    lfs3->gbmap.known = 0;
     lfs3_memset(lfs3->gbmap_p, 0, LFS3_GBMAP_DSIZE);
     lfs3_memset(lfs3->gbmap_d, 0, LFS3_GBMAP_DSIZE);
     #endif
@@ -15321,17 +15292,38 @@ static int lfs3_deinit(lfs3_t *lfs3) {
 #define LFS3_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
 #define LFS3_WCOMPAT_DIR         0x00000010 // Directory files in use
 #define LFS3_WCOMPAT_GCKSUM      0x00001000 // Global-checksum in use
-#define LFS3_WCOMPAT_GBMAP       0x00002000 // Global block-map in use
+#define LFS3_WCOMPAT_GBMAP       0x00006000 // Global block-map in use
+#define LFS3_WCOMPAT_GBMAPNONE   0x00000000 // Gbmap not in use
+#define LFS3_WCOMPAT_GBMAPCACHE  0x00002000 // Gbmap in cache mode
+#define LFS3_WCOMPAT_GBMAPVFR    0x00004000 // Gbmap in VFR mode
+#define LFS3_WCOMPAT_GBMAPIFR    0x00006000 // Gbmap in IFR mode
+
 // internal
 #define LFS3_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
 // TODO this should really be calculated at runtime, we should allow no
 // gbmap when bmap mode == LFS3_M_BMAPNONE even when compiling with
 // LFS3_BMAP
+#if defined(LFS3_YES_BMAPCACHE)
 #define LFS3_WCOMPAT_COMPAT \
     (LFS3_WCOMPAT_DIR \
         | LFS3_WCOMPAT_GCKSUM \
-        | LFS3_IFDEF_BMAP(LFS3_WCOMPAT_GBMAP, 0))
+        | LFS3_WCOMPAT_GBMAPCACHE)
+#elif defined(LFS3_YES_BMAPVFR)
+#define LFS3_WCOMPAT_COMPAT \
+    (LFS3_WCOMPAT_DIR \
+        | LFS3_WCOMPAT_GCKSUM \
+        | LFS3_WCOMPAT_GBMAPVFR)
+#elif defined(LFS3_YES_BMAPIFR)
+#define LFS3_WCOMPAT_COMPAT \
+    (LFS3_WCOMPAT_DIR \
+        | LFS3_WCOMPAT_GCKSUM \
+        | LFS3_WCOMPAT_GBMAPIFR)
+#else
+#define LFS3_WCOMPAT_COMPAT \
+    (LFS3_WCOMPAT_DIR \
+        | LFS3_WCOMPAT_GCKSUM)
+#endif
 
 #define LFS3_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 // internal
@@ -15826,14 +15818,6 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         // TODO switch to read-only?
         return err;
     }
-
-    // setup bmap with last known cursor, this will be populated on
-    // first alloc
-    LFS3_ASSERT(lfs3->gbmap.unctrled == lfs3->block_count);
-    lfs3->bmap.gbatc = lfs3->gbmap.b;
-    lfs3->bmap.cursor = lfs3->gbmap.cursor;
-    lfs3->bmap.known = lfs3->gbmap.unctrled;
-    lfs3->bmap.free = 0;
     #endif
 
     return 0;
@@ -15887,14 +15871,12 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_CKDATA
     flags |= LFS3_M_CKDATA
     #endif
-    #if defined(LFS3_YES_BMAPFAST)
-    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPFAST;
-    #elif defined(LFS3_YES_BMAPSLOW)
-    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPSLOW;
-    #elif defined(LFS3_YES_BMAPCACHE)
+    #if defined(LFS3_YES_BMAPCACHE)
     flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPCACHE;
-    #elif defined(LFS3_YES_BMAPNONE)
-    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPNONE;
+    #elif defined(LFS3_YES_BMAPVFR)
+    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPVFR;
+    #elif defined(LFS3_YES_BMAPIFR)
+    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPIFR;
     #endif
 
     // unknown flags?
