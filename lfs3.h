@@ -843,8 +843,8 @@ typedef struct lfs3_grm {
 } lfs3_grm_t;
 
 // gbmap encoding:
-// .---+- -+- -+- -+- -. cursor: 1 leb128  <=5 bytes
-// | cursor            | known:  1 leb128  <=5 bytes
+// .---+- -+- -+- -+- -. window: 1 leb128  <=5 bytes
+// | window            | known:  1 leb128  <=5 bytes
 // +---+- -+- -+- -+- -+ block:  1 leb128  <=5 bytes
 // | known             | trunk:  1 leb128  <=4 bytes
 // +---+- -+- -+- -+- -+ cksum:  1 le32    4 bytes
@@ -857,7 +857,7 @@ typedef struct lfs3_grm {
 #define LFS3_GBMAP_DSIZE (5+5+5+4+4)
 
 typedef struct lfs3_gbmap {
-    lfs3_block_t cursor;
+    lfs3_block_t window;
     lfs3_block_t known;
     lfs3_btree_t b;
 } lfs3_gbmap_t;
@@ -916,8 +916,11 @@ typedef struct lfs3 {
     struct lfs3_lookahead {
         lfs3_block_t window;
         lfs3_block_t off;
-        lfs3_block_t size;
+        lfs3_block_t known;
         lfs3_block_t ckpoint;
+        #ifdef LFS3_BMAP
+        lfs3_block_t bmapped;
+        #endif
         uint8_t *buffer;
     } lookahead;
     #endif

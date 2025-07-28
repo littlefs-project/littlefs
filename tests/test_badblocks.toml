@@ -56,7 +56,7 @@ code = '''
         memset(lfs3.lookahead.buffer, 0, CFG->lookahead_size);
         lfs3.lookahead.window = 2;
         lfs3.lookahead.off = 0;
-        lfs3.lookahead.size = lfs3_min(8*CFG->lookahead_size,
+        lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
                 CFG->block_count-2);
         lfs3_alloc_ckpoint(&lfs3);
 
@@ -2011,7 +2011,7 @@ code = '''
     memset(lfs3.lookahead.buffer, 0, CFG->lookahead_size);
     lfs3.lookahead.window = 2;
     lfs3.lookahead.off = 0;
-    lfs3.lookahead.size = lfs3_min(8*CFG->lookahead_size,
+    lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
     lfs3_alloc_ckpoint(&lfs3);
 
@@ -3968,7 +3968,7 @@ code = '''
     memset(lfs3.lookahead.buffer, 0, CFG->lookahead_size);
     lfs3.lookahead.window = 2;
     lfs3.lookahead.off = 0;
-    lfs3.lookahead.size = lfs3_min(8*CFG->lookahead_size,
+    lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
     lfs3_alloc_ckpoint(&lfs3);
 
