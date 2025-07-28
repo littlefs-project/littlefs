@@ -2,10 +2,6 @@
 after = ['test_btree', 'test_mtree']
 ifdef = 'LFS3_BMAP'
 
-# maximize lookahead buffer, we don't actually gc so we only get one pass
-# of the disk for these tests
-defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
-
 # test simple set operations
 [cases.test_bmap_set_split]
 in = 'lfs3.c'
