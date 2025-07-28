@@ -2808,7 +2808,8 @@ class Gstate:
             block, trunk, cksum, d_ = frombranch(self.data, d); d += d_
             self.btree = Btree.fetchck(
                     mtree.bd, block, trunk,
-                    config.geometry.block_count,
+                    config.geometry.block_count
+                        if config.geometry is not None else 0,
                     cksum)
 
         def repr(self):
