@@ -9,7 +9,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
 
     // create an initial bmap
     lfs3_btree_t bmap;
@@ -70,7 +70,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
 
     // create an initial bmap
     lfs3_btree_t bmap;
@@ -135,7 +135,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
 
     // create an initial bmap
     lfs3_btree_t bmap;
@@ -201,7 +201,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
 
     // create an initial bmap
     lfs3_btree_t bmap;
@@ -268,7 +268,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
 
     // create an initial bmap
     lfs3_btree_t bmap;
@@ -318,7 +318,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
 
     // create an initial bmap
     lfs3_btree_t bmap;

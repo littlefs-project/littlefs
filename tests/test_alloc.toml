@@ -33,7 +33,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // start allocating
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
     lfs3_size_t alloced = 0;
     while (true) {
         lfs3_sblock_t block = lfs3_alloc(&lfs3, ERASE);
@@ -77,7 +77,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // start allocating
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
     lfs3_size_t alloced = 0;
     while (true) {
         lfs3_sblock_t block = lfs3_alloc(&lfs3, ERASE);
@@ -98,7 +98,7 @@ code = '''
     assert(alloced == COUNT-2);
 
     // ack again, effectively releasing all the previously alloced blocks
-    lfs3_alloc_ckpoint(&lfs3, NULL);
+    lfs3_alloc_ckpoint(&lfs3);
     alloced = 0;
     while (true) {
         lfs3_sblock_t block = lfs3_alloc(&lfs3, ERASE);
