@@ -12095,7 +12095,6 @@ int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
         // skip orphans, we pretend these don't exist
         if (tag == LFS3_TAG_ORPHAN) {
             dir->h.mdir.mid += 1;
-            dir->pos += 1;
             continue;
         }
 
