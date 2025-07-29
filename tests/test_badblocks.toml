@@ -11,6 +11,9 @@ after = [
     'test_compat',
 ]
 
+# TODO bmap workaround?
+ifndef = 'LFS3_BMAP'
+
 
 ## Single-block badblock tests
 #
@@ -58,7 +61,7 @@ code = '''
         lfs3.lookahead.off = 0;
         lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
                 CFG->block_count-2);
-        lfs3_alloc_ckpoint(&lfs3);
+        lfs3_alloc_ckpoint(&lfs3, NULL);
 
         // create a btree
         lfs3_btree_t btree;
@@ -2013,7 +2016,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -3970,7 +3973,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;

@@ -568,6 +568,17 @@ struct lfs3_cfg {
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
     #endif
+
+    // Threshold for when to rebuild block-map information. littlefs
+    // will attempt to rebuild the block-map when fewer than this many
+    // blocks are known. Larger values rebuild the block-map more
+    // frequently, reducing the chance of falling back to a slower
+    // allocator at a performance cost.
+    //
+    // 0 only rebuilds the block-map when empty.
+    #ifdef LFS3_BMAP
+    lfs3_block_t bmap_scan_thresh;
+    #endif
 };
 
 // File info structure

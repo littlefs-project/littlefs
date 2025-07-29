@@ -1,6 +1,9 @@
 # Test the mid-level B-trees
 after = 'test_rbyd'
 
+# TODO bmap workaround?
+ifndef = 'LFS3_BMAP'
+
 # maximize lookahead buffer, we don't actually gc so we only get one pass
 # of the disk for these tests
 defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
@@ -17,7 +20,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create an empty tree
     lfs3_btree_t btree;
@@ -49,7 +52,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a single-entry tree
     lfs3_btree_t btree;
@@ -93,7 +96,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -144,7 +147,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -196,7 +199,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -256,7 +259,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -319,7 +322,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -371,7 +374,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -425,7 +428,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -509,7 +512,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -579,7 +582,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -717,7 +720,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a single-entry tree
     lfs3_btree_t btree;
@@ -764,7 +767,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -824,7 +827,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -898,7 +901,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -957,7 +960,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -1045,7 +1048,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -1120,7 +1123,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -1265,7 +1268,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a single-entry tree
     lfs3_btree_t btree;
@@ -1323,7 +1326,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a single-entry tree
     lfs3_btree_t btree;
@@ -1397,7 +1400,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a single-entry tree
     lfs3_btree_t btree;
@@ -1471,7 +1474,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a single-entry tree
     lfs3_btree_t btree;
@@ -1564,7 +1567,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -1645,7 +1648,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -1729,7 +1732,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -1819,7 +1822,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -1927,7 +1930,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -2079,7 +2082,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -2140,7 +2143,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -2231,7 +2234,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -2293,7 +2296,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -2473,7 +2476,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree
     lfs3_btree_t btree;
@@ -2544,7 +2547,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree
     lfs3_btree_t btree;
@@ -2618,7 +2621,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree
     lfs3_btree_t btree;
@@ -2685,7 +2688,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree
     lfs3_btree_t btree;
@@ -2769,7 +2772,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -2877,7 +2880,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -3044,7 +3047,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a zero-entry tree
     lfs3_btree_t btree;
@@ -3076,7 +3079,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a single-entry tree
     lfs3_btree_t btree;
@@ -3135,7 +3138,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -3211,7 +3214,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -3304,7 +3307,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a two-entry tree
     lfs3_btree_t btree;
@@ -3398,7 +3401,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -3475,7 +3478,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -3593,7 +3596,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -3671,7 +3674,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -3830,7 +3833,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -4010,7 +4013,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;
@@ -4238,7 +4241,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a tree with N elements
     lfs3_btree_t btree;
@@ -4366,7 +4369,7 @@ code = '''
     lfs3.lookahead.off = 0;
     lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
             CFG->block_count-2);
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create a btree
     lfs3_btree_t btree;

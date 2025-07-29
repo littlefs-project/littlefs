@@ -42,7 +42,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     for (lfs3_size_t i = 0; i < N; i++) {
         lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
@@ -86,7 +86,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     for (lfs3_size_t i = 0; i < N; i++) {
         // force mroot to compact
@@ -133,7 +133,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     for (lfs3_size_t i = 0; i < N; i++) {
         lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
@@ -182,7 +182,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create a 2 large rattrs that needs to be uninlined
@@ -265,7 +265,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -360,7 +360,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -501,7 +501,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create entries
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -588,7 +588,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     bool sim[N];
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -697,7 +697,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -791,7 +791,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -887,7 +887,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -964,7 +964,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -1084,7 +1084,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -1206,7 +1206,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     bool sim[N];
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -1343,7 +1343,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create a 2 large rattrs that needs to be uninlined
@@ -1469,7 +1469,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -1609,7 +1609,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -1749,7 +1749,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // prepare mroot with an entry
@@ -1832,7 +1832,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // prepare mroot with an entry
@@ -1970,7 +1970,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // prepare mroot with an entry
@@ -2081,7 +2081,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -2226,7 +2226,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -2388,7 +2388,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -2495,7 +2495,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // force mroot to compact once, so the second compact below will
     // trigger a relocation
@@ -2588,7 +2588,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // force mroot to compact once, so the second compact below will
     // trigger a relocation
@@ -2695,7 +2695,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     bool sim[N];
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -2857,7 +2857,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -2917,7 +2917,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -2967,7 +2967,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -3019,7 +3019,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -3096,7 +3096,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -3187,7 +3187,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -3245,7 +3245,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -3342,7 +3342,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -3437,7 +3437,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -3547,7 +3547,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // setup our neighbors
     lfs3_handle_t left = {.flags=0};
@@ -3651,7 +3651,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // insert at least one entry
     lfs3_mdir_t mdir;
@@ -3757,7 +3757,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create a 2 large rattrs that needs to be uninlined
@@ -3897,7 +3897,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -4049,7 +4049,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -4234,7 +4234,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // insert at least one entry
     lfs3_mdir_t mdir;
@@ -4353,7 +4353,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     // create entries
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -4505,7 +4505,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     bool sim[N];
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -4678,7 +4678,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
 
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_MPTR(
@@ -4998,7 +4998,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // prepare mroot with an entry
@@ -5058,7 +5058,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
-    lfs3_alloc_ckpoint(&lfs3);
+    lfs3_alloc_ckpoint(&lfs3, NULL);
     lfs3_data_t data;
 
     // prepare mroot with an entry

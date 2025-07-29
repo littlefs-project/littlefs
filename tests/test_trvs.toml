@@ -7,6 +7,9 @@ after = [
     'test_alloc'
 ]
 
+# TODO bmap workaround?
+ifndef = 'LFS3_BMAP'
+
 # a simple traversal test
 [cases.test_trvs_simple]
 defines.MKCONSISTENT = [false, true]

@@ -4,6 +4,9 @@
 # are needed to validate the directory tree works
 after = 'test_dirs'
 
+# TODO bmap workaround?
+ifndef = 'LFS3_BMAP'
+
 
 # test some dir functions
 

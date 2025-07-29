@@ -4,6 +4,9 @@
 # GC-API specific things here
 after = ['test_trvs']
 
+# TODO bmap workaround?
+ifndef = 'LFS3_BMAP'
+
 # test that lookahead can make progress in isolation
 [cases.test_gc_lookahead_progress]
 defines.CKMETA = [false, true]

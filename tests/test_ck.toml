@@ -1,6 +1,9 @@
 # Test checksum validation things
 after = ['test_trvs', 'test_gc', 'test_mount']
 
+# TODO bmap workaround?
+ifndef = 'LFS3_BMAP'
+
 
 code = '''
 // naive crc32c

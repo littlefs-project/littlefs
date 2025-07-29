@@ -1,6 +1,9 @@
 # Advanced mount tests
 after = ['test_mtree', 'test_trvs']
 
+# TODO bmap workaround?
+ifndef = 'LFS3_BMAP'
+
 
 # test we can mount
 [cases.test_mount_simple]

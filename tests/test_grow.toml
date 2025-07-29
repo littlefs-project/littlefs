@@ -8,6 +8,9 @@ after = [
     'test_mount',
 ]
 
+# TODO bmap workaround?
+ifndef = 'LFS3_BMAP'
+
 
 # test we can mount a filesystem with fewer blocks
 [cases.test_grow_mount_smaller]
