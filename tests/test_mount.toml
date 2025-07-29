@@ -1,9 +1,6 @@
 # Advanced mount tests
 after = ['test_mtree', 'test_trvs']
 
-# TODO bmap workaround?
-ifndef = 'LFS3_BMAP'
-
 
 # test we can mount
 [cases.test_mount_simple]
@@ -89,7 +86,8 @@ code = '''
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -156,7 +154,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_LOOKAHEAD, mount performs a lookahead scan
@@ -172,7 +171,8 @@ code = '''
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -227,7 +227,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_COMPACT, mount compact any uncompacted blocks
@@ -244,7 +245,8 @@ code = '''
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // mdir should have been compacted
     lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
@@ -329,7 +331,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_MKCONSISTENT, mount cleans up orphans eagerly
@@ -347,7 +350,8 @@ code = '''
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     lfs3_file_open(&lfs3, &file, "cuttlefish", LFS3_O_RDONLY) => 0;

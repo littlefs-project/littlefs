@@ -10812,6 +10812,7 @@ static int lfs3_alloc_rebuildbmap(lfs3_t *lfs3);
 #if !defined(LFS3_RDONLY)
 static inline void lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     #ifndef LFS3_2BONLY
+    // checkpoint the allocator
     lfs3->lookahead.ckpoint = lfs3->block_count;
     #ifdef LFS3_BMAP
     // do we need to rebuild the bmap?
@@ -10821,6 +10822,8 @@ static inline void lfs3_alloc_ckpoint(lfs3_t *lfs3) {
         int err = lfs3_alloc_rebuildbmap(lfs3);
         // TODO lfs3_alloc_ckpoint should propagate errors
         LFS3_ASSERT(!err);
+//        // checkpoint the allocator again after rebuilding the bmap
+//        lfs3->lookahead.ckpoint = lfs3->block_count;
     }
     #endif
     #else
@@ -11497,13 +11500,10 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
             ? tag_ >= 0
             : tag_ == LFS3_ERR_NOENT);
 
-    // TODO should we have a GRMPOP rattr? to match GRMPUSH? The fact that
-    // lfs3_mdir_commit implicitly reverts grms is a bit counterintuitive
-    // 
     // commit our new directory into our parent, zeroing the grm in the
     // process
-    lfs3_alloc_ckpoint(lfs3);
     lfs3_grm_pop(lfs3);
+    lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_MASK12 | LFS3_TAG_DIR,
@@ -16560,10 +16560,10 @@ static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
         // we need to revert manually on error
         lfs3_grm_t grm_p = lfs3->grm;
 
-        // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
         // mark grm as taken care of
         lfs3_grm_pop(lfs3);
+        // checkpoint the allocator
+        lfs3_alloc_ckpoint(lfs3);
         // remove the rid while atomically updating our grm
         err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
                 LFS3_RATTR(LFS3_TAG_RM, -1)));

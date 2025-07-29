@@ -7,9 +7,6 @@ after = [
     'test_powerloss',
 ]
 
-# TODO bmap workaround?
-ifndef = 'LFS3_BMAP'
-
 # Note that most of the delicate relocation operations are already tested
 # in test_mtree. This mostly just covers high-level operations with
 # relatively aggressive wear-leveling.

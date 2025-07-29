@@ -4,9 +4,6 @@
 # GC-API specific things here
 after = ['test_trvs']
 
-# TODO bmap workaround?
-ifndef = 'LFS3_BMAP'
-
 # test that lookahead can make progress in isolation
 [cases.test_gc_lookahead_progress]
 defines.CKMETA = [false, true]
@@ -1461,7 +1458,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1576,7 +1574,8 @@ code = '''
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -1650,7 +1649,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1765,7 +1765,8 @@ code = '''
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // test that we can reset flags with lfs3_fs_unck
     lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
@@ -1779,7 +1780,8 @@ code = '''
                 // note ckdata implies ckmeta, but uncking ckdata does
                 // _not_ imply uncking ckmeta
                 | ((!(CKDATA && !CKMETA)) ? LFS3_I_CKMETA : 0)
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1894,7 +1896,8 @@ code = '''
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''

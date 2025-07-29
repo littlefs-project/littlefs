@@ -1,7 +1,7 @@
 # Test the mid-level B-trees
 after = 'test_rbyd'
 
-# TODO bmap workaround?
+# don't bother testing with more complicated block allocators
 ifndef = 'LFS3_BMAP'
 
 # maximize lookahead buffer, we don't actually gc so we only get one pass

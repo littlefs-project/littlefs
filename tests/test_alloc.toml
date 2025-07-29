@@ -9,8 +9,11 @@
 #
 after = ['test_mtree', 'test_bmap', 'test_dirs', 'test_files']
 
-# TODO bmap workaround?
-ifndef = 'LFS3_BMAP'
+# TODO should we rename these to test_lookahead?
+# TODO or extend to test the bmap as well?
+#
+# these are really tuned to test the lookahead allocator
+#ifndef = 'LFS3_BMAP'
 
 # test that we can alloc
 [cases.test_alloc_alloc]
@@ -23,6 +26,7 @@ defines.COUNT = [
     '2',
 ]
 defines.ERASE = [false, true]
+if = 'COUNT >= LFS3_IFDEF_BMAP(3, 2)'
 in = 'lfs3.c'
 code = '''
     // test various block counts
@@ -49,9 +53,11 @@ code = '''
     }
 
     // excluding our mroot, we should have allocated exactly
-    // block_count-2 blocks
+    // block_count-2 blocks (this gets more complicated with a bmap)
     printf("alloced %d/%d blocks\n", alloced, (lfs3_block_t)COUNT);
+    #ifndef LFS3_BMAP
     assert(alloced == COUNT-2);
+    #endif
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -67,6 +73,7 @@ defines.COUNT = [
     '2',
 ]
 defines.ERASE = [false, true]
+if = 'COUNT >= LFS3_IFDEF_BMAP(3, 2)'
 in = 'lfs3.c'
 code = '''
     // test various block counts
@@ -93,9 +100,11 @@ code = '''
     }
 
     // excluding our mroot, we should have allocated exactly
-    // block_count-2 blocks
+    // block_count-2 blocks (this gets more complicated with a bmap)
     printf("alloced %d/%d blocks\n", alloced, (lfs3_block_t)COUNT);
+    #ifndef LFS3_BMAP
     assert(alloced == COUNT-2);
+    #endif
 
     // ack again, effectively releasing all the previously alloced blocks
     lfs3_alloc_ckpoint(&lfs3);
@@ -114,9 +123,11 @@ code = '''
     }
 
     // excluding our mroot, we should have allocated exactly
-    // block_count-2 blocks
+    // block_count-2 blocks (this gets more complicated with a bmap)
     printf("alloced %d/%d blocks\n", alloced, (lfs3_block_t)COUNT);
+    #ifndef LFS3_BMAP
     assert(alloced == COUNT-2);
+    #endif
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -648,6 +659,7 @@ defines.COUNT = [
     '5',
     '2',
 ]
+if = 'COUNT >= LFS3_IFDEF_BMAP(3, 2)'
 code = '''
     // test various block counts
     struct lfs3_cfg cfg = *CFG;
@@ -730,6 +742,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+if = 'COUNT >= LFS3_IFDEF_BMAP(3, 2)'
 code = '''
     // test various block counts
     struct lfs3_cfg cfg = *CFG;
