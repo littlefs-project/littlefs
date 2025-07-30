@@ -11,8 +11,7 @@ after = [
     'test_compat',
 ]
 
-# TODO bmap workaround?
-ifndef = 'LFS3_BMAP'
+defines.INIT_BLOCKS = 'LFS3_IFDEF_BMAP(3, 2)'
 
 
 ## Single-block badblock tests
@@ -150,7 +149,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // test all possible bad blocks
-    for (lfs3_size_t i = 2;
+    for (lfs3_size_t i = INIT_BLOCKS;
             i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
             i++) {
         lfs3_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
@@ -268,7 +267,7 @@ fuzz = 'SEED'
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     // test all possible bad blocks
-    for (lfs3_size_t i = 2;
+    for (lfs3_size_t i = INIT_BLOCKS;
             i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
             i++) {
         lfs3_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
@@ -463,7 +462,7 @@ if = [
 ]
 code = '''
     // test all possible bad blocks
-    for (lfs3_size_t i = 2;
+    for (lfs3_size_t i = INIT_BLOCKS;
             i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
             i++) {
         lfs3_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
@@ -577,7 +576,7 @@ if = [
 ]
 code = '''
     // test all possible bad blocks
-    for (lfs3_size_t i = 2;
+    for (lfs3_size_t i = INIT_BLOCKS;
             i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
             i++) {
         lfs3_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
@@ -834,7 +833,7 @@ if = [
 ]
 code = '''
     // test all possible bad blocks
-    for (lfs3_size_t i = 2;
+    for (lfs3_size_t i = INIT_BLOCKS;
             i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
             i++) {
         lfs3_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
@@ -997,7 +996,7 @@ if = [
 ]
 code = '''
     // test all possible bad blocks
-    for (lfs3_size_t i = 2;
+    for (lfs3_size_t i = INIT_BLOCKS;
             i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
             i++) {
         lfs3_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
@@ -1449,7 +1448,7 @@ if = [
 ]
 code = '''
     // test all possible bad blocks
-    for (lfs3_size_t i = 2;
+    for (lfs3_size_t i = INIT_BLOCKS;
             i < ((BADBLOCK == -1) ? BLOCK_COUNT : 1);
             i++) {
         lfs3_size_t badblock = (BADBLOCK == -1) ? i : BADBLOCK;
@@ -2104,11 +2103,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (i >= 2) {
+            if (i >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i) => 0;
             }
         } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
+            if (i+BLOCK_COUNT/2 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
@@ -2223,11 +2222,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (i >= 2) {
+            if (i >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i) => 0;
             }
         } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
+            if (i+BLOCK_COUNT/2 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
@@ -2419,11 +2418,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (i >= 2) {
+            if (i >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i) => 0;
             }
         } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
+            if (i+BLOCK_COUNT/2 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
@@ -2534,11 +2533,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (i >= 2) {
+            if (i >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i) => 0;
             }
         } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
+            if (i+BLOCK_COUNT/2 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
@@ -2792,11 +2791,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (i >= 2) {
+            if (i >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i) => 0;
             }
         } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
+            if (i+BLOCK_COUNT/2 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
@@ -2956,11 +2955,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (i >= 2) {
+            if (i >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i) => 0;
             }
         } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
+            if (i+BLOCK_COUNT/2 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
@@ -3409,11 +3408,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (i >= 2) {
+            if (i >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i) => 0;
             }
         } else {
-            if (i+BLOCK_COUNT/2 >= 2) {
+            if (i+BLOCK_COUNT/2 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, i+BLOCK_COUNT/2) => 0;
             }
         }
@@ -4061,11 +4060,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (2*i+0 >= 2) {
+            if (2*i+0 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
-            if (2*i+1 >= 2) {
+            if (2*i+1 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
@@ -4180,11 +4179,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (2*i+0 >= 2) {
+            if (2*i+0 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
-            if (2*i+1 >= 2) {
+            if (2*i+1 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
@@ -4376,11 +4375,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (2*i+0 >= 2) {
+            if (2*i+0 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
-            if (2*i+1 >= 2) {
+            if (2*i+1 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
@@ -4491,11 +4490,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (2*i+0 >= 2) {
+            if (2*i+0 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
-            if (2*i+1 >= 2) {
+            if (2*i+1 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
@@ -4749,11 +4748,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (2*i+0 >= 2) {
+            if (2*i+0 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
-            if (2*i+1 >= 2) {
+            if (2*i+1 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
@@ -4911,11 +4910,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (2*i+0 >= 2) {
+            if (2*i+0 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
-            if (2*i+1 >= 2) {
+            if (2*i+1 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }
@@ -5364,11 +5363,11 @@ code = '''
     for (lfs3_size_t i = 0; i < BLOCK_COUNT/2; i++) {
         // mark our badblock as bad
         if (!MIRROR) {
-            if (2*i+0 >= 2) {
+            if (2*i+0 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+0) => 0;
             }
         } else {
-            if (2*i+1 >= 2) {
+            if (2*i+1 >= INIT_BLOCKS) {
                 lfs3_emubd_markbad(CFG, 2*i+1) => 0;
             }
         }

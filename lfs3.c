@@ -2380,7 +2380,7 @@ static inline bool lfs3_alloc_iserase(uint32_t flags) {
 // blocks are allocated at most once, and never reallocated, between
 // checkpoints
 #if !defined(LFS3_RDONLY)
-static inline void lfs3_alloc_ckpoint(lfs3_t *lfs3);
+static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3);
 #endif
 
 // discard any lookahead state, this is necessary if block_count changes
@@ -10494,7 +10494,11 @@ dropped:;
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
 
         // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
+        err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
+
         // compact the mdir
         err = lfs3_mdir_compact(lfs3, mdir);
         if (err) {
@@ -10810,7 +10814,7 @@ static int lfs3_alloc_rebuildbmap(lfs3_t *lfs3);
 // blocks are allocated at most once, and never reallocated, between
 // checkpoints
 #if !defined(LFS3_RDONLY)
-static inline void lfs3_alloc_ckpoint(lfs3_t *lfs3) {
+static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     #ifndef LFS3_2BONLY
     // checkpoint the allocator
     lfs3->lookahead.ckpoint = lfs3->block_count;
@@ -10820,14 +10824,15 @@ static inline void lfs3_alloc_ckpoint(lfs3_t *lfs3) {
             lfs3->cfg->bmap_scan_thresh,
             lfs3->block_count)) {
         int err = lfs3_alloc_rebuildbmap(lfs3);
-        // TODO lfs3_alloc_ckpoint should propagate errors
-        LFS3_ASSERT(!err);
-//        // checkpoint the allocator again after rebuilding the bmap
-//        lfs3->lookahead.ckpoint = lfs3->block_count;
+        if (err) {
+            return err;
+        }
     }
     #endif
+    return 0;
     #else
     (void)lfs3;
+    return 0;
     #endif
 }
 #endif
@@ -11477,8 +11482,13 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     // This is done automatically by lfs3_mdir_commit to avoid issues with
     // mid updates, since the mid technically doesn't exist yet...
 
+    // checkpoint the allocator
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // commit our bookmark and a grm to self-remove in case of powerloss
-    lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_BOOKMARK, +1, did_, NULL, 0),
@@ -11500,10 +11510,15 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
             ? tag_ >= 0
             : tag_ == LFS3_ERR_NOENT);
 
+    // checkpoint the allocator
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // commit our new directory into our parent, zeroing the grm in the
     // process
     lfs3_grm_pop(lfs3);
-    lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_MASK12 | LFS3_TAG_DIR,
@@ -11648,8 +11663,13 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
     // are we removing an opened file?
     bool zombie = lfs3_mid_isopen(lfs3, mdir.mid, -1);
 
+    // checkpoint the allocator
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // remove the metadata entry
-    lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             // create a stickynote if zombied
             //
@@ -11828,9 +11848,14 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     // mark old entry for removal with a grm
     lfs3_grm_push(lfs3, old_mdir.mid);
 
+    // checkpoint the allocator
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
-    lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &new_mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
                 LFS3_TAG_MASK12 | old_tag,
@@ -12269,8 +12294,13 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
         return err;
     }
 
+    // checkpoint the allocator
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // commit our attr
-    lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_DATA(
                 LFS3_TAG_ATTR(type), 0,
@@ -12325,8 +12355,13 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
         return err;
     }
 
+    // checkpoint the allocator
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // commit our removal
-    lfs3_alloc_ckpoint(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR(
                 LFS3_TAG_RM | LFS3_TAG_ATTR(type), 0)));
@@ -12623,9 +12658,14 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
         } else {
+            // checkpoint the allocator
+            err = lfs3_alloc_ckpoint(lfs3);
+            if (err) {
+                return err;
+            }
+
             // create a stickynote entry if we don't have one, this
             // reserves the mid until first sync
-            lfs3_alloc_ckpoint(lfs3);
             err = lfs3_mdir_commit(lfs3, &file->b.h.mdir, LFS3_RATTRS(
                     LFS3_RATTR_NAME(
                         LFS3_TAG_STICKYNOTE, +1,
@@ -13578,9 +13618,13 @@ static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_ASSERT(lfs3_o_isunsync(file->b.h.flags));
 
     // checkpoint the allocator
-    lfs3_alloc_ckpoint(lfs3);
+    int err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // finish crystallizing
-    int err = lfs3_file_crystallize_(lfs3, file,
+    err = lfs3_file_crystallize_(lfs3, file,
             file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr), -1, -1,
             0, NULL, 0);
     if (err) {
@@ -13600,7 +13644,10 @@ static int lfs3_file_flushset_(lfs3_t *lfs3, lfs3_file_t *file,
     lfs3_off_t pos = 0;
     while (size > 0) {
         // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
+        int err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
 
         // enough data for a block?
         #ifndef LFS3_2BONLY
@@ -13619,7 +13666,7 @@ static int lfs3_file_flushset_(lfs3_t *lfs3, lfs3_file_t *file,
 
             // write our data
             uint32_t cksum = 0;
-            int err = lfs3_bd_prog(lfs3, block, 0, buffer, d,
+            err = lfs3_bd_prog(lfs3, block, 0, buffer, d,
                     &cksum, true);
             if (err) {
                 // bad prog? try another block
@@ -13665,7 +13712,7 @@ static int lfs3_file_flushset_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_ssize_t d = lfs3_min(size, lfs3->cfg->fragment_size);
 
         // commit to bshrub/btree
-        int err = lfs3_file_commit(lfs3, file, pos, LFS3_RATTRS(
+        err = lfs3_file_commit(lfs3, file, pos, LFS3_RATTRS(
                 LFS3_RATTR_DATA(
                     LFS3_TAG_DATA, +d,
                     &LFS3_DATA_BUF(buffer, d))));
@@ -13700,7 +13747,10 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
     #ifndef LFS3_2BONLY
     while (size > 0) {
         // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
+        int err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
 
         // mid-crystallization? can we just resume crystallizing?
         //
@@ -13721,7 +13771,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             // mark as uncrystallized
             file->b.h.flags |= LFS3_o_UNCRYST;
             // crystallize
-            int err = lfs3_file_crystallize_(lfs3, file,
+            err = lfs3_file_crystallize_(lfs3, file,
                     block_start, -1, (pos + size) - block_start,
                     pos, buffer, size);
             if (err) {
@@ -13769,7 +13819,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookupnext(lfs3, file, poke,
+            err = lfs3_file_lookupnext(lfs3, file, poke,
                     &bid, &weight, &bptr);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
@@ -13802,7 +13852,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookupnext(lfs3, file, poke,
+            err = lfs3_file_lookupnext(lfs3, file, poke,
                     &bid, &weight, &bptr);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
@@ -13850,7 +13900,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             // mark as uncrystallized
             file->b.h.flags |= LFS3_o_UNCRYST;
             // crystallize
-            int err = lfs3_file_crystallize_(lfs3, file,
+            err = lfs3_file_crystallize_(lfs3, file,
                     block_start, -1, crystal_end - block_start,
                     pos, buffer, size);
             if (err) {
@@ -13874,7 +13924,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // and graft it into our bshrub/btree
         if (lfs3_o_isuncryst(file->b.h.flags)) {
             // finish crystallizing
-            int err = lfs3_file_crystallize_(lfs3, file,
+            err = lfs3_file_crystallize_(lfs3, file,
                     file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr), -1, -1,
                     0, NULL, 0);
             if (err) {
@@ -13895,7 +13945,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookupnext(lfs3, file,
+            err = lfs3_file_lookupnext(lfs3, file,
                     lfs3_min(
                         crystal_start-1,
                         file->b.shrub.r.weight-1),
@@ -13923,7 +13973,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // start crystallizing!
         //
         // lfs3_file_crystallize_ handles block allocation/relocation
-        int err = lfs3_file_crystallize_(lfs3, file,
+        err = lfs3_file_crystallize_(lfs3, file,
                 crystal_start, -1, crystal_end - crystal_start,
                 pos, buffer, size);
         if (err) {
@@ -13949,7 +13999,10 @@ fragment:;
     // iteratively write fragments (inlined leaves)
     while (size > 0) {
         // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
+        int err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
 
         // do we need to discard our leaf? we need to discard fragments
         // in case the underlying rbyd compacts, and we need to discard
@@ -13986,7 +14039,7 @@ fragment:;
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookupnext(lfs3, file,
+            err = lfs3_file_lookupnext(lfs3, file,
                     fragment_start-1,
                     &bid, &weight, &bptr);
             if (err) {
@@ -14020,7 +14073,7 @@ fragment:;
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
-            int err = lfs3_file_lookupnext(lfs3, file,
+            err = lfs3_file_lookupnext(lfs3, file,
                     fragment_end,
                     &bid, &weight, &bptr);
             if (err) {
@@ -14046,7 +14099,7 @@ fragment:;
 
         // once we've figured out what fragment to write, graft it into
         // our tree
-        int err = lfs3_file_graft_(lfs3, file,
+        err = lfs3_file_graft_(lfs3, file,
                 fragment_start, fragment_end - fragment_start, 0,
                 datas, data_count);
         if (err) {
@@ -14446,10 +14499,15 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
     if (rattr_count > 0) {
         // make sure we don't overflow our rattr buffer
         LFS3_ASSERT(rattr_count <= sizeof(rattrs)/sizeof(lfs3_rattr_t));
+
         // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
+        int err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
+
         // and commit!
-        int err = lfs3_mdir_commit(lfs3, &file->b.h.mdir,
+        err = lfs3_mdir_commit(lfs3, &file->b.h.mdir,
                 rattrs, rattr_count);
         if (err) {
             return err;
@@ -14743,7 +14801,11 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     file->b.h.flags |= LFS3_o_UNSYNC;
 
     // checkpoint the allocator
-    lfs3_alloc_ckpoint(lfs3);
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // truncate our btree
     err = lfs3_file_graft_(lfs3, file,
             lfs3_min(size, size_), size - lfs3_min(size, size_),
@@ -14825,7 +14887,11 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     file->b.h.flags |= LFS3_o_UNSYNC;
 
     // checkpoint the allocator
-    lfs3_alloc_ckpoint(lfs3);
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // fruncate our btree
     err = lfs3_file_graft_(lfs3, file,
             0, lfs3_smax(size - size_, 0),
@@ -16197,6 +16263,10 @@ static int lfs3_formatbmap(lfs3_t *lfs3) {
     #endif
 
     // TODO should we try multiple blocks?
+    //
+    // TODO if we try multiple blocks we should update test_badblocks
+    // to test block 3 when bmap is present
+    //
     // assume we can write bmap to block 2
     lfs3->gbmap.window = 3;
     lfs3->gbmap.known = lfs3->cfg->block_count;
@@ -16562,8 +16632,13 @@ static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
 
         // mark grm as taken care of
         lfs3_grm_pop(lfs3);
+
         // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
+        err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
+
         // remove the rid while atomically updating our grm
         err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
                 LFS3_RATTR(LFS3_TAG_RM, -1)));
@@ -16616,7 +16691,11 @@ static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
                 lfs3_dbgmrid(lfs3, mdir->mid));
 
         // checkpoint the allocator
-        lfs3_alloc_ckpoint(lfs3);
+        err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
+
         // remove the orphaned stickynote
         err = lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(
                 LFS3_RATTR(LFS3_TAG_RM, -1)));
@@ -16769,7 +16848,10 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
     while (pending && (lfs3_off_t)steps > 0) {
         // checkpoint the allocator to maximize any lookahead scans
         #ifndef LFS3_RDONLY
-        lfs3_alloc_ckpoint(lfs3);
+        int err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
         #endif
 
         // start a new traversal?
@@ -16908,9 +16990,14 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
     // discard stale lookahead buffer
     lfs3_alloc_discard(lfs3);
 
+    // checkpoint the allocator
+    int err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     // update our on-disk config
-    lfs3_alloc_ckpoint(lfs3);
-    int err = lfs3_mdir_commit(lfs3, &lfs3->mroot, LFS3_RATTRS(
+    err = lfs3_mdir_commit(lfs3, &lfs3->mroot, LFS3_RATTRS(
             LFS3_RATTR_GEOMETRY(
                 LFS3_TAG_GEOMETRY, 0,
                 (&(lfs3_geometry_t){
@@ -17008,7 +17095,10 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
 
     // checkpoint the allocator to maximize any lookahead scans
     #ifndef LFS3_RDONLY
-    lfs3_alloc_ckpoint(lfs3);
+    int err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
     #endif
 
     while (true) {

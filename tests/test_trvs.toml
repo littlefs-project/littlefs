@@ -7,9 +7,6 @@ after = [
     'test_alloc'
 ]
 
-# TODO bmap workaround?
-ifndef = 'LFS3_BMAP'
-
 # a simple traversal test
 [cases.test_trvs_simple]
 defines.MKCONSISTENT = [false, true]
@@ -38,6 +35,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -72,6 +74,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     lfs3_trv_rewind(&lfs3, &trv) => 0;
@@ -81,6 +88,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -115,6 +127,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
@@ -1696,7 +1713,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing
     lfs3_trv_t trv;
@@ -1714,6 +1732,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -1725,7 +1748,8 @@ code = '''
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -1779,6 +1803,11 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -1789,7 +1818,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -1825,6 +1855,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
@@ -1841,7 +1876,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try another mutation just for good measure
     lfs3_file_open(&lfs3, &file, "tarantula",
@@ -1861,7 +1897,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -1907,6 +1944,11 @@ code = '''
         lfs3_mkdir(&lfs3, "spider") => 0;
     }
 
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -1917,7 +1959,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -1967,6 +2010,11 @@ code = '''
         lfs3_remove(&lfs3, "spider") => 0;
     }
 
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -1977,7 +2025,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -2022,6 +2071,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
 
     if (WHEN == 2) {
         lfs3_rename(&lfs3, "spider", "scorpion") => 0;
@@ -2037,7 +2091,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -2109,7 +2164,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -2192,7 +2248,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -2276,6 +2333,11 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2286,7 +2348,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -2379,6 +2442,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2389,7 +2457,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -2475,6 +2544,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2483,9 +2557,10 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_LOOKAHEAD
-               | LFS3_I_COMPACT
+                | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -2561,6 +2636,11 @@ code = '''
     lfs3_file_flush(&lfs3, &file1) => 0;
 
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2571,7 +2651,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_file_close(&lfs3, &file1) => 0;
     lfs3_file_close(&lfs3, &file2) => 0;
@@ -2666,6 +2747,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2676,7 +2762,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_file_close(&lfs3, &file1) => 0;
     lfs3_file_close(&lfs3, &file2) => 0;
@@ -2764,6 +2851,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2774,7 +2866,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_file_close(&lfs3, &file1) => 0;
     lfs3_file_close(&lfs3, &file2) => 0;
@@ -2853,6 +2946,11 @@ code = '''
     lfs3_file_close(&lfs3, &file1) => 0;
 
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2867,7 +2965,8 @@ code = '''
                 | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
                     ? LFS3_I_CKMETA
                     : 0)
-                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)));
+                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_file_close(&lfs3, &file2) => 0;
 
@@ -2965,6 +3064,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2979,7 +3083,8 @@ code = '''
                 | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
                     ? LFS3_I_CKMETA
                     : 0)
-                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)));
+                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_file_close(&lfs3, &file2) => 0;
 
@@ -3070,6 +3175,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3084,7 +3194,8 @@ code = '''
                 | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
                     ? LFS3_I_CKMETA
                     : 0)
-                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)));
+                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     lfs3_file_close(&lfs3, &file2) => 0;
 
@@ -3170,6 +3281,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3184,7 +3300,8 @@ code = '''
                 | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
                     ? LFS3_I_CKMETA
                     : 0)
-                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)));
+                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => LFS3_ERR_NOENT;
@@ -3273,6 +3390,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3283,7 +3405,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => LFS3_ERR_NOENT;
@@ -3372,6 +3495,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3382,7 +3510,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -3479,6 +3608,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3489,7 +3623,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -3597,6 +3732,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3607,7 +3747,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -3715,6 +3856,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3725,7 +3871,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -3820,6 +3967,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3830,7 +3982,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -3919,6 +4072,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3929,7 +4087,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -4033,6 +4192,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4043,7 +4207,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -4146,6 +4311,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4156,7 +4326,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -4312,6 +4483,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4322,7 +4498,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -4495,6 +4672,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4505,7 +4687,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -4672,6 +4855,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4682,7 +4870,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -4846,6 +5035,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4856,7 +5050,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -5027,6 +5222,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5037,7 +5237,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -5207,6 +5408,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5217,7 +5423,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -5398,6 +5605,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5408,7 +5620,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -5475,7 +5688,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing and compacting
     lfs3_trv_t trv;
@@ -5493,6 +5707,11 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdir should have been compacted
@@ -5504,7 +5723,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // running another traversal should clear the uncompacted flag
     lfs3_trv_rewind(&lfs3, &trv) => 0;
@@ -5526,7 +5746,8 @@ code = '''
             ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5606,7 +5827,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing and compacting
     lfs3_trv_t trv;
@@ -5629,6 +5851,11 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mrootanchor should have been compacted
@@ -5643,7 +5870,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // running another traversal should clear the uncompacted flag
     lfs3_trv_rewind(&lfs3, &trv) => 0;
@@ -5667,7 +5895,8 @@ code = '''
             ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5729,7 +5958,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing and compacting
     lfs3_trv_t trv;
@@ -5749,6 +5979,11 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdir should have been compacted
@@ -5760,7 +5995,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // running another traversal should clear the uncompacted flag
     lfs3_trv_rewind(&lfs3, &trv) => 0;
@@ -5782,7 +6018,8 @@ code = '''
             ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -5871,7 +6108,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing and compacting
     lfs3_trv_t trv;
@@ -5902,6 +6140,11 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdirs should have been compacted
@@ -5914,7 +6157,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // running another traversal should clear the uncompacted flag
     lfs3_trv_rewind(&lfs3, &trv) => 0;
@@ -5937,7 +6181,8 @@ code = '''
             ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6080,7 +6325,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing and compacting
     lfs3_trv_t trv;
@@ -6116,6 +6362,11 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     if (COMPACTSET) {
@@ -6130,7 +6381,8 @@ code = '''
                 LFS3_I_LOOKAHEAD
                     | LFS3_I_COMPACT
                     | LFS3_I_CKMETA
-                    | LFS3_I_CKDATA));
+                    | LFS3_I_CKDATA
+                    | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
         // running another traversal should clear the uncompacted flag
         lfs3_trv_rewind(&lfs3, &trv) => 0;
@@ -6155,7 +6407,8 @@ code = '''
             ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6303,7 +6556,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing and compacting
     lfs3_trv_t trv;
@@ -6344,6 +6598,11 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdirs should have been compacted
@@ -6358,7 +6617,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // running another traversal should clear the uncompacted flag
     lfs3_trv_rewind(&lfs3, &trv) => 0;
@@ -6383,7 +6643,8 @@ code = '''
             ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6497,7 +6758,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing with mkconsistent
     lfs3_trv_t trv;
@@ -6529,6 +6791,11 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
     }
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -6549,7 +6816,8 @@ code = '''
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6621,7 +6889,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing with mkconsistent
     lfs3_trv_t trv;
@@ -6675,6 +6944,11 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
     }
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -6694,7 +6968,8 @@ code = '''
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6792,7 +7067,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing with mkconsistent
     lfs3_trv_t trv;
@@ -6838,6 +7114,11 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     }
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -6858,7 +7139,8 @@ code = '''
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -6956,7 +7238,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing with mkconsistent
     lfs3_trv_t trv;
@@ -7002,6 +7285,11 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     }
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -7022,7 +7310,8 @@ code = '''
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7121,7 +7410,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing with mkconsistent
     lfs3_trv_t trv;
@@ -7175,6 +7465,11 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     }
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -7195,7 +7490,8 @@ code = '''
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7294,7 +7590,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing with mkconsistent
     lfs3_trv_t trv;
@@ -7348,6 +7645,11 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
     }
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -7368,7 +7670,8 @@ code = '''
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7485,7 +7788,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing with mkconsistent
     lfs3_trv_t trv;
@@ -7518,6 +7822,11 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
     }
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // we should have cleaned up all grms/orphans
@@ -7541,7 +7850,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // running another traversal should clear the uncompacted flag
     lfs3_trv_rewind(&lfs3, &trv) => 0;
@@ -7564,7 +7874,8 @@ code = '''
             ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)));
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7659,7 +7970,8 @@ code = '''
             LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // try traversing with mkconsistent
     lfs3_trv_t trv;
@@ -7714,6 +8026,11 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
     }
+    #ifdef LFS3_BMAP
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    assert(tinfo.block == 2);
+    #endif
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -7736,7 +8053,8 @@ code = '''
                 | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
-                | LFS3_I_CKDATA));
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {

@@ -8,7 +8,7 @@ after = [
     'test_mount',
 ]
 
-# TODO bmap workaround?
+# TODO!! lfs3_fs_grow needs to be able to adjust an on-disk bmaps
 ifndef = 'LFS3_BMAP'
 
 

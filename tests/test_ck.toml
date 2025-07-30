@@ -1,9 +1,6 @@
 # Test checksum validation things
 after = ['test_trvs', 'test_gc', 'test_mount']
 
-# TODO bmap workaround?
-ifndef = 'LFS3_BMAP'
-
 
 code = '''
 // naive crc32c
@@ -988,6 +985,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+in = 'lfs3.c'
 code = '''
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -1026,7 +1024,8 @@ code = '''
                 goto done;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            if (tinfo.btype == LFS3_BTYPE_BTREE
+                    && lfs3_t_tstate(trv.b.h.flags) != LFS3_TSTATE_BMAP) {
                 if (k == i) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -1085,6 +1084,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+in = 'lfs3.c'
 code = '''
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -1123,8 +1123,9 @@ code = '''
                 goto done;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE
-                    || tinfo.btype == LFS3_BTYPE_DATA) {
+            if ((tinfo.btype == LFS3_BTYPE_BTREE
+                        || tinfo.btype == LFS3_BTYPE_DATA)
+                    && lfs3_t_tstate(trv.b.h.flags) != LFS3_TSTATE_BMAP) {
                 if (k == i) {
                     // clobber this block
                     printf("clobbering 0x%x\n", tinfo.block);
@@ -1188,6 +1189,7 @@ defines.SIZE = [
 defines.SEED = 42
 defines.M = 100
 fuzz = 'SEED'
+in = 'lfs3.c'
 code = '''
     uint32_t prng_ = SEED;
     for (lfs3_block_t i = 0;; i++) {
@@ -1228,7 +1230,8 @@ code = '''
                 goto done;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            if (tinfo.btype == LFS3_BTYPE_BTREE
+                    && lfs3_t_tstate(trv.b.h.flags) != LFS3_TSTATE_BMAP) {
                 // found an interesting block?
                 if (k == i) {
                     badblock = tinfo.block;
@@ -1336,6 +1339,7 @@ defines.SIZE = [
 defines.SEED = 42
 defines.M = 100
 fuzz = 'SEED'
+in = 'lfs3.c'
 code = '''
     uint32_t prng_ = SEED;
     for (lfs3_block_t i = 0;; i++) {
@@ -1376,8 +1380,9 @@ code = '''
                 goto done;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE
-                    || tinfo.btype == LFS3_BTYPE_DATA) {
+            if ((tinfo.btype == LFS3_BTYPE_BTREE
+                        || tinfo.btype == LFS3_BTYPE_DATA)
+                    && lfs3_t_tstate(trv.b.h.flags) != LFS3_TSTATE_BMAP) {
                 // found an interesting block?
                 if (k == i) {
                     badblock = tinfo.block;
