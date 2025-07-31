@@ -6907,9 +6907,16 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
                 && h->mdir.mid == bshrub->h.mdir.mid
                 && lfs3_bshrub_isbshrub((lfs3_bshrub_t*)h)) {
             ((lfs3_bshrub_t*)h)->shrub.r.eoff = estimate;
+            // TODO bit of a hack, is this the best way to make sure
+            // estimate is not clobbered on redundant shrub sync? should
+            // we instead let eoff/estimate survive staging in mdir
+            // commit?
+            ((lfs3_bshrub_t*)h)->shrub_.eoff = estimate;
         }
     }
     LFS3_ASSERT(bshrub->shrub.r.eoff == (lfs3_size_t)estimate);
+    // note above layers may redundantly sync shrub_ -> shrub
+    LFS3_ASSERT(bshrub->shrub_.eoff == (lfs3_size_t)estimate);
 
     return 0;
 }
