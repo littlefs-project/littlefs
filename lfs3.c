@@ -10284,6 +10284,11 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_HANDLES);
                         continue;
                     // end of bmap? guess we're done
+                    //
+                    // note that new bmaps _always_ contains the entirety of
+                    // the previous bmap, this avoids needing to traverse
+                    // both the on-disk bmap and active bmap for things like
+                    // lookahead scans
                     } else if (lfs3_t_tstate(trv->b.h.flags)
                             == LFS3_TSTATE_BMAP) {
                         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_DONE);
@@ -11368,6 +11373,10 @@ static int lfs3_alloc_rebuildbmap(lfs3_t *lfs3) {
     // the next mdir commit, most writes terminate in an mdir commit so
     // this avoids extra writing at a risk of needing to reconstruct the
     // bmap if we lose power
+    //
+    // note that new bmaps _always_ contains the entirety of the
+    // previous bmap, this avoids needing to traverse both the on-disk
+    // bmap and active bmap for things like lookahead scans
     //
     // don't worry about window/known, lfs3_mdir_commit updates these
     // last minute before calculating gdeltas for a commit
@@ -16818,10 +16827,16 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
 
     while (pending && (lfs3_off_t)steps > 0) {
         // checkpoint the allocator to maximize any lookahead scans
+        //
+        // TODO how does the bmap interact with LFS3_T_LOOKAHEAD? Should
+        // we populate it? use a different flag?
+        //
         #ifndef LFS3_RDONLY
-        int err = lfs3_alloc_ckpoint(lfs3);
-        if (err) {
-            return err;
+        if (lfs3_t_islookahead(trv->b.h.flags)) {
+            int err = lfs3_alloc_ckpoint(lfs3);
+            if (err) {
+                return err;
+            }
         }
         #endif
 
@@ -17059,10 +17074,16 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
     #endif
 
     // checkpoint the allocator to maximize any lookahead scans
+    //
+    // TODO how does the bmap interact with LFS3_T_LOOKAHEAD? Should
+    // we populate it? use a different flag?
+    //
     #ifndef LFS3_RDONLY
-    int err = lfs3_alloc_ckpoint(lfs3);
-    if (err) {
-        return err;
+    if (lfs3_t_islookahead(trv->b.h.flags)) {
+        int err = lfs3_alloc_ckpoint(lfs3);
+        if (err) {
+            return err;
+        }
     }
     #endif
 
