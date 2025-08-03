@@ -498,7 +498,7 @@ def punescape(s, attrs=None):
             '|' '%u....'
             '|' '%U........'
             '|' '%\((?P<field>[^)]*)\)'
-                '(?P<format>[+\- #0-9\.]*[sdboxXfFeEgG])')
+                '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])')
     def unescape(m):
         if m.group()[1] == '%': return '%'
         elif m.group()[1] == 'n': return '\n'
@@ -518,10 +518,16 @@ def punescape(s, attrs=None):
                 if isinstance(v, str):
                     v = dat(v, 0)
                 v = int(v)
-            elif f[-1] in 'fFeEgG':
+            elif f[-1] in 'iIfFeEgG':
                 if isinstance(v, str):
                     v = dat(v, 0)
                 v = float(v)
+                if f[-1] in 'iI':
+                    v = (si if 'i' in f[-1] else si2)(v)
+                    f = f.replace('i', 's').replace('I', 's')
+                    if '+' in f and not v.startswith('-'):
+                        v = '+'+v
+                    f = f.replace('+', '').replace('-', '')
             else:
                 f = ('<' if '-' in f else '>') + f.replace('-', '')
                 v = str(v)

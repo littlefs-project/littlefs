@@ -114,6 +114,38 @@ CHARS_BRAILLE = (
         '⠉⢉⡉⣉⠩⢩⡩⣩⠍⢍⡍⣍⠭⢭⡭⣭' '⠙⢙⡙⣙⠹⢹⡹⣹⠝⢝⡝⣝⠽⢽⡽⣽'
         '⠋⢋⡋⣋⠫⢫⡫⣫⠏⢏⡏⣏⠯⢯⡯⣯' '⠛⢛⡛⣛⠻⢻⡻⣻⠟⢟⡟⣟⠿⢿⡿⣿')
 
+SI_PREFIXES = {
+    18:  'E',
+    15:  'P',
+    12:  'T',
+    9:   'G',
+    6:   'M',
+    3:   'K',
+    0:   '',
+    -3:  'm',
+    -6:  'u',
+    -9:  'n',
+    -12: 'p',
+    -15: 'f',
+    -18: 'a',
+}
+
+SI2_PREFIXES = {
+    60:  'Ei',
+    50:  'Pi',
+    40:  'Ti',
+    30:  'Gi',
+    20:  'Mi',
+    10:  'Ki',
+    0:   '',
+    -10: 'mi',
+    -20: 'ui',
+    -30: 'ni',
+    -40: 'pi',
+    -50: 'fi',
+    -60: 'ai',
+}
+
 
 # some ways of block geometry representations
 # 512      -> 512
@@ -4023,6 +4055,38 @@ class CsvAttr:
 
         return len(self.keyed)
 
+# SI-prefix formatter
+def si(x):
+    if x == 0:
+        return '0'
+    # figure out prefix and scale
+    p = 3*mt.floor(mt.log(abs(x), 10**3))
+    p = min(18, max(-18, p))
+    # format with 3 digits of precision
+    s = '%.3f' % (abs(x) / (10.0**p))
+    s = s[:3+1]
+    # truncate but only digits that follow the dot
+    if '.' in s:
+        s = s.rstrip('0')
+        s = s.rstrip('.')
+    return '%s%s%s' % ('-' if x < 0 else '', s, SI_PREFIXES[p])
+
+# SI-prefix formatter for powers-of-two
+def si2(x):
+    if x == 0:
+        return '0'
+    # figure out prefix and scale
+    p = 10*mt.floor(mt.log(abs(x), 2**10))
+    p = min(30, max(-30, p))
+    # format with 3 digits of precision
+    s = '%.3f' % (abs(x) / (2.0**p))
+    s = s[:3+1]
+    # truncate but only digits that follow the dot
+    if '.' in s:
+        s = s.rstrip('0')
+        s = s.rstrip('.')
+    return '%s%s%s' % ('-' if x < 0 else '', s, SI2_PREFIXES[p])
+
 # parse %-escaped strings
 #
 # attrs can override __getitem__ for lazy attr generation
@@ -4033,7 +4097,7 @@ def punescape(s, attrs=None):
             '|' '%u....'
             '|' '%U........'
             '|' '%\((?P<field>[^)]*)\)'
-                '(?P<format>[+\- #0-9\.]*[sdboxXfFeEgG])')
+                '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])')
     def unescape(m):
         if m.group()[1] == '%': return '%'
         elif m.group()[1] == 'n': return '\n'
@@ -4053,10 +4117,16 @@ def punescape(s, attrs=None):
                 if isinstance(v, str):
                     v = dat(v, 0)
                 v = int(v)
-            elif f[-1] in 'fFeEgG':
+            elif f[-1] in 'iIfFeEgG':
                 if isinstance(v, str):
                     v = dat(v, 0)
                 v = float(v)
+                if f[-1] in 'iI':
+                    v = (si if 'i' in f[-1] else si2)(v)
+                    f = f.replace('i', 's').replace('I', 's')
+                    if '+' in f and not v.startswith('-'):
+                        v = '+'+v
+                    f = f.replace('+', '').replace('-', '')
             else:
                 f = ('<' if '-' in f else '>') + f.replace('-', '')
                 v = str(v)
@@ -4074,7 +4144,7 @@ def psplit(s):
             '|' '%u....'
             '|' '%U........'
             '|' '%\((?P<field>[^)]*)\)'
-                '(?P<format>[+\- #0-9\.]*[sdboxXfFeEgG])')
+                '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])')
     return [m.group() for m in re.finditer(pattern.pattern + '|.', s)]
 
 
