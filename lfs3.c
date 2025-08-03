@@ -7596,8 +7596,12 @@ static void lfs3_fs_clobber(lfs3_t *lfs3, uint32_t flags) {
 /// Global-state things ///
 
 // grm (global remove) things
+static inline lfs3_size_t lfs3_grm_count_(const lfs3_grm_t *grm) {
+    return (grm->queue[0] != 0) + (grm->queue[1] != 0);
+}
+
 static inline lfs3_size_t lfs3_grm_count(const lfs3_t *lfs3) {
-    return (lfs3->grm.queue[0] != 0) + (lfs3->grm.queue[1] != 0);
+    return lfs3_grm_count_(&lfs3->grm);
 }
 
 #ifndef LFS3_RDONLY
@@ -7627,16 +7631,16 @@ static inline bool lfs3_grm_ismidrm(const lfs3_t *lfs3, lfs3_smid_t mid) {
 }
 
 #ifndef LFS3_RDONLY
-static lfs3_data_t lfs3_data_fromgrm(const lfs3_t *lfs3,
+static lfs3_data_t lfs3_data_fromgrm(const lfs3_grm_t *grm,
         uint8_t buffer[static LFS3_GRM_DSIZE]) {
     // make sure to zero so we don't leak any info
     lfs3_memset(buffer, 0, LFS3_GRM_DSIZE);
 
     // encode grms
-    lfs3_size_t count = lfs3_grm_count(lfs3);
+    lfs3_size_t count = lfs3_grm_count_(grm);
     lfs3_ssize_t d = 0;
     for (lfs3_size_t i = 0; i < count; i++) {
-        lfs3_ssize_t d_ = lfs3_toleb128(lfs3->grm.queue[i], &buffer[d], 5);
+        lfs3_ssize_t d_ = lfs3_toleb128(grm->queue[i], &buffer[d], 5);
         if (d_ < 0) {
             LFS3_UNREACHABLE();
         }
@@ -7650,10 +7654,11 @@ static lfs3_data_t lfs3_data_fromgrm(const lfs3_t *lfs3,
 // required by lfs3_data_readgrm
 static inline lfs3_mid_t lfs3_mtree_weight(lfs3_t *lfs3);
 
-static int lfs3_data_readgrm(lfs3_t *lfs3, lfs3_data_t *data) {
+static int lfs3_data_readgrm(lfs3_t *lfs3, lfs3_data_t *data,
+        lfs3_grm_t *grm) {
     // clear first
-    lfs3->grm.queue[0] = 0;
-    lfs3->grm.queue[1] = 0;
+    grm->queue[0] = 0;
+    grm->queue[1] = 0;
 
     // decode grms, these are terminated by either a null (mid=0) or the
     // size of the grm buffer
@@ -7671,7 +7676,7 @@ static int lfs3_data_readgrm(lfs3_t *lfs3, lfs3_data_t *data) {
 
         // grm inside mtree?
         LFS3_ASSERT(mid < lfs3_mtree_weight(lfs3));
-        lfs3->grm.queue[i] = mid;
+        grm->queue[i] = mid;
     }
 
     return 0;
@@ -7679,9 +7684,10 @@ static int lfs3_data_readgrm(lfs3_t *lfs3, lfs3_data_t *data) {
 
 // predeclarations of other gstate, needed below
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
-static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
+static lfs3_data_t lfs3_data_fromgbmap(const lfs3_gbmap_t *gbmap,
         uint8_t buffer[static LFS3_GBMAP_DSIZE]);
-static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data);
+static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
+        lfs3_gbmap_t *gbmap);
 #endif
 
 
@@ -7711,11 +7717,11 @@ static void lfs3_fs_commitgdelta(lfs3_t *lfs3) {
     lfs3->gcksum_p = lfs3->gcksum;
 
     // keep track of the on-disk grm
-    lfs3_data_fromgrm(lfs3, lfs3->grm_p);
+    lfs3_data_fromgrm(&lfs3->grm, lfs3->grm_p);
 
     // keep track of the on-disk gbmap
     #ifdef LFS3_BMAP
-    lfs3_data_fromgbmap(lfs3, lfs3->gbmap_p);
+    lfs3_data_fromgbmap(&lfs3->gbmap, lfs3->gbmap_p);
     #endif
 }
 #endif
@@ -7728,7 +7734,8 @@ static void lfs3_fs_revertgdelta(lfs3_t *lfs3) {
 
     // revert to the on-disk grm
     int err = lfs3_data_readgrm(lfs3,
-            &LFS3_DATA_BUF(lfs3->grm_p, LFS3_GRM_DSIZE));
+            &LFS3_DATA_BUF(lfs3->grm_p, LFS3_GRM_DSIZE),
+            &lfs3->grm);
     if (err) {
         LFS3_UNREACHABLE();
     }
@@ -7736,7 +7743,8 @@ static void lfs3_fs_revertgdelta(lfs3_t *lfs3) {
     // revert to the on-disk gbmap
     #ifdef LFS3_BMAP
     err = lfs3_data_readgbmap(lfs3,
-            &LFS3_DATA_BUF(lfs3->gbmap_p, LFS3_GBMAP_DSIZE));
+            &LFS3_DATA_BUF(lfs3->gbmap_p, LFS3_GBMAP_DSIZE),
+            &lfs3->gbmap);
     if (err) {
         LFS3_UNREACHABLE();
     }
@@ -7752,7 +7760,7 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
 
     // pending grm state?
     uint8_t grmdelta_[LFS3_GRM_DSIZE];
-    lfs3_data_fromgrm(lfs3, grmdelta_);
+    lfs3_data_fromgrm(&lfs3->grm, grmdelta_);
     lfs3_memxor(grmdelta_, lfs3->grm_p, LFS3_GRM_DSIZE);
     lfs3_memxor(grmdelta_, lfs3->grm_d, LFS3_GRM_DSIZE);
 
@@ -7799,7 +7807,7 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     lfs3->gbmap.known = lfs3->lookahead.bmapped;
 
     uint8_t gbmapdelta_[LFS3_GBMAP_DSIZE];
-    lfs3_data_fromgbmap(lfs3, gbmapdelta_);
+    lfs3_data_fromgbmap(&lfs3->gbmap, gbmapdelta_);
     lfs3_memxor(gbmapdelta_, lfs3->gbmap_p, LFS3_GBMAP_DSIZE);
     lfs3_memxor(gbmapdelta_, lfs3->gbmap_d, LFS3_GBMAP_DSIZE);
 
@@ -10013,8 +10021,9 @@ enum lfs3_tstate {
     LFS3_TSTATE_HANDLES     = 6,
     LFS3_TSTATE_HBTREE      = 7,
     LFS3_TSTATE_BMAP        = 8,
+    LFS3_TSTATE_BMAP_P      = 9,
     #endif
-    LFS3_TSTATE_DONE        = 9,
+    LFS3_TSTATE_DONE        = 10,
 };
 
 static void lfs3_trv_init(lfs3_trv_t *trv, uint32_t flags) {
@@ -10258,6 +10267,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
         case LFS3_TSTATE_BTREE:;
         case LFS3_TSTATE_HBTREE:;
         case LFS3_TSTATE_BMAP:;
+        case LFS3_TSTATE_BMAP_P:;
             // traverse through our bshrub/btree
             tag = lfs3_bshrub_traverse(lfs3, &trv->b, trv->bid+1,
                     &trv->bid, NULL, &data);
@@ -10283,16 +10293,55 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                         trv->h = trv->h->next;
                         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_HANDLES);
                         continue;
-                    // end of bmap? guess we're done
+                    // end of bmap? check if we also have an outdated on-disk
+                    // bmap
                     //
-                    // note that new bmaps _always_ contains the entirety of
-                    // the previous bmap, this avoids needing to traverse
-                    // both the on-disk bmap and active bmap for things like
-                    // lookahead scans
-                    } else if (lfs3_t_tstate(trv->b.h.flags)
-                            == LFS3_TSTATE_BMAP) {
+                    // we need to include this in case the bmap is rebuilt
+                    // multiple times before an mdir commit
+                    } else if (LFS3_IFDEF_BMAP(
+                            lfs3_t_tstate(trv->b.h.flags)
+                                == LFS3_TSTATE_BMAP,
+                            false)) {
+                        #ifdef LFS3_BMAP
+                        // decode the on-disk gbmap
+                        //
+                        // TODO this adds 64 bytes of mostly unused stack
+                        // to the stack hot-path, can we avoid this somehow?
+                        // do we care in bmap mode?
+                        //
+                        lfs3_gbmap_t gbmap_p;
+                        err = lfs3_data_readgbmap(lfs3,
+                                &LFS3_DATA_BUF(lfs3->gbmap_p,
+                                    LFS3_GBMAP_DSIZE),
+                                &gbmap_p);
+                        if (err) {
+                            LFS3_UNREACHABLE();
+                        }
+
+                        // if on-disk bmap does not match the active bmap,
+                        // transition to traversing the on-disk bmap
+                        if (lfs3_btree_cmp(&gbmap_p.b, &lfs3->gbmap.b) != 0) {
+                            trv->b.shrub = gbmap_p.b;
+                            trv->bid = -2;
+                            lfs3_t_settstate(&trv->b.h.flags,
+                                        LFS3_TSTATE_BMAP_P);
+                            continue;
+                        // otherwise guess we're done
+                        } else {
+                            lfs3_t_settstate(&trv->b.h.flags,
+                                    LFS3_TSTATE_DONE);
+                            continue;
+                        }
+                        #endif
+                    // end of on-disk bmap? guess we're done
+                    } else if (LFS3_IFDEF_BMAP(
+                            lfs3_t_tstate(trv->b.h.flags)
+                                == LFS3_TSTATE_BMAP_P,
+                            false)) {
+                        #ifdef LFS3_BMAP
                         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_DONE);
                         continue;
+                        #endif
                     } else {
                         LFS3_UNREACHABLE();
                     }
@@ -10590,30 +10639,30 @@ eot:;
 /// Optional on-disk block map ///
 
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
-static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
+static lfs3_data_t lfs3_data_fromgbmap(const lfs3_gbmap_t *gbmap,
         uint8_t buffer[static LFS3_GBMAP_DSIZE]) {
     // window should not exceed 31-bits
-    LFS3_ASSERT(lfs3->gbmap.window <= 0x7fffffff);
+    LFS3_ASSERT(gbmap->window <= 0x7fffffff);
     // known should not exceed 31-bits
-    LFS3_ASSERT(lfs3->gbmap.known <= 0x7fffffff);
+    LFS3_ASSERT(gbmap->known <= 0x7fffffff);
 
     // make sure to zero so we don't leak any info
     lfs3_memset(buffer, 0, LFS3_GBMAP_DSIZE);
 
     lfs3_ssize_t d = 0;
-    lfs3_ssize_t d_ = lfs3_toleb128(lfs3->gbmap.window, &buffer[d], 5);
+    lfs3_ssize_t d_ = lfs3_toleb128(gbmap->window, &buffer[d], 5);
     if (d_ < 0) {
         LFS3_UNREACHABLE();
     }
     d += d_;
 
-    d_ = lfs3_toleb128(lfs3->gbmap.known, &buffer[d], 5);
+    d_ = lfs3_toleb128(gbmap->known, &buffer[d], 5);
     if (d_ < 0) {
         LFS3_UNREACHABLE();
     }
     d += d_;
 
-    lfs3_data_t data = lfs3_data_frombranch(&lfs3->gbmap.b.r, &buffer[d]);
+    lfs3_data_t data = lfs3_data_frombranch(&gbmap->b.r, &buffer[d]);
     d += lfs3_data_size(data);
 
     return LFS3_DATA_BUF(buffer, lfs3_memlen(buffer, LFS3_GBMAP_DSIZE));
@@ -10621,25 +10670,26 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_t *lfs3,
 #endif
 
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
-static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data) {
-    int err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.window);
+static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
+        lfs3_gbmap_t *gbmap) {
+    int err = lfs3_data_readleb128(lfs3, data, &gbmap->window);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &lfs3->gbmap.known);
+    err = lfs3_data_readleb128(lfs3, data, &gbmap->known);
     if (err) {
         return err;
     }
 
     err = lfs3_data_readbranch(lfs3, data, lfs3->block_count,
-            &lfs3->gbmap.b.r);
+            &gbmap->b.r);
     if (err) {
         return err;
     }
 
     // make sure to zero btree leaf
-    lfs3_btree_discardleaf(&lfs3->gbmap.b);
+    lfs3_btree_discardleaf(&gbmap->b);
     return 0;
 }
 #endif
@@ -11373,10 +11423,6 @@ static int lfs3_alloc_rebuildbmap(lfs3_t *lfs3) {
     // the next mdir commit, most writes terminate in an mdir commit so
     // this avoids extra writing at a risk of needing to reconstruct the
     // bmap if we lose power
-    //
-    // note that new bmaps _always_ contains the entirety of the
-    // previous bmap, this avoids needing to traverse both the on-disk
-    // bmap and active bmap for things like lookahead scans
     //
     // don't worry about window/known, lfs3_mdir_commit updates these
     // last minute before calculating gdeltas for a commit
@@ -16039,7 +16085,8 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 
     // decode grm so we can report any removed files as missing
     int err = lfs3_data_readgrm(lfs3,
-            &LFS3_DATA_BUF(lfs3->grm_d, LFS3_GRM_DSIZE));
+            &LFS3_DATA_BUF(lfs3->grm_d, LFS3_GRM_DSIZE),
+            &lfs3->grm);
     if (err) {
         // TODO switch to read-only?
         return err;
@@ -16062,7 +16109,8 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     #ifdef LFS3_BMAP
     // decode the global block-map
     err = lfs3_data_readgbmap(lfs3,
-            &LFS3_DATA_BUF(lfs3->gbmap_d, LFS3_GBMAP_DSIZE));
+            &LFS3_DATA_BUF(lfs3->gbmap_d, LFS3_GBMAP_DSIZE),
+            &lfs3->gbmap);
     if (err) {
         // TODO switch to read-only?
         return err;
@@ -16378,7 +16426,8 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                         || lfs3_m_isbmapcache(lfs3->flags))
                     ? LFS3_RATTR_DATA(LFS3_TAG_GBMAPDELTA, 0,
                         (&((struct {lfs3_data_t d;}){
-                            lfs3_data_fromgbmap(lfs3, lfs3->gbmap_d)}).d))
+                            lfs3_data_fromgbmap(&lfs3->gbmap,
+                                lfs3->gbmap_d)}).d))
                     : LFS3_RATTR_NOOP(),
         #endif
                 LFS3_RATTR_NAME(
