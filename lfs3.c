@@ -13993,18 +13993,14 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
 
         // if we're mid-crystallization, finish crystallizing the block
         // and graft it into our bshrub/btree
-        if (lfs3_o_isuncryst(file->b.h.flags)) {
-            // finish crystallizing
-            err = lfs3_file_crystallize(lfs3, file);
-            if (err) {
-                return err;
-            }
+        err = lfs3_file_crystallize(lfs3, file);
+        if (err) {
+            return err;
+        }
 
-            // and graft into tree
-            err = lfs3_file_graft(lfs3, file);
-            if (err) {
-                return err;
-            }
+        err = lfs3_file_graft(lfs3, file);
+        if (err) {
+            return err;
         }
 
         // before we can crystallize we need to figure out the best
