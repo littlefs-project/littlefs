@@ -13432,7 +13432,7 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file) {
 // this LFS3_NOINLINE is to force lfs3_file_crystallize__ off the stack
 // hot-path
 LFS3_NOINLINE
-static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t block_pos,
         lfs3_ssize_t crystal_min, lfs3_ssize_t crystal_max,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
@@ -13669,55 +13669,6 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         // mark as uncrystallized and ungrafted
         file->b.h.flags |= LFS3_o_UNCRYST | LFS3_o_UNGRAFT;
     }
-}
-#endif
-
-// note the slightly unique behavior when crystal_min=-1:
-// - crystal_min=-1 => crystal_min=crystal_max
-// - crystal_max=-1 => crystal_max=unbounded
-//
-// this helps avoid duplicate arguments with tight crystal bounds, if
-// you really want to crystallize as little as possible, use
-// crystal_min=0
-//
-// TODO flatten?
-//
-#if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
-static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
-        lfs3_off_t block_pos,
-        lfs3_ssize_t crystal_min, lfs3_ssize_t crystal_max,
-        lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
-    // this is split into two functions to try to minimize stack usage
-
-    // crystallize
-    int err = lfs3_file_crystallize__(lfs3, file,
-            block_pos, crystal_min, crystal_max,
-            pos, buffer, size);
-    if (err) {
-        goto failed;
-    }
-
-//    // if we fully crystallized, eagerly graft into the tree
-//    if (!lfs3_o_isuncryst(file->b.h.flags)) {
-//        err = lfs3_file_graft_(lfs3, file,
-//                file->leaf.pos, file->leaf.weight, 0,
-//                &file->leaf.bptr.d, LFS3_GRAFT_ISBPTR | 1);
-//        if (err) {
-//            goto failed;
-//        }
-//
-//        // mark as grafted
-//        file->b.h.flags &= ~LFS3_o_UNGRAFT;
-//    }
-
-    return 0;
-
-failed:;
-    // if we failed to crystallize we need to discard the leaf as it no
-    // longer matches the btree/bshrub state, this also clears the
-    // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
-    lfs3_file_discardleaf(file);
-    return err;
 }
 #endif
 
