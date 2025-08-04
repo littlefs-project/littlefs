@@ -7240,6 +7240,15 @@ static inline bool lfs3_o_isuncryst(uint32_t flags) {
     #endif
 }
 
+static inline bool lfs3_o_isungraft(uint32_t flags) {
+    (void)flags;
+    #if !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
+    return flags & LFS3_o_UNGRAFT;
+    #else
+    return false;
+    #endif
+}
+
 static inline bool lfs3_o_isunflush(uint32_t flags) {
     return flags & LFS3_o_UNFLUSH;
 }
@@ -10257,6 +10266,15 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
             trv->b.shrub = file->b.shrub;
             trv->bid = -2;
             lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_HBTREE);
+
+            // wait, do we have an ungrafted leaf?
+            #ifndef LFS3_KVONLY
+            if (lfs3_o_isungraft(file->b.h.flags)) {
+                *bptr_ = file->leaf.bptr;
+                return LFS3_TAG_BLOCK;
+            }
+            #endif
+
             continue;
         #endif
 
@@ -12463,7 +12481,7 @@ static inline void lfs3_file_discardcache(lfs3_file_t *file) {
 
 #ifndef LFS3_KVONLY
 static inline void lfs3_file_discardleaf(lfs3_file_t *file) {
-    file->b.h.flags &= ~LFS3_o_UNCRYST;
+    file->b.h.flags &= ~LFS3_o_UNCRYST & ~LFS3_o_UNGRAFT;
     file->leaf.pos = 0;
     file->leaf.weight = 0;
     lfs3_bptr_discard(&file->leaf.bptr);
@@ -12481,10 +12499,20 @@ static inline lfs3_size_t lfs3_file_cachesize(lfs3_t *lfs3,
             : lfs3->cfg->file_cache_size;
 }
 
+static inline lfs3_off_t lfs3_file_weight_(const lfs3_file_t *file) {
+    #ifndef LFS3_KVONLY
+    return lfs3_max(
+            file->leaf.pos + file->leaf.weight,
+            file->b.shrub.r.weight);
+    #else
+    return file->b.shrub.r.weight;
+    #endif
+}
+
 static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
     return lfs3_max(
             LFS3_IFDEF_KVONLY(0, file->cache.pos) + file->cache.size,
-            file->b.shrub.r.weight);
+            lfs3_file_weight_(file));
 }
 
 
@@ -12900,6 +12928,7 @@ static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, uint8_t *buffer, lfs3_size_t size) {
     // the leaf must not be pinned down here
     LFS3_ASSERT(!lfs3_o_isuncryst(file->b.h.flags));
+    LFS3_ASSERT(!lfs3_o_isungraft(file->b.h.flags));
 
     while (true) {
         // any data in our leaf?
@@ -13058,8 +13087,9 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // any data in our btree?
-        if (pos_ < file->b.shrub.r.weight) {
-            if (!lfs3_o_isuncryst(file->b.h.flags)) {
+        if (pos_ < lfs3_file_weight_(file)) {
+            if (!lfs3_o_isuncryst(file->b.h.flags)
+                    && !lfs3_o_isungraft(file->b.h.flags)) {
                 // bypass cache?
                 if ((lfs3_size_t)d >= lfs3_file_cachesize(lfs3, file)) {
                     lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
@@ -13360,6 +13390,36 @@ failed:;
 }
 #endif
 
+// graft any ungrafted leaves
+#if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY)
+static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file) {
+    // do nothing if our file is already grafted
+    if (!lfs3_o_isungraft(file->b.h.flags)) {
+        return 0;
+    }
+    // ungrafted files must be unsynced
+    LFS3_ASSERT(lfs3_o_isunsync(file->b.h.flags));
+
+    // checkpoint the allocator
+    int err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
+    // graft into the tree
+    err = lfs3_file_graft_(lfs3, file,
+            file->leaf.pos, file->leaf.weight, 0,
+            &file->leaf.bptr.d, LFS3_GRAFT_ISBPTR | 1);
+    if (err) {
+        return err;
+    }
+
+    // mark as grafted
+    file->b.h.flags &= ~LFS3_o_UNGRAFT;
+    return 0;
+}
+#endif
+
 // note the slightly unique behavior when crystal_min=-1:
 // - crystal_min=-1 => crystal_min=crystal_max
 // - crystal_max=-1 => crystal_max=unbounded
@@ -13591,6 +13651,9 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         LFS3_IFDEF_CKDATACKSUMS(
                 file->leaf.bptr.d.u.disk.cksum,
                 file->leaf.bptr.cksum) = lfs3->pcksum;
+
+        // mark as ungrafted
+        file->b.h.flags |= LFS3_o_UNGRAFT;
         return 0;
 
     relocate:;
@@ -13603,8 +13666,8 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
             return err;
         }
 
-        // mark as uncrystallized
-        file->b.h.flags |= LFS3_o_UNCRYST;
+        // mark as uncrystallized and ungrafted
+        file->b.h.flags |= LFS3_o_UNCRYST | LFS3_o_UNGRAFT;
     }
 }
 #endif
@@ -13616,6 +13679,8 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
 // this helps avoid duplicate arguments with tight crystal bounds, if
 // you really want to crystallize as little as possible, use
 // crystal_min=0
+//
+// TODO flatten?
 //
 #if !defined(LFS3_RDONLY) && !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
 static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
@@ -13632,20 +13697,25 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
         goto failed;
     }
 
-    // and graft into tree
-    err = lfs3_file_graft_(lfs3, file,
-            file->leaf.pos, file->leaf.weight, 0,
-            &file->leaf.bptr.d, LFS3_GRAFT_ISBPTR | 1);
-    if (err) {
-        goto failed;
-    }
+//    // if we fully crystallized, eagerly graft into the tree
+//    if (!lfs3_o_isuncryst(file->b.h.flags)) {
+//        err = lfs3_file_graft_(lfs3, file,
+//                file->leaf.pos, file->leaf.weight, 0,
+//                &file->leaf.bptr.d, LFS3_GRAFT_ISBPTR | 1);
+//        if (err) {
+//            goto failed;
+//        }
+//
+//        // mark as grafted
+//        file->b.h.flags &= ~LFS3_o_UNGRAFT;
+//    }
 
     return 0;
 
 failed:;
     // if we failed to crystallize we need to discard the leaf as it no
     // longer matches the btree/bshrub state, this also clears the
-    // LFS3_o_UNCRYST flag
+    // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
     lfs3_file_discardleaf(file);
     return err;
 }
@@ -13657,7 +13727,6 @@ static int lfs3_file_crystallize(lfs3_t *lfs3, lfs3_file_t *file) {
     if (!lfs3_o_isuncryst(file->b.h.flags)) {
         return 0;
     }
-
     // uncrystallized files must be unsynced
     LFS3_ASSERT(lfs3_o_isunsync(file->b.h.flags));
 
@@ -13812,7 +13881,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
                 && pos - block_end < lfs3->cfg->crystal_thresh
                 // need to bail if we can't meet prog alignment
                 && (pos + size) - block_end >= lfs3->cfg->prog_size) {
-            // mark as uncrystallized
+            // mark as uncrystallized to avoid allocating a new block
             file->b.h.flags |= LFS3_o_UNCRYST;
             // crystallize
             err = lfs3_file_crystallize_(lfs3, file,
@@ -13833,6 +13902,13 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             // we should be aligned now
             aligned = true;
             continue;
+        }
+
+        // if we can't resume crystallization, make sure any incomplete
+        // crystals are at least grafted into the tree
+        err = lfs3_file_graft(lfs3, file);
+        if (err) {
+            return err;
         }
 
         // before we can start writing, we need to figure out if we have
@@ -13968,15 +14044,16 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // and graft it into our bshrub/btree
         if (lfs3_o_isuncryst(file->b.h.flags)) {
             // finish crystallizing
-            err = lfs3_file_crystallize_(lfs3, file,
-                    file->leaf.pos - lfs3_bptr_off(&file->leaf.bptr), -1, -1,
-                    0, NULL, 0);
+            err = lfs3_file_crystallize(lfs3, file);
             if (err) {
                 return err;
             }
 
-            // we should have crystallized
-            LFS3_ASSERT(!lfs3_o_isuncryst(file->b.h.flags));
+            // and graft into tree
+            err = lfs3_file_graft(lfs3, file);
+            if (err) {
+                return err;
+            }
         }
 
         // before we can crystallize we need to figure out the best
@@ -14040,28 +14117,35 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
     return 0;
 
 fragment:;
+    // crystals should be grafted before we write any fragments
+    LFS3_ASSERT(!lfs3_o_isungraft(file->b.h.flags));
+
+    // do we need to discard our leaf?
+    //
+    // - we need to discard fragments in case the underlying rbyd
+    //   compacts
+    // - we need to discard overwritten blocks
+    // - but we really want to keep non-overwritten blocks in case
+    //   they contain erased-state!
+    //
+    // note we need to discard before attempting to graft since a
+    // single graft may be split up into multiple commits
+    //
+    // unfortunately we don't know where our fragment will end up
+    // until after the commit, so we can't track it in our leaf
+    // quite yet
+    if (!lfs3_bptr_isbptr(&file->leaf.bptr)
+            || (pos < file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr)
+                && pos + size > file->leaf.pos)) {
+        lfs3_file_discardleaf(file);
+    }
+
     // iteratively write fragments (inlined leaves)
     while (size > 0) {
         // checkpoint the allocator
         int err = lfs3_alloc_ckpoint(lfs3);
         if (err) {
             return err;
-        }
-
-        // do we need to discard our leaf? we need to discard fragments
-        // in case the underlying rbyd compacts, and we need to discard
-        // overwritten blocks
-        //
-        // note we need to discard before attempting to graft since a
-        // single graft may be split up into multiple commits
-        //
-        // unfortunately we don't know where our fragment will end up
-        // until after the commit, so we can't track it in our leaf
-        // quite yet
-        if (!lfs3_bptr_isbptr(&file->leaf.bptr)
-                || (pos < file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr)
-                    && pos + size > file->leaf.pos)) {
-            lfs3_file_discardleaf(file);
         }
 
         // truncate to our fragment size
@@ -14323,12 +14407,11 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     // do nothing if our file is already flushed, crystallized,
     // and grafted
     if (!lfs3_o_isunflush(file->b.h.flags)
-            && !lfs3_o_isuncryst(file->b.h.flags)) {
+            && !lfs3_o_isuncryst(file->b.h.flags)
+            && !lfs3_o_isungraft(file->b.h.flags)) {
         return 0;
     }
-    // unflushed files must be unsynced
-    LFS3_ASSERT(lfs3_o_isunsync(file->b.h.flags));
-    // uncrystallized files must be unsynced
+    // unflushed/uncrystallized files must be unsynced
     LFS3_ASSERT(lfs3_o_isunsync(file->b.h.flags));
     // unflushed files can't be readonly
     LFS3_ASSERT(!lfs3_o_isrdonly(file->b.h.flags));
@@ -14361,6 +14444,11 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     #if !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
     // and crystallize/graft our leaf
     err = lfs3_file_crystallize(lfs3, file);
+    if (err) {
+        goto failed;
+    }
+
+    err = lfs3_file_graft(lfs3, file);
     if (err) {
         goto failed;
     }
@@ -14397,8 +14485,9 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
     // small unflushed files must be unsync
     LFS3_ASSERT(!lfs3_o_isunflush(file->b.h.flags)
             || lfs3_o_isunsync(file->b.h.flags));
-    LFS3_ASSERT(!lfs3_o_isuncryst(file->b.h.flags)
-            || lfs3_o_isunsync(file->b.h.flags));
+    // uncrystallized leaves should've been flushed or discarded
+    LFS3_ASSERT(!lfs3_o_isuncryst(file->b.h.flags));
+    LFS3_ASSERT(!lfs3_o_isungraft(file->b.h.flags));
 
     // pending metadata changes?
     if (lfs3_o_isunsync(file->b.h.flags)) {
@@ -14426,8 +14515,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // pending small file flush?
-        if (lfs3_o_isunflush(file->b.h.flags)
-                || lfs3_o_isuncryst(file->b.h.flags)) {
+        if (lfs3_o_isunflush(file->b.h.flags)) {
             // this only works if the file is entirely in our cache
             #ifndef LFS3_KVONLY
             LFS3_ASSERT(file->cache.pos == 0);
@@ -14435,9 +14523,6 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
             LFS3_ASSERT(file->cache.size == lfs3_file_size_(file));
 
             // discard any lingering bshrub state
-            #ifndef LFS3_KVONLY
-            lfs3_file_discardleaf(file);
-            #endif
             lfs3_file_discardbshrub(file);
 
             // build a small shrub commit
@@ -14461,8 +14546,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
 
         // make sure data is on-disk before committing metadata
         if (lfs3_file_size_(file) > 0
-                && !lfs3_o_isunflush(file->b.h.flags)
-                && !lfs3_o_isuncryst(file->b.h.flags)) {
+                && !lfs3_o_isunflush(file->b.h.flags)) {
             int err = lfs3_bd_sync(lfs3);
             if (err) {
                 return err;
@@ -14479,8 +14563,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_TAG_RM | LFS3_TAG_MASK8 | LFS3_TAG_STRUCT, 0);
         // bshrub?
         } else if (lfs3_bshrub_isbshrub(&file->b)
-                || lfs3_o_isunflush(file->b.h.flags)
-                || lfs3_o_isuncryst(file->b.h.flags)) {
+                || lfs3_o_isunflush(file->b.h.flags)) {
             rattrs[rattr_count++] = LFS3_RATTR_SHRUB(
                     LFS3_TAG_MASK8 | LFS3_TAG_BSHRUB, 0,
                     // note we use the staged trunk here
@@ -14572,7 +14655,8 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                 // update flags
                 file_->b.h.flags &= ~LFS3_o_UNSYNC
                         & ~LFS3_o_UNFLUSH
-                        & ~LFS3_o_UNCRYST;
+                        & ~LFS3_o_UNCRYST
+                        & ~LFS3_o_UNGRAFT;
                 // update shrubs
                 file_->b.shrub = file->b.shrub;
                 // update leaves
@@ -14634,10 +14718,11 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // mark as synced
-    file->b.h.flags &= ~LFS3_o_UNSYNC
+    file->b.h.flags &= ~LFS3_o_UNCREAT
+            & ~LFS3_o_UNSYNC
             & ~LFS3_o_UNFLUSH
             & ~LFS3_o_UNCRYST
-            & ~LFS3_o_UNCREAT;
+            & ~LFS3_o_UNGRAFT;
     return 0;
 }
 #endif
@@ -14655,20 +14740,25 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     }
 
     #ifndef LFS3_RDONLY
-    // first flush any data in our cache, this is a noop if already
-    // flushed
+    // can we get away with a small file flush?
+    //
+    // this merges the data flush with metadata sync in a single commit
+    // if the file is small enough to fit in the cache
+    int err;
+    if (file->cache.size == lfs3_file_size_(file)
+            && file->cache.size <= lfs3->cfg->inline_size
+            && file->cache.size <= lfs3->cfg->fragment_size
+            && file->cache.size < lfs3->cfg->crystal_thresh) {
+        // discard any overwritten leaves, this also clears the
+        // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
+        lfs3_file_discardleaf(file);
+
+    // flush any data in our cache, this is a noop if already flushed
     //
     // note that flush does not change the actual file data, so if
     // flush succeeds but mdir commit fails it's ok to fall back to
     // our flushed state
-    //
-    // though don't flush quite yet if our file is small and can be
-    // combined with sync in a single commit
-    int err;
-    if (!(file->cache.size == lfs3_file_size_(file)
-            && file->cache.size <= lfs3->cfg->inline_size
-            && file->cache.size <= lfs3->cfg->fragment_size
-            && file->cache.size < lfs3->cfg->crystal_thresh)) {
+    } else {
         err = lfs3_file_flush(lfs3, file);
         if (err) {
             goto failed;
@@ -14838,6 +14928,12 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // mark as unsynced in case we fail
     file->b.h.flags |= LFS3_o_UNSYNC;
 
+    // make sure any incomplete are at least grafted
+    err = lfs3_file_graft(lfs3, file);
+    if (err) {
+        return err;
+    }
+
     // checkpoint the allocator
     err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
@@ -14923,6 +15019,12 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     lfs3_handle_clobber(lfs3, &file->b.h, LFS3_t_DIRTY);
     // mark as unsynced in case we fail
     file->b.h.flags |= LFS3_o_UNSYNC;
+
+    // make sure any incomplete are at least grafted
+    err = lfs3_file_graft(lfs3, file);
+    if (err) {
+        return err;
+    }
 
     // checkpoint the allocator
     err = lfs3_alloc_ckpoint(lfs3);
@@ -15011,6 +15113,16 @@ failed:;
 
 #if !defined(LFS3_KVONLY) && !defined(LFS3_2BONLY)
 static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
+    // validate ungrafted data block?
+    if (lfs3_t_isckdata(flags)
+            && lfs3_o_isungraft(file->b.h.flags)) {
+        LFS3_ASSERT(lfs3_bptr_isbptr(&file->leaf.bptr));
+        int err = lfs3_bptr_ck(lfs3, &file->leaf.bptr);
+        if (err) {
+            return err;
+        }
+    }
+
     // traverse the file's bshrub/btree
     lfs3_sbid_t bid = -2;
     while (true) {
