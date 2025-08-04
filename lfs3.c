@@ -12499,20 +12499,18 @@ static inline lfs3_size_t lfs3_file_cachesize(lfs3_t *lfs3,
             : lfs3->cfg->file_cache_size;
 }
 
-static inline lfs3_off_t lfs3_file_weight_(const lfs3_file_t *file) {
+static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
     #ifndef LFS3_KVONLY
     return lfs3_max(
-            file->leaf.pos + file->leaf.weight,
-            file->b.shrub.r.weight);
+            file->cache.pos + file->cache.size,
+            lfs3_max(
+                file->leaf.pos + file->leaf.weight,
+                file->b.shrub.r.weight));
     #else
-    return file->b.shrub.r.weight;
-    #endif
-}
-
-static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
     return lfs3_max(
-            LFS3_IFDEF_KVONLY(0, file->cache.pos) + file->cache.size,
-            lfs3_file_weight_(file));
+            file->cache.size,
+            file->b.shrub.r.weight);
+    #endif
 }
 
 
@@ -13087,7 +13085,9 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // any data in our btree?
-        if (pos_ < lfs3_file_weight_(file)) {
+        if (pos_ < lfs3_max(
+                file->leaf.pos + file->leaf.weight,
+                file->b.shrub.r.weight)) {
             if (!lfs3_o_isuncryst(file->b.h.flags)
                     && !lfs3_o_isungraft(file->b.h.flags)) {
                 // bypass cache?
