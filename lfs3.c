@@ -2590,6 +2590,7 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
 
 
 // allocate a bptr
+#ifndef LFS3_RDONLY
 static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_bptr_t *bptr) {
     lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
     if (block < 0) {
@@ -2603,6 +2604,7 @@ static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_bptr_t *bptr) {
             0);
     return 0;
 }
+#endif
 
 // needed in lfs3_bptr_fetch
 #ifdef LFS3_CKFETCHES
@@ -10052,7 +10054,9 @@ static void lfs3_trv_init(lfs3_trv_t *trv, uint32_t flags) {
     trv->b.shrub.r.blocks[0] = -1;
     trv->b.shrub.r.blocks[1] = -1;
     trv->b.shrub.r.weight = 0;
+    #ifndef LFS3_RDONLY
     trv->b.shrub.r.eoff = 0;
+    #endif
     trv->h = NULL;
     trv->gcksum = 0;
 }
@@ -10122,7 +10126,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                 //
                 // - shrub.blocks => tortoise blocks
                 // - shrub.weight => cycle distance
-                // - shrub.eoff => power-of-two bound
+                // - shrub.trunk => power-of-two bound
                 //
                 if (lfs3_mptr_cmp(
                         trv->b.h.mdir.r.blocks,
@@ -10133,11 +10137,11 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                             trv->b.h.mdir.r.blocks[1]);
                     return LFS3_ERR_CORRUPT;
                 }
-                if (trv->b.shrub.r.weight == (1U << trv->b.shrub.r.eoff)) {
+                if (trv->b.shrub.r.weight == (1U << trv->b.shrub.r.trunk)) {
                     trv->b.shrub.r.blocks[0] = trv->b.h.mdir.r.blocks[0];
                     trv->b.shrub.r.blocks[1] = trv->b.h.mdir.r.blocks[1];
                     trv->b.shrub.r.weight = 0;
-                    trv->b.shrub.r.eoff += 1;
+                    trv->b.shrub.r.trunk += 1;
                 }
                 trv->b.shrub.r.weight += 1;
 
@@ -15586,8 +15590,10 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->handles = NULL;
 
     // zero in-flight graft state
+    #ifndef LFS3_RDONLY
     lfs3->graft = NULL;
     lfs3->graft_count = 0;
+    #endif
 
     // TODO are these zeros accomplished by flushgdelta in mountinited?
     // should the flushgdelta be dropped?
