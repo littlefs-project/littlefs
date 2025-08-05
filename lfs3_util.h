@@ -47,9 +47,10 @@
 #ifndef LFS3_GC
 #define LFS3_GC
 #endif
-#ifndef LFS3_BMAP
-#define LFS3_BMAP
-#endif
+// TODO how interact with bmap?
+// #ifndef LFS3_BMAP
+// #define LFS3_BMAP
+// #endif
 #endif
 
 // LFS3_YES_* variants imply the relevant LFS3_* macro
