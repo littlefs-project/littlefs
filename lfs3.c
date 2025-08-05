@@ -13475,15 +13475,18 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
         }
     }
 
+    // copy things in case we hit an error
+    lfs3_sblock_t block_ = lfs3_bptr_block(&file->leaf.bptr);
+    lfs3_size_t off_ = lfs3_bptr_off(&file->leaf.bptr);
+    lfs3_off_t pos_ = block_pos
+            + lfs3_bptr_off(&file->leaf.bptr)
+            + lfs3_bptr_size(&file->leaf.bptr);
+    lfs3->pcksum = lfs3_bptr_cksum(&file->leaf.bptr);
     while (true) {
         // crystallize data into our block
         //
         // i.e. eagerly merge any right neighbors unless that would put
         // us over our crystal_size/block_size
-        lfs3_off_t pos_ = block_pos
-                + lfs3_bptr_off(&file->leaf.bptr)
-                + lfs3_bptr_size(&file->leaf.bptr);
-        lfs3->pcksum = lfs3_bptr_cksum(&file->leaf.bptr);
         while (pos_ < crystal_limit) {
             // keep track of the next highest priority data offset
             lfs3_ssize_t d = crystal_limit - pos_;
@@ -13494,9 +13497,7 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
                     lfs3_ssize_t d_ = lfs3_min(
                             d,
                             size - (pos_ - pos));
-                    int err = lfs3_bd_prog(lfs3,
-                            lfs3_bptr_block(&file->leaf.bptr),
-                            pos_ - block_pos,
+                    int err = lfs3_bd_prog(lfs3, block_, pos_ - block_pos,
                             &buffer[pos_ - pos], d_,
                             &lfs3->pcksum);
                     if (err) {
@@ -13510,10 +13511,45 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
 
                     pos_ += d_;
                     d -= d_;
+                    continue;
                 }
 
                 // buffered data takes priority
                 d = lfs3_min(d, pos - pos_);
+            }
+
+            // any data in our leaf?
+            //
+            // yes, we can hit this if we had to relocate
+            if (pos_ < file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr)) {
+                if (pos_ >= file->leaf.pos) {
+                    // note one important side-effect here is a strict
+                    // data hint
+                    lfs3_ssize_t d_ = lfs3_min(
+                            d,
+                            lfs3_bptr_size(&file->leaf.bptr)
+                                - (pos_ - file->leaf.pos));
+                    int err = lfs3_bd_progdata(lfs3, block_, pos_ - block_pos,
+                            lfs3_data_slice(file->leaf.bptr.d,
+                                pos_ - file->leaf.pos,
+                                d_),
+                            &lfs3->pcksum);
+                    if (err) {
+                        LFS3_ASSERT(err != LFS3_ERR_RANGE);
+                        // bad prog? try another block
+                        if (err == LFS3_ERR_CORRUPT) {
+                            goto relocate;
+                        }
+                        return err;
+                    }
+
+                    pos_ += d_;
+                    d -= d_;
+                    continue;
+                }
+
+                // leaf takes priority
+                d = lfs3_min(d, file->leaf.pos - pos_);
             }
 
             // any data on disk?
@@ -13557,11 +13593,9 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
                     // data hint
                     lfs3_ssize_t d_ = lfs3_min(
                             d,
-                            (bid__-(weight__-1) + lfs3_bptr_size(&bptr__))
-                                - pos_);
-                    err = lfs3_bd_progdata(lfs3,
-                            lfs3_bptr_block(&file->leaf.bptr),
-                            pos_ - block_pos,
+                            lfs3_bptr_size(&bptr__)
+                                - (pos_ - (bid__-(weight__-1))));
+                    err = lfs3_bd_progdata(lfs3, block_, pos_ - block_pos,
                             lfs3_data_slice(bptr__.d,
                                 pos_ - (bid__-(weight__-1)),
                                 d_),
@@ -13584,9 +13618,7 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // found a hole? fill with zeros
-            int err = lfs3_bd_set(lfs3,
-                    lfs3_bptr_block(&file->leaf.bptr),
-                    pos_ - block_pos,
+            int err = lfs3_bd_set(lfs3, block_, pos_ - block_pos,
                     0, d,
                     &lfs3->pcksum);
             if (err) {
@@ -13637,20 +13669,15 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // and update the leaf bptr
-        LFS3_ASSERT(pos_ - block_pos >= lfs3_bptr_off(&file->leaf.bptr));
+        LFS3_ASSERT(pos_ - block_pos >= off_);
         LFS3_ASSERT(pos_ - block_pos <= lfs3->cfg->block_size);
-        file->leaf.pos = block_pos + lfs3_bptr_off(&file->leaf.bptr);
+        file->leaf.pos = block_pos + off_;
         file->leaf.weight = pos_ - file->leaf.pos;
-        file->leaf.bptr.d.size = LFS3_DATA_ONDISK | LFS3_BPTR_ISBPTR
-                | (pos_ - file->leaf.pos);
-        // update cksize/cksum, mark as erased
-        LFS3_IFDEF_CKDATACKSUMS(
-                file->leaf.bptr.d.u.disk.cksize,
-                file->leaf.bptr.cksize) = LFS3_BPTR_ISERASED
-                    | (pos_ - block_pos);
-        LFS3_IFDEF_CKDATACKSUMS(
-                file->leaf.bptr.d.u.disk.cksum,
-                file->leaf.bptr.cksum) = lfs3->pcksum;
+        lfs3_bptr_init(&file->leaf.bptr,
+                LFS3_DATA_DISK(block_, off_, pos_ - file->leaf.pos),
+                // mark as erased
+                LFS3_BPTR_ISERASED | (pos_ - block_pos),
+                lfs3->pcksum);
 
         // mark as ungrafted
         file->b.h.flags |= LFS3_o_UNGRAFT;
@@ -13659,15 +13686,20 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
     relocate:;
         // allocate a new block
         //
-        // note if we relocate, we rewrite the entire block from
-        // block_pos using what we can find in our tree
-        err = lfs3_bptr_alloc(lfs3, &file->leaf.bptr);
-        if (err) {
-            return err;
+        // if we relocate, we rewrite the entire block from block_pos
+        // using what we can find in our tree/leaf/cache
+        //
+        block_ = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
+        if (block_ < 0) {
+            return block_;
         }
 
+        off_ = 0;
+        pos_ = block_pos;
+        lfs3->pcksum = 0;
+
         // mark as uncrystallized and ungrafted
-        file->b.h.flags |= LFS3_o_UNCRYST | LFS3_o_UNGRAFT;
+        file->b.h.flags |= LFS3_o_UNCRYST;
     }
 }
 #endif
