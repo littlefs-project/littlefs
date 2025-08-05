@@ -7697,6 +7697,8 @@ static int lfs3_data_readgrm(lfs3_t *lfs3, lfs3_data_t *data,
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
 static lfs3_data_t lfs3_data_fromgbmap(const lfs3_gbmap_t *gbmap,
         uint8_t buffer[static LFS3_GBMAP_DSIZE]);
+#endif
+#if !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
 static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_gbmap_t *gbmap);
 #endif
@@ -10691,7 +10693,7 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_gbmap_t *gbmap,
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+#if !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
 static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_gbmap_t *gbmap) {
     int err = lfs3_data_readleb128(lfs3, data, &gbmap->window);
@@ -10732,7 +10734,7 @@ static int lfs3_bmap_lookupnext(lfs3_t *lfs3, lfs3_btree_t *bmap,
 
 // this is the same as lfs3_btree_commit, but we set the inbmap flag
 // for debugging reasons
-#ifdef LFS3_BMAP
+#if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
 static int lfs3_bmap_commit(lfs3_t *lfs3, lfs3_btree_t *bmap,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     #ifdef LFS3_REVDBG
@@ -10757,7 +10759,7 @@ failed:;
 }
 #endif
 
-#ifdef LFS3_BMAP
+#if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
 static int lfs3_bmap_set(lfs3_t *lfs3, lfs3_btree_t *bmap,
         lfs3_block_t block, lfs3_tag_t tag) {
     // lookup bmap range
@@ -10868,7 +10870,7 @@ static int lfs3_bmap_set(lfs3_t *lfs3, lfs3_btree_t *bmap,
 }
 #endif
 
-#ifdef LFS3_BMAP
+#if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
 static int lfs3_bmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *bmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_) {
@@ -11385,7 +11387,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 }
 #endif
 
-#ifdef LFS3_BMAP
+#if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
 // the mdir argument does two things here:
 // 1. offloads wear from the mroot a bit
 // 2. broadcasts erased-state updates correctly
@@ -16393,7 +16395,7 @@ int lfs3_unmount(lfs3_t *lfs3) {
 
 /// Format ///
 
-#ifdef LFS3_BMAP
+#if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
 static int lfs3_formatbmap(lfs3_t *lfs3) {
     #ifdef LFS3_REVDBG
     lfs3->flags |= LFS3_i_INBMAP;

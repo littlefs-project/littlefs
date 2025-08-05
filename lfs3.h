@@ -963,7 +963,7 @@ typedef struct lfs3 {
     // TODO can we actually get rid of grm_d when LFS3_RDONLY?
     uint8_t grm_d[LFS3_GRM_DSIZE];
 
-    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+    #if !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
     lfs3_gbmap_t gbmap;
     uint8_t gbmap_p[LFS3_GBMAP_DSIZE];
     uint8_t gbmap_d[LFS3_GBMAP_DSIZE];
