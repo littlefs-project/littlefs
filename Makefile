@@ -95,7 +95,7 @@ CFLAGS += -fno-omit-frame-pointer
 endif
 
 # also forward all LFS3_* environment variables
-CFLAGS += $(foreach D,$(filter LFS3_%,$(.VARIABLES)),-D$D=$($D))
+CFLAGS += $(foreach d,$(filter LFS3_%,$(.VARIABLES)),-D$d=$($d))
 
 TEST_CFLAGS += -Wno-unused-function
 TEST_CFLAGS += -Wno-format-overflow
