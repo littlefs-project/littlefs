@@ -67,7 +67,9 @@ typedef int64_t lfs3_emubd_ssleep_t;
 // emubd config, this is required for testing
 struct lfs3_emubd_cfg {
     // 8-bit erase value to use for simulating erases. -1 simulates a noop
-    // erase, which is faster than simulating a fixed erase value.
+    // erase, which is faster than simulating a fixed erase value. -2 emulates
+    // nor-masking, which is useful for testing other filesystems (littlefs
+    // does _not_ rely on this!).
     int32_t erase_value;
 
     // Number of erase cycles before a block becomes "bad". The exact behavior

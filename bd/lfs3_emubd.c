@@ -24,9 +24,61 @@
 #endif
 
 
+// low-level flash memory emulation
+
+// read data
+static inline void lfs3_emubd_memread(const struct lfs3_cfg *cfg,
+        void *restrict dst, const void *restrict src, size_t size) {
+    (void)cfg;
+    memcpy(dst, src, size);
+}
+
+static inline void lfs3_emubd_memprog(const struct lfs3_cfg *cfg,
+        void *restrict dst, const void *restrict src, size_t size) {
+    lfs3_emubd_t *bd = cfg->context;
+    // emulating nor-masking?
+    if (bd->cfg->erase_value == -2) {
+        uint8_t *dst_ = dst;
+        const uint8_t *src_ = src;
+        for (size_t i = 0; i < size; i++) {
+            dst_[i] &= src_[i];
+        }
+    } else {
+        memcpy(dst, src, size);
+    }
+}
+
+static inline void lfs3_emubd_memerase(const struct lfs3_cfg *cfg,
+        void *restrict dst, size_t size) {
+    lfs3_emubd_t *bd = cfg->context;
+    // emulating erase value?
+    if (bd->cfg->erase_value != -1) {
+        memset(dst,
+                (bd->cfg->erase_value >= 0)
+                    ? bd->cfg->erase_value
+                    : 0xff,
+                size);
+    }
+}
+
+// this is slightly different from lfs3_emubd_memerase in that we use
+// lfs3_emubd_memzero when we need to unconditionally zero memory
+static inline void lfs3_emubd_memzero(const struct lfs3_cfg *cfg,
+        void *restrict dst, size_t size) {
+    lfs3_emubd_t *bd = cfg->context;
+    memset(dst,
+            (bd->cfg->erase_value == -1) ? 0
+                : (bd->cfg->erase_value >= 0) ? bd->cfg->erase_value
+                : (bd->cfg->erase_value == -2) ? 0xff
+                : 0,
+            size);
+}
+
+
 // access to lazily-allocated/copy-on-write blocks
 //
-// Note we can only modify a block if we have exclusive access to it (rc == 1)
+// note we can only modify a block if we have exclusive access to
+// it (rc == 1)
 //
 
 static lfs3_emubd_block_t *lfs3_emubd_incblock(lfs3_emubd_block_t *block) {
@@ -81,10 +133,7 @@ static lfs3_emubd_block_t *lfs3_emubd_mutblock(
         block_->bad_bit = 0;
 
         // zero for consistency
-        lfs3_emubd_t *bd = cfg->context;
-        memset(block_->data,
-                (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
-                cfg->block_size);
+        lfs3_emubd_memzero(cfg, block_->data, cfg->block_size);
 
         return block_;
     }
@@ -203,9 +252,7 @@ int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
             err = LFS3_ERR_NOMEM;
             goto failed;
         }
-        memset(bd->disk->scratch,
-                (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
-                cfg->block_size);
+        lfs3_emubd_memzero(cfg, bd->disk->scratch, cfg->block_size);
 
         // go ahead and erase all of the disk, otherwise the file will not
         // match our internal representation
@@ -324,7 +371,7 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         }
 
         // read data
-        memcpy(buffer, &b->data[off], size);
+        lfs3_emubd_memread(cfg, buffer, &b->data[off], size);
 
         // metastable? randomly decide if our bad bit flips
         if (b->metastable) {
@@ -339,9 +386,7 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     // no block yet
     } else {
         // zero for consistency
-        memset(buffer,
-                (bd->cfg->erase_value != -1) ? bd->cfg->erase_value : 0,
-                size);
+        lfs3_emubd_memzero(cfg, buffer, size);
     }   
 
     // track reads
@@ -377,7 +422,7 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
 
     // were we erased properly?
     LFS3_ASSERT(bd->blocks[block]);
-    if (bd->cfg->erase_value != -1
+    if (bd->cfg->erase_value >= 0
             && bd->blocks[block]->wear <= bd->cfg->erase_cycles) {
         for (lfs3_off_t i = 0; i < size; i++) {
             LFS3_ASSERT(bd->blocks[block]->data[off+i] == bd->cfg->erase_value);
@@ -438,7 +483,7 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 bd->blocks[block] = b;
 
                 // prog data
-                memcpy(&b->data[off], buffer, size);
+                lfs3_emubd_memprog(cfg, &b->data[off], buffer, size);
 
                 // flip bit
                 lfs3_size_t bit = lfs3_emubd_prng_(&bd->prng)
@@ -515,7 +560,7 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 bd->blocks[block] = b;
 
                 // prog data
-                memcpy(&b->data[off], buffer, size);
+                lfs3_emubd_memprog(cfg, &b->data[off], buffer, size);
 
                 // choose a new bad bit unless overridden
                 if (!(0x80000000 & b->bad_bit)) {
@@ -613,7 +658,8 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                     == LFS3_EMUBD_BADBLOCK_PROGFLIP) {
             lfs3_size_t bit = b->bad_bit & 0x7fffffff;
             if (bit/8 >= off && bit/8 < off+size) {
-                memcpy(&b->data[off], buffer, size);
+                // prog data
+                lfs3_emubd_memprog(cfg, &b->data[off], buffer, size);
                 b->data[bit/8] ^= 1 << (bit%8);
                 goto progged;
             }
@@ -621,14 +667,15 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         // reads flipping bits? prog as normal but mark as metastable
         } else if (bd->cfg->badblock_behavior
                     == LFS3_EMUBD_BADBLOCK_READFLIP) {
-            memcpy(&b->data[off], buffer, size);
+            // prog data
+            lfs3_emubd_memprog(cfg, &b->data[off], buffer, size);
             b->metastable = true;
             goto progged;
         }
     }
 
     // prog data
-    memcpy(&b->data[off], buffer, size);
+    lfs3_emubd_memprog(cfg, &b->data[off], buffer, size);
 
     // clear any metastability
     b->metastable = false;
@@ -735,7 +782,7 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
 
                 // emulate an erase value?
                 if (bd->cfg->erase_value != -1) {
-                    memset(b->data, bd->cfg->erase_value, cfg->block_size);
+                    lfs3_emubd_memerase(cfg, b->data, cfg->block_size);
                 }
 
                 // flip bit
@@ -812,7 +859,7 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
 
                 // emulate an erase value?
                 if (bd->cfg->erase_value != -1) {
-                    memset(b->data, bd->cfg->erase_value, cfg->block_size);
+                    lfs3_emubd_memerase(cfg, b->data, cfg->block_size);
                 }
 
                 // choose a new bad bit unless overridden
@@ -922,7 +969,7 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
 
     // emulate an erase value?
     if (bd->cfg->erase_value != -1) {
-        memset(b->data, bd->cfg->erase_value, cfg->block_size);
+        lfs3_emubd_memerase(cfg, b->data, cfg->block_size);
 
         // mirror to disk file?
         if (bd->disk) {
