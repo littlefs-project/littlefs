@@ -144,6 +144,23 @@ def stddevlim(lim, xs):
     # compute the limit as relative stddevs from the mean
     return mean + float(lim)*stddev
 
+# find x/y limit based on a ratio of all data points
+def ratiolim(lim, xs):
+    # make a list, we need two passes
+    xs = [float(x) for x in xs]
+    if len(xs) == 0:
+        return 0
+    # calculate mean
+    mean = sum(xs) / len(xs)
+    # find distances from the mean
+    ds = [abs(x - mean) for x in xs]
+    # sort, and find limit based on number of data points, round
+    # up to prefer including data points
+    ds.sort()
+    r = ds[min(max(mt.ceil(abs(lim) * len(ds))-1, 0), len(ds)-1)]
+    # compute the limit as relative to the mean
+    return mean + (-r if lim < 0 else r)
+
 # open with '-' for stdin/stdout
 def openio(path, mode='r', buffering=-1):
     import os
@@ -1232,6 +1249,8 @@ def main_(ring, csv_paths, *,
         ylim=(None,None),
         xlim_stddev=(None,None),
         ylim_stddev=(None,None),
+        xlim_ratio=(None,None),
+        ylim_ratio=(None,None),
         xlog=False,
         ylog=False,
         x2=False,
@@ -1589,6 +1608,8 @@ def main_(ring, csv_paths, *,
         ylim_ = s.args.get('ylim', ylim)
         xlim_stddev_ = s.args.get('xlim_stddev', xlim_stddev)
         ylim_stddev_ = s.args.get('ylim_stddev', ylim_stddev)
+        xlim_ratio_ = s.args.get('xlim_ratio', xlim_ratio)
+        ylim_ratio_ = s.args.get('ylim_ratio', ylim_ratio)
         xlog_ = s.args.get('xlog', False) or xlog
         ylog_ = s.args.get('ylog', False) or ylog
 
@@ -1601,6 +1622,10 @@ def main_(ring, csv_paths, *,
             xlim_stddev_ = (None, xlim_stddev_[0])
         if len(ylim_stddev_) == 1:
             ylim_stddev_ = (None, ylim_stddev_[0])
+        if len(xlim_ratio_) == 1:
+            xlim_ratio_ = (None, xlim_ratio_[0])
+        if len(ylim_ratio_) == 1:
+            ylim_ratio_ = (None, ylim_ratio_[0])
 
         # data can be constrained by subplot-specific defines,
         # so re-extract for each plot
@@ -1643,19 +1668,27 @@ def main_(ring, csv_paths, *,
                 xlim_[0] if xlim_[0] is not None
                     else stddevlim(xlim_stddev_[0], x__())
                     if xlim_stddev_[0] is not None
+                    else ratiolim(xlim_ratio_[0], x__())
+                    if xlim_ratio_[0] is not None
                     else min(x__()),
                 xlim_[1] if xlim_[1] is not None
                     else stddevlim(xlim_stddev_[1], x__())
                     if xlim_stddev_[1] is not None
+                    else ratiolim(xlim_ratio_[1], x__())
+                    if xlim_ratio_[1] is not None
                     else max(x__()))
         ylim_ = (
                 ylim_[0] if ylim_[0] is not None
                     else stddevlim(ylim_stddev_[0], y__())
                     if ylim_stddev_[0] is not None
+                    else ratiolim(ylim_ratio_[0], y__())
+                    if ylim_ratio_[0] is not None
                     else min(y__()),
                 ylim_[1] if ylim_[1] is not None
                     else stddevlim(ylim_stddev_[1], y__())
                     if ylim_stddev_[1] is not None
+                    else ratiolim(ylim_ratio_[1], y__())
+                    if ylim_ratio_[1] is not None
                     else max(y__()))
 
         # figure out labels/titles now that we have our data
@@ -2097,6 +2130,20 @@ if __name__ == "__main__":
             help="Range for the y-axis specified as a number of standard "
                 "deviations from the mean.")
     parser.add_argument(
+            '--xlim-ratio',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Range for the x-axis specified as a ratio of all data "
+                "points.")
+    parser.add_argument(
+            '--ylim-ratio',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Range for the y-axis specified as a ratio of all data "
+                "points.")
+    parser.add_argument(
             '--xlog',
             action='store_true',
             help="Use a logarithmic x-axis.")
@@ -2174,7 +2221,7 @@ if __name__ == "__main__":
                 "string to control the subplot which supports most (but "
                 "not all) of the parameters listed here. The relative "
                 "dimensions of the subplot can be controlled with -W/-H "
-                "which now take a percentage.")
+                "which now take a ratio.")
     parser.add_argument(
             '--subplot-below',
             action=AppendSubplot,
