@@ -972,11 +972,27 @@ def table(Result, results, diff_results=None, *,
         no_header=False,
         small_header=False,
         no_total=False,
+        small_total=False,
         small_table=False,
         summary=False,
+        total=False,
         **_):
     import builtins
     all_, all = all, builtins.all
+
+    # small_table implies small_header + no_total or small_total
+    if small_table:
+        small_header = True
+        small_total = True
+        no_total = no_total or (not summary and not total)
+    # summary implies small_header
+    if summary:
+        small_header = True
+    # total implies summary + no_header + small_total
+    if total:
+        summary = True
+        no_header = True
+        small_total = True
 
     if by is None:
         by = Result._by
@@ -1025,8 +1041,7 @@ def table(Result, results, diff_results=None, *,
                             sum(1 for n in table if n not in diff_table),
                             sum(1 for n in diff_table if n not in table))
                         if diff_results is not None and not percent else '')
-                if not small_header and not small_table and not summary
-                    else '']
+                if not small_header else '']
         if diff_results is None or percent:
             for k in fields:
                 header.append(k)
@@ -1222,13 +1237,15 @@ def table(Result, results, diff_results=None, *,
         table_recurse(results, diff_results, depth)
 
     # total
-    if not no_total and not (small_table and not summary):
-        r = next(iter(fold(Result, results, by=[])), None)
+    if not no_total:
+        r = next(iter(fold(Result, results, by=[])), Result())
         if diff_results is None:
             diff_r = None
         else:
-            diff_r = next(iter(fold(Result, diff_results, by=[])), None)
-        lines.append(table_entry('TOTAL', r, diff_r))
+            diff_r = next(iter(fold(Result, diff_results, by=[])), Result())
+        lines.append(table_entry(
+                'TOTAL' if not small_total else '',
+                r, diff_r))
 
     # homogenize
     lines = [[x if isinstance(x, tuple) else (x, []) for x in line]
@@ -1243,6 +1260,8 @@ def table(Result, results, diff_results=None, *,
             widths[i] = max(widths[i], ((len(x[0])+1+4-1)//4)*4-1)
             if i != len(line)-1:
                 nwidths[i] = max(nwidths[i], 1+sum(2+len(n) for n in x[1]))
+    if not any(line[0][0] for line in lines):
+        widths[0] = 0
 
     # print our table
     for line in lines:
@@ -1773,13 +1792,22 @@ if __name__ == "__main__":
             action='store_true',
             help="Don't show the total.")
     parser.add_argument(
+            '--small-total',
+            action='store_true',
+            help="Don't show TOTAL name.")
+    parser.add_argument(
             '-Q', '--small-table',
             action='store_true',
-            help="Equivalent to --small-header + --no-total.")
+            help="Equivalent to --small-header + --no-total or --small-total.")
     parser.add_argument(
             '-Y', '--summary',
             action='store_true',
             help="Only show the total.")
+    parser.add_argument(
+            '--total',
+            action='store_true',
+            help="Equivalent to --summary + --no-header + --small-total. "
+                "Useful for scripting.")
     parser.add_argument(
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
