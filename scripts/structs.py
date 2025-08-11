@@ -422,9 +422,17 @@ def collect_structs(obj_paths, *,
             if entry.off in sizeof.cache:
                 return sizeof.cache[entry.off]
 
-            # explicit size?
-            if 'DW_AT_byte_size' in entry:
+            # pointer? base type?
+            if entry.tag in {
+                    'DW_TAG_pointer_type',
+                    'DW_TAG_base_type'}:
                 size = int(entry['DW_AT_byte_size'])
+            # struct? union?
+            elif entry.tag in {
+                        'DW_TAG_structure_type',
+                        'DW_TAG_union_type'}:
+                # note structs/unions can be incomplete
+                size = int(entry.get('DW_AT_byte_size', 0))
             # array? multiply by size
             elif entry.tag == 'DW_TAG_array_type':
                 type = info[int(entry['DW_AT_type'].strip('<>'), 0)]
@@ -469,7 +477,9 @@ def collect_structs(obj_paths, *,
             elif entry.tag in {
                     'DW_TAG_structure_type',
                     'DW_TAG_union_type'}:
-                align = max(alignof(child) for child in entry.children)
+                align = max(
+                        (alignof(child) for child in entry.children),
+                        default=0)
             # indirect type?
             elif entry.tag in {
                     'DW_TAG_typedef',

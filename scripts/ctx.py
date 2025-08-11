@@ -522,9 +522,16 @@ def collect_ctx(obj_paths, *,
                 if 'DW_AT_type' in entry:
                     type = info[int(entry['DW_AT_type'].strip('<>'), 0)]
                     size += sizeof(type, seen | {entry.off})
+            # base type?
+            elif entry.tag == 'DW_TAG_base_type':
+                size = int(entry['DW_AT_byte_size'])
+            # function pointer?
+            elif entry.tag == 'DW_TAG_subroutine_type':
+                size = 0
             # struct? include any nested pointers
             elif entry.tag == 'DW_TAG_structure_type':
-                size = int(entry['DW_AT_byte_size'])
+                # note structs/unions can be incomplete
+                size = int(entry.get('DW_AT_byte_size', 0))
                 for child in entry.children:
                     if child.tag != 'DW_TAG_member':
                         continue
@@ -536,7 +543,8 @@ def collect_ctx(obj_paths, *,
                     size += sizeof(type__, seen | {entry.off})
             # union? include any nested pointers
             elif entry.tag == 'DW_TAG_union_type':
-                size = int(entry['DW_AT_byte_size'])
+                # note structs/unions can be incomplete
+                size = int(entry.get('DW_AT_byte_size', 0))
                 size_ = 0
                 for child in entry.children:
                     if child.tag != 'DW_TAG_member':
@@ -555,12 +563,6 @@ def collect_ctx(obj_paths, *,
                 for child in entry.children:
                     if child.tag == 'DW_TAG_subrange_type':
                         size *= int(child['DW_AT_upper_bound']) + 1
-            # base type?
-            elif entry.tag == 'DW_TAG_base_type':
-                size = int(entry['DW_AT_byte_size'])
-            # function pointer?
-            elif entry.tag == 'DW_TAG_subroutine_type':
-                size = 0
             # a modifier?
             elif (entry.tag in {
                         'DW_TAG_typedef',
