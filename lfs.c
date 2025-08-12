@@ -739,6 +739,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
         int err = lfs_bd_read(lfs,
                 NULL, &lfs->rcache, sizeof(ntag),
                 dir->pair[0], off, &ntag, sizeof(ntag));
+        LFS_ASSERT(err <= 0);
         if (err) {
             return err;
         }
@@ -767,6 +768,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
             err = lfs_bd_read(lfs,
                     NULL, &lfs->rcache, diff,
                     dir->pair[0], off+sizeof(tag)+goff, gbuffer, diff);
+            LFS_ASSERT(err <= 0);
             if (err) {
                 return err;
             }
