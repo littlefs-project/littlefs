@@ -1279,6 +1279,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                     if (err == LFS_ERR_CORRUPT) {
                         break;
                     }
+                    return err;
                 }
 
                 lfs_fcrc_fromle32(&fcrc);
