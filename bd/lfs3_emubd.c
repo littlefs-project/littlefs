@@ -1,6 +1,10 @@
 /*
- * Emulating block device, wraps filebd and rambd while providing a bunch
- * of hooks for testing littlefs in various conditions.
+ * emubd - High-level emulating block device with many bells and
+ * whistles for testing powerloss, wear, etc.
+ *
+ * Note emubd always backs the block device in RAM. Consider using
+ * kiwibd if you need a block device larger than the available RAM on
+ * the system.
  *
  * Copyright (c) 2022, The littlefs authors.
  * Copyright (c) 2017, Arm Limited. All rights reserved.
@@ -1030,7 +1034,7 @@ int lfs3_emubd_sync(const struct lfs3_cfg *cfg) {
 }
 
 
-/// Additional extended API for driving test features ///
+/// Additional emubd features for testing ///
 
 void lfs3_emubd_seed(const struct lfs3_cfg *cfg, uint32_t seed) {
     LFS3_EMUBD_TRACE("lfs3_emubd_seed(%p, 0x%08"PRIx32")",

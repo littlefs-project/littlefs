@@ -1,0 +1,559 @@
+/*
+ * kiwibd - A lightweight variant of emubd, useful for emulating large
+ * disks backed by a file or in RAM.
+ *
+ * Unlike emubd, file-backed disks are _not_ mirrored in RAM. kiwibd has
+ * fewer features than emubd, prioritizing speed for benchmarking.
+ *
+ *
+ */
+
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
+
+#include "bd/lfs3_kiwibd.h"
+
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+#include <time.h>
+
+
+
+// low-level flash memory emulation
+
+// read data
+static inline void lfs3_kiwibd_memread(const struct lfs3_cfg *cfg,
+        void *restrict dst, const void *restrict src, size_t size) {
+    (void)cfg;
+    memcpy(dst, src, size);
+}
+
+static inline void lfs3_kiwibd_memprog(const struct lfs3_cfg *cfg,
+        void *restrict dst, const void *restrict src, size_t size) {
+    lfs3_kiwibd_t *bd = cfg->context;
+    // emulating nor-masking?
+    if (bd->cfg->erase_value == -2) {
+        uint8_t *dst_ = dst;
+        const uint8_t *src_ = src;
+        for (size_t i = 0; i < size; i++) {
+            dst_[i] &= src_[i];
+        }
+    } else {
+        memcpy(dst, src, size);
+    }
+}
+
+static inline void lfs3_kiwibd_memerase(const struct lfs3_cfg *cfg,
+        void *restrict dst, size_t size) {
+    lfs3_kiwibd_t *bd = cfg->context;
+    // emulating erase value?
+    if (bd->cfg->erase_value != -1) {
+        memset(dst,
+                (bd->cfg->erase_value >= 0)
+                    ? bd->cfg->erase_value
+                    : 0xff,
+                size);
+    }
+}
+
+// this is slightly different from lfs3_kiwibd_memerase in that we use
+// lfs3_kiwibd_memzero when we need to unconditionally zero memory
+static inline void lfs3_kiwibd_memzero(const struct lfs3_cfg *cfg,
+        void *restrict dst, size_t size) {
+    lfs3_kiwibd_t *bd = cfg->context;
+    memset(dst,
+            (bd->cfg->erase_value == -1) ? 0
+                : (bd->cfg->erase_value >= 0) ? bd->cfg->erase_value
+                : (bd->cfg->erase_value == -2) ? 0xff
+                : 0,
+            size);
+}
+
+
+
+// kiwibd create/destroy
+
+int lfs3_kiwibd_createcfg(const struct lfs3_cfg *cfg, const char *path,
+        const struct lfs3_kiwibd_cfg *bdcfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_createcfg("
+                "%p {"
+                    ".context=%p, "
+                    ".read=%p, "
+                    ".prog=%p, "
+                    ".erase=%p, "
+                    ".sync=%p, "
+                    ".read_size=%"PRIu32", "
+                    ".prog_size=%"PRIu32", "
+                    ".block_size=%"PRIu32", "
+                    ".block_count=%"PRIu32"}, "
+                "\"%s\", "
+                "%p {"
+                    ".erase_value=%"PRId32", "
+                    ".disk_path=\"%s\", "
+                    ".buffer=%p, "
+                    ".read_sleep=%"PRIu64", "
+                    ".prog_sleep=%"PRIu64", "
+                    ".erase_sleep=%"PRIu64"})",
+            (void*)cfg,
+            cfg->context,
+            (void*)(uintptr_t)cfg->read,
+            (void*)(uintptr_t)cfg->prog,
+            (void*)(uintptr_t)cfg->erase,
+            (void*)(uintptr_t)cfg->sync,
+            cfg->read_size,
+            cfg->prog_size,
+            cfg->block_size,
+            cfg->block_count,
+            path,
+            (void*)bdcfg,
+            bdcfg->erase_value,
+            bdcfg->disk_path,
+            bdcfg->buffer,
+            bdcfg->read_sleep,
+            bdcfg->prog_sleep,
+            bdcfg->erase_sleep);
+    lfs3_kiwibd_t *bd = cfg->context;
+    bd->cfg = bdcfg;
+
+    // setup some initial state
+    bd->readed = 0;
+    bd->proged = 0;
+    bd->erased = 0;
+    if (bd->cfg->disk_path) {
+        bd->u.disk.fd = -1;
+        bd->u.disk.scratch = NULL;
+    } else {
+        bd->u.mem = NULL;
+    }
+    int err;
+
+    // if we have a disk_path, try to open the backing file
+    if (bd->cfg->disk_path) {
+        bd->u.disk.fd = open(bd->cfg->disk_path,
+                O_RDWR | O_CREAT, 0666);
+        if (bd->u.disk.fd < 0) {
+            err = -errno;
+            goto failed;
+        }
+
+        // allocate a scratch buffer to help with zeroing/masking/etc
+        bd->u.disk.scratch = malloc(cfg->block_size);
+        if (!bd->u.disk.scratch) {
+            err = LFS3_ERR_NOMEM;
+            goto failed;
+        }
+
+        // zero for reproducibility
+        lfs3_kiwibd_memzero(cfg, bd->u.disk.scratch, cfg->block_size);
+        for (lfs3_block_t i = 0; i < cfg->block_count; i++) {
+            ssize_t res = write(bd->u.disk.fd,
+                    bd->u.disk.scratch,
+                    cfg->block_size);
+            if (res < 0) {
+                err = -errno;
+                goto failed;
+            }
+        }
+
+    // otherwise, try to malloc a big memory array
+    } else {
+        bd->u.mem = malloc((size_t)cfg->block_size * cfg->block_count);
+        if (!bd->u.mem) {
+            err = LFS3_ERR_NOMEM;
+            goto failed;
+        }
+
+        // zero for reproducibility
+        lfs3_kiwibd_memzero(cfg, bd->u.mem,
+                (size_t)cfg->block_size * cfg->block_count);
+    }
+
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_createcfg -> %d", 0);
+    return 0;
+
+failed:;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_createcfg -> %d", err);
+    // clean up memory
+    if (bd->cfg->disk_path) {
+        if (bd->u.disk.fd != -1) {
+            close(bd->u.disk.fd);
+        }
+        free(bd->u.disk.scratch);
+    } else {
+        free(bd->u.mem);
+    }
+    return err;
+}
+
+int lfs3_kiwibd_create(const struct lfs3_cfg *cfg, const char *path) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_create("
+                "%p {"
+                    ".context=%p, "
+                    ".read=%p, "
+                    ".prog=%p, "
+                    ".erase=%p, "
+                    ".sync=%p, "
+                    ".read_size=%"PRIu32", "
+                    ".prog_size=%"PRIu32", "
+                    ".block_size=%"PRIu32", "
+                    ".block_count=%"PRIu32"}, "
+                "\"%s\")",
+            (void*)cfg,
+            cfg->context,
+            (void*)(uintptr_t)cfg->read,
+            (void*)(uintptr_t)cfg->prog,
+            (void*)(uintptr_t)cfg->erase,
+            (void*)(uintptr_t)cfg->sync,
+            cfg->read_size,
+            cfg->prog_size,
+            cfg->block_size,
+            cfg->block_count,
+            path);
+    static const struct lfs3_kiwibd_cfg defaults = {.erase_value=-1};
+    int err = lfs3_kiwibd_createcfg(cfg, path, &defaults);
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_create -> %d", err);
+    return err;
+}
+
+int lfs3_kiwibd_destroy(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_destroy(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+
+    // clean up memory
+    if (bd->cfg->disk_path) {
+        close(bd->u.disk.fd);
+        free(bd->u.disk.scratch);
+    } else {
+        free(bd->u.mem);
+    }
+
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_destroy -> %d", 0);
+    return 0;
+}
+
+
+// block device API
+
+int lfs3_kiwibd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_read(%p, "
+                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+            (void*)cfg, block, off, buffer, size);
+    lfs3_kiwibd_t *bd = cfg->context;
+
+    // check if read is valid
+    LFS3_ASSERT(block < cfg->block_count);
+    LFS3_ASSERT(off  % cfg->read_size == 0);
+    LFS3_ASSERT(size % cfg->read_size == 0);
+    LFS3_ASSERT(off+size <= cfg->block_size);
+
+    // read in file?
+    if (bd->cfg->disk_path) {
+        lfs3_kiwibd_memerase(cfg,
+                bd->u.disk.scratch,
+                cfg->block_size);
+
+        off_t res = lseek(bd->u.disk.fd,
+                (off_t)block*cfg->block_size + (off_t)off,
+                SEEK_SET);
+        if (res < 0) {
+            int err = -errno;
+            LFS3_KIWIBD_TRACE("lfs3_kiwibd_read -> %d", err);
+            return err;
+        }
+
+        ssize_t res_ = read(bd->u.disk.fd, buffer, size);
+        if (res_ < 0) {
+            int err = -errno;
+            LFS3_KIWIBD_TRACE("lfs3_kiwibd_read -> %d", err);
+            return err;
+        }
+
+    // read in RAM?
+    } else {
+        lfs3_kiwibd_memread(cfg,
+                buffer,
+                &bd->u.mem[(size_t)block*cfg->block_size + (size_t)off],
+                size);
+    }
+
+    // track reads
+    bd->readed += size;
+    if (bd->cfg->read_sleep) {
+        int err = nanosleep(&(struct timespec){
+                .tv_sec=bd->cfg->read_sleep/1000000000,
+                .tv_nsec=bd->cfg->read_sleep%1000000000},
+            NULL);
+        if (err) {
+            err = -errno;
+            LFS3_KIWIBD_TRACE("lfs3_kiwibd_read -> %d", err);
+            return err;
+        }
+    }
+
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_read -> %d", 0);
+    return 0;
+}
+
+int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog(%p, "
+                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
+            (void*)cfg, block, off, buffer, size);
+    lfs3_kiwibd_t *bd = cfg->context;
+
+    // check if write is valid
+    LFS3_ASSERT(block < cfg->block_count);
+    LFS3_ASSERT(off  % cfg->prog_size == 0);
+    LFS3_ASSERT(size % cfg->prog_size == 0);
+    LFS3_ASSERT(off+size <= cfg->block_size);
+
+    // prog in file?
+    if (bd->cfg->disk_path) {
+        // were we erased properly?
+        if (bd->cfg->erase_value >= 0) {
+            off_t res = lseek(bd->u.disk.fd,
+                    (off_t)block*cfg->block_size + (off_t)off,
+                    SEEK_SET);
+            if (res < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+                return err;
+            }
+
+            ssize_t res_ = read(bd->u.disk.fd, bd->u.disk.scratch, size);
+            if (res_ < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+                return err;
+            }
+
+            for (lfs3_off_t i = 0; i < size; i++) {
+                LFS3_ASSERT(bd->u.disk.scratch[i] == bd->cfg->erase_value);
+            }
+        }
+
+        // masking progs?
+        if (bd->cfg->erase_value == -2) {
+            off_t res = lseek(bd->u.disk.fd,
+                    (off_t)block*cfg->block_size + (off_t)off,
+                    SEEK_SET);
+            if (res < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+                return err;
+            }
+
+            ssize_t res_ = read(bd->u.disk.fd, bd->u.disk.scratch, size);
+            if (res_ < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+                return err;
+            }
+
+            lfs3_kiwibd_memprog(cfg, bd->u.disk.scratch, buffer, size);
+
+            res = lseek(bd->u.disk.fd,
+                    (off_t)block*cfg->block_size + (off_t)off,
+                    SEEK_SET);
+            if (res < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+                return err;
+            }
+
+            res_ = write(bd->u.disk.fd, bd->u.disk.scratch, size);
+            if (res_ < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+                return err;
+            }
+
+        // normal progs?
+        } else {
+            off_t res = lseek(bd->u.disk.fd,
+                    (off_t)block*cfg->block_size + (off_t)off,
+                    SEEK_SET);
+            if (res < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+                return err;
+            }
+
+            ssize_t res_ = write(bd->u.disk.fd, buffer, size);
+            if (res_ < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+                return err;
+            }
+        }
+
+    // prog in RAM?
+    } else {
+        // were we erased properly?
+        if (bd->cfg->erase_value >= 0) {
+            for (lfs3_off_t i = 0; i < size; i++) {
+                LFS3_ASSERT(
+                        bd->u.mem[(size_t)block*cfg->block_size + (size_t)off]
+                            == bd->cfg->erase_value);
+            }
+        }
+
+        lfs3_kiwibd_memprog(cfg,
+                &bd->u.mem[(size_t)block*cfg->block_size + (size_t)off],
+                buffer,
+                size);
+    }
+
+    // track progs
+    bd->proged += size;
+    if (bd->cfg->prog_sleep) {
+        int err = nanosleep(&(struct timespec){
+                .tv_sec=bd->cfg->prog_sleep/1000000000,
+                .tv_nsec=bd->cfg->prog_sleep%1000000000},
+            NULL);
+        if (err) {
+            err = -errno;
+            LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
+            return err;
+        }
+    }
+
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", 0);
+    return 0;
+}
+
+int lfs3_kiwibd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
+            (void*)cfg, block, cfg->block_size);
+    lfs3_kiwibd_t *bd = cfg->context;
+
+    // check if erase is valid
+    LFS3_ASSERT(block < cfg->block_count);
+
+    // emulate an erase value?
+    if (bd->cfg->erase_value != -1) {
+        // erase in file?
+        if (bd->cfg->disk_path) {
+            off_t res = lseek(bd->u.disk.fd,
+                    (off_t)block*cfg->block_size,
+                    SEEK_SET);
+            if (res < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_erase -> %d", err);
+                return err;
+            }
+
+            lfs3_kiwibd_memerase(cfg,
+                    bd->u.disk.scratch,
+                    cfg->block_size);
+
+            ssize_t res_ = write(bd->u.disk.fd,
+                    bd->u.disk.scratch,
+                    cfg->block_size);
+            if (res_ < 0) {
+                int err = -errno;
+                LFS3_KIWIBD_TRACE("lfs3_kiwibd_erase -> %d", err);
+                return err;
+            }
+
+        // erase in RAM?
+        } else {
+            lfs3_kiwibd_memerase(cfg,
+                    &bd->u.mem[(size_t)block*cfg->block_size],
+                    cfg->block_size);
+        }
+    }
+
+erased:;
+    // track erases
+    bd->erased += cfg->block_size;
+    if (bd->cfg->erase_sleep) {
+        int err = nanosleep(&(struct timespec){
+                .tv_sec=bd->cfg->erase_sleep/1000000000,
+                .tv_nsec=bd->cfg->erase_sleep%1000000000},
+            NULL);
+        if (err) {
+            err = -errno;
+            LFS3_KIWIBD_TRACE("lfs3_kiwibd_erase -> %d", err);
+            return err;
+        }
+    }
+
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_erase -> %d", 0);
+    return 0;
+}
+
+int lfs3_kiwibd_sync(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_sync(%p)", (void*)cfg);
+
+    // in theory we could actually sync here, but if our goal is
+    // performance, why bother?
+    //
+    // filebd may be a better block device is your goal is actual
+    // storage
+
+    // sync is a noop
+    (void)cfg;
+
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_sync -> %d", 0);
+    return 0;
+}
+
+
+/// Additional kiwibd features ///
+
+lfs3_kiwibd_sio_t lfs3_kiwibd_readed(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_readed(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_readed -> %"PRIu64, bd->readed);
+    return bd->readed;
+}
+
+lfs3_kiwibd_sio_t lfs3_kiwibd_proged(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_proged(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_proged -> %"PRIu64, bd->proged);
+    return bd->proged;
+}
+
+lfs3_kiwibd_sio_t lfs3_kiwibd_erased(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_erased(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_erased -> %"PRIu64, bd->erased);
+    return bd->erased;
+}
+
+int lfs3_kiwibd_setreaded(const struct lfs3_cfg *cfg,
+        lfs3_kiwibd_io_t readed) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_setreaded(%p, %"PRIu64")",
+            (void*)cfg, readed);
+    lfs3_kiwibd_t *bd = cfg->context;
+    bd->readed = readed;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_setreaded -> %d", 0);
+    return 0;
+}
+
+int lfs3_kiwibd_setproged(const struct lfs3_cfg *cfg,
+        lfs3_kiwibd_io_t proged) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_setproged(%p, %"PRIu64")",
+            (void*)cfg, proged);
+    lfs3_kiwibd_t *bd = cfg->context;
+    bd->proged = proged;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_setproged -> %d", 0);
+    return 0;
+}
+
+int lfs3_kiwibd_seterased(const struct lfs3_cfg *cfg,
+        lfs3_kiwibd_io_t erased) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_seterased(%p, %"PRIu64")",
+            (void*)cfg, erased);
+    lfs3_kiwibd_t *bd = cfg->context;
+    bd->erased = erased;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_seterased -> %d", 0);
+    return 0;
+}
+

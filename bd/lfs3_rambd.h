@@ -29,7 +29,7 @@ struct lfs3_rambd_cfg {
 
 // rambd state
 typedef struct lfs3_rambd {
-    uint8_t *buffer;
+    uint8_t *mem;
     const struct lfs3_rambd_cfg *cfg;
 } lfs3_rambd_t;
 

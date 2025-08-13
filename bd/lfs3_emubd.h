@@ -1,6 +1,10 @@
 /*
- * Emulating block device, wraps filebd and rambd while providing a bunch
- * of hooks for testing littlefs in various conditions.
+ * emubd - High-level emulating block device with many bells and
+ * whistles for testing powerloss, wear, etc.
+ *
+ * Note emubd always backs the block device in RAM. Consider using
+ * kiwibd if you need a block device larger than the available RAM on
+ * the system.
  *
  * Copyright (c) 2022, The littlefs authors.
  * Copyright (c) 2017, Arm Limited. All rights reserved.
@@ -11,8 +15,6 @@
 
 #include "lfs3.h"
 #include "lfs3_util.h"
-#include "bd/lfs3_rambd.h"
-#include "bd/lfs3_filebd.h"
 
 
 // Block device specific tracing
@@ -99,7 +101,8 @@ struct lfs3_emubd_cfg {
     uint32_t seed;
 
     // Path to file to use as a mirror of the disk. This provides a way to view
-    // the current state of the block device.
+    // the current state of the block device, but does not eliminate the RAM
+    // requirement.
     const char *disk_path;
 
     // Artificial delay in nanoseconds, there is no purpose for this other
@@ -157,8 +160,11 @@ typedef struct lfs3_emubd {
 
 // Create an emulating block device using the geometry in lfs3_cfg
 //
-// Note that filebd is used if a path is provided, if path is NULL
-// emubd will use rambd which can be much faster.
+// If disk_path is provided, emubd will mirror the block device in the
+// file. Note this is a write-only mirror intended for introspection,
+// and does not eliminate the RAM requirement.
+//
+// TODO wait, why do we have both disk_path and path here?
 int lfs3_emubd_create(const struct lfs3_cfg *cfg, const char *path);
 int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
         const struct lfs3_emubd_cfg *bdcfg);
@@ -186,7 +192,7 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block);
 int lfs3_emubd_sync(const struct lfs3_cfg *cfg);
 
 
-/// Additional extended API for driving test features ///
+/// Additional emubd features for testing ///
 
 // Set the current prng state
 void lfs3_emubd_seed(const struct lfs3_cfg *cfg, uint32_t seed);

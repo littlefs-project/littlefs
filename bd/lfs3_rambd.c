@@ -24,17 +24,17 @@ int lfs3_rambd_createcfg(const struct lfs3_cfg *cfg,
 
     // allocate buffer?
     if (bd->cfg->buffer) {
-        bd->buffer = bd->cfg->buffer;
+        bd->mem = bd->cfg->buffer;
     } else {
-        bd->buffer = lfs3_malloc(cfg->block_size * cfg->block_count);
-        if (!bd->buffer) {
+        bd->mem = lfs3_malloc(cfg->block_size * cfg->block_count);
+        if (!bd->mem) {
             LFS3_RAMBD_TRACE("lfs3_rambd_createcfg -> %d", LFS3_ERR_NOMEM);
             return LFS3_ERR_NOMEM;
         }
     }
 
     // zero for reproducibility
-    memset(bd->buffer, 0, cfg->block_size * cfg->block_count);
+    memset(bd->mem, 0, cfg->block_size * cfg->block_count);
 
     LFS3_RAMBD_TRACE("lfs3_rambd_createcfg -> %d", 0);
     return 0;
@@ -60,7 +60,7 @@ int lfs3_rambd_destroy(const struct lfs3_cfg *cfg) {
     // clean up memory
     lfs3_rambd_t *bd = cfg->context;
     if (!bd->cfg->buffer) {
-        lfs3_free(bd->buffer);
+        lfs3_free(bd->mem);
     }
     LFS3_RAMBD_TRACE("lfs3_rambd_destroy -> %d", 0);
     return 0;
@@ -80,7 +80,7 @@ int lfs3_rambd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     LFS3_ASSERT(off+size <= cfg->block_size);
 
     // read data
-    memcpy(buffer, &bd->buffer[block*cfg->block_size + off], size);
+    memcpy(buffer, &bd->mem[block*cfg->block_size + off], size);
 
     LFS3_RAMBD_TRACE("lfs3_rambd_read -> %d", 0);
     return 0;
@@ -100,7 +100,7 @@ int lfs3_rambd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
     LFS3_ASSERT(off+size <= cfg->block_size);
 
     // program data
-    memcpy(&bd->buffer[block*cfg->block_size + off], buffer, size);
+    memcpy(&bd->mem[block*cfg->block_size + off], buffer, size);
 
     LFS3_RAMBD_TRACE("lfs3_rambd_prog -> %d", 0);
     return 0;
