@@ -572,9 +572,8 @@ code = '''
     lfs_file_t file_new;
     lfs_file_movehandle(&lfs, &file[idx], &file_new) => 0;
 
-    for(int i = 0; i < 3; i++)
-    {
-        if(i == idx) {
+    for (int i = 0; i < 3; i++) {
+        if (i == idx) {
             continue;
         }
 
@@ -582,9 +581,8 @@ code = '''
     }
     lfs_file_ishandleopen(&lfs, &file_new) => 0;
 
-    for(int i = 0; i < 3; i++)
-    {
-        if(i == idx) {
+    for (int i = 0; i < 3; i++) {
+        if (i == idx) {
             continue;
         }
         
