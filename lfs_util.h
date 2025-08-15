@@ -43,6 +43,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
+#include "..\shared\pmlib\logging.h"
 
 #ifndef LFS_NO_MALLOC
 #include <stdlib.h>
@@ -66,6 +67,13 @@ extern "C"
 // Macros, may be replaced by system specific wrappers. Arguments to these
 // macros must not have side-effects as the macros can be removed for a smaller
 // code footprint
+
+#ifdef DEBUG_FS_COMMANDS
+    // #define LFS_TRACE(...)  PM_INFO(__VA_ARGS__)
+    // #define LFS_DEBUG(...)  PM_DEBUG(__VA_ARGS__)
+    // #define LFS_WARN(...)   PM_WARN(__VA_ARGS__)
+    // #define LFS_ERROR(...)  PM_ERROR(__VA_ARGS__)
+#endif
 
 // Logging functions
 #ifndef LFS_TRACE
