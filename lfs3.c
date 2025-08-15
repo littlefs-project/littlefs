@@ -15449,18 +15449,19 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3_alloc_discard(lfs3);
     #endif
 
-    // setup treediff buffer
-    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
-    if (lfs3->cfg->treediff_buffer) {
-        lfs3->treediff.buffer = lfs3->cfg->treediff_buffer;
-    } else {
-        lfs3->treediff.buffer = lfs3_malloc(lfs3->cfg->treediff_size);
-        if (!lfs3->treediff.buffer) {
-            err = LFS3_ERR_NOMEM;
-            goto failed;
-        }
-    }
-    #endif
+// TODO rm me
+//    // setup treediff buffer
+//    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+//    if (lfs3->cfg->treediff_buffer) {
+//        lfs3->treediff.buffer = lfs3->cfg->treediff_buffer;
+//    } else {
+//        lfs3->treediff.buffer = lfs3_malloc(lfs3->cfg->treediff_size);
+//        if (!lfs3->treediff.buffer) {
+//            err = LFS3_ERR_NOMEM;
+//            goto failed;
+//        }
+//    }
+//    #endif
 
     // check that the size limits are sane
     #ifndef LFS3_RDONLY
@@ -15649,11 +15650,12 @@ static int lfs3_deinit(lfs3_t *lfs3) {
     }
     #endif
 
-    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
-    if (!lfs3->cfg->treediff_buffer) {
-        lfs3_free(lfs3->treediff.buffer);
-    }
-    #endif
+// TODO rm me
+//    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+//    if (!lfs3->cfg->treediff_buffer) {
+//        lfs3_free(lfs3->treediff.buffer);
+//    }
+//    #endif
 
     return 0;
 }

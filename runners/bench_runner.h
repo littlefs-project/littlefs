@@ -114,7 +114,6 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(PCACHE_SIZE,        LFS3_MAX(16, PROG_SIZE)                ) \
     BENCH_DEFINE(FILE_CACHE_SIZE,    16                                     ) \
     BENCH_DEFINE(LOOKAHEAD_SIZE,     16                                     ) \
-    BENCH_DEFINE(TREEDIFF_SIZE,      16                                     ) \
     BENCH_DEFINE(GC_FLAGS,           0                                      ) \
     BENCH_DEFINE(GC_STEPS,           0                                      ) \
     BENCH_DEFINE(GC_COMPACT_THRESH,  0                                      ) \
@@ -155,7 +154,6 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 
 #ifdef LFS3_BMAP
 #define BENCH_BMAP_CFG \
-    .treediff_size      = TREEDIFF_SIZE,        \
     .bmap_scan_thresh   = BMAP_SCAN_THRESH,
 #else
 #define BENCH_BMAP_CFG
