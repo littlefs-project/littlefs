@@ -1108,6 +1108,7 @@ def main(ci_paths,
     results = fold(StackResult, results,
             by=by,
             defines=defines,
+            sort=sort,
             depth=depth)
 
     # hotify?

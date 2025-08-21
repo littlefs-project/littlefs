@@ -2438,6 +2438,7 @@ def main(csv_paths, *,
     # fold
     results = fold(Result, results,
             by=by,
+            sort=sort,
             depth=depth)
 
     # hotify?

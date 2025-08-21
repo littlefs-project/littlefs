@@ -1090,7 +1090,8 @@ def main(obj_paths, *,
     # fold
     results = fold(DataResult, results,
             by=by,
-            defines=defines)
+            defines=defines,
+            sort=sort)
 
     # find previous results?
     diff_results = None

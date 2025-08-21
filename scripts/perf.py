@@ -1588,6 +1588,7 @@ def main_(perf_paths, *,
     results = fold(PerfResult, results,
             by=by,
             defines=defines,
+            sort=sort,
             depth=depth)
 
     # hotify?

@@ -1259,6 +1259,7 @@ def main(obj_paths, *,
     results = fold(StructResult, results,
             by=by,
             defines=defines,
+            sort=sort,
             depth=depth)
 
     # hotify?

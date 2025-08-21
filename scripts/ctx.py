@@ -1370,6 +1370,7 @@ def main(obj_paths, *,
     results = fold(CtxResult, results,
             by=by,
             defines=defines,
+            sort=sort,
             depth=depth)
 
     # hotify?

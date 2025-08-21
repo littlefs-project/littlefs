@@ -1050,7 +1050,8 @@ def main(gcda_paths, *,
     # fold
     results = fold(CovResult, results,
             by=by,
-            defines=defines)
+            defines=defines,
+            sort=sort)
 
     # find previous results?
     diff_results = None
