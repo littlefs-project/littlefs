@@ -14062,17 +14062,22 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // is our left neighbor in the same block?
-            if (crystal_start - (bid-(weight-1))
+            //
+            // note we use the actual block start here! not the sliced
+            // view! this avoids excessive recrystallizations when
+            // fruncating
+            if (crystal_start - (bid-(weight-1)-lfs3_bptr_off(&bptr))
                         < lfs3->cfg->block_size
                     && lfs3_bptr_size(&bptr) > 0) {
                 crystal_start = bid-(weight-1);
 
             // no? is our left neighbor at least our left block neighbor?
             // align to block alignment
-            } else if (crystal_start - (bid-(weight-1))
+            } else if (crystal_start - (bid-(weight-1)-lfs3_bptr_off(&bptr))
                         < 2*lfs3->cfg->block_size
                     && lfs3_bptr_size(&bptr) > 0) {
-                crystal_start = bid-(weight-1) + lfs3->cfg->block_size;
+                crystal_start = bid-(weight-1)-lfs3_bptr_off(&bptr)
+                        + lfs3->cfg->block_size;
             }
         }
 
