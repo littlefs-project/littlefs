@@ -69,10 +69,10 @@ extern "C"
 // code footprint
 
 #ifdef DEBUG_FS_COMMANDS
-    // #define LFS_TRACE(...)  PM_INFO(__VA_ARGS__)
-    // #define LFS_DEBUG(...)  PM_DEBUG(__VA_ARGS__)
-    // #define LFS_WARN(...)   PM_WARN(__VA_ARGS__)
-    // #define LFS_ERROR(...)  PM_ERROR(__VA_ARGS__)
+    #define LFS_TRACE(...)  PM_INFO(__VA_ARGS__)
+    #define LFS_DEBUG(...)  PM_DEBUG(__VA_ARGS__)
+    #define LFS_WARN(...)   PM_WARN(__VA_ARGS__)
+    #define LFS_ERROR(...)  PM_ERROR(__VA_ARGS__)
 #endif
 
 // Logging functions
