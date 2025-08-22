@@ -1715,7 +1715,7 @@ if __name__ == "__main__":
             help="Paths to scripts to execute when dropping into gdb. "
                 "Defaults to %r." % GDB_SCRIPTS)
     bench_parser.add_argument(
-            '-e', '--exec',
+            '--exec',
             type=lambda e: e.split(),
             help="Run under another executable.")
     bench_parser.add_argument(

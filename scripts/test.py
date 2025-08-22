@@ -1750,7 +1750,7 @@ if __name__ == "__main__":
             help="Paths to scripts to execute when dropping into gdb. "
                 "Defaults to %r." % GDB_SCRIPTS)
     test_parser.add_argument(
-            '-e', '--exec',
+            '--exec',
             type=lambda e: e.split(),
             help="Run under another executable.")
     test_parser.add_argument(
