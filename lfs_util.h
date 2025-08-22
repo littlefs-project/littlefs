@@ -68,7 +68,7 @@ extern "C"
 // macros must not have side-effects as the macros can be removed for a smaller
 // code footprint
 
-#ifdef DEBUG_FS_COMMANDS
+#ifdef DEBUG_LFS_COMMANDS
     #define LFS_TRACE(...)  PM_INFO(__VA_ARGS__)
     #define LFS_DEBUG(...)  PM_DEBUG(__VA_ARGS__)
     #define LFS_WARN(...)   PM_WARN(__VA_ARGS__)
