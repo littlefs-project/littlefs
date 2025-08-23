@@ -12727,7 +12727,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         if (lfs3_o_iswrset(file->b.h.flags)
                 && file->cache.size <= lfs3->cfg->inline_size
                 && file->cache.size <= lfs3->cfg->fragment_size
-                && file->cache.size < lfs3->cfg->crystal_thresh) {
+                && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
             // we need to mark as unsync for sync to do anything
             file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -13753,7 +13753,7 @@ static int lfs3_file_flushset_(lfs3_t *lfs3, lfs3_file_t *file,
 
         // enough data for a block?
         #ifndef LFS3_2BONLY
-        if (size > lfs3->cfg->crystal_thresh) {
+        if (size >= lfs3->cfg->crystal_thresh) {
             // align down for prog alignment
             lfs3_ssize_t d = lfs3_aligndown(
                     lfs3_min(size, lfs3->cfg->block_size),
@@ -13867,7 +13867,9 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
                 && lfs3_bptr_iserased(&file->leaf.bptr)
                 && pos >= block_end
                 && pos < block_start + lfs3->cfg->block_size
-                && pos - block_end < lfs3->cfg->crystal_thresh
+                // if we're more than a crystal away, graft and check crystal
+                // heuristic before resuming
+                && pos - block_end < lfs3_max(lfs3->cfg->crystal_thresh, 1)
                 // need to bail if we can't meet prog alignment
                 && (pos + size) - block_end >= lfs3->cfg->prog_size) {
             // mark as uncrystallized to avoid allocating a new block
@@ -14738,7 +14740,7 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     if (file->cache.size == lfs3_file_size_(file)
             && file->cache.size <= lfs3->cfg->inline_size
             && file->cache.size <= lfs3->cfg->fragment_size
-            && file->cache.size < lfs3->cfg->crystal_thresh) {
+            && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
         // discard any overwritten leaves, this also clears the
         // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
         lfs3_file_discardleaf(file);

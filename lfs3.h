@@ -562,12 +562,17 @@ struct lfs3_cfg {
     lfs3_size_t fragment_size;
     #endif
 
+    // TODO crystal_thresh=0 really just means crystal_thresh=1, should we
+    // allow crystal_thresh=0? crystal_thresh=0 => block_size/16 or
+    // block_size/8 is probably a better default. need to benchmark.
+
     // Threshold for compacting multiple fragments into a block. Smaller
     // values will crystallize more eagerly, reducing disk usage, but
     // increasing the cost of random-writes.
     //
-    // 0 only writes blocks, minimizing disk usage, while -1 or any value >
-    // block_size only writes fragments, minimizing random-write cost.
+    // 0 or 1 only writes blocks, minimizing disk usage, while -1 or any
+    // value > block_size only writes fragments, minimizing random-write
+    // cost.
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
     #endif
