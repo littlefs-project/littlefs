@@ -566,6 +566,9 @@ struct lfs3_cfg {
     // allow crystal_thresh=0? crystal_thresh=0 => block_size/16 or
     // block_size/8 is probably a better default. need to benchmark.
 
+    // TODO we should probably just assert if crystal_thresh < fragment_size,
+    // or if crystal_thresh < prog_size, these aren't really valid cases
+
     // Threshold for compacting multiple fragments into a block. Smaller
     // values will crystallize more eagerly, reducing disk usage, but
     // increasing the cost of random-writes.

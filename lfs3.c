@@ -13268,7 +13268,9 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
             // carve fragment?
             } else if (!lfs3_bptr_isbptr(&bptr_)
                     // carve bptr into fragment?
-                    || lfs3_bptr_size(&l) <= lfs3->cfg->fragment_size) {
+                    || (lfs3_bptr_size(&l) <= lfs3->cfg->fragment_size
+                        && lfs3_bptr_size(&l)
+                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
                 rattrs[rattr_count++] = LFS3_RATTR_DATA(
                         LFS3_TAG_GROW | LFS3_TAG_MASK8 | LFS3_TAG_DATA,
                             -(bid+1 - pos),
@@ -13316,7 +13318,9 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
             // carve fragment?
             } else if (!lfs3_bptr_isbptr(&bptr_)
                     // carve bptr into fragment?
-                    || lfs3_bptr_size(&r) <= lfs3->cfg->fragment_size) {
+                    || (lfs3_bptr_size(&r) <= lfs3->cfg->fragment_size
+                        && lfs3_bptr_size(&r)
+                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
                 r_rattr_ = LFS3_RATTR_DATA(
                         LFS3_TAG_DATA, bid+1 - (pos+weight),
                         &r.d);
@@ -14964,8 +14968,9 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // discard if our leaf is a fragment, is fragmented, or is completed
     // truncated, we can't rely on any in-bshrub/btree state
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
-            || lfs3_bptr_size(&file->leaf.bptr)
-                <= lfs3->cfg->fragment_size) {
+            || (lfs3_bptr_size(&file->leaf.bptr) <= lfs3->cfg->fragment_size
+                && lfs3_bptr_size(&file->leaf.bptr)
+                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
         lfs3_file_discardleaf(file);
     }
 
@@ -15056,8 +15061,9 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // discard if our leaf is a fragment, is fragmented, or is completed
     // truncated, we can't rely on any in-bshrub/btree state
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
-            || lfs3_bptr_size(&file->leaf.bptr)
-                <= lfs3->cfg->fragment_size) {
+            || (lfs3_bptr_size(&file->leaf.bptr) <= lfs3->cfg->fragment_size
+                && lfs3_bptr_size(&file->leaf.bptr)
+                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
         lfs3_file_discardleaf(file);
     }
 
