@@ -573,9 +573,9 @@ struct lfs3_cfg {
     // values will crystallize more eagerly, reducing disk usage, but
     // increasing the cost of random-writes.
     //
-    // 0 or 1 only writes blocks, minimizing disk usage, while -1 or any
-    // value > block_size only writes fragments, minimizing random-write
-    // cost.
+    // 0 tries to only writes blocks, minimizing disk usage, while -1 or
+    // any value > block_size only writes fragments, minimizing
+    // random-write cost.
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
     #endif

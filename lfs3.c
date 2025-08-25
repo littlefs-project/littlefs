@@ -12727,7 +12727,9 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         if (lfs3_o_iswrset(file->b.h.flags)
                 && file->cache.size <= lfs3->cfg->inline_size
                 && file->cache.size <= lfs3->cfg->fragment_size
-                && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
+                && file->cache.size < lfs3_max(
+                    lfs3->cfg->crystal_thresh,
+                    lfs3->cfg->prog_size)) {
             // we need to mark as unsync for sync to do anything
             file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -13270,7 +13272,9 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
                     // carve bptr into fragment?
                     || (lfs3_bptr_size(&l) <= lfs3->cfg->fragment_size
                         && lfs3_bptr_size(&l)
-                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
+                            < lfs3_max(
+                                lfs3->cfg->crystal_thresh,
+                                lfs3->cfg->prog_size))) {
                 rattrs[rattr_count++] = LFS3_RATTR_DATA(
                         LFS3_TAG_GROW | LFS3_TAG_MASK8 | LFS3_TAG_DATA,
                             -(bid+1 - pos),
@@ -13320,7 +13324,9 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
                     // carve bptr into fragment?
                     || (lfs3_bptr_size(&r) <= lfs3->cfg->fragment_size
                         && lfs3_bptr_size(&r)
-                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
+                            < lfs3_max(
+                                lfs3->cfg->crystal_thresh,
+                                lfs3->cfg->prog_size))) {
                 r_rattr_ = LFS3_RATTR_DATA(
                         LFS3_TAG_DATA, bid+1 - (pos+weight),
                         &r.d);
@@ -13757,7 +13763,9 @@ static int lfs3_file_flushset_(lfs3_t *lfs3, lfs3_file_t *file,
 
         // enough data for a block?
         #ifndef LFS3_2BONLY
-        if (size >= lfs3->cfg->crystal_thresh) {
+        if (size >= lfs3_max(
+                lfs3->cfg->crystal_thresh,
+                lfs3->cfg->prog_size)) {
             // align down for prog alignment
             lfs3_ssize_t d = lfs3_aligndown(
                     lfs3_min(size, lfs3->cfg->block_size),
@@ -13873,7 +13881,9 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
                 && pos < block_start + lfs3->cfg->block_size
                 // if we're more than a crystal away, graft and check crystal
                 // heuristic before resuming
-                && pos - block_end < lfs3_max(lfs3->cfg->crystal_thresh, 1)
+                && pos - block_end < lfs3_max(
+                    lfs3->cfg->crystal_thresh,
+                    lfs3->cfg->prog_size)
                 // need to bail if we can't meet prog alignment
                 && (pos + size) - block_end >= lfs3->cfg->prog_size) {
             // mark as uncrystallized to avoid allocating a new block
@@ -13924,9 +13934,13 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // if we haven't already exceeded our crystallization threshold,
         // find left crystal neighbor
         lfs3_off_t poke = lfs3_smax(
-                crystal_start - (lfs3->cfg->crystal_thresh-1),
+                crystal_start - (lfs3_max(
+                    lfs3->cfg->crystal_thresh,
+                    lfs3->cfg->prog_size)-1),
                 0);
-        if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh
+        if (crystal_end - crystal_start < lfs3_max(
+                    lfs3->cfg->crystal_thresh,
+                    lfs3->cfg->prog_size)
                 && crystal_start > 0
                 && poke < file->b.shrub.r.weight
                 // don't bother looking up left after the first block
@@ -13960,9 +13974,13 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // if we haven't already exceeded our crystallization threshold,
         // find right crystal neighbor
         poke = lfs3_min(
-                crystal_start + (lfs3->cfg->crystal_thresh-1),
+                crystal_start + (lfs3_max(
+                    lfs3->cfg->crystal_thresh,
+                    lfs3->cfg->prog_size)-1),
                 file->b.shrub.r.weight-1);
-        if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh
+        if (crystal_end - crystal_start < lfs3_max(
+                    lfs3->cfg->crystal_thresh,
+                    lfs3->cfg->prog_size)
                 && crystal_end < file->b.shrub.r.weight) {
             lfs3_bid_t bid;
             lfs3_bid_t weight;
@@ -13994,9 +14012,12 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // write to the file
 
         // below our crystallization threshold? fallback to writing fragments
-        if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh
-                // enough for prog alignment?
-                || crystal_end - crystal_start < lfs3->cfg->prog_size) {
+        //
+        // note as long as crystal_thresh >= prog_size, this also ensures we
+        // have enough for prog alignment
+        if (crystal_end - crystal_start < lfs3_max(
+                    lfs3->cfg->crystal_thresh,
+                    lfs3->cfg->prog_size)) {
             goto fragment;
         }
 
@@ -14744,7 +14765,9 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     if (file->cache.size == lfs3_file_size_(file)
             && file->cache.size <= lfs3->cfg->inline_size
             && file->cache.size <= lfs3->cfg->fragment_size
-            && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
+            && file->cache.size < lfs3_max(
+                lfs3->cfg->crystal_thresh,
+                lfs3->cfg->prog_size)) {
         // discard any overwritten leaves, this also clears the
         // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
         lfs3_file_discardleaf(file);
@@ -14970,7 +14993,9 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
             || (lfs3_bptr_size(&file->leaf.bptr) <= lfs3->cfg->fragment_size
                 && lfs3_bptr_size(&file->leaf.bptr)
-                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
+                    < lfs3_max(
+                        lfs3->cfg->crystal_thresh,
+                        lfs3->cfg->prog_size))) {
         lfs3_file_discardleaf(file);
     }
 
@@ -15063,7 +15088,9 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
             || (lfs3_bptr_size(&file->leaf.bptr) <= lfs3->cfg->fragment_size
                 && lfs3_bptr_size(&file->leaf.bptr)
-                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
+                    < lfs3_max(
+                        lfs3->cfg->crystal_thresh,
+                        lfs3->cfg->prog_size))) {
         lfs3_file_discardleaf(file);
     }
 
