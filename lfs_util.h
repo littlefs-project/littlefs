@@ -43,7 +43,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
-#include "..\shared\pmlib\logging.h"
+#include "../shared/pmlib/logging.h"
 
 #ifndef LFS_NO_MALLOC
 #include <stdlib.h>
