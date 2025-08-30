@@ -659,7 +659,7 @@ void bench_stop(const char *m) {
     for (size_t i = 0; i < bench_record_count; i++) {
         if (strcmp(bench_records[i].m, m) == 0) {
             // print results
-            printf("benched %s %zd %"PRIu64" %"PRIu64" %"PRIu64"\n",
+            printf("benched %s %jd %"PRIu64" %"PRIu64" %"PRIu64"\n",
                     bench_records[i].m,
                     bench_records[i].n,
                     readed - bench_records[i].last_readed,
@@ -684,7 +684,7 @@ void bench_stop(const char *m) {
 
 void bench_result(const char *m, uintmax_t n, uintmax_t result) {
     // we just print these directly
-    printf("benched %s %zd %"PRIu64"\n",
+    printf("benched %s %jd %"PRIu64"\n",
             m,
             n,
             result);
@@ -692,7 +692,7 @@ void bench_result(const char *m, uintmax_t n, uintmax_t result) {
 
 void bench_fresult(const char *m, uintmax_t n, double result) {
     // we just print these directly
-    printf("benched %s %zd %.6f\n",
+    printf("benched %s %jd %.6f\n",
             m,
             n,
             result);
