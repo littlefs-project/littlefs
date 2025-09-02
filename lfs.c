@@ -2333,6 +2333,10 @@ static int lfs_dir_relocatingcommit(lfs_t *lfs, lfs_mdir_t *dir,
         lfs->gdisk = lfs->gstate;
         lfs->gdelta = (lfs_gstate_t){0};
 
+        if(dir->count == 0x3ff)
+        {
+            goto compact;
+        }
         goto fixmlist;
     }
 
