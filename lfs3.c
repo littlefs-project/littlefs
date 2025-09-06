@@ -2846,6 +2846,17 @@ static int lfs3_rbyd_ckecksum(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 }
 #endif
 
+// rbyd fetch flags
+#define LFS3_RBYD_QUICKFETCH 0x80000000 // only fetch one trunk
+
+static inline bool lfs3_rbyd_isquickfetch(lfs3_size_t trunk) {
+    return trunk & LFS3_RBYD_QUICKFETCH;
+}
+
+static inline lfs3_size_t lfs3_rbyd_fetchtrunk(lfs3_size_t trunk) {
+    return trunk & ~LFS3_RBYD_QUICKFETCH;
+}
+
 // optional height calculation for debugging rbyd balance
 typedef struct lfs3_rheight {
     lfs3_size_t height;
@@ -2864,14 +2875,17 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t trunk) {
     // set up some initial state
     rbyd->blocks[0] = block;
-    rbyd->trunk = (trunk & LFS3_RBYD_ISSHRUB) | 0;
+    rbyd->trunk = 0;
     rbyd->weight = 0;
     #ifndef LFS3_RDONLY
     rbyd->eoff = 0;
     #endif
 
-    // ignore the shrub bit here
-    trunk &= ~LFS3_RBYD_ISSHRUB;
+    // if we're quick fetching, we can start from the trunk,
+    // otherwise we start from 0 and try to find the trunk
+    lfs3_size_t off_ = (lfs3_rbyd_isquickfetch(trunk))
+            ? lfs3_rbyd_fetchtrunk(trunk)
+            : sizeof(uint32_t);
 
     // keep track of last commit off and perturb bit
     lfs3_size_t eoff = 0;
@@ -2879,14 +2893,15 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
 
     // checksum the revision count to get the cksum started
     uint32_t cksum_ = 0;
-    int err = lfs3_bd_cksum(lfs3, block, 0, -1, sizeof(uint32_t),
-            &cksum_);
-    if (err) {
-        return err;
+    if (!lfs3_rbyd_isquickfetch(trunk)) {
+        int err = lfs3_bd_cksum(lfs3, block, 0, -1, sizeof(uint32_t),
+                &cksum_);
+        if (err) {
+            return err;
+        }
     }
 
     // temporary state until we validate a cksum
-    lfs3_size_t off_ = sizeof(uint32_t);
     uint32_t cksum__ = cksum_;
     lfs3_size_t trunk_ = 0;
     lfs3_size_t trunk__ = 0;
@@ -2904,14 +2919,16 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
 
     // scan tags, checking valid bits, cksums, etc
     while (off_ < lfs3->cfg->block_size
-            && (!trunk || eoff <= trunk)) {
+            && (!trunk || eoff <= lfs3_rbyd_fetchtrunk(trunk))) {
         // read next tag
         lfs3_tag_t tag;
         lfs3_rid_t weight;
         lfs3_size_t size;
         lfs3_ssize_t d = lfs3_bd_readtag(lfs3, block, off_, -1,
                 &tag, &weight, &size,
-                &cksum__);
+                (lfs3_rbyd_isquickfetch(trunk))
+                    ? NULL
+                    : &cksum__);
         if (d < 0) {
             if (d == LFS3_ERR_CORRUPT) {
                 break;
@@ -2928,14 +2945,16 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
         if (!lfs3_tag_isalt(tag)) {
             // not an end-of-commit cksum
             if (lfs3_tag_suptype(tag) != LFS3_TAG_CKSUM) {
-                // cksum the entry, hopefully leaving it in the cache
-                err = lfs3_bd_cksum(lfs3, block, off__, -1, size,
-                        &cksum__);
-                if (err) {
-                    if (err == LFS3_ERR_CORRUPT) {
-                        break;
+                if (!lfs3_rbyd_isquickfetch(trunk)) {
+                    // cksum the entry, hopefully leaving it in the cache
+                    int err = lfs3_bd_cksum(lfs3, block, off__, -1, size,
+                            &cksum__);
+                    if (err) {
+                        if (err == LFS3_ERR_CORRUPT) {
+                            break;
+                        }
+                        return err;
                     }
-                    return err;
                 }
 
                 // found an ecksum? save for later
@@ -2943,7 +2962,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                         false,
                         tag == LFS3_TAG_ECKSUM)) {
                     #ifndef LFS3_RDONLY
-                    err = lfs3_data_readecksum(lfs3,
+                    int err = lfs3_data_readecksum(lfs3,
                             &LFS3_DATA_DISK(block, off__,
                                 // note this size is to make the hint do
                                 // what we want
@@ -2959,7 +2978,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
 
                 // found gcksumdelta? save for later
                 } else if (tag == LFS3_TAG_GCKSUMDELTA) {
-                    err = lfs3_data_readle32(lfs3,
+                    int err = lfs3_data_readle32(lfs3,
                             &LFS3_DATA_DISK(block, off__,
                                 // note this size is to make the hint do
                                 // what we want
@@ -2986,28 +3005,32 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                     break;
                 }
 
-                // check checksum
-                uint32_t cksum___ = 0;
-                err = lfs3_bd_read(lfs3, block, off__, -1,
-                        &cksum___, sizeof(uint32_t));
-                if (err) {
-                    if (err == LFS3_ERR_CORRUPT) {
+                // check checksum, unless we're recklessly quick fetching
+                if (!lfs3_rbyd_isquickfetch(trunk)) {
+                    uint32_t cksum___ = 0;
+                    int err = lfs3_bd_read(lfs3, block, off__, -1,
+                            &cksum___, sizeof(uint32_t));
+                    if (err) {
+                        if (err == LFS3_ERR_CORRUPT) {
+                            break;
+                        }
+                        return err;
+                    }
+                    cksum___ = lfs3_fromle32(&cksum___);
+
+                    if (cksum__ != cksum___) {
+                        // uh oh, checksums don't match
                         break;
                     }
-                    return err;
-                }
-                cksum___ = lfs3_fromle32(&cksum___);
-
-                if (cksum__ != cksum___) {
-                    // uh oh, checksums don't match
-                    break;
                 }
 
                 // save what we've found so far
                 eoff = off__ + size;
-                rbyd->trunk = (LFS3_RBYD_ISSHRUB & rbyd->trunk) | trunk_;
+                rbyd->trunk = trunk_;
                 rbyd->weight = weight_;
-                rbyd->cksum = cksum_;
+                if (!lfs3_rbyd_isquickfetch(trunk)) {
+                    rbyd->cksum = cksum_;
+                }
                 if (gcksumdelta) {
                     *gcksumdelta = gcksumdelta_;
                 }
@@ -3031,7 +3054,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
 
         // found a trunk?
         if (lfs3_tag_istrunk(tag)) {
-            if (!(trunk && off_ > trunk && !trunk__)) {
+            if (!(trunk && off_ > lfs3_rbyd_fetchtrunk(trunk) && !trunk__)) {
                 // start of trunk?
                 if (!trunk__) {
                     // keep track of trunk's entry point
@@ -3050,8 +3073,10 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
 
                 // end of trunk?
                 if (!lfs3_tag_isalt(tag)) {
-                    // update trunk and weight, unless we are a shrub trunk
-                    if (!lfs3_tag_isshrub(tag) || trunk__ == trunk) {
+                    // update trunk and weight, unless we are a shrub trunk,
+                    // this prevents fetching shrub trunks, but why would
+                    // you want to fetch a shrub trunk?
+                    if (!lfs3_tag_isshrub(tag)) {
                         trunk_ = trunk__;
                         weight_ = weight__;
                     }
@@ -3083,7 +3108,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     bool erased = false;
     if (ecksum.cksize != -1) {
         // check the erased-state checksum
-        err = lfs3_rbyd_ckecksum(lfs3, rbyd, &ecksum);
+        int err = lfs3_rbyd_ckecksum(lfs3, rbyd, &ecksum);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
@@ -3099,16 +3124,29 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     #endif
 
     #ifdef LFS3_DBGRBYDFETCHES
-    LFS3_DEBUG("Fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
-                "eoff %"PRId32", cksum %"PRIx32,
-            rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
-            rbyd->weight,
-            LFS3_IFDEF_RDONLY(
-                -1,
-                (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
-                    ? -1
-                    : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd)),
-            rbyd->cksum);
+    if (lfs3_rbyd_isquickfetch(trunk)) {
+        LFS3_DEBUG("Quick-fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+                    "eoff %"PRId32", cksum %"PRIx32,
+                rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
+                rbyd->weight,
+                LFS3_IFDEF_RDONLY(
+                    -1,
+                    (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
+                        ? -1
+                        : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd)),
+                rbyd->cksum);
+    } else {
+        LFS3_DEBUG("Fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+                    "eoff %"PRId32", cksum %"PRIx32,
+                rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
+                rbyd->weight,
+                LFS3_IFDEF_RDONLY(
+                    -1,
+                    (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
+                        ? -1
+                        : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd)),
+                rbyd->cksum);
+    }
     #endif
 
     // debugging rbyd balance? check that all branches in the rbyd have
@@ -3160,13 +3198,43 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
 
 static int lfs3_rbyd_fetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_block_t block, lfs3_size_t trunk) {
+    // why would you try to fetch a shrub?
+    LFS3_ASSERT(!(trunk & LFS3_RBYD_ISSHRUB));
+
     return lfs3_rbyd_fetch_(lfs3, rbyd, NULL, block, trunk);
+}
+
+// a more reckless fetch when checksum is known
+//
+// this just finds the eoff/perturb/ecksum for the current trunk to
+// enable reckless commits
+static int lfs3_rbyd_fetchquick(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
+        lfs3_block_t block, lfs3_size_t trunk,
+        uint32_t cksum) {
+    // why would you try to fetch a shrub?
+    LFS3_ASSERT(!(trunk & LFS3_RBYD_ISSHRUB));
+
+    // the only thing quick fetch can't figure out is the checksum
+    rbyd->cksum = cksum;
+
+    int err = lfs3_rbyd_fetch_(lfs3, rbyd, NULL,
+            block, LFS3_RBYD_QUICKFETCH | trunk);
+    if (err) {
+        return err;
+    }
+
+    // quick fetch should leave the cksum unaffected
+    LFS3_ASSERT(rbyd->cksum == cksum);
+    return 0;
 }
 
 // a more aggressive fetch when checksum is known
 static int lfs3_rbyd_fetchck(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_block_t block, lfs3_size_t trunk,
         uint32_t cksum) {
+    // why would you try to fetch a shrub?
+    LFS3_ASSERT(!(trunk & LFS3_RBYD_ISSHRUB));
+
     int err = lfs3_rbyd_fetch(lfs3, rbyd, block, trunk);
     if (err) {
         if (err == LFS3_ERR_CORRUPT) {
@@ -5613,11 +5681,24 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         //
         // a funny benefit is we cache the root of our btree this way
         if (!lfs3_rbyd_isfetched(&child)) {
-            int err = lfs3_rbyd_fetchck(lfs3, &child,
-                    child.blocks[0], lfs3_rbyd_trunk(&child),
-                    child.cksum);
-            if (err) {
-                return err;
+            // if we're not checking fetches, we can get away with a
+            // quick fetch
+            if (LFS3_IFDEF_CKFETCHES(
+                    !lfs3_m_isckfetches(lfs3->flags),
+                    true)) {
+                int err = lfs3_rbyd_fetchquick(lfs3, &child,
+                        child.blocks[0], lfs3_rbyd_trunk(&child),
+                        child.cksum);
+                if (err) {
+                    return err;
+                }
+            } else {
+                int err = lfs3_rbyd_fetchck(lfs3, &child,
+                        child.blocks[0], lfs3_rbyd_trunk(&child),
+                        child.cksum);
+                if (err) {
+                    return err;
+                }
             }
         }
 
