@@ -317,8 +317,8 @@
 //
 
 // Compile time min/max
-#define LFS3_MIN(a, b) ((a < b) ? a : b)
-#define LFS3_MAX(a, b) ((a > b) ? a : b)
+#define LFS3_MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define LFS3_MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 // Min/max functions for unsigned 32-bit numbers
 static inline uint32_t lfs3_min(uint32_t a, uint32_t b) {
