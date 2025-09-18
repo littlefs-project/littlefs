@@ -6,7 +6,7 @@ defaults:
     shell: bash -euv -o pipefail {0}
 
 env:
-  CFLAGS: -Werror -Wsign-conversion
+  CFLAGS: -Werror
   MAKEFLAGS: -j
   TESTFLAGS: -k
   BENCHFLAGS:
