@@ -143,7 +143,7 @@ static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
 // Find the smallest power of 2 greater than or equal to a
 static inline uint32_t lfs_npw2(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
-    return 32 - __builtin_clz(a-1);
+    return (uint32_t) (32 - __builtin_clz(a-1));
 #else
     uint32_t r = 0;
     uint32_t s;
@@ -160,7 +160,7 @@ static inline uint32_t lfs_npw2(uint32_t a) {
 // lfs_ctz(0) may be undefined
 static inline uint32_t lfs_ctz(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && defined(__GNUC__)
-    return __builtin_ctz(a);
+    return (uint32_t) __builtin_ctz(a);
 #else
     return lfs_npw2((a & -a) + 1) - 1;
 #endif
@@ -169,7 +169,7 @@ static inline uint32_t lfs_ctz(uint32_t a) {
 // Count the number of binary ones in a
 static inline uint32_t lfs_popc(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
-    return __builtin_popcount(a);
+    return (uint32_t) __builtin_popcount(a);
 #else
     a = a - ((a >> 1) & 0x55555555);
     a = (a & 0x33333333) + ((a >> 2) & 0x33333333);
