@@ -2264,7 +2264,7 @@ static int lfs_dir_relocatingcommit(lfs_t *lfs, lfs_mdir_t *dir,
         }
     }
 
-    if (dir->erased || dir->count >= 0xff) {
+    if (dir->erased && dir->count < 0xff) {
         // try to commit
         struct lfs_commit commit = {
             .block = dir->pair[0],
