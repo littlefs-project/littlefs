@@ -93,6 +93,7 @@ static int lfs2_bd_read(lfs2_t *lfs2,
             // bypass cache?
             diff = lfs2_aligndown(diff, lfs2->cfg->read_size);
             int err = lfs2->cfg->read(lfs2->cfg, block, off, data, diff);
+            LFS2_ASSERT(err <= 0);
             if (err) {
                 return err;
             }
@@ -739,6 +740,7 @@ static lfs2_stag_t lfs2_dir_getslice(lfs2_t *lfs2, const lfs2_mdir_t *dir,
         int err = lfs2_bd_read(lfs2,
                 NULL, &lfs2->rcache, sizeof(ntag),
                 dir->pair[0], off, &ntag, sizeof(ntag));
+        LFS2_ASSERT(err <= 0);
         if (err) {
             return err;
         }
@@ -767,6 +769,7 @@ static lfs2_stag_t lfs2_dir_getslice(lfs2_t *lfs2, const lfs2_mdir_t *dir,
             err = lfs2_bd_read(lfs2,
                     NULL, &lfs2->rcache, diff,
                     dir->pair[0], off+sizeof(tag)+goff, gbuffer, diff);
+            LFS2_ASSERT(err <= 0);
             if (err) {
                 return err;
             }
@@ -1279,6 +1282,7 @@ static lfs2_stag_t lfs2_dir_fetchmatch(lfs2_t *lfs2,
                     if (err == LFS2_ERR_CORRUPT) {
                         break;
                     }
+                    return err;
                 }
 
                 lfs2_fcrc_fromle32(&fcrc);
@@ -2264,7 +2268,7 @@ static int lfs2_dir_relocatingcommit(lfs2_t *lfs2, lfs2_mdir_t *dir,
         }
     }
 
-    if (dir->erased) {
+    if (dir->erased && dir->count < 0xff) {
         // try to commit
         struct lfs2_commit commit = {
             .block = dir->pair[0],
