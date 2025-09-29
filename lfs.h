@@ -277,7 +277,7 @@ struct lfs_config {
     // Optional upper limit on inlined files in bytes. Inlined files live in
     // metadata and decrease storage requirements, but may be limited to
     // improve metadata-related performance. Must be <= cache_size, <=
-    // attr_max, and <= block_size/8. Defaults to the largest possible
+    // attr_max, and <= block_size/4. Defaults to the largest possible
     // inline_max when zero.
     //
     // Set to -1 to disable inlined files.
