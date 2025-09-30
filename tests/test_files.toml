@@ -537,3 +537,61 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
+
+[cases.test_files_ishandleopen]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+
+    lfs_file_ishandleopen(&lfs, &file) => LFS_ERR_BADF;
+
+    lfs_file_open(&lfs, &file, "hello", LFS_O_CREAT | LFS_O_WRONLY) => 0;
+
+    lfs_file_ishandleopen(&lfs, &file) => 0;
+
+    lfs_file_close(&lfs, &file) => 0;
+
+    lfs_file_ishandleopen(&lfs, &file) => LFS_ERR_BADF;
+
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_files_movehandle]
+defines.idx = [0, 1, 2]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file[3];
+    lfs_file_open(&lfs, &file[0], "a", LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_open(&lfs, &file[1], "b", LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_open(&lfs, &file[2], "c", LFS_O_CREAT | LFS_O_WRONLY) => 0;
+
+    lfs_file_t file_new;
+    lfs_file_movehandle(&lfs, &file[idx], &file_new) => 0;
+
+    for (int i = 0; i < 3; i++) {
+        if (i == idx) {
+            continue;
+        }
+
+        lfs_file_ishandleopen(&lfs, &file[i]) => 0;
+    }
+    lfs_file_ishandleopen(&lfs, &file_new) => 0;
+
+    for (int i = 0; i < 3; i++) {
+        if (i == idx) {
+            continue;
+        }
+        
+        lfs_file_close(&lfs, &file[i]) => 0;
+        lfs_file_ishandleopen(&lfs, &file[i]) => LFS_ERR_BADF;
+    }
+    
+    lfs_file_close(&lfs, &file_new) => 0;
+    lfs_file_ishandleopen(&lfs, &file_new) => LFS_ERR_BADF;
+
+    lfs_unmount(&lfs) => 0;
+'''

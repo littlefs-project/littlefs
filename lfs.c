@@ -504,7 +504,6 @@ static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
 }
 #endif
 
-#ifndef LFS_NO_ASSERT
 static bool lfs_mlist_isopen(struct lfs_mlist *head,
         struct lfs_mlist *node) {
     for (struct lfs_mlist **p = &head; *p; p = &(*p)->next) {
@@ -515,7 +514,6 @@ static bool lfs_mlist_isopen(struct lfs_mlist *head,
 
     return false;
 }
-#endif
 
 static void lfs_mlist_remove(lfs_t *lfs, struct lfs_mlist *mlist) {
     for (struct lfs_mlist **p = &lfs->mlist; *p; p = &(*p)->next) {
@@ -6320,6 +6318,46 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     LFS_TRACE("lfs_file_size -> %"PRIu32, res);
     LFS_UNLOCK(lfs->cfg);
     return res;
+}
+
+int lfs_file_movehandle(lfs_t *lfs, lfs_file_t *old_file, 
+        lfs_file_t *new_file) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_movehandle(%p, %p, %p)",
+            (void*)lfs, (void*)old_file, (void*)new_file);
+    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)old_file));
+    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)new_file));
+
+    *new_file = *old_file;
+    lfs_mlist_remove(lfs, (struct lfs_mlist*)old_file);
+    lfs_mlist_append(lfs, (struct lfs_mlist*)new_file);
+
+    err = LFS_ERR_OK;
+    
+    LFS_TRACE("lfs_file_movehandle -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
+}
+
+int lfs_file_ishandleopen(lfs_t *lfs, lfs_file_t *file) {
+    int err = LFS_LOCK(lfs->cfg);
+    if (err) {
+        return err;
+    }
+    LFS_TRACE("lfs_file_ishandleopen(%p, %p)", (void*)lfs, (void*)file);
+
+    if (lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file)) {
+        err = LFS_ERR_OK;
+    } else {
+        err = LFS_ERR_BADF;    
+    }
+
+    LFS_TRACE("lfs_file_ishandleopen -> %d", err);
+    LFS_UNLOCK(lfs->cfg);
+    return err;
 }
 
 #ifndef LFS_READONLY
