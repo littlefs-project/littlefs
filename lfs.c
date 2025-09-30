@@ -4335,7 +4335,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     LFS_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
             || lfs->cfg->inline_max <= ((lfs->cfg->metadata_max)
                 ? lfs->cfg->metadata_max
-                : lfs->cfg->block_size)/8);
+                : lfs->cfg->block_size)/4);
     lfs->inline_max = lfs->cfg->inline_max;
     if (lfs->inline_max == (lfs_size_t)-1) {
         lfs->inline_max = 0;
@@ -4346,7 +4346,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
                     lfs->attr_max,
                     ((lfs->cfg->metadata_max)
                         ? lfs->cfg->metadata_max
-                        : lfs->cfg->block_size)/8));
+                        : lfs->cfg->block_size)/4));
     }
 
     // setup default state
