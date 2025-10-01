@@ -3254,7 +3254,7 @@ static int lfs_file_close_(lfs_t *lfs, lfs_file_t *file) {
     lfs_mlist_remove(lfs, (struct lfs_mlist*)file);
 
     // clean up memory
-    if (!file->cfg->buffer) {
+    if ((!file->cfg->buffer) && (file->cache.buffer)) {
         lfs_free(file->cache.buffer);
     }
 
