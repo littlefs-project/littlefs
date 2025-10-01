@@ -1769,7 +1769,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
         // the caching layer
         if (noff >= end || noff >= lfs->pcache.off + lfs->cfg->cache_size) {
             // flush buffers
-            int err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
+            err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
             if (err) {
                 return err;
             }
