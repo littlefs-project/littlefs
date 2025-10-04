@@ -11018,6 +11018,9 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
         if (err) {
             return err;
         }
+
+        // checkpoint the allocator again
+        lfs3->lookahead.ckpoint = lfs3->block_count;
     }
     #endif
     return 0;
