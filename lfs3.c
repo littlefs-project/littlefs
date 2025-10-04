@@ -16600,6 +16600,24 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
             return err;
         }
 
+        // include on-disk bmap?
+        //
+        // TODO this is not the greatest solution, but at least it's
+        // warning free... alternatives? switch to builder pattern?
+        #ifdef LFS3_BMAP
+        #define LFS3_RATTR_IFDEF_BMAP \
+                (lfs3_m_isbmapfast(lfs3->flags) \
+                        || lfs3_m_isbmapslow(lfs3->flags) \
+                        || lfs3_m_isbmapcache(lfs3->flags)) \
+                    ? LFS3_RATTR_DATA(LFS3_TAG_GBMAPDELTA, 0, \
+                        (&((struct {lfs3_data_t d;}){ \
+                            lfs3_data_fromgbmap(&lfs3->gbmap, \
+                                lfs3->gbmap_d)}).d)) \
+                    : LFS3_RATTR_NOOP(),
+        #else
+        #define LFS3_RATTR_IFDEF_BMAP 
+        #endif
+
         // our initial superblock contains a couple things:
         // - our magic string, "littlefs"
         // - any format-time configuration
@@ -16630,17 +16648,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                 LFS3_RATTR_LEB128(
                     LFS3_TAG_FILELIMIT, 0,
                     lfs3->file_limit),
-        // TODO this is no good, switch to a builder pattern?
-        #ifdef LFS3_BMAP
-                (lfs3_m_isbmapfast(lfs3->flags)
-                        || lfs3_m_isbmapslow(lfs3->flags)
-                        || lfs3_m_isbmapcache(lfs3->flags))
-                    ? LFS3_RATTR_DATA(LFS3_TAG_GBMAPDELTA, 0,
-                        (&((struct {lfs3_data_t d;}){
-                            lfs3_data_fromgbmap(&lfs3->gbmap,
-                                lfs3->gbmap_d)}).d))
-                    : LFS3_RATTR_NOOP(),
-        #endif
+                LFS3_RATTR_IFDEF_BMAP
                 LFS3_RATTR_NAME(
                     LFS3_TAG_BOOKMARK, +1,
                     0, NULL, 0)));
