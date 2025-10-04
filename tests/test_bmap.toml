@@ -83,9 +83,9 @@ code = '''
     lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMINUSE) => 0;
     lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMINUSE) => 0;
     // replace those blocks as bad, this tests deleting ranges
-    lfs3_bmap_set(&lfs3, &bmap, 6, LFS3_TAG_BMINFLIGHT) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMINFLIGHT) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMINFLIGHT) => 0;
+    lfs3_bmap_set(&lfs3, &bmap, 6, LFS3_TAG_BMBAD) => 0;
+    lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMBAD) => 0;
+    lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMBAD) => 0;
     printf("bmap: w%d 0x%x.%x\n",
             bmap.r.weight,
             bmap.r.blocks[0],
@@ -102,7 +102,7 @@ code = '''
     assert(bid_ == 5);
     assert(weight_ == 6);
     lfs3_bmap_lookupnext(&lfs3, &bmap, 6,
-            &bid_, &weight_) => LFS3_TAG_BMINFLIGHT;
+            &bid_, &weight_) => LFS3_TAG_BMBAD;
     assert(bid_ == 6);
     assert(weight_ == 1);
     lfs3_bmap_lookupnext(&lfs3, &bmap, 7,
@@ -110,7 +110,7 @@ code = '''
     assert(bid_ == 7);
     assert(weight_ == 1);
     lfs3_bmap_lookupnext(&lfs3, &bmap, 8,
-            &bid_, &weight_) => LFS3_TAG_BMINFLIGHT;
+            &bid_, &weight_) => LFS3_TAG_BMBAD;
     assert(bid_ == 8);
     assert(weight_ == 1);
     lfs3_bmap_lookupnext(&lfs3, &bmap, 9,
@@ -118,7 +118,7 @@ code = '''
     assert(bid_ == 9);
     assert(weight_ == 1);
     lfs3_bmap_lookupnext(&lfs3, &bmap, 10,
-            &bid_, &weight_) => LFS3_TAG_BMINFLIGHT;
+            &bid_, &weight_) => LFS3_TAG_BMBAD;
     assert(bid_ == 10);
     assert(weight_ == 1);
     lfs3_bmap_lookupnext(&lfs3, &bmap, 11,

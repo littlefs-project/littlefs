@@ -50,10 +50,9 @@ TAG_MDIR        = 0x0325    #  0x0324  v--- --11 --1- -1rr
 TAG_MTREE       = 0x032c    #  0x032c  v--- --11 --1- 11rr
 TAG_BMRANGE     = 0x0330    #  0x033u  v--- --11 --11 uuuu
 TAG_BMFREE      = 0x0330    #  0x0330  v--- --11 --11 ----
-TAG_BMINFLIGHT  = 0x0331    #  0x0331  v--- --11 --11 ---1
-TAG_BMINUSE     = 0x0332    #  0x0332  v--- --11 --11 --1-
+TAG_BMINUSE     = 0x0331    #  0x0331  v--- --11 --11 ---1
+TAG_BMERASED    = 0x0332    #  0x0332  v--- --11 --11 --1-
 TAG_BMBAD       = 0x0333    #  0x0333  v--- --11 --11 --11
-TAG_BMERASED    = 0x0334    #  0x0334  v--- --11 --11 -1--
 TAG_ATTR        = 0x0400    ## 0x04aa  v--- -1-a -aaa aaaa
 TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-- -aaa aaaa
 TAG_SATTR       = 0x0500    #  0x05aa  v--- -1-1 -aaa aaaa
@@ -256,10 +255,9 @@ def tagrepr(tag, weight=None, size=None, *,
                     else 'mdir' if (tag & 0xfff) == TAG_MDIR
                     else 'mtree' if (tag & 0xfff) == TAG_MTREE
                     else 'bmfree' if (tag & 0xfff) == TAG_BMFREE
-                    else 'bminflight' if (tag & 0xfff) == TAG_BMINFLIGHT
                     else 'bminuse' if (tag & 0xfff) == TAG_BMINUSE
-                    else 'bmbad' if (tag & 0xfff) == TAG_BMBAD
                     else 'bmerased' if (tag & 0xfff) == TAG_BMERASED
+                    else 'bmbad' if (tag & 0xfff) == TAG_BMBAD
                     else 'bmrange 0x%x' % (tag & 0xf)
                         if (tag & 0xff0) == TAG_BMRANGE
                     else 'struct 0x%02x' % (tag & 0xff),

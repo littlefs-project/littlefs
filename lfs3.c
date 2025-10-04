@@ -1063,10 +1063,9 @@ enum lfs3_tag {
     LFS3_TAG_MTREE          = 0x032c,
     LFS3_TAG_BMRANGE        = 0x0330,
     LFS3_TAG_BMFREE         = 0x0330,
-    LFS3_TAG_BMINFLIGHT     = 0x0331,
-    LFS3_TAG_BMINUSE        = 0x0332,
+    LFS3_TAG_BMINUSE        = 0x0331,
+    LFS3_TAG_BMERASED       = 0x0332,
     LFS3_TAG_BMBAD          = 0x0333,
-    LFS3_TAG_BMERASED       = 0x0334,
 
     // user/sys attributes
     LFS3_TAG_ATTR           = 0x0400,
