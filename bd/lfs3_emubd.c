@@ -166,23 +166,52 @@ static uint32_t lfs3_emubd_prng_(uint32_t *state) {
 
 int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
         const struct lfs3_emubd_cfg *bdcfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_createcfg(%p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
+    LFS3_EMUBD_TRACE("lfs3_emubd_createcfg("
+                "%p {"
+                    ".context=%p, "
+                    ".read=%p, "
+                    ".prog=%p, "
+                    ".erase=%p, "
+                    ".sync=%p, "
+                    ".read_size=%"PRIu32", "
+                    ".prog_size=%"PRIu32", "
+                    ".block_size=%"PRIu32", "
+                    ".block_count=%"PRIu32"}, "
                 "\"%s\", "
-                "%p {.erase_value=%"PRId32", .erase_cycles=%"PRIu32", "
-                ".badblock_behavior=%"PRIu8", .power_cycles=%"PRIu32", "
-                ".powerloss_behavior=%"PRIu8", .powerloss_cb=%p, "
-                ".powerloss_data=%p, seed=%"PRIu32"})",
-            (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            path, (void*)bdcfg, bdcfg->erase_value, bdcfg->erase_cycles,
-            bdcfg->badblock_behavior, bdcfg->power_cycles,
-            bdcfg->powerloss_behavior, (void*)(uintptr_t)bdcfg->powerloss_cb,
-            bdcfg->powerloss_data, bdcfg->seed);
+                "%p {.erase_value=%"PRId32", "
+                    ".erase_cycles=%"PRIu32", "
+                    ".badblock_behavior=%"PRIu8", "
+                    ".power_cycles=%"PRIu32", "
+                    ".powerloss_behavior=%"PRIu8", "
+                    ".powerloss_cb=%p, "
+                    ".powerloss_data=%p, "
+                    ".seed=%"PRIu32", "
+                    ".read_sleep=%"PRIu64", "
+                    ".prog_sleep=%"PRIu64", "
+                    ".erase_sleep=%"PRIu64"})",
+            (void*)cfg,
+            cfg->context,
+            (void*)(uintptr_t)cfg->read,
+            (void*)(uintptr_t)cfg->prog,
+            (void*)(uintptr_t)cfg->erase,
+            (void*)(uintptr_t)cfg->sync,
+            cfg->read_size,
+            cfg->prog_size,
+            cfg->block_size,
+            cfg->block_count,
+            path,
+            (void*)bdcfg,
+            bdcfg->erase_value,
+            bdcfg->erase_cycles,
+            bdcfg->badblock_behavior,
+            bdcfg->power_cycles,
+            bdcfg->powerloss_behavior,
+            (void*)(uintptr_t)bdcfg->powerloss_cb,
+            bdcfg->powerloss_data,
+            bdcfg->seed,
+            bdcfg->read_sleep,
+            bdcfg->prog_sleep,
+            bdcfg->erase_sleep);
     lfs3_emubd_t *bd = cfg->context;
     bd->cfg = bdcfg;
 
@@ -229,7 +258,7 @@ int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
                 cfg->block_count * sizeof(lfs3_emubd_block_t*));
     }
 
-    if (bd->cfg->disk_path) {
+    if (path) {
         bd->disk = malloc(sizeof(lfs3_emubd_disk_t));
         if (!bd->disk) {
             err = LFS3_ERR_NOMEM;
@@ -240,11 +269,9 @@ int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
         bd->disk->scratch = NULL;
 
         #ifdef _WIN32
-        bd->disk->fd = open(bd->cfg->disk_path,
-                O_RDWR | O_CREAT | O_BINARY, 0666);
+        bd->disk->fd = open(path, O_RDWR | O_CREAT | O_BINARY, 0666);
         #else
-        bd->disk->fd = open(bd->cfg->disk_path,
-                O_RDWR | O_CREAT, 0666);
+        bd->disk->fd = open(path, O_RDWR | O_CREAT, 0666);
         #endif
         if (bd->disk->fd < 0) {
             err = -errno;
@@ -293,15 +320,28 @@ failed:;
 }
 
 int lfs3_emubd_create(const struct lfs3_cfg *cfg, const char *path) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_create(%p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
+    LFS3_EMUBD_TRACE("lfs3_emubd_create("
+                "%p {"
+                    ".context=%p, "
+                    ".read=%p, "
+                    ".prog=%p, "
+                    ".erase=%p, "
+                    ".sync=%p, "
+                    ".read_size=%"PRIu32", "
+                    ".prog_size=%"PRIu32", "
+                    ".block_size=%"PRIu32", "
+                    ".block_count=%"PRIu32"}, "
                 "\"%s\")",
-            (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
+            (void*)cfg,
+            cfg->context,
+            (void*)(uintptr_t)cfg->read,
+            (void*)(uintptr_t)cfg->prog,
+            (void*)(uintptr_t)cfg->erase,
+            (void*)(uintptr_t)cfg->sync,
+            cfg->read_size,
+            cfg->prog_size,
+            cfg->block_size,
+            cfg->block_count,
             path);
     static const struct lfs3_emubd_cfg defaults = {.erase_value=-1};
     int err = lfs3_emubd_createcfg(cfg, path, &defaults);

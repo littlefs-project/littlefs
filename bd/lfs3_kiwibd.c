@@ -92,7 +92,6 @@ int lfs3_kiwibd_createcfg(const struct lfs3_cfg *cfg, const char *path,
                 "\"%s\", "
                 "%p {"
                     ".erase_value=%"PRId32", "
-                    ".disk_path=\"%s\", "
                     ".buffer=%p, "
                     ".read_sleep=%"PRIu64", "
                     ".prog_sleep=%"PRIu64", "
@@ -110,7 +109,6 @@ int lfs3_kiwibd_createcfg(const struct lfs3_cfg *cfg, const char *path,
             path,
             (void*)bdcfg,
             bdcfg->erase_value,
-            bdcfg->disk_path,
             bdcfg->buffer,
             bdcfg->read_sleep,
             bdcfg->prog_sleep,
@@ -122,35 +120,34 @@ int lfs3_kiwibd_createcfg(const struct lfs3_cfg *cfg, const char *path,
     bd->readed = 0;
     bd->proged = 0;
     bd->erased = 0;
-    if (bd->cfg->disk_path) {
-        bd->u.disk.fd = -1;
-        bd->u.disk.scratch = NULL;
+    bd->fd = -1;
+    if (path) {
+        bd->u.scratch = NULL;
     } else {
         bd->u.mem = NULL;
     }
     int err;
 
-    // if we have a disk_path, try to open the backing file
-    if (bd->cfg->disk_path) {
-        bd->u.disk.fd = open(bd->cfg->disk_path,
-                O_RDWR | O_CREAT, 0666);
-        if (bd->u.disk.fd < 0) {
+    // if we have a path, try to open the backing file
+    if (path) {
+        bd->fd = open(path, O_RDWR | O_CREAT, 0666);
+        if (bd->fd < 0) {
             err = -errno;
             goto failed;
         }
 
         // allocate a scratch buffer to help with zeroing/masking/etc
-        bd->u.disk.scratch = malloc(cfg->block_size);
-        if (!bd->u.disk.scratch) {
+        bd->u.scratch = malloc(cfg->block_size);
+        if (!bd->u.scratch) {
             err = LFS3_ERR_NOMEM;
             goto failed;
         }
 
         // zero for reproducibility
-        lfs3_kiwibd_memzero(cfg, bd->u.disk.scratch, cfg->block_size);
+        lfs3_kiwibd_memzero(cfg, bd->u.scratch, cfg->block_size);
         for (lfs3_block_t i = 0; i < cfg->block_count; i++) {
-            ssize_t res = write(bd->u.disk.fd,
-                    bd->u.disk.scratch,
+            ssize_t res = write(bd->fd,
+                    bd->u.scratch,
                     cfg->block_size);
             if (res < 0) {
                 err = -errno;
@@ -177,11 +174,9 @@ int lfs3_kiwibd_createcfg(const struct lfs3_cfg *cfg, const char *path,
 failed:;
     LFS3_KIWIBD_TRACE("lfs3_kiwibd_createcfg -> %d", err);
     // clean up memory
-    if (bd->cfg->disk_path) {
-        if (bd->u.disk.fd != -1) {
-            close(bd->u.disk.fd);
-        }
-        free(bd->u.disk.scratch);
+    if (bd->fd >= 0) {
+        close(bd->fd);
+        free(bd->u.scratch);
     } else {
         free(bd->u.mem);
     }
@@ -223,9 +218,9 @@ int lfs3_kiwibd_destroy(const struct lfs3_cfg *cfg) {
     lfs3_kiwibd_t *bd = cfg->context;
 
     // clean up memory
-    if (bd->cfg->disk_path) {
-        close(bd->u.disk.fd);
-        free(bd->u.disk.scratch);
+    if (bd->fd >= 0) {
+        close(bd->fd);
+        free(bd->u.scratch);
     } else {
         free(bd->u.mem);
     }
@@ -251,12 +246,12 @@ int lfs3_kiwibd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     LFS3_ASSERT(off+size <= cfg->block_size);
 
     // read in file?
-    if (bd->cfg->disk_path) {
+    if (bd->fd >= 0) {
         lfs3_kiwibd_memerase(cfg,
-                bd->u.disk.scratch,
+                bd->u.scratch,
                 cfg->block_size);
 
-        off_t res = lseek(bd->u.disk.fd,
+        off_t res = lseek(bd->fd,
                 (off_t)block*cfg->block_size + (off_t)off,
                 SEEK_SET);
         if (res < 0) {
@@ -265,7 +260,7 @@ int lfs3_kiwibd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
             return err;
         }
 
-        ssize_t res_ = read(bd->u.disk.fd, buffer, size);
+        ssize_t res_ = read(bd->fd, buffer, size);
         if (res_ < 0) {
             int err = -errno;
             LFS3_KIWIBD_TRACE("lfs3_kiwibd_read -> %d", err);
@@ -312,10 +307,10 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
     LFS3_ASSERT(off+size <= cfg->block_size);
 
     // prog in file?
-    if (bd->cfg->disk_path) {
+    if (bd->fd >= 0) {
         // were we erased properly?
         if (bd->cfg->erase_value >= 0) {
-            off_t res = lseek(bd->u.disk.fd,
+            off_t res = lseek(bd->fd,
                     (off_t)block*cfg->block_size + (off_t)off,
                     SEEK_SET);
             if (res < 0) {
@@ -324,7 +319,7 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 return err;
             }
 
-            ssize_t res_ = read(bd->u.disk.fd, bd->u.disk.scratch, size);
+            ssize_t res_ = read(bd->fd, bd->u.scratch, size);
             if (res_ < 0) {
                 int err = -errno;
                 LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
@@ -332,13 +327,13 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
             }
 
             for (lfs3_off_t i = 0; i < size; i++) {
-                LFS3_ASSERT(bd->u.disk.scratch[i] == bd->cfg->erase_value);
+                LFS3_ASSERT(bd->u.scratch[i] == bd->cfg->erase_value);
             }
         }
 
         // masking progs?
         if (bd->cfg->erase_value == -2) {
-            off_t res = lseek(bd->u.disk.fd,
+            off_t res = lseek(bd->fd,
                     (off_t)block*cfg->block_size + (off_t)off,
                     SEEK_SET);
             if (res < 0) {
@@ -347,16 +342,16 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 return err;
             }
 
-            ssize_t res_ = read(bd->u.disk.fd, bd->u.disk.scratch, size);
+            ssize_t res_ = read(bd->fd, bd->u.scratch, size);
             if (res_ < 0) {
                 int err = -errno;
                 LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
                 return err;
             }
 
-            lfs3_kiwibd_memprog(cfg, bd->u.disk.scratch, buffer, size);
+            lfs3_kiwibd_memprog(cfg, bd->u.scratch, buffer, size);
 
-            res = lseek(bd->u.disk.fd,
+            res = lseek(bd->fd,
                     (off_t)block*cfg->block_size + (off_t)off,
                     SEEK_SET);
             if (res < 0) {
@@ -365,7 +360,7 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 return err;
             }
 
-            res_ = write(bd->u.disk.fd, bd->u.disk.scratch, size);
+            res_ = write(bd->fd, bd->u.scratch, size);
             if (res_ < 0) {
                 int err = -errno;
                 LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
@@ -374,7 +369,7 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
 
         // normal progs?
         } else {
-            off_t res = lseek(bd->u.disk.fd,
+            off_t res = lseek(bd->fd,
                     (off_t)block*cfg->block_size + (off_t)off,
                     SEEK_SET);
             if (res < 0) {
@@ -383,7 +378,7 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 return err;
             }
 
-            ssize_t res_ = write(bd->u.disk.fd, buffer, size);
+            ssize_t res_ = write(bd->fd, buffer, size);
             if (res_ < 0) {
                 int err = -errno;
                 LFS3_KIWIBD_TRACE("lfs3_kiwibd_prog -> %d", err);
@@ -437,8 +432,8 @@ int lfs3_kiwibd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     // emulate an erase value?
     if (bd->cfg->erase_value != -1) {
         // erase in file?
-        if (bd->cfg->disk_path) {
-            off_t res = lseek(bd->u.disk.fd,
+        if (bd->fd >= 0) {
+            off_t res = lseek(bd->fd,
                     (off_t)block*cfg->block_size,
                     SEEK_SET);
             if (res < 0) {
@@ -448,11 +443,11 @@ int lfs3_kiwibd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
             }
 
             lfs3_kiwibd_memerase(cfg,
-                    bd->u.disk.scratch,
+                    bd->u.scratch,
                     cfg->block_size);
 
-            ssize_t res_ = write(bd->u.disk.fd,
-                    bd->u.disk.scratch,
+            ssize_t res_ = write(bd->fd,
+                    bd->u.scratch,
                     cfg->block_size);
             if (res_ < 0) {
                 int err = -errno;

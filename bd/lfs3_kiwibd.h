@@ -39,10 +39,6 @@ struct lfs3_kiwibd_cfg {
     // does _not_ rely on this!).
     int32_t erase_value;
 
-    // Path to file to back the block device. If provided kiwibd uses this
-    // instead of RAM, allowing emulation of block devices > available RAM.
-    const char *disk_path;
-
     // Optional statically allocated buffer for the block device. Ignored
     // if disk_path is provided.
     void *buffer;
@@ -63,11 +59,9 @@ struct lfs3_kiwibd_cfg {
 // kiwibd state
 typedef struct lfs3_kiwibd {
     // backing disk
+    int fd;
     union {
-        struct {
-            int fd;
-            uint8_t *scratch;
-        } disk;
+        uint8_t *scratch;
         uint8_t *mem;
     } u;
 
@@ -84,10 +78,9 @@ typedef struct lfs3_kiwibd {
 
 // Create a kiwibd using the geometry in lfs3_cfg
 //
-// If disk_path is provided, it will be used to back the kiwibd,
-// otherwise kiwibd will try to use RAM.
+// If path is provided, kiwibd will use the file to back the block
+// device, allowing emulation of block devices > available RAM.
 //
-// TODO wait, why do we have both disk_path and path here?
 int lfs3_kiwibd_create(const struct lfs3_cfg *cfg, const char *path);
 int lfs3_kiwibd_createcfg(const struct lfs3_cfg *cfg, const char *path,
         const struct lfs3_kiwibd_cfg *bdcfg);

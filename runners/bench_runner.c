@@ -1355,7 +1355,6 @@ void perm_run(
     };
 
     struct lfs3_emubd_cfg bdcfg = {
-        .disk_path          = bench_disk_path,
         .read_sleep         = bench_read_sleep,
         .prog_sleep         = bench_prog_sleep,
         .erase_sleep        = bench_erase_sleep,

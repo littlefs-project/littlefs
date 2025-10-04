@@ -100,11 +100,6 @@ struct lfs3_emubd_cfg {
     // not affect normal operation.
     uint32_t seed;
 
-    // Path to file to use as a mirror of the disk. This provides a way to view
-    // the current state of the block device, but does not eliminate the RAM
-    // requirement.
-    const char *disk_path;
-
     // Artificial delay in nanoseconds, there is no purpose for this other
     // than slowing down the simulation.
     lfs3_emubd_sleep_t read_sleep;
@@ -160,11 +155,10 @@ typedef struct lfs3_emubd {
 
 // Create an emulating block device using the geometry in lfs3_cfg
 //
-// If disk_path is provided, emubd will mirror the block device in the
-// file. Note this is a write-only mirror intended for introspection,
-// and does not eliminate the RAM requirement.
+// If path is provided, emubd will mirror the block device in the file.
+// This provides a way to view the current state of the block device,
+// but does not eliminate the RAM requirement.
 //
-// TODO wait, why do we have both disk_path and path here?
 int lfs3_emubd_create(const struct lfs3_cfg *cfg, const char *path);
 int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
         const struct lfs3_emubd_cfg *bdcfg);

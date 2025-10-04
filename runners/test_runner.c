@@ -1319,7 +1319,6 @@ static void run_powerloss_none(
     };
 
     struct lfs3_emubd_cfg bdcfg = {
-        .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
@@ -1380,7 +1379,6 @@ static void run_powerloss_linear(
     };
 
     struct lfs3_emubd_cfg bdcfg = {
-        .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
@@ -1457,7 +1455,6 @@ static void run_powerloss_log(
     };
 
     struct lfs3_emubd_cfg bdcfg = {
-        .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
@@ -1534,7 +1531,6 @@ static void run_powerloss_cycles(
     };
 
     struct lfs3_emubd_cfg bdcfg = {
-        .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
@@ -1709,7 +1705,6 @@ static void run_powerloss_exhaustive(
     };
 
     struct lfs3_emubd_cfg bdcfg = {
-        .disk_path          = test_disk_path,
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
