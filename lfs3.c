@@ -11227,10 +11227,9 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 
             #ifdef LFS3_DBGALLOCS
             LFS3_DEBUG("Allocated block 0x%"PRIx32", "
-                        "lookahead %"PRId32"/%"PRId32"/%"PRId32,
+                        "lookahead %"PRId32"/%"PRId32,
                     block,
                     lfs3->lookahead.known,
-                    lfs3->lookahead.ckpoint,
                     lfs3->cfg->block_count);
             #endif
             return block;
@@ -11245,9 +11244,8 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
         //
         if (lfs3->lookahead.ckpoint <= 0) {
             LFS3_ERROR("No more free space "
-                        "(lookahead %"PRId32"/%"PRId32"/%"PRId32")",
+                        "(lookahead %"PRId32"/%"PRId32")",
                     lfs3->lookahead.known,
-                    lfs3->lookahead.ckpoint,
                     lfs3->cfg->block_count);
             return LFS3_ERR_NOSPC;
         }
@@ -11482,9 +11480,8 @@ static int lfs3_alloc_rebuildbmap(lfs3_t *lfs3) {
     // we should ckpoint before calling this
     LFS3_ASSERT(lfs3->lookahead.ckpoint == lfs3->cfg->block_count);
     LFS3_INFO("Rebuilding bmap "
-                "(bmap %"PRId32"/%"PRId32"/%"PRId32")",
+                "(bmap %"PRId32"/%"PRId32")",
             lfs3->lookahead.bmapped,
-            lfs3->lookahead.ckpoint,
             lfs3->cfg->block_count);
 
     // create a new bmap
@@ -11542,9 +11539,8 @@ failed:;
     // not having enough space for the bmap isn't really an error
     if (err == LFS3_ERR_NOSPC) {
         LFS3_INFO("Not enough space for bmap "
-                    "(lookahead %"PRId32"/%"PRId32"/%"PRId32")",
+                    "(lookahead %"PRId32"/%"PRId32")",
                 lfs3->lookahead.known,
-                lfs3->lookahead.ckpoint,
                 lfs3->cfg->block_count);
         return 0;
     }
