@@ -245,12 +245,12 @@ def list_tags():
     # find widths for alignment
     w = [0]
     for n, t, c in tags:
-        w[0] = max(w[0], len('LFSR_'+n))
+        w[0] = max(w[0], len('LFS3_'+n))
 
     # print
     for n, t, c in tags:
         print('%-*s  %s' % (
-                w[0], 'LFSR_'+n,
+                w[0], 'LFS3_'+n,
                 c))
 
 def dbg_tags(data, *,
