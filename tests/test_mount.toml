@@ -87,12 +87,12 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that various format flags don't, uh, assert or anything
+# test that various format flags don't assert or anything
 # 
 # these end up passed to mount internally
 [cases.test_mount_format_flags]
@@ -104,6 +104,7 @@ defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.GBMAP = [false, true]
 if = [
     'LFS3_IFDEF_REVDBG(true, !REVDBG)',
     'LFS3_IFDEF_REVNOISE(true, !REVNOISE)',
@@ -112,6 +113,7 @@ if = [
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS3_IFDEF_BMAP(true, !GBMAP)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -128,10 +130,24 @@ code = '''
                     ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
                     : 0)
                 | ((CKMETA) ? LFS3_F_CKMETA : 0)
-                | ((CKDATA) ? LFS3_F_CKDATA : 0),
+                | ((CKDATA) ? LFS3_F_CKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_BMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // test that format-only flags are read correctly
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_MKCONSISTENT
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_YES_BMAP(
+                    LFS3_I_GBMAP,
+                    (GBMAP) ? LFS3_IFDEF_BMAP(LFS3_I_GBMAP, -1) : 0)));
+
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -155,7 +171,7 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_LOOKAHEAD, mount performs a lookahead scan
@@ -172,7 +188,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -228,7 +244,7 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_COMPACT, mount compact any uncompacted blocks
@@ -246,7 +262,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     // mdir should have been compacted
     lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
@@ -332,7 +348,7 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_MKCONSISTENT, mount cleans up orphans eagerly
@@ -351,7 +367,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     // check we can still read the files
     lfs3_file_open(&lfs3, &file, "cuttlefish", LFS3_O_RDONLY) => 0;
@@ -672,7 +688,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_LE32(
                 LFS3_TAG_RCOMPAT, 0,
-                LFS3_RCOMPAT_COMPAT
+                lfs3_rcompat(&lfs3)
                     | LFS3_RCOMPAT_NONSTANDARD))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -698,7 +714,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_LE32(
                 LFS3_TAG_WCOMPAT, 0,
-                LFS3_WCOMPAT_COMPAT
+                lfs3_wcompat(&lfs3)
                     | LFS3_WCOMPAT_NONSTANDARD))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -727,7 +743,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_LE32(
                 LFS3_TAG_OCOMPAT, 0,
-                LFS3_OCOMPAT_COMPAT
+                lfs3_ocompat(&lfs3)
                     | LFS3_OCOMPAT_NONSTANDARD))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -754,7 +770,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_LE32(
                 LFS3_TAG_WCOMPAT, 0,
-                LFS3_WCOMPAT_COMPAT
+                lfs3_wcompat(&lfs3)
                     | LFS3_WCOMPAT_RDONLY))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -782,7 +798,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_LE32(
                 LFS3_TAG_RCOMPAT, 0,
-                LFS3_RCOMPAT_COMPAT
+                lfs3_rcompat(&lfs3)
                     | LFS3_RCOMPAT_WRONLY))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -814,7 +830,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_RCOMPAT, 0,
-                lfs3_data_fromle32(LFS3_RCOMPAT_COMPAT, rcompat_buf),
+                lfs3_data_fromle32(lfs3_rcompat(&lfs3), rcompat_buf),
                 LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -848,7 +864,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_WCOMPAT, 0,
-                lfs3_data_fromle32(LFS3_WCOMPAT_COMPAT, wcompat_buf),
+                lfs3_data_fromle32(lfs3_wcompat(&lfs3), wcompat_buf),
                 LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -882,7 +898,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_OCOMPAT, 0,
-                lfs3_data_fromle32(LFS3_OCOMPAT_COMPAT, ocompat_buf),
+                lfs3_data_fromle32(lfs3_ocompat(&lfs3), ocompat_buf),
                 LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -914,7 +930,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_RCOMPAT, 0,
-                lfs3_data_fromle32(LFS3_RCOMPAT_COMPAT, rcompat_buf),
+                lfs3_data_fromle32(lfs3_rcompat(&lfs3), rcompat_buf),
                 LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -948,7 +964,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_WCOMPAT, 0,
-                lfs3_data_fromle32(LFS3_WCOMPAT_COMPAT, wcompat_buf),
+                lfs3_data_fromle32(lfs3_wcompat(&lfs3), wcompat_buf),
                 LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -979,7 +995,7 @@ code = '''
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR_CAT(
                 LFS3_TAG_OCOMPAT, 0,
-                lfs3_data_fromle32(LFS3_OCOMPAT_COMPAT, ocompat_buf),
+                lfs3_data_fromle32(lfs3_ocompat(&lfs3), ocompat_buf),
                 LFS3_DATA_BUF(overflow, sizeof(overflow))))) => 0;
     lfs3_unmount(&lfs3) => 0;
 

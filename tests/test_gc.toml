@@ -1459,7 +1459,7 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1575,7 +1575,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -1650,7 +1650,7 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1766,7 +1766,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     // test that we can reset flags with lfs3_fs_unck
     lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
@@ -1781,7 +1781,7 @@ code = '''
                 // _not_ imply uncking ckmeta
                 | ((!(CKDATA && !CKMETA)) ? LFS3_I_CKMETA : 0)
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1897,7 +1897,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPCACHE, 0)));
+                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''

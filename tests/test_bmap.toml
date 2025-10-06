@@ -1,6 +1,15 @@
 # Test some low-level block-map operations
+#
+# Note these is very much not-exhaustive, but the entire test suite can
+# be run with the gbmap if you define LFS3_YES_BMAP:
+#
+# LFS3_YES_BMAP=1 make test -j
+#
 after = ['test_btree', 'test_mtree']
 ifdef = 'LFS3_BMAP'
+
+
+# test bmap operations
 
 # test simple set operations
 [cases.test_bmap_set_split]

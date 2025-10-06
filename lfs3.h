@@ -194,12 +194,7 @@ enum lfs3_type {
 #define LFS3_F_CKDATA   0x00002000  // Check metadata + data checksums
 
 #ifdef LFS3_BMAP
-#define LFS3_F_BMAPMODE 0x03000000  // On-disk block-map mode
-#define LFS3_F_BMAPNONE 0x00000000  // Don't use the bmap
-#define LFS3_F_BMAPCACHE \
-                        0x01000000  // Use the bmap to cache lookahead scans
-#define LFS3_F_BMAPVFR  0x02000000  // Use the bmap in VFR mode
-#define LFS3_F_BMAPIFR  0x03000000  // Use the bmap in IFR mode
+#define LFS3_F_GBMAP    0x01000000  // Use the global on-disk block-map
 #endif
 #endif
 
@@ -247,15 +242,6 @@ enum lfs3_type {
 #define LFS3_M_CKMETA   0x00001000  // Check metadata checksums
 #define LFS3_M_CKDATA   0x00002000  // Check metadata + data checksums
 
-#ifdef LFS3_BMAP
-#define LFS3_M_BMAPMODE 0x03000000  // On-disk block map mode
-#define LFS3_M_BMAPNONE 0x00000000  // Don't use bmap
-#define LFS3_M_BMAPCACHE \
-                        0x01000000  // Use the bmap to cache lookahead scans
-#define LFS3_M_BMAPVFR  0x02000000  // Use the bmap in VFR mode
-#define LFS3_M_BMAPIFR  0x03000000  // Use the bmap in IFR mode
-#endif
-
 
 // Filesystem info flags
 #define LFS3_I_RDONLY   0x00000001  // Mounted read only
@@ -298,19 +284,14 @@ enum lfs3_type {
 #define LFS3_I_CKDATA   0x00002000  // Data checksums not checked recently
 
 #ifdef LFS3_BMAP
-#define LFS3_I_BMAPMODE 0x03000000  // On-disk block map mode
-#define LFS3_I_BMAPNONE 0x00000000  // Mounted with LFS3_M_BMAPNONE
-#define LFS3_I_BMAPCACHE \
-                        0x01000000  // Mounted with LFS3_M_BMAPCACHE
-#define LFS3_I_BMAPVFR  0x02000000  // Mounted with LFS3_M_BMAPVFR
-#define LFS3_I_BMAPIFR  0x03000000  // Mounted with LFS3_M_BMAPIFR
+#define LFS3_I_GBMAP    0x01000000  // Global on-disk block-map in use
 #endif
 
 // internally used flags, don't use these
 #ifdef LFS3_REVDBG
-#define LFS3_i_INMODE   0x00030000
+#define LFS3_i_INMODE   0x00030000  // Btree commit mode
 #define LFS3_i_INMTREE  0x00010000  // Committing to mtree
-#define LFS3_i_INBMAP   0x00020000  // Committing to bmap
+#define LFS3_i_INGBMAP  0x00020000  // Committing to gbmap
 #endif
 
 

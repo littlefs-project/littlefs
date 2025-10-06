@@ -7513,66 +7513,14 @@ static inline bool lfs3_m_isckdatacksums(uint32_t flags) {
 }
 #endif
 
+// format flags
 #ifdef LFS3_BMAP
-static inline bool lfs3_m_isbmapnone(uint32_t flags) {
+static inline bool lfs3_f_isgbmap(uint32_t flags) {
     (void)flags;
-    #if defined(LFS3_YES_BMAPNONE)
+    #ifdef LFS3_YES_BMAP
     return true;
-    #elif defined(LFS3_YES_BMAPFAST) \
-            || defined(LFS3_YES_BMAPSLOW) \
-            || defined(LFS3_YES_BMAPCACHE) \
-            || defined(LFS3_YES_BMAPNONE)
-    return false;
     #else
-    return (flags & LFS3_M_BMAPMODE) == LFS3_M_BMAPNONE;
-    #endif
-}
-#endif
-
-#ifdef LFS3_BMAP
-static inline bool lfs3_m_isbmapcache(uint32_t flags) {
-    (void)flags;
-    #if defined(LFS3_YES_BMAPCACHE)
-    return true;
-    #elif defined(LFS3_YES_BMAPFAST) \
-            || defined(LFS3_YES_BMAPSLOW) \
-            || defined(LFS3_YES_BMAPCACHE) \
-            || defined(LFS3_YES_BMAPNONE)
-    return false;
-    #else
-    return (flags & LFS3_M_BMAPMODE) == LFS3_M_BMAPCACHE;
-    #endif
-}
-#endif
-
-#ifdef LFS3_BMAP
-static inline bool lfs3_m_isbmapslow(uint32_t flags) {
-    (void)flags;
-    #if defined(LFS3_YES_BMAPSLOW)
-    return true;
-    #elif defined(LFS3_YES_BMAPFAST) \
-            || defined(LFS3_YES_BMAPSLOW) \
-            || defined(LFS3_YES_BMAPCACHE) \
-            || defined(LFS3_YES_BMAPNONE)
-    return false;
-    #else
-    return (flags & LFS3_M_BMAPMODE) == LFS3_M_BMAPSLOW;
-    #endif
-}
-#endif
-
-#ifdef LFS3_BMAP
-static inline bool lfs3_m_isbmapfast(uint32_t flags) {
-    (void)flags;
-    #if defined(LFS3_YES_BMAPFAST)
-    return true;
-    #elif defined(LFS3_YES_BMAPFAST) \
-            || defined(LFS3_YES_BMAPSLOW) \
-            || defined(LFS3_YES_BMAPCACHE) \
-            || defined(LFS3_YES_BMAPNONE)
-    return false;
-    #else
-    return (flags & LFS3_M_BMAPMODE) == LFS3_M_BMAPFAST;
+    return flags & LFS3_F_GBMAP;
     #endif
 }
 #endif
@@ -7585,8 +7533,8 @@ static inline bool lfs3_i_isinmtree(uint32_t flags) {
 #endif
 
 #ifdef LFS3_REVDBG
-static inline bool lfs3_i_isinbmap(uint32_t flags) {
-    return (flags & LFS3_i_INMODE) == LFS3_i_INBMAP;
+static inline bool lfs3_i_isingbmap(uint32_t flags) {
+    return (flags & LFS3_i_INMODE) == LFS3_i_INGBMAP;
 }
 #endif
 
@@ -7798,6 +7746,9 @@ static void lfs3_fs_flushgdelta(lfs3_t *lfs3) {
     lfs3_memset(lfs3->grm_d, 0, LFS3_GRM_DSIZE);
 
     // zero the gbmapdelta
+    //
+    // note we do this unconditionally! before figuring out if littlefs
+    // actually configured to use the gbmap
     #ifdef LFS3_BMAP
     lfs3_memset(lfs3->gbmap_d, 0, LFS3_GBMAP_DSIZE);
     #endif
@@ -7814,7 +7765,9 @@ static void lfs3_fs_commitgdelta(lfs3_t *lfs3) {
 
     // keep track of the on-disk gbmap
     #ifdef LFS3_BMAP
-    lfs3_data_fromgbmap(&lfs3->gbmap, lfs3->gbmap_p);
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        lfs3_data_fromgbmap(&lfs3->gbmap, lfs3->gbmap_p);
+    }
     #endif
 }
 #endif
@@ -7835,11 +7788,13 @@ static void lfs3_fs_revertgdelta(lfs3_t *lfs3) {
 
     // revert to the on-disk gbmap
     #ifdef LFS3_BMAP
-    err = lfs3_data_readgbmap(lfs3,
-            &LFS3_DATA_BUF(lfs3->gbmap_p, LFS3_GBMAP_DSIZE),
-            &lfs3->gbmap);
-    if (err) {
-        LFS3_UNREACHABLE();
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        err = lfs3_data_readgbmap(lfs3,
+                &LFS3_DATA_BUF(lfs3->gbmap_p, LFS3_GBMAP_DSIZE),
+                &lfs3->gbmap);
+        if (err) {
+            LFS3_UNREACHABLE();
+        }
     }
     #endif
 }
@@ -7893,48 +7848,51 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
 
     // pending gbmap state?
     #ifdef LFS3_BMAP
-    // TODO is this the right place?
-    // try to update to most recent lookahead window
-    lfs3->gbmap.window = (lfs3->lookahead.window + lfs3->lookahead.off)
-            % lfs3->cfg->block_count;
-    lfs3->gbmap.known = lfs3->lookahead.bmapped;
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        // TODO is this the right place?
+        // try to update to most recent lookahead window
+        lfs3->gbmap.window = (lfs3->lookahead.window + lfs3->lookahead.off)
+                % lfs3->cfg->block_count;
+        lfs3->gbmap.known = lfs3->lookahead.bmapped;
 
-    uint8_t gbmapdelta_[LFS3_GBMAP_DSIZE];
-    lfs3_data_fromgbmap(&lfs3->gbmap, gbmapdelta_);
-    lfs3_memxor(gbmapdelta_, lfs3->gbmap_p, LFS3_GBMAP_DSIZE);
-    lfs3_memxor(gbmapdelta_, lfs3->gbmap_d, LFS3_GBMAP_DSIZE);
+        uint8_t gbmapdelta_[LFS3_GBMAP_DSIZE];
+        lfs3_data_fromgbmap(&lfs3->gbmap, gbmapdelta_);
+        lfs3_memxor(gbmapdelta_, lfs3->gbmap_p, LFS3_GBMAP_DSIZE);
+        lfs3_memxor(gbmapdelta_, lfs3->gbmap_d, LFS3_GBMAP_DSIZE);
 
-    if (lfs3_memlen(gbmapdelta_, LFS3_GBMAP_DSIZE) != 0) {
-        // make sure to xor any existing delta
-        lfs3_data_t data;
-        lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, rbyd, -1, LFS3_TAG_GBMAPDELTA,
-                &data);
-        if (tag < 0 && tag != LFS3_ERR_NOENT) {
-            return tag;
-        }
-
-        uint8_t gbmapdelta[LFS3_GBMAP_DSIZE];
-        lfs3_memset(gbmapdelta, 0, LFS3_GBMAP_DSIZE);
-        if (tag != LFS3_ERR_NOENT) {
-            lfs3_ssize_t d = lfs3_data_read(lfs3, &data,
-                    gbmapdelta, LFS3_GBMAP_DSIZE);
-            if (d < 0) {
-                return d;
+        if (lfs3_memlen(gbmapdelta_, LFS3_GBMAP_DSIZE) != 0) {
+            // make sure to xor any existing delta
+            lfs3_data_t data;
+            lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, rbyd,
+                    -1, LFS3_TAG_GBMAPDELTA,
+                    &data);
+            if (tag < 0 && tag != LFS3_ERR_NOENT) {
+                return tag;
             }
-        }
 
-        lfs3_memxor(gbmapdelta_, gbmapdelta, LFS3_GBMAP_DSIZE);
+            uint8_t gbmapdelta[LFS3_GBMAP_DSIZE];
+            lfs3_memset(gbmapdelta, 0, LFS3_GBMAP_DSIZE);
+            if (tag != LFS3_ERR_NOENT) {
+                lfs3_ssize_t d = lfs3_data_read(lfs3, &data,
+                        gbmapdelta, LFS3_GBMAP_DSIZE);
+                if (d < 0) {
+                    return d;
+                }
+            }
 
-        // append to our rbyd, replacing any existing delta
-        lfs3_size_t size = lfs3_memlen(gbmapdelta_, LFS3_GBMAP_DSIZE);
-        int err = lfs3_rbyd_appendrattr(lfs3, rbyd, -1, LFS3_RATTR_BUF(
-                // opportunistically remove this tag if delta is all zero
-                (size == 0)
-                    ? LFS3_TAG_RM | LFS3_TAG_GBMAPDELTA
-                    : LFS3_TAG_GBMAPDELTA, 0,
-                gbmapdelta_, size));
-        if (err) {
-            return err;
+            lfs3_memxor(gbmapdelta_, gbmapdelta, LFS3_GBMAP_DSIZE);
+
+            // append to our rbyd, replacing any existing delta
+            lfs3_size_t size = lfs3_memlen(gbmapdelta_, LFS3_GBMAP_DSIZE);
+            int err = lfs3_rbyd_appendrattr(lfs3, rbyd, -1, LFS3_RATTR_BUF(
+                    // opportunistically remove this tag if delta is all zero
+                    (size == 0)
+                        ? LFS3_TAG_RM | LFS3_TAG_GBMAPDELTA
+                        : LFS3_TAG_GBMAPDELTA, 0,
+                    gbmapdelta_, size));
+            if (err) {
+                return err;
+            }
         }
     }
     #endif
@@ -7967,6 +7925,9 @@ static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
     }
 
     // consume any gbmap deltas
+    //
+    // note we do this unconditionally! before figuring out if littlefs
+    // actually configured to use the gbmap
     #ifdef LFS3_BMAP
     tag = lfs3_rbyd_lookup(lfs3, &mdir->r, -1, LFS3_TAG_GBMAPDELTA,
             &data);
@@ -10260,17 +10221,21 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
             if (err) {
                 // end of mtree?
                 if (err == LFS3_ERR_NOENT) {
-                    #ifdef LFS3_BMAP
-                    // transition to traversing the bmap if there is one
-                    trv->b.shrub = lfs3->gbmap.b;
-                    trv->bid = -2;
-                    lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_BMAP);
-                    continue;
-                    #else
-                    // guess we're done
-                    lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_DONE);
-                    continue;
-                    #endif
+                    if (LFS3_IFDEF_BMAP(
+                            lfs3_f_isgbmap(lfs3->flags),
+                            false)) {
+                        #ifdef LFS3_BMAP
+                        // transition to traversing the bmap if there is one
+                        trv->b.shrub = lfs3->gbmap.b;
+                        trv->bid = -2;
+                        lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_BMAP);
+                        continue;
+                        #endif
+                    } else {
+                        // guess we're done
+                        lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_DONE);
+                        continue;
+                    }
                 }
                 return err;
             }
@@ -10403,8 +10368,9 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                     // we need to include this in case the bmap is rebuilt
                     // multiple times before an mdir commit
                     } else if (LFS3_IFDEF_BMAP(
-                            lfs3_t_tstate(trv->b.h.flags)
-                                == LFS3_TSTATE_BMAP,
+                            lfs3_f_isgbmap(lfs3->flags)
+                                && lfs3_t_tstate(trv->b.h.flags)
+                                    == LFS3_TSTATE_BMAP,
                             false)) {
                         #ifdef LFS3_BMAP
                         // decode the on-disk gbmap
@@ -10439,8 +10405,9 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                         #endif
                     // end of on-disk bmap? guess we're done
                     } else if (LFS3_IFDEF_BMAP(
-                            lfs3_t_tstate(trv->b.h.flags)
-                                == LFS3_TSTATE_BMAP_P,
+                            lfs3_f_isgbmap(lfs3->flags)
+                                && lfs3_t_tstate(trv->b.h.flags)
+                                    == LFS3_TSTATE_BMAP_P,
                             false)) {
                         #ifdef LFS3_BMAP
                         lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_DONE);
@@ -11008,11 +10975,13 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     #ifndef LFS3_2BONLY
     // checkpoint the allocator
     lfs3->lookahead.ckpoint = lfs3->block_count;
+
     #ifdef LFS3_BMAP
     // do we need to rebuild the bmap?
-    if (lfs3->lookahead.bmapped < lfs3_min(
-            lfs3->cfg->bmap_scan_thresh,
-            lfs3->block_count)) {
+    if (lfs3_f_isgbmap(lfs3->flags)
+            && lfs3->lookahead.bmapped < lfs3_min(
+                lfs3->cfg->bmap_scan_thresh,
+                lfs3->block_count)) {
         int err = lfs3_alloc_rebuildbmap(lfs3);
         if (err) {
             return err;
@@ -11022,6 +10991,7 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
         lfs3->lookahead.ckpoint = lfs3->block_count;
     }
     #endif
+
     return 0;
     #else
     (void)lfs3;
@@ -11252,8 +11222,9 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
         // no blocks in our lookahead buffer?
 
         // known blocks in our bmap?
-        #ifdef LFS3_YES_BMAPCACHE
-        if (lfs3->lookahead.bmapped > 0) {
+        #ifdef LFS3_BMAP
+        if (lfs3_f_isgbmap(lfs3->flags)
+                && lfs3->lookahead.bmapped > 0) {
             int err = lfs3_alloc_markbmap(lfs3, &lfs3->gbmap.b, lfs3_min(
                     lfs3->lookahead.bmapped,
                     lfs3->lookahead.ckpoint));
@@ -15418,7 +15389,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
-                | LFS3_IFDEF_BMAP(LFS3_M_BMAPMODE, 0))) == 0);
+                | LFS3_IFDEF_BMAP(LFS3_F_GBMAP, 0))) == 0);
     // LFS3_M_REVDBG and LFS3_M_REVNOISE are incompatible
     #if defined(LFS3_REVNOISE) && defined(LFS3_REVDBG)
     LFS3_ASSERT(!lfs3_m_isrevdbg(flags) || !lfs3_m_isrevnoise(flags));
@@ -15796,70 +15767,48 @@ static int lfs3_deinit(lfs3_t *lfs3) {
 // internal
 #define LFS3_rcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
-#define LFS3_RCOMPAT_COMPAT \
-    (LFS3_RCOMPAT_BSHRUB \
-        | LFS3_RCOMPAT_BTREE \
-        | LFS3_RCOMPAT_MMOSS \
-        | LFS3_RCOMPAT_MTREE \
-        | LFS3_RCOMPAT_GRM)
-
 #define LFS3_WCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 #define LFS3_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
 #define LFS3_WCOMPAT_DIR         0x00000010 // Directory files in use
 #define LFS3_WCOMPAT_GCKSUM      0x00001000 // Global-checksum in use
-#define LFS3_WCOMPAT_GBMAP       0x00006000 // Global block-map in use
-#define LFS3_WCOMPAT_GBMAPNONE   0x00000000 // Gbmap not in use
-#define LFS3_WCOMPAT_GBMAPCACHE  0x00002000 // Gbmap in cache mode
-#define LFS3_WCOMPAT_GBMAPVFR    0x00004000 // Gbmap in VFR mode
-#define LFS3_WCOMPAT_GBMAPIFR    0x00006000 // Gbmap in IFR mode
-
+#define LFS3_WCOMPAT_GBMAP       0x00002000 // Global on-disk block-map in use
 // internal
 #define LFS3_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
-
-// TODO this should really be calculated at runtime, we should allow no
-// gbmap when bmap mode == LFS3_M_BMAPNONE even when compiling with
-// LFS3_BMAP
-#if defined(LFS3_YES_BMAPCACHE)
-#define LFS3_WCOMPAT_COMPAT \
-    (LFS3_WCOMPAT_DIR \
-        | LFS3_WCOMPAT_GCKSUM \
-        | LFS3_WCOMPAT_GBMAPCACHE)
-#elif defined(LFS3_YES_BMAPVFR)
-#define LFS3_WCOMPAT_COMPAT \
-    (LFS3_WCOMPAT_DIR \
-        | LFS3_WCOMPAT_GCKSUM \
-        | LFS3_WCOMPAT_GBMAPVFR)
-#elif defined(LFS3_YES_BMAPIFR)
-#define LFS3_WCOMPAT_COMPAT \
-    (LFS3_WCOMPAT_DIR \
-        | LFS3_WCOMPAT_GCKSUM \
-        | LFS3_WCOMPAT_GBMAPIFR)
-#else
-#define LFS3_WCOMPAT_COMPAT \
-    (LFS3_WCOMPAT_DIR \
-        | LFS3_WCOMPAT_GCKSUM)
-#endif
 
 #define LFS3_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 // internal
 #define LFS3_ocompat_OVERFLOW    0x80000000 // Can't represent all flags
 
-#define LFS3_OCOMPAT_COMPAT 0
-
 typedef uint32_t lfs3_rcompat_t;
 typedef uint32_t lfs3_wcompat_t;
 typedef uint32_t lfs3_ocompat_t;
 
-static inline bool lfs3_rcompat_isincompat(lfs3_rcompat_t rcompat) {
-    return rcompat != LFS3_RCOMPAT_COMPAT;
+static inline bool lfs3_wcompat_isgbmap(lfs3_wcompat_t flags) {
+    return flags & LFS3_WCOMPAT_GBMAP;
 }
 
-static inline bool lfs3_wcompat_isincompat(lfs3_wcompat_t wcompat) {
-    return wcompat != LFS3_WCOMPAT_COMPAT;
+// figure out what compat flags the current fs configuration needs
+static inline lfs3_rcompat_t lfs3_rcompat(const lfs3_t *lfs3) {
+    (void)lfs3;
+    return LFS3_RCOMPAT_BSHRUB
+            | LFS3_RCOMPAT_BTREE
+            | LFS3_RCOMPAT_MMOSS
+            | LFS3_RCOMPAT_MTREE
+            | LFS3_RCOMPAT_GRM;
 }
 
-static inline bool lfs3_ocompat_isincompat(lfs3_ocompat_t ocompat) {
-    return ocompat != LFS3_OCOMPAT_COMPAT;
+static inline lfs3_wcompat_t lfs3_wcompat(const lfs3_t *lfs3) {
+    (void)lfs3;
+    return LFS3_WCOMPAT_DIR
+            | LFS3_WCOMPAT_GCKSUM
+            | LFS3_IFDEF_BMAP(
+                (lfs3_f_isgbmap(lfs3->flags)) ? LFS3_WCOMPAT_GBMAP : 0,
+                0);
+}
+
+static inline lfs3_ocompat_t lfs3_ocompat(const lfs3_t *lfs3) {
+    (void)lfs3;
+    return 0;
 }
 
 // compat flags on-disk encoding
@@ -15989,50 +15938,62 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     // check for any rcompatflags, we must understand these to read
     // the filesystem
-    lfs3_rcompat_t rcompat = 0;
+    lfs3_rcompat_t rcompat = lfs3_rcompat(lfs3);
+    lfs3_rcompat_t rcompat_ = 0;
     tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_RCOMPAT,
             &data);
     if (tag < 0 && tag != LFS3_ERR_NOENT) {
         return tag;
     }
     if (tag != LFS3_ERR_NOENT) {
-        int err = lfs3_data_readrcompat(lfs3, &data, &rcompat);
+        int err = lfs3_data_readrcompat(lfs3, &data, &rcompat_);
         if (err) {
             return err;
         }
     }
 
-    if (lfs3_rcompat_isincompat(rcompat)) {
+    if (rcompat_ != rcompat) {
         LFS3_ERROR("Incompatible rcompat flags 0x%0"PRIx32" (!= 0x%0"PRIx32")",
-                rcompat,
-                LFS3_RCOMPAT_COMPAT);
+                rcompat_,
+                rcompat);
         return LFS3_ERR_NOTSUP;
     }
 
     // check for any wcompatflags, we must understand these to write
     // the filesystem
-    #ifndef LFS3_RDONLY
-    lfs3_wcompat_t wcompat = 0;
+    lfs3_wcompat_t wcompat = lfs3_wcompat(lfs3);
+    lfs3_wcompat_t wcompat_ = 0;
     tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_WCOMPAT,
             &data);
     if (tag < 0 && tag != LFS3_ERR_NOENT) {
         return tag;
     }
     if (tag != LFS3_ERR_NOENT) {
-        int err = lfs3_data_readwcompat(lfs3, &data, &wcompat);
+        int err = lfs3_data_readwcompat(lfs3, &data, &wcompat_);
         if (err) {
             return err;
         }
     }
 
-    if (lfs3_wcompat_isincompat(wcompat)) {
-        LFS3_WARN("Incompatible wcompat flags 0x%0"PRIx32" (!= 0x%0"PRIx32")",
+    // optional wcompat flags
+    lfs3_wcompat_t wmask = ~(
+            LFS3_IFDEF_BMAP(LFS3_IFDEF_YES_BMAP(0, LFS3_WCOMPAT_GBMAP), 0));
+    if ((wcompat_ & wmask) != (wcompat & wmask)) {
+        LFS3_WARN("Incompatible wcompat flags 0x%0"PRIx32" "
+                    "(!= 0x%0"PRIx32" & ~0x%0"PRIx32")",
+                wcompat_,
                 wcompat,
-                LFS3_WCOMPAT_COMPAT);
-        // we can continue if rdonly
+                ~wmask);
+        // we can ignore this if rdonly
         if (!lfs3_m_isrdonly(lfs3->flags)) {
             return LFS3_ERR_NOTSUP;
         }
+    }
+
+    #ifdef LFS3_BMAP
+    // using the gbmap?
+    if (lfs3_wcompat_isgbmap(wcompat_)) {
+        lfs3->flags |= LFS3_I_GBMAP;
     }
     #endif
 
@@ -16317,29 +16278,33 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     }
 
     #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-    #ifdef LFS3_BMAP
-    // decode the global block-map
-    err = lfs3_data_readgbmap(lfs3,
-            &LFS3_DATA_BUF(lfs3->gbmap_d, LFS3_GBMAP_DSIZE),
-            &lfs3->gbmap);
-    if (err) {
-        // TODO switch to read-only?
-        return err;
-    }
+    if (LFS3_IFDEF_BMAP(
+            lfs3_f_isgbmap(lfs3->flags),
+            false)) {
+        #ifdef LFS3_BMAP
+        // decode the global block-map
+        err = lfs3_data_readgbmap(lfs3,
+                &LFS3_DATA_BUF(lfs3->gbmap_d, LFS3_GBMAP_DSIZE),
+                &lfs3->gbmap);
+        if (err) {
+            // TODO switch to read-only?
+            return err;
+        }
 
-    // if we have a bmap, position our lookahead buffer at the last
-    // known bmap window
-    lfs3->lookahead.window = lfs3->gbmap.window;
-    lfs3->lookahead.bmapped = lfs3->gbmap.known;
-    #else
-    // if we _don't_ have a bmap, position our lookahead buffer
-    // pseudo-randomly using our gcksum as a prng
-    //
-    // the purpose of this is to avoid bad wear patterns such as always 
-    // allocating blocks near the beginning of disk after a power-loss
-    //
-    lfs3->lookahead.window = lfs3->gcksum % lfs3->block_count;
-    #endif
+        // if we have a bmap, position our lookahead buffer at the last
+        // known bmap window
+        lfs3->lookahead.window = lfs3->gbmap.window;
+        lfs3->lookahead.bmapped = lfs3->gbmap.known;
+        #endif
+    } else {
+        // if we _don't_ have a bmap, position our lookahead buffer
+        // pseudo-randomly using our gcksum as a prng
+        //
+        // the purpose of this is to avoid bad wear patterns such as always 
+        // allocating blocks near the beginning of disk after a power-loss
+        //
+        lfs3->lookahead.window = lfs3->gcksum % lfs3->block_count;
+    }
     #endif
 
     return 0;
@@ -16393,13 +16358,6 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_CKDATA
     flags |= LFS3_M_CKDATA
     #endif
-    #if defined(LFS3_YES_BMAPCACHE)
-    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPCACHE;
-    #elif defined(LFS3_YES_BMAPVFR)
-    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPVFR;
-    #elif defined(LFS3_YES_BMAPIFR)
-    flags = (flags & ~LFS3_M_BMAPMODE) | LFS3_M_BMAPIFR;
-    #endif
 
     // unknown flags?
     LFS3_ASSERT((flags & ~(
@@ -16417,8 +16375,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                 | LFS3_M_CKMETA
-                | LFS3_M_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_M_BMAPMODE, 0))) == 0);
+                | LFS3_M_CKDATA)) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_islookahead(flags));
@@ -16435,8 +16392,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
-                    | LFS3_IFDEF_BMAP(LFS3_M_BMAPMODE, 0)),
+                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)),
             cfg);
     if (err) {
         return err;
@@ -16567,9 +16523,11 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
     int err;
     // create an initial bmap
     #ifdef LFS3_BMAP
-    err = lfs3_formatbmap(lfs3);
-    if (err) {
-        return err;
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        err = lfs3_formatbmap(lfs3);
+        if (err) {
+            return err;
+        }
     }
     #endif
 
@@ -16606,9 +16564,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
         // warning free... alternatives? switch to builder pattern?
         #ifdef LFS3_BMAP
         #define LFS3_RATTR_IFDEF_BMAP \
-                (lfs3_m_isbmapfast(lfs3->flags) \
-                        || lfs3_m_isbmapslow(lfs3->flags) \
-                        || lfs3_m_isbmapcache(lfs3->flags)) \
+                (lfs3_f_isgbmap(lfs3->flags)) \
                     ? LFS3_RATTR_DATA(LFS3_TAG_GBMAPDELTA, 0, \
                         (&((struct {lfs3_data_t d;}){ \
                             lfs3_data_fromgbmap(&lfs3->gbmap, \
@@ -16633,10 +16589,10 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                         LFS3_DISK_VERSION_MINOR}), 2),
                 LFS3_RATTR_LE32(
                     LFS3_TAG_RCOMPAT, 0,
-                    LFS3_RCOMPAT_COMPAT),
+                    lfs3_rcompat(lfs3)),
                 LFS3_RATTR_LE32(
                     LFS3_TAG_WCOMPAT, 0,
-                    LFS3_WCOMPAT_COMPAT),
+                    lfs3_wcompat(lfs3)),
                 LFS3_RATTR_GEOMETRY(
                     LFS3_TAG_GEOMETRY, 0,
                     (&(lfs3_geometry_t){
@@ -16706,16 +16662,10 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     flags |= LFS3_F_CKMETA;
     #endif
     #ifdef LFS3_YES_CKDATA
-    flags |= LFS3_F_CKDATA
+    flags |= LFS3_F_CKDATA;
     #endif
-    #if defined(LFS3_YES_BMAPFAST)
-    flags = (flags & ~LFS3_F_BMAPMODE) | LFS3_F_BMAPFAST;
-    #elif defined(LFS3_YES_BMAPSLOW)
-    flags = (flags & ~LFS3_F_BMAPMODE) | LFS3_F_BMAPSLOW;
-    #elif defined(LFS3_YES_BMAPCACHE)
-    flags = (flags & ~LFS3_F_BMAPMODE) | LFS3_F_BMAPCACHE;
-    #elif defined(LFS3_YES_BMAPNONE)
-    flags = (flags & ~LFS3_F_BMAPMODE) | LFS3_F_BMAPNONE;
+    #ifdef LFS3_YES_BMAP
+    flags |= LFS3_F_GBMAP;
     #endif
 
     // unknown flags?
@@ -16729,7 +16679,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_F_BMAPMODE, 0))) == 0);
+                | LFS3_IFDEF_BMAP(LFS3_F_GBMAP, 0))) == 0);
 
     int err = lfs3_init(lfs3,
             flags & (
@@ -16740,7 +16690,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
                     | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
-                    | LFS3_IFDEF_BMAP(LFS3_F_BMAPMODE, 0)),
+                    | LFS3_IFDEF_BMAP(LFS3_F_GBMAP, 0)),
             cfg);
     if (err) {
         return err;
@@ -16808,7 +16758,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_BMAP(LFS3_I_BMAPMODE, 0));
+                | LFS3_IFDEF_BMAP(LFS3_I_GBMAP, 0));
     // some flags we calculate on demand
     #ifndef LFS3_RDONLY
     fsinfo->flags |= (lfs3_grm_count(lfs3) > 0) ? LFS3_I_MKCONSISTENT : 0;

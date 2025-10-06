@@ -73,11 +73,7 @@ FLAGS = [
     ('F_CKMETA',       0x00001000, "Check metadata checksums"                 ),
     ('F_CKDATA',       0x00002000, "Check metadata + data checksums"          ),
 
-    ('F_BMAPMODE',     0x03000000, "On-disk block-map mode"                   ),
-    ('^_BMAPNONE',     0x00000000, "Don't use the bmap"                       ),
-    ('^_BMAPCACHE',    0x01000000, "Use the bmap to cache lookahead scans"    ),
-    ('^_BMAPVFR',      0x02000000, "Use the bmap in VFR mode"                 ),
-    ('^_BMAPIFR',      0x03000000, "Use the bmap in IFR mode"                 ),
+    ('F_GBMAP',        0x01000000, "Use the global on-disk block-map"         ),
 
     # Filesystem mount flags
     ('M_MODE',                  1, "Mount's access mode"                      ),
@@ -97,12 +93,6 @@ FLAGS = [
     ('M_COMPACT',      0x00000800, "Compact metadata logs"                    ),
     ('M_CKMETA',       0x00001000, "Check metadata checksums"                 ),
     ('M_CKDATA',       0x00002000, "Check metadata + data checksums"          ),
-
-    ('M_BMAPMODE',     0x03000000, "On-disk block-map mode"                   ),
-    ('^_BMAPNONE',     0x00000000, "Don't use the bmap"                       ),
-    ('^_BMAPCACHE',    0x01000000, "Use the bmap to cache lookahead scans"    ),
-    ('^_BMAPVFR',      0x02000000, "Use the bmap in VFR mode"                 ),
-    ('^_BMAPIFR',      0x03000000, "Use the bmap in IFR mode"                 ),
 
     # GC flags
     ('GC_MKCONSISTENT',0x00000100, "Make the filesystem consistent"           ),
@@ -128,15 +118,11 @@ FLAGS = [
     ('I_CKMETA',       0x00001000, "Metadata checksums not checked recently"  ),
     ('I_CKDATA',       0x00002000, "Data checksums not checked recently"      ),
 
-    ('I_BMAPMODE',     0x03000000, "On-disk block-map mode"                   ),
-    ('^_BMAPNONE',     0x00000000, "Mounted with LFS3_M_BMAPNONE"             ),
-    ('^_BMAPCACHE',    0x01000000, "Mounted with LFS3_M_BMAPCACHE"            ),
-    ('^_BMAPVFR',      0x02000000, "Mounted with LFS3_M_BMAPVFR"              ),
-    ('^_BMAPIFR',      0x03000000, "Mounted with LFS3_M_BMAPIFR"              ),
+    ('I_GBMAP',        0x01000000, "Global on-disk block-map in use"          ),
 
-    ('i_INMTREE',      0x00030000, "Committing to mtree"                      ),
+    ('i_INMODE',       0x00030000, "Btree commit mode"                        ),
     ('^_INMTREE',      0x00010000, "Committing to mtree"                      ),
-    ('^_INBMAP',       0x00020000, "Committing to bmap"                       ),
+    ('^_INGBMAP',      0x00020000, "Committing to gbmap"                      ),
 
     # Traversal flags
     ('T_MODE',                  1, "The traversal's access mode"              ),
@@ -203,11 +189,7 @@ FLAGS = [
     ('WCOMPAT_RDONLY', 0x00000002, "Writing is disallowed"                    ),
     ('WCOMPAT_DIR',    0x00000010, "Directory file types in use"              ),
     ('WCOMPAT_GCKSUM', 0x00001000, "Global-checksum in use"                   ),
-    ('WCOMPAT_GBMAP',  0x00006000, "Global block-map in use"                  ),
-    ('^_GBMAPNONE',    0x00000000, "Gbmap not in use"                         ),
-    ('^_GBMAPCACHE',   0x00002000, "Gbmap in cache mode"                      ),
-    ('^_GBMAPVFR',     0x00004000, "Gbmap in VFR mode"                        ),
-    ('^_GBMAPIFR',     0x00006000, "Gbmap in IFR mode"                        ),
+    ('WCOMPAT_GBMAP',  0x00002000, "Global on-disk block-map in use"          ),
     ('wcompat_OVERFLOW',
                        0x80000000, "Can't represent all flags"                ),
 

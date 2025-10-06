@@ -47,10 +47,9 @@
 #ifndef LFS3_GC
 #define LFS3_GC
 #endif
-// TODO how interact with bmap?
-// #ifndef LFS3_BMAP
-// #define LFS3_BMAP
-// #endif
+#ifndef LFS3_BMAP
+#define LFS3_BMAP
+#endif
 #endif
 
 // LFS3_YES_* variants imply the relevant LFS3_* macro
@@ -86,25 +85,6 @@
 #endif
 #ifdef LFS3_YES_BMAP
 #define LFS3_BMAP
-#endif
-
-// LFS3_BMAP mappings
-//
-// TODO eventually allow runtime flags
-//
-// LFS3_YES_BMAP* => LFS3_BMAP
-#if defined(LFS3_YES_BMAPCACHE) \
-        || defined(LFS3_YES_BMAPVFR) \
-        || defined(LFS3_YES_BMAPIFR)
-#define LFS3_BMAP
-#endif
-// TODO figure out the best default bmap mode
-// if LFS3_BMAP but no algorithm defined, default to LFS3_YES_BMAPCACHE
-#if defined(LFS3_BMAP) \
-        && !defined(LFS3_BMAPCACHE) \
-        && !defined(LFS3_BMAPVFR) \
-        && !defined(LFS3_BMAPIFR)
-#define LFS3_YES_BMAPCACHE
 #endif
 
 // LFS3_NO_LOG disables all logging macros
@@ -287,6 +267,13 @@
 #define LFS3_IFDEF_BMAP(a, b) (a)
 #else
 #define LFS3_IFDEF_BMAP(a, b) (b)
+#endif
+
+// TODO other LFS3_IFDEF_YES_* macros?
+#ifdef LFS3_YES_BMAP
+#define LFS3_IFDEF_YES_BMAP(a, b) (a)
+#else
+#define LFS3_IFDEF_YES_BMAP(a, b) (b)
 #endif
 
 
