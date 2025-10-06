@@ -47,8 +47,8 @@
 #ifndef LFS3_GC
 #define LFS3_GC
 #endif
-#ifndef LFS3_BMAP
-#define LFS3_BMAP
+#ifndef LFS3_GBMAP
+#define LFS3_GBMAP
 #endif
 #endif
 
@@ -83,8 +83,8 @@
 #ifdef LFS3_YES_GC
 #define LFS3_GC
 #endif
-#ifdef LFS3_YES_BMAP
-#define LFS3_BMAP
+#ifdef LFS3_YES_GBMAP
+#define LFS3_GBMAP
 #endif
 
 // LFS3_NO_LOG disables all logging macros
@@ -263,17 +263,17 @@
 #define LFS3_IFDEF_GC(a, b) (b)
 #endif
 
-#ifdef LFS3_BMAP
-#define LFS3_IFDEF_BMAP(a, b) (a)
+#ifdef LFS3_GBMAP
+#define LFS3_IFDEF_GBMAP(a, b) (a)
 #else
-#define LFS3_IFDEF_BMAP(a, b) (b)
+#define LFS3_IFDEF_GBMAP(a, b) (b)
 #endif
 
 // TODO other LFS3_IFDEF_YES_* macros?
-#ifdef LFS3_YES_BMAP
-#define LFS3_IFDEF_YES_BMAP(a, b) (a)
+#ifdef LFS3_YES_GBMAP
+#define LFS3_IFDEF_YES_GBMAP(a, b) (a)
 #else
-#define LFS3_IFDEF_YES_BMAP(a, b) (b)
+#define LFS3_IFDEF_YES_GBMAP(a, b) (b)
 #endif
 
 

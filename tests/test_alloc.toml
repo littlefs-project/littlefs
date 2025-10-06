@@ -7,9 +7,9 @@
 # since you can usually ignore allocator issues temporarily by making the test
 # device really big
 #
-after = ['test_mtree', 'test_bmap', 'test_dirs', 'test_files']
+after = ['test_mtree', 'test_gbmap', 'test_dirs', 'test_files']
 
-defines.INIT_BLOCKS = 'LFS3_IFDEF_BMAP(3, 2)'
+defines.INIT_BLOCKS = 'LFS3_IFDEF_GBMAP(3, 2)'
 
 # test that we can alloc
 [cases.test_alloc_alloc]
@@ -49,9 +49,9 @@ code = '''
     }
 
     // excluding our mroot, we should have allocated exactly
-    // block_count-2 blocks (this gets more complicated with a bmap)
+    // block_count-2 blocks (this gets more complicated with a gbmap)
     printf("alloced %d/%d blocks\n", alloced, (lfs3_block_t)COUNT);
-    #ifndef LFS3_BMAP
+    #ifndef LFS3_GBMAP
     assert(alloced == COUNT-2);
     #endif
 
@@ -96,9 +96,9 @@ code = '''
     }
 
     // excluding our mroot, we should have allocated exactly
-    // block_count-2 blocks (this gets more complicated with a bmap)
+    // block_count-2 blocks (this gets more complicated with a gbmap)
     printf("alloced %d/%d blocks\n", alloced, (lfs3_block_t)COUNT);
-    #ifndef LFS3_BMAP
+    #ifndef LFS3_GBMAP
     assert(alloced == COUNT-2);
     #endif
 
@@ -119,9 +119,9 @@ code = '''
     }
 
     // excluding our mroot, we should have allocated exactly
-    // block_count-2 blocks (this gets more complicated with a bmap)
+    // block_count-2 blocks (this gets more complicated with a gbmap)
     printf("alloced %d/%d blocks\n", alloced, (lfs3_block_t)COUNT);
-    #ifndef LFS3_BMAP
+    #ifndef LFS3_GBMAP
     assert(alloced == COUNT-2);
     #endif
 

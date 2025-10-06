@@ -120,7 +120,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(INLINE_SIZE,        BLOCK_SIZE/4                           ) \
     BENCH_DEFINE(FRAGMENT_SIZE,      LFS3_MIN(BLOCK_SIZE/8, 512)            ) \
     BENCH_DEFINE(CRYSTAL_THRESH,     BLOCK_SIZE/8                           ) \
-    BENCH_DEFINE(BMAP_SCAN_THRESH,   BLOCK_COUNT/4                          ) \
+    BENCH_DEFINE(GBMAP_SCAN_THRESH,  BLOCK_COUNT/4                          ) \
     BENCH_DEFINE(ERASE_VALUE,        0xff                                   ) \
     BENCH_DEFINE(ERASE_CYCLES,       0                                      ) \
     BENCH_DEFINE(BADBLOCK_BEHAVIOR,  LFS3_EMUBD_BADBLOCK_PROGERROR          ) \
@@ -145,18 +145,18 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     .pcache_size        = PCACHE_SIZE,          \
     .file_cache_size    = FILE_CACHE_SIZE,      \
     .lookahead_size     = LOOKAHEAD_SIZE,       \
-    BENCH_BMAP_CFG                              \
+    BENCH_GBMAP_CFG                             \
     BENCH_GC_CFG                                \
     .gc_compact_thresh  = GC_COMPACT_THRESH,    \
     .inline_size        = INLINE_SIZE,          \
     .fragment_size      = FRAGMENT_SIZE,        \
     .crystal_thresh     = CRYSTAL_THRESH,
 
-#ifdef LFS3_BMAP
-#define BENCH_BMAP_CFG \
-    .bmap_scan_thresh   = BMAP_SCAN_THRESH,
+#ifdef LFS3_GBMAP
+#define BENCH_GBMAP_CFG \
+    .gbmap_scan_thresh   = GBMAP_SCAN_THRESH,
 #else
-#define BENCH_BMAP_CFG
+#define BENCH_GBMAP_CFG
 #endif
 
 #ifdef LFS3_GC

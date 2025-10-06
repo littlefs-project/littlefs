@@ -193,7 +193,7 @@ enum lfs3_type {
 #define LFS3_F_CKMETA   0x00001000  // Check metadata checksums
 #define LFS3_F_CKDATA   0x00002000  // Check metadata + data checksums
 
-#ifdef LFS3_BMAP
+#ifdef LFS3_GBMAP
 #define LFS3_F_GBMAP    0x01000000  // Use the global on-disk block-map
 #endif
 #endif
@@ -283,7 +283,7 @@ enum lfs3_type {
 #define LFS3_I_CKMETA   0x00001000  // Metadata checksums not checked recently
 #define LFS3_I_CKDATA   0x00002000  // Data checksums not checked recently
 
-#ifdef LFS3_BMAP
+#ifdef LFS3_GBMAP
 #define LFS3_I_GBMAP    0x01000000  // Global on-disk block-map in use
 #endif
 
@@ -448,9 +448,9 @@ struct lfs3_cfg {
 
 // TODO rm me
 //    // Size of the treediff buffer in bytes. A larger treediff buffer speeds
-//    // up tree diffing in BMAPSLOW and BMAPFAST modes. The treediff buffer
+//    // up tree diffing in GBMAPSLOW and GBMAPFAST modes. The treediff buffer
 //    // also uses a compact bitmap, and sizes >block_count/8 have no effect.
-//    #if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
+//    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 //    lfs3_size_t treediff_size;
 //    #endif
 
@@ -505,7 +505,7 @@ struct lfs3_cfg {
 // TODO rm me
 //    // Optional statically allocated treediff buffer. Must be treediff_size.
 //    // By default lfs3_malloc is used to allocate this buffer.
-//    #if !defined(LFS3_RDONLY) && defined(LFS3_BMAP)
+//    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 //    void *treediff_buffer;
 //    #endif
 
@@ -568,8 +568,8 @@ struct lfs3_cfg {
     // allocator at a performance cost.
     //
     // 0 only rebuilds the block-map when empty.
-    #ifdef LFS3_BMAP
-    lfs3_block_t bmap_scan_thresh;
+    #ifdef LFS3_GBMAP
+    lfs3_block_t gbmap_scan_thresh;
     #endif
 };
 
@@ -921,15 +921,15 @@ typedef struct lfs3 {
         lfs3_block_t off;
         lfs3_block_t known;
         lfs3_block_t ckpoint;
-        #ifdef LFS3_BMAP
-        lfs3_block_t bmapped;
+        #ifdef LFS3_GBMAP
+        lfs3_block_t gbmapped;
         #endif
         uint8_t *buffer;
     } lookahead;
     #endif
 
 // TODO rm me
-//    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+//    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_GBMAP)
 //    struct lfs3_treediff {
 //        uint8_t *buffer;
 //    } treediff;
@@ -955,7 +955,7 @@ typedef struct lfs3 {
     // TODO can we actually get rid of grm_d when LFS3_RDONLY?
     uint8_t grm_d[LFS3_GRM_DSIZE];
 
-    #if !defined(LFS3_2BONLY) && defined(LFS3_BMAP)
+    #if !defined(LFS3_2BONLY) && defined(LFS3_GBMAP)
     lfs3_gbmap_t gbmap;
     uint8_t gbmap_p[LFS3_GBMAP_DSIZE];
     uint8_t gbmap_d[LFS3_GBMAP_DSIZE];

@@ -1,18 +1,18 @@
 # Test some low-level block-map operations
 #
 # Note these is very much not-exhaustive, but the entire test suite can
-# be run with the gbmap if you define LFS3_YES_BMAP:
+# be run with the gbmap if you define LFS3_YES_GBMAP:
 #
-# LFS3_YES_BMAP=1 make test -j
+# LFS3_YES_GBMAP=1 make test -j
 #
 after = ['test_btree', 'test_mtree']
-ifdef = 'LFS3_BMAP'
+ifdef = 'LFS3_GBMAP'
 
 
-# test bmap operations
+# test gbmap operations
 
 # test simple set operations
-[cases.test_bmap_set_split]
+[cases.test_gbmap_set_split]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -20,52 +20,52 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
-    // create an initial bmap
-    lfs3_btree_t bmap;
-    lfs3_btree_init(&bmap);
-    lfs3_bmap_commit(&lfs3, &bmap, 0, LFS3_RATTRS(
+    // create an initial gbmap
+    lfs3_btree_t gbmap;
+    lfs3_btree_init(&gbmap);
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_bmap_set(&lfs3, &bmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMINUSE) => 0;
-    printf("bmap: w%d 0x%x.%x\n",
-            bmap.r.weight,
-            bmap.r.blocks[0],
-            bmap.r.trunk);
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
+    printf("gbmap: w%d 0x%x.%x\n",
+            gbmap.r.weight,
+            gbmap.r.blocks[0],
+            gbmap.r.trunk);
 
     // weight should stay the same
-    assert(bmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.r.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
     lfs3_bid_t weight_;
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 0,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 0,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 5);
     assert(weight_ == 6);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 6,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 6,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 6);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 7,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 7,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 7);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 8,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 8,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 8);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 9,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 9,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 9);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 10,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 10,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 10);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 11,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 11,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == BLOCK_COUNT-11);
@@ -73,7 +73,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_bmap_set_replace]
+[cases.test_gbmap_set_replace]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -81,56 +81,56 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
-    // create an initial bmap
-    lfs3_btree_t bmap;
-    lfs3_btree_init(&bmap);
-    lfs3_bmap_commit(&lfs3, &bmap, 0, LFS3_RATTRS(
+    // create an initial gbmap
+    lfs3_btree_t gbmap;
+    lfs3_btree_init(&gbmap);
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_bmap_set(&lfs3, &bmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
     // replace those blocks as bad, this tests deleting ranges
-    lfs3_bmap_set(&lfs3, &bmap, 6, LFS3_TAG_BMBAD) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMBAD) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMBAD) => 0;
-    printf("bmap: w%d 0x%x.%x\n",
-            bmap.r.weight,
-            bmap.r.blocks[0],
-            bmap.r.trunk);
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMBAD) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMBAD) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMBAD) => 0;
+    printf("gbmap: w%d 0x%x.%x\n",
+            gbmap.r.weight,
+            gbmap.r.blocks[0],
+            gbmap.r.trunk);
 
     // weight should stay the same
-    assert(bmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.r.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
     lfs3_bid_t weight_;
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 0,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 0,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 5);
     assert(weight_ == 6);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 6,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 6,
             &bid_, &weight_) => LFS3_TAG_BMBAD;
     assert(bid_ == 6);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 7,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 7,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 7);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 8,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 8,
             &bid_, &weight_) => LFS3_TAG_BMBAD;
     assert(bid_ == 8);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 9,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 9,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 9);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 10,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 10,
             &bid_, &weight_) => LFS3_TAG_BMBAD;
     assert(bid_ == 10);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 11,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 11,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == BLOCK_COUNT-11);
@@ -138,7 +138,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_bmap_set_merge]
+[cases.test_gbmap_set_merge]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -146,57 +146,57 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
-    // create an initial bmap
-    lfs3_btree_t bmap;
-    lfs3_btree_init(&bmap);
-    lfs3_bmap_commit(&lfs3, &bmap, 0, LFS3_RATTRS(
+    // create an initial gbmap
+    lfs3_btree_t gbmap;
+    lfs3_btree_init(&gbmap);
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_bmap_set(&lfs3, &bmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 12, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 12, LFS3_TAG_BMINUSE) => 0;
     // set neighboring blocks as in-use, triggering merges
-    lfs3_bmap_set(&lfs3, &bmap, 5, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 9, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 13, LFS3_TAG_BMINUSE) => 0;
-    printf("bmap: w%d 0x%x.%x\n",
-            bmap.r.weight,
-            bmap.r.blocks[0],
-            bmap.r.trunk);
+    lfs3_gbmap_set(&lfs3, &gbmap, 5, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 13, LFS3_TAG_BMINUSE) => 0;
+    printf("gbmap: w%d 0x%x.%x\n",
+            gbmap.r.weight,
+            gbmap.r.blocks[0],
+            gbmap.r.trunk);
 
     // weight should stay the same
-    assert(bmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.r.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
     lfs3_bid_t weight_;
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 0,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 0,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 4);
     assert(weight_ == 5);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 5,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 5,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 6);
     assert(weight_ == 2);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 7,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 7,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 7);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 8,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 8,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 10);
     assert(weight_ == 3);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 11,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 11,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 11);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 12,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 12,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 13);
     assert(weight_ == 2);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 14,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 14,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == BLOCK_COUNT-14);
@@ -204,7 +204,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_bmap_set_noop]
+[cases.test_gbmap_set_noop]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -212,58 +212,58 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
-    // create an initial bmap
-    lfs3_btree_t bmap;
-    lfs3_btree_init(&bmap);
-    lfs3_bmap_commit(&lfs3, &bmap, 0, LFS3_RATTRS(
+    // create an initial gbmap
+    lfs3_btree_t gbmap;
+    lfs3_btree_init(&gbmap);
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_bmap_set(&lfs3, &bmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
     // test a bunch of noops
-    lfs3_bmap_set(&lfs3, &bmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 7, LFS3_TAG_BMFREE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 9, LFS3_TAG_BMFREE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, 10, LFS3_TAG_BMINUSE) => 0;
-    printf("bmap: w%d 0x%x.%x\n",
-            bmap.r.weight,
-            bmap.r.blocks[0],
-            bmap.r.trunk);
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 7, LFS3_TAG_BMFREE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMFREE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
+    printf("gbmap: w%d 0x%x.%x\n",
+            gbmap.r.weight,
+            gbmap.r.blocks[0],
+            gbmap.r.trunk);
 
     // weight should stay the same
-    assert(bmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.r.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
     lfs3_bid_t weight_;
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 0,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 0,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 5);
     assert(weight_ == 6);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 6,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 6,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 6);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 7,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 7,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 7);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 8,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 8,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 8);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 9,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 9,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == 9);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 10,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 10,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 10);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 11,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 11,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == BLOCK_COUNT-11);
@@ -271,7 +271,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_bmap_set_bounds]
+[cases.test_gbmap_set_bounds]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -279,37 +279,37 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
-    // create an initial bmap
-    lfs3_btree_t bmap;
-    lfs3_btree_init(&bmap);
-    lfs3_bmap_commit(&lfs3, &bmap, 0, LFS3_RATTRS(
+    // create an initial gbmap
+    lfs3_btree_t gbmap;
+    lfs3_btree_init(&gbmap);
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // test that setting the first and last blocks don't break anything
     //
     // though in theory blocks 0x{0,1} are immutable...
-    lfs3_bmap_set(&lfs3, &bmap, 0, LFS3_TAG_BMINUSE) => 0;
-    lfs3_bmap_set(&lfs3, &bmap, BLOCK_COUNT-1, LFS3_TAG_BMINUSE) => 0;
-    printf("bmap: w%d 0x%x.%x\n",
-            bmap.r.weight,
-            bmap.r.blocks[0],
-            bmap.r.trunk);
+    lfs3_gbmap_set(&lfs3, &gbmap, 0, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, BLOCK_COUNT-1, LFS3_TAG_BMINUSE) => 0;
+    printf("gbmap: w%d 0x%x.%x\n",
+            gbmap.r.weight,
+            gbmap.r.blocks[0],
+            gbmap.r.trunk);
 
     // weight should stay the same
-    assert(bmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.r.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
     lfs3_bid_t weight_;
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 0,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 0,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == 0);
     assert(weight_ == 1);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, 1,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, 1,
             &bid_, &weight_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-2);
     assert(weight_ == BLOCK_COUNT-2);
-    lfs3_bmap_lookupnext(&lfs3, &bmap, BLOCK_COUNT-1,
+    lfs3_gbmap_lookupnext(&lfs3, &gbmap, BLOCK_COUNT-1,
             &bid_, &weight_) => LFS3_TAG_BMINUSE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == 1);
@@ -317,7 +317,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_bmap_set_fuzz]
+[cases.test_gbmap_set_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.TYPES = [2, 3, 4]
 defines.SEED = 'range(20)'
@@ -329,10 +329,10 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
-    // create an initial bmap
-    lfs3_btree_t bmap;
-    lfs3_btree_init(&bmap);
-    lfs3_bmap_commit(&lfs3, &bmap, 0, LFS3_RATTRS(
+    // create an initial gbmap
+    lfs3_btree_t gbmap;
+    lfs3_btree_init(&gbmap);
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // create a simulation to compare against
@@ -345,35 +345,35 @@ code = '''
     for (lfs3_size_t i = 0; i < N; i++) {
         // choose a pseudo-random block
         lfs3_block_t block = TEST_PRNG(&prng) % BLOCK_COUNT;
-        // and pseudo-random bmap type
+        // and pseudo-random gbmap type
         lfs3_tag_t tag = LFS3_TAG_BMRANGE + (TEST_PRNG(&prng) % TYPES);
 
-        // set in bmap
-        lfs3_bmap_set(&lfs3, &bmap, block, tag) => 0;
+        // set in gbmap
+        lfs3_gbmap_set(&lfs3, &gbmap, block, tag) => 0;
 
         // and set in sim
         sim[block] = tag;
     }
-    printf("bmap: w%d 0x%x.%x\n",
-            bmap.r.weight,
-            bmap.r.blocks[0],
-            bmap.r.trunk);
+    printf("gbmap: w%d 0x%x.%x\n",
+            gbmap.r.weight,
+            gbmap.r.blocks[0],
+            gbmap.r.trunk);
 
-    // check if bmap matches sim
+    // check if gbmap matches sim
     lfs3_size_t i = 0;
     while (i < BLOCK_COUNT) {
         // we need to convert our sim's raw blocks to compressed ranges,
-        // in theory our bmap is optimal
+        // in theory our gbmap is optimal
         lfs3_tag_t tag = sim[i];
         lfs3_size_t d = 1;
         while (i+d < BLOCK_COUNT && sim[i+d] == tag) {
             d += 1;
         }
 
-        // does our bmap contain the optimal range?
+        // does our gbmap contain the optimal range?
         lfs3_bid_t bid_;
         lfs3_bid_t weight_;
-        lfs3_bmap_lookupnext(&lfs3, &bmap, i,
+        lfs3_gbmap_lookupnext(&lfs3, &gbmap, i,
                 &bid_, &weight_) => tag;
         assert(bid_ == i+(weight_-1));
         assert(weight_ == d);

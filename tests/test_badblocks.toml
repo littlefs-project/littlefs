@@ -11,7 +11,7 @@ after = [
     'test_compat',
 ]
 
-defines.INIT_BLOCKS = 'LFS3_IFDEF_BMAP(3, 2)'
+defines.INIT_BLOCKS = 'LFS3_IFDEF_GBMAP(3, 2)'
 
 
 ## Single-block badblock tests

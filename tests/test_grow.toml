@@ -9,7 +9,7 @@ after = [
 ]
 
 # TODO!! lfs3_fs_grow needs to be able to adjust an on-disk bmaps
-ifndef = 'LFS3_BMAP'
+ifndef = 'LFS3_GBMAP'
 
 
 # test we can mount a filesystem with fewer blocks

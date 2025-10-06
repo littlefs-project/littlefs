@@ -87,7 +87,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
+                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -113,7 +113,7 @@ if = [
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
-    'LFS3_IFDEF_BMAP(true, !GBMAP)',
+    'LFS3_IFDEF_GBMAP(true, !GBMAP)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -131,7 +131,7 @@ code = '''
                     : 0)
                 | ((CKMETA) ? LFS3_F_CKMETA : 0)
                 | ((CKDATA) ? LFS3_F_CKDATA : 0)
-                | ((GBMAP) ? LFS3_IFDEF_BMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -144,9 +144,9 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_BMAP(
+                | LFS3_IFDEF_YES_GBMAP(
                     LFS3_I_GBMAP,
-                    (GBMAP) ? LFS3_IFDEF_BMAP(LFS3_I_GBMAP, -1) : 0)));
+                    (GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -171,7 +171,7 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
+                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_LOOKAHEAD, mount performs a lookahead scan
@@ -188,7 +188,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
+                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -244,7 +244,7 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
+                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_COMPACT, mount compact any uncompacted blocks
@@ -262,7 +262,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
+                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
 
     // mdir should have been compacted
     lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
@@ -348,7 +348,7 @@ code = '''
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
+                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_MKCONSISTENT, mount cleans up orphans eagerly
@@ -367,7 +367,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_BMAP(LFS3_I_GBMAP, 0)));
+                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
 
     // check we can still read the files
     lfs3_file_open(&lfs3, &file, "cuttlefish", LFS3_O_RDONLY) => 0;
