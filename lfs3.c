@@ -10768,7 +10768,7 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
 // on-disk global block-map operations
 
 #ifdef LFS3_GBMAP
-static int lfs3_gbmap_lookupnext(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static lfs3_stag_t lfs3_gbmap_lookupnext(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_bid_t bid,
         lfs3_bid_t *bid_, lfs3_bid_t *weight_) {
     return lfs3_btree_lookupnext(lfs3, gbmap, bid,
@@ -10804,8 +10804,13 @@ failed:;
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
-        lfs3_block_t block, lfs3_tag_t tag) {
+// note while this does takes a weight, it's limited to only a single
+// range, cross-range sets are not currently not supported
+//
+// really this just provides a shortcut for bulk clearing ranges in
+// lfs3_alloc_rebuildgbmap
+static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_block_t block, lfs3_block_t weight, lfs3_tag_t tag) {
     // lookup gbmap range
     lfs3_bid_t bid__;
     lfs3_bid_t weight__;
@@ -10837,9 +10842,9 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     // note this is never unnecessary work, the resulting neighbors
     // can't share a type or else we would've already returned
     int err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__, LFS3_RATTRS(
-            (bid__-(weight__-1) < block)
-                ? LFS3_RATTR(LFS3_TAG_GROW, -((bid__+1) - block))
-                : LFS3_RATTR(LFS3_TAG_RM, -((bid__+1) - block)),
+            (bid__-(weight__-1) < block-(weight-1))
+                ? LFS3_RATTR(LFS3_TAG_GROW, -((bid__+1) - (block-(weight-1))))
+                : LFS3_RATTR(LFS3_TAG_RM, -((bid__+1) - (block-(weight-1)))),
             (bid__ > block)
                 ? LFS3_RATTR(tag__, +(bid__ - block))
                 : LFS3_RATTR_NOOP()));
@@ -10848,7 +10853,7 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     }
 
     // weight of new range
-    lfs3_bid_t weight = 1;
+    lfs3_bid_t weight_ = weight;
 
     // can we merge with right neighbor?
     if (block < lfs3->block_count-1) {
@@ -10863,12 +10868,12 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         if (tag__ == tag) {
             LFS3_ASSERT(weight__ == bid__ - block);
             // merge
-            weight += weight__;
+            weight_ += weight__;
 
             // delete to prepare merge
             //
             // note the shifted bid because of the previous delete
-            err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__-1, LFS3_RATTRS(
+            err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__-weight, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_RM, -weight__)));
             if (err) {
                 return err;
@@ -10877,9 +10882,9 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     }
 
     // can we merge with left neighbor?
-    if (block > 0) {
+    if (block-(weight-1) > 0) {
         // note the use of the old gbmap to try to leverage leaf caching
-        tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block-1,
+        tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block-weight,
                 &bid__, &weight__);
         if (tag__ < 0) {
             LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
@@ -10887,10 +10892,10 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         }
 
         if (tag__ == tag) {
-            LFS3_ASSERT(bid__ == block-1);
+            LFS3_ASSERT(bid__ == block-weight);
             // we can merge everything in one commit here
             err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_GROW, +weight)));
+                    LFS3_RATTR(LFS3_TAG_GROW, +weight_)));
             if (err) {
                 return err;
             }
@@ -10902,8 +10907,8 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     }
 
     // needs a new range
-    err = lfs3_gbmap_commit(lfs3, &gbmap_, block, LFS3_RATTRS(
-            LFS3_RATTR(tag, +weight)));
+    err = lfs3_gbmap_commit(lfs3, &gbmap_, block-(weight-1), LFS3_RATTRS(
+            LFS3_RATTR(tag, +weight_)));
     if (err) {
         return err;
     }
@@ -10911,6 +10916,13 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     // done!
     *gbmap = gbmap_;
     return 0;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_block_t block, lfs3_tag_t tag) {
+    return lfs3_gbmap_set_(lfs3, gbmap, block, 1, tag);
 }
 #endif
 
@@ -11276,23 +11288,42 @@ static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
             lfs3->lookahead.gbmapped,
             lfs3->cfg->block_count);
 
-    // create a new gbmap
-    lfs3_btree_t gbmap_;
-    lfs3_btree_init(&gbmap_);
+    // create a copy of the gbmap
+    lfs3_btree_t gbmap_ = lfs3->gbmap.b;
+    // TODO should we just claim all matching btrees in lfs3_btree_commit?
+    // mark as unfetched in case of error
+    lfs3_btree_claim(&lfs3->gbmap.b);
 
-    int err = lfs3_gbmap_commit(lfs3, &gbmap_, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_BMFREE, +lfs3->cfg->block_count)));
-    if (err) {
-        goto failed;
+    // mark any in-use blocks as free
+    //
+    // we do this instead of creating a new gbmap to (1) preserve any
+    // erased/bad info and (2) try to best use any available
+    // erased-state
+    lfs3_block_t block = -1;
+    int err;
+    while (true) {
+        lfs3_block_t weight;
+        lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, &gbmap_, block+1,
+                &block, &weight);
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
+                break;
+            }
+            err = tag;
+            goto failed;
+        }
+
+        if (tag == LFS3_TAG_BMINUSE) {
+            err = lfs3_gbmap_set_(lfs3, &gbmap_, block, weight,
+                    LFS3_TAG_BMFREE);
+            if (err) {
+                goto failed;
+            }
+        }
     }
 
     // traverse the filesystem, building up knowledge of what blocks are
     // in-use
-    //
-    // TODO should we also copy over bad/erased blocks from the old gbmap?
-    // TODO should we just copy the old gbmap and manually clear in-use
-    // blocks? we're already doing a O(n) scan of the filesystem anyways
-    //
     lfs3_trv_t trv;
     lfs3_trv_init(&trv, LFS3_T_RDONLY | LFS3_T_LOOKAHEAD);
     while (true) {
@@ -11303,7 +11334,8 @@ static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
             if (tag == LFS3_ERR_NOENT) {
                 break;
             }
-            return tag;
+            err = tag;
+            goto failed;
         }
 
         // track in-use blocks
