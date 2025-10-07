@@ -546,15 +546,16 @@ struct lfs3_cfg {
     lfs3_size_t crystal_thresh;
     #endif
 
-    // Threshold for when to rebuild block-map information. littlefs
-    // will attempt to rebuild the block-map when fewer than this many
-    // blocks are known. Larger values rebuild the block-map more
+    // Threshold for when to rebuild the global on-disk block-map (gbmap).
+    // littlefs will attempt to rebuild the gbmap when fewer than this
+    // many blocks are known. Larger values rebuild the gbmap more
     // frequently, reducing the chance of falling back to a slower
-    // allocator at a performance cost.
+    // allocator at the cost of amortized allocator throughput.
     //
-    // 0 only rebuilds the block-map when empty.
+    // 0 only rebuilds the gbmap when empty, but note rebuilding the
+    // gbmap may require allocating blocks.
     #ifdef LFS3_GBMAP
-    lfs3_block_t gbmap_scan_thresh;
+    lfs3_block_t gbmap_rebuild_thresh;
     #endif
 };
 

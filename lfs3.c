@@ -10973,7 +10973,7 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     // do we need to rebuild the gbmap?
     if (lfs3_f_isgbmap(lfs3->flags)
             && lfs3->lookahead.gbmapped < lfs3_min(
-                lfs3->cfg->gbmap_scan_thresh,
+                lfs3->cfg->gbmap_rebuild_thresh,
                 lfs3->block_count)) {
         int err = lfs3_alloc_rebuildgbmap(lfs3);
         if (err) {
