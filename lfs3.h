@@ -446,14 +446,6 @@ struct lfs3_cfg {
     lfs3_size_t lookahead_size;
     #endif
 
-// TODO rm me
-//    // Size of the treediff buffer in bytes. A larger treediff buffer speeds
-//    // up tree diffing in GBMAPSLOW and GBMAPFAST modes. The treediff buffer
-//    // also uses a compact bitmap, and sizes >block_count/8 have no effect.
-//    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-//    lfs3_size_t treediff_size;
-//    #endif
-
     // Flags indicating what gc work to do during lfs3_gc calls.
     #ifdef LFS3_GC
     uint32_t gc_flags;
@@ -501,13 +493,6 @@ struct lfs3_cfg {
     #ifndef LFS3_RDONLY
     void *lookahead_buffer;
     #endif
-
-// TODO rm me
-//    // Optional statically allocated treediff buffer. Must be treediff_size.
-//    // By default lfs3_malloc is used to allocate this buffer.
-//    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-//    void *treediff_buffer;
-//    #endif
 
     // Optional upper limit on length of file names in bytes. No downside for
     // larger names except the size of the info struct which is controlled by
@@ -927,13 +912,6 @@ typedef struct lfs3 {
         uint8_t *buffer;
     } lookahead;
     #endif
-
-// TODO rm me
-//    #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_GBMAP)
-//    struct lfs3_treediff {
-//        uint8_t *buffer;
-//    } treediff;
-//    #endif
 
     #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
     const lfs3_data_t *graft;
