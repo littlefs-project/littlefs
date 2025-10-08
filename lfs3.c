@@ -10834,81 +10834,85 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     // mark as unfetched in case of error
     lfs3_btree_claim(gbmap);
 
-    // TODO should these use builder pattern?
-
-    // first delete block from range, this may split the range into
-    // multiple neighbors
-    //
-    // note this is never unnecessary work, the resulting neighbors
-    // can't share a type or else we would've already returned
-    int err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__, LFS3_RATTRS(
-            (bid__-(weight__-1) < block-(weight-1))
-                ? LFS3_RATTR(LFS3_TAG_GROW, -((bid__+1) - (block-(weight-1))))
-                : LFS3_RATTR(LFS3_TAG_RM, -((bid__+1) - (block-(weight-1)))),
-            (bid__ > block)
-                ? LFS3_RATTR(tag__, +(bid__ - block))
-                : LFS3_RATTR_NOOP()));
-    if (err) {
-        return err;
-    }
-
     // weight of new range
     lfs3_bid_t weight_ = weight;
 
     // can we merge with right neighbor?
-    if (block < lfs3->block_count-1) {
-        // note the use of the old gbmap to try to leverage leaf caching
-        tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block+1,
-                &bid__, &weight__);
-        if (tag__ < 0) {
-            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
-            return tag__;
+    //
+    // note if we're in the middle of a range we should never need to
+    // merge
+    if (block == bid__
+            && block < lfs3->block_count-1) {
+        lfs3_bid_t r_bid;
+        lfs3_bid_t r_weight;
+        lfs3_stag_t r_tag = lfs3_gbmap_lookupnext(lfs3, gbmap, block+1,
+                &r_bid, &r_weight);
+        if (r_tag < 0) {
+            LFS3_ASSERT(r_tag != LFS3_ERR_NOENT);
+            return r_tag;
         }
+        LFS3_ASSERT(r_weight == r_bid - block);
 
-        if (tag__ == tag) {
-            LFS3_ASSERT(weight__ == bid__ - block);
-            // merge
-            weight_ += weight__;
-
+        if (r_tag == tag) {
             // delete to prepare merge
-            //
-            // note the shifted bid because of the previous delete
-            err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__-weight, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -weight__)));
+            int err = lfs3_gbmap_commit(lfs3, &gbmap_, r_bid, LFS3_RATTRS(
+                    LFS3_RATTR(LFS3_TAG_RM, -r_weight)));
             if (err) {
                 return err;
             }
+
+            // merge
+            weight_ += r_weight;
         }
     }
 
     // can we merge with left neighbor?
-    if (block-(weight-1) > 0) {
-        // note the use of the old gbmap to try to leverage leaf caching
-        tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block-weight,
-                &bid__, &weight__);
-        if (tag__ < 0) {
-            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
-            return tag__;
+    //
+    // note if we're in the middle of a range we should never need to
+    // merge
+    if (block-(weight-1) == bid__-(weight__-1)
+            && block-(weight-1) > 0) {
+        lfs3_bid_t l_bid;
+        lfs3_bid_t l_weight;
+        lfs3_stag_t l_tag = lfs3_gbmap_lookupnext(lfs3, gbmap, block-weight,
+                &l_bid, &l_weight);
+        if (l_tag < 0) {
+            LFS3_ASSERT(l_tag != LFS3_ERR_NOENT);
+            return l_tag;
         }
+        LFS3_ASSERT(l_bid == block-weight);
 
-        if (tag__ == tag) {
-            LFS3_ASSERT(bid__ == block-weight);
-            // we can merge everything in one commit here
-            err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_GROW, +weight_)));
+        if (l_tag == tag) {
+            // delete to prepare merge
+            int err = lfs3_gbmap_commit(lfs3, &gbmap_, l_bid, LFS3_RATTRS(
+                    LFS3_RATTR(LFS3_TAG_RM, -l_weight)));
             if (err) {
                 return err;
             }
 
-            // done!
-            *gbmap = gbmap_;
-            return 0;
+            // merge
+            weight_ += l_weight;
+            // adjust target block/bid
+            block -= l_weight;
+            bid__ -= l_weight;
         }
     }
 
-    // needs a new range
-    err = lfs3_gbmap_commit(lfs3, &gbmap_, block-(weight-1), LFS3_RATTRS(
-            LFS3_RATTR(tag, +weight_)));
+    // commit new range
+    //
+    // if we're in the middle of a range, we need to split and inject
+    // the new range, possibly creating two neighbors in the process
+    //
+    // we do this in a bit of a weird order due to how our commit API
+    // works
+    int err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__, LFS3_RATTRS(
+            (bid__-(weight__-1) < block-(weight-1))
+                ? LFS3_RATTR(LFS3_TAG_GROW, -((bid__+1) - (block-(weight-1))))
+                : LFS3_RATTR(LFS3_TAG_RM, -((bid__+1) - (block-(weight-1)))),
+            LFS3_RATTR(tag, +weight_),
+            (bid__ > block)
+                ? LFS3_RATTR(tag__, +(bid__ - block))
+                : LFS3_RATTR_NOOP()));
     if (err) {
         return err;
     }
