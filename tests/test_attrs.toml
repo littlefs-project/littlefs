@@ -314,3 +314,51 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[cases.test_file_getattr]
+code = '''
+    struct lfs_attr_s {
+        uint32_t at_ver;
+        uint32_t at_mode;
+        uint32_t at_uid;
+        uint32_t at_gid;
+        uint64_t at_atim;
+        uint64_t at_mtim;
+        uint64_t at_ctim;
+    };
+
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+
+    lfs_file_t file;
+    struct lfs_attr_s attr_get[1024];
+    memset(attr_get, 0, sizeof(attr_get));
+    lfs_file_open(&lfs, &file, "hello", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_write(&lfs, &file, "world", strlen("world")) => strlen("world");
+    lfs_file_getattr(&lfs, &file, 0, attr_get, sizeof(struct lfs_attr_s)) => -61;
+
+    struct lfs_attr_s attr_set = {
+        .at_ver = 1,
+        .at_mode = 0644,
+        .at_uid = 1000,
+        .at_gid = 1000,
+        .at_atim = 1693123456,
+        .at_mtim = 1693123456,
+        .at_ctim = 1693123456,
+    };
+    lfs_setattr(&lfs, "hello", 0, &attr_set, sizeof(attr_set)) => 0;
+    memset(attr_get, 0, sizeof(attr_get));
+    lfs_file_getattr(&lfs, &file, 0, attr_get, sizeof(struct lfs_attr_s)) => 0;
+    attr_get->at_ver => attr_set.at_ver;
+    attr_get->at_mode => attr_set.at_mode;
+    attr_get->at_uid => attr_set.at_uid;
+    attr_get->at_gid => attr_set.at_gid;
+    attr_get->at_atim => attr_set.at_atim;
+    attr_get->at_mtim => attr_set.at_mtim;
+    attr_get->at_ctim => attr_set.at_ctim;
+
+    lfs_file_sync(&lfs, &file) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
