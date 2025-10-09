@@ -3,12 +3,12 @@
 A little fail-safe filesystem designed for microcontrollers.
 
 ```
-   | | |     .---._____
+             .---._____
   .-----.   |          |
 --|o    |---| littlefs |
 --|     |---|          |
   '-----'   '----------'
-   | | |
+
 ```
 
 littlefs was originally built as an experiment to learn about filesystem design
@@ -503,29 +503,34 @@ Clearly we need to be more aggressive than waiting for our metadata pair to
 be full. As the metadata pair approaches fullness the frequency of compactions
 grows very rapidly.
 
-Looking at the problem generically, consider a log with ![n] bytes for each
-entry, ![d] dynamic entries (entries that are outdated during garbage
-collection), and ![s] static entries (entries that need to be copied during
+Looking at the problem generically, consider a log with `n` bytes for each
+entry, `d`dynamic entries (entries that are outdated during garbage
+collection), and `s` static entries (entries that need to be copied during
 garbage collection). If we look at the amortized runtime complexity of updating
 this log we get this formula:
 
 ![cost = n + n (s / d+1)][metadata-formula1]
 
-If we let ![r] be the ratio of static space to the size of our log in bytes, we
+If we let `r` be the ratio of static space to the size of our log in bytes, we
 find an alternative representation of the number of static and dynamic entries:
 
-![s = r (size/n)][metadata-formula2]
+$$
+s = r (size/n)
+$$
 
-![d = (1 - r) (size/n)][metadata-formula3]
+$$
+d = (1 - r) (size/n)
+$$
 
-Substituting these in for ![d] and ![s] gives us a nice formula for the cost of
+Substituting these in for `d` and `s` gives us a nice formula for the cost of
 updating an entry given how full the log is:
 
-![cost = n + n (r (size/n) / ((1-r) (size/n) + 1))][metadata-formula4]
+$$
+cost = n + n (r (size/n) / ((1-r) (size/n) + 1))
+$$
 
 Assuming 100 byte entries in a 4 KiB log, we can graph this using the entry
 size to find a multiplicative cost:
-
 ![Metadata pair update cost graph][metadata-cost-graph]
 
 So at 50% usage, we're seeing an average of 2x cost per update, and at 75%
@@ -686,17 +691,21 @@ the previous. As we approach infinity, the storage overhead forms a geometric
 series. Solving this tells us that on average our storage overhead is only
 2 pointers per block.
 
-![lim,n->inf((1/n)sum,i,0->n(ctz(i)+1)) = sum,i,0->inf(1/2^i) = 2][ctz-formula1]
+$$
+lim,n->inf((1/n)sum,i,0->n(ctz(i)+1)) = sum,i,0->inf(1/2^i) = 2
+$$
 
 Because our file size is limited the word width we use to store sizes, we can
 also solve for the maximum number of pointers we would ever need to store in a
 block. If we set the overhead of pointers equal to the block size, we get the
-following equation. Note that both a smaller block size (![B][bigB]) and larger
-word width (![w]) result in more storage overhead.
+following equation. Note that both a smaller block size (`B`) and larger
+word width (`w`) result in more storage overhead.
 
-![B = (w/8)ceil(log2(2^w / (B-2w/8)))][ctz-formula2]
+$$
+B = (w/8)ceil(log2(2^w / (B-2w/8)))
+$$
 
-Solving the equation for ![B][bigB] gives us the minimum block size for some
+Solving the equation for `B` gives us the minimum block size for some
 common word widths:
 
 1. 32-bit CTZ skip-list => minimum block size of 104 bytes
@@ -715,11 +724,13 @@ index + offset pair. So in theory we can store only a single pointer and size.
 
 However, calculating the index + offset pair from the size is a bit
 complicated. We can start with a summation that loops through all of the blocks
-up until our given size. Let ![B][bigB] be the block size in bytes, ![w] be the
-word width in bits, ![n] be the index of the block in the skip-list, and
-![N][bigN] be the file size in bytes:
+up until our given size. Let `B` be the block size in bytes, `w` be the
+word width in bits, `n` be the index of the block in the skip-list, and
+`N` be the file size in bytes:
 
-![N = sum,i,0->n(B-(w/8)(ctz(i)+1))][ctz-formula3]
+$$
+N = sum,i,0->n(B-(w/8)(ctz(i)+1))
+$$
 
 This works quite well, but requires _O(n)_ to compute, which brings the full
 runtime of reading a file up to _O(n&sup2; log n)_. Fortunately, that summation
@@ -734,14 +745,16 @@ surprise, these both result from simple equations, leading us to a rather
 unintuitive property that ties together two seemingly unrelated bitwise
 instructions:
 
-![sum,i,0->n(ctz(i)+1) = 2n-popcount(n)][ctz-formula4]
+$$
+sum,i,0->n(ctz(i)+1) = 2n-popcount(n)
+$$
 
 where:
 
-1. ctz(![x]) = the number of trailing bits that are 0 in ![x]
-2. popcount(![x]) = the number of bits that are 1 in ![x]
+1. ctz(`x`) = the number of trailing bits that are 0 in `x`
+2. popcount(`x`) = the number of bits that are 1 in `x`
 
-Initial tests of this surprising property seem to hold. As ![n] approaches
+Initial tests of this surprising property seem to hold. As `n` approaches
 infinity, we end up with an average overhead of 2 pointers, which matches our
 assumption from earlier. During iteration, the popcount function seems to
 handle deviations from this average. Of course, just to make sure I wrote a
@@ -750,22 +763,28 @@ quick script that verified this property for all 32-bit integers.
 Now we can substitute into our original equation to find a more efficient
 equation for file size:
 
-![N = Bn - (w/8)(2n-popcount(n))][ctz-formula5]
+$$
+N = Bn - (w/8)(2n-popcount(n))
+$$
 
 Unfortunately, the popcount function is non-injective, so we can't solve this
-equation for our index. But what we can do is solve for an ![n'] index that
-is greater than ![n] with error bounded by the range of the popcount function.
-We can repeatedly substitute ![n'] into the original equation until the error
+equation for our index. But what we can do is solve for an `n'` index that
+is greater than `n` with error bounded by the range of the popcount function.
+We can repeatedly substitute `n'` into the original equation until the error
 is smaller than our integer resolution. As it turns out, we only need to
 perform this substitution once, which gives us this formula for our index:
 
-![n = floor((N-(w/8)popcount(N/(B-2w/8))) / (B-2w/8))][ctz-formula6]
+$$
+n = floor((N-(w/8)popcount(N/(B-2w/8))) / (B-2w/8))
+$$
 
-Now that we have our index ![n], we can just plug it back into the above
+Now that we have our index `n`, we can just plug it back into the above
 equation to find the offset. We run into a bit of a problem with integer
 overflow, but we can avoid this by rearranging the equation a bit:
 
-![off = N - (B-2w/8)n - (w/8)popcount(n)][ctz-formula7]
+$$
+off = N - (B-2w/8)n - (w/8)popcount(n)
+$$
 
 Our solution requires quite a bit of math, but computers are very good at math.
 Now we can find both our block index and offset from a size in _O(1)_, letting
@@ -2143,30 +2162,6 @@ And that's littlefs, thanks for reading!
 [cow]: https://upload.wikimedia.org/wikipedia/commons/0/0c/Cow_female_black_white.jpg
 [elephant]: https://upload.wikimedia.org/wikipedia/commons/3/37/African_Bush_Elephant.jpg
 [ram]: https://upload.wikimedia.org/wikipedia/commons/9/97/New_Mexico_Bighorn_Sheep.JPG
-
-[metadata-formula1]: https://latex.codecogs.com/svg.latex?cost%20%3D%20n%20&plus;%20n%20%5Cfrac%7Bs%7D%7Bd&plus;1%7D
-[metadata-formula2]: https://latex.codecogs.com/svg.latex?s%20%3D%20r%20%5Cfrac%7Bsize%7D%7Bn%7D
-[metadata-formula3]: https://latex.codecogs.com/svg.latex?d%20%3D%20%281-r%29%20%5Cfrac%7Bsize%7D%7Bn%7D
-[metadata-formula4]: https://latex.codecogs.com/svg.latex?cost%20%3D%20n%20&plus;%20n%20%5Cfrac%7Br%5Cfrac%7Bsize%7D%7Bn%7D%7D%7B%281-r%29%5Cfrac%7Bsize%7D%7Bn%7D&plus;1%7D
-
-[ctz-formula1]: https://latex.codecogs.com/svg.latex?%5Clim_%7Bn%5Cto%5Cinfty%7D%5Cfrac%7B1%7D%7Bn%7D%5Csum_%7Bi%3D0%7D%5E%7Bn%7D%5Cleft%28%5Ctext%7Bctz%7D%28i%29&plus;1%5Cright%29%20%3D%20%5Csum_%7Bi%3D0%7D%5Cfrac%7B1%7D%7B2%5Ei%7D%20%3D%202
-[ctz-formula2]: https://latex.codecogs.com/svg.latex?B%20%3D%20%5Cfrac%7Bw%7D%7B8%7D%5Cleft%5Clceil%5Clog_2%5Cleft%28%5Cfrac%7B2%5Ew%7D%7BB-2%5Cfrac%7Bw%7D%7B8%7D%7D%5Cright%29%5Cright%5Crceil
-[ctz-formula3]: https://latex.codecogs.com/svg.latex?N%20%3D%20%5Csum_i%5En%5Cleft%5BB-%5Cfrac%7Bw%7D%7B8%7D%5Cleft%28%5Ctext%7Bctz%7D%28i%29&plus;1%5Cright%29%5Cright%5D
-[ctz-formula4]: https://latex.codecogs.com/svg.latex?%5Csum_i%5En%5Cleft%28%5Ctext%7Bctz%7D%28i%29&plus;1%5Cright%29%20%3D%202n-%5Ctext%7Bpopcount%7D%28n%29
-[ctz-formula5]: https://latex.codecogs.com/svg.latex?N%20%3D%20Bn%20-%20%5Cfrac%7Bw%7D%7B8%7D%5Cleft%282n-%5Ctext%7Bpopcount%7D%28n%29%5Cright%29
-[ctz-formula6]: https://latex.codecogs.com/svg.latex?n%20%3D%20%5Cleft%5Clfloor%5Cfrac%7BN-%5Cfrac%7Bw%7D%7B8%7D%5Cleft%28%5Ctext%7Bpopcount%7D%5Cleft%28%5Cfrac%7BN%7D%7BB-2%5Cfrac%7Bw%7D%7B8%7D%7D-1%5Cright%29&plus;2%5Cright%29%7D%7BB-2%5Cfrac%7Bw%7D%7B8%7D%7D%5Cright%5Crfloor
-[ctz-formula7]: https://latex.codecogs.com/svg.latex?%5Cmathit%7Boff%7D%20%3D%20N%20-%20%5Cleft%28B-2%5Cfrac%7Bw%7D%7B8%7D%5Cright%29n%20-%20%5Cfrac%7Bw%7D%7B8%7D%5Ctext%7Bpopcount%7D%28n%29
-
-[bigB]: https://latex.codecogs.com/svg.latex?B
-[d]: https://latex.codecogs.com/svg.latex?d
-[m]: https://latex.codecogs.com/svg.latex?m
-[bigN]: https://latex.codecogs.com/svg.latex?N
-[n]: https://latex.codecogs.com/svg.latex?n
-[n']: https://latex.codecogs.com/svg.latex?n%27
-[r]: https://latex.codecogs.com/svg.latex?r
-[s]: https://latex.codecogs.com/svg.latex?s
-[w]: https://latex.codecogs.com/svg.latex?w
-[x]: https://latex.codecogs.com/svg.latex?x
 
 [metadata-cost-graph]: https://raw.githubusercontent.com/geky/littlefs/gh-images/metadata-cost.svg?sanitize=true
 [wear-distribution-graph]: https://raw.githubusercontent.com/geky/littlefs/gh-images/wear-distribution.svg?sanitize=true
