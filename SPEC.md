@@ -731,6 +731,12 @@ which is outlined below.
 ---
 #### `0x7ff` LFS_TYPE_MOVESTATE
 
+
+Function	Action to Implement Validation
+.read	After reading a block of data, calculate the checksum/HMAC for the block and compare it against the stored value. If they don't match, return LFS_ERR_CORRUPT.
+.prog	Before writing a block of data, calculate the checksum/HMAC and write it to a reserved area (e.g., at the end of the block/slice) along with the data.
+lfs_config	Adjust .read_size and .prog_size to be equal to the data size minus the checksum size. The checksum overhead must be managed outside of what littlefs thinks is the block size.
+
 Provides delta bits for the global move state.
 
 The move state in littlefs is used to store info about operations that could
