@@ -5160,8 +5160,13 @@ static void lfs3_btree_init(lfs3_btree_t *btree) {
 // convenience operations
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static inline void lfs3_btree_claim(lfs3_btree_t *btree) {
-    lfs3_rbyd_claim(&btree->r);
-    lfs3_rbyd_claim(&btree->leaf.r);
+    // note we don't claim shrubs, as this would clobber shrub estimates
+    if (!lfs3_rbyd_isshrub(&btree->r)) {
+        lfs3_rbyd_claim(&btree->r);
+    }
+    if (!lfs3_rbyd_isshrub(&btree->leaf.r)) {
+        lfs3_rbyd_claim(&btree->leaf.r);
+    }
 }
 #endif
 
@@ -5178,6 +5183,38 @@ static inline int lfs3_btree_cmp(
     return lfs3_rbyd_cmp(&a->r, &b->r);
 }
 #endif
+
+// needed in lfs3_fs_claimbtree
+static inline bool lfs3_o_isbshrub(uint32_t flags);
+
+// claim all btrees known to the system
+//
+// note this doesn't, and can't, include any stack allocated btrees
+static void lfs3_fs_claimbtree(lfs3_t *lfs3, lfs3_btree_t *btree) {
+    // claim the mtree
+    if (&lfs3->mtree != btree
+            && lfs3->mtree.r.blocks[0] == btree->r.blocks[0]) {
+        lfs3_btree_claim(&lfs3->mtree);
+    }
+
+    // claim the gbmap
+    #ifdef LFS3_GBMAP
+    if (&lfs3->gbmap.b != btree
+            && lfs3->gbmap.b.r.blocks[0] == btree->r.blocks[0]) {
+        lfs3_btree_claim(&lfs3->gbmap.b);
+    }
+    #endif
+
+    // claim file btrees/bshrubs
+    for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
+        if (lfs3_o_isbshrub(h->flags)
+                && &((lfs3_bshrub_t*)h)->shrub != btree
+                && ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]
+                    == btree->r.blocks[0]) {
+            lfs3_btree_claim(&((lfs3_bshrub_t*)h)->shrub);
+        }
+    }
+}
 
 
 // branch on-disk encoding
@@ -5616,6 +5653,13 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         lfs3_rbyd_t *btree_, lfs3_btree_t *btree,
         lfs3_bcommit_t *bcommit) {
     LFS3_ASSERT(bcommit->bid <= btree->r.weight);
+
+    // before committing, claim any matching btrees we know about
+    //
+    // is this overkill? probably, but hey, better safe than sorry,
+    // claiming things here reduces the chance of forgetting to claim
+    // things in above layers
+    lfs3_fs_claimbtree(lfs3, btree);
 
     // lookup which leaf our bid resides
     lfs3_rbyd_t child = btree->r;
@@ -6622,9 +6666,6 @@ static int lfs3_data_readshrub(lfs3_t *lfs3,
     return 0;
 }
 
-// needed in lfs3_shrub_estimate
-static inline bool lfs3_o_isbshrub(uint32_t flags);
-
 // these are used in mdir commit/compaction
 #ifndef LFS3_RDONLY
 static lfs3_ssize_t lfs3_shrub_estimate(lfs3_t *lfs3,
@@ -7009,24 +7050,6 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     #ifndef LFS3_2BONLY
-    // TODO why are we marking bshrubs as unfetched here? we should either
-    // be marking all btrees in lfs3_btree_commit, or move this to
-    // lfs3_file_commit for finer control...
-    //
-    // before we touch anything, we need to mark all other btree references
-    // as unfetched
-    if (lfs3_bshrub_isbtree(bshrub)) {
-        for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-            if (lfs3_o_isbshrub(h->flags)
-                    && h != &bshrub->h
-                    && ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]
-                        == bshrub->shrub.r.blocks[0]) {
-                // mark as unfetched
-                lfs3_btree_claim(&((lfs3_bshrub_t*)h)->shrub);
-            }
-        }
-    }
-
     // try to commit to the btree
     lfs3_bcommit_t bcommit; // do _not_ fully init this
     bcommit.bid = bid;
@@ -9361,9 +9384,6 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
         // update our mtree
         } else {
-            // mark as unfetched in case of failure
-            lfs3_btree_claim(&lfs3->mtree);
-
             err = lfs3_mtree_commit(lfs3, &mtree_,
                     lfs3_mbid(lfs3, mdir->mid), LFS3_RATTRS(
                         LFS3_RATTR_MPTR(
@@ -9400,9 +9420,6 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         // how can we drop if we have no mtree?
         LFS3_ASSERT(lfs3->mtree.r.weight != 0);
 
-        // mark as unfetched in case of failure
-        lfs3_btree_claim(&lfs3->mtree);
-
         // update our mtree
         err = lfs3_mtree_commit(lfs3, &mtree_,
                 lfs3_mbid(lfs3, mdir->mid), LFS3_RATTRS(
@@ -9437,9 +9454,6 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
         // update our mtree
         } else {
-            // mark as unfetched in case of failure
-            lfs3_btree_claim(&lfs3->mtree);
-
             err = lfs3_mtree_commit(lfs3, &mtree_,
                     lfs3_mbid(lfs3, mdir->mid), LFS3_RATTRS(
                         LFS3_RATTR_MPTR(
@@ -10829,8 +10843,6 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     // temporary copy, we definitely _don't_ want to leave this in a
     // weird state on error
     lfs3_btree_t gbmap_ = *gbmap;
-    // TODO should we mark the gbmaps as unfetched as well?
-    // TODO should we just claim all matching btrees in lfs3_btree_commit?
     // mark as unfetched in case of error
     lfs3_btree_claim(gbmap);
 
@@ -11294,9 +11306,6 @@ static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
 
     // create a copy of the gbmap
     lfs3_btree_t gbmap_ = lfs3->gbmap.b;
-    // TODO should we just claim all matching btrees in lfs3_btree_commit?
-    // mark as unfetched in case of error
-    lfs3_btree_claim(&lfs3->gbmap.b);
 
     // mark any in-use blocks as free
     //
