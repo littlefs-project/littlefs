@@ -9,6 +9,7 @@
 #include "lfs_util.h"
 
 
+
 // some constants used throughout the code
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
@@ -1769,9 +1770,9 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
         // the caching layer
         if (noff >= end || noff >= lfs->pcache.off + lfs->cfg->cache_size) {
             // flush buffers
-            int err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
-            if (err) {
-                return err;
+            int sync_err = lfs_bd_sync(lfs, &lfs->pcache, &lfs->rcache, false);
+            if (sync_err) {
+                return sync_err;
             }
         }
     }
@@ -4722,16 +4723,16 @@ int lfs_fs_traverse_(lfs_t *lfs,
         }
 
         for (int i = 0; i < 2; i++) {
-            int err = cb(data, dir.tail[i]);
-            if (err) {
-                return err;
+            int traverse_err = cb(data, dir.tail[i]);
+            if (traverse_err) {
+                return traverse_err;
             }
         }
 
         // iterate through ids in directory
-        int err = lfs_dir_fetch(lfs, &dir, dir.tail);
-        if (err) {
-            return err;
+        int fetch_err = lfs_dir_fetch(lfs, &dir, dir.tail);
+        if (fetch_err) {
+            return fetch_err;
         }
 
         for (uint16_t id = 0; id < dir.count; id++) {
@@ -4772,18 +4773,18 @@ int lfs_fs_traverse_(lfs_t *lfs,
         }
 
         if ((f->flags & LFS_F_DIRTY) && !(f->flags & LFS_F_INLINE)) {
-            int err = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
+            int err_traverse = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
                     f->ctz.head, f->ctz.size, cb, data);
-            if (err) {
+            if (err_traverse ) {
                 return err;
             }
         }
 
         if ((f->flags & LFS_F_WRITING) && !(f->flags & LFS_F_INLINE)) {
-            int err = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
+            int err_traverse  = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
                     f->block, f->pos, cb, data);
-            if (err) {
-                return err;
+            if (err_traverse ) {
+                return err_traverse ;
             }
         }
     }
@@ -4803,10 +4804,10 @@ static int lfs_fs_pred(lfs_t *lfs,
         .i = 1,
         .period = 1,
     };
-    int err = LFS_ERR_OK;
+    int err1 = LFS_ERR_OK;
     while (!lfs_pair_isnull(pdir->tail)) {
-        err = lfs_tortoise_detectcycles(pdir, &tortoise);
-        if (err < 0) {
+        err1 = lfs_tortoise_detectcycles(pdir, &tortoise);
+        if (err1 < 0) {
             return LFS_ERR_CORRUPT;
         }
 
@@ -4863,11 +4864,11 @@ static lfs_stag_t lfs_fs_parent(lfs_t *lfs, const lfs_block_t pair[2],
         .i = 1,
         .period = 1,
     };
-    int err = LFS_ERR_OK;
+    int err2 = LFS_ERR_OK;
     while (!lfs_pair_isnull(parent->tail)) {
-        err = lfs_tortoise_detectcycles(parent, &tortoise);
-        if (err < 0) {
-            return err;
+        err2 = lfs_tortoise_detectcycles(parent, &tortoise);
+        if (err2 < 0) {
+            return err2;
         }
 
         lfs_stag_t tag = lfs_dir_fetchmatch(lfs, parent, parent->tail,
