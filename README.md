@@ -113,7 +113,21 @@ All POSIX operations, such as remove and rename, are atomic, even in event
 of power-loss. Additionally, file updates are not actually committed to
 the filesystem until sync or close is called on the file.
 
-## Other notes
+## Usage
+
+... [Existing Usage content ends here] ...
+
+## File Name and Path Constraints <--- NEW SECTION START
+
+| Constraint | Value | Notes |
+| :--- | :--- | :--- |
+| **Max Name Length** | `LFS_NAME_MAX` (default: 255 bytes) | Applies to a single file or directory component. This is configurable. |
+| **Illegal Characters** | `/` (forward slash) and `\0` (null terminator) | `/` is the directory separator. |
+| **Reserved Names** | `.` and `..` | Reserved for the current and parent directory. |
+| **Max Path Length** | Unbounded | Limited only by available storage/metadata space, not by a fixed number of bytes. |
+
+**Note:** littlefs follows Unix/POSIX conventions. UTF-8 encoded names are supported.
+
 
 Littlefs is written in C, and specifically should compile with any compiler
 that conforms to the `C99` standard.
