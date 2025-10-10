@@ -8,8 +8,14 @@ after = [
     'test_mount',
 ]
 
-# TODO!! lfs3_fs_grow needs to be able to adjust an on-disk bmaps
-ifndef = 'LFS3_GBMAP'
+# Test both with and without the gbmap if available
+defines.GBMAP = [false, true]
+if = '''
+    LFS3_IFDEF_YES_GBMAP(
+        GBMAP,
+        LFS3_IFDEF_GBMAP(true, !GBMAP))
+'''
+defines.FORMAT_BLOCK_COUNT = '(GBMAP) ? 3 : 2'
 
 
 # test we can mount a filesystem with fewer blocks
@@ -18,7 +24,7 @@ defines.SMALLER_BLOCK_COUNT = [
     'BLOCK_COUNT-1',
     'BLOCK_COUNT/2',
     'BLOCK_COUNT/4',
-    '2',
+    'FORMAT_BLOCK_COUNT',
 ]
 defines.BIGGER_BLOCK_COUNT = [
     'BLOCK_COUNT',
@@ -32,7 +38,10 @@ code = '''
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
@@ -137,7 +146,7 @@ defines.SMALLER_BLOCK_COUNT = [
     'BLOCK_COUNT-1',
     'BLOCK_COUNT/2',
     'BLOCK_COUNT/4',
-    '2',
+    'FORMAT_BLOCK_COUNT',
 ]
 defines.BIGGER_BLOCK_COUNT = [
     'BLOCK_COUNT',
@@ -151,7 +160,10 @@ code = '''
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = BIGGER_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
@@ -198,7 +210,7 @@ defines.SMALLER_BLOCK_COUNT = [
     'BLOCK_COUNT-1',
     'BLOCK_COUNT/2',
     'BLOCK_COUNT/4',
-    '2',
+    'FORMAT_BLOCK_COUNT',
 ]
 defines.BIGGER_BLOCK_COUNT = [
     'BLOCK_COUNT',
@@ -212,7 +224,10 @@ code = '''
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
@@ -320,14 +335,17 @@ defines.SMALLER_BLOCK_COUNT = [
     'BLOCK_COUNT-1',
     'BLOCK_COUNT/2',
     'BLOCK_COUNT/4',
-    '2',
+    'FORMAT_BLOCK_COUNT',
 ]
 code = '''
     // create a smaller fs
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = SMALLER_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // fsstat up to date?
@@ -436,15 +454,17 @@ code = '''
 #
 
 [cases.test_grow_incr_spam_dir_many]
-defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     // start with a small number of blocks
     struct lfs3_cfg cfg = *CFG;
-    cfg.block_count = INIT_BLOCK_COUNT;
+    cfg.block_count = FORMAT_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     // mount with maximum block count
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -452,7 +472,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
-    assert(fsinfo.block_count == INIT_BLOCK_COUNT);
+    assert(fsinfo.block_count == FORMAT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS3_NAME_MAX);
     assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
@@ -473,7 +493,7 @@ code = '''
         // try growing the filesystem
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
         lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
@@ -576,7 +596,6 @@ code = '''
 '''
 
 [cases.test_grow_incr_spam_dir_fuzz]
-defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = 1024
@@ -585,9 +604,12 @@ fuzz = 'SEED'
 code = '''
     // start with a small number of blocks
     struct lfs3_cfg cfg = *CFG;
-    cfg.block_count = INIT_BLOCK_COUNT;
+    cfg.block_count = FORMAT_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     // mount with maximum block count
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -595,7 +617,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
-    assert(fsinfo.block_count == INIT_BLOCK_COUNT);
+    assert(fsinfo.block_count == FORMAT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS3_NAME_MAX);
     assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
@@ -709,7 +731,7 @@ code = '''
         // try growing the filesystem
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
         lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
@@ -800,7 +822,6 @@ code = '''
 '''
 
 [cases.test_grow_incr_spam_file_many]
-defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -816,9 +837,12 @@ if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     // start with a small number of blocks
     struct lfs3_cfg cfg = *CFG;
-    cfg.block_count = INIT_BLOCK_COUNT;
+    cfg.block_count = FORMAT_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     // mount with maximum block count
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -826,7 +850,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
-    assert(fsinfo.block_count == INIT_BLOCK_COUNT);
+    assert(fsinfo.block_count == FORMAT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS3_NAME_MAX);
     assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
@@ -869,7 +893,7 @@ code = '''
         // try growing the filesystem
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
         lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
@@ -946,7 +970,6 @@ code = '''
 '''
 
 [cases.test_grow_incr_spam_file_fuzz]
-defines.INIT_BLOCK_COUNT = 2
 defines.REMOUNT = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
@@ -965,9 +988,12 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
     struct lfs3_cfg cfg = *CFG;
-    cfg.block_count = INIT_BLOCK_COUNT;
+    cfg.block_count = FORMAT_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     // mount with maximum block count
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -975,7 +1001,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
-    assert(fsinfo.block_count == INIT_BLOCK_COUNT);
+    assert(fsinfo.block_count == FORMAT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS3_NAME_MAX);
     assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
@@ -1135,7 +1161,7 @@ code = '''
         // try growing the filesystem
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
         lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
@@ -1241,7 +1267,6 @@ code = '''
 '''
 
 [cases.test_grow_incr_spam_uz_fuzz]
-defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
 defines.SIZE = [
@@ -1259,9 +1284,12 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
     struct lfs3_cfg cfg = *CFG;
-    cfg.block_count = INIT_BLOCK_COUNT;
+    cfg.block_count = FORMAT_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     // mount with maximum block count
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -1269,7 +1297,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
-    assert(fsinfo.block_count == INIT_BLOCK_COUNT);
+    assert(fsinfo.block_count == FORMAT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS3_NAME_MAX);
     assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
@@ -1616,7 +1644,7 @@ code = '''
         // try growing the filesystem
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
         lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
@@ -1741,7 +1769,6 @@ code = '''
 '''
 
 [cases.test_grow_incr_spam_uzd_fuzz]
-defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
 defines.SIZE = [
@@ -1759,9 +1786,12 @@ if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
     // start with a small number of blocks
     struct lfs3_cfg cfg = *CFG;
-    cfg.block_count = INIT_BLOCK_COUNT;
+    cfg.block_count = FORMAT_BLOCK_COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     // mount with maximum block count
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -1769,7 +1799,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.block_size == BLOCK_SIZE);
-    assert(fsinfo.block_count == INIT_BLOCK_COUNT);
+    assert(fsinfo.block_count == FORMAT_BLOCK_COUNT);
     assert(fsinfo.name_limit == LFS3_NAME_MAX);
     assert(fsinfo.file_limit == LFS3_FILE_MAX);
 
@@ -2200,7 +2230,7 @@ code = '''
         // try growing the filesystem
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
         lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
@@ -2350,7 +2380,6 @@ code = '''
 # wrong.
 #
 [cases.test_grow_incr_spam_f_pl_fuzz]
-defines.INIT_BLOCK_COUNT = 2
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 256
 defines.SIZE = [
@@ -2373,8 +2402,11 @@ code = '''
     if (err) {
         // start with a small number of blocks
         struct lfs3_cfg cfg = *CFG;
-        cfg.block_count = INIT_BLOCK_COUNT;
-        lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+        cfg.block_count = FORMAT_BLOCK_COUNT;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                &cfg) => 0;
         // mount with maximum block count
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -2382,7 +2414,7 @@ code = '''
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
-        assert(fsinfo.block_count == INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count == FORMAT_BLOCK_COUNT);
         assert(fsinfo.name_limit == LFS3_NAME_MAX);
         assert(fsinfo.file_limit == LFS3_FILE_MAX);
     }
@@ -2563,7 +2595,7 @@ code = '''
         // try growing the filesystem
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
         lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);
@@ -2661,7 +2693,6 @@ code = '''
 # wrong.
 #
 [cases.test_grow_incr_spam_fd_pl_fuzz]
-defines.INIT_BLOCK_COUNT = 2
 # note dirs x files grows O(n^2)
 defines.N = [1, 2, 4, 8]
 defines.M = 'N'
@@ -2686,8 +2717,11 @@ code = '''
     if (err) {
         // start with a small number of blocks
         struct lfs3_cfg cfg = *CFG;
-        cfg.block_count = INIT_BLOCK_COUNT;
-        lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+        cfg.block_count = FORMAT_BLOCK_COUNT;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                &cfg) => 0;
         // mount with maximum block count
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
@@ -2695,7 +2729,7 @@ code = '''
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_size == BLOCK_SIZE);
-        assert(fsinfo.block_count == INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count == FORMAT_BLOCK_COUNT);
         assert(fsinfo.name_limit == LFS3_NAME_MAX);
         assert(fsinfo.file_limit == LFS3_FILE_MAX);
     }
@@ -3003,7 +3037,7 @@ code = '''
         // try growing the filesystem
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert(fsinfo.block_count >= INIT_BLOCK_COUNT);
+        assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
         lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
         assert(used >= 0);

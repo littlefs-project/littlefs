@@ -2728,7 +2728,7 @@ class Gstate:
         def __init__(self, mtree, config, tag, gdeltas):
             super().__init__(mtree, config, tag, gdeltas)
             d = 0
-            self.cursor, d_ = fromleb128(self.data, d); d += d_
+            self.window, d_ = fromleb128(self.data, d); d += d_
             self.known, d_ = fromleb128(self.data, d); d += d_
             block, trunk, cksum, d_ = frombranch(self.data, d); d += d_
             self.btree = Btree.fetchck(
@@ -2740,7 +2740,7 @@ class Gstate:
         def repr(self):
             return 'gbmap %s 0x%x %d' % (
                     self.btree.addr(),
-                    self.cursor, self.known)
+                    self.window, self.known)
 
     # keep track of known gstate
     _known = [g for g in Gstate.__subclasses__() if g.tag is not None]

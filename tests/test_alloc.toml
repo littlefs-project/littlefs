@@ -9,7 +9,8 @@
 #
 after = ['test_mtree', 'test_gbmap', 'test_dirs', 'test_files']
 
-defines.INIT_BLOCKS = 'LFS3_IFDEF_GBMAP(3, 2)'
+defines.FORMAT_BLOCK_COUNT = 'LFS3_IFDEF_YES_GBMAP(3, 2)'
+
 
 # test that we can alloc
 [cases.test_alloc_alloc]
@@ -22,7 +23,7 @@ defines.COUNT = [
     '2',
 ]
 defines.ERASE = [false, true]
-if = 'COUNT >= INIT_BLOCKS'
+if = 'COUNT >= FORMAT_BLOCK_COUNT'
 in = 'lfs3.c'
 code = '''
     // test various block counts
@@ -69,7 +70,7 @@ defines.COUNT = [
     '2',
 ]
 defines.ERASE = [false, true]
-if = 'COUNT >= INIT_BLOCKS'
+if = 'COUNT >= FORMAT_BLOCK_COUNT'
 in = 'lfs3.c'
 code = '''
     // test various block counts
@@ -655,7 +656,7 @@ defines.COUNT = [
     '5',
     '2',
 ]
-if = 'COUNT >= INIT_BLOCKS'
+if = 'COUNT >= FORMAT_BLOCK_COUNT'
 code = '''
     // test various block counts
     struct lfs3_cfg cfg = *CFG;
@@ -738,7 +739,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-if = 'COUNT >= INIT_BLOCKS'
+if = 'COUNT >= FORMAT_BLOCK_COUNT'
 code = '''
     // test various block counts
     struct lfs3_cfg cfg = *CFG;

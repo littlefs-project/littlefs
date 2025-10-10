@@ -7875,7 +7875,7 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
         // TODO is this the right place?
         // try to update to most recent lookahead window
         lfs3->gbmap.window = (lfs3->lookahead.window + lfs3->lookahead.off)
-                % lfs3->cfg->block_count;
+                % lfs3->block_count;
         lfs3->gbmap.known = lfs3->lookahead.gbmapped;
 
         uint8_t gbmapdelta_[LFS3_GBMAP_DSIZE];
@@ -10981,6 +10981,13 @@ static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 
 /// Block allocator ///
 
+// checkpoint only the lookahead buffer
+#ifndef LFS3_RDONLY
+static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3) {
+    lfs3->lookahead.ckpoint = lfs3->block_count;
+}
+#endif
+
 // needed in lfs3_alloc_ckpoint
 static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3);
 
@@ -10995,7 +11002,7 @@ static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3);
 static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     #ifndef LFS3_2BONLY
     // checkpoint the allocator
-    lfs3->lookahead.ckpoint = lfs3->block_count;
+    lfs3_alloc_ckpoint_(lfs3);
 
     #ifdef LFS3_GBMAP
     // do we need to rebuild the gbmap?
@@ -11009,7 +11016,7 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
         }
 
         // checkpoint the allocator again
-        lfs3->lookahead.ckpoint = lfs3->block_count;
+        lfs3_alloc_ckpoint_(lfs3);
     }
     #endif
 
@@ -11021,11 +11028,17 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
 }
 #endif
 
-// discard any lookahead state, this is necessary if block_count changes
+// discard any lookahead/gbmap windows, this is necessary if block_count
+// changes
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
+    // discard lookahead state
     lfs3->lookahead.known = 0;
     lfs3_memset(lfs3->lookahead.buffer, 0, lfs3->cfg->lookahead_size);
+    // discard gbmap window
+    #ifdef LFS3_GBMAP
+    lfs3->lookahead.gbmapped = 0;
+    #endif
 }
 #endif
 
@@ -11218,7 +11231,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
                         "lookahead %"PRId32"/%"PRId32,
                     block,
                     lfs3->lookahead.known,
-                    lfs3->cfg->block_count);
+                    lfs3->block_count);
             #endif
             return block;
         }
@@ -11234,7 +11247,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
             LFS3_ERROR("No more free space "
                         "(lookahead %"PRId32"/%"PRId32")",
                     lfs3->lookahead.known,
-                    lfs3->cfg->block_count);
+                    lfs3->block_count);
             return LFS3_ERR_NOSPC;
         }
 
@@ -11298,11 +11311,11 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
     // we should ckpoint before calling this
-    LFS3_ASSERT(lfs3->lookahead.ckpoint == lfs3->cfg->block_count);
+    LFS3_ASSERT(lfs3->lookahead.ckpoint == lfs3->block_count);
     LFS3_INFO("Rebuilding gbmap "
                 "(gbmap %"PRId32"/%"PRId32")",
             lfs3->lookahead.gbmapped,
-            lfs3->cfg->block_count);
+            lfs3->block_count);
 
     // create a copy of the gbmap
     lfs3_btree_t gbmap_ = lfs3->gbmap.b;
@@ -11378,7 +11391,7 @@ failed:;
         LFS3_INFO("Not enough space for gbmap "
                     "(lookahead %"PRId32"/%"PRId32")",
                 lfs3->lookahead.known,
-                lfs3->cfg->block_count);
+                lfs3->block_count);
         return 0;
     }
     return err;
@@ -15391,9 +15404,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->lookahead.off = 0;
     lfs3->lookahead.known = 0;
     lfs3->lookahead.ckpoint = 0;
-    #ifdef LFS3_GBMAP
-    lfs3->lookahead.gbmapped = 0;
-    #endif
     lfs3_alloc_discard(lfs3);
     #endif
 
@@ -16322,7 +16332,7 @@ static int lfs3_formatgbmap(lfs3_t *lfs3) {
     //
     // assume we can write gbmap to block 2
     lfs3->gbmap.window = 3;
-    lfs3->gbmap.known = lfs3->cfg->block_count;
+    lfs3->gbmap.known = lfs3->block_count;
     lfs3->gbmap.b.r.blocks[0] = 2;
     lfs3->gbmap.b.r.trunk = 0;
     lfs3->gbmap.b.r.weight = 0;
@@ -16346,7 +16356,9 @@ static int lfs3_formatgbmap(lfs3_t *lfs3) {
             // blocks 0..3 - in-use
             LFS3_RATTR(LFS3_TAG_BMINUSE, +3),
             // blocks 3..block_count - free
-            LFS3_RATTR(LFS3_TAG_BMFREE, +(lfs3->cfg->block_count - 3))));
+            (lfs3->block_count > 3)
+                ? LFS3_RATTR(LFS3_TAG_BMFREE, +(lfs3->block_count - 3))
+                : LFS3_RATTR_NOOP()));
     if (err) {
         goto failed;
     }
@@ -17039,9 +17051,46 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
     lfs3->block_count = block_count_;
     // discard stale lookahead buffer
     lfs3_alloc_discard(lfs3);
+    int err;
+
+    // grow the gbmap if we have one
+    //
+    // note this won't actually be committed to disk until mdir commit
+    #ifdef LFS3_GBMAP
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        // if the last range is free, we can extend it, otherwise we
+        // need a new range
+        lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, &lfs3->gbmap.b,
+                block_count-1,
+                NULL, NULL);
+        if (tag < 0) {
+            LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+            err = tag;
+            goto failed;
+        }
+
+        // checkpoint the lookahead buffer, but _not_ the gbmap, we
+        // cann't rebuild the gbmap until we've resized it
+        lfs3_alloc_ckpoint_(lfs3);
+
+        // we don't need a copy because this is atomic, and mdir commit
+        // reverts to the on-disk state if it fails
+        err = lfs3_gbmap_commit(lfs3, &lfs3->gbmap.b,
+                (tag == LFS3_TAG_BMFREE) ? block_count-1 : block_count,
+                LFS3_RATTRS(
+                    LFS3_RATTR(
+                        (tag == LFS3_TAG_BMFREE)
+                            ? LFS3_TAG_GROW
+                            : LFS3_TAG_BMFREE,
+                        +(block_count_ - block_count))));
+        if (err) {
+            goto failed;
+        }
+    }
+    #endif
 
     // update our on-disk config
-    int err = lfs3_mdir_commit(lfs3, &lfs3->mroot, LFS3_RATTRS(
+    err = lfs3_mdir_commit(lfs3, &lfs3->mroot, LFS3_RATTRS(
             LFS3_RATTR_GEOMETRY(
                 LFS3_TAG_GEOMETRY, 0,
                 (&(lfs3_geometry_t){
