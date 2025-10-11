@@ -78,6 +78,24 @@ TAG_NOTE        = 0x3100    ## 0x3100  v-11 ---1 ---- ----
 TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
 TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
 
+RCOMPAT_NONSTANDARD = 0x00000001 # Non-standard filesystem format
+RCOMPAT_WRONLY      = 0x00000002 # Reading is disallowed
+RCOMPAT_BMOSS       = 0x00000010 # Files may use inlined data
+RCOMPAT_BSPROUT     = 0x00000020 # Files may use block pointers
+RCOMPAT_BSHRUB      = 0x00000040 # Files may use inlined btrees
+RCOMPAT_BTREE       = 0x00000080 # Files may use btrees
+RCOMPAT_MMOSS       = 0x00000100 # May use an inlined mdir
+RCOMPAT_MSPROUT     = 0x00000200 # May use an mdir pointer
+RCOMPAT_MSHRUB      = 0x00000400 # May use an inlined mtree
+RCOMPAT_MTREE       = 0x00000800 # May use an mdir btree
+RCOMPAT_GRM         = 0x00001000 # Global-remove in use
+
+WCOMPAT_NONSTANDARD = 0x00000001 # Non-standard filesystem format
+WCOMPAT_RDONLY      = 0x00000002 # Writing is disallowed
+WCOMPAT_DIR         = 0x00000010 # Directory file types in use
+WCOMPAT_GCKSUM      = 0x00001000 # Global-checksum in use
+WCOMPAT_GBMAP       = 0x00002000 # Global on-disk block-map in use
+
 
 
 # assign colors to specific filesystem objects
@@ -2574,6 +2592,13 @@ class Config:
     class Rcompat(Config):
         tag = TAG_RCOMPAT
 
+        def __init__(self, mroot, tag, rattr):
+            super().__init__(mroot, tag, rattr)
+            self.flags = fromle32(self.data)
+
+        def __int__(self):
+            return self.flags
+
         def repr(self):
             return 'rcompat 0x%s' % (
                     ''.join('%02x' % f for f in reversed(self.data)))
@@ -2581,12 +2606,26 @@ class Config:
     class Wcompat(Config):
         tag = TAG_WCOMPAT
 
+        def __init__(self, mroot, tag, rattr):
+            super().__init__(mroot, tag, rattr)
+            self.flags = fromle32(self.data)
+
+        def __int__(self):
+            return self.flags
+
         def repr(self):
             return 'wcompat 0x%s' % (
                     ''.join('%02x' % f for f in reversed(self.data)))
 
     class Ocompat(Config):
         tag = TAG_OCOMPAT
+
+        def __init__(self, mroot, tag, rattr):
+            super().__init__(mroot, tag, rattr)
+            self.flags = fromle32(self.data)
+
+        def __int__(self):
+            return self.flags
 
         def repr(self):
             return 'ocompat 0x%s' % (
@@ -2737,6 +2776,9 @@ class Gstate:
     class Gstate:
         tag = None
         mask = None
+        rcompat = None
+        wcompat = None
+        ocompat = None
 
         def __init__(self, mtree, config, tag, gdeltas):
             # replace tag with what we find
@@ -2753,10 +2795,30 @@ class Gstate:
                             fillvalue=0))
             self.data = data
 
+            # check compat flags while we can access config
+            if self.rcompat is not None:
+                self.rcompat = self.rcompat & (
+                        int(config.rcompat) if config.rcompat is not None
+                            else 0)
+            if self.wcompat is not None:
+                self.wcompat = self.wcompat & (
+                        int(config.wcompat) if config.wcompat is not None
+                            else 0)
+            if self.ocompat is not None:
+                self.ocompat = self.ocompat & (
+                        int(config.ocompat) if config.ocompat is not None
+                            else 0)
+
         @property
         def blocks(self):
             return tuple(it.chain.from_iterable(
                     gdelta.blocks for _, gdelta in self.gdeltas))
+
+        # true unless compat flags are missing
+        def __bool__(self):
+            return (self.rcompat != 0
+                    and self.wcompat != 0
+                    and self.ocompat != 0)
 
         @property
         def size(self):
@@ -2792,6 +2854,7 @@ class Gstate:
     # the global-checksum, cubed
     class Gcksum(Gstate):
         tag = TAG_GCKSUMDELTA
+        wcompat = WCOMPAT_GCKSUM
 
         def __init__(self, mtree, config, tag, gdeltas):
             super().__init__(mtree, config, tag, gdeltas)
@@ -2806,6 +2869,7 @@ class Gstate:
     # any global-removes
     class Grm(Gstate):
         tag = TAG_GRMDELTA
+        rcompat = RCOMPAT_GRM
 
         def __init__(self, mtree, config, tag, gdeltas):
             super().__init__(mtree, config, tag, gdeltas)
@@ -2824,11 +2888,16 @@ class Gstate:
             self.queue = queue
 
         def repr(self):
-            return 'grm [%s]' % ', '.join(mid.repr() for mid in self.queue)
+            if self:
+                return 'grm [%s]' % ', '.join(
+                        mid.repr() for mid in self.queue)
+            else:
+                return 'grm (unused)'
 
     # the global block map
     class Gbmap(Gstate):
         tag = TAG_GBMAPDELTA
+        wcompat = WCOMPAT_GBMAP
 
         def __init__(self, mtree, config, tag, gdeltas):
             super().__init__(mtree, config, tag, gdeltas)
@@ -2843,9 +2912,12 @@ class Gstate:
                     cksum)
 
         def repr(self):
-            return 'gbmap %s 0x%x %d' % (
-                    self.btree.addr(),
-                    self.window, self.known)
+            if self:
+                return 'gbmap %s 0x%x %d' % (
+                        self.btree.addr(),
+                        self.window, self.known)
+            else:
+                return 'gbmap (unused)'
 
     # keep track of known gstate
     _known = [g for g in Gstate.__subclasses__() if g.tag is not None]
@@ -3355,7 +3427,7 @@ class Lfs3:
         # traverse any gstate
         if not mtree_only and gstate:
             for gstate_ in self.gstate:
-                if getattr(gstate_, 'btree', None) is None:
+                if not gstate_ or getattr(gstate_, 'btree', None) is None:
                     continue
 
                 for r in gstate_.btree.traverse(
