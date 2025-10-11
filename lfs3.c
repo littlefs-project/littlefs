@@ -7786,10 +7786,18 @@ static void lfs3_fs_commitgdelta(lfs3_t *lfs3) {
     // keep track of the on-disk grm
     lfs3_data_fromgrm(&lfs3->grm, lfs3->grm_p);
 
-    // keep track of the on-disk gbmap
     #ifdef LFS3_GBMAP
+    // keep track of the on-disk gbmap
     if (lfs3_f_isgbmap(lfs3->flags)) {
+        // keep track of both the committed gstate and btree for
+        // traversals
+        lfs3->gbmap.b_p = lfs3->gbmap.b;
         lfs3_data_fromgbmap(&lfs3->gbmap, lfs3->gbmap_p);
+
+    // if disabled, we still want to keep track of the on-disk gstate
+    // in case the user wants to re-enable the gbmap
+    } else {
+        lfs3_memxor(lfs3->gbmap_p, lfs3->gbmap_d, LFS3_GBMAP_DSIZE);
     }
     #endif
 }
@@ -10387,25 +10395,12 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
                                     == LFS3_TSTATE_GBMAP,
                             false)) {
                         #ifdef LFS3_GBMAP
-                        // decode the on-disk gbmap
-                        //
-                        // TODO this adds 64 bytes of mostly unused stack
-                        // to the stack hot-path, can we avoid this somehow?
-                        // do we care in gbmap mode?
-                        //
-                        lfs3_gbmap_t gbmap_p;
-                        err = lfs3_data_readgbmap(lfs3,
-                                &LFS3_DATA_BUF(lfs3->gbmap_p,
-                                    LFS3_GBMAP_DSIZE),
-                                &gbmap_p);
-                        if (err) {
-                            LFS3_UNREACHABLE();
-                        }
-
                         // if on-disk gbmap does not match the active gbmap,
                         // transition to traversing the on-disk gbmap
-                        if (lfs3_btree_cmp(&gbmap_p.b, &lfs3->gbmap.b) != 0) {
-                            trv->b.shrub = gbmap_p.b;
+                        if (lfs3_btree_cmp(
+                                &lfs3->gbmap.b_p,
+                                &lfs3->gbmap.b) != 0) {
+                            trv->b.shrub = lfs3->gbmap.b_p;
                             trv->bid = -2;
                             lfs3_t_settstate(&trv->b.h.flags,
                                         LFS3_TSTATE_GBMAP_P);
@@ -10724,6 +10719,15 @@ eot:;
 /// Optional on-disk block map ///
 
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_GBMAP)
+static void lfs3_gbmap_init(lfs3_gbmap_t *gbmap) {
+    gbmap->window = 0;
+    gbmap->known = 0;
+    lfs3_btree_init(&gbmap->b);
+    lfs3_btree_init(&gbmap->b_p);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_GBMAP)
 static lfs3_data_t lfs3_data_fromgbmap(const lfs3_gbmap_t *gbmap,
         uint8_t buffer[static LFS3_GBMAP_DSIZE]) {
     // window should not exceed 31-bits
@@ -10775,6 +10779,8 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
 
     // make sure to zero btree leaf
     lfs3_btree_discardleaf(&gbmap->b);
+    // and keep track of the committed gbmap for traversals
+    gbmap->b_p = gbmap->b;
     return 0;
 }
 #endif
@@ -11310,8 +11316,6 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
-    // we should ckpoint before calling this
-    LFS3_ASSERT(lfs3->lookahead.ckpoint == lfs3->block_count);
     LFS3_INFO("Rebuilding gbmap "
                 "(gbmap %"PRId32"/%"PRId32")",
             lfs3->lookahead.gbmapped,
@@ -15544,6 +15548,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     // TODO are these zeros accomplished by flushgdelta in mountinited?
     // should the flushgdelta be dropped?
+    // TODO should we just call flushgdelta here?
 
     // zero gstate
     lfs3->gcksum = 0;
@@ -15560,11 +15565,10 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #endif
 
     // setup other global gbmap state
-    // TODO is this actually needed?
     #ifdef LFS3_GBMAP
-    lfs3_btree_init(&lfs3->gbmap.b);
-    lfs3->gbmap.window = 0;
-    lfs3->gbmap.known = 0;
+    lfs3_gbmap_init(&lfs3->gbmap);
+    // TODO should this be in the gbmap struct?
+    lfs3->lookahead.gbmapped = 0;
     lfs3_memset(lfs3->gbmap_p, 0, LFS3_GBMAP_DSIZE);
     lfs3_memset(lfs3->gbmap_d, 0, LFS3_GBMAP_DSIZE);
     #endif
@@ -17109,6 +17113,105 @@ failed:;
     lfs3_alloc_discard(lfs3);
 
     return err;
+}
+#endif
+
+// enable the global on-disk block-map
+#if !defined(LFs3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
+    // do nothing if we already have a gbmap
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        return 0;
+    }
+
+    // prepare our filesystem for writing
+    int err = lfs3_fs_mkconsistent(lfs3);
+    if (err) {
+        return err;
+    }
+
+    // checkpoint the allocator
+    // TODO, should lfs3_fs_mkconsistent also checkpoint the allocator?
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
+    // create an empty gbmap
+    lfs3_gbmap_init(&lfs3->gbmap);
+    // TODO should this be in the gbmap struct?
+    lfs3->lookahead.gbmapped = 0;
+
+    // start with everything free, rebuilding the gbmap will populate it
+    err = lfs3_gbmap_commit(lfs3, &lfs3->gbmap.b, 0, LFS3_RATTRS(
+            LFS3_RATTR(LFS3_TAG_BMFREE, +lfs3->block_count)));
+    if (err) {
+        goto failed;
+    }
+
+    // go ahead and mark gbmap as in-use internally
+    lfs3->flags |= LFS3_F_GBMAP;
+
+    // checkpoint the allocator, this should trigger a rebuild
+    err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        goto failed;
+    }
+
+    // mark the gbmap as in-use on-disk while atomically committing the
+    // gbmap into gstate
+    lfs3_wcompat_t wcompat_ = lfs3_wcompat(lfs3);
+    wcompat_ |= LFS3_WCOMPAT_GBMAP;
+
+    err = lfs3_mdir_commit(lfs3, &lfs3->mroot, LFS3_RATTRS(
+            LFS3_RATTR_LE32(LFS3_TAG_WCOMPAT, 0, wcompat_)));
+    if (err) {
+        goto failed;
+    }
+
+    return 0;
+
+failed:;
+    // if we failed clear the gbmap bit and reset the gbmap to be safe
+    lfs3->flags &= ~LFS3_F_GBMAP;
+    lfs3_gbmap_init(&lfs3->gbmap);
+    // TODO should this be in the gbmap struct?
+    lfs3->lookahead.gbmapped = 0;
+    return err;
+}
+#endif
+
+// disable the global on-disk block-map
+#if !defined(LFs3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
+    // do nothing if we already don't have a gbmap
+    if (!lfs3_f_isgbmap(lfs3->flags)) {
+        return 0;
+    }
+
+    // prepare our filesystem for writing
+    int err = lfs3_fs_mkconsistent(lfs3);
+    if (err) {
+        return err;
+    }
+
+    // removing the gbmap is relatively easy, we just need to mark the
+    // gbmap as not in use
+    //
+    // this leaves garbage gdeltas around, but these should be cleaned
+    // up implicitly as mdirs are compacted
+    lfs3_wcompat_t wcompat_ = lfs3_wcompat(lfs3);
+    wcompat_ &= ~LFS3_WCOMPAT_GBMAP;
+
+    err = lfs3_mdir_commit(lfs3, &lfs3->mroot, LFS3_RATTRS(
+            LFS3_RATTR_LE32(LFS3_TAG_WCOMPAT, 0, wcompat_)));
+    if (err) {
+        return err;
+    }
+
+    // on success mark gbmap as not-in-use internally
+    lfs3->flags &= ~LFS3_F_GBMAP;
+    return 0;
 }
 #endif
 

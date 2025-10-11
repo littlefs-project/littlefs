@@ -849,6 +849,7 @@ typedef struct lfs3_gbmap {
     lfs3_block_t window;
     lfs3_block_t known;
     lfs3_btree_t b;
+    lfs3_btree_t b_p;
 } lfs3_gbmap_t;
 
 
@@ -1411,6 +1412,22 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags);
 // Returns a negative error code on failure.
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
 int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count);
+#endif
+
+// Enable the global on-disk block-map
+//
+// Returns a negative error code on failure. Does nothing if a gbmap
+// already exists.
+#if !defined(LFs3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+int lfs3_fs_mkgbmap(lfs3_t *lfs3);
+#endif
+
+// Disable the global on-disk block-map
+//
+// Returns a negative error code on failure. Does nothing if no gbmap
+// is found.
+#if !defined(LFs3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+int lfs3_fs_rmgbmap(lfs3_t *lfs3);
 #endif
 
 
