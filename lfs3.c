@@ -5197,11 +5197,15 @@ static void lfs3_fs_claimbtree(lfs3_t *lfs3, lfs3_btree_t *btree) {
         lfs3_btree_claim(&lfs3->mtree);
     }
 
-    // claim the gbmap
+    // claim gbmap snapshots
     #ifdef LFS3_GBMAP
     if (&lfs3->gbmap.b != btree
             && lfs3->gbmap.b.r.blocks[0] == btree->r.blocks[0]) {
         lfs3_btree_claim(&lfs3->gbmap.b);
+    }
+    if (&lfs3->gbmap.b_p != btree
+            && lfs3->gbmap.b_p.r.blocks[0] == btree->r.blocks[0]) {
+        lfs3_btree_claim(&lfs3->gbmap.b_p);
     }
     #endif
 
@@ -7817,17 +7821,9 @@ static void lfs3_fs_revertgdelta(lfs3_t *lfs3) {
         LFS3_UNREACHABLE();
     }
 
-    // revert to the on-disk gbmap
-    #ifdef LFS3_GBMAP
-    if (lfs3_f_isgbmap(lfs3->flags)) {
-        err = lfs3_data_readgbmap(lfs3,
-                &LFS3_DATA_BUF(lfs3->gbmap_p, LFS3_GBMAP_DSIZE),
-                &lfs3->gbmap);
-        if (err) {
-            LFS3_UNREACHABLE();
-        }
-    }
-    #endif
+    // note we do _not_ revert the on-disk gbmap
+    //
+    // if we did, any in-flight state would be lost
 }
 #endif
 
@@ -7880,11 +7876,13 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     // pending gbmap state?
     #ifdef LFS3_GBMAP
     if (lfs3_f_isgbmap(lfs3->flags)) {
-        // TODO is this the right place?
-        // try to update to most recent lookahead window
-        lfs3->gbmap.window = (lfs3->lookahead.window + lfs3->lookahead.off)
-                % lfs3->block_count;
-        lfs3->gbmap.known = lfs3->lookahead.gbmapped;
+        // lookahead and gbmap window offsets should always be in sync
+        //
+        // we probably don't need the duplicate fields, but it certainly
+        // makes the code simpler
+        LFS3_ASSERT(lfs3->gbmap.window
+                == (lfs3->lookahead.window + lfs3->lookahead.off)
+                    % lfs3->block_count);
 
         uint8_t gbmapdelta_[LFS3_GBMAP_DSIZE];
         lfs3_data_fromgbmap(&lfs3->gbmap, gbmapdelta_);
@@ -11013,7 +11011,7 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     #ifdef LFS3_GBMAP
     // do we need to rebuild the gbmap?
     if (lfs3_f_isgbmap(lfs3->flags)
-            && lfs3->lookahead.gbmapped < lfs3_min(
+            && lfs3->gbmap.known < lfs3_min(
                 lfs3->cfg->gbmap_rebuild_thresh,
                 lfs3->block_count)) {
         int err = lfs3_alloc_rebuildgbmap(lfs3);
@@ -11041,9 +11039,13 @@ static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
     // discard lookahead state
     lfs3->lookahead.known = 0;
     lfs3_memset(lfs3->lookahead.buffer, 0, lfs3->cfg->lookahead_size);
-    // discard gbmap window
+
+    // discard/resync the gbmap window, the resync is necessary to avoid
+    // disk changes breaking our mod math
     #ifdef LFS3_GBMAP
-    lfs3->lookahead.gbmapped = 0;
+    lfs3->gbmap.window = (lfs3->lookahead.window + lfs3->lookahead.off)
+            % lfs3->block_count;
+    lfs3->gbmap.known = 0;
     #endif
 }
 #endif
@@ -11163,8 +11165,8 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     lfs3->lookahead.off += 1;
     if (lfs3->lookahead.off == 8*lfs3->cfg->lookahead_size) {
         lfs3->lookahead.off = 0;
-        lfs3->lookahead.window = (lfs3->lookahead.window
-                + 8*lfs3->cfg->lookahead_size)
+        lfs3->lookahead.window
+                = (lfs3->lookahead.window + 8*lfs3->cfg->lookahead_size)
                     % lfs3->block_count;
     }
 
@@ -11172,9 +11174,13 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     lfs3->lookahead.known -= 1;
     // decrement ckpoint
     lfs3->lookahead.ckpoint -= 1;
+
     // decrement gbmap known window
     #ifdef LFS3_GBMAP
-    lfs3->lookahead.gbmapped = lfs3_smax(lfs3->lookahead.gbmapped-1, 0);
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        lfs3->gbmap.window = (lfs3->gbmap.window + 1) % lfs3->block_count;
+        lfs3->gbmap.known = lfs3_smax(lfs3->gbmap.known-1, 0);
+    }
     #endif
 }
 #endif
@@ -11261,10 +11267,9 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 
         // known blocks in our gbmap?
         #ifdef LFS3_GBMAP
-        if (lfs3_f_isgbmap(lfs3->flags)
-                && lfs3->lookahead.gbmapped > 0) {
+        if (lfs3_f_isgbmap(lfs3->flags) && lfs3->gbmap.known > 0) {
             int err = lfs3_alloc_markgbmap(lfs3, &lfs3->gbmap.b, lfs3_min(
-                    lfs3->lookahead.gbmapped,
+                    lfs3->gbmap.known,
                     lfs3->lookahead.ckpoint));
             if (err) {
                 return err;
@@ -11273,7 +11278,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
             // with known blocks we can trust the block state to be
             // exact
             lfs3_alloc_markfree(lfs3, lfs3_min(
-                    lfs3->lookahead.gbmapped,
+                    lfs3->gbmap.known,
                     lfs3->lookahead.ckpoint));
             continue;
         }
@@ -11318,7 +11323,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
     LFS3_INFO("Rebuilding gbmap "
                 "(gbmap %"PRId32"/%"PRId32")",
-            lfs3->lookahead.gbmapped,
+            lfs3->gbmap.known,
             lfs3->block_count);
 
     // create a copy of the gbmap
@@ -11380,12 +11385,10 @@ static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
     //
     // we don't commit this to disk immediately, instead we piggypack on
     // the next mdir commit, most writes terminate in an mdir commit so
-    // this avoids extra writing at a risk of needing to reconstruct the
+    // this avoids extra writing at a risk of needing to rebuild the
     // gbmap if we lose power
     //
-    // don't worry about window/known, lfs3_mdir_commit updates these
-    // last minute before calculating gdeltas for a commit
-    lfs3->lookahead.gbmapped = lfs3->lookahead.ckpoint;
+    lfs3->gbmap.known = lfs3->lookahead.ckpoint;
     lfs3->gbmap.b = gbmap_;
     return 0;
 
@@ -15567,8 +15570,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     // setup other global gbmap state
     #ifdef LFS3_GBMAP
     lfs3_gbmap_init(&lfs3->gbmap);
-    // TODO should this be in the gbmap struct?
-    lfs3->lookahead.gbmapped = 0;
     lfs3_memset(lfs3->gbmap_p, 0, LFS3_GBMAP_DSIZE);
     lfs3_memset(lfs3->gbmap_d, 0, LFS3_GBMAP_DSIZE);
     #endif
@@ -16154,10 +16155,10 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         // if we have a gbmap, position our lookahead buffer at the last
         // known gbmap window
         lfs3->lookahead.window = lfs3->gbmap.window;
-        lfs3->lookahead.gbmapped = lfs3->gbmap.known;
         #endif
+
     } else {
-        // if we _don't_ have a gbmap, position our lookahead buffer
+        // if we don't have a gbmap, position our lookahead buffer
         // pseudo-randomly using our gcksum as a prng
         //
         // the purpose of this is to avoid bad wear patterns such as always 
@@ -16335,7 +16336,7 @@ static int lfs3_formatgbmap(lfs3_t *lfs3) {
     // to test block 3 when gbmap is present
     //
     // assume we can write gbmap to block 2
-    lfs3->gbmap.window = 3;
+    lfs3->gbmap.window = 3 % lfs3->block_count;
     lfs3->gbmap.known = lfs3->block_count;
     lfs3->gbmap.b.r.blocks[0] = 2;
     lfs3->gbmap.b.r.trunk = 0;
@@ -17053,7 +17054,7 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
     // we can use the new blocks immediately as long as the commit
     // with the new block_count is atomic
     lfs3->block_count = block_count_;
-    // discard stale lookahead buffer
+    // discard stale lookahead buffer/gbmap
     lfs3_alloc_discard(lfs3);
     int err;
 
@@ -17111,6 +17112,12 @@ failed:;
     lfs3->block_count = block_count;
     // discard clobbered lookahead buffer
     lfs3_alloc_discard(lfs3);
+    // revert to the previous gbmap
+    #ifdef LFS3_GBMAP
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        lfs3->gbmap.b = lfs3->gbmap.b_p;
+    }
+    #endif
 
     return err;
 }
@@ -17139,8 +17146,6 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
 
     // create an empty gbmap
     lfs3_gbmap_init(&lfs3->gbmap);
-    // TODO should this be in the gbmap struct?
-    lfs3->lookahead.gbmapped = 0;
 
     // start with everything free, rebuilding the gbmap will populate it
     err = lfs3_gbmap_commit(lfs3, &lfs3->gbmap.b, 0, LFS3_RATTRS(
@@ -17152,7 +17157,12 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
     // go ahead and mark gbmap as in-use internally
     lfs3->flags |= LFS3_F_GBMAP;
 
-    // checkpoint the allocator, this should trigger a rebuild
+    // sync gbmap/lookahead windows, note this needs to happen after any
+    // block allocation in lfs3_gbmap_commit
+    lfs3->gbmap.window = (lfs3->lookahead.window + lfs3->lookahead.off)
+            % lfs3->block_count;
+
+    // checkpoint the allocator again, this should trigger a rebuild
     err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
         goto failed;
@@ -17175,8 +17185,6 @@ failed:;
     // if we failed clear the gbmap bit and reset the gbmap to be safe
     lfs3->flags &= ~LFS3_F_GBMAP;
     lfs3_gbmap_init(&lfs3->gbmap);
-    // TODO should this be in the gbmap struct?
-    lfs3->lookahead.gbmapped = 0;
     return err;
 }
 #endif

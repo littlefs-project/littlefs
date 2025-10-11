@@ -9,7 +9,14 @@
 #
 after = ['test_mtree', 'test_gbmap', 'test_dirs', 'test_files']
 
-defines.FORMAT_BLOCK_COUNT = 'LFS3_IFDEF_YES_GBMAP(3, 2)'
+# Test both with and without the gbmap if available
+defines.GBMAP = [false, true]
+if = '''
+    LFS3_IFDEF_YES_GBMAP(
+        GBMAP,
+        LFS3_IFDEF_GBMAP(true, !GBMAP))
+'''
+defines.FORMAT_BLOCK_COUNT = '(GBMAP) ? 3 : 2'
 
 
 # test that we can alloc
@@ -30,7 +37,10 @@ code = '''
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // start allocating
@@ -77,7 +87,10 @@ code = '''
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // start allocating
@@ -138,7 +151,10 @@ defines.REMOUNT = [false, true]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create this many directories
@@ -305,7 +321,10 @@ in = 'lfs3.c'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -480,7 +499,10 @@ in = 'lfs3.c'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -670,7 +692,10 @@ code = '''
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // create n files repeatedly until we're sure we've wrapped around
@@ -754,7 +779,10 @@ code = '''
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // create directories until we run out of space
@@ -837,7 +865,10 @@ code = '''
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, &cfg) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // create files until we run out of space

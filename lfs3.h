@@ -908,9 +908,6 @@ typedef struct lfs3 {
         lfs3_block_t off;
         lfs3_block_t known;
         lfs3_block_t ckpoint;
-        #ifdef LFS3_GBMAP
-        lfs3_block_t gbmapped;
-        #endif
         uint8_t *buffer;
     } lookahead;
     #endif
