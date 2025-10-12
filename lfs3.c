@@ -16824,6 +16824,16 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
         }
     }
 
+    // go ahead and checkpoint the allocator
+    //
+    // this isn't always needed, but redundant alloc ckpoints are noops,
+    // so might as well to eagerly populate allocators and save some
+    // code
+    int err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
+    }
+
     return 0;
 }
 #endif
@@ -17133,13 +17143,6 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
 
     // prepare our filesystem for writing
     int err = lfs3_fs_mkconsistent(lfs3);
-    if (err) {
-        return err;
-    }
-
-    // checkpoint the allocator
-    // TODO, should lfs3_fs_mkconsistent also checkpoint the allocator?
-    err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
         return err;
     }
