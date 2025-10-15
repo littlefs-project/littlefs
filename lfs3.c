@@ -7460,10 +7460,6 @@ static inline void lfs3_t_setbtype(uint32_t *flags, uint8_t btype) {
     *flags = (*flags & ~LFS3_t_BTYPE) | lfs3_t_btypeflags(btype);
 }
 
-static inline bool lfs3_t_isckpointed(uint32_t flags) {
-    return flags & LFS3_t_CKPOINTED;
-}
-
 static inline bool lfs3_t_isdirty(uint32_t flags) {
     return flags & LFS3_t_DIRTY;
 }
@@ -7472,9 +7468,8 @@ static inline bool lfs3_t_ismutated(uint32_t flags) {
     return flags & LFS3_t_MUTATED;
 }
 
-static inline uint32_t lfs3_t_swapdirty(uint32_t flags) {
-    uint32_t x = ((flags >> 24) ^ (flags >> 25)) & 0x1;
-    return flags ^ (x << 24) ^ (x << 25);
+static inline bool lfs3_t_isckpointed(uint32_t flags) {
+    return flags & LFS3_t_CKPOINTED;
 }
 
 // mount flags
@@ -7606,15 +7601,16 @@ static void lfs3_handle_open(lfs3_t *lfs3, lfs3_handle_t *h) {
 }
 
 // needed in lfs3_handle_close
-static void lfs3_handle_clobber(lfs3_t *lfs3, const lfs3_handle_t *h,
-        uint32_t flags);
+static void lfs3_handle_clobber(lfs3_t *lfs3, const lfs3_handle_t *h);
 
 static void lfs3_handle_close(lfs3_t *lfs3, lfs3_handle_t *h) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, h));
-    // make sure we're not entangled in any traversals, note we don't
-    // set the dirty bit here
+    // make sure we're not entangled in any traversals
+    //
+    // this isn't necessary in rdonly mode since it's not possible for
+    // handles to become unsynced
     #ifndef LFS3_RDONLY
-    lfs3_handle_clobber(lfs3, h, 0);
+    lfs3_handle_clobber(lfs3, h);
     #endif
     // remove from opened list
     for (lfs3_handle_t **h_ = &lfs3->handles; *h_; h_ = &(*h_)->next) {
@@ -7647,15 +7643,12 @@ static bool lfs3_mid_isopen(const lfs3_t *lfs3,
 // needed in lfs3_handle_clobber
 static void lfs3_trv_clobber(lfs3_t *lfs3, lfs3_trv_t *trv);
 
-// clobber any traversals referencing our mdir
+// clobber traversals referencing a handle
 #ifndef LFS3_RDONLY
-static void lfs3_handle_clobber(lfs3_t *lfs3, const lfs3_handle_t *h,
-        uint32_t flags) {
+static void lfs3_handle_clobber(lfs3_t *lfs3, const lfs3_handle_t *h) {
     for (lfs3_handle_t *h_ = lfs3->handles; h_; h_ = h_->next) {
         if (lfs3_o_type(h_->flags) == LFS3_type_TRV) {
-            h_->flags |= flags;
-
-            if (h && ((lfs3_trv_t*)h_)->h == h) {
+            if (((lfs3_trv_t*)h_)->h == h) {
                 lfs3_trv_clobber(lfs3, (lfs3_trv_t*)h_);
             }
         }
@@ -7663,13 +7656,26 @@ static void lfs3_handle_clobber(lfs3_t *lfs3, const lfs3_handle_t *h,
 }
 #endif
 
-// clobber all traversals
+// mark all traversals as mutated
 #ifndef LFS3_RDONLY
-static void lfs3_fs_clobber(lfs3_t *lfs3, uint32_t flags) {
-    lfs3_handle_clobber(lfs3, NULL, flags);
+static void lfs3_fs_mutate(lfs3_t *lfs3) {
+    for (lfs3_handle_t *h_ = lfs3->handles; h_; h_ = h_->next) {
+        if (lfs3_o_type(h_->flags) == LFS3_type_TRV) {
+            // mark as dirty + mutated, self-mutating traversals should
+            // clear the dirty bit
+            h_->flags |= LFS3_t_DIRTY | LFS3_t_MUTATED;
+        }
+    }
 }
 #endif
 
+// mark as mutated and clobber any traversals referencing a handle
+#ifndef LFS3_RDONLY
+static void lfs3_handle_mutate(lfs3_t *lfs3, const lfs3_handle_t *h) {
+    lfs3_handle_clobber(lfs3, h);
+    lfs3_fs_mutate(lfs3);
+}
+#endif
 
 
 /// Global-state things ///
@@ -9663,7 +9669,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 // removed?
                 if (h->mdir.mid < mid_ - rattrs[i].weight) {
                     // opened files should turn into stickynote, not
-                    // be removed
+                    // have their mid removed
                     LFS3_ASSERT(lfs3_o_type(h->flags) != LFS3_TYPE_REG);
                     h->flags |= LFS3_o_ZOMBIE;
                     h->mdir.mid = mid_;
@@ -9765,8 +9771,8 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // update any gstate changes
     lfs3_fs_commitgdelta(lfs3);
 
-    // mark all traversals as dirty
-    lfs3_fs_clobber(lfs3, LFS3_t_DIRTY);
+    // mark all traversals as mutated
+    lfs3_fs_mutate(lfs3);
 
     // we may have touched any number of mdirs, so assume uncompacted
     // until lfs3_fs_gc can prove otherwise
@@ -10633,8 +10639,8 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_trv_t *trv,
         // note because we bail as soon as a ckpoint is triggered
         // (lfs3_t_isckpointed), we don't need to traverse this
         if (lfs3_t_isrebuildgbmap(trv->b.h.flags)
-                && !lfs3_t_ismtreeonly(trv->b.h.flags)
-                && lfs3_f_isgbmap(lfs3->flags)) {
+                && lfs3_f_isgbmap(lfs3->flags)
+                && !lfs3_t_ismtreeonly(trv->b.h.flags)) {
             // at least checkpoint the lookahead buffer
             lfs3_alloc_ckpoint_(lfs3);
 
@@ -10667,16 +10673,10 @@ dropped:;
         if (tag == LFS3_ERR_NOENT) {
             goto eot;
         }
-        // don't goto failed here, we haven't swapped dirty/mutated
-        // flags yet
         return tag;
     }
 
     #ifndef LFS3_RDONLY
-    // swap dirty/mutated flags while in lfs3_mtree_gc
-    trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
-    int err;
-
     // mark in-use blocks in lookahead?
     #ifndef LFS3_2BONLY
     if (lfs3_t_islookahead(trv->b.h.flags)
@@ -10689,13 +10689,13 @@ dropped:;
     // mark in-use blocks in gbmap?
     #ifdef LFS3_GBMAP
     if (lfs3_t_isrebuildgbmap(trv->b.h.flags)
-            && !lfs3_t_ismtreeonly(trv->b.h.flags)
             && lfs3_f_isgbmap(lfs3->flags)
+            && !lfs3_t_ismtreeonly(trv->b.h.flags)
             && !lfs3_t_isckpointed(trv->b.h.flags)) {
-        err = lfs3_gbmap_markbptr(lfs3, &trv->gbmap_, tag, bptr_,
+        int err = lfs3_gbmap_markbptr(lfs3, &trv->gbmap_, tag, bptr_,
                 LFS3_TAG_BMINUSE);
         if (err) {
-            goto failed;
+            return err;
         }
 
         // keep our own ckpointed flag clear
@@ -10708,19 +10708,19 @@ dropped:;
             && lfs3_t_ismkconsistent(lfs3->flags)
             && tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
-        err = lfs3_mdir_mkconsistent(lfs3, mdir);
+        uint32_t dirty = trv->b.h.flags;
+        int err = lfs3_mdir_mkconsistent(lfs3, mdir);
         if (err) {
-            goto failed;
+            return err;
         }
-
+        // reset dirty flag
+        trv->b.h.flags &= ~LFS3_t_DIRTY | dirty;
         // make sure we clear any zombie flags
         trv->b.h.flags &= ~LFS3_o_ZOMBIE;
 
         // did this drop our mdir?
         #ifndef LFS3_2BONLY
         if (mdir->mid != -1 && mdir->r.weight == 0) {
-            // swap back dirty/mutated flags
-            trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
             // continue traversal
             lfs3_t_settstate(&trv->b.h.flags, LFS3_TSTATE_MDIRS);
             goto dropped;
@@ -10747,23 +10747,17 @@ dropped:;
                     ? lfs3->cfg->gc_compact_thresh
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
         // compact the mdir
-        err = lfs3_mdir_compact(lfs3, mdir);
+        uint32_t dirty = trv->b.h.flags;
+        int err = lfs3_mdir_compact(lfs3, mdir);
         if (err) {
-            goto failed;
+            return err;
         }
+        // reset dirty flag
+        trv->b.h.flags &= ~LFS3_t_DIRTY | dirty;
     }
-
-    // swap back dirty/mutated flags
-    trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
     #endif
+
     return tag;
-
-failed:;
-    #ifndef LFS3_RDONLY
-    // swap back dirty/mutated flags
-    trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
-    return err;
-    #endif
 
 eot:;
     #ifndef LFS3_RDONLY
@@ -10779,8 +10773,8 @@ eot:;
     // was gbmap rebuild successful?
     #ifdef LFS3_GBMAP
     if (lfs3_t_isrebuildgbmap(trv->b.h.flags)
-            && !lfs3_t_ismtreeonly(trv->b.h.flags)
             && lfs3_f_isgbmap(lfs3->flags)
+            && !lfs3_t_ismtreeonly(trv->b.h.flags)
             && !lfs3_t_isckpointed(trv->b.h.flags)) {
         lfs3_alloc_adoptgbmap(lfs3, &trv->gbmap_, lfs3->lookahead.ckpoint);
     }
@@ -10795,7 +10789,6 @@ eot:;
     // was compaction successful? note we may need multiple passes if
     // we want to be sure everything is compacted
     if (lfs3_t_iscompact(trv->b.h.flags)
-            && !lfs3_t_isdirty(trv->b.h.flags)
             && !lfs3_t_ismutated(trv->b.h.flags)) {
         lfs3->flags &= ~LFS3_I_COMPACT;
     }
@@ -14353,7 +14346,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // clobber entangled traversals
-    lfs3_handle_clobber(lfs3, &file->b.h, LFS3_t_DIRTY);
+    lfs3_handle_mutate(lfs3, &file->b.h);
     // mark as unsynced in case we fail
     file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -14497,7 +14490,7 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
 
     #ifndef LFS3_RDONLY
     // clobber entangled traversals
-    lfs3_handle_clobber(lfs3, &file->b.h, LFS3_t_DIRTY);
+    lfs3_handle_mutate(lfs3, &file->b.h);
     int err;
 
     // flush our cache
@@ -15003,7 +14996,7 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // clobber entangled traversals
-    lfs3_handle_clobber(lfs3, &file->b.h, LFS3_t_DIRTY);
+    lfs3_handle_mutate(lfs3, &file->b.h);
     // mark as unsynced in case we fail
     file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -15096,7 +15089,7 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // clobber entangled traversals
-    lfs3_handle_clobber(lfs3, &file->b.h, LFS3_t_DIRTY);
+    lfs3_handle_mutate(lfs3, &file->b.h);
     // mark as unsynced in case we fail
     file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -17444,16 +17437,13 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
     #ifndef LFS3_RDONLY
     if (lfs3_t_ismkconsistent(trv->b.h.flags)
             && lfs3_grm_count(lfs3) > 0) {
-        // swap dirty/mutated flags while mutating
-        trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
-
+        uint32_t dirty = trv->b.h.flags;
         int err = lfs3_fs_fixgrm(lfs3);
         if (err) {
-            trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
             return err;
         }
-
-        trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
+        // reset dirty flag
+        trv->b.h.flags &= ~LFS3_t_DIRTY | dirty;
     }
     #endif
 
@@ -17552,9 +17542,9 @@ static int lfs3_trv_rewind_(lfs3_t *lfs3, lfs3_trv_t *trv) {
     // reset traversal
     lfs3_trv_init(trv,
             trv->b.h.flags
-                & ~LFS3_t_CKPOINTED
                 & ~LFS3_t_DIRTY
                 & ~LFS3_t_MUTATED
+                & ~LFS3_t_CKPOINTED
                 & ~LFS3_t_TSTATE);
 
     // and clear any pending blocks

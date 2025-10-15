@@ -341,10 +341,10 @@ enum lfs3_btype {
 #define LFS3_t_TSTATE   0x000f0000  // The current traversal state
 #define LFS3_t_BTYPE    0x00f00000  // The current block type
 #define LFS3_t_ZOMBIE   0x08000000  // File has been removed
+#define LFS3_t_DIRTY    0x04000000  // Filesystem modified outside traversal
+#define LFS3_t_MUTATED  0x02000000  // Filesystem modified during traversal
 #define LFS3_t_CKPOINTED \
-                        0x04000000  // Filesystem ckpointed during traversal
-#define LFS3_t_DIRTY    0x02000000  // Filesystem modified during traversal
-#define LFS3_t_MUTATED  0x01000000  // Filesystem modified by traversal
+                        0x01000000  // Filesystem ckpointed during traversal
 
 // GC flags
 #ifndef LFS3_RDONLY
