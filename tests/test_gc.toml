@@ -4,6 +4,15 @@
 # GC-API specific things here
 after = ['test_trvs']
 
+# Test both with and without the gbmap if available
+defines.GBMAP = [false, true]
+if = '''
+    LFS3_IFDEF_YES_GBMAP(
+        GBMAP,
+        LFS3_IFDEF_GBMAP(true, !GBMAP))
+'''
+
+
 # test that lookahead can make progress in isolation
 [cases.test_gc_lookahead_progress]
 defines.CKMETA = [false, true]
@@ -25,7 +34,10 @@ defines.SIZE = [
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -92,7 +104,10 @@ if = 'CKMETA || CKDATA'
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -147,6 +162,159 @@ code = '''
 '''
 
 
+# test that rebuildgbmap can make progress in isolation
+[cases.test_gc_rebuildgbmap_progress]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS3_GC_REBUILDGBMAP
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.SIZE = [
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+if = 'GBMAP'
+ifdef = ['LFS3_GC', 'LFS3_GBMAP']
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_REBUILDGBMAP);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+
+    // run GC until we make progress
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        lfs3_fs_gc(&lfs3) => 0;
+
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS3_I_REBUILDGBMAP)) {
+            break;
+        }
+    }
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that rebuildgbmap dirtying still works with the GC API
+[cases.test_gc_rebuildgbmap_mutation]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS3_GC_REBUILDGBMAP
+        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
+'''
+defines.SIZE = [
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+if = [
+    # we need something to keep the traversal running
+    'CKMETA || CKDATA',
+    'GBMAP',
+]
+ifdef = ['LFS3_GC', 'LFS3_GBMAP']
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_REBUILDGBMAP);
+    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+
+    // run GC one step
+    lfs3_fs_gc(&lfs3) => 0;
+    assert(lfs3.handles == &lfs3.gc.trv.b.h);
+
+    // mutate the filesystem
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // run GC until our traversal is done
+    while (lfs3.handles == &lfs3.gc.trv.b.h) {
+        lfs3_fs_gc(&lfs3) => 0;
+    }
+
+    // we should _not_ make progress
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_REBUILDGBMAP);
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+
 # test that compact can make progress in isolation
 [cases.test_gc_compact_progress]
 defines.LOOKAHEAD = [false, true]
@@ -172,7 +340,10 @@ defines.SIZE = [
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -261,7 +432,10 @@ if = 'CKMETA || CKDATA'
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -359,7 +533,10 @@ defines.ORPHANS = [1, 2, 3, 100]
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -461,7 +638,10 @@ defines.SIZE = 'FILE_CACHE_SIZE/2'
 defines.ORPHANS = [1, 2, 3, 100]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -572,7 +752,10 @@ if = 'CKMETA || CKDATA'
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -699,7 +882,10 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                CFG) => 0;
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -799,7 +985,10 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                CFG) => 0;
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -901,7 +1090,10 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                CFG) => 0;
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -988,7 +1180,10 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                CFG) => 0;
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -1087,7 +1282,10 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                CFG) => 0;
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -1250,7 +1448,10 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                CFG) => 0;
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -1398,12 +1599,14 @@ done:;
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -1422,10 +1625,14 @@ defines.SIZE = [
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
     'LFS3_IFDEF_GC(true, AFTER != 0)',
+    'GBMAP || !REBUILDGBMAP',
 ]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create an interesting filesystem
@@ -1456,10 +1663,14 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
+                | ((GBMAP)
+                    ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        & fsinfo.flags)
+                    : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1477,6 +1688,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REBUILDGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -1506,17 +1720,20 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REBUILDGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
-            if (MKCONSISTENT) {
+            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_MKCONSISTENT)) {
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD) {
+            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
@@ -1532,7 +1749,25 @@ code = '''
                 lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
-            if (COMPACT) {
+            #ifdef LFS3_GBMAP
+            if (REBUILDGBMAP && (fsinfo.flags & LFS3_I_REBUILDGBMAP)) {
+                // we need an explicit traversal for this
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
+                        LFS3_T_RDWR | LFS3_T_REBUILDGBMAP) => 0;
+                while (true) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
+                        break;
+                    }
+                }
+                lfs3_trv_close(&lfs3, &trv) => 0;
+            }
+            #endif
+
+            if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
@@ -1548,11 +1783,11 @@ code = '''
                 lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
-            if (CKMETA) {
+            if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
                 lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
-            if (CKDATA) {
+            if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
                 lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
@@ -1571,11 +1806,17 @@ code = '''
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REBUILDGBMAP)
+                    ? ((GBMAP)
+                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            & fsinfo.flags)
+                        : 0)
+                    : 0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -1589,12 +1830,14 @@ code = '''
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -1613,10 +1856,14 @@ defines.SIZE = [
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
     'LFS3_IFDEF_GC(true, AFTER != 0)',
+    'GBMAP || !REBUILDGBMAP',
 ]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create an interesting filesystem
@@ -1647,10 +1894,14 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
+                | ((GBMAP)
+                    ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        & fsinfo.flags)
+                    : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1668,6 +1919,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REBUILDGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -1697,17 +1951,20 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REBUILDGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
-            if (MKCONSISTENT) {
+            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_MKCONSISTENT)) {
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD) {
+            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
@@ -1723,7 +1980,25 @@ code = '''
                 lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
-            if (COMPACT) {
+            #ifdef LFS3_GBMAP
+            if (REBUILDGBMAP && (fsinfo.flags & LFS3_I_REBUILDGBMAP)) {
+                // we need an explicit traversal for this
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
+                        LFS3_T_RDWR | LFS3_T_REBUILDGBMAP) => 0;
+                while (true) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
+                        break;
+                    }
+                }
+                lfs3_trv_close(&lfs3, &trv) => 0;
+            }
+            #endif
+
+            if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
@@ -1739,11 +2014,11 @@ code = '''
                 lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
-            if (CKMETA) {
+            if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
                 lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
-            if (CKDATA) {
+            if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
                 lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
@@ -1762,11 +2037,17 @@ code = '''
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REBUILDGBMAP)
+                    ? ((GBMAP)
+                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            & fsinfo.flags)
+                        : 0)
+                    : 0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // test that we can reset flags with lfs3_fs_unck
     lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
@@ -1776,12 +2057,18 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
+                | ((REBUILDGBMAP)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1U)
+                    : (GBMAP)
+                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            & fsinfo.flags)
+                        : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta, but uncking ckdata does
                 // _not_ imply uncking ckmeta
                 | ((!(CKDATA && !CKMETA)) ? LFS3_I_CKMETA : 0)
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // run gc
     if (AFTER == 0) {
@@ -1799,6 +2086,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REBUILDGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -1828,17 +2118,20 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REBUILDGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
             }
 
-            if (MKCONSISTENT) {
+            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_MKCONSISTENT)) {
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD) {
+            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
@@ -1854,7 +2147,25 @@ code = '''
                 lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
-            if (COMPACT) {
+            #ifdef LFS3_GBMAP
+            if (REBUILDGBMAP && (fsinfo.flags & LFS3_I_REBUILDGBMAP)) {
+                // we need an explicit traversal for this
+                lfs3_trv_t trv;
+                lfs3_trv_open(&lfs3, &trv,
+                        LFS3_T_RDWR | LFS3_T_REBUILDGBMAP) => 0;
+                while (true) {
+                    struct lfs3_tinfo tinfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    assert(err == 0 || err == LFS3_ERR_NOENT);
+                    if (err == LFS3_ERR_NOENT) {
+                        break;
+                    }
+                }
+                lfs3_trv_close(&lfs3, &trv) => 0;
+            }
+            #endif
+
+            if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
@@ -1870,11 +2181,11 @@ code = '''
                 lfs3_trv_close(&lfs3, &trv) => 0;
             }
 
-            if (CKMETA) {
+            if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
                 lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
-            if (CKDATA) {
+            if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
                 lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
@@ -1893,11 +2204,17 @@ code = '''
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REBUILDGBMAP)
+                    ? ((GBMAP)
+                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                            & fsinfo.flags)
+                        : 0)
+                    : 0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -1908,12 +2225,14 @@ code = '''
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -1929,10 +2248,14 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+if = 'GBMAP || !REBUILDGBMAP'
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -1977,12 +2300,14 @@ code = '''
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -1998,10 +2323,14 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+if = 'GBMAP || !REBUILDGBMAP'
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint32_t prng = 42;
@@ -2053,6 +2382,7 @@ code = '''
 [cases.test_gc_spam_dir_many]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2060,6 +2390,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2068,11 +2399,15 @@ defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+if = 'GBMAP || !REBUILDGBMAP'
 ifdef = 'LFS3_GC'
 code = '''
     // test creating directories
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // make this many directories
@@ -2157,6 +2492,7 @@ code = '''
 [cases.test_gc_spam_dir_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2164,6 +2500,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2175,11 +2512,15 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
+if = 'GBMAP || !REBUILDGBMAP'
 ifdef = 'LFS3_GC'
 code = '''
     // test fuzz with dirs
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -2332,6 +2673,7 @@ code = '''
 [cases.test_gc_spam_file_many]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2339,6 +2681,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2356,12 +2699,18 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-if = '(SIZE*N)/BLOCK_SIZE <= 32'
+if = [
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+    'GBMAP || !REBUILDGBMAP',
+]
 ifdef = 'LFS3_GC'
 code = '''
     // test creating files
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create this many files
@@ -2430,6 +2779,7 @@ code = '''
 [cases.test_gc_spam_file_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2437,6 +2787,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2457,12 +2808,18 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+    'GBMAP || !REBUILDGBMAP',
+]
 ifdef = 'LFS3_GC'
 code = '''
     // test fuzz with files
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -2667,6 +3024,7 @@ code = '''
 [cases.test_gc_spam_fwrite_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2674,6 +3032,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2703,12 +3062,16 @@ if = [
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'GBMAP || !REBUILDGBMAP',
 ]
 ifdef = 'LFS3_GC'
 code = '''
     // test with complex file writes
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
@@ -2824,6 +3187,7 @@ code = '''
 [cases.test_gc_spam_uz_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2831,6 +3195,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2851,12 +3216,18 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+    'GBMAP || !REBUILDGBMAP',
+]
 ifdef = 'LFS3_GC'
 code = '''
     // test with uncreats, zombies, etc
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
@@ -3268,6 +3639,7 @@ code = '''
 [cases.test_gc_spam_uzd_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.REBUILDGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3275,6 +3647,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -3295,12 +3668,18 @@ defines.SIZE = [
 ]
 defines.SEED = 42
 fuzz = 'SEED'
-if = '(SIZE*N)/BLOCK_SIZE <= 16'
+if = [
+    '(SIZE*N)/BLOCK_SIZE <= 16',
+    'GBMAP || !REBUILDGBMAP',
+]
 ifdef = 'LFS3_GC'
 code = '''
     // test with uncreats, zombies, dirs, etc
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against

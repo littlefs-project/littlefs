@@ -7399,6 +7399,15 @@ static inline bool lfs3_t_islookahead(uint32_t flags) {
     #endif
 }
 
+static inline bool lfs3_t_isrebuildgbmap(uint32_t flags) {
+    (void)flags;
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+    return flags & LFS3_T_REBUILDGBMAP;
+    #else
+    return false;
+    #endif
+}
+
 static inline bool lfs3_t_iscompact(uint32_t flags) {
     (void)flags;
     #ifndef LFS3_RDONLY
@@ -7449,6 +7458,10 @@ static inline uint32_t lfs3_t_btypeflags(uint8_t btype) {
 
 static inline void lfs3_t_setbtype(uint32_t *flags, uint8_t btype) {
     *flags = (*flags & ~LFS3_t_BTYPE) | lfs3_t_btypeflags(btype);
+}
+
+static inline bool lfs3_t_isckpointed(uint32_t flags) {
+    return flags & LFS3_t_CKPOINTED;
 }
 
 static inline bool lfs3_t_isdirty(uint32_t flags) {
@@ -10588,12 +10601,64 @@ eot:;
 
 // needed in lfs3_mtree_gc
 static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir);
+static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static void lfs3_alloc_markfree(lfs3_t *lfs3, lfs3_block_t known);
+static int lfs3_gbmap_remap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_tag_t tag, lfs3_tag_t tag_);
+static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_tag_t tag, const lfs3_bptr_t *bptr,
+        lfs3_tag_t tag_);
+static void lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
+        const lfs3_btree_t *gbmap, lfs3_block_t known);
 
 // high-level mutating traversal, handle extra features that require
 // mutation here
 static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_trv_t *trv,
         lfs3_bptr_t *bptr_) {
+    // start of traversal?
+    if (lfs3_t_tstate(trv->b.h.flags) == LFS3_TSTATE_MROOTANCHOR) {
+        // checkpoint the allocator to maximize any lookahead scans
+        #ifndef LFS3_RDONLY
+        if (lfs3_t_islookahead(trv->b.h.flags)
+                && !lfs3_t_isckpointed(trv->b.h.flags)) {
+            lfs3_alloc_ckpoint_(lfs3);
+            // keep our own ckpointed flag clear
+            trv->b.h.flags &= ~LFS3_t_CKPOINTED;
+        }
+        #endif
+
+        #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+        // create a new gbmap snapshot
+        //
+        // note because we bail as soon as a ckpoint is triggered
+        // (lfs3_t_isckpointed), we don't need to traverse this
+        if (lfs3_t_isrebuildgbmap(trv->b.h.flags)
+                && !lfs3_t_ismtreeonly(trv->b.h.flags)
+                && lfs3_f_isgbmap(lfs3->flags)) {
+            // at least checkpoint the lookahead buffer
+            lfs3_alloc_ckpoint_(lfs3);
+
+            // create a copy of the gbmap
+            trv->gbmap_ = lfs3->gbmap.b;
+
+            // mark any in-use blocks as free
+            //
+            // we do this instead of creating a new gbmap to (1) preserve any
+            // erased/bad info and (2) try to best use any available
+            // erased-state
+            int err = lfs3_gbmap_remap(lfs3, &trv->gbmap_,
+                    LFS3_TAG_BMINUSE,
+                    LFS3_TAG_BMFREE);
+            if (err) {
+                return err;
+            }
+
+            // keep our own ckpointed flag clear
+            trv->b.h.flags &= ~LFS3_t_CKPOINTED;
+        }
+        #endif
+    }
+
 dropped:;
     lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, trv,
             bptr_);
@@ -10612,10 +10677,29 @@ dropped:;
     trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
     int err;
 
-    // track in-use blocks?
+    // mark in-use blocks in lookahead?
     #ifndef LFS3_2BONLY
-    if (lfs3_t_islookahead(trv->b.h.flags)) {
+    if (lfs3_t_islookahead(trv->b.h.flags)
+            && !lfs3_t_ismtreeonly(trv->b.h.flags)
+            && !lfs3_t_isckpointed(trv->b.h.flags)) {
         lfs3_alloc_markbptr(lfs3, tag, bptr_);
+    }
+    #endif
+
+    // mark in-use blocks in gbmap?
+    #ifdef LFS3_GBMAP
+    if (lfs3_t_isrebuildgbmap(trv->b.h.flags)
+            && !lfs3_t_ismtreeonly(trv->b.h.flags)
+            && lfs3_f_isgbmap(lfs3->flags)
+            && !lfs3_t_isckpointed(trv->b.h.flags)) {
+        err = lfs3_gbmap_setbptr(lfs3, &trv->gbmap_, tag, bptr_,
+                LFS3_TAG_BMINUSE);
+        if (err) {
+            goto failed;
+        }
+
+        // keep our own ckpointed flag clear
+        trv->b.h.flags &= ~LFS3_t_CKPOINTED;
     }
     #endif
 
@@ -10674,8 +10758,8 @@ dropped:;
     #endif
     return tag;
 
-    #ifndef LFS3_RDONLY
 failed:;
+    #ifndef LFS3_RDONLY
     // swap back dirty/mutated flags
     trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
     return err;
@@ -10687,9 +10771,18 @@ eot:;
     #ifndef LFS3_2BONLY
     if (lfs3_t_islookahead(trv->b.h.flags)
             && !lfs3_t_ismtreeonly(trv->b.h.flags)
-            && !lfs3_t_isdirty(trv->b.h.flags)
-            && !lfs3_t_ismutated(trv->b.h.flags)) {
+            && !lfs3_t_isckpointed(trv->b.h.flags)) {
         lfs3_alloc_markfree(lfs3, lfs3->lookahead.ckpoint);
+    }
+    #endif
+
+    // was gbmap rebuild successful?
+    #ifdef LFS3_GBMAP
+    if (lfs3_t_isrebuildgbmap(trv->b.h.flags)
+            && !lfs3_t_ismtreeonly(trv->b.h.flags)
+            && lfs3_f_isgbmap(lfs3->flags)
+            && !lfs3_t_isckpointed(trv->b.h.flags)) {
+        lfs3_alloc_adoptgbmap(lfs3, &trv->gbmap_, lfs3->lookahead.ckpoint);
     }
     #endif
 
@@ -10981,6 +11074,36 @@ static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+// not this is not completely atomic, but worst case we just end up with
+// only some ranges remapped
+static int lfs3_gbmap_remap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_tag_t tag, lfs3_tag_t tag_) {
+    lfs3_block_t block__ = -1;
+    while (true) {
+        lfs3_block_t weight__;
+        lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block__+1,
+                &block__, &weight__);
+        if (tag__ < 0) {
+            if (tag__ == LFS3_ERR_NOENT) {
+                break;
+            }
+            return tag__;
+        }
+
+        if (tag__ == tag) {
+            int err = lfs3_gbmap_set_(lfs3, gbmap, block__, weight__,
+                    tag_);
+            if (err) {
+                return err;
+            }
+        }
+    }
+
+    return 0;
+}
+#endif
+
 
 
 /// Block allocator ///
@@ -10988,7 +11111,16 @@ static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 // checkpoint only the lookahead buffer
 #ifndef LFS3_RDONLY
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3) {
+    // set ckpoint = disk size
     lfs3->lookahead.ckpoint = lfs3->block_count;
+
+    // mark all traversals as ckpointed
+    // TODO should this be a function? non-clobbering?
+    for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
+        if (lfs3_o_type(h->flags) == LFS3_type_TRV) {
+            h->flags |= LFS3_t_CKPOINTED;
+        }
+    }
 }
 #endif
 
@@ -11137,10 +11269,7 @@ static void lfs3_alloc_markfree(lfs3_t *lfs3, lfs3_block_t known) {
             8*lfs3->cfg->lookahead_size,
             known);
 
-    // TODO how does this interact with the gbmap?
-    //
-    // signal that lookahead is full, this may be cleared by
-    // lfs3_alloc_findfree
+    // signal that lookahead is full, this is cleared on first alloc
     lfs3->flags &= ~LFS3_I_LOOKAHEAD;
 
     // eagerly find the next free block so lookahead scans can make
@@ -11180,6 +11309,9 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     if (lfs3_f_isgbmap(lfs3->flags)) {
         lfs3->gbmap.window = (lfs3->gbmap.window + 1) % lfs3->block_count;
         lfs3->gbmap.known = lfs3_smax(lfs3->gbmap.known-1, 0);
+
+        // signal that the gbmap is no longer full
+        lfs3->flags |= LFS3_I_REBUILDGBMAP;
     }
     #endif
 }
@@ -11320,6 +11452,18 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static void lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
+        const lfs3_btree_t *gbmap, lfs3_block_t known) {
+    // adopt new gbmap
+    lfs3->gbmap.known = known;
+    lfs3->gbmap.b = *gbmap;
+
+    // signal that gbmap is full, this is cleared on first alloc
+    lfs3->flags &= ~LFS3_I_REBUILDGBMAP;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
     LFS3_INFO("Rebuilding gbmap "
                 "(gbmap %"PRId32"/%"PRId32")",
@@ -11334,33 +11478,17 @@ static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
     // we do this instead of creating a new gbmap to (1) preserve any
     // erased/bad info and (2) try to best use any available
     // erased-state
-    lfs3_block_t block = -1;
-    int err;
-    while (true) {
-        lfs3_block_t weight;
-        lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, &gbmap_, block+1,
-                &block, &weight);
-        if (tag < 0) {
-            if (tag == LFS3_ERR_NOENT) {
-                break;
-            }
-            err = tag;
-            goto failed;
-        }
-
-        if (tag == LFS3_TAG_BMINUSE) {
-            err = lfs3_gbmap_set_(lfs3, &gbmap_, block, weight,
-                    LFS3_TAG_BMFREE);
-            if (err) {
-                goto failed;
-            }
-        }
+    int err = lfs3_gbmap_remap(lfs3, &gbmap_,
+            LFS3_TAG_BMINUSE,
+            LFS3_TAG_BMFREE);
+    if (err) {
+        goto failed;
     }
 
     // traverse the filesystem, building up knowledge of what blocks are
     // in-use
     lfs3_trv_t trv;
-    lfs3_trv_init(&trv, LFS3_T_RDONLY | LFS3_T_LOOKAHEAD);
+    lfs3_trv_init(&trv, LFS3_T_RDONLY);
     while (true) {
         lfs3_bptr_t bptr;
         lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &trv,
@@ -11388,8 +11516,7 @@ static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
     // this avoids extra writing at a risk of needing to rebuild the
     // gbmap if we lose power
     //
-    lfs3->gbmap.known = lfs3->lookahead.ckpoint;
-    lfs3->gbmap.b = gbmap_;
+    lfs3_alloc_adoptgbmap(lfs3, &gbmap_, lfs3->lookahead.ckpoint);
     return 0;
 
 failed:;
@@ -15321,6 +15448,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT((lfs3->cfg->gc_flags & ~(
             LFS3_GC_MKCONSISTENT
                 | LFS3_GC_LOOKAHEAD
+                | LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, 0)
                 | LFS3_GC_COMPACT
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
@@ -15342,6 +15470,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT(lfs3->cfg->fragment_size <= lfs3->cfg->block_size/4);
     #endif
 
+    // TODO move this to mount?
     // setup flags
     lfs3->flags = flags
             // assume we contain orphans until proven otherwise
@@ -16155,6 +16284,15 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         // if we have a gbmap, position our lookahead buffer at the last
         // known gbmap window
         lfs3->lookahead.window = lfs3->gbmap.window;
+
+        // and mark our gbmap as rebuildable if known window does not
+        // include the entire disk
+        //
+        // unfortunately the use of block allocation during gbmap
+        // rebuilds means this almost never happens
+        if (lfs3->gbmap.known < lfs3->block_count) {
+            lfs3->flags |= LFS3_I_REBUILDGBMAP;
+        }
         #endif
 
     } else {
@@ -16210,6 +16348,9 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_LOOKAHEAD
     flags |= LFS3_M_LOOKAHEAD;
     #endif
+    #ifdef LFS3_YES_REBUILDGBMAP
+    flags |= LFS3_YES_REBUILDGBMAP;
+    #endif
     #ifdef LFS3_YES_COMPACT
     flags |= LFS3_M_COMPACT;
     #endif
@@ -16234,12 +16375,15 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(LFS3_M_REBUILDGBMAP, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_islookahead(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_isrebuildgbmap(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_iscompact(flags));
 
     int err = lfs3_init(lfs3,
@@ -16268,6 +16412,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     if (flags & (
             LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(LFS3_M_REBUILDGBMAP, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) {
@@ -16276,6 +16422,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 flags & (
                     LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                         | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_GBMAP(LFS3_M_REBUILDGBMAP, 0))
                         | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                         | LFS3_M_CKMETA
                         | LFS3_M_CKDATA),
@@ -16618,6 +16766,8 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, 0)
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -16885,15 +17035,19 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
     LFS3_ASSERT((flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(LFS3_T_REBUILDGBMAP, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT)
                 | LFS3_T_CKMETA
                 | LFS3_T_CKDATA)) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_islookahead(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_isrebuildgbmap(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_iscompact(flags));
     // some flags don't make sense when only traversing the mtree
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_islookahead(flags));
+    LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isrebuildgbmap(flags));
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isckdata(flags));
 
     // fix pending grms if requested
@@ -16912,36 +17066,26 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
             (lfs3->flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, 0))
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                     | LFS3_I_CKMETA
                     | LFS3_I_CKDATA)));
 
     while (pending && (lfs3_off_t)steps > 0) {
-        // checkpoint the allocator to maximize any lookahead scans
-        //
-        // TODO how does the gbmap interact with LFS3_T_LOOKAHEAD? Should
-        // we populate it? use a different flag?
-        //
-        #ifndef LFS3_RDONLY
-        if (lfs3_t_islookahead(trv->b.h.flags)) {
-            int err = lfs3_alloc_ckpoint(lfs3);
-            if (err) {
-                return err;
-            }
-        }
-        #endif
-
         // start a new traversal?
         if (!lfs3_handle_isopen(lfs3, &trv->b.h)) {
             lfs3_trv_init(trv, pending);
             lfs3_handle_open(lfs3, &trv->b.h);
         }
 
-        // don't bother with lookahead if we've mutated
+        // don't bother with lookahead/gbmap if we've ckpointed
         #ifndef LFS3_RDONLY
-        if (lfs3_t_isdirty(trv->b.h.flags)
-                || lfs3_t_ismutated(trv->b.h.flags)) {
+        if (lfs3_t_isckpointed(trv->b.h.flags)) {
             trv->b.h.flags &= ~LFS3_T_LOOKAHEAD;
+            #ifdef LFS3_GBMAP
+            trv->b.h.flags &= ~LFS3_T_REBUILDGBMAP;
+            #endif
         }
         #endif
 
@@ -16949,6 +17093,8 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
         if (!(trv->b.h.flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_GBMAP(LFS3_T_REBUILDGBMAP, 0))
                     | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT)
                     | LFS3_T_CKMETA
                     | LFS3_T_CKDATA))) {
@@ -16959,6 +17105,8 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
         // do we really need a full traversal?
         if (!(trv->b.h.flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_GBMAP(LFS3_T_REBUILDGBMAP, 0))
                     | LFS3_T_CKMETA
                     | LFS3_T_CKDATA))) {
             trv->b.h.flags |= LFS3_T_MTREEONLY;
@@ -16980,6 +17128,8 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
             pending &= lfs3->flags & (
                     LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                         | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, 0))
                         | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                         | LFS3_I_CKMETA
                         | LFS3_I_CKDATA);
@@ -17013,6 +17163,8 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
     LFS3_ASSERT((flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA)) == 0);
@@ -17243,6 +17395,8 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
                 | LFS3_T_MTREEONLY
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(LFS3_T_REBUILDGBMAP, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT)
                 | LFS3_T_CKMETA
                 | LFS3_T_CKDATA)) == 0);
@@ -17251,9 +17405,11 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     // these flags require a writable traversal
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_islookahead(flags));
+    LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_isrebuildgbmap(flags));
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_iscompact(flags));
     // some flags don't make sense when only traversing the mtree
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_islookahead(flags));
+    LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isrebuildgbmap(flags));
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isckdata(flags));
 
     // setup traversal state
@@ -17297,20 +17453,6 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         }
 
         trv->b.h.flags = lfs3_t_swapdirty(trv->b.h.flags);
-    }
-    #endif
-
-    // checkpoint the allocator to maximize any lookahead scans
-    //
-    // TODO how does the gbmap interact with LFS3_T_LOOKAHEAD? Should
-    // we populate it? use a different flag?
-    //
-    #ifndef LFS3_RDONLY
-    if (lfs3_t_islookahead(trv->b.h.flags)) {
-        int err = lfs3_alloc_ckpoint(lfs3);
-        if (err) {
-            return err;
-        }
     }
     #endif
 
@@ -17409,6 +17551,7 @@ static int lfs3_trv_rewind_(lfs3_t *lfs3, lfs3_trv_t *trv) {
     // reset traversal
     lfs3_trv_init(trv,
             trv->b.h.flags
+                & ~LFS3_t_CKPOINTED
                 & ~LFS3_t_DIRTY
                 & ~LFS3_t_MUTATED
                 & ~LFS3_t_TSTATE);

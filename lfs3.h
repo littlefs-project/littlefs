@@ -236,6 +236,10 @@ enum lfs3_type {
 #define LFS3_M_LOOKAHEAD \
                         0x00000200  // Populate lookahead buffer
 #endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+#define LFS3_M_REBUILDGBMAP \
+                        0x00000400  // Rebuild the gbmap
+#endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_COMPACT  0x00000800  // Compact metadata logs
 #endif
@@ -276,6 +280,10 @@ enum lfs3_type {
 #ifndef LFS3_RDONLY
 #define LFS3_I_LOOKAHEAD \
                         0x00000200  // Lookahead buffer is not full
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+#define LFS3_I_REBUILDGBMAP \
+                        0x00000400  // The gbmap is not full
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_COMPACT  0x00000800  // Filesystem may have uncompacted metadata
@@ -318,6 +326,10 @@ enum lfs3_btype {
 #define LFS3_T_LOOKAHEAD \
                         0x00000200  // Populate lookahead buffer
 #endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+#define LFS3_T_REBUILDGBMAP \
+                        0x00000400  // Rebuild the gbmap
+#endif
 #ifndef LFS3_RDONLY
 #define LFS3_T_COMPACT  0x00000800  // Compact metadata logs
 #endif
@@ -329,6 +341,8 @@ enum lfs3_btype {
 #define LFS3_t_TSTATE   0x000f0000  // The current traversal state
 #define LFS3_t_BTYPE    0x00f00000  // The current block type
 #define LFS3_t_ZOMBIE   0x08000000  // File has been removed
+#define LFS3_t_CKPOINTED \
+                        0x04000000  // Filesystem ckpointed during traversal
 #define LFS3_t_DIRTY    0x02000000  // Filesystem modified during traversal
 #define LFS3_t_MUTATED  0x01000000  // Filesystem modified by traversal
 
@@ -340,6 +354,10 @@ enum lfs3_btype {
 #ifndef LFS3_RDONLY
 #define LFS3_GC_LOOKAHEAD \
                         0x00000200  // Populate lookahead buffer
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+#define LFS3_GC_REBUILDGBMAP \
+                        0x00000400  // Rebuild the gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_GC_COMPACT 0x00000800  // Compact metadata logs
@@ -810,6 +828,10 @@ typedef struct lfs3_trv {
     // bshrub/btree traversal state
     lfs3_sbid_t bid;
 
+    // rebuild gbmap when traversing with rebuildgbmap
+    #ifdef LFS3_GBMAP
+    lfs3_btree_t gbmap_;
+    #endif
     // recalculate gcksum when traversing with ckmeta
     uint32_t gcksum;
     // pending blocks, only used in lfs3_trv_read
