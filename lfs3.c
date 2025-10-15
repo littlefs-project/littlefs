@@ -10471,7 +10471,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_trv_t *trv,
 }
 
 // needed in lfs3_mtree_traverse
-static void lfs3_alloc_markbptr(lfs3_t *lfs3,
+static void lfs3_alloc_markinusebptr(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr);
 
 // high-level immutable traversal, handle extra features here,
@@ -10602,10 +10602,10 @@ eot:;
 // needed in lfs3_mtree_gc
 static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
-static void lfs3_alloc_markfree(lfs3_t *lfs3, lfs3_block_t known);
+static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known);
 static int lfs3_gbmap_remap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, lfs3_tag_t tag_);
-static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_markbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_);
 static void lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
@@ -10682,7 +10682,7 @@ dropped:;
     if (lfs3_t_islookahead(trv->b.h.flags)
             && !lfs3_t_ismtreeonly(trv->b.h.flags)
             && !lfs3_t_isckpointed(trv->b.h.flags)) {
-        lfs3_alloc_markbptr(lfs3, tag, bptr_);
+        lfs3_alloc_markinusebptr(lfs3, tag, bptr_);
     }
     #endif
 
@@ -10692,7 +10692,7 @@ dropped:;
             && !lfs3_t_ismtreeonly(trv->b.h.flags)
             && lfs3_f_isgbmap(lfs3->flags)
             && !lfs3_t_isckpointed(trv->b.h.flags)) {
-        err = lfs3_gbmap_setbptr(lfs3, &trv->gbmap_, tag, bptr_,
+        err = lfs3_gbmap_markbptr(lfs3, &trv->gbmap_, tag, bptr_,
                 LFS3_TAG_BMINUSE);
         if (err) {
             goto failed;
@@ -10772,7 +10772,7 @@ eot:;
     if (lfs3_t_islookahead(trv->b.h.flags)
             && !lfs3_t_ismtreeonly(trv->b.h.flags)
             && !lfs3_t_isckpointed(trv->b.h.flags)) {
-        lfs3_alloc_markfree(lfs3, lfs3->lookahead.ckpoint);
+        lfs3_alloc_adopt(lfs3, lfs3->lookahead.ckpoint);
     }
     #endif
 
@@ -10920,7 +10920,7 @@ failed:;
 //
 // really this just provides a shortcut for bulk clearing ranges in
 // lfs3_alloc_rebuildgbmap
-static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_mark_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t block, lfs3_block_t weight, lfs3_tag_t tag) {
     // lookup gbmap range
     lfs3_bid_t bid__;
@@ -11033,14 +11033,14 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_mark(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t block, lfs3_tag_t tag) {
-    return lfs3_gbmap_set_(lfs3, gbmap, block, 1, tag);
+    return lfs3_gbmap_mark_(lfs3, gbmap, block, 1, tag);
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_markbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_) {
     const lfs3_block_t *blocks;
@@ -11064,7 +11064,7 @@ static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     }
 
     for (lfs3_size_t i = 0; i < block_count; i++) {
-        int err = lfs3_gbmap_set(lfs3, gbmap, blocks[i], tag_);
+        int err = lfs3_gbmap_mark(lfs3, gbmap, blocks[i], tag_);
         if (err) {
             return err;
         }
@@ -11092,7 +11092,7 @@ static int lfs3_gbmap_remap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         }
 
         if (tag__ == tag) {
-            int err = lfs3_gbmap_set_(lfs3, gbmap, block__, weight__,
+            int err = lfs3_gbmap_mark_(lfs3, gbmap, block__, weight__,
                     tag_);
             if (err) {
                 return err;
@@ -11207,7 +11207,7 @@ static void lfs3_alloc_markinuse(lfs3_t *lfs3, lfs3_block_t block) {
 
 // mark some filesystem object as in-use
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-static void lfs3_alloc_markbptr(lfs3_t *lfs3,
+static void lfs3_alloc_markinusebptr(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr) {
     if (tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
@@ -11229,7 +11229,7 @@ static void lfs3_alloc_markbptr(lfs3_t *lfs3,
 
 // mark lookahead buffer to match gbmap
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_GBMAP)
-static int lfs3_alloc_markgbmap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_alloc_markinusegbmap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t known) {
     lfs3_block_t block = lfs3->lookahead.window + lfs3->lookahead.off;
     while (block < lfs3->lookahead.window + lfs3->lookahead.off + known) {
@@ -11258,12 +11258,12 @@ static int lfs3_alloc_markgbmap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 }
 #endif
 
-// needed in lfs3_alloc_markfree
+// needed in lfs3_alloc_adopt
 static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3);
 
 // mark any not-in-use blocks as free
 #if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY)
-static void lfs3_alloc_markfree(lfs3_t *lfs3, lfs3_block_t known) {
+static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known) {
     // make lookahead buffer usable
     lfs3->lookahead.known = lfs3_min(
             8*lfs3->cfg->lookahead_size,
@@ -11400,16 +11400,17 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
         // known blocks in our gbmap?
         #ifdef LFS3_GBMAP
         if (lfs3_f_isgbmap(lfs3->flags) && lfs3->gbmap.known > 0) {
-            int err = lfs3_alloc_markgbmap(lfs3, &lfs3->gbmap.b, lfs3_min(
-                    lfs3->gbmap.known,
-                    lfs3->lookahead.ckpoint));
+            int err = lfs3_alloc_markinusegbmap(lfs3,
+                    &lfs3->gbmap.b, lfs3_min(
+                        lfs3->gbmap.known,
+                        lfs3->lookahead.ckpoint));
             if (err) {
                 return err;
             }
 
             // with known blocks we can trust the block state to be
             // exact
-            lfs3_alloc_markfree(lfs3, lfs3_min(
+            lfs3_alloc_adopt(lfs3, lfs3_min(
                     lfs3->gbmap.known,
                     lfs3->lookahead.ckpoint));
             continue;
@@ -11435,7 +11436,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
             }
 
             // track in-use blocks
-            lfs3_alloc_markbptr(lfs3, tag, &bptr);
+            lfs3_alloc_markinusebptr(lfs3, tag, &bptr);
         }
 
         // mask out any in-flight graft state
@@ -11446,7 +11447,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
         }
 
         // mark anything not seen as free
-        lfs3_alloc_markfree(lfs3, lfs3->lookahead.ckpoint);
+        lfs3_alloc_adopt(lfs3, lfs3->lookahead.ckpoint);
     }
 }
 #endif
@@ -11502,7 +11503,7 @@ static int lfs3_alloc_rebuildgbmap(lfs3_t *lfs3) {
         }
 
         // track in-use blocks
-        err = lfs3_gbmap_setbptr(lfs3, &gbmap_, tag, &bptr,
+        err = lfs3_gbmap_markbptr(lfs3, &gbmap_, tag, &bptr,
                 LFS3_TAG_BMINUSE);
         if (err) {
             goto failed;

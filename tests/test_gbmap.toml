@@ -12,7 +12,7 @@ ifdef = 'LFS3_GBMAP'
 # test low-level gbmap operations
 
 # test simple set operations
-[cases.test_gbmap_set_split]
+[cases.test_gbmap_mark_split]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -27,9 +27,9 @@ code = '''
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -73,7 +73,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_set_replace]
+[cases.test_gbmap_mark_replace]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -88,13 +88,13 @@ code = '''
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
     // replace those blocks as bad, this tests deleting ranges
-    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMBAD) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMBAD) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMBAD) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMBAD) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMBAD) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMBAD) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -138,7 +138,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_set_merge]
+[cases.test_gbmap_mark_merge]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -153,14 +153,14 @@ code = '''
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 12, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 12, LFS3_TAG_BMINUSE) => 0;
     // set neighboring blocks as in-use, triggering merges
-    lfs3_gbmap_set(&lfs3, &gbmap, 5, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 13, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 5, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 9, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 13, LFS3_TAG_BMINUSE) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -204,7 +204,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_set_noop]
+[cases.test_gbmap_mark_noop]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -219,15 +219,15 @@ code = '''
             LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
     // test a bunch of noops
-    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 7, LFS3_TAG_BMFREE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMFREE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 7, LFS3_TAG_BMFREE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 9, LFS3_TAG_BMFREE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -271,7 +271,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_set_bounds]
+[cases.test_gbmap_mark_bounds]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -288,8 +288,8 @@ code = '''
     // test that setting the first and last blocks don't break anything
     //
     // though in theory blocks 0x{0,1} are immutable...
-    lfs3_gbmap_set(&lfs3, &gbmap, 0, LFS3_TAG_BMINUSE) => 0;
-    lfs3_gbmap_set(&lfs3, &gbmap, BLOCK_COUNT-1, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, 0, LFS3_TAG_BMINUSE) => 0;
+    lfs3_gbmap_mark(&lfs3, &gbmap, BLOCK_COUNT-1, LFS3_TAG_BMINUSE) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -317,7 +317,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_set_fuzz]
+[cases.test_gbmap_mark_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.TYPES = [2, 3, 4]
 defines.SEED = 'range(20)'
@@ -349,7 +349,7 @@ code = '''
         lfs3_tag_t tag = LFS3_TAG_BMRANGE + (TEST_PRNG(&prng) % TYPES);
 
         // set in gbmap
-        lfs3_gbmap_set(&lfs3, &gbmap, block, tag) => 0;
+        lfs3_gbmap_mark(&lfs3, &gbmap, block, tag) => 0;
 
         // and set in sim
         sim[block] = tag;
