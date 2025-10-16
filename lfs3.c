@@ -7781,7 +7781,7 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
 // some mdir-related gstate things we need
 
 // zero any pending gdeltas
-static void lfs3_fs_flushgdelta(lfs3_t *lfs3) {
+static void lfs3_fs_zerogdelta(lfs3_t *lfs3) {
     // TODO one cool trick would be to make these all contiguous so
     // zeroing is one memset
 
@@ -9229,7 +9229,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     }
 
     // flush gdeltas
-    lfs3_fs_flushgdelta(lfs3);
+    lfs3_fs_zerogdelta(lfs3);
 
     // xor our old cksum
     lfs3->gcksum ^= mdir->r.cksum;
@@ -15675,9 +15675,9 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->graft_count = 0;
     #endif
 
-    // TODO are these zeros accomplished by flushgdelta in mountinited?
-    // should the flushgdelta be dropped?
-    // TODO should we just call flushgdelta here?
+    // TODO are these zeros accomplished by zerogdelta in mountinited?
+    // should the zerogdelta be dropped?
+    // TODO should we just call zerogdelta here?
 
     // zero gstate
     lfs3->gcksum = 0;
@@ -16106,7 +16106,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 
     // zero gcksum/gdeltas, we'll read these from our mdirs
     lfs3->gcksum = 0;
-    lfs3_fs_flushgdelta(lfs3);
+    lfs3_fs_zerogdelta(lfs3);
 
     // traverse the mtree rooted at mroot 0x{1,0}
     //
