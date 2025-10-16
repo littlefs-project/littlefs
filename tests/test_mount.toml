@@ -24,7 +24,7 @@ defines.CKFETCHES = [false, true]
 defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -38,7 +38,7 @@ if = [
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '!RDONLY || !MKCONSISTENT',
-    '!RDONLY || !LOOKAHEAD',
+    '!RDONLY || !REPOPLOOKAHEAD',
     'LFS3_IFDEF_YES_GBMAP(true, !REPOPGBMAP)',
     '!RDONLY || !REPOPGBMAP',
     '!RDONLY || !COMPACT',
@@ -61,7 +61,7 @@ code = '''
                     ? LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, -1)
                     : 0)
                 | ((MKCONSISTENT) ? LFS3_M_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_M_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_M_REPOPGBMAP, -1)
                     : 0)
@@ -88,7 +88,7 @@ code = '''
                     ? LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, -1)
                     : 0)
                 | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -146,7 +146,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -160,7 +160,7 @@ code = '''
 
 # test that on-mount traversals do what they say they do
 
-[cases.test_mount_t_lookahead]
+[cases.test_mount_t_repoplookahead]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -173,17 +173,17 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 
-    // with LFS3_M_LOOKAHEAD, mount performs a lookahead scan
+    // with LFS3_M_REPOPLOOKAHEAD, mount performs a lookahead scan
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
-                | LFS3_M_LOOKAHEAD
+                | LFS3_M_REPOPLOOKAHEAD
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
@@ -220,7 +220,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -242,7 +242,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_REPOPGBMAP
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -253,7 +253,7 @@ code = '''
     // with LFS3_M_REPOPGBMAP, mount performs a gbmap repop
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
-                | LFS3_M_LOOKAHEAD
+                | LFS3_M_REPOPLOOKAHEAD
                 | LFS3_M_REPOPGBMAP
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
@@ -270,7 +270,7 @@ code = '''
 '''
 
 [cases.test_mount_t_compact]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = [
@@ -317,7 +317,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | LFS3_IFDEF_YES_GBMAP(
                     (SIZE >= BLOCK_SIZE/4) ? LFS3_I_REPOPGBMAP : 0,
                     0)
@@ -331,14 +331,14 @@ code = '''
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
                 | LFS3_M_COMPACT
-                | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_M_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | LFS3_IFDEF_YES_GBMAP(
                     (SIZE >= BLOCK_SIZE/4) ? LFS3_I_REPOPGBMAP : 0,
                     0)
@@ -361,7 +361,7 @@ code = '''
 '''
 
 [cases.test_mount_t_mkconsistent]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -427,7 +427,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | LFS3_IFDEF_YES_GBMAP(
                     (ORPHANS >= 100) ? LFS3_I_REPOPGBMAP : 0,
                     0)
@@ -441,14 +441,14 @@ code = '''
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
                 | LFS3_M_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_M_REPOPLOOKAHEAD : 0)
                 | ((COMPACT) ? LFS3_M_COMPACT : 0)
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | LFS3_IFDEF_YES_GBMAP(
                     (ORPHANS >= 100) ? LFS3_I_REPOPGBMAP : 0,
                     0)

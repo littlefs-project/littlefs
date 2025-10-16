@@ -89,7 +89,8 @@ FLAGS = [
     ('M_CKDATACKSUMS', 0x00800000, "Check data checksums on reads"            ),
 
     ('M_MKCONSISTENT', 0x00000100, "Make the filesystem consistent"           ),
-    ('M_LOOKAHEAD',    0x00000200, "Populate lookahead buffer"                ),
+    ('M_REPOPLOOKAHEAD',
+                       0x00000200, "Repopulate lookahead buffer"              ),
     ('M_REPOPGBMAP',   0x00000400, "Repopulate the gbmap"                     ),
     ('M_COMPACT',      0x00000800, "Compact metadata logs"                    ),
     ('M_CKMETA',       0x00001000, "Check metadata checksums"                 ),
@@ -97,7 +98,8 @@ FLAGS = [
 
     # GC flags
     ('GC_MKCONSISTENT',0x00000100, "Make the filesystem consistent"           ),
-    ('GC_LOOKAHEAD',   0x00000200, "Populate lookahead buffer"                ),
+    ('GC_REPOPLOOKAHEAD',
+                       0x00000200, "Repopulate lookahead buffer"              ),
     ('GC_REPOPGBMAP',  0x00000400, "Repopulate the gbmap"                     ),
     ('GC_COMPACT',     0x00000800, "Compact metadata logs"                    ),
     ('GC_CKMETA',      0x00001000, "Check metadata checksums"                 ),
@@ -115,7 +117,8 @@ FLAGS = [
     ('I_CKDATACKSUMS', 0x00800000, "Mounted with LFS3_M_CKDATACKSUMS"         ),
 
     ('I_MKCONSISTENT', 0x00000100, "Filesystem needs mkconsistent to write"   ),
-    ('I_LOOKAHEAD',    0x00000200, "Lookahead buffer is not full"             ),
+    ('I_REPOPLOOKAHEAD',
+                       0x00000200, "Lookahead buffer is not full"             ),
     ('I_REPOPGBMAP',   0x00000400, "The gbmap is not full"                    ),
     ('I_COMPACT',      0x00000800, "Filesystem may have uncompacted metadata" ),
     ('I_CKMETA',       0x00001000, "Metadata checksums not checked recently"  ),
@@ -134,7 +137,8 @@ FLAGS = [
     ('T_MTREEONLY',    0x00000002, "Only traverse the mtree"                  ),
     ('T_MKCONSISTENT',
                        0x00000100, "Make the filesystem consistent"           ),
-    ('T_LOOKAHEAD',    0x00000200, "Populate lookahead buffer"                ),
+    ('T_REPOPLOOKAHEAD',
+                       0x00000200, "Repopulate lookahead buffer"              ),
     ('T_REPOPGBMAP',   0x00000400, "Repopulate the gbmap"                     ),
     ('T_COMPACT',      0x00000800, "Compact metadata logs"                    ),
     ('T_CKMETA',       0x00001000, "Check metadata checksums"                 ),

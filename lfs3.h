@@ -233,8 +233,8 @@ enum lfs3_type {
                         0x00000100  // Make the filesystem consistent
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_M_LOOKAHEAD \
-                        0x00000200  // Populate lookahead buffer
+#define LFS3_M_REPOPLOOKAHEAD \
+                        0x00000200  // Repopulate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_M_REPOPGBMAP \
@@ -278,7 +278,7 @@ enum lfs3_type {
                         0x00000100  // Filesystem needs mkconsistent to write
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_I_LOOKAHEAD \
+#define LFS3_I_REPOPLOOKAHEAD \
                         0x00000200  // Lookahead buffer is not full
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
@@ -323,8 +323,8 @@ enum lfs3_btype {
                         0x00000100  // Make the filesystem consistent
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_T_LOOKAHEAD \
-                        0x00000200  // Populate lookahead buffer
+#define LFS3_T_REPOPLOOKAHEAD \
+                        0x00000200  // Repopulate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_T_REPOPGBMAP \
@@ -352,8 +352,8 @@ enum lfs3_btype {
                         0x00000100  // Make the filesystem consistent
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_GC_LOOKAHEAD \
-                        0x00000200  // Populate lookahead buffer
+#define LFS3_GC_REPOPLOOKAHEAD \
+                        0x00000200  // Repopulate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_GC_REPOPGBMAP \

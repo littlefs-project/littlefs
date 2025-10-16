@@ -14,11 +14,11 @@ if = '''
 
 
 # test that lookahead can make progress in isolation
-[cases.test_gc_lookahead_progress]
+[cases.test_gc_repoplookahead_progress]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_LOOKAHEAD
+    LFS3_GC_REPOPLOOKAHEAD
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -56,7 +56,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_REPOPLOOKAHEAD);
     assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC until we make progress
@@ -67,7 +67,7 @@ code = '''
         lfs3_fs_gc(&lfs3) => 0;
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_REPOPLOOKAHEAD)) {
             break;
         }
     }
@@ -83,11 +83,11 @@ code = '''
 '''
 
 # test that lookahead dirtying still works with the GC API
-[cases.test_gc_lookahead_mutation]
+[cases.test_gc_repoplookahead_mutation]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_LOOKAHEAD
+    LFS3_GC_REPOPLOOKAHEAD
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -126,7 +126,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_REPOPLOOKAHEAD);
     assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC one step
@@ -149,7 +149,7 @@ code = '''
 
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_REPOPLOOKAHEAD);
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -164,12 +164,12 @@ code = '''
 
 # test that repopgbmap can make progress in isolation
 [cases.test_gc_repopgbmap_progress]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_REPOPGBMAP
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -234,12 +234,12 @@ code = '''
 
 # test that repopgbmap dirtying still works with the GC API
 [cases.test_gc_repopgbmap_mutation]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_REPOPGBMAP
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -317,12 +317,12 @@ code = '''
 
 # test that compact can make progress in isolation
 [cases.test_gc_compact_progress]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_COMPACT
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -408,12 +408,12 @@ code = '''
 
 # test that compact dirtying still works with the GC API
 [cases.test_gc_compact_mutation]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_COMPACT
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -514,13 +514,13 @@ code = '''
 
 # test that mkconsistent can make progress in isolation
 [cases.test_gc_mkconsistent_progress]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_MKCONSISTENT
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -732,13 +732,13 @@ code = '''
 
 # test that mkconsistent dirtying still works with the GC API
 [cases.test_gc_mkconsistent_mutation]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_MKCONSISTENT
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -1598,14 +1598,14 @@ done:;
 # AFTER=3 => after remounting
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -1662,7 +1662,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP)
                     ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                         & fsinfo.flags)
@@ -1687,7 +1687,7 @@ code = '''
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                         | ((REPOPGBMAP)
                             ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
@@ -1719,7 +1719,7 @@ code = '''
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                         | ((REPOPGBMAP)
                             ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
@@ -1733,11 +1733,11 @@ code = '''
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+            if (REPOPLOOKAHEAD && (fsinfo.flags & LFS3_I_REPOPLOOKAHEAD)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
+                        LFS3_T_RDWR | LFS3_T_REPOPLOOKAHEAD) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
                     int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
@@ -1805,7 +1805,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((!REPOPGBMAP)
                     ? ((GBMAP)
                         ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
@@ -1829,14 +1829,14 @@ code = '''
 # AFTER=3 => after remounting
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -1893,7 +1893,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP)
                     ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                         & fsinfo.flags)
@@ -1918,7 +1918,7 @@ code = '''
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                         | ((REPOPGBMAP)
                             ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
@@ -1950,7 +1950,7 @@ code = '''
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                         | ((REPOPGBMAP)
                             ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
@@ -1964,11 +1964,11 @@ code = '''
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+            if (REPOPLOOKAHEAD && (fsinfo.flags & LFS3_I_REPOPLOOKAHEAD)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
+                        LFS3_T_RDWR | LFS3_T_REPOPLOOKAHEAD) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
                     int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
@@ -2036,7 +2036,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((!REPOPGBMAP)
                     ? ((GBMAP)
                         ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
@@ -2056,7 +2056,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1U)
                     : (GBMAP)
@@ -2085,7 +2085,7 @@ code = '''
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                         | ((REPOPGBMAP)
                             ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
@@ -2117,7 +2117,7 @@ code = '''
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                         | ((REPOPGBMAP)
                             ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
@@ -2131,11 +2131,11 @@ code = '''
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+            if (REPOPLOOKAHEAD && (fsinfo.flags & LFS3_I_REPOPLOOKAHEAD)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
+                        LFS3_T_RDWR | LFS3_T_REPOPLOOKAHEAD) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
                     int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
@@ -2203,7 +2203,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((!REPOPGBMAP)
                     ? ((GBMAP)
                         ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
@@ -2224,14 +2224,14 @@ code = '''
 [cases.test_gc_mutation]
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -2299,14 +2299,14 @@ code = '''
 [cases.test_gc_mutation_unck]
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -2381,7 +2381,7 @@ code = '''
 
 [cases.test_gc_spam_dir_many]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -2389,7 +2389,7 @@ defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -2491,7 +2491,7 @@ code = '''
 
 [cases.test_gc_spam_dir_fuzz]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -2499,7 +2499,7 @@ defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -2672,7 +2672,7 @@ code = '''
 
 [cases.test_gc_spam_file_many]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -2680,7 +2680,7 @@ defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -2778,7 +2778,7 @@ code = '''
 
 [cases.test_gc_spam_file_fuzz]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -2786,7 +2786,7 @@ defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -3023,7 +3023,7 @@ code = '''
 
 [cases.test_gc_spam_fwrite_fuzz]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -3031,7 +3031,7 @@ defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -3186,7 +3186,7 @@ code = '''
 
 [cases.test_gc_spam_uz_fuzz]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -3194,7 +3194,7 @@ defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -3638,7 +3638,7 @@ code = '''
 
 [cases.test_gc_spam_uzd_fuzz]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -3646,7 +3646,7 @@ defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
         | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)

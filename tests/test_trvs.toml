@@ -19,7 +19,7 @@ if = '''
 # a simple traversal test
 [cases.test_trvs_simple]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -38,7 +38,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -66,7 +66,7 @@ code = '''
 # can we rewind?
 [cases.test_trvs_rewind]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -83,7 +83,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -125,7 +125,7 @@ code = '''
 # test that we don't get extra anything after end of traversal
 [cases.test_trvs_idempotent]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -144,7 +144,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -1772,7 +1772,7 @@ done:;
 # test that in general fsinfo flags work
 [cases.test_trvs_flags]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
@@ -1791,7 +1791,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -1802,7 +1802,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -1828,7 +1828,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -1841,7 +1841,7 @@ code = '''
 # test that we detect filesystem mutation during traversal
 [cases.test_trvs_mutation]
 defines.WHEN = [0, 1, 2]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -1856,7 +1856,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -1902,7 +1902,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -1913,7 +1913,7 @@ code = '''
 
 # test that we don't get extra anything after end of traversal
 [cases.test_trvs_mutation_idempotent]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -1928,7 +1928,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     struct lfs3_tinfo tinfo;
@@ -1963,7 +1963,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -1984,7 +1984,7 @@ code = '''
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -1997,7 +1997,7 @@ code = '''
 
 [cases.test_trvs_mutation_mkdir]
 defines.WHEN = [0, 1, 2]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -2012,7 +2012,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2049,7 +2049,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2060,7 +2060,7 @@ code = '''
 
 [cases.test_trvs_mutation_rm]
 defines.WHEN = [0, 1, 2]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -2081,7 +2081,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2118,7 +2118,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2129,7 +2129,7 @@ code = '''
 
 [cases.test_trvs_mutation_mv]
 defines.WHEN = [0, 1, 2]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -2150,7 +2150,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2187,7 +2187,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2198,7 +2198,7 @@ code = '''
 
 # some more complex mutation tests
 [cases.test_trvs_mutation_fwrite]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = [
@@ -2234,7 +2234,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2263,7 +2263,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP && SIZE >= BLOCK_SIZE/4)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -2283,7 +2283,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_fwrite_opened]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = [
@@ -2323,7 +2323,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2354,8 +2354,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             // ok we might've updated lookahead if write stayed in cache
-            ((!LOOKAHEAD || SIZE > FILE_CACHE_SIZE || SYNC)
-                    ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD || SIZE > FILE_CACHE_SIZE || SYNC)
+                    ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP && SIZE >= BLOCK_SIZE/4)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -2386,7 +2386,7 @@ code = '''
 # these assume quite a bit more and may be a bit fragile...
 #
 [cases.test_trvs_mutation_file_bsprout]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -2425,7 +2425,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2461,7 +2461,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2483,7 +2483,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_file_btree]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -2523,7 +2523,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2573,7 +2573,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -2596,7 +2596,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_file_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -2635,7 +2635,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2679,7 +2679,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -2702,7 +2702,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_uncreat_bsprout]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -2741,7 +2741,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2775,7 +2775,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2801,7 +2801,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_uncreat_btree]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -2841,7 +2841,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2889,7 +2889,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -2916,7 +2916,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_uncreat_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -2955,7 +2955,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -2997,7 +2997,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -3024,7 +3024,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_close_bsprout]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -3064,7 +3064,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -3097,7 +3097,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!(LOOKAHEAD && DESYNC)) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!(REPOPLOOKAHEAD && DESYNC)) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
@@ -3130,7 +3130,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_close_btree]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -3171,7 +3171,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -3218,7 +3218,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!(LOOKAHEAD && DESYNC)) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!(REPOPLOOKAHEAD && DESYNC)) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
@@ -3252,7 +3252,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_close_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -3292,7 +3292,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -3333,7 +3333,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!(LOOKAHEAD && DESYNC)) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!(REPOPLOOKAHEAD && DESYNC)) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
@@ -3367,7 +3367,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_rm_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -3405,7 +3405,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -3443,7 +3443,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!(LOOKAHEAD && DESYNC)) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!(REPOPLOOKAHEAD && DESYNC)) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
@@ -3466,7 +3466,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mv_src_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -3513,7 +3513,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -3555,7 +3555,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -3580,7 +3580,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mv_dst_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -3627,7 +3627,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -3664,7 +3664,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -3689,7 +3689,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_split]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -3727,7 +3727,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -3781,7 +3781,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -3804,7 +3804,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_split_bshrub_l]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -3851,7 +3851,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -3909,7 +3909,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -3937,7 +3937,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_split_bshrub_r]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -3984,7 +3984,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -4037,7 +4037,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -4065,7 +4065,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_extend]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -4105,7 +4105,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -4152,7 +4152,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -4175,7 +4175,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_extend_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -4215,7 +4215,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -4261,7 +4261,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -4284,7 +4284,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_relocate]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -4333,7 +4333,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -4385,7 +4385,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -4408,7 +4408,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_relocate_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -4457,7 +4457,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -4508,7 +4508,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -4531,7 +4531,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_split]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -4609,7 +4609,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -4684,7 +4684,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -4717,7 +4717,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_split_bshrub_l]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -4795,7 +4795,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -4877,7 +4877,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -4910,7 +4910,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_split_bshrub_r]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -4988,7 +4988,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -5064,7 +5064,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -5097,7 +5097,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_extend]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -5181,7 +5181,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -5248,7 +5248,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -5281,7 +5281,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_extend_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -5365,7 +5365,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -5439,7 +5439,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -5472,7 +5472,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_relocate]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -5561,7 +5561,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -5629,7 +5629,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -5662,7 +5662,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_relocate_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
@@ -5751,7 +5751,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
 
@@ -5830,7 +5830,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -5866,7 +5866,7 @@ code = '''
 # test traversals with mdir compaction
 
 [cases.test_trvs_compact]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -5902,7 +5902,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -5913,7 +5913,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -5937,7 +5937,7 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -5960,7 +5960,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -5987,7 +5987,7 @@ code = '''
 '''
 
 [cases.test_trvs_compact_mrootchain]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -6044,7 +6044,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -6056,7 +6056,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mrootanchor
@@ -6088,7 +6088,7 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -6114,7 +6114,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -6142,7 +6142,7 @@ code = '''
 '''
 
 [cases.test_trvs_compact_mroot_extend]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -6181,7 +6181,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -6192,7 +6192,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // it's a bit unclear if we should follow the mroot or stay on the
@@ -6218,7 +6218,7 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -6242,7 +6242,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -6270,7 +6270,7 @@ code = '''
 '''
 
 [cases.test_trvs_compact_mroot_split]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -6336,7 +6336,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -6347,7 +6347,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -6385,7 +6385,7 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -6410,7 +6410,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -6445,7 +6445,7 @@ code = '''
 '''
 
 [cases.test_trvs_compact_mtree]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -6558,7 +6558,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -6570,7 +6570,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -6615,7 +6615,7 @@ code = '''
         // but because we mutated, we're still marked as uncompacted
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.flags == (
-                LFS3_I_LOOKAHEAD
+                LFS3_I_REPOPLOOKAHEAD
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                     | LFS3_I_COMPACT
                     | LFS3_I_CKMETA
@@ -6642,7 +6642,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -6684,7 +6684,7 @@ code = '''
 '''
 
 [cases.test_trvs_compact_mtree_split]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -6795,7 +6795,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -6807,7 +6807,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_COMPACT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -6857,7 +6857,7 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -6884,7 +6884,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -6939,7 +6939,7 @@ code = '''
 # test traversals with mkconsistent
 
 [cases.test_trvs_mkconsistent]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -7003,7 +7003,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -7017,7 +7017,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -7063,7 +7063,7 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD || ORPHANS > 0) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD || ORPHANS > 0) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -7101,7 +7101,7 @@ code = '''
 '''
 
 [cases.test_trvs_mkconsistent_conflict]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -7143,7 +7143,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -7154,7 +7154,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -7221,7 +7221,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD || ORPHANS > 0) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!REPOPLOOKAHEAD || ORPHANS > 0) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -7259,7 +7259,7 @@ code = '''
 '''
 
 [cases.test_trvs_mkconsistent_btree]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # limit files to very simple btrees
@@ -7327,7 +7327,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -7339,7 +7339,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -7399,7 +7399,7 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD || ORPHANS > 0) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD || ORPHANS > 0) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
@@ -7435,7 +7435,7 @@ code = '''
 '''
 
 [cases.test_trvs_mkconsistent_btree_uncreat]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # limit files to very simple btrees
@@ -7503,7 +7503,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -7515,7 +7515,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -7575,7 +7575,7 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD || ORPHANS > 0) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD || ORPHANS > 0) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
@@ -7611,7 +7611,7 @@ code = '''
 '''
 
 [cases.test_trvs_mkconsistent_bshrub]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # this configuration should create a 2-layer bshrub, which may be
@@ -7680,7 +7680,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -7692,7 +7692,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -7760,7 +7760,7 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD || ORPHANS > 0) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD || ORPHANS > 0) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
@@ -7796,7 +7796,7 @@ code = '''
 '''
 
 [cases.test_trvs_mkconsistent_bshrub_uncreat]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # this configuration should create a 2-layer bshrub, which may be
@@ -7865,7 +7865,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
@@ -7877,7 +7877,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -7945,7 +7945,7 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD || ORPHANS > 0) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD || ORPHANS > 0) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1) : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
@@ -7981,7 +7981,7 @@ code = '''
 '''
 
 [cases.test_trvs_mkconsistent_compact]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -8068,7 +8068,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -8083,7 +8083,7 @@ code = '''
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | LFS3_T_COMPACT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -8133,7 +8133,7 @@ code = '''
     // still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -8160,7 +8160,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -8197,7 +8197,7 @@ code = '''
 '''
 
 [cases.test_trvs_mkconsistent_compact_conflict]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -8262,7 +8262,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -8274,7 +8274,7 @@ code = '''
             LFS3_T_RDWR
                 | LFS3_T_MKCONSISTENT
                 | LFS3_T_COMPACT
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
     // traverse mroot
@@ -8345,7 +8345,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | LFS3_I_REPOPLOOKAHEAD
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                     : 0)
@@ -8395,7 +8395,7 @@ code = '''
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [true]
@@ -8418,7 +8418,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -8514,7 +8514,7 @@ code = '''
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [true]
@@ -8544,7 +8544,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -8704,7 +8704,7 @@ code = '''
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [true]
@@ -8739,7 +8739,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -8819,7 +8819,7 @@ code = '''
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [true]
@@ -8862,7 +8862,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -9073,7 +9073,7 @@ code = '''
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [true]
@@ -9146,7 +9146,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -9245,7 +9245,7 @@ code = '''
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [true]
@@ -9299,7 +9299,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
@@ -9706,7 +9706,7 @@ code = '''
 # traverse steps between each op
 defines.STEPS = [1, 2, 4, 8, 16, 32, 64, 128]
 defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [true]
@@ -9761,7 +9761,7 @@ code = '''
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
                 | ((MKCONSISTENT) ? LFS3_T_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((REPOPLOOKAHEAD) ? LFS3_T_REPOPLOOKAHEAD : 0)
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, -1)
                     : 0)
