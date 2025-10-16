@@ -819,7 +819,7 @@ typedef struct lfs3_dir {
 } lfs3_dir_t;
 
 // littlefs traversal type
-typedef struct lfs3_trv {
+typedef struct lfs3_mtrv {
     // mdir/bshrub/btree state, this also includes our traversal
     // state machine and cycle detection state
     lfs3_bshrub_t b;
@@ -828,12 +828,24 @@ typedef struct lfs3_trv {
     // bshrub/btree traversal state
     lfs3_sbid_t bid;
 
-    // rebuild gbmap when traversing with rebuildgbmap
-    #ifdef LFS3_GBMAP
-    lfs3_btree_t gbmap_;
-    #endif
     // recalculate gcksum when traversing with ckmeta
     uint32_t gcksum;
+} lfs3_mtrv_t;
+
+typedef struct lfs3_mgc {
+    // core traversal state
+    lfs3_mtrv_t t;
+
+    #ifdef LFS3_GBMAP
+    // rebuild gbmap when traversing with rebuildgbmap
+    lfs3_btree_t gbmap_;
+    #endif
+} lfs3_mgc_t;
+
+typedef struct lfs3_trv {
+    // core traversal/gc state
+    lfs3_mgc_t gc;
+
     // pending blocks, only used in lfs3_trv_read
     lfs3_sblock_t blocks[2];
 } lfs3_trv_t;
@@ -962,9 +974,7 @@ typedef struct lfs3 {
 
     // optional incremental gc state
     #ifdef LFS3_GC
-    struct {
-        lfs3_trv_t trv;
-    } gc;
+    lfs3_trv_t gc;
     #endif
 } lfs3_t;
 

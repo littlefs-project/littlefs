@@ -57,7 +57,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -127,11 +127,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC one step
     lfs3_fs_gc(&lfs3) => 0;
-    assert(lfs3.handles == &lfs3.gc.trv.b.h);
+    assert(lfs3.handles == &lfs3.gc.gc.t.b.h);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "spider",
@@ -143,7 +143,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.handles == &lfs3.gc.trv.b.h) {
+    while (lfs3.handles == &lfs3.gc.gc.t.b.h) {
         lfs3_fs_gc(&lfs3) => 0;
     }
 
@@ -207,7 +207,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_REBUILDGBMAP);
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -280,11 +280,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_REBUILDGBMAP);
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC one step
     lfs3_fs_gc(&lfs3) => 0;
-    assert(lfs3.handles == &lfs3.gc.trv.b.h);
+    assert(lfs3.handles == &lfs3.gc.gc.t.b.h);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "spider",
@@ -296,7 +296,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.handles == &lfs3.gc.trv.b.h) {
+    while (lfs3.handles == &lfs3.gc.gc.t.b.h) {
         lfs3_fs_gc(&lfs3) => 0;
     }
 
@@ -368,7 +368,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_COMPACT);
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -460,19 +460,19 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_COMPACT);
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC one traversal + one step
     while (true) {
         lfs3_fs_gc(&lfs3) => 0;
 
         // internal traversal done?
-        if (lfs3.handles != &lfs3.gc.trv.b.h) {
+        if (lfs3.handles != &lfs3.gc.gc.t.b.h) {
             break;
         }
     }
     lfs3_fs_gc(&lfs3) => 0;
-    assert(lfs3.handles == &lfs3.gc.trv.b.h);
+    assert(lfs3.handles == &lfs3.gc.gc.t.b.h);
 
     // mutate the filesystem
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -483,7 +483,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // run GC until our traversal is done (twice for compact)
-    while (lfs3.handles == &lfs3.gc.trv.b.h) {
+    while (lfs3.handles == &lfs3.gc.gc.t.b.h) {
         lfs3_fs_gc(&lfs3) => 0;
     }
 
@@ -587,7 +587,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -693,7 +693,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
     #ifdef LFS3_GC
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
     #endif
 
     // call lfs3_fs_mkconsistent
@@ -797,9 +797,9 @@ code = '''
     }
 
     // run GC one step
-    assert(lfs3.handles != &lfs3.gc.trv.b.h);
+    assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
     lfs3_fs_gc(&lfs3) => 0;
-    assert(lfs3.handles == &lfs3.gc.trv.b.h);
+    assert(lfs3.handles == &lfs3.gc.gc.t.b.h);
 
     // create the rest of the orphans after GC has started
     for (lfs3_size_t i = 0; i < ORPHANS; i++) {
@@ -821,7 +821,7 @@ code = '''
     assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
 
     // run GC until our traversal is done
-    while (lfs3.handles == &lfs3.gc.trv.b.h) {
+    while (lfs3.handles == &lfs3.gc.gc.t.b.h) {
         lfs3_fs_gc(&lfs3) => 0;
     }
 
