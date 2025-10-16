@@ -111,7 +111,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(INLINE_SIZE,            BLOCK_SIZE/4                         ) \
     TEST_DEFINE(FRAGMENT_SIZE,          LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
     TEST_DEFINE(CRYSTAL_THRESH,         BLOCK_SIZE/8                         ) \
-    TEST_DEFINE(GBMAP_REBUILD_THRESH,   BLOCK_COUNT/4                        ) \
+    TEST_DEFINE(GBMAP_REPOP_THRESH,     BLOCK_COUNT/4                        ) \
     TEST_DEFINE(ERASE_VALUE,            0xff                                 ) \
     TEST_DEFINE(ERASE_CYCLES,           0                                    ) \
     TEST_DEFINE(BADBLOCK_BEHAVIOR,      LFS3_EMUBD_BADBLOCK_PROGERROR        ) \
@@ -145,7 +145,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 
 #ifdef LFS3_GBMAP
 #define TEST_GBMAP_CFG \
-    .gbmap_rebuild_thresh   = GBMAP_REBUILD_THRESH,
+    .gbmap_repop_thresh     = GBMAP_REPOP_THRESH,
 #else
 #define TEST_GBMAP_CFG
 #endif

@@ -162,13 +162,13 @@ code = '''
 '''
 
 
-# test that rebuildgbmap can make progress in isolation
-[cases.test_gc_rebuildgbmap_progress]
+# test that repopgbmap can make progress in isolation
+[cases.test_gc_repopgbmap_progress]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_REBUILDGBMAP
+    LFS3_GC_REPOPGBMAP
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -206,7 +206,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_REBUILDGBMAP);
+    assert(fsinfo.flags & LFS3_I_REPOPGBMAP);
     assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC until we make progress
@@ -217,7 +217,7 @@ code = '''
         lfs3_fs_gc(&lfs3) => 0;
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_REBUILDGBMAP)) {
+        if (!(fsinfo.flags & LFS3_I_REPOPGBMAP)) {
             break;
         }
     }
@@ -232,13 +232,13 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that rebuildgbmap dirtying still works with the GC API
-[cases.test_gc_rebuildgbmap_mutation]
+# test that repopgbmap dirtying still works with the GC API
+[cases.test_gc_repopgbmap_mutation]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_REBUILDGBMAP
+    LFS3_GC_REPOPGBMAP
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -279,7 +279,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_REBUILDGBMAP);
+    assert(fsinfo.flags & LFS3_I_REPOPGBMAP);
     assert(lfs3.handles != &lfs3.gc.gc.t.b.h);
 
     // run GC one step
@@ -302,7 +302,7 @@ code = '''
 
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_REBUILDGBMAP);
+    assert(fsinfo.flags & LFS3_I_REPOPGBMAP);
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -1599,14 +1599,14 @@ done:;
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -1625,7 +1625,7 @@ defines.SIZE = [
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
     'LFS3_IFDEF_GC(true, AFTER != 0)',
-    'GBMAP || !REBUILDGBMAP',
+    'GBMAP || !REPOPGBMAP',
 ]
 code = '''
     lfs3_t lfs3;
@@ -1664,7 +1664,7 @@ code = '''
             LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
                 | ((GBMAP)
-                    ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                    ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                         & fsinfo.flags)
                     : 0)
                 | LFS3_I_COMPACT
@@ -1688,8 +1688,8 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                        | ((REBUILDGBMAP)
-                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        | ((REPOPGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
@@ -1720,8 +1720,8 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                        | ((REBUILDGBMAP)
-                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        | ((REPOPGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
@@ -1750,11 +1750,11 @@ code = '''
             }
 
             #ifdef LFS3_GBMAP
-            if (REBUILDGBMAP && (fsinfo.flags & LFS3_I_REBUILDGBMAP)) {
+            if (REPOPGBMAP && (fsinfo.flags & LFS3_I_REPOPGBMAP)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_REBUILDGBMAP) => 0;
+                        LFS3_T_RDWR | LFS3_T_REPOPGBMAP) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
                     int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
@@ -1806,9 +1806,9 @@ code = '''
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | ((!REBUILDGBMAP)
+                | ((!REPOPGBMAP)
                     ? ((GBMAP)
-                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             & fsinfo.flags)
                         : 0)
                     : 0)
@@ -1830,14 +1830,14 @@ code = '''
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -1856,7 +1856,7 @@ defines.SIZE = [
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
     'LFS3_IFDEF_GC(true, AFTER != 0)',
-    'GBMAP || !REBUILDGBMAP',
+    'GBMAP || !REPOPGBMAP',
 ]
 code = '''
     lfs3_t lfs3;
@@ -1895,7 +1895,7 @@ code = '''
             LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
                 | ((GBMAP)
-                    ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                    ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                         & fsinfo.flags)
                     : 0)
                 | LFS3_I_COMPACT
@@ -1919,8 +1919,8 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                        | ((REBUILDGBMAP)
-                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        | ((REPOPGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
@@ -1951,8 +1951,8 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                        | ((REBUILDGBMAP)
-                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        | ((REPOPGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
@@ -1981,11 +1981,11 @@ code = '''
             }
 
             #ifdef LFS3_GBMAP
-            if (REBUILDGBMAP && (fsinfo.flags & LFS3_I_REBUILDGBMAP)) {
+            if (REPOPGBMAP && (fsinfo.flags & LFS3_I_REPOPGBMAP)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_REBUILDGBMAP) => 0;
+                        LFS3_T_RDWR | LFS3_T_REPOPGBMAP) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
                     int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
@@ -2037,9 +2037,9 @@ code = '''
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | ((!REBUILDGBMAP)
+                | ((!REPOPGBMAP)
                     ? ((GBMAP)
-                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             & fsinfo.flags)
                         : 0)
                     : 0)
@@ -2057,10 +2057,10 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
-                | ((REBUILDGBMAP)
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1U)
+                | ((REPOPGBMAP)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1U)
                     : (GBMAP)
-                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             & fsinfo.flags)
                         : 0)
                 | LFS3_I_COMPACT
@@ -2086,8 +2086,8 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                        | ((REBUILDGBMAP)
-                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        | ((REPOPGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
@@ -2118,8 +2118,8 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                        | ((REBUILDGBMAP)
-                            ? LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        | ((REPOPGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
@@ -2148,11 +2148,11 @@ code = '''
             }
 
             #ifdef LFS3_GBMAP
-            if (REBUILDGBMAP && (fsinfo.flags & LFS3_I_REBUILDGBMAP)) {
+            if (REPOPGBMAP && (fsinfo.flags & LFS3_I_REPOPGBMAP)) {
                 // we need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_REBUILDGBMAP) => 0;
+                        LFS3_T_RDWR | LFS3_T_REPOPGBMAP) => 0;
                 while (true) {
                     struct lfs3_tinfo tinfo;
                     int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
@@ -2204,9 +2204,9 @@ code = '''
     assert(fsinfo.flags == (
             ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | ((!REBUILDGBMAP)
+                | ((!REPOPGBMAP)
                     ? ((GBMAP)
-                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REBUILDGBMAP, -1)
+                        ? (LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, -1)
                             & fsinfo.flags)
                         : 0)
                     : 0)
@@ -2225,14 +2225,14 @@ code = '''
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2248,7 +2248,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-if = 'GBMAP || !REBUILDGBMAP'
+if = 'GBMAP || !REPOPGBMAP'
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
@@ -2300,14 +2300,14 @@ code = '''
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2323,7 +2323,7 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-if = 'GBMAP || !REBUILDGBMAP'
+if = 'GBMAP || !REPOPGBMAP'
 ifdef = 'LFS3_GC'
 code = '''
     lfs3_t lfs3;
@@ -2382,7 +2382,7 @@ code = '''
 [cases.test_gc_spam_dir_many]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2390,7 +2390,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2399,7 +2399,7 @@ defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-if = 'GBMAP || !REBUILDGBMAP'
+if = 'GBMAP || !REPOPGBMAP'
 ifdef = 'LFS3_GC'
 code = '''
     // test creating directories
@@ -2492,7 +2492,7 @@ code = '''
 [cases.test_gc_spam_dir_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2500,7 +2500,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2512,7 +2512,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
-if = 'GBMAP || !REBUILDGBMAP'
+if = 'GBMAP || !REPOPGBMAP'
 ifdef = 'LFS3_GC'
 code = '''
     // test fuzz with dirs
@@ -2673,7 +2673,7 @@ code = '''
 [cases.test_gc_spam_file_many]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2681,7 +2681,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2701,7 +2701,7 @@ defines.SIZE = [
 ]
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
-    'GBMAP || !REBUILDGBMAP',
+    'GBMAP || !REPOPGBMAP',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -2779,7 +2779,7 @@ code = '''
 [cases.test_gc_spam_file_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2787,7 +2787,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2810,7 +2810,7 @@ defines.SEED = 42
 fuzz = 'SEED'
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 16',
-    'GBMAP || !REBUILDGBMAP',
+    'GBMAP || !REPOPGBMAP',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -3024,7 +3024,7 @@ code = '''
 [cases.test_gc_spam_fwrite_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3032,7 +3032,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -3062,7 +3062,7 @@ if = [
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
-    'GBMAP || !REBUILDGBMAP',
+    'GBMAP || !REPOPGBMAP',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -3187,7 +3187,7 @@ code = '''
 [cases.test_gc_spam_uz_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3195,7 +3195,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -3218,7 +3218,7 @@ defines.SEED = 42
 fuzz = 'SEED'
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 16',
-    'GBMAP || !REBUILDGBMAP',
+    'GBMAP || !REPOPGBMAP',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -3639,7 +3639,7 @@ code = '''
 [cases.test_gc_spam_uzd_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.REBUILDGBMAP = [false, true]
+defines.REPOPGBMAP = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3647,7 +3647,7 @@ defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((REBUILDGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REBUILDGBMAP, -1) : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -3670,7 +3670,7 @@ defines.SEED = 42
 fuzz = 'SEED'
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 16',
-    'GBMAP || !REBUILDGBMAP',
+    'GBMAP || !REPOPGBMAP',
 ]
 ifdef = 'LFS3_GC'
 code = '''

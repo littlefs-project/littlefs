@@ -237,8 +237,8 @@ enum lfs3_type {
                         0x00000200  // Populate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_M_REBUILDGBMAP \
-                        0x00000400  // Rebuild the gbmap
+#define LFS3_M_REPOPGBMAP \
+                        0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_COMPACT  0x00000800  // Compact metadata logs
@@ -282,7 +282,7 @@ enum lfs3_type {
                         0x00000200  // Lookahead buffer is not full
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_I_REBUILDGBMAP \
+#define LFS3_I_REPOPGBMAP \
                         0x00000400  // The gbmap is not full
 #endif
 #ifndef LFS3_RDONLY
@@ -327,8 +327,8 @@ enum lfs3_btype {
                         0x00000200  // Populate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_T_REBUILDGBMAP \
-                        0x00000400  // Rebuild the gbmap
+#define LFS3_T_REPOPGBMAP \
+                        0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_T_COMPACT  0x00000800  // Compact metadata logs
@@ -356,8 +356,8 @@ enum lfs3_btype {
                         0x00000200  // Populate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_GC_REBUILDGBMAP \
-                        0x00000400  // Rebuild the gbmap
+#define LFS3_GC_REPOPGBMAP \
+                        0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_GC_COMPACT 0x00000800  // Compact metadata logs
@@ -564,16 +564,17 @@ struct lfs3_cfg {
     lfs3_size_t crystal_thresh;
     #endif
 
-    // Threshold for when to rebuild the global on-disk block-map (gbmap).
-    // littlefs will attempt to rebuild the gbmap when fewer than this
-    // many blocks are known. Larger values rebuild the gbmap more
-    // frequently, reducing the chance of falling back to a slower
-    // allocator at the cost of amortized allocator throughput.
+    // Threshold for when to repopulate the global on-disk block-map
+    // (gbmap). When <= this many blocks have a known state, littlefs
+    // will traverse the filesystem and attempt to repopulate the gbmap.
+    // Smaller values decrease repop frequency and improves overall
+    // allocator throughput, at the risk of needing to fallback to the
+    // slower lookahead allocator when empty.
     //
-    // 0 only rebuilds the gbmap when empty, but note rebuilding the
-    // gbmap may require allocating blocks.
+    // 0 only repopulates the gbmap when empty, minimizing gbmap
+    // repops but may introduce large latency spikes.
     #ifdef LFS3_GBMAP
-    lfs3_block_t gbmap_rebuild_thresh;
+    lfs3_block_t gbmap_repop_thresh;
     #endif
 };
 
@@ -837,7 +838,7 @@ typedef struct lfs3_mgc {
     lfs3_mtrv_t t;
 
     #ifdef LFS3_GBMAP
-    // rebuild gbmap when traversing with rebuildgbmap
+    // repopulate gbmap when traversing with repopgbmap
     lfs3_btree_t gbmap_;
     #endif
 } lfs3_mgc_t;

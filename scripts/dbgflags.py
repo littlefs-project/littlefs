@@ -90,7 +90,7 @@ FLAGS = [
 
     ('M_MKCONSISTENT', 0x00000100, "Make the filesystem consistent"           ),
     ('M_LOOKAHEAD',    0x00000200, "Populate lookahead buffer"                ),
-    ('M_REBUILDGBMAP', 0x00000400, "Rebuild the gbmap"                        ),
+    ('M_REPOPGBMAP',   0x00000400, "Repopulate the gbmap"                     ),
     ('M_COMPACT',      0x00000800, "Compact metadata logs"                    ),
     ('M_CKMETA',       0x00001000, "Check metadata checksums"                 ),
     ('M_CKDATA',       0x00002000, "Check metadata + data checksums"          ),
@@ -98,7 +98,7 @@ FLAGS = [
     # GC flags
     ('GC_MKCONSISTENT',0x00000100, "Make the filesystem consistent"           ),
     ('GC_LOOKAHEAD',   0x00000200, "Populate lookahead buffer"                ),
-    ('GC_REBUILDGBMAP',0x00000400, "Rebuild the gbmap"                        ),
+    ('GC_REPOPGBMAP',  0x00000400, "Repopulate the gbmap"                     ),
     ('GC_COMPACT',     0x00000800, "Compact metadata logs"                    ),
     ('GC_CKMETA',      0x00001000, "Check metadata checksums"                 ),
     ('GC_CKDATA',      0x00002000, "Check metadata + data checksums"          ),
@@ -116,7 +116,7 @@ FLAGS = [
 
     ('I_MKCONSISTENT', 0x00000100, "Filesystem needs mkconsistent to write"   ),
     ('I_LOOKAHEAD',    0x00000200, "Lookahead buffer is not full"             ),
-    ('I_REBUILDGBMAP', 0x00000400, "The gbmap is not full"                    ),
+    ('I_REPOPGBMAP',   0x00000400, "The gbmap is not full"                    ),
     ('I_COMPACT',      0x00000800, "Filesystem may have uncompacted metadata" ),
     ('I_CKMETA',       0x00001000, "Metadata checksums not checked recently"  ),
     ('I_CKDATA',       0x00002000, "Data checksums not checked recently"      ),
@@ -135,7 +135,7 @@ FLAGS = [
     ('T_MKCONSISTENT',
                        0x00000100, "Make the filesystem consistent"           ),
     ('T_LOOKAHEAD',    0x00000200, "Populate lookahead buffer"                ),
-    ('T_REBUILDGBMAP', 0x00000400, "Rebuild the gbmap"                        ),
+    ('T_REPOPGBMAP',   0x00000400, "Repopulate the gbmap"                     ),
     ('T_COMPACT',      0x00000800, "Compact metadata logs"                    ),
     ('T_CKMETA',       0x00001000, "Check metadata checksums"                 ),
     ('T_CKDATA',       0x00002000, "Check metadata + data checksums"          ),
