@@ -6963,7 +6963,7 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     //
     // Instead, we keep track of an estimate of how many bytes have
     // been progged to the shrub since the last estimate, and recalculate
-    // the estimate when this overflows our inline_size. This mirrors how
+    // the estimate when this overflows our shrub_size. This mirrors how
     // block_size and rbyds interact, and amortizes the estimate cost.
 
     // figure out how much data this commit progs
@@ -6982,29 +6982,29 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
         }
     }
 
-    // does our estimate exceed our inline_size? need to recalculate an
+    // does our estimate exceed our shrub_size? need to recalculate an
     // accurate estimate
     lfs3_ssize_t estimate = (lfs3_bshrub_isbshrub(bshrub))
             ? bshrub->shrub.r.eoff
             : (lfs3_size_t)-1;
     // this double condition avoids overflow issues
-    if ((lfs3_size_t)estimate > lfs3->cfg->inline_size
-            || estimate + commit_estimate > lfs3->cfg->inline_size) {
+    if ((lfs3_size_t)estimate > lfs3->cfg->shrub_size
+            || estimate + commit_estimate > lfs3->cfg->shrub_size) {
         estimate = lfs3_bshrub_estimate(lfs3, bshrub);
         if (estimate < 0) {
             return estimate;
         }
 
         // two cases where we evict:
-        // - overflow inline_size/2 - don't penalize for commits here
-        // - overflow inline_size - must include commits or risk overflow
+        // - overflow shrub_size/2 - don't penalize for commits here
+        // - overflow shrub_size - must include commits or risk overflow
         //
         // the 1/2 here prevents runaway performance with the shrub is
         // near full, but it's a heuristic, so including the commit would
         // just be mean
         //
-        if ((lfs3_size_t)estimate > lfs3->cfg->inline_size/2
-                || estimate + commit_estimate > lfs3->cfg->inline_size) {
+        if ((lfs3_size_t)estimate > lfs3->cfg->shrub_size/2
+                || estimate + commit_estimate > lfs3->cfg->shrub_size) {
             return LFS3_ERR_RANGE;
         }
     }
@@ -12786,7 +12786,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         // small file wrset? can we atomically commit everything in one
         // commit? currently this is only possible via lfs3_set
         if (lfs3_o_iswrset(file->b.h.flags)
-                && file->cache.size <= lfs3->cfg->inline_size
+                && file->cache.size <= lfs3->cfg->shrub_size
                 && file->cache.size <= lfs3->cfg->fragment_size
                 && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
             // we need to mark as unsync for sync to do anything
@@ -14821,7 +14821,7 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     // if the file is small enough to fit in the cache
     int err;
     if (file->cache.size == lfs3_file_size_(file)
-            && file->cache.size <= lfs3->cfg->inline_size
+            && file->cache.size <= lfs3->cfg->shrub_size
             && file->cache.size <= lfs3->cfg->fragment_size
             && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
         // discard any overwritten leaves, this also clears the
@@ -15461,8 +15461,8 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #endif
 
     #ifndef LFS3_RDONLY
-    // inline_size must be <= block_size/4
-    LFS3_ASSERT(lfs3->cfg->inline_size <= lfs3->cfg->block_size/4);
+    // shrub_size must be <= block_size/4
+    LFS3_ASSERT(lfs3->cfg->shrub_size <= lfs3->cfg->block_size/4);
     // fragment_size must be <= block_size/4
     LFS3_ASSERT(lfs3->cfg->fragment_size <= lfs3->cfg->block_size/4);
     #endif

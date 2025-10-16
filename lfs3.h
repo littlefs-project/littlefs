@@ -536,7 +536,7 @@ struct lfs3_cfg {
     //
     // 0 disables shrubs.
     #ifndef LFS3_RDONLY
-    lfs3_size_t inline_size;
+    lfs3_size_t shrub_size;
     #endif
 
     // Maximum size of a non-block B-tree leaf in bytes. Smaller values may

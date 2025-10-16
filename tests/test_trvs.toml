@@ -2487,7 +2487,7 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
-defines.INLINE_SIZE = 0
+defines.SHRUB_SIZE = 0
 defines.TRUNC = [false, true]
 code = '''
     lfs3_t lfs3;
@@ -2805,7 +2805,7 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
-defines.INLINE_SIZE = 0
+defines.SHRUB_SIZE = 0
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3134,7 +3134,7 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
-defines.INLINE_SIZE = 0
+defines.SHRUB_SIZE = 0
 defines.DESYNC = [false, true]
 code = '''
     lfs3_t lfs3;
@@ -7263,7 +7263,7 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # limit files to very simple btrees
-defines.INLINE_SIZE = 0
+defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*FRAGMENT_SIZE'
@@ -7439,7 +7439,7 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # limit files to very simple btrees
-defines.INLINE_SIZE = 0
+defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*FRAGMENT_SIZE'
@@ -7616,7 +7616,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # this configuration should create a 2-layer bshrub, which may be
 # a bit delicate
-defines.INLINE_SIZE = 'BLOCK_SIZE/4'
+defines.SHRUB_SIZE = 'BLOCK_SIZE/4'
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = 'BLOCK_SIZE'
@@ -7801,7 +7801,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # this configuration should create a 2-layer bshrub, which may be
 # a bit delicate
-defines.INLINE_SIZE = 'BLOCK_SIZE/4'
+defines.SHRUB_SIZE = 'BLOCK_SIZE/4'
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = 'BLOCK_SIZE'
