@@ -26,7 +26,7 @@ defines.CKDATACKSUMS = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.REPOPLOOKAHEAD = [false, true]
 defines.REPOPGBMAP = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
@@ -41,7 +41,7 @@ if = [
     '!RDONLY || !REPOPLOOKAHEAD',
     'LFS3_IFDEF_YES_GBMAP(true, !REPOPGBMAP)',
     '!RDONLY || !REPOPGBMAP',
-    '!RDONLY || !COMPACT',
+    '!RDONLY || !COMPACTMETA',
 ]
 code = '''
     lfs3_t lfs3;
@@ -65,7 +65,7 @@ code = '''
                 | ((REPOPGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_M_REPOPGBMAP, -1)
                     : 0)
-                | ((COMPACT) ? LFS3_M_COMPACT : 0)
+                | ((COMPACTMETA) ? LFS3_M_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
@@ -89,7 +89,7 @@ code = '''
                     : 0)
                 | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!REPOPLOOKAHEAD) ? LFS3_I_REPOPLOOKAHEAD : 0)
-                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
+                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -147,7 +147,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
                 | LFS3_I_REPOPLOOKAHEAD
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | LFS3_IFDEF_YES_GBMAP(
@@ -174,7 +174,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
                 | LFS3_I_REPOPLOOKAHEAD
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
@@ -190,7 +190,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -221,7 +221,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
                 | LFS3_I_REPOPLOOKAHEAD
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)));
@@ -244,7 +244,7 @@ code = '''
             LFS3_I_MKCONSISTENT
                 | LFS3_I_REPOPLOOKAHEAD
                 | LFS3_I_REPOPGBMAP
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)));
@@ -261,7 +261,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_MKCONSISTENT
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -269,7 +269,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_mount_t_compact]
+[cases.test_mount_t_compactmeta]
 defines.REPOPLOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -281,8 +281,8 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
-# set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+# set compactmeta thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -292,14 +292,14 @@ code = '''
     // first lets create a compactable filesystem
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
-    // write to our mdir until >gc_compact_thresh full
+    // write to our mdir until >gc_compactmeta_thresh full
     lfs3_file_t file;
     lfs3_file_open(&lfs3, &file, "jellyfish",
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -321,16 +321,16 @@ code = '''
                 | LFS3_IFDEF_YES_GBMAP(
                     (SIZE >= BLOCK_SIZE/4) ? LFS3_I_REPOPGBMAP : 0,
                     0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
     lfs3_unmount(&lfs3) => 0;
 
-    // with LFS3_M_COMPACT, mount compact any uncompacted blocks
+    // with LFS3_M_COMPACTMETA, mount compacts any uncompacted blocks
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
-                | LFS3_M_COMPACT
+                | LFS3_M_COMPACTMETA
                 | ((REPOPLOOKAHEAD) ? LFS3_M_REPOPLOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
@@ -349,7 +349,7 @@ code = '''
 
     // mdir should have been compacted
     lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
-    assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // check we can still read the file
     uint8_t rbuf[SIZE];
@@ -362,7 +362,7 @@ code = '''
 
 [cases.test_mount_t_mkconsistent]
 defines.REPOPLOOKAHEAD = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FILE_CACHE_SIZE/2'
@@ -431,7 +431,7 @@ code = '''
                 | LFS3_IFDEF_YES_GBMAP(
                     (ORPHANS >= 100) ? LFS3_I_REPOPGBMAP : 0,
                     0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
@@ -442,7 +442,7 @@ code = '''
             LFS3_M_RDWR
                 | LFS3_M_MKCONSISTENT
                 | ((REPOPLOOKAHEAD) ? LFS3_M_REPOPLOOKAHEAD : 0)
-                | ((COMPACT) ? LFS3_M_COMPACT : 0)
+                | ((COMPACTMETA) ? LFS3_M_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
@@ -452,7 +452,7 @@ code = '''
                 | LFS3_IFDEF_YES_GBMAP(
                     (ORPHANS >= 100) ? LFS3_I_REPOPGBMAP : 0,
                     0)
-                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
+                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)

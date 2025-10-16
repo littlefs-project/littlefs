@@ -241,7 +241,8 @@ enum lfs3_type {
                         0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_M_COMPACT  0x00000800  // Compact metadata logs
+#define LFS3_M_COMPACTMETA \
+                        0x00000800  // Compact metadata logs
 #endif
 #define LFS3_M_CKMETA   0x00001000  // Check metadata checksums
 #define LFS3_M_CKDATA   0x00002000  // Check metadata + data checksums
@@ -286,7 +287,8 @@ enum lfs3_type {
                         0x00000400  // The gbmap is not full
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_I_COMPACT  0x00000800  // Filesystem may have uncompacted metadata
+#define LFS3_I_COMPACTMETA \
+                        0x00000800  // Filesystem may have uncompacted metadata
 #endif
 #define LFS3_I_CKMETA   0x00001000  // Metadata checksums not checked recently
 #define LFS3_I_CKDATA   0x00002000  // Data checksums not checked recently
@@ -331,7 +333,8 @@ enum lfs3_btype {
                         0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_T_COMPACT  0x00000800  // Compact metadata logs
+#define LFS3_T_COMPACTMETA \
+                        0x00000800  // Compact metadata logs
 #endif
 #define LFS3_T_CKMETA   0x00001000  // Check metadata checksums
 #define LFS3_T_CKDATA   0x00002000  // Check metadata + data checksums
@@ -360,7 +363,8 @@ enum lfs3_btype {
                         0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_GC_COMPACT 0x00000800  // Compact metadata logs
+#define LFS3_GC_COMPACTMETA \
+                        0x00000800  // Compact metadata logs
 #endif
 #define LFS3_GC_CKMETA  0x00001000  // Check metadata checksums
 #define LFS3_GC_CKDATA  0x00002000  // Check metadata + data checksums
@@ -493,7 +497,7 @@ struct lfs3_cfg {
     //
     // Set to -1 to disable metadata compaction during gc.
     #ifndef LFS3_RDONLY
-    lfs3_size_t gc_compact_thresh;
+    lfs3_size_t gc_compactmeta_thresh;
     #endif
 
     // Optional statically allocated rcache buffer. Must be rcache_size. By
