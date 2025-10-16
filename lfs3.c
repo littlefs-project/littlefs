@@ -17027,27 +17027,16 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
 static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         uint32_t flags, lfs3_soff_t steps) {
     // unknown gc flags?
-    //
-    // we should have check these earlier, but it doesn't hurt to
-    // double check
-    LFS3_ASSERT((flags & ~(
-            LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
-                | LFS3_IFDEF_RDONLY(0, LFS3_T_REPOPLOOKAHEAD)
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACTMETA)
-                | LFS3_T_CKMETA
-                | LFS3_T_CKDATA)) == 0);
+    LFS3_ASSERT((flags & ~LFS3_GC_ALL) == 0);
     // these flags require a writable filesystem
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_ismkconsistent(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_isrepoplookahead(flags));
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_isrepopgbmap(flags));
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || !lfs3_t_compactmeta(flags));
-    // some flags don't make sense when only traversing the mtree
-    LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isrepoplookahead(flags));
-    LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isrepopgbmap(flags));
-    LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isckdata(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_isrepopgbmap(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_compactmeta(flags));
 
     // fix pending grms if requested
     #ifndef LFS3_RDONLY
@@ -17061,15 +17050,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     #endif
 
     // do we have any pending work?
-    uint32_t pending = flags & (
-            (lfs3->flags & (
-                LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
-                    | LFS3_IFDEF_RDONLY(0, LFS3_I_REPOPLOOKAHEAD)
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, 0))
-                    | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
-                    | LFS3_I_CKMETA
-                    | LFS3_I_CKDATA)));
+    uint32_t pending = flags & (lfs3->flags & LFS3_GC_ALL);
 
     while (pending && (lfs3_off_t)steps > 0) {
         // start a new traversal?
@@ -17089,25 +17070,18 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         #endif
 
         // will this traversal still make progress? no? start over
-        if (!(mgc->t.b.h.flags & (
-                LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
-                    | LFS3_IFDEF_RDONLY(0, LFS3_T_REPOPLOOKAHEAD)
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, 0))
-                    | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACTMETA)
-                    | LFS3_T_CKMETA
-                    | LFS3_T_CKDATA))) {
+        if (!(mgc->t.b.h.flags & LFS3_GC_ALL)) {
             lfs3_handle_close(lfs3, &mgc->t.b.h);
             continue;
         }
 
         // do we really need a full traversal?
         if (!(mgc->t.b.h.flags & (
-                LFS3_IFDEF_RDONLY(0, LFS3_T_REPOPLOOKAHEAD)
+                LFS3_IFDEF_RDONLY(0, LFS3_GC_REPOPLOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_GBMAP(LFS3_T_REPOPGBMAP, 0))
-                    | LFS3_T_CKMETA
-                    | LFS3_T_CKDATA))) {
+                        LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, 0))
+                    | LFS3_GC_CKMETA
+                    | LFS3_GC_CKDATA))) {
             mgc->t.b.h.flags |= LFS3_T_MTREEONLY;
         }
 
@@ -17124,14 +17098,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             lfs3_handle_close(lfs3, &mgc->t.b.h);
 
             // clear any pending flags we make progress on
-            pending &= lfs3->flags & (
-                    LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_I_REPOPLOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_GBMAP(LFS3_I_REPOPGBMAP, 0))
-                        | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
-                        | LFS3_I_CKMETA
-                        | LFS3_I_CKDATA);
+            pending &= lfs3->flags & LFS3_GC_ALL;
         }
 
         // decrement steps

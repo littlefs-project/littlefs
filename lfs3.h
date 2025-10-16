@@ -369,6 +369,16 @@ enum lfs3_btype {
 #define LFS3_GC_CKMETA  0x00001000  // Check metadata checksums
 #define LFS3_GC_CKDATA  0x00002000  // Check metadata + data checksums
 
+// an alias for all possible GC work
+#define LFS3_GC_ALL ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_GC_REPOPLOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, \
+                LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA) \
+            | LFS3_GC_CKMETA \
+            | LFS3_GC_CKDATA)
+
 
 // Configuration provided during initialization of the littlefs
 struct lfs3_cfg {
