@@ -10627,9 +10627,13 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_bptr_t *bptr_) {
     // start of traversal?
     if (lfs3_t_tstate(mgc->t.b.h.flags) == LFS3_TSTATE_MROOTANCHOR) {
-        // checkpoint the allocator to maximize any lookahead scans
         #ifndef LFS3_RDONLY
+        // checkpoint the allocator to maximize any lookahead scans
+        //
+        // note we try to repop even if the repoplookahead flag isn't
+        // set because there's no real downside
         if (lfs3_t_isrepoplookahead(mgc->t.b.h.flags)
+                && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
                 && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
             lfs3_alloc_ckpoint_(lfs3);
             // keep our own ckpointed flag clear
@@ -10640,11 +10644,19 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
         // create a new gbmap snapshot
         //
+        // note we _don't_ try to repop if the repopgbmap flag isn't set
+        // because repopulating the gbmap requires disk writes and is
+        // potentially destructive
+        //
         // note because we bail as soon as a ckpoint is triggered
-        // (lfs3_t_isckpointed), we don't need to traverse this
+        // (lfs3_t_isckpointed), we don't need to include this snapshot
+        // in traversals, the ckpointed flag also means we don't need to
+        // worry about this repop condition becoming true later
         if (lfs3_t_isrepopgbmap(mgc->t.b.h.flags)
                 && lfs3_f_isgbmap(lfs3->flags)
-                && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)) {
+                && lfs3_t_isrepopgbmap(lfs3->flags)
+                && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
+                && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
             // at least checkpoint the lookahead buffer
             lfs3_alloc_ckpoint_(lfs3);
 
@@ -10694,6 +10706,7 @@ dropped:;
     #ifdef LFS3_GBMAP
     if (lfs3_t_isrepopgbmap(mgc->t.b.h.flags)
             && lfs3_f_isgbmap(lfs3->flags)
+            && lfs3_t_isrepopgbmap(lfs3->flags)
             && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
             && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
         int err = lfs3_gbmap_markbptr(lfs3, &mgc->gbmap_, tag, bptr_,
@@ -10778,6 +10791,7 @@ eot:;
     #ifdef LFS3_GBMAP
     if (lfs3_t_isrepopgbmap(mgc->t.b.h.flags)
             && lfs3_f_isgbmap(lfs3->flags)
+            && lfs3_t_isrepopgbmap(lfs3->flags)
             && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
             && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
         lfs3_alloc_adoptgbmap(lfs3, &mgc->gbmap_, lfs3->lookahead.ckpoint);
@@ -11266,12 +11280,36 @@ static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known) {
             8*lfs3->cfg->lookahead_size,
             known);
 
-    // signal that lookahead is full, this is cleared on first alloc
+    // signal that lookahead is full
     lfs3->flags &= ~LFS3_I_REPOPLOOKAHEAD;
 
     // eagerly find the next free block so lookahead scans can make
     // the most progress
     lfs3_alloc_findfree(lfs3);
+}
+#endif
+
+// can we repopulate the lookahead buffer?
+#if !defined(LFS3_RDONLY)
+static inline bool lfs3_alloc_isrepoplookahead(const lfs3_t *lfs3) {
+    return lfs3->lookahead.known
+            <= lfs3_min(
+                lfs3->cfg->gc_repoplookahead_thresh,
+                lfs3_min(
+                    8*lfs3->cfg->lookahead_size-1,
+                    lfs3->block_count-1));
+}
+#endif
+
+// can we repopulate the gbmap?
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static inline bool lfs3_alloc_isrepopgbmap(const lfs3_t *lfs3) {
+    return lfs3->gbmap.known
+            <= lfs3_min(
+                lfs3_max(
+                    lfs3->cfg->gc_repopgbmap_thresh,
+                    lfs3->cfg->gbmap_repop_thresh),
+                lfs3->block_count-1);
 }
 #endif
 
@@ -11283,9 +11321,6 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     // clear lookahead as we increment
     lfs3->lookahead.buffer[lfs3->lookahead.off / 8]
             &= ~(1 << (lfs3->lookahead.off % 8));
-
-    // signal that lookahead is no longer full
-    lfs3->flags |= LFS3_I_REPOPLOOKAHEAD;
 
     // increment next/off
     lfs3->lookahead.off += 1;
@@ -11301,6 +11336,11 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     // decrement ckpoint
     lfs3->lookahead.ckpoint -= 1;
 
+    // signal that lookahead is no longer full
+    if (lfs3_alloc_isrepoplookahead(lfs3)) {
+        lfs3->flags |= LFS3_I_REPOPLOOKAHEAD;
+    }
+
     // decrement gbmap known window
     #ifdef LFS3_GBMAP
     if (lfs3_f_isgbmap(lfs3->flags)) {
@@ -11308,7 +11348,9 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
         lfs3->gbmap.known = lfs3_smax(lfs3->gbmap.known-1, 0);
 
         // signal that the gbmap is no longer full
-        lfs3->flags |= LFS3_I_REPOPGBMAP;
+        if (lfs3_alloc_isrepopgbmap(lfs3)) {
+            lfs3->flags |= LFS3_I_REPOPGBMAP;
+        }
     }
     #endif
 }
@@ -11332,7 +11374,7 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
 }
 #endif
 
-// needed in lfs3_mtree_traverse_
+// needed in lfs3_alloc
 static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
 
 // allocate a block
@@ -11456,7 +11498,7 @@ static void lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
     lfs3->gbmap.known = known;
     lfs3->gbmap.b = *gbmap;
 
-    // signal that gbmap is full, this is cleared on first alloc
+    // signal that gbmap is full
     lfs3->flags &= ~LFS3_I_REPOPGBMAP;
 }
 #endif
@@ -16282,13 +16324,12 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         // known gbmap window
         lfs3->lookahead.window = lfs3->gbmap.window;
 
-        // and mark our gbmap as repopulatable if known window does not
-        // include the entire disk
+        // mark our gbmap as repopulatable if known window is
+        // <= gc_repopgbmap_thresh
         //
-        // unfortunately the use of block allocation during gbmap
-        // repops means the known window almost never includes the
-        // entire disk
-        if (lfs3->gbmap.known < lfs3->block_count) {
+        // unfortunately the dependency of the gbmap on block allocation
+        // means this rarely includes the entire disk
+        if (lfs3_alloc_isrepopgbmap(lfs3)) {
             lfs3->flags |= LFS3_I_REPOPGBMAP;
         }
         #endif

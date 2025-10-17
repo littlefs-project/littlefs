@@ -103,29 +103,32 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 
 // a few preconfigured defines that control how benches run
 #define BENCH_IMPLICIT_DEFINES \
-    /*        name                      value (overridable)                */ \
-    BENCH_DEFINE(READ_SIZE,             1                                   ) \
-    BENCH_DEFINE(PROG_SIZE,             1                                   ) \
-    BENCH_DEFINE(BLOCK_SIZE,            4096                                ) \
-    BENCH_DEFINE(BLOCK_COUNT,           DISK_SIZE/BLOCK_SIZE                ) \
-    BENCH_DEFINE(DISK_SIZE,             1024*1024                           ) \
-    BENCH_DEFINE(BLOCK_RECYCLES,        -1                                  ) \
-    BENCH_DEFINE(RCACHE_SIZE,           LFS3_MAX(16, READ_SIZE)             ) \
-    BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)             ) \
-    BENCH_DEFINE(FILE_CACHE_SIZE,       16                                  ) \
-    BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                  ) \
-    BENCH_DEFINE(GC_FLAGS,              LFS3_GC_ALL                         ) \
-    BENCH_DEFINE(GC_STEPS,              0                                   ) \
-    BENCH_DEFINE(GC_COMPACTMETA_THRESH, 0                                   ) \
-    BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/4                        ) \
-    BENCH_DEFINE(FRAGMENT_SIZE,         LFS3_MIN(BLOCK_SIZE/8, 512)         ) \
-    BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/8                        ) \
-    BENCH_DEFINE(GBMAP_REPOP_THRESH,    BLOCK_COUNT/4                       ) \
-    BENCH_DEFINE(ERASE_VALUE,           0xff                                ) \
-    BENCH_DEFINE(ERASE_CYCLES,          0                                   ) \
-    BENCH_DEFINE(BADBLOCK_BEHAVIOR,     LFS3_EMUBD_BADBLOCK_PROGERROR       ) \
-    BENCH_DEFINE(POWERLOSS_BEHAVIOR,    LFS3_EMUBD_POWERLOSS_ATOMIC         ) \
-    BENCH_DEFINE(EMUBD_SEED,            0                                   )
+    /*           name                   value (overridable)                 */ \
+    BENCH_DEFINE(READ_SIZE,             1                                    ) \
+    BENCH_DEFINE(PROG_SIZE,             1                                    ) \
+    BENCH_DEFINE(BLOCK_SIZE,            4096                                 ) \
+    BENCH_DEFINE(BLOCK_COUNT,           DISK_SIZE/BLOCK_SIZE                 ) \
+    BENCH_DEFINE(DISK_SIZE,             1024*1024                            ) \
+    BENCH_DEFINE(BLOCK_RECYCLES,        -1                                   ) \
+    BENCH_DEFINE(RCACHE_SIZE,           LFS3_MAX(16, READ_SIZE)              ) \
+    BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)              ) \
+    BENCH_DEFINE(FILE_CACHE_SIZE,       16                                   ) \
+    BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                   ) \
+    BENCH_DEFINE(GC_FLAGS,              LFS3_GC_ALL                          ) \
+    BENCH_DEFINE(GC_STEPS,              0                                    ) \
+    BENCH_DEFINE(GC_REPOPLOOKAHEAD_THRESH, \
+                                        -1                                   ) \
+    BENCH_DEFINE(GC_REPOPGBMAP_THRESH,  -1                                   ) \
+    BENCH_DEFINE(GC_COMPACTMETA_THRESH, 0                                    ) \
+    BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/4                         ) \
+    BENCH_DEFINE(FRAGMENT_SIZE,         LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
+    BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/8                         ) \
+    BENCH_DEFINE(GBMAP_REPOP_THRESH,    BLOCK_COUNT/4                        ) \
+    BENCH_DEFINE(ERASE_VALUE,           0xff                                 ) \
+    BENCH_DEFINE(ERASE_CYCLES,          0                                    ) \
+    BENCH_DEFINE(BADBLOCK_BEHAVIOR,     LFS3_EMUBD_BADBLOCK_PROGERROR        ) \
+    BENCH_DEFINE(POWERLOSS_BEHAVIOR,    LFS3_EMUBD_POWERLOSS_ATOMIC          ) \
+    BENCH_DEFINE(EMUBD_SEED,            0                                    )
 
 // declare defines as global intmax_ts
 #define BENCH_DEFINE(k, v) \
@@ -136,25 +139,27 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 
 // map defines to cfg struct fields
 #define BENCH_CFG \
-    .read_size              = READ_SIZE,                \
-    .prog_size              = PROG_SIZE,                \
-    .block_size             = BLOCK_SIZE,               \
-    .block_count            = BLOCK_COUNT,              \
-    .block_recycles         = BLOCK_RECYCLES,           \
-    .rcache_size            = RCACHE_SIZE,              \
-    .pcache_size            = PCACHE_SIZE,              \
-    .file_cache_size        = FILE_CACHE_SIZE,          \
-    .lookahead_size         = LOOKAHEAD_SIZE,           \
-    BENCH_GBMAP_CFG                                     \
-    BENCH_GC_CFG                                        \
-    .gc_compactmeta_thresh  = GC_COMPACTMETA_THRESH,    \
-    .shrub_size             = SHRUB_SIZE,               \
-    .fragment_size          = FRAGMENT_SIZE,            \
-    .crystal_thresh         = CRYSTAL_THRESH,
+    .read_size                  = READ_SIZE,                \
+    .prog_size                  = PROG_SIZE,                \
+    .block_size                 = BLOCK_SIZE,               \
+    .block_count                = BLOCK_COUNT,              \
+    .block_recycles             = BLOCK_RECYCLES,           \
+    .rcache_size                = RCACHE_SIZE,              \
+    .pcache_size                = PCACHE_SIZE,              \
+    .file_cache_size            = FILE_CACHE_SIZE,          \
+    .lookahead_size             = LOOKAHEAD_SIZE,           \
+    BENCH_GBMAP_CFG                                         \
+    BENCH_GC_CFG                                            \
+    .gc_repoplookahead_thresh   = GC_REPOPLOOKAHEAD_THRESH, \
+    .gc_compactmeta_thresh      = GC_COMPACTMETA_THRESH,    \
+    .shrub_size                 = SHRUB_SIZE,               \
+    .fragment_size              = FRAGMENT_SIZE,            \
+    .crystal_thresh             = CRYSTAL_THRESH,
 
 #ifdef LFS3_GBMAP
 #define BENCH_GBMAP_CFG \
-    .gbmap_repop_thresh     = GBMAP_REPOP_THRESH,
+    .gc_repopgbmap_thresh       = GC_REPOPGBMAP_THRESH,     \
+    .gbmap_repop_thresh         = GBMAP_REPOP_THRESH,
 #else
 #define BENCH_GBMAP_CFG
 #endif

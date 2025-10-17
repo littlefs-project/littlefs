@@ -107,6 +107,9 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(LOOKAHEAD_SIZE,         16                                   ) \
     TEST_DEFINE(GC_FLAGS,               LFS3_GC_ALL                          ) \
     TEST_DEFINE(GC_STEPS,               0                                    ) \
+    TEST_DEFINE(GC_REPOPLOOKAHEAD_THRESH, \
+                                        -1                                   ) \
+    TEST_DEFINE(GC_REPOPGBMAP_THRESH,   -1                                   ) \
     TEST_DEFINE(GC_COMPACTMETA_THRESH,  0                                    ) \
     TEST_DEFINE(SHRUB_SIZE,             BLOCK_SIZE/4                         ) \
     TEST_DEFINE(FRAGMENT_SIZE,          LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
@@ -127,43 +130,45 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 
 // map defines to cfg struct fields
 #define TEST_CFG \
-    .read_size              = READ_SIZE,                \
-    .prog_size              = PROG_SIZE,                \
-    .block_size             = BLOCK_SIZE,               \
-    .block_count            = BLOCK_COUNT,              \
-    .block_recycles         = BLOCK_RECYCLES,           \
-    .rcache_size            = RCACHE_SIZE,              \
-    .pcache_size            = PCACHE_SIZE,              \
-    .file_cache_size        = FILE_CACHE_SIZE,          \
-    .lookahead_size         = LOOKAHEAD_SIZE,           \
-    TEST_GBMAP_CFG                                      \
-    TEST_GC_CFG                                         \
-    .gc_compactmeta_thresh  = GC_COMPACTMETA_THRESH,    \
-    .shrub_size             = SHRUB_SIZE,               \
-    .fragment_size          = FRAGMENT_SIZE,            \
-    .crystal_thresh         = CRYSTAL_THRESH,
+    .read_size                  = READ_SIZE,                \
+    .prog_size                  = PROG_SIZE,                \
+    .block_size                 = BLOCK_SIZE,               \
+    .block_count                = BLOCK_COUNT,              \
+    .block_recycles             = BLOCK_RECYCLES,           \
+    .rcache_size                = RCACHE_SIZE,              \
+    .pcache_size                = PCACHE_SIZE,              \
+    .file_cache_size            = FILE_CACHE_SIZE,          \
+    .lookahead_size             = LOOKAHEAD_SIZE,           \
+    TEST_GBMAP_CFG                                          \
+    TEST_GC_CFG                                             \
+    .gc_repoplookahead_thresh   = GC_REPOPLOOKAHEAD_THRESH, \
+    .gc_compactmeta_thresh      = GC_COMPACTMETA_THRESH,    \
+    .shrub_size                 = SHRUB_SIZE,               \
+    .fragment_size              = FRAGMENT_SIZE,            \
+    .crystal_thresh             = CRYSTAL_THRESH,
 
 #ifdef LFS3_GBMAP
 #define TEST_GBMAP_CFG \
-    .gbmap_repop_thresh     = GBMAP_REPOP_THRESH,
+    .gc_repopgbmap_thresh       = GC_REPOPGBMAP_THRESH,     \
+    .gbmap_repop_thresh         = GBMAP_REPOP_THRESH,
 #else
 #define TEST_GBMAP_CFG
 #endif
 
 #ifdef LFS3_GC
 #define TEST_GC_CFG \
-    .gc_flags               = GC_FLAGS,                 \
-    .gc_steps               = GC_STEPS,
+    .gc_flags                   = GC_FLAGS,                 \
+    .gc_steps                   = GC_STEPS,
 #else
 #define TEST_GC_CFG
 #endif
 
 #define TEST_BDCFG \
-    .erase_value            = ERASE_VALUE,              \
-    .erase_cycles           = ERASE_CYCLES,             \
-    .badblock_behavior      = BADBLOCK_BEHAVIOR,        \
-    .powerloss_behavior     = POWERLOSS_BEHAVIOR,       \
-    .seed                   = EMUBD_SEED,
+    .erase_value                = ERASE_VALUE,              \
+    .erase_cycles               = ERASE_CYCLES,             \
+    .badblock_behavior          = BADBLOCK_BEHAVIOR,        \
+    .powerloss_behavior         = POWERLOSS_BEHAVIOR,       \
+    .seed                       = EMUBD_SEED,
 
 
 #endif

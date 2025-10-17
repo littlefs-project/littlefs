@@ -497,13 +497,43 @@ struct lfs3_cfg {
     lfs3_soff_t gc_steps;
     #endif
 
-    // Threshold for metadata compaction during gc in bytes. Metadata logs
-    // that exceed this threshold will be compacted during gc operations.
-    // Defaults to ~88% block_size when zero, though this default may change
-    // in the future.
+    // Threshold for repopulating the lookahead buffer during gc. This
+    // can be set lower than the lookahead size to delay gc work when
+    // only a few blocks have been allocated.
     //
-    // Note this only affects explicit gc operations. Otherwise metadata is
-    // only compacted when full.
+    // Note this only affects explicit gc operations. During normal
+    // operations the lookahead buffer is only repopulated when empty.
+    //
+    // 0 only repopulates the lookahead buffer when empty, while -1 or
+    // any value >= 8*lookahead_size repopulates the lookahead buffer
+    // after any block allocation.
+    #ifndef LFS3_RDONLY
+    lfs3_block_t gc_repoplookahead_thresh;
+    #endif
+
+    // Threshold for repopulating the gbmap during gc. This can be set
+    // lower than the disk size to delay gc work when only a few blocks
+    // have been allocated.
+    //
+    // Note this only affects explicit gc operations. During normal
+    // operations gbmap repopulations are controlled by
+    // gbmap_repop_thresh.
+    //
+    // Any value <= gbmap_repop_thresh repopulates the gbmap when below
+    // gbmap_repop_thresh, while -1 or any value >= block_count
+    // repopulates the lookahead buffer after any block allocation.
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+    lfs3_block_t gc_repopgbmap_thresh;
+    #endif
+
+    // Threshold for metadata compaction during gc in bytes.
+    //
+    // Metadata logs that exceed this threshold will be compacted during
+    // gc operations. Defaults to ~88% block_size when zero, though this
+    // default may change in the future.
+    //
+    // Note this only affects explicit gc operations. During normal
+    // operations metadata is only compacted when full.
     //
     // Set to -1 to disable metadata compaction during gc.
     #ifndef LFS3_RDONLY
@@ -578,15 +608,16 @@ struct lfs3_cfg {
     lfs3_size_t crystal_thresh;
     #endif
 
-    // Threshold for when to repopulate the global on-disk block-map
-    // (gbmap). When <= this many blocks have a known state, littlefs
-    // will traverse the filesystem and attempt to repopulate the gbmap.
+    // Threshold for repopulating the global on-disk block-map (gbmap).
+    //
+    // When <= this many blocks have a known state, littlefs will
+    // traverse the filesystem and attempt to repopulate the gbmap.
     // Smaller values decrease repop frequency and improves overall
     // allocator throughput, at the risk of needing to fallback to the
     // slower lookahead allocator when empty.
     //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
-    // repops but may introduce large latency spikes.
+    // repops at the risk of large latency spikes.
     #ifdef LFS3_GBMAP
     lfs3_block_t gbmap_repop_thresh;
     #endif
