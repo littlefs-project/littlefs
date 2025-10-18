@@ -11492,6 +11492,63 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+// note this is not completely atomic, but worst case we end up with
+// only some ranges in the unknown window zeroed
+//
+// we don't care about the state of in-use/free blocks in the unknown
+// window (but we do care about bad blocks!), so this should be safe
+// even when allocating from the gbmap
+static int lfs3_alloc_zerogbmap(lfs3_t *lfs3) {
+    // start at end of known window/beginning of unknown window
+    lfs3_block_t block = (lfs3->gbmap.window + lfs3->gbmap.known)
+            % lfs3->block_count;
+    while (true) {
+        lfs3_block_t block__;
+        lfs3_block_t weight__;
+        lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, &lfs3->gbmap.b, block,
+                &block__, &weight__);
+        if (tag__ < 0) {
+            if (tag__ == LFS3_ERR_NOENT) {
+                break;
+            }
+            return tag__;
+        }
+
+        // make sure to limit range to unknown window, this may split
+        // ranges
+        if (block >= lfs3->gbmap.window) {
+            if (block__-(weight__-1) < lfs3->gbmap.window) {
+                weight__ -= lfs3->gbmap.window - (block__-(weight__-1));
+            }
+        } else {
+            if (block__+1 > lfs3->gbmap.window) {
+                weight__ -= block__+1 - lfs3->gbmap.window;
+                block__ -= block__+1 - lfs3->gbmap.window;
+            }
+        }
+
+        // mark in-use ranges as free
+        if (tag__ == LFS3_TAG_BMINUSE) {
+            int err = lfs3_gbmap_mark_(lfs3, &lfs3->gbmap.b, block__, weight__,
+                    LFS3_TAG_BMFREE);
+            if (err) {
+                return err;
+            }
+        }
+
+        // check next range? we do this check here to avoid weirdness
+        // when known window == 0
+        block = block__+1;
+        if (block == lfs3->gbmap.window) {
+            break;
+        }
+    }
+
+    return 0;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static void lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
         const lfs3_btree_t *gbmap, lfs3_block_t known) {
     // adopt new gbmap
@@ -11509,20 +11566,27 @@ static int lfs3_alloc_repopgbmap(lfs3_t *lfs3) {
             lfs3->gbmap.known,
             lfs3->block_count);
 
-    // create a copy of the gbmap
-    lfs3_btree_t gbmap_ = lfs3->gbmap.b;
-
-    // mark any in-use blocks as free
-    //
-    // we do this instead of creating a new gbmap to (1) preserve any
-    // erased/bad info and (2) try to best use any available
-    // erased-state
-    int err = lfs3_gbmap_remap(lfs3, &gbmap_,
-            LFS3_TAG_BMINUSE,
-            LFS3_TAG_BMFREE);
+    // TODO hack for testing
+    int err = lfs3_alloc_zerogbmap(lfs3);
     if (err) {
         goto failed;
     }
+
+    // create a copy of the gbmap
+    lfs3_btree_t gbmap_ = lfs3->gbmap.b;
+
+// TODO
+//    // mark any in-use blocks as free
+//    //
+//    // we do this instead of creating a new gbmap to (1) preserve any
+//    // erased/bad info and (2) try to best use any available
+//    // erased-state
+//    int err = lfs3_gbmap_remap(lfs3, &gbmap_,
+//            LFS3_TAG_BMINUSE,
+//            LFS3_TAG_BMFREE);
+//    if (err) {
+//        goto failed;
+//    }
 
     // traverse the filesystem, building up knowledge of what blocks are
     // in-use
