@@ -10613,8 +10613,7 @@ eot:;
 static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known);
-static int lfs3_gbmap_remap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
-        lfs3_tag_t tag, lfs3_tag_t tag_);
+static int lfs3_alloc_zerogbmap(lfs3_t *lfs3, lfs3_btree_t *gbmap);
 static int lfs3_gbmap_markbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_);
@@ -10668,9 +10667,7 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             // we do this instead of creating a new gbmap to (1) preserve any
             // erased/bad info and (2) try to best use any available
             // erased-state
-            int err = lfs3_gbmap_remap(lfs3, &mgc->gbmap_,
-                    LFS3_TAG_BMINUSE,
-                    LFS3_TAG_BMFREE);
+            int err = lfs3_alloc_zerogbmap(lfs3, &mgc->gbmap_);
             if (err) {
                 return err;
             }
@@ -11085,36 +11082,6 @@ static int lfs3_gbmap_markbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-// not this is not completely atomic, but worst case we just end up with
-// only some ranges remapped
-static int lfs3_gbmap_remap(lfs3_t *lfs3, lfs3_btree_t *gbmap,
-        lfs3_tag_t tag, lfs3_tag_t tag_) {
-    lfs3_block_t block__ = -1;
-    while (true) {
-        lfs3_block_t weight__;
-        lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block__+1,
-                &block__, &weight__);
-        if (tag__ < 0) {
-            if (tag__ == LFS3_ERR_NOENT) {
-                break;
-            }
-            return tag__;
-        }
-
-        if (tag__ == tag) {
-            int err = lfs3_gbmap_mark_(lfs3, gbmap, block__, weight__,
-                    tag_);
-            if (err) {
-                return err;
-            }
-        }
-    }
-
-    return 0;
-}
-#endif
-
 
 
 /// Block allocator ///
@@ -11492,6 +11459,36 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+// note this is not completely atomic, but worst case we just end up with
+// only some ranges zeroed
+static int lfs3_alloc_zerogbmap(lfs3_t *lfs3, lfs3_btree_t *gbmap) {
+    lfs3_block_t block__ = -1;
+    while (true) {
+        lfs3_block_t weight__;
+        lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block__+1,
+                &block__, &weight__);
+        if (tag__ < 0) {
+            if (tag__ == LFS3_ERR_NOENT) {
+                break;
+            }
+            return tag__;
+        }
+
+        // mark in-use ranges as free
+        if (tag__ == LFS3_TAG_BMINUSE) {
+            int err = lfs3_gbmap_mark_(lfs3, gbmap, block__, weight__,
+                    LFS3_TAG_BMFREE);
+            if (err) {
+                return err;
+            }
+        }
+    }
+
+    return 0;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static void lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
         const lfs3_btree_t *gbmap, lfs3_block_t known) {
     // adopt new gbmap
@@ -11517,9 +11514,7 @@ static int lfs3_alloc_repopgbmap(lfs3_t *lfs3) {
     // we do this instead of creating a new gbmap to (1) preserve any
     // erased/bad info and (2) try to best use any available
     // erased-state
-    int err = lfs3_gbmap_remap(lfs3, &gbmap_,
-            LFS3_TAG_BMINUSE,
-            LFS3_TAG_BMFREE);
+    int err = lfs3_alloc_zerogbmap(lfs3, &gbmap_);
     if (err) {
         goto failed;
     }
