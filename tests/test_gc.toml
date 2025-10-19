@@ -2598,6 +2598,108 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+# test that gc work doesn't break anything in low-space condiditions
+[cases.test_gc_nospc]
+defines.MKCONSISTENT = [false, true]
+defines.REPOPLOOKAHEAD = [false, true]
+defines.REPOPGBMAP = [false, true]
+defines.COMPACTMETA = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+        | ((REPOPLOOKAHEAD) ? LFS3_GC_REPOPLOOKAHEAD : 0)
+        | ((REPOPGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, -1) : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
+'''
+# DON'T test with GC_STEPS=-1, it may never terminate!
+defines.GC_STEPS = [1, 2, 10, 100, 1000]
+# set compactmeta thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+defines.SIZE = 'BLOCK_SIZE'
+if = 'GBMAP || !REPOPGBMAP'
+ifdef = 'LFS3_GC'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    for (uint32_t i = 0;; i++) {
+        // create a new file every gc cycle
+        lfs3_file_t file;
+        char name[256];
+        sprintf(name, "purseweb%03x", i);
+        int err = lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
+            break;
+        }
+        uint8_t wbuf[SIZE];
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_ssize_t d = lfs3_file_write(&lfs3, &file, wbuf, SIZE);
+        assert(d == SIZE || d == LFS3_ERR_NOSPC);
+        if (d == LFS3_ERR_NOSPC) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            break;
+        }
+        err = lfs3_file_close(&lfs3, &file);
+        assert(!err || err == LFS3_ERR_NOSPC);
+        if (err == LFS3_ERR_NOSPC) {
+            break;
+        }
+
+        // gc!
+        //
+        // gc should not error, but may be unable to make progress
+        lfs3_fs_gc(&lfs3) => 0;
+    }
+
+    // check the contents of the files that were written
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // reset prng
+        uint32_t prng = 42;
+
+        // try to read
+        for (uint32_t i = 0;; i++) {
+            lfs3_file_t file;
+            char name[256];
+            sprintf(name, "purseweb%03x", i);
+            int err = lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                break;
+            }
+
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[SIZE];
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfs3_file_close(&lfs3, &file) => 0;
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
 
 
 # many/fuzz tests mixed with GC

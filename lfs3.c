@@ -410,8 +410,14 @@ static int lfs3_bd_prognext(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     while (true) {
         // active pcache?
-        if (lfs3->pcache.block == block
-                && lfs3->pcache.size != 0) {
+        if (lfs3->pcache.size != 0) {
+            // wait, wrong block? this must be a leftover pcache due to
+            // an error, discard
+            if (lfs3->pcache.block != block) {
+                lfs3_bd_droppcache(lfs3);
+                continue;
+            }
+
             // fits in pcache?
             if (off < lfs3->pcache.off + lfs3->cfg->pcache_size) {
                 // you can't prog backwards silly
@@ -465,8 +471,14 @@ static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     lfs3_size_t size_ = size;
     while (size_ > 0) {
         // active pcache?
-        if (lfs3->pcache.block == block
-                && lfs3->pcache.size != 0) {
+        if (lfs3->pcache.size != 0) {
+            // wait, wrong block? this must be a leftover pcache due to
+            // an error, discard
+            if (lfs3->pcache.block != block) {
+                lfs3_bd_droppcache(lfs3);
+                continue;
+            }
+
             // fits in pcache?
             if (off_ < lfs3->pcache.off + lfs3->cfg->pcache_size) {
                 // you can't prog backwards silly
@@ -10817,26 +10829,31 @@ dropped:;
 
 eot:;
     #ifndef LFS3_RDONLY
+    // was gbmap scan successful?
+    //
+    // this is structured this way because only one repopulation
+    // scan can succeed at a time, if gbmap succeeds it invalidates the
+    // lookahead scan with the new gbmap
+    //
+    // gbmap takes priority because it actually writes to disk
+    if (LFS3_IFDEF_GBMAP(
+            lfs3_t_isrepopgbmap(mgc->t.b.h.flags)
+                && lfs3_f_isgbmap(lfs3->flags)
+                && lfs3_t_isrepopgbmap(lfs3->flags)
+                && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
+                && !lfs3_t_isckpointed(mgc->t.b.h.flags)
+                && !lfs3_t_isnospc(mgc->t.b.h.flags),
+            false)) {
+        #ifdef LFS3_GBMAP
+        lfs3_alloc_adoptgbmap(lfs3, &mgc->gbmap_, lfs3->lookahead.ckpoint);
+        #endif
+
     // was lookahead scan successful?
-    #ifndef LFS3_2BONLY
-    if (lfs3_t_isrepoplookahead(mgc->t.b.h.flags)
+    } else if (lfs3_t_isrepoplookahead(mgc->t.b.h.flags)
             && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
             && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
         lfs3_alloc_adopt(lfs3, lfs3->lookahead.ckpoint);
     }
-    #endif
-
-    // was gbmap repop successful?
-    #ifdef LFS3_GBMAP
-    if (lfs3_t_isrepopgbmap(mgc->t.b.h.flags)
-            && lfs3_f_isgbmap(lfs3->flags)
-            && lfs3_t_isrepopgbmap(lfs3->flags)
-            && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
-            && !lfs3_t_isckpointed(mgc->t.b.h.flags)
-            && !lfs3_t_isnospc(mgc->t.b.h.flags)) {
-        lfs3_alloc_adoptgbmap(lfs3, &mgc->gbmap_, lfs3->lookahead.ckpoint);
-    }
-    #endif
 
     // was mkconsistent successful?
     if (lfs3_t_ismkconsistent(mgc->t.b.h.flags)
