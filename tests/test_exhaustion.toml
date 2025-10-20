@@ -707,6 +707,8 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
+# you probably need to flush if you expect errors
+defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -806,7 +808,9 @@ code = '''
                 char name[256];
                 sprintf(name, "batman%03x", x);
                 int err = lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                        LFS3_O_RDWR | LFS3_O_CREAT);
+                        LFS3_O_RDWR
+                            | LFS3_O_CREAT
+                            | ((FLUSH) ? LFS3_O_FLUSH : 0));
                 assert(!err || err == LFS3_ERR_NOSPC);
                 if (err == LFS3_ERR_NOSPC) {
                     free(sim_files[j]);
@@ -1212,6 +1216,8 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
+# you probably need to flush if you expect errors
+defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -1315,7 +1321,9 @@ code = '''
                 char name[256];
                 sprintf(name, "batman%03x", x);
                 int err = lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                        LFS3_O_RDWR | LFS3_O_CREAT);
+                        LFS3_O_RDWR
+                            | LFS3_O_CREAT
+                            | ((FLUSH) ? LFS3_O_FLUSH : 0));
                 assert(!err || err == LFS3_ERR_NOSPC);
                 if (err == LFS3_ERR_NOSPC) {
                     free(sim_files[j]);

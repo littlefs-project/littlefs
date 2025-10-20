@@ -165,7 +165,7 @@ FLAGS = [
     ('^_GBMAP',        0x00080000, "Tstate = gbmap"                           ),
     ('^_GBMAP_P',      0x00090000, "Tstate = gbmap_p"                         ),
     ('^_DONE',         0x000a0000, "Tstate = done"                            ),
-    ('t_BTYPE',        0x00700000, "The current block type"                   ),
+    ('t_BTYPE',        0x00f00000, "The current block type"                   ),
     ('^_MDIR',         0x00100000, "Btype = mdir"                             ),
     ('^_BTREE',        0x00200000, "Btype = btree"                            ),
     ('^_DATA',         0x00300000, "Btype = data"                             ),
@@ -173,7 +173,6 @@ FLAGS = [
     ('t_DIRTY',        0x04000000, "Filesystem modified outside traversal"    ),
     ('t_MUTATED',      0x02000000, "Filesystem modified during traversal"     ),
     ('t_CKPOINTED',    0x01000000, "Filesystem ckpointed during traversal"    ),
-    ('t_NOSPC',        0x00800000, "Optional gc work ran out of space"        ),
 
     # Block allocator flags
     ('alloc_ERASE',    0x00000001, "Please erase the block"                   ),

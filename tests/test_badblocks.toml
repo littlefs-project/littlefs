@@ -977,6 +977,8 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
+# you probably need to flush if you expect errors
+defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -1070,7 +1072,9 @@ code = '''
                 char name[256];
                 sprintf(name, "batman%03x", x);
                 lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                        LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+                        LFS3_O_RDWR
+                            | LFS3_O_CREAT
+                            | ((FLUSH) ? LFS3_O_FLUSH : 0)) => 0;
 
                 // write some initial data if we don't exist
                 if (!exist || sticky) {
@@ -1429,6 +1433,8 @@ defines.BADBLOCK_BEHAVIOR = [
 ]
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
+# you probably need to flush if you expect errors
+defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -1526,7 +1532,9 @@ code = '''
                 char name[256];
                 sprintf(name, "batman%03x", x);
                 lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                        LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+                        LFS3_O_RDWR
+                            | LFS3_O_CREAT
+                            | ((FLUSH) ? LFS3_O_FLUSH : 0)) => 0;
 
                 // write some initial data if we don't exist
                 if (!exist || sticky) {
@@ -2933,6 +2941,8 @@ defines.BADBLOCK_BEHAVIOR = [
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
 defines.MIRROR = [false, true]
+# you probably need to flush if you expect errors
+defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -3031,7 +3041,9 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", x);
             lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+                    LFS3_O_RDWR
+                        | LFS3_O_CREAT
+                        | ((FLUSH) ? LFS3_O_FLUSH : 0)) => 0;
 
             // write some initial data if we don't exist
             if (!exist || sticky) {
@@ -3386,6 +3398,8 @@ defines.BADBLOCK_BEHAVIOR = [
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
 defines.MIRROR = [false, true]
+# you probably need to flush if you expect errors
+defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -3488,7 +3502,9 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", x);
             lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+                    LFS3_O_RDWR
+                        | LFS3_O_CREAT
+                        | ((FLUSH) ? LFS3_O_FLUSH : 0)) => 0;
 
             // write some initial data if we don't exist
             if (!exist || sticky) {
@@ -4888,6 +4904,8 @@ defines.BADBLOCK_BEHAVIOR = [
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
 defines.MIRROR = [false, true]
+# you probably need to flush if you expect errors
+defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -4986,7 +5004,9 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", x);
             lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+                    LFS3_O_RDWR
+                        | LFS3_O_CREAT
+                        | ((FLUSH) ? LFS3_O_FLUSH : 0)) => 0;
 
             // write some initial data if we don't exist
             if (!exist || sticky) {
@@ -5341,6 +5361,8 @@ defines.BADBLOCK_BEHAVIOR = [
 # we need prog checking to detect read errors
 defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
 defines.MIRROR = [false, true]
+# you probably need to flush if you expect errors
+defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -5443,7 +5465,9 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", x);
             lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+                    LFS3_O_RDWR
+                        | LFS3_O_CREAT
+                        | ((FLUSH) ? LFS3_O_FLUSH : 0)) => 0;
 
             // write some initial data if we don't exist
             if (!exist || sticky) {

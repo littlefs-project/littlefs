@@ -10822,6 +10822,8 @@ code = '''
 
 # fuzz tests involving many uncreats + zombies, this gets a bit crazy
 [cases.test_stickynotes_uz_fuzz]
+# you probably need to flush if you expect errors
+defines.FLUSH = false
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than files to encourage file rewrites
 defines.OPS = '2*N'
@@ -10897,7 +10899,9 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", x);
             lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+                    LFS3_O_RDWR
+                        | LFS3_O_CREAT
+                        | ((FLUSH) ? LFS3_O_FLUSH : 0)) => 0;
 
             // write some initial data if we don't exist
             if (!exist || sticky) {
@@ -11242,6 +11246,8 @@ code = '''
 
 # fuzz tests involving many uncreats + zombies + dirs, this gets a bit crazy
 [cases.test_stickynotes_uzd_fuzz]
+# you probably need to flush if you expect errors
+defines.FLUSH = false
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 # do more ops than files to encourage file rewrites
 defines.OPS = '2*N'
@@ -11321,7 +11327,9 @@ code = '''
             char name[256];
             sprintf(name, "batman%03x", x);
             lfs3_file_open(&lfs3, &sim_files[j]->file, name,
-                    LFS3_O_RDWR | LFS3_O_CREAT) => 0;
+                    LFS3_O_RDWR
+                        | LFS3_O_CREAT
+                        | ((FLUSH) ? LFS3_O_FLUSH : 0)) => 0;
 
             // write some initial data if we don't exist
             if (!exist || sticky) {

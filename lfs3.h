@@ -342,13 +342,12 @@ enum lfs3_btype {
 // internally used flags, don't use these
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
 #define LFS3_t_TSTATE   0x000f0000  // The current traversal state
-#define LFS3_t_BTYPE    0x00700000  // The current block type
+#define LFS3_t_BTYPE    0x00f00000  // The current block type
 #define LFS3_t_ZOMBIE   0x08000000  // File has been removed
 #define LFS3_t_DIRTY    0x04000000  // Filesystem modified outside traversal
 #define LFS3_t_MUTATED  0x02000000  // Filesystem modified during traversal
 #define LFS3_t_CKPOINTED \
                         0x01000000  // Filesystem ckpointed during traversal
-#define LFS3_t_NOSPC    0x00800000  // Optional gc work ran out of space
 
 // GC flags
 #ifndef LFS3_RDONLY

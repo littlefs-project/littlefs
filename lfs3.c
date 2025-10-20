@@ -7461,7 +7461,7 @@ static inline void lfs3_t_settstate(uint32_t *flags, uint8_t tstate) {
 }
 
 static inline uint8_t lfs3_t_btype(uint32_t flags) {
-    return (flags >> 20) & 0x7;
+    return (flags >> 20) & 0xf;
 }
 
 static inline uint32_t lfs3_t_btypeflags(uint8_t btype) {
@@ -7482,10 +7482,6 @@ static inline bool lfs3_t_ismutated(uint32_t flags) {
 
 static inline bool lfs3_t_isckpointed(uint32_t flags) {
     return flags & LFS3_t_CKPOINTED;
-}
-
-static inline bool lfs3_t_isnospc(uint32_t flags) {
-    return flags & LFS3_t_NOSPC;
 }
 
 // mount flags
@@ -9827,6 +9823,8 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // checkpoint the allocator
     int err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
+        // revert gstate to on-disk state
+        lfs3_fs_revertgdelta(lfs3);
         return err;
     }
 
@@ -10684,17 +10682,8 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             // erased/bad info and (2) try to best use any available
             // erased-state
             int err = lfs3_alloc_zerogbmap(lfs3, &mgc->gbmap_);
-            if (err && err != LFS3_ERR_NOSPC) {
+            if (err) {
                 return err;
-            }
-
-            // not having enough space isn't really an error
-            if (err == LFS3_ERR_NOSPC) {
-                LFS3_WARN("Not enough space for gbmap "
-                            "(lookahead %"PRId32"/%"PRId32")",
-                        lfs3->lookahead.known,
-                        lfs3->block_count);
-                mgc->t.b.h.flags |= LFS3_t_NOSPC;
             }
 
             // keep our own ckpointed flag clear
@@ -10733,17 +10722,8 @@ dropped:;
             && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
         int err = lfs3_gbmap_markbptr(lfs3, &mgc->gbmap_, tag, bptr_,
                 LFS3_TAG_BMINUSE);
-        if (err && err != LFS3_ERR_NOSPC) {
+        if (err) {
             return err;
-        }
-
-        // not having enough space isn't really an error
-        if (err == LFS3_ERR_NOSPC) {
-            LFS3_WARN("Not enough space for gbmap "
-                        "(lookahead %"PRId32"/%"PRId32")",
-                    lfs3->lookahead.known,
-                    lfs3->block_count);
-            mgc->t.b.h.flags |= LFS3_t_NOSPC;
         }
 
         // keep our own ckpointed flag clear
@@ -10758,17 +10738,8 @@ dropped:;
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         uint32_t dirty = mgc->t.b.h.flags;
         int err = lfs3_mdir_mkconsistent(lfs3, mdir);
-        if (err && err != LFS3_ERR_NOSPC) {
+        if (err) {
             return err;
-        }
-
-        // not having enough space isn't really an error
-        if (err == LFS3_ERR_NOSPC) {
-            LFS3_WARN("Not enough space for mkconsistent "
-                        "(lookahead %"PRId32"/%"PRId32")",
-                    lfs3->lookahead.known,
-                    lfs3->block_count);
-            mgc->t.b.h.flags |= LFS3_t_NOSPC;
         }
 
         // reset dirty flag
@@ -10807,17 +10778,8 @@ dropped:;
         // compact the mdir
         uint32_t dirty = mgc->t.b.h.flags;
         int err = lfs3_mdir_compact(lfs3, mdir);
-        if (err && err != LFS3_ERR_NOSPC) {
+        if (err) {
             return err;
-        }
-
-        // not having enough space isn't really an error
-        if (err == LFS3_ERR_NOSPC) {
-            LFS3_WARN("Not enough space for compactmeta "
-                        "(lookahead %"PRId32"/%"PRId32")",
-                    lfs3->lookahead.known,
-                    lfs3->block_count);
-            mgc->t.b.h.flags |= LFS3_t_NOSPC;
         }
 
         // reset dirty flag
@@ -10841,8 +10803,7 @@ eot:;
                 && lfs3_f_isgbmap(lfs3->flags)
                 && lfs3_t_isrepopgbmap(lfs3->flags)
                 && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
-                && !lfs3_t_isckpointed(mgc->t.b.h.flags)
-                && !lfs3_t_isnospc(mgc->t.b.h.flags),
+                && !lfs3_t_isckpointed(mgc->t.b.h.flags),
             false)) {
         #ifdef LFS3_GBMAP
         lfs3_alloc_adoptgbmap(lfs3, &mgc->gbmap_, lfs3->lookahead.ckpoint);
@@ -10857,16 +10818,14 @@ eot:;
 
     // was mkconsistent successful?
     if (lfs3_t_ismkconsistent(mgc->t.b.h.flags)
-            && !lfs3_t_isdirty(mgc->t.b.h.flags)
-            && !lfs3_t_isnospc(mgc->t.b.h.flags)) {
+            && !lfs3_t_isdirty(mgc->t.b.h.flags)) {
         lfs3->flags &= ~LFS3_I_MKCONSISTENT;
     }
 
     // was compaction successful? note we may need multiple passes if
     // we want to be sure everything is compacted
     if (lfs3_t_compactmeta(mgc->t.b.h.flags)
-            && !lfs3_t_ismutated(mgc->t.b.h.flags)
-            && !lfs3_t_isnospc(mgc->t.b.h.flags)) {
+            && !lfs3_t_ismutated(mgc->t.b.h.flags)) {
         lfs3->flags &= ~LFS3_I_COMPACTMETA;
     }
     #endif
@@ -11578,7 +11537,7 @@ static int lfs3_alloc_repopgbmap(lfs3_t *lfs3) {
     // erased-state
     int err = lfs3_alloc_zerogbmap(lfs3, &gbmap_);
     if (err) {
-        goto failed;
+        return err;
     }
 
     // traverse the filesystem, building up knowledge of what blocks are
@@ -11593,15 +11552,14 @@ static int lfs3_alloc_repopgbmap(lfs3_t *lfs3) {
             if (tag == LFS3_ERR_NOENT) {
                 break;
             }
-            err = tag;
-            goto failed;
+            return tag;
         }
 
         // track in-use blocks
         err = lfs3_gbmap_markbptr(lfs3, &gbmap_, tag, &bptr,
                 LFS3_TAG_BMINUSE);
         if (err) {
-            goto failed;
+            return err;
         }
     }
 
@@ -11614,17 +11572,6 @@ static int lfs3_alloc_repopgbmap(lfs3_t *lfs3) {
     //
     lfs3_alloc_adoptgbmap(lfs3, &gbmap_, lfs3->lookahead.ckpoint);
     return 0;
-
-failed:;
-    // not having enough space for the gbmap isn't really an error
-    if (err == LFS3_ERR_NOSPC) {
-        LFS3_INFO("Not enough space for gbmap "
-                    "(lookahead %"PRId32"/%"PRId32")",
-                lfs3->lookahead.known,
-                lfs3->block_count);
-        return 0;
-    }
-    return err;
 }
 #endif
 
