@@ -170,9 +170,8 @@ FLAGS = [
     ('^_BTREE',        0x00200000, "Btype = btree"                            ),
     ('^_DATA',         0x00300000, "Btype = data"                             ),
     ('t_ZOMBIE',       0x08000000, "File has been removed"                    ),
-    ('t_DIRTY',        0x04000000, "Filesystem modified outside traversal"    ),
-    ('t_MUTATED',      0x02000000, "Filesystem modified during traversal"     ),
-    ('t_CKPOINTED',    0x01000000, "Filesystem ckpointed during traversal"    ),
+    ('t_DIRTY',        0x04000000, "Filesystem ckpointed outside traversal"   ),
+    ('t_CKPOINTED',    0x02000000, "Filesystem ckpointed during traversal"    ),
 
     # Block allocator flags
     ('alloc_ERASE',    0x00000001, "Please erase the block"                   ),
