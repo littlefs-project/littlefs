@@ -1290,7 +1290,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
             }
 
             // found a match for our fetcher?
-            if ((fmask & tag) == (fmask & ftag)) {
+            if ((fmask & tag) == (fmask & ftag) && cb) {
                 int res = cb(data, tag, &(struct lfs_diskoff){
                         dir->pair[0], off+sizeof(tag)});
                 if (res < 0) {
