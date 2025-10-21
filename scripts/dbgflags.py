@@ -10,6 +10,7 @@ import functools as ft
 
 # Flag prefixes
 PREFIX_O       = ['--o', '--open']      # Filter by LFS3_O_* flags
+PREFIX_SEEK    = ['--seek']             # Filter by LFS3_SEEK_* flags
 PREFIX_A       = ['--a', '--attr']      # Filter by LFS3_A_* flags
 PREFIX_F       = ['--f', '--format']    # Filter by LFS3_F_* flags
 PREFIX_M       = ['--m', '--mount']     # Filter by LFS3_M_* flags
@@ -52,6 +53,12 @@ o_UNSYNC        = 0x01000000  # i-  File's metadata does not match disk
 o_UNCRYST       = 0x00800000  # i-  File's leaf not fully crystallized
 o_UNGRAFT       = 0x00400000  # i-  File's leaf does not match disk
 o_UNFLUSH       = 0x00200000  # i-  File's cache does not match disk
+
+# File seek flags
+seek_MODE       = 0xffffffff  # im  Seek mode
+SEEK_SET        =          0  # -^  Seek relative to an absolute position
+SEEK_CUR        =          1  # -^  Seek relative to the current file position
+SEEK_END        =          2  # -^  Seek relative to the end of the file
 
 # Custom attribute flags
 A_MODE          =          3  # -m  The attr's access mode
