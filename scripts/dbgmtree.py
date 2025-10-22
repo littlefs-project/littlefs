@@ -18,56 +18,223 @@ except ModuleNotFoundError:
     crc32c_lib = None
 
 
-TAG_NULL        = 0x0000    ## 0x0000  v--- ---- ---- ----
-TAG_CONFIG      = 0x0000    ## 0x00tt  v--- ---- -ttt tttt
-TAG_MAGIC       = 0x0031    #  0x003r  v--- ---- --11 --rr
-TAG_VERSION     = 0x0034    #  0x0034  v--- ---- --11 -1--
-TAG_RCOMPAT     = 0x0035    #  0x0035  v--- ---- --11 -1-1
-TAG_WCOMPAT     = 0x0036    #  0x0036  v--- ---- --11 -11-
-TAG_OCOMPAT     = 0x0037    #  0x0037  v--- ---- --11 -111
-TAG_GEOMETRY    = 0x0038    #  0x0038  v--- ---- --11 1---
-TAG_NAMELIMIT   = 0x0039    #  0x0039  v--- ---- --11 1--1
-TAG_FILELIMIT   = 0x003a    #  0x003a  v--- ---- --11 1-1-
-TAG_GDELTA      = 0x0100    ## 0x01tt  v--- ---1 -ttt ttrr
-TAG_GRMDELTA    = 0x0100    #  0x0100  v--- ---1 ---- ----
-TAG_GBMAPDELTA  = 0x0104    #  0x0104  v--- ---1 ---- -1rr
-TAG_NAME        = 0x0200    ## 0x02tt  v--- --1- -ttt tttt
-TAG_BNAME       = 0x0200    #  0x0200  v--- --1- ---- ----
-TAG_REG         = 0x0201    #  0x0201  v--- --1- ---- ---1
-TAG_DIR         = 0x0202    #  0x0202  v--- --1- ---- --1-
-TAG_STICKYNOTE  = 0x0203    #  0x0203  v--- --1- ---- --11
-TAG_BOOKMARK    = 0x0204    #  0x0204  v--- --1- ---- -1--
-TAG_MNAME       = 0x0220    #  0x0220  v--- --1- --1- ----
-TAG_STRUCT      = 0x0300    ## 0x03tt  v--- --11 -ttt ttrr
-TAG_BRANCH      = 0x0300    #  0x030r  v--- --11 ---- --rr
-TAG_DATA        = 0x0304    #  0x0304  v--- --11 ---- -1--
-TAG_BLOCK       = 0x0308    #  0x0308  v--- --11 ---- 1err
-TAG_DID         = 0x0314    #  0x0314  v--- --11 ---1 -1--
-TAG_BSHRUB      = 0x0318    #  0x0318  v--- --11 ---1 1---
-TAG_BTREE       = 0x031c    #  0x031c  v--- --11 ---1 11rr
-TAG_MROOT       = 0x0321    #  0x032r  v--- --11 --1- --rr
-TAG_MDIR        = 0x0325    #  0x0324  v--- --11 --1- -1rr
-TAG_MTREE       = 0x032c    #  0x032c  v--- --11 --1- 11rr
-TAG_BMRANGE     = 0x0330    #  0x033u  v--- --11 --11 uuuu
-TAG_BMFREE      = 0x0330    #  0x0330  v--- --11 --11 ----
-TAG_BMINUSE     = 0x0331    #  0x0331  v--- --11 --11 ---1
-TAG_BMERASED    = 0x0332    #  0x0332  v--- --11 --11 --1-
-TAG_BMBAD       = 0x0333    #  0x0333  v--- --11 --11 --11
-TAG_ATTR        = 0x0400    ## 0x04aa  v--- -1-a -aaa aaaa
-TAG_UATTR       = 0x0400    #  0x04aa  v--- -1-- -aaa aaaa
-TAG_SATTR       = 0x0500    #  0x05aa  v--- -1-1 -aaa aaaa
-TAG_SHRUB       = 0x1000    ## 0x1kkk  v--1 kkkk -kkk kkkk
-TAG_ALT         = 0x4000    ## 0x4kkk  v1cd kkkk -kkk kkkk
+TAG_NULL        = 0x0000    ##  v--- ---- +--- ----
+TAG_CONFIG      = 0x0000    ##  v--- ---- +ttt tttt
+TAG_MAGIC       = 0x0031    #   v--- ---- +-11 --rr
+TAG_VERSION     = 0x0034    #   v--- ---- +-11 -1--
+TAG_RCOMPAT     = 0x0035    #   v--- ---- +-11 -1-1
+TAG_WCOMPAT     = 0x0036    #   v--- ---- +-11 -11-
+TAG_OCOMPAT     = 0x0037    #   v--- ---- +-11 -111
+TAG_GEOMETRY    = 0x0038    #   v--- ---- +-11 1---
+TAG_NAMELIMIT   = 0x0039    #   v--- ---- +-11 1--1
+TAG_FILELIMIT   = 0x003a    #   v--- ---- +-11 1-1-
+TAG_GDELTA      = 0x0100    ##  v--- ---1 +ttt ttrr
+TAG_GRMDELTA    = 0x0100    #   v--- ---1 +--- ----
+TAG_GBMAPDELTA  = 0x0104    #   v--- ---1 +--- -1rr
+TAG_NAME        = 0x0200    ##  v--- --1- +ttt tttt
+TAG_BNAME       = 0x0200    #   v--- --1- +--- ----
+TAG_REG         = 0x0201    #   v--- --1- +--- ---1
+TAG_DIR         = 0x0202    #   v--- --1- +--- --1-
+TAG_STICKYNOTE  = 0x0203    #   v--- --1- +--- --11
+TAG_BOOKMARK    = 0x0204    #   v--- --1- +--- -1--
+TAG_MNAME       = 0x0220    #   v--- --1- +-1- ----
+TAG_STRUCT      = 0x0300    ##  v--- --11 +ttt ttrr
+TAG_BRANCH      = 0x0300    #   v--- --11 +--- --rr
+TAG_DATA        = 0x0304    #   v--- --11 +--- -1--
+TAG_BLOCK       = 0x0308    #   v--- --11 +--- 1err
+TAG_DID         = 0x0314    #   v--- --11 +--1 -1--
+TAG_BSHRUB      = 0x0318    #   v--- --11 +--1 1---
+TAG_BTREE       = 0x031c    #   v--- --11 +--1 11rr
+TAG_MROOT       = 0x0321    #   v--- --11 +-1- --rr
+TAG_MDIR        = 0x0325    #   v--- --11 +-1- -1rr
+TAG_MTREE       = 0x032c    #   v--- --11 +-1- 11rr
+TAG_BMRANGE     = 0x0330    #   v--- --11 +-11 ++uu
+TAG_BMFREE      = 0x0330    #   v--- --11 +-11 ----
+TAG_BMINUSE     = 0x0331    #   v--- --11 +-11 ---1
+TAG_BMERASED    = 0x0332    #   v--- --11 +-11 --1-
+TAG_BMBAD       = 0x0333    #   v--- --11 +-11 --11
+TAG_ATTR        = 0x0400    ##  v--- -1-a +aaa aaaa
+TAG_UATTR       = 0x0400    #   v--- -1-- +aaa aaaa
+TAG_SATTR       = 0x0500    #   v--- -1-1 +aaa aaaa
+TAG_SHRUB       = 0x1000    ##  v--1 kkkk +kkk kkkk
+TAG_ALT         = 0x4000    ##  v1cd kkkk +kkk kkkk
 TAG_B           = 0x0000
 TAG_R           = 0x2000
 TAG_LE          = 0x0000
 TAG_GT          = 0x1000
-TAG_CKSUM       = 0x3000    ## 0x300p  v-11 ---- ---- -pqq
+TAG_CKSUM       = 0x3000    ##  v-11 ---- ++++ +pqq
 TAG_PHASE       = 0x0003
 TAG_PERTURB     = 0x0004
-TAG_NOTE        = 0x3100    ## 0x3100  v-11 ---1 ---- ----
-TAG_ECKSUM      = 0x3200    ## 0x3200  v-11 --1- ---- ----
-TAG_GCKSUMDELTA = 0x3300    ## 0x3300  v-11 --11 ---- ----
+TAG_NOTE        = 0x3100    ##  v-11 ---1 ++++ ++++
+TAG_ECKSUM      = 0x3200    ##  v-11 --1- ++++ ++++
+TAG_GCKSUMDELTA = 0x3300    ##  v-11 --11 ++++ ++++
+
+
+# self-parsing tag repr
+class Tag:
+    def __init__(self, name, tag, encoding, help):
+        self.name = name
+        self.tag = tag
+        self.encoding = encoding
+        self.help = help
+        # derive mask from encoding
+        self.mask = sum(
+                (1 if x in 'v-01' else 0) << len(self.encoding)-1-i
+                    for i, x in enumerate(self.encoding))
+
+    def __repr__(self):
+        return 'Tag(%r, %r, %r)' % (
+                self.name,
+                self.tag,
+                self.encoding)
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __ne__(self, other):
+        return self.name != other.name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def line(self):
+        # substitute mask chars when zero
+        tag = '0x%s' % ''.join(
+                n if n != '0' else next(
+                    (x for x in self.encoding[i*4:i*4+4]
+                        if x not in 'v-01+'),
+                    '0')
+                for i, n in enumerate('%04x' % self.tag))
+        # group into nibbles
+        encoding = ' '.join(self.encoding[i*4:i*4+4]
+                for i in range(len(self.encoding)//4))
+        return ('LFS3_%s' % self.name, tag, encoding)
+
+    def specificity(self):
+        return sum(1 for x in self.encoding if x in 'v-01')
+
+    def matches(self, tag):
+        return (tag & self.mask) == (self.tag & self.mask)
+
+    def get(self, chars, tag):
+        return sum(
+                tag & ((1 if x in chars else 0) << len(self.encoding)-1-i)
+                    for i, x in enumerate(self.encoding))
+
+    def max(self, chars):
+        return max(len(self.encoding)-1-i
+                for i, x in enumerate(self.encoding) if x in chars)
+
+    def min(self, chars):
+        return min(len(self.encoding)-1-i
+                for i, x in enumerate(self.encoding) if x in chars)
+
+    def width(self, chars):
+        return self.max(chars) - self.min(chars)
+
+    def __contains__(self, chars):
+        return any(x in self.encoding for x in chars)
+
+    @staticmethod
+    @ft.cache
+    def tags():
+        # parse our script's source to figure out tags
+        import inspect
+        import re
+        tags = []
+        tag_pattern = re.compile(
+            '^(?P<name>TAG_[^ ]*) *= *(?P<tag>[^#]*?) *'
+                '#+ *(?P<encoding>(?:[^ ] *?){16}) *(?P<help>.*)$')
+        for line in (inspect.getsource(
+                    inspect.getmodule(inspect.currentframe()))
+                .replace('\\\n', '')
+                .splitlines()):
+            m = tag_pattern.match(line)
+            if m:
+                tags.append(Tag(
+                        m.group('name'),
+                        globals()[m.group('name')],
+                        m.group('encoding').replace(' ', ''),
+                        m.group('help')))
+        return tags
+
+    # find best matching tag
+    @staticmethod
+    def find(tag):
+        # find tags, note this is cached
+        tags__ = Tag.tags()
+
+        # find the most specific matching tag, ignoring valid bits
+        return max((t for t in tags__ if t.matches(tag & 0x7fff)),
+                key=lambda t: t.specificity(),
+                default=None)
+
+    # human readable tag repr
+    @staticmethod
+    def repr(tag, weight=None, size=None, *,
+            global_=False,
+            toff=None):
+        # find the most specific matching tag, ignoring the shrub bit
+        t = Tag.find(tag & ~(TAG_SHRUB if tag & 0x7000 == TAG_SHRUB else 0))
+
+        # build repr
+        r = []
+        # normal tag?
+        if not tag & TAG_ALT:
+            if t is not None:
+                # prefix shrub tags with shrub
+                if tag & 0x7000 == TAG_SHRUB:
+                    r.append('shrub')
+                # lowercase name
+                r.append(t.name.split('_', 1)[1].lower())
+                # gstate tag?
+                if global_:
+                    if r[-1] == 'gdelta':
+                        r[-1] = 'gstate'
+                    elif r[-1].endswith('delta'):
+                        r[-1] = r[-1][:-len('delta')]
+                # include perturb/phase bits
+                if 'q' in t:
+                    r.append('q%d' % t.get('q', tag))
+                if 'p' in t and tag & TAG_PERTURB:
+                    r.append('p')
+
+                # include unmatched fields, but not just redund, and
+                # only reserved bits if non-zero
+                if 'tua' in t or ('+' in t and t.get('+', tag) != 0):
+                    r.append(' 0x%0*x' % (
+                            (t.width('tuar+')+4-1)//4,
+                            t.get('tuar+', tag)))
+            # unknown tag?
+            else:
+                r.append('0x%04x' % tag)
+
+            # weight?
+            if weight:
+                r.append(' w%d' % weight)
+            # size? don't include if null
+            if size is not None and (size or tag & 0x7fff):
+                r.append(' %d' % size)
+
+        # alt pointer?
+        else:
+            r.append('alt')
+            r.append('r' if tag & TAG_R else 'b')
+            r.append('gt' if tag & TAG_GT else 'le')
+            r.append(' 0x%0*x' % (
+                    (t.width('k')+4-1)//4,
+                    t.get('k', tag)))
+
+            # weight?
+            if weight is not None:
+                r.append(' w%d' % weight)
+            # jump?
+            if size and toff is not None:
+                r.append(' 0x%x' % (0xffffffff & (toff-size)))
+            elif size:
+                r.append(' -%d' % size)
+
+        return ''.join(r)
 
 
 # some ways of block geometry representations
@@ -201,141 +368,6 @@ def xxd(data, width=16):
                     b if b >= ' ' and b <= '~' else '.'
                         for b in map(chr, data[i:i+width])))
 
-# human readable tag repr
-def tagrepr(tag, weight=None, size=None, *,
-        global_=False,
-        toff=None):
-    # null tags
-    if (tag & 0x6fff) == TAG_NULL:
-        return '%snull%s%s' % (
-                'shrub' if tag & TAG_SHRUB else '',
-                ' w%d' % weight if weight else '',
-                ' %d' % size if size else '')
-    # config tags
-    elif (tag & 0x6f00) == TAG_CONFIG:
-        return '%s%s%s%s' % (
-                'shrub' if tag & TAG_SHRUB else '',
-                'magic' if (tag & 0xfff) == TAG_MAGIC
-                    else 'version' if (tag & 0xfff) == TAG_VERSION
-                    else 'rcompat' if (tag & 0xfff) == TAG_RCOMPAT
-                    else 'wcompat' if (tag & 0xfff) == TAG_WCOMPAT
-                    else 'ocompat' if (tag & 0xfff) == TAG_OCOMPAT
-                    else 'geometry' if (tag & 0xfff) == TAG_GEOMETRY
-                    else 'namelimit' if (tag & 0xfff) == TAG_NAMELIMIT
-                    else 'filelimit' if (tag & 0xfff) == TAG_FILELIMIT
-                    else 'config 0x%02x' % (tag & 0xff),
-                ' w%d' % weight if weight else '',
-                ' %s' % size if size is not None else '')
-    # global-state delta tags
-    elif (tag & 0x6f00) == TAG_GDELTA:
-        if global_:
-            return '%s%s%s%s' % (
-                    'shrub' if tag & TAG_SHRUB else '',
-                    'grm' if (tag & 0xfff) == TAG_GRMDELTA
-                        else 'gstate 0x%02x' % (tag & 0xff),
-                    ' w%d' % weight if weight else '',
-                    ' %s' % size if size is not None else '')
-        else:
-            return '%s%s%s%s' % (
-                    'shrub' if tag & TAG_SHRUB else '',
-                    'grmdelta' if (tag & 0xfff) == TAG_GRMDELTA
-                        else 'gbmapdelta' if (tag & 0xfff) == TAG_GBMAPDELTA
-                        else 'gdelta 0x%02x' % (tag & 0xff),
-                    ' w%d' % weight if weight else '',
-                    ' %s' % size if size is not None else '')
-    # name tags, includes file types
-    elif (tag & 0x6f00) == TAG_NAME:
-        return '%s%s%s%s' % (
-                'shrub' if tag & TAG_SHRUB else '',
-                'bname' if (tag & 0xfff) == TAG_BNAME
-                    else 'reg' if (tag & 0xfff) == TAG_REG
-                    else 'dir' if (tag & 0xfff) == TAG_DIR
-                    else 'stickynote' if (tag & 0xfff) == TAG_STICKYNOTE
-                    else 'bookmark' if (tag & 0xfff) == TAG_BOOKMARK
-                    else 'mname' if (tag & 0xfff) == TAG_MNAME
-                    else 'name 0x%02x' % (tag & 0xff),
-                ' w%d' % weight if weight else '',
-                ' %s' % size if size is not None else '')
-    # structure tags
-    elif (tag & 0x6f00) == TAG_STRUCT:
-        return '%s%s%s%s' % (
-                'shrub' if tag & TAG_SHRUB else '',
-                'branch' if (tag & 0xfff) == TAG_BRANCH
-                    else 'data' if (tag & 0xfff) == TAG_DATA
-                    else 'block' if (tag & 0xfff) == TAG_BLOCK
-                    else 'did' if (tag & 0xfff) == TAG_DID
-                    else 'bshrub' if (tag & 0xfff) == TAG_BSHRUB
-                    else 'btree' if (tag & 0xfff) == TAG_BTREE
-                    else 'mroot' if (tag & 0xfff) == TAG_MROOT
-                    else 'mdir' if (tag & 0xfff) == TAG_MDIR
-                    else 'mtree' if (tag & 0xfff) == TAG_MTREE
-                    else 'bmfree' if (tag & 0xfff) == TAG_BMFREE
-                    else 'bminuse' if (tag & 0xfff) == TAG_BMINUSE
-                    else 'bmerased' if (tag & 0xfff) == TAG_BMERASED
-                    else 'bmbad' if (tag & 0xfff) == TAG_BMBAD
-                    else 'bmrange 0x%x' % (tag & 0xf)
-                        if (tag & 0xff0) == TAG_BMRANGE
-                    else 'struct 0x%02x' % (tag & 0xff),
-                ' w%d' % weight if weight else '',
-                ' %s' % size if size is not None else '')
-    # custom attributes
-    elif (tag & 0x6e00) == TAG_ATTR:
-        return '%s%sattr 0x%02x%s%s' % (
-                'shrub' if tag & TAG_SHRUB else '',
-                's' if tag & 0x100 else 'u',
-                ((tag & 0x100) >> 1) + (tag & 0xff),
-                ' w%d' % weight if weight else '',
-                ' %s' % size if size is not None else '')
-    # alt pointers
-    elif tag & TAG_ALT:
-        return 'alt%s%s 0x%03x%s%s' % (
-                'r' if tag & TAG_R else 'b',
-                'gt' if tag & TAG_GT else 'le',
-                tag & 0x0fff,
-                ' w%d' % weight if weight is not None else '',
-                ' 0x%x' % (0xffffffff & (toff-size))
-                    if size and toff is not None
-                    else ' -%d' % size if size
-                    else '')
-    # checksum tags
-    elif (tag & 0x7f00) == TAG_CKSUM:
-        return 'cksum%s%s%s%s%s' % (
-                'q%d' % (tag & 0x3),
-                'p' if tag & TAG_PERTURB else '',
-                ' 0x%02x' % (tag & 0xff) if tag & 0xf8 else '',
-                ' w%d' % weight if weight else '',
-                ' %s' % size if size is not None else '')
-    # note tags
-    elif (tag & 0x7f00) == TAG_NOTE:
-        return 'note%s%s%s' % (
-                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-                ' w%d' % weight if weight else '',
-                ' %s' % size if size is not None else '')
-    # erased-state checksum tags
-    elif (tag & 0x7f00) == TAG_ECKSUM:
-        return 'ecksum%s%s%s' % (
-                ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-                ' w%d' % weight if weight else '',
-                ' %s' % size if size is not None else '')
-    # global-checksum delta tags
-    elif (tag & 0x7f00) == TAG_GCKSUMDELTA:
-        if global_:
-            return 'gcksum%s%s%s' % (
-                    ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-                    ' w%d' % weight if weight else '',
-                    ' %s' % size if size is not None else '')
-        else:
-            return 'gcksumdelta%s%s%s' % (
-                    ' 0x%02x' % (tag & 0xff) if tag & 0xff else '',
-                    ' w%d' % weight if weight else '',
-                    ' %s' % size if size is not None else '')
-    # unknown tags
-    else:
-        return '0x%04x%s%s' % (
-                tag,
-                ' w%d' % weight if weight is not None else '',
-                ' %d' % size if size is not None else '')
-
 # compute the difference between two paths, returning everything
 # in a after the paths diverge, as well as the relevant index
 def pathdelta(a, b):
@@ -414,7 +446,7 @@ class Rattr:
         return '<%s %s>' % (self.__class__.__name__, self.repr())
 
     def repr(self):
-        return tagrepr(self.tag, self.weight, self.size)
+        return Tag.repr(self.tag, self.weight, self.size)
 
     def __iter__(self):
         return iter((self.tag, self.weight, self.data))
@@ -493,7 +525,7 @@ class Ralt:
         return '<%s %s>' % (self.__class__.__name__, self.repr())
 
     def repr(self):
-        return tagrepr(self.tag, self.weight, self.jump, toff=self.toff)
+        return Tag.repr(self.tag, self.weight, self.jump, toff=self.toff)
 
     def __iter__(self):
         return iter((self.tag, self.weight, self.jump))

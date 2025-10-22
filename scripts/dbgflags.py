@@ -236,25 +236,27 @@ class Prefix:
     def __hash__(self):
         return hash(self.name)
 
-@ft.cache
-def prefixes():
-    # parse our script's source to figure out prefixes
-    import inspect
-    import re
-    prefixes = []
-    prefix_pattern = re.compile(
-            '^(?P<name>PREFIX_[^ ]*) *= *(?P<aliases>[^#]*?) *'
-                '#+ *(?P<help>.*)$')
-    for line in (inspect.getsource(inspect.getmodule(inspect.currentframe()))
-            .replace('\\\n', '')
-            .splitlines()):
-        m = prefix_pattern.match(line)
-        if m:
-            prefixes.append(Prefix(
-                    m.group('name'),
-                    globals()[m.group('name')],
-                    m.group('help')))
-    return prefixes
+    @staticmethod
+    @ft.cache
+    def prefixes():
+        # parse our script's source to figure out prefixes
+        import inspect
+        import re
+        prefixes = []
+        prefix_pattern = re.compile(
+                '^(?P<name>PREFIX_[^ ]*) *= *(?P<aliases>[^#]*?) *'
+                    '#+ *(?P<help>.*)$')
+        for line in (inspect.getsource(
+                    inspect.getmodule(inspect.currentframe()))
+                .replace('\\\n', '')
+                .splitlines()):
+            m = prefix_pattern.match(line)
+            if m:
+                prefixes.append(Prefix(
+                        m.group('name'),
+                        globals()[m.group('name')],
+                        m.group('help')))
+        return prefixes
 
 # self-parsing flags
 class Flag:
@@ -291,45 +293,49 @@ class Flag:
     def line(self):
         return ('LFS3_%s' % self.name, '0x%08x' % self.flag, self.help)
 
-@ft.cache
-def flags():
-    # parse our script's source to figure out flags
-    import inspect
-    import re
+    @staticmethod
+    @ft.cache
+    def flags():
+        # parse our script's source to figure out flags
+        import inspect
+        import re
 
-    # limit to known prefixes
-    prefixes_ = {p.name.split('_', 1)[1].upper(): p for p in prefixes()}
-    # keep track of last mask
-    mask_ = None
+        # limit to known prefixes
+        prefixes_ = {p.name.split('_', 1)[1].upper(): p
+                for p in Prefix.prefixes()}
+        # keep track of last mask
+        mask_ = None
 
-    flags = []
-    flag_pattern = re.compile(
-            '^(?P<name>(?i:%s)_[^ ]*) '
-                    '*= *(?P<flag>[^#]*?) *'
-                    '#+ (?P<mode>[^ ]+) *(?P<help>.*)$'
-                % '|'.join(prefixes_.keys()))
-    for line in (inspect.getsource(inspect.getmodule(inspect.currentframe()))
-            .replace('\\\n', '')
-            .splitlines()):
-        m = flag_pattern.match(line)
-        if m:
-            flags.append(Flag(
-                    m.group('name'),
-                    globals()[m.group('name')],
-                    m.group('help'),
-                    # associate flags -> prefix
-                    prefix=prefixes_[m.group('name').split('_', 1)[0].upper()],
-                    yes='y' in m.group('mode'),
-                    internal='i' in m.group('mode'),
-                    mask='m' in m.group('mode'),
-                    # associate types -> mask
-                    type=mask_ if '^' in m.group('mode') else False))
+        flags = []
+        flag_pattern = re.compile(
+                '^(?P<name>(?i:%s)_[^ ]*) '
+                        '*= *(?P<flag>[^#]*?) *'
+                        '#+ (?P<mode>[^ ]+) *(?P<help>.*)$'
+                    % '|'.join(prefixes_.keys()))
+        for line in (inspect.getsource(
+                    inspect.getmodule(inspect.currentframe()))
+                .replace('\\\n', '')
+                .splitlines()):
+            m = flag_pattern.match(line)
+            if m:
+                flags.append(Flag(
+                        m.group('name'),
+                        globals()[m.group('name')],
+                        m.group('help'),
+                        # associate flags -> prefix
+                        prefix=prefixes_[
+                            m.group('name').split('_', 1)[0].upper()],
+                        yes='y' in m.group('mode'),
+                        internal='i' in m.group('mode'),
+                        mask='m' in m.group('mode'),
+                        # associate types -> mask
+                        type=mask_ if '^' in m.group('mode') else False))
 
-            # keep track of last mask
-            if flags[-1].mask:
-                mask_ = flags[-1]
+                # keep track of last mask
+                if flags[-1].mask:
+                    mask_ = flags[-1]
 
-    return flags
+        return flags
 
 
 def main(flags, *,
@@ -341,7 +347,7 @@ def main(flags, *,
     all_, all = all, builtins.all
 
     # find flags
-    flags__ = globals()['flags']()
+    flags__ = Flag.flags()
 
     # filter by prefixes if there are any prefixes
     if prefixes:
@@ -441,7 +447,7 @@ if __name__ == "__main__":
             if getattr(namespace, 'prefixes', None) is None:
                 namespace.prefixes = []
             namespace.prefixes.append(self.const)
-    for p in prefixes():
+    for p in Prefix.prefixes():
         parser.add_argument(
                 *p.aliases,
                 action=AppendPrefix,

@@ -52,25 +52,27 @@ class Err:
     def line(self):
         return ('LFS3_%s' % self.name, '%d' % self.code, self.help)
 
-@ft.cache
-def errs():
-    # parse our script's source to figure out errs
-    import inspect
-    import re
-    errs = []
-    err_pattern = re.compile(
-            '^(?P<name>ERR_[^ ]*) *= *(?P<code>[^#]*?) *'
-                '#+ *(?P<help>.*)$')
-    for line in (inspect.getsource(inspect.getmodule(inspect.currentframe()))
-            .replace('\\\n', '')
-            .splitlines()):
-        m = err_pattern.match(line)
-        if m:
-            errs.append(Err(
-                    m.group('name'),
-                    globals()[m.group('name')],
-                    m.group('help')))
-    return errs
+    @staticmethod
+    @ft.cache
+    def errs():
+        # parse our script's source to figure out errs
+        import inspect
+        import re
+        errs = []
+        err_pattern = re.compile(
+                '^(?P<name>ERR_[^ ]*) *= *(?P<code>[^#]*?) *'
+                    '#+ *(?P<help>.*)$')
+        for line in (inspect.getsource(
+                    inspect.getmodule(inspect.currentframe()))
+                .replace('\\\n', '')
+                .splitlines()):
+            m = err_pattern.match(line)
+            if m:
+                errs.append(Err(
+                        m.group('name'),
+                        globals()[m.group('name')],
+                        m.group('help')))
+        return errs
 
 
 def main(errs, *,
@@ -79,7 +81,7 @@ def main(errs, *,
     list_, list = list, builtins.list
 
     # find errs
-    errs__ = globals()['errs']()
+    errs__ = Err.errs()
 
     lines = []
     # list all known error codes
