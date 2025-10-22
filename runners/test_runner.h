@@ -103,7 +103,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(BLOCK_RECYCLES,         -1                                   ) \
     TEST_DEFINE(RCACHE_SIZE,            LFS3_MAX(16, READ_SIZE)              ) \
     TEST_DEFINE(PCACHE_SIZE,            LFS3_MAX(16, PROG_SIZE)              ) \
-    TEST_DEFINE(FILE_CACHE_SIZE,        16                                   ) \
+    TEST_DEFINE(FCACHE_SIZE,            16                                   ) \
     TEST_DEFINE(LOOKAHEAD_SIZE,         16                                   ) \
     TEST_DEFINE(GC_FLAGS,               LFS3_GC_ALL                          ) \
     TEST_DEFINE(GC_STEPS,               0                                    ) \
@@ -113,7 +113,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(SHRUB_SIZE,             BLOCK_SIZE/4                         ) \
     TEST_DEFINE(FRAGMENT_SIZE,          LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
     TEST_DEFINE(CRYSTAL_THRESH,         BLOCK_SIZE/8                         ) \
-    TEST_DEFINE(GBMAP_RE_THRESH,        BLOCK_COUNT/4                        ) \
+    TEST_DEFINE(REGBMAP_THRESH,         BLOCK_COUNT/4                        ) \
     TEST_DEFINE(ERASE_VALUE,            0xff                                 ) \
     TEST_DEFINE(ERASE_CYCLES,           0                                    ) \
     TEST_DEFINE(BADBLOCK_BEHAVIOR,      LFS3_EMUBD_BADBLOCK_PROGERROR        ) \
@@ -136,7 +136,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .block_recycles             = BLOCK_RECYCLES,           \
     .rcache_size                = RCACHE_SIZE,              \
     .pcache_size                = PCACHE_SIZE,              \
-    .file_cache_size            = FILE_CACHE_SIZE,          \
+    .fcache_size                = FCACHE_SIZE,              \
     .lookahead_size             = LOOKAHEAD_SIZE,           \
     TEST_GBMAP_CFG                                          \
     TEST_GC_CFG                                             \
@@ -149,7 +149,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 #ifdef LFS3_GBMAP
 #define TEST_GBMAP_CFG \
     .gc_regbmap_thresh          = GC_REGBMAP_THRESH,        \
-    .gbmap_re_thresh            = GBMAP_RE_THRESH,
+    .regbmap_thresh             = REGBMAP_THRESH,
 #else
 #define TEST_GBMAP_CFG
 #endif

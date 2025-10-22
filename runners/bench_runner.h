@@ -112,7 +112,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(BLOCK_RECYCLES,        -1                                   ) \
     BENCH_DEFINE(RCACHE_SIZE,           LFS3_MAX(16, READ_SIZE)              ) \
     BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)              ) \
-    BENCH_DEFINE(FILE_CACHE_SIZE,       16                                   ) \
+    BENCH_DEFINE(FCACHE_SIZE,           16                                   ) \
     BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                   ) \
     BENCH_DEFINE(GC_FLAGS,              LFS3_GC_ALL                          ) \
     BENCH_DEFINE(GC_STEPS,              0                                    ) \
@@ -122,7 +122,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/4                         ) \
     BENCH_DEFINE(FRAGMENT_SIZE,         LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
     BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/8                         ) \
-    BENCH_DEFINE(GBMAP_RE_THRESH,       BLOCK_COUNT/4                        ) \
+    BENCH_DEFINE(REGBMAP_THRESH,        BLOCK_COUNT/4                        ) \
     BENCH_DEFINE(ERASE_VALUE,           0xff                                 ) \
     BENCH_DEFINE(ERASE_CYCLES,          0                                    ) \
     BENCH_DEFINE(BADBLOCK_BEHAVIOR,     LFS3_EMUBD_BADBLOCK_PROGERROR        ) \
@@ -145,7 +145,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     .block_recycles             = BLOCK_RECYCLES,           \
     .rcache_size                = RCACHE_SIZE,              \
     .pcache_size                = PCACHE_SIZE,              \
-    .file_cache_size            = FILE_CACHE_SIZE,          \
+    .fcache_size                = FCACHE_SIZE,              \
     .lookahead_size             = LOOKAHEAD_SIZE,           \
     BENCH_GBMAP_CFG                                         \
     BENCH_GC_CFG                                            \
@@ -158,7 +158,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 #ifdef LFS3_GBMAP
 #define BENCH_GBMAP_CFG \
     .gc_regbmap_thresh          = GC_REGBMAP_THRESH,        \
-    .gbmap_re_thresh            = GBMAP_RE_THRESH,
+    .regbmap_thresh             = REGBMAP_THRESH,
 #else
 #define BENCH_GBMAP_CFG
 #endif

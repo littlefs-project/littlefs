@@ -463,7 +463,7 @@ struct lfs3_cfg {
     // Size of file caches in bytes. In addition to filesystem-wide
     // read/prog caches, each file gets its own cache to reduce disk
     // accesses.
-    lfs3_size_t file_cache_size;
+    lfs3_size_t fcache_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
     // increases the number of blocks found during an allocation scan. The
@@ -512,10 +512,10 @@ struct lfs3_cfg {
     //
     // Note this only affects explicit gc operations. During normal
     // operations gbmap repopulations are controlled by
-    // gbmap_re_thresh.
+    // regbmap_thresh.
     //
-    // Any value <= gbmap_re_thresh repopulates the gbmap when below
-    // gbmap_re_thresh, while -1 or any value >= block_count
+    // Any value <= regbmap_thresh repopulates the gbmap when below
+    // regbmap_thresh, while -1 or any value >= block_count
     // repopulates the lookahead buffer after any block allocation.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t gc_regbmap_thresh;
@@ -614,7 +614,7 @@ struct lfs3_cfg {
     // 0 only repopulates the gbmap when empty, minimizing gbmap
     // repops at the risk of large latency spikes.
     #ifdef LFS3_GBMAP
-    lfs3_block_t gbmap_re_thresh;
+    lfs3_block_t regbmap_thresh;
     #endif
 };
 
@@ -689,14 +689,14 @@ struct lfs3_attr {
 
 // Optional configuration provided during lfs3_file_opencfg
 struct lfs3_file_cfg {
-    // Optional statically allocated file cache buffer. Must be cache_size.
+    // Optional statically allocated file cache buffer. Must be fcache_size.
     // By default lfs3_malloc is used to allocate this buffer.
-    void *cache_buffer;
+    void *fcache_buffer;
 
     // Size of the file cache in bytes. In addition to filesystem-wide
     // read/prog caches, each file gets its own cache to reduce disk
-    // accesses. Defaults to file_cache_size if cache_buffer is NULL.
-    lfs3_size_t cache_size;
+    // accesses. Defaults to fcache_size if fcache_buffer is NULL.
+    lfs3_size_t fcache_size;
 
     // Optional list of custom attributes attached to the file. If readable,
     // these attributes will be kept up to date with the attributes on-disk.

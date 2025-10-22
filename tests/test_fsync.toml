@@ -1037,8 +1037,8 @@ code = '''
 [cases.test_fsync_rrrr]
 defines.R = 4
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1086,8 +1086,8 @@ code = '''
 defines.R = 4
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1153,8 +1153,8 @@ defines.SYNC = [0, 1, 2, 3]
 # FLUSH=3 => flush via LFS3_M_FLUSH
 defines.FLUSH = [0, 1, 2, 3]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1248,8 +1248,8 @@ defines.SYNC = [0, 1, 2, 3]
 defines.FLUSH = [0, 1, 2, 3]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1357,8 +1357,8 @@ defines.SYNC = [0, 1, 2, 3]
 # FLUSH=3 => flush via LFS3_M_FLUSH
 defines.FLUSH = [0, 1, 2, 3]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1447,8 +1447,8 @@ defines.SYNC = [0, 1, 2, 3]
 defines.FLUSH = [0, 1, 2, 3]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1546,8 +1546,8 @@ defines.SYNC = [0, 1, 2, 3]
 # FLUSH=3 => flush via LFS3_M_FLUSH
 defines.FLUSH = [0, 1, 2, 3]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1653,8 +1653,8 @@ defines.SYNC = [0, 1, 2, 3]
 defines.FLUSH = [0, 1, 2, 3]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1773,8 +1773,8 @@ defines.SYNC = [0, 1, 2, 3]
 # FLUSH=3 => flush via LFS3_M_FLUSH
 defines.FLUSH = [0, 1, 2, 3]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1879,8 +1879,8 @@ defines.SYNC = [0, 1, 2, 3]
 defines.FLUSH = [0, 1, 2, 3]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -1998,8 +1998,8 @@ defines.SYNC = [0, 1, 2, 3]
 defines.FLUSH = [0, 1, 2, 3]
 defines.N = 40
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -2139,8 +2139,8 @@ defines.SYNC = [0, 1, 2, 3]
 defines.FLUSH = [0, 1, 2, 3]
 defines.N = 40
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3383,8 +3383,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS3_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3477,8 +3477,8 @@ defines.SYNC = [0, 1, 2]
 defines.FLUSH = [0, 1, 2]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3585,8 +3585,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS3_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3671,8 +3671,8 @@ defines.SYNC = [0, 1, 2]
 defines.FLUSH = [0, 1, 2]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3771,8 +3771,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS3_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3880,8 +3880,8 @@ defines.SYNC = [0, 1, 2]
 defines.FLUSH = [0, 1, 2]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -3998,8 +3998,8 @@ defines.RW = 4
 defines.FLUSH = [0, 1, 2]
 defines.N = 40
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -4148,8 +4148,8 @@ defines.RW = 4
 defines.FLUSH = [0, 1, 2]
 defines.N = 40
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5422,8 +5422,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS3_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5518,8 +5518,8 @@ defines.SYNC = [0, 1, 2]
 defines.FLUSH = [0, 1, 2]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5627,8 +5627,8 @@ defines.SYNC = [0, 1, 2]
 # FLUSH=2 => flush via LFS3_O_FLUSH
 defines.FLUSH = [0, 1, 2]
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5721,8 +5721,8 @@ defines.SYNC = [0, 1, 2]
 defines.FLUSH = [0, 1, 2]
 defines.N = 20
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5827,8 +5827,8 @@ defines.RW = 4
 defines.FLUSH = [0, 1, 2]
 defines.N = 40
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
@@ -5986,8 +5986,8 @@ defines.RW = 4
 defines.FLUSH = [0, 1, 2]
 defines.N = 40
 defines.SIZE = [
-    'FILE_CACHE_SIZE/2',
-    '2*FILE_CACHE_SIZE',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',

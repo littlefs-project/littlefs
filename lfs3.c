@@ -11112,7 +11112,7 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     // do we need to repopulate the gbmap?
     if (lfs3_f_isgbmap(lfs3->flags)
             && lfs3->gbmap.known < lfs3_min(
-                lfs3->cfg->gbmap_re_thresh,
+                lfs3->cfg->regbmap_thresh,
                 lfs3->block_count)) {
         int err = lfs3_alloc_regbmap(lfs3);
         if (err) {
@@ -11265,7 +11265,7 @@ static inline bool lfs3_alloc_isregbmap(const lfs3_t *lfs3) {
             <= lfs3_min(
                 lfs3_max(
                     lfs3->cfg->gc_regbmap_thresh,
-                    lfs3->cfg->gbmap_re_thresh),
+                    lfs3->cfg->regbmap_thresh),
                 lfs3->block_count-1);
 }
 #endif
@@ -12574,11 +12574,11 @@ static inline void lfs3_file_discardbshrub(lfs3_file_t *file) {
     lfs3_bshrub_init(&file->b);
 }
 
-static inline lfs3_size_t lfs3_file_cachesize(lfs3_t *lfs3,
+static inline lfs3_size_t lfs3_file_fcachesize(lfs3_t *lfs3,
         const lfs3_file_t *file) {
-    return (file->cfg->cache_buffer || file->cfg->cache_size)
-            ? file->cfg->cache_size
-            : lfs3->cfg->file_cache_size;
+    return (file->cfg->fcache_buffer || file->cfg->fcache_size)
+            ? file->cfg->fcache_size
+            : lfs3->cfg->fcache_size;
 }
 
 static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
@@ -12709,16 +12709,16 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     // the file cache, so make sure not to clobber it
     if (lfs3_o_iswrset(file->b.h.flags)) {
         file->b.h.flags |= LFS3_o_UNFLUSH;
-        file->cache.buffer = file->cfg->cache_buffer;
+        file->cache.buffer = file->cfg->fcache_buffer;
         #ifndef LFS3_KVONLY
         file->cache.pos = 0;
         #endif
-        file->cache.size = file->cfg->cache_size;
-    } else if (file->cfg->cache_buffer) {
-        file->cache.buffer = file->cfg->cache_buffer;
+        file->cache.size = file->cfg->fcache_size;
+    } else if (file->cfg->fcache_buffer) {
+        file->cache.buffer = file->cfg->fcache_buffer;
     } else {
         #ifndef LFS3_KVONLY
-        file->cache.buffer = lfs3_malloc(lfs3_file_cachesize(lfs3, file));
+        file->cache.buffer = lfs3_malloc(lfs3_file_fcachesize(lfs3, file));
         if (!file->cache.buffer) {
             return LFS3_ERR_NOMEM;
         }
@@ -12922,7 +12922,7 @@ int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
 static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file) {
     (void)lfs3;
     // clean up memory
-    if (!file->cfg->cache_buffer) {
+    if (!file->cfg->fcache_buffer) {
         lfs3_free(file->cache.buffer);
     }
 
@@ -13173,7 +13173,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
             if (!lfs3_o_isuncryst(file->b.h.flags)
                     && !lfs3_o_isungraft(file->b.h.flags)) {
                 // bypass cache?
-                if ((lfs3_size_t)d >= lfs3_file_cachesize(lfs3, file)) {
+                if ((lfs3_size_t)d >= lfs3_file_fcachesize(lfs3, file)) {
                     lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
                             pos_, buffer_, d);
                     if (d_ < 0) {
@@ -14384,7 +14384,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         // and avoids weird cases with low-level write heuristics
         //
         if (!lfs3_o_isunflush(file->b.h.flags)
-                && size >= lfs3_file_cachesize(lfs3, file)) {
+                && size >= lfs3_file_fcachesize(lfs3, file)) {
             err = lfs3_file_flush_(lfs3, file,
                     pos, buffer_, size);
             if (err) {
@@ -14395,11 +14395,11 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
             //
             // note we need to clear the cache anyways to avoid any
             // out-of-date data
-            file->cache.pos = pos + size - lfs3_file_cachesize(lfs3, file);
+            file->cache.pos = pos + size - lfs3_file_fcachesize(lfs3, file);
             lfs3_memcpy(file->cache.buffer,
-                    &buffer_[size - lfs3_file_cachesize(lfs3, file)],
-                    lfs3_file_cachesize(lfs3, file));
-            file->cache.size = lfs3_file_cachesize(lfs3, file);
+                    &buffer_[size - lfs3_file_fcachesize(lfs3, file)],
+                    lfs3_file_fcachesize(lfs3, file));
+            file->cache.size = lfs3_file_fcachesize(lfs3, file);
 
             file->b.h.flags &= ~LFS3_o_UNFLUSH;
             written += size;
@@ -14424,7 +14424,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
                     && pos <= file->cache.pos + file->cache.size
                     && pos
                         < file->cache.pos
-                            + lfs3_file_cachesize(lfs3, file))) {
+                            + lfs3_file_fcachesize(lfs3, file))) {
             // unused cache? we can move it where we need it
             if (!lfs3_o_isunflush(file->b.h.flags)) {
                 file->cache.pos = pos;
@@ -14433,7 +14433,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
 
             lfs3_size_t d = lfs3_min(
                     size,
-                    lfs3_file_cachesize(lfs3, file)
+                    lfs3_file_fcachesize(lfs3, file)
                         - (pos - file->cache.pos));
             lfs3_memcpy(&file->cache.buffer[pos - file->cache.pos],
                     buffer_,
@@ -14757,7 +14757,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                 // note we need to be careful if caches have different
                 // sizes, prefer the most recent data in this case
                 lfs3_size_t d = file->cache.size - lfs3_min(
-                        lfs3_file_cachesize(lfs3, file_),
+                        lfs3_file_fcachesize(lfs3, file_),
                         file->cache.size);
                 file_->cache.pos = file->cache.pos + d;
                 lfs3_memcpy(file_->cache.buffer,
@@ -15313,8 +15313,8 @@ int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file) {
 // kv file config, we need to explicitly disable the file cache
 static const struct lfs3_file_cfg lfs3_file_kvcfg = {
     // TODO is this the best way to do this?
-    .cache_buffer = (uint8_t*)1,
-    .cache_size = 0,
+    .fcache_buffer = (uint8_t*)1,
+    .fcache_size = 0,
 };
 
 lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
@@ -15376,8 +15376,8 @@ int lfs3_set(lfs3_t *lfs3, const char *path,
     //   to try to commit small files atomically
     //
     struct lfs3_file_cfg cfg = {
-        .cache_buffer = (uint8_t*)buffer,
-        .cache_size = size,
+        .fcache_buffer = (uint8_t*)buffer,
+        .fcache_size = size,
     };
     lfs3_file_t file;
     int err = lfs3_file_opencfg_(lfs3, &file, path,
