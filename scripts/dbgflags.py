@@ -96,18 +96,16 @@ M_CKMETAPARITY  = 0x00200000  # y-  Check metadata tag parity bits
 M_CKDATACKSUMS  = 0x00800000  # y-  Check data checksums on reads
 
 M_MKCONSISTENT  = 0x00000100  # y-  Make the filesystem consistent
-M_REPOPLOOKAHEAD \
-                = 0x00000200  # y-  Repopulate lookahead buffer
-M_REPOPGBMAP    = 0x00000400  # y-  Repopulate the gbmap
+M_RELOOKAHEAD   = 0x00000200  # y-  Repopulate lookahead buffer
+M_REGBMAP       = 0x00000400  # y-  Repopulate the gbmap
 M_COMPACTMETA   = 0x00000800  # y-  Compact metadata logs
 M_CKMETA        = 0x00001000  # y-  Check metadata checksums
 M_CKDATA        = 0x00002000  # y-  Check metadata + data checksums
 
 # GC flags
 GC_MKCONSISTENT = 0x00000100  # --  Make the filesystem consistent
-GC_REPOPLOOKAHEAD \
-                = 0x00000200  # --  Repopulate lookahead buffer
-GC_REPOPGBMAP   = 0x00000400  # --  Repopulate the gbmap
+GC_RELOOKAHEAD  = 0x00000200  # --  Repopulate lookahead buffer
+GC_REGBMAP      = 0x00000400  # --  Repopulate the gbmap
 GC_COMPACTMETA  = 0x00000800  # --  Compact metadata logs
 GC_CKMETA       = 0x00001000  # --  Check metadata checksums
 GC_CKDATA       = 0x00002000  # --  Check metadata + data checksums
@@ -124,9 +122,8 @@ I_CKMETAPARITY  = 0x00200000  # --  Mounted with LFS3_M_CKMETAPARITY
 I_CKDATACKSUMS  = 0x00800000  # --  Mounted with LFS3_M_CKDATACKSUMS
 
 I_MKCONSISTENT  = 0x00000100  # --  Filesystem needs mkconsistent to write
-I_REPOPLOOKAHEAD \
-                = 0x00000200  # --  Lookahead buffer is not full
-I_REPOPGBMAP    = 0x00000400  # --  The gbmap is not full
+I_RELOOKAHEAD   = 0x00000200  # --  Lookahead buffer is not full
+I_REGBMAP       = 0x00000400  # --  The gbmap is not full
 I_COMPACTMETA   = 0x00000800  # --  Filesystem may have uncompacted metadata
 I_CKMETA        = 0x00001000  # --  Metadata checksums not checked recently
 I_CKDATA        = 0x00002000  # --  Data checksums not checked recently
@@ -143,9 +140,8 @@ T_RDWR          =          0  # -^  Open traversal as read and write
 T_RDONLY        =          1  # -^  Open traversal as read only
 T_MTREEONLY     = 0x00000002  # --  Only traverse the mtree
 T_MKCONSISTENT  = 0x00000100  # --  Make the filesystem consistent
-T_REPOPLOOKAHEAD \
-                = 0x00000200  # --  Repopulate lookahead buffer
-T_REPOPGBMAP    = 0x00000400  # --  Repopulate the gbmap
+T_RELOOKAHEAD   = 0x00000200  # --  Repopulate lookahead buffer
+T_REGBMAP       = 0x00000400  # --  Repopulate the gbmap
 T_COMPACTMETA   = 0x00000800  # --  Compact metadata logs
 T_CKMETA        = 0x00001000  # --  Check metadata checksums
 T_CKDATA        = 0x00002000  # --  Check metadata + data checksums

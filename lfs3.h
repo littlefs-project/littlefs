@@ -233,12 +233,11 @@ enum lfs3_type {
                         0x00000100  // Make the filesystem consistent
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_M_REPOPLOOKAHEAD \
+#define LFS3_M_RELOOKAHEAD \
                         0x00000200  // Repopulate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_M_REPOPGBMAP \
-                        0x00000400  // Repopulate the gbmap
+#define LFS3_M_REGBMAP  0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_COMPACTMETA \
@@ -279,12 +278,11 @@ enum lfs3_type {
                         0x00000100  // Filesystem needs mkconsistent to write
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_I_REPOPLOOKAHEAD \
+#define LFS3_I_RELOOKAHEAD \
                         0x00000200  // Lookahead buffer is not full
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_I_REPOPGBMAP \
-                        0x00000400  // The gbmap is not full
+#define LFS3_I_REGBMAP  0x00000400  // The gbmap is not full
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_COMPACTMETA \
@@ -325,12 +323,11 @@ enum lfs3_btype {
                         0x00000100  // Make the filesystem consistent
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_T_REPOPLOOKAHEAD \
+#define LFS3_T_RELOOKAHEAD \
                         0x00000200  // Repopulate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_T_REPOPGBMAP \
-                        0x00000400  // Repopulate the gbmap
+#define LFS3_T_REGBMAP  0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_T_COMPACTMETA \
@@ -354,12 +351,11 @@ enum lfs3_btype {
                         0x00000100  // Make the filesystem consistent
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_GC_REPOPLOOKAHEAD \
+#define LFS3_GC_RELOOKAHEAD \
                         0x00000200  // Repopulate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_GC_REPOPGBMAP \
-                        0x00000400  // Repopulate the gbmap
+#define LFS3_GC_REGBMAP 0x00000400  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_GC_COMPACTMETA \
@@ -371,9 +367,9 @@ enum lfs3_btype {
 // an alias for all possible GC work
 #define LFS3_GC_ALL ( \
         LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_GC_REPOPLOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_GC_RELOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, \
-                LFS3_IFDEF_GBMAP(LFS3_GC_REPOPGBMAP, 0)) \
+                LFS3_IFDEF_GBMAP(LFS3_GC_REGBMAP, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA) \
             | LFS3_GC_CKMETA \
             | LFS3_GC_CKDATA)
@@ -507,7 +503,7 @@ struct lfs3_cfg {
     // any value >= 8*lookahead_size repopulates the lookahead buffer
     // after any block allocation.
     #ifndef LFS3_RDONLY
-    lfs3_block_t gc_repoplookahead_thresh;
+    lfs3_block_t gc_relookahead_thresh;
     #endif
 
     // Threshold for repopulating the gbmap during gc. This can be set
@@ -516,13 +512,13 @@ struct lfs3_cfg {
     //
     // Note this only affects explicit gc operations. During normal
     // operations gbmap repopulations are controlled by
-    // gbmap_repop_thresh.
+    // gbmap_re_thresh.
     //
-    // Any value <= gbmap_repop_thresh repopulates the gbmap when below
-    // gbmap_repop_thresh, while -1 or any value >= block_count
+    // Any value <= gbmap_re_thresh repopulates the gbmap when below
+    // gbmap_re_thresh, while -1 or any value >= block_count
     // repopulates the lookahead buffer after any block allocation.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-    lfs3_block_t gc_repopgbmap_thresh;
+    lfs3_block_t gc_regbmap_thresh;
     #endif
 
     // Threshold for metadata compaction during gc in bytes.
@@ -611,14 +607,14 @@ struct lfs3_cfg {
     //
     // When <= this many blocks have a known state, littlefs will
     // traverse the filesystem and attempt to repopulate the gbmap.
-    // Smaller values decrease repop frequency and improves overall
-    // allocator throughput, at the risk of needing to fallback to the
-    // slower lookahead allocator when empty.
+    // Smaller values decrease repopulation frequency and improves
+    // overall allocator throughput, at the risk of needing to fallback
+    // to the slower lookahead allocator when empty.
     //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
     // repops at the risk of large latency spikes.
     #ifdef LFS3_GBMAP
-    lfs3_block_t gbmap_repop_thresh;
+    lfs3_block_t gbmap_re_thresh;
     #endif
 };
 
@@ -882,7 +878,7 @@ typedef struct lfs3_mgc {
     lfs3_mtrv_t t;
 
     #ifdef LFS3_GBMAP
-    // repopulate gbmap when traversing with repopgbmap
+    // repopulate gbmap when traversing with regbmap
     lfs3_btree_t gbmap_;
     #endif
 } lfs3_mgc_t;
