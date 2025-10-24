@@ -192,10 +192,10 @@ enum lfs3_type {
 
 #define LFS3_F_CKMETA   0x00001000  // Check metadata checksums
 #define LFS3_F_CKDATA   0x00002000  // Check metadata + data checksums
+#endif
 
 #ifdef LFS3_GBMAP
 #define LFS3_F_GBMAP    0x01000000  // Use the global on-disk block-map
-#endif
 #endif
 
 // Filesystem mount flags
@@ -1488,7 +1488,7 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count);
 //
 // Returns a negative error code on failure. Does nothing if a gbmap
 // already exists.
-#if !defined(LFs3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3);
 #endif
 
@@ -1496,7 +1496,7 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3);
 //
 // Returns a negative error code on failure. Does nothing if no gbmap
 // is found.
-#if !defined(LFs3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3);
 #endif
 

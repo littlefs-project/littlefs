@@ -5202,6 +5202,7 @@ static inline bool lfs3_o_isbshrub(uint32_t flags);
 // claim all btrees known to the system
 //
 // note this doesn't, and can't, include any stack allocated btrees
+#ifndef LFS3_RDONLY
 static void lfs3_fs_claimbtree(lfs3_t *lfs3, lfs3_btree_t *btree) {
     // claim the mtree
     if (&lfs3->mtree != btree
@@ -5231,6 +5232,7 @@ static void lfs3_fs_claimbtree(lfs3_t *lfs3, lfs3_btree_t *btree) {
         }
     }
 }
+#endif
 
 
 // branch on-disk encoding
@@ -10807,7 +10809,7 @@ eot:;
 
 /// Optional on-disk block map ///
 
-#if !defined(LFS3_RDONLY) && !defined(LFS3_2BONLY) && defined(LFS3_GBMAP)
+#if !defined(LFS3_2BONLY) && defined(LFS3_GBMAP)
 static void lfs3_gbmap_init(lfs3_gbmap_t *gbmap) {
     gbmap->window = 0;
     gbmap->known = 0;
@@ -17265,7 +17267,7 @@ failed:;
 #endif
 
 // enable the global on-disk block-map
-#if !defined(LFs3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
     // do nothing if we already have a gbmap
     if (lfs3_f_isgbmap(lfs3->flags)) {
@@ -17324,7 +17326,7 @@ failed:;
 #endif
 
 // disable the global on-disk block-map
-#if !defined(LFs3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
     // do nothing if we already don't have a gbmap
     if (!lfs3_f_isgbmap(lfs3->flags)) {
