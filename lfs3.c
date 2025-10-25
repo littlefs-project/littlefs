@@ -6428,29 +6428,35 @@ static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3, lfs3_btree_t *btree,
 
 // incremental btree traversal
 //
-// when bid is initialized to -1, incrementally traverses all btree
-// nodes using the leaf rbyd to keep track of state
-//
 // unlike lfs3_btree_lookupnext, this includes inner btree nodes
-//
-// just don't call lfs3_btree_lookupnext/lookup/commit or anything else
-// that uses the leaf rbyd mid-traversal or things will break!
+
+static void lfs3_btrv_init(lfs3_btrv_t *btrv) {
+    btrv->bid = -1;
+}
+
 static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3, lfs3_btree_t *btree,
-        lfs3_sbid_t bid,
+        lfs3_btrv_t *btrv,
         lfs3_sbid_t *bid_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
     // restart from the root?
-    if (bid == -1 || btree->leaf.r.weight == 0) {
+    if (btrv->bid == -1
+            || btrv->rid >= (lfs3_srid_t)btrv->rbyd.weight
+            // we do this unconditionally when rbyd == root to avoid
+            // bshrubs falling out-of-sync
+            || btrv->rbyd.weight == btree->r.weight) {
         // end of traversal?
-        if (bid >= (lfs3_sbid_t)btree->r.weight) {
+        if (btrv->bid >= (lfs3_sbid_t)btree->r.weight) {
             return LFS3_ERR_NOENT;
         }
 
         // restart from the root
-        btree->leaf.bid = btree->r.weight-1;
-        btree->leaf.r = btree->r;
+        btrv->rbyd = btree->r;
+        btrv->rid = btrv->bid;
 
         // explicitly traverse the root even if weight=0
-        if (bid == -1) {
+        if (btrv->bid == -1) {
+            btrv->bid += 1;
+            btrv->rid += 1;
+
             // unless we don't even have a root yet
             if (lfs3_rbyd_trunk(&btree->r) != 0
                     // or are a shrub
@@ -6469,20 +6475,7 @@ static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3, lfs3_btree_t *btree,
                 }
                 return LFS3_TAG_BRANCH;
             }
-
-            bid = btree->leaf.bid+1;
         }
-    }
-
-    // did someone mess with the leaf rbyd?
-    LFS3_ASSERT(bid >= (lfs3_sbid_t)(btree->leaf.bid-(btree->leaf.r.weight-1))
-            && bid <= (lfs3_sbid_t)(btree->leaf.bid+1));
-
-    // the user increments bid to move the traversal forward, but if we
-    // were at a btree inner node we remap this to descending down the
-    // tree
-    if (bid == (lfs3_sbid_t)(btree->leaf.bid+1)) {
-        bid = btree->leaf.bid-(btree->leaf.r.weight-1);
     }
 
     // descend down the tree
@@ -6490,8 +6483,8 @@ static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3, lfs3_btree_t *btree,
         lfs3_srid_t rid__;
         lfs3_rid_t weight__;
         lfs3_data_t data__;
-        lfs3_stag_t tag__ = lfs3_rbyd_lookupnext(lfs3, &btree->leaf.r,
-                bid - (btree->leaf.bid-(btree->leaf.r.weight-1)), 0,
+        lfs3_stag_t tag__ = lfs3_rbyd_lookupnext(lfs3, &btrv->rbyd,
+                btrv->rid, 0,
                 &rid__, &weight__, &data__);
         if (tag__ < 0) {
             return tag__;
@@ -6499,7 +6492,7 @@ static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3, lfs3_btree_t *btree,
 
         // if we found a bname, lookup the branch
         if (tag__ == LFS3_TAG_BNAME) {
-            tag__ = lfs3_rbyd_lookup(lfs3, &btree->leaf.r,
+            tag__ = lfs3_rbyd_lookup(lfs3, &btrv->rbyd,
                     rid__, LFS3_TAG_BRANCH,
                     &data__);
             if (tag__ < 0) {
@@ -6508,48 +6501,42 @@ static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3, lfs3_btree_t *btree,
             }
         }
 
-        // adjust bid__ with subtree's weight
-        lfs3_bid_t bid__ = (btree->leaf.bid-(btree->leaf.r.weight-1)) + rid__;
-
         // found another branch
         if (tag__ == LFS3_TAG_BRANCH) {
+            // adjust rid with subtree's weight
+            btrv->rid -= (rid__ - (weight__-1));
+
             // fetch the next branch
-            lfs3_rbyd_t rbyd__;
             int err = lfs3_data_fetchbranch(lfs3, &data__, weight__,
-                    &rbyd__);
+                    &btrv->rbyd);
             if (err) {
                 return err;
             }
-            btree->leaf.bid = bid__;
-            btree->leaf.r = rbyd__;
 
             // return inner btree nodes if this is the first time we've
             // seen them
-            if (bid - (btree->leaf.bid-(btree->leaf.r.weight-1)) == 0) {
+            if (btrv->rid == 0) {
                 if (bid_) {
-                    *bid_ = btree->leaf.bid;
+                    *bid_ = btrv->bid + (rid__ - btrv->rid);
                 }
                 if (weight_) {
-                    *weight_ = btree->leaf.r.weight; 
+                    *weight_ = weight__;
                 }
                 if (data_) {
-                    data_->u.buffer = (const uint8_t*)&btree->leaf.r;
+                    data_->u.buffer = (const uint8_t*)&btrv->rbyd;
                 }
                 return LFS3_TAG_BRANCH;
             }
 
         // found our bid
         } else {
-            // discard the leaf when we're done with it to restart from
-            // the root on the next call
-            if (rid__ == (lfs3_srid_t)(btree->leaf.r.weight-1)) {
-                lfs3_btree_discardleaf(btree);
-            }
-
-            // otherwise we let the user increment bid to step through
-            // the full leaf
+            // move on to the next rid
             //
-            // this + leaf caching avoids redoing the full btree walk
+            // note this effectively traverses a full leaf without redoing
+            // the btree walk
+            lfs3_bid_t bid__ = btrv->bid + (rid__ - btrv->rid);
+            btrv->bid = bid__ + 1;
+            btrv->rid = rid__ + 1;
 
             if (bid_) {
                 *bid_ = bid__;
@@ -6901,9 +6888,9 @@ static lfs3_stag_t lfs3_bshrub_lookup(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 }
 
 static lfs3_stag_t lfs3_bshrub_traverse(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
-        lfs3_sbid_t bid,
+        lfs3_btrv_t *btrv,
         lfs3_sbid_t *bid_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
-    return lfs3_btree_traverse(lfs3, &bshrub->shrub, bid,
+    return lfs3_btree_traverse(lfs3, &bshrub->shrub, btrv,
             bid_, weight_, data_);
 }
 
@@ -10132,7 +10119,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
                 }
 
                 // transition to traversing the mtree
-                mtrv->bid = -2;
+                lfs3_btrv_init(&mtrv->btrv);
                 lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MTREE);
                 continue;
 
@@ -10156,7 +10143,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
                         #ifdef LFS3_GBMAP
                         // transition to traversing the gbmap if there is one
                         mtrv->b.shrub = lfs3->gbmap.b;
-                        mtrv->bid = -2;
+                        lfs3_btrv_init(&mtrv->btrv);
                         lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_GBMAP);
                         continue;
                         #endif
@@ -10197,7 +10184,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
             // here, lfs3_bshrub_fetch ignores these for us
             if (err != LFS3_ERR_NOENT) {
                 // start traversing
-                mtrv->bid = -2;
+                lfs3_btrv_init(&mtrv->btrv);
                 lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_BTREE);
                 continue;
 
@@ -10240,7 +10227,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
             // transition to traversing the file
             const lfs3_file_t *file = (const lfs3_file_t*)mtrv->h;
             mtrv->b.shrub = file->b.shrub;
-            mtrv->bid = -2;
+            lfs3_btrv_init(&mtrv->btrv);
             lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_HBTREE);
 
             // wait, do we have an ungrafted leaf?
@@ -10259,8 +10246,8 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
         case LFS3_TSTATE_GBMAP:;
         case LFS3_TSTATE_GBMAP_P:;
             // traverse through our bshrub/btree
-            tag = lfs3_bshrub_traverse(lfs3, &mtrv->b, mtrv->bid+1,
-                    &mtrv->bid, NULL, &data);
+            tag = lfs3_bshrub_traverse(lfs3, &mtrv->b, &mtrv->btrv,
+                    NULL, NULL, &data);
             if (tag < 0) {
                 if (tag == LFS3_ERR_NOENT) {
                     // clear the bshrub state
@@ -10300,7 +10287,7 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
                                 &lfs3->gbmap.b_p,
                                 &lfs3->gbmap.b) != 0) {
                             mtrv->b.shrub = lfs3->gbmap.b_p;
-                            mtrv->bid = -2;
+                            lfs3_btrv_init(&mtrv->btrv);
                             lfs3_t_settstate(&mtrv->b.h.flags,
                                         LFS3_TSTATE_GBMAP_P);
                             continue;
@@ -14861,11 +14848,12 @@ static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     }
 
     // traverse the file's bshrub/btree
-    lfs3_sbid_t bid = -2;
+    lfs3_btrv_t btrv;
+    lfs3_btrv_init(&btrv);
     while (true) {
         lfs3_data_t data;
-        lfs3_stag_t tag = lfs3_bshrub_traverse(lfs3, &file->b, bid+1,
-                &bid, NULL, &data);
+        lfs3_stag_t tag = lfs3_bshrub_traverse(lfs3, &file->b, &btrv,
+                NULL, NULL, &data);
         if (tag < 0) {
             if (tag == LFS3_ERR_NOENT) {
                 break;

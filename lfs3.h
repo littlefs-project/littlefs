@@ -850,6 +850,12 @@ typedef struct lfs3_dir {
 } lfs3_dir_t;
 
 // littlefs traversal type
+typedef struct lfs3_btrv {
+    lfs3_sbid_t bid;
+    lfs3_rbyd_t rbyd;
+    lfs3_srid_t rid;
+} lfs3_btrv_t;
+
 typedef struct lfs3_mtrv {
     // mdir/bshrub/btree state, this also includes our traversal
     // state machine and cycle detection state
@@ -857,7 +863,7 @@ typedef struct lfs3_mtrv {
     // opened file state
     lfs3_handle_t *h;
     // bshrub/btree traversal state
-    lfs3_sbid_t bid;
+    lfs3_btrv_t btrv;
 
     // recalculate gcksum when traversing with ckmeta
     uint32_t gcksum;
