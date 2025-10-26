@@ -776,10 +776,12 @@ typedef struct lfs3_rbyd {
 // performance
 typedef struct lfs3_btree {
     lfs3_rbyd_t r;
+    #ifdef LFS3_BLEAFCACHE
     struct {
         lfs3_bid_t bid;
         lfs3_rbyd_t r;
     } leaf;
+    #endif
 } lfs3_btree_t;
 
 // littlefs's atomic metadata log type
