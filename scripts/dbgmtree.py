@@ -1044,7 +1044,7 @@ class Btree:
         shrub = Rbyd.fetchshrub(rbyd, trunk)
         return cls(bd, shrub)
 
-    def lookupleaf(self, bid, *,
+    def lookupnext_(self, bid, *,
             path=False,
             depth=None):
         if not self or bid >= self.weight:
@@ -1103,7 +1103,7 @@ class Btree:
             path=False,
             depth=None):
         # just discard the rbyd info
-        r = self.lookupleaf(bid,
+        r = self.lookupnext_(bid,
                 path=path,
                 depth=depth)
         if path:
@@ -1123,11 +1123,11 @@ class Btree:
         #
         # note this function expects bid to be known, use lookupnext
         # first if you don't care about the exact bid (or better yet,
-        # lookupleaf and call lookup on the returned rbyd)
+        # lookupnext_ and call lookup on the returned rbyd)
         #
         # this matches rbyd's lookup behavior, which needs a known rid
         # to avoid a double lookup
-        r = self.lookupleaf(bid,
+        r = self.lookupnext_(bid,
                 path=path,
                 depth=depth)
         if path:
@@ -1168,7 +1168,7 @@ class Btree:
 
         bid = 0
         while True:
-            r = self.lookupleaf(bid,
+            r = self.lookupnext_(bid,
                     path=path,
                     depth=depth)
             if r:
@@ -1263,7 +1263,7 @@ class Btree:
                             else:
                                 yield bid_, rattr
         else:
-            r = self.lookupleaf(bid,
+            r = self.lookupnext_(bid,
                     path=path,
                     depth=depth)
             if path:
@@ -1286,7 +1286,7 @@ class Btree:
                         yield rattr
 
     # lookup by name
-    def namelookupleaf(self, did, name, *,
+    def namelookup_(self, did, name, *,
             path=False,
             depth=None):
         rbyd = self.rbyd
@@ -1334,7 +1334,7 @@ class Btree:
             path=False,
             depth=None):
         # just discard the rbyd info
-        r = self.namelookupleaf(did, name,
+        r = self.namelookup_(did, name,
                 path=path,
                 depth=depth)
         if path:
@@ -1748,7 +1748,7 @@ class Mtree:
         return cls(bd, mrootchain, mtree,
                 mbits=mbits)
 
-    def _lookupleaf(self, mid, *,
+    def _lookupnext_(self, mid, *,
             path=False,
             depth=None):
         if not isinstance(mid, Mid):
@@ -1783,8 +1783,8 @@ class Mtree:
 
         # mtree? lookup in mtree
         else:
-            # need to do two steps here in case lookupleaf stops early
-            r = self.mtree.lookupleaf(mid.mid,
+            # need to do two steps here in case lookupnext_ stops early
+            r = self.mtree.lookupnext_(mid.mid,
                     path=path or depth,
                     depth=depth-len(path_) if depth else None)
             if path or depth:
@@ -1828,13 +1828,13 @@ class Mtree:
             else:
                 return mdir
 
-    def lookupleaf(self, mid, *,
+    def lookupnext_(self, mid, *,
             mdirs_only=True,
             path=False,
             depth=None):
-        # most of the logic is in _lookupleaf, this just helps
+        # most of the logic is in _lookupnext_, this just helps
         # deduplicate the mdirs_only logic
-        r = self._lookupleaf(mid,
+        r = self._lookupnext_(mid,
                 path=path,
                 depth=depth)
         if path:
@@ -1860,7 +1860,7 @@ class Mtree:
             mid = self.mid(mid)
 
         # lookup the relevant mdir
-        r = self.lookupleaf(mid,
+        r = self.lookupnext_(mid,
                 path=path,
                 depth=depth)
         if path:
@@ -1920,7 +1920,7 @@ class Mtree:
 
             mid = self.mid(0)
             while True:
-                r = self.lookupleaf(mid,
+                r = self.lookupnext_(mid,
                         mdirs_only=False,
                         path=path,
                         depth=depth)
@@ -2098,7 +2098,7 @@ class Mtree:
             if not isinstance(mid, Mid):
                 mid = self.mid(mid)
 
-            r = self.lookupleaf(mid,
+            r = self.lookupnext_(mid,
                     path=path,
                     depth=depth)
             if path:
@@ -2124,7 +2124,7 @@ class Mtree:
                         yield rattr
 
     # lookup by name
-    def _namelookupleaf(self, did, name, *,
+    def _namelookup_(self, did, name, *,
             path=False,
             depth=None):
         if path or depth:
@@ -2150,8 +2150,8 @@ class Mtree:
 
         # mtree? find name in mtree
         else:
-            # need to do two steps here in case namelookupleaf stops early
-            r = self.mtree.namelookupleaf(did, name,
+            # need to do two steps here in case namelookup_ stops early
+            r = self.mtree.namelookup_(did, name,
                     path=path or depth,
                     depth=depth-len(path_) if depth else None)
             if path or depth:
@@ -2195,13 +2195,13 @@ class Mtree:
             else:
                 return mdir
 
-    def namelookupleaf(self, did, name, *,
+    def namelookup_(self, did, name, *,
             mdirs_only=True,
             path=False,
             depth=None):
-        # most of the logic is in _namelookupleaf, this just helps
+        # most of the logic is in _namelookup_, this just helps
         # deduplicate the mdirs_only logic
-        r = self._namelookupleaf(did, name,
+        r = self._namelookup_(did, name,
                 path=path,
                 depth=depth)
         if path:
@@ -2224,7 +2224,7 @@ class Mtree:
             path=False,
             depth=None):
         # lookup the relevant mdir
-        r = self.namelookupleaf(did, name,
+        r = self.namelookup_(did, name,
                 path=path,
                 depth=depth)
         if path:

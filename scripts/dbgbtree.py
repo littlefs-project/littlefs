@@ -1029,7 +1029,7 @@ class Btree:
         shrub = Rbyd.fetchshrub(rbyd, trunk)
         return cls(bd, shrub)
 
-    def lookupleaf(self, bid, *,
+    def lookupnext_(self, bid, *,
             path=False,
             depth=None):
         if not self or bid >= self.weight:
@@ -1088,7 +1088,7 @@ class Btree:
             path=False,
             depth=None):
         # just discard the rbyd info
-        r = self.lookupleaf(bid,
+        r = self.lookupnext_(bid,
                 path=path,
                 depth=depth)
         if path:
@@ -1108,11 +1108,11 @@ class Btree:
         #
         # note this function expects bid to be known, use lookupnext
         # first if you don't care about the exact bid (or better yet,
-        # lookupleaf and call lookup on the returned rbyd)
+        # lookupnext_ and call lookup on the returned rbyd)
         #
         # this matches rbyd's lookup behavior, which needs a known rid
         # to avoid a double lookup
-        r = self.lookupleaf(bid,
+        r = self.lookupnext_(bid,
                 path=path,
                 depth=depth)
         if path:
@@ -1153,7 +1153,7 @@ class Btree:
 
         bid = 0
         while True:
-            r = self.lookupleaf(bid,
+            r = self.lookupnext_(bid,
                     path=path,
                     depth=depth)
             if r:
@@ -1248,7 +1248,7 @@ class Btree:
                             else:
                                 yield bid_, rattr
         else:
-            r = self.lookupleaf(bid,
+            r = self.lookupnext_(bid,
                     path=path,
                     depth=depth)
             if path:
@@ -1271,7 +1271,7 @@ class Btree:
                         yield rattr
 
     # lookup by name
-    def namelookupleaf(self, did, name, *,
+    def namelookup_(self, did, name, *,
             path=False,
             depth=None):
         rbyd = self.rbyd
@@ -1319,7 +1319,7 @@ class Btree:
             path=False,
             depth=None):
         # just discard the rbyd info
-        r = self.namelookupleaf(did, name,
+        r = self.namelookup_(did, name,
                 path=path,
                 depth=depth)
         if path:
