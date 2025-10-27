@@ -10045,13 +10045,13 @@ enum lfs3_tstate {
     LFS3_TSTATE_MROOTANCHOR = 0,
     LFS3_TSTATE_MROOTCHAIN  = 1,
     LFS3_TSTATE_MTREE       = 2,
-    LFS3_TSTATE_MDIRS       = 3,
-    LFS3_TSTATE_MDIR        = 4,
-    LFS3_TSTATE_BTREE       = 5,
-    LFS3_TSTATE_HANDLES     = 6,
-    LFS3_TSTATE_HBTREE      = 7,
-    LFS3_TSTATE_GBMAP       = 8,
-    LFS3_TSTATE_GBMAP_P     = 9,
+    LFS3_TSTATE_GBMAP       = 3,
+    LFS3_TSTATE_GBMAP_P     = 4,
+    LFS3_TSTATE_MDIRS       = 5,
+    LFS3_TSTATE_MDIR        = 6,
+    LFS3_TSTATE_BTREE       = 7,
+    LFS3_TSTATE_HANDLES     = 8,
+    LFS3_TSTATE_HBTREE      = 9,
     LFS3_TSTATE_DONE        = 10,
 };
 
@@ -10114,12 +10114,25 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
                     LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
                     &data);
             if (tag < 0) {
-                // if we have no mtree (inlined mdir), we need to
-                // traverse any files in our mroot next
                 if (tag == LFS3_ERR_NOENT) {
-                    mtrv->b.h.mdir.mid = 0;
-                    lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIR);
-                    continue;
+                    // if we have no mtree (inlined mdir), we need to
+                    // traverse any auxiliary btrees next
+                    if (LFS3_IFDEF_GBMAP(
+                            lfs3_f_isgbmap(lfs3->flags)
+                                && !lfs3_t_ismtreeonly(mtrv->b.h.flags),
+                            false)) {
+                        #ifdef LFS3_GBMAP
+                        mtrv->b.shrub = lfs3->gbmap.b;
+                        lfs3_btrv_init(&mtrv->btrv);
+                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_GBMAP);
+                        continue;
+                        #endif
+                    // or any files in our mroot
+                    } else {
+                        mtrv->b.h.mdir.mid = 0;
+                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIRS);
+                        continue;
+                    }
                 }
                 return tag;
             }
@@ -10193,29 +10206,22 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
             err = lfs3_mtree_lookup(lfs3, mtrv->b.h.mdir.mid,
                     &mtrv->b.h.mdir);
             if (err) {
-                // end of mtree?
+                // end of mtree? guess we're done
                 if (err == LFS3_ERR_NOENT) {
-                    if (LFS3_IFDEF_GBMAP(
-                            lfs3_f_isgbmap(lfs3->flags),
-                            false)) {
-                        #ifdef LFS3_GBMAP
-                        // transition to traversing the gbmap if there is one
-                        mtrv->b.shrub = lfs3->gbmap.b;
-                        lfs3_btrv_init(&mtrv->btrv);
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_GBMAP);
-                        continue;
-                        #endif
-                    } else {
-                        // guess we're done
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_DONE);
-                        continue;
-                    }
+                    // guess we're done
+                    lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_DONE);
+                    continue;
                 }
                 return err;
             }
 
             // transition to traversing the mdir
             lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIR);
+
+            // wait, no mtree? don't repeat the mroot
+            if (lfs3->mtree.r.weight == 0) {
+                continue;
+            }
 
             bptr_->d.u.buffer = (const uint8_t*)&mtrv->b.h.mdir;
             return LFS3_TAG_MDIR;
@@ -10299,10 +10305,10 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
         // traverse any bshrubs/btrees we see, this includes the mtree
         // and any file btrees/bshrubs
         case LFS3_TSTATE_MTREE:;
-        case LFS3_TSTATE_BTREE:;
-        case LFS3_TSTATE_HBTREE:;
         case LFS3_TSTATE_GBMAP:;
         case LFS3_TSTATE_GBMAP_P:;
+        case LFS3_TSTATE_BTREE:;
+        case LFS3_TSTATE_HBTREE:;
             // traverse through our bshrub/btree
             tag = lfs3_bshrub_traverse(lfs3, &mtrv->b, &mtrv->btrv,
                     NULL, NULL, &data);
@@ -10310,9 +10316,52 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
                 if (tag == LFS3_ERR_NOENT) {
                     // clear the bshrub state
                     lfs3_bshrub_init(&mtrv->b);
-                    // end of mtree? start iterating over mdirs
-                    if (lfs3_t_tstate(mtrv->b.h.flags)
-                            == LFS3_TSTATE_MTREE) {
+                    // end of mtree? have a gbmap? not mtreeonly? start
+                    // iterating over the gbmap
+                    if (LFS3_IFDEF_GBMAP(
+                            lfs3_f_isgbmap(lfs3->flags)
+                                && lfs3_t_tstate(mtrv->b.h.flags)
+                                    == LFS3_TSTATE_MTREE
+                                && !lfs3_t_ismtreeonly(mtrv->b.h.flags),
+                            false)) {
+                        #ifdef LFS3_GBMAP
+                        mtrv->b.shrub = lfs3->gbmap.b;
+                        lfs3_btrv_init(&mtrv->btrv);
+                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_GBMAP);
+                        continue;
+                        #endif
+                    // end of gbmap? check if we also have an outdated on-disk
+                    // gbmap that doesn't match the active gbmap
+                    //
+                    // we need to include this in case the gbmap is rebuilt
+                    // multiple times before an mdir commit
+                    } else if (LFS3_IFDEF_GBMAP(
+                            lfs3_f_isgbmap(lfs3->flags)
+                                && lfs3_t_tstate(mtrv->b.h.flags)
+                                    == LFS3_TSTATE_GBMAP
+                                && lfs3_btree_cmp(
+                                    &lfs3->gbmap.b_p,
+                                    &lfs3->gbmap.b) != 0,
+                            false)) {
+                        #ifdef LFS3_GBMAP
+                        mtrv->b.shrub = lfs3->gbmap.b_p;
+                        lfs3_btrv_init(&mtrv->btrv);
+                        lfs3_t_settstate(&mtrv->b.h.flags,
+                                    LFS3_TSTATE_GBMAP_P);
+                        continue;
+                        #endif
+                    // end of mtree and auxiliary btrees? start
+                    // iterating over mdirs
+                    } else if (lfs3_t_tstate(mtrv->b.h.flags)
+                                == LFS3_TSTATE_MTREE
+                            || LFS3_IFDEF_GBMAP(
+                                lfs3_t_tstate(mtrv->b.h.flags)
+                                    == LFS3_TSTATE_GBMAP,
+                                false)
+                            || LFS3_IFDEF_GBMAP(
+                                lfs3_t_tstate(mtrv->b.h.flags)
+                                    == LFS3_TSTATE_GBMAP_P,
+                                false)) {
                         mtrv->b.h.mdir.mid = 0;
                         lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIRS);
                         continue;
@@ -10328,44 +10377,6 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
                         mtrv->h = mtrv->h->next;
                         lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_HANDLES);
                         continue;
-                    // end of gbmap? check if we also have an outdated on-disk
-                    // gbmap
-                    //
-                    // we need to include this in case the gbmap is rebuilt
-                    // multiple times before an mdir commit
-                    } else if (LFS3_IFDEF_GBMAP(
-                            lfs3_f_isgbmap(lfs3->flags)
-                                && lfs3_t_tstate(mtrv->b.h.flags)
-                                    == LFS3_TSTATE_GBMAP,
-                            false)) {
-                        #ifdef LFS3_GBMAP
-                        // if on-disk gbmap does not match the active gbmap,
-                        // transition to traversing the on-disk gbmap
-                        if (lfs3_btree_cmp(
-                                &lfs3->gbmap.b_p,
-                                &lfs3->gbmap.b) != 0) {
-                            mtrv->b.shrub = lfs3->gbmap.b_p;
-                            lfs3_btrv_init(&mtrv->btrv);
-                            lfs3_t_settstate(&mtrv->b.h.flags,
-                                        LFS3_TSTATE_GBMAP_P);
-                            continue;
-                        // otherwise guess we're done
-                        } else {
-                            lfs3_t_settstate(&mtrv->b.h.flags,
-                                    LFS3_TSTATE_DONE);
-                            continue;
-                        }
-                        #endif
-                    // end of on-disk gbmap? guess we're done
-                    } else if (LFS3_IFDEF_GBMAP(
-                            lfs3_f_isgbmap(lfs3->flags)
-                                && lfs3_t_tstate(mtrv->b.h.flags)
-                                    == LFS3_TSTATE_GBMAP_P,
-                            false)) {
-                        #ifdef LFS3_GBMAP
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_DONE);
-                        continue;
-                        #endif
                     } else {
                         LFS3_UNREACHABLE();
                     }
@@ -17156,13 +17167,10 @@ static void lfs3_trv_clobber(lfs3_t *lfs3, lfs3_trv_t *trv) {
         lfs3_bshrub_init(&trv->gc.t.b);
         trv->gc.t.h = NULL;
     // opened mdir? skip to next omdir
-    } else if (lfs3_t_tstate(trv->gc.t.b.h.flags) < LFS3_TSTATE_GBMAP) {
+    } else if (lfs3_t_tstate(trv->gc.t.b.h.flags) < LFS3_TSTATE_DONE) {
         lfs3_t_settstate(&trv->gc.t.b.h.flags, LFS3_TSTATE_HANDLES);
         lfs3_bshrub_init(&trv->gc.t.b);
         trv->gc.t.h = (trv->gc.t.h) ? trv->gc.t.h->next : NULL;
-    // auxiliary btrees? just say we're done
-    } else if (lfs3_t_tstate(trv->gc.t.b.h.flags) < LFS3_TSTATE_DONE) {
-        lfs3_t_settstate(&trv->gc.t.b.h.flags, LFS3_TSTATE_DONE);
     // done traversals should never need clobbering
     } else {
         LFS3_UNREACHABLE();

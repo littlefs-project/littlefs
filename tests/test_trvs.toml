@@ -52,6 +52,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -97,6 +98,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -111,6 +113,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -158,6 +161,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -1816,6 +1820,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -1890,6 +1895,7 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -1945,6 +1951,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -2037,6 +2044,7 @@ code = '''
         lfs3_mkdir(&lfs3, "spider") => 0;
     }
 
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -2106,6 +2114,7 @@ code = '''
         lfs3_remove(&lfs3, "spider") => 0;
     }
 
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -2170,6 +2179,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -2451,12 +2461,13 @@ code = '''
     lfs3_file_write(&lfs3, &file, wbuf1, SIZE) => SIZE;
     lfs3_file_close(&lfs3, &file) => 0;
 
-    // we should be at end of traversal now
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         assert(tinfo.block == 2);
     }
+    // we should be at end of traversal now
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2538,6 +2549,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse btree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -2564,11 +2581,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2650,6 +2662,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse one data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -2670,11 +2688,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2765,12 +2778,13 @@ code = '''
     lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
     lfs3_file_flush(&lfs3, &file1) => 0;
 
-    // we should be at end of traversal now
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         assert(tinfo.block == 2);
     }
+    // we should be at end of traversal now
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2856,6 +2870,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse btree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -2880,11 +2900,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -2970,6 +2985,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse one data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -2988,11 +3009,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3079,6 +3095,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
 
     // close the file
     if (DESYNC) {
@@ -3087,11 +3109,6 @@ code = '''
     lfs3_file_close(&lfs3, &file1) => 0;
 
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3186,6 +3203,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse btree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -3208,11 +3231,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3307,6 +3325,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse one data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3323,11 +3347,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3420,6 +3439,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse one data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3433,11 +3458,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3528,6 +3548,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse one data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3546,11 +3572,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3642,6 +3663,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse one data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3655,11 +3682,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3772,11 +3794,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3866,6 +3883,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse a data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3900,11 +3923,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -3999,6 +4017,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4028,11 +4052,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4127,11 +4146,6 @@ code = '''
         lfs3_remove(&lfs3, "uloborus") => 0;
     }
 
-    // traverse mroot
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4143,11 +4157,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4230,6 +4239,12 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse a data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4252,11 +4267,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4360,11 +4370,6 @@ code = '''
     // still traverse inlined mroots, so if this breaks in the future
     // I wouldn't worry too much about it
     //
-    // traverse mroot
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4376,11 +4381,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4476,6 +4476,12 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse a data block
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4499,11 +4505,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4675,11 +4676,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -4813,6 +4809,12 @@ code = '''
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse mdir
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -4868,11 +4870,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5006,6 +5003,12 @@ code = '''
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse mdir
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -5055,11 +5058,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5239,11 +5237,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5383,6 +5376,12 @@ code = '''
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse mdir
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -5430,11 +5429,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5620,11 +5614,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5773,6 +5762,12 @@ code = '''
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse mdir
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -5821,11 +5816,6 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
     // we should be at end of traversal now
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
@@ -5927,6 +5917,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -6075,6 +6066,7 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -6208,6 +6200,7 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -6364,21 +6357,22 @@ code = '''
     // should have split, traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
-    // traverse mdir
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    // traverse mdir
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         assert(tinfo.block == 2);
     }
+    // traverse mdir
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse mdir
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdirs should have been compacted
@@ -6587,26 +6581,27 @@ code = '''
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
-    // traverse mdir
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    // traverse mdir
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    // traverse mdir
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         assert(tinfo.block == 2);
     }
+    // traverse mdir
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse mdir
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse mdir
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     if (COMPACTSET) {
@@ -6824,6 +6819,12 @@ code = '''
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
     // traverse mdir
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -6844,11 +6845,6 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
     // mdirs should have been compacted
@@ -7031,10 +7027,23 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    if (ORPHANS > 3) {
+    if (ORPHANS <= 3) {
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
+    } else {
         // traverse mtree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -7044,11 +7053,6 @@ code = '''
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    }
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7193,6 +7197,12 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         assert(tinfo.block == 0 || tinfo.block == 1);
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
     } else {
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -7203,11 +7213,6 @@ code = '''
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    }
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7354,6 +7359,12 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS <= 3) {
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse btree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -7364,6 +7375,12 @@ code = '''
         // traverse mtree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -7380,11 +7397,6 @@ code = '''
         // traverse btree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-    }
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7530,6 +7542,12 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS <= 3) {
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse btree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -7540,6 +7558,12 @@ code = '''
         // traverse mtree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -7556,11 +7580,6 @@ code = '''
         // traverse btree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-    }
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7707,6 +7726,12 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS <= 3) {
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse bshrub
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -7721,6 +7746,12 @@ code = '''
         // traverse mtree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -7741,11 +7772,6 @@ code = '''
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-    }
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7892,6 +7918,12 @@ code = '''
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
     if (ORPHANS <= 3) {
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse bshrub
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -7906,6 +7938,12 @@ code = '''
         // traverse mtree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -7926,11 +7964,6 @@ code = '''
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
-    }
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -8097,10 +8130,23 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
-    if (ORPHANS > 3) {
+    if (ORPHANS <= 3) {
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
+    } else {
         // traverse mtree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -8110,11 +8156,6 @@ code = '''
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    }
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
@@ -8313,6 +8354,12 @@ code = '''
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         assert(tinfo.block == 0 || tinfo.block == 1);
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
     } else {
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -8323,11 +8370,6 @@ code = '''
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    }
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
