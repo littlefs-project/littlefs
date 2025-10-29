@@ -338,7 +338,6 @@ enum lfs3_btype {
 
 // internally used flags, don't use these
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
-#define LFS3_t_TSTATE   0x000f0000  // The current traversal state
 #define LFS3_t_BTYPE    0x00f00000  // The current block type
 #define LFS3_t_ZOMBIE   0x08000000  // File has been removed
 #define LFS3_t_DIRTY    0x04000000  // Filesystem ckpointed outside traversal
@@ -858,14 +857,26 @@ typedef struct lfs3_btrv {
     lfs3_srid_t rid;
 } lfs3_btrv_t;
 
+typedef struct lfs3_mtortoise {
+    // this aligns with btrv.bid
+    lfs3_sbid_t bid;
+    lfs3_block_t blocks[2];
+    lfs3_block_t dist;
+    uint8_t nlog2;
+} lfs3_mtortoise_t;
+
 typedef struct lfs3_mtrv {
-    // mdir/bshrub/btree state, this also includes our traversal
-    // state machine and cycle detection state
-    lfs3_bshrub_t b;
-    // opened file state
-    lfs3_handle_t *h;
-    // bshrub/btree traversal state
-    lfs3_btrv_t btrv;
+    // mtree traversal state, our position in then handle linked-list
+    // is also used to keep track of what handles we've seen
+    lfs3_handle_t h;
+    // current bshrub/btree
+    lfs3_btree_t b;
+    union {
+        // bshrub/btree traversal state
+        lfs3_btrv_t btrv;
+        // mtortoise for cycle detection
+        lfs3_mtortoise_t mtortoise;
+    } u;
 
     // recalculate gcksum when traversing with ckmeta
     uint32_t gcksum;

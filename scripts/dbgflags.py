@@ -154,18 +154,6 @@ t_BOOKMARK      = 0x40000000  # i^  Type = bookmark
 t_ORPHAN        = 0x50000000  # i^  Type = orphan
 t_TRAVERSAL     = 0x60000000  # i^  Type = traversal
 t_UNKNOWN       = 0x70000000  # i^  Type = unknown
-t_TSTATE        = 0x000f0000  # im  The current traversal state
-t_MROOTANCHOR   = 0x00000000  # i^  Tstate = mroot-anchor
-t_MROOTCHAIN    = 0x00010000  # i^  Tstate = mroot-chain
-t_MTREE         = 0x00020000  # i^  Tstate = mtree
-t_MDIRS         = 0x00030000  # i^  Tstate = mtree-mdirs
-t_MDIR          = 0x00040000  # i^  Tstate = mdir
-t_BTREE         = 0x00050000  # i^  Tstate = btree
-t_HANDLES       = 0x00060000  # i^  Tstate = open-mdirs
-t_HBTREE        = 0x00070000  # i^  Tstate = open-btree
-t_GBMAP         = 0x00080000  # i^  Tstate = gbmap
-t_GBMAP_P       = 0x00090000  # i^  Tstate = gbmap_p
-t_DONE          = 0x000a0000  # i^  Tstate = done
 t_BTYPE         = 0x00f00000  # im  The current block type
 t_MDIR          = 0x00100000  # i^  Btype = mdir
 t_BTREE         = 0x00200000  # i^  Btype = btree

@@ -6819,10 +6819,11 @@ static lfs3_stag_t lfs3_mdir_lookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
 // is one
 //
 // note we don't mess with bshrub on error!
-static int lfs3_bshrub_fetch(lfs3_t *lfs3, lfs3_bshrub_t *bshrub) {
+static int lfs3_bshrub_fetch_(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
+        lfs3_btree_t *btree) {
     // lookup the file struct, if there is one
     lfs3_data_t data;
-    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &bshrub->h.mdir,
+    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mdir,
             LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
             &data);
     if (tag < 0) {
@@ -6839,7 +6840,7 @@ static int lfs3_bshrub_fetch(lfs3_t *lfs3, lfs3_bshrub_t *bshrub) {
 
     // found a bshrub? (inlined btree)
     if (tag == LFS3_TAG_BSHRUB) {
-        int err = lfs3_data_readshrub(lfs3, &bshrub->h.mdir, &data,
+        int err = lfs3_data_readshrub(lfs3, mdir, &data,
                 &btree_.r);
         if (err) {
             return err;
@@ -6860,8 +6861,12 @@ static int lfs3_bshrub_fetch(lfs3_t *lfs3, lfs3_bshrub_t *bshrub) {
     }
 
     // update the bshrub/btree
-    bshrub->shrub = btree_;
+    *btree = btree_;
     return 0;
+}
+
+static int lfs3_bshrub_fetch(lfs3_t *lfs3, lfs3_bshrub_t *bshrub) {
+    return lfs3_bshrub_fetch_(lfs3, &bshrub->h.mdir, &bshrub->shrub);
 }
 
 // find a tight upper bound on the _full_ bshrub size, this includes
@@ -7136,7 +7141,7 @@ static inline lfs3_sbid_t lfs3_mbid(const lfs3_t *lfs3, lfs3_smid_t mid) {
 }
 
 static inline lfs3_srid_t lfs3_mrid(const lfs3_t *lfs3, lfs3_smid_t mid) {
-    // bit of a strange mapping, but we want to preserve mid=-1 => rid=-1
+    // bit of a strange mapping, but we want to preserve mid<=-1 => rid=-1
     return (mid >> (8*sizeof(lfs3_smid_t)-1))
             | (mid & ((1 << lfs3->mbits) - 1));
 }
@@ -7314,9 +7319,9 @@ static inline void lfs3_o_settype(uint32_t *flags, uint8_t type) {
     *flags = (*flags & ~LFS3_o_TYPE) | lfs3_o_typeflags(type);
 }
 
+// TODO drop for lfs3_o_type(flags) == LFS3_TYPE_REG?
 static inline bool lfs3_o_isbshrub(uint32_t flags) {
-    return lfs3_o_type(flags) == LFS3_TYPE_REG
-            || lfs3_o_type(flags) == LFS3_type_TRV;
+    return lfs3_o_type(flags) == LFS3_TYPE_REG;
 }
 
 static inline bool lfs3_o_iszombie(uint32_t flags) {
@@ -7417,18 +7422,6 @@ static inline bool lfs3_t_isckdata(uint32_t flags) {
 }
 
 // internal traversal flags
-static inline uint8_t lfs3_t_tstate(uint32_t flags) {
-    return (flags >> 16) & 0xf;
-}
-
-static inline uint32_t lfs3_t_tstateflags(uint8_t tstate) {
-    return (uint32_t)tstate << 16;
-}
-
-static inline void lfs3_t_settstate(uint32_t *flags, uint8_t tstate) {
-    *flags = (*flags & ~LFS3_t_TSTATE) | lfs3_t_tstateflags(tstate);
-}
-
 static inline uint8_t lfs3_t_btype(uint32_t flags) {
     return (flags >> 20) & 0xf;
 }
@@ -7577,25 +7570,21 @@ static void lfs3_handle_open(lfs3_t *lfs3, lfs3_handle_t *h) {
     lfs3->handles = h;
 }
 
-// needed in lfs3_handle_close
-static void lfs3_handle_clobber(lfs3_t *lfs3, const lfs3_handle_t *h);
-
-static void lfs3_handle_close(lfs3_t *lfs3, lfs3_handle_t *h) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, h));
-    // make sure we're not entangled in any traversals
-    //
-    // this isn't necessary in rdonly mode since it's not possible for
-    // handles to become unsynced
-    #ifndef LFS3_RDONLY
-    lfs3_handle_clobber(lfs3, h);
-    #endif
+static bool lfs3_handle_close_(lfs3_t *lfs3, lfs3_handle_t *h) {
     // remove from opened list
     for (lfs3_handle_t **h_ = &lfs3->handles; *h_; h_ = &(*h_)->next) {
         if (*h_ == h) {
             *h_ = (*h_)->next;
-            break;
+            return true;
         }
     }
+
+    return false;
+}
+
+static void lfs3_handle_close(lfs3_t *lfs3, lfs3_handle_t *h) {
+    LFS3_ASSERT(lfs3_handle_isopen(lfs3, h));
+    lfs3_handle_close_(lfs3, h);
 }
 
 // check if a given mid is open
@@ -7615,23 +7604,30 @@ static bool lfs3_mid_isopen(const lfs3_t *lfs3,
     return false;
 }
 
-// traversal invalidation things
+// traversal things
+//
+// we use the traversal handle itself as a cursor in the handle list,
+// this avoids entangling too many pointers at the cost of needing more
+// iterations through the handle list
 
-// needed in lfs3_handle_clobber
-static void lfs3_trv_clobber(lfs3_t *lfs3, lfs3_trv_t *trv);
-
-// clobber traversals referencing a handle
-#ifndef LFS3_RDONLY
-static void lfs3_handle_clobber(lfs3_t *lfs3, const lfs3_handle_t *h) {
-    for (lfs3_handle_t *h_ = lfs3->handles; h_; h_ = h_->next) {
-        if (lfs3_o_type(h_->flags) == LFS3_type_TRV) {
-            if (((lfs3_trv_t*)h_)->gc.t.h == h) {
-                lfs3_trv_clobber(lfs3, (lfs3_trv_t*)h_);
-            }
-        }
+static void lfs3_handle_rewind(lfs3_t *lfs3, lfs3_handle_t *h) {
+    bool entangled = lfs3_handle_close_(lfs3, h);
+    h->next = lfs3->handles;
+    if (entangled) {
+        lfs3->handles = h;
     }
 }
-#endif
+
+// seek _after_ h_
+static void lfs3_handle_seek(lfs3_t *lfs3, lfs3_handle_t *h,
+        lfs3_handle_t **h_) {
+    bool entangled = lfs3_handle_close_(lfs3, h);
+    h->next = *h_;
+    if (entangled) {
+        *h_ = h;
+    }
+}
+
 
 
 /// Global-state things ///
@@ -7991,7 +7987,7 @@ static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     #ifdef LFS3_REVDBG
     if (lfs3_m_isrevdbg(lfs3->flags)) {
         // mroot?
-        if (mdir->mid == -1 || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
+        if (mdir->mid <= -1 || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
             rev |= 0x007e726d; // mr~r
         // mdir?
         } else {
@@ -8659,7 +8655,7 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
     // remove up to upper layers.
     if (mdir_->r.weight == 0
             // unless we are an mroot
-            && !(mdir_->mid == -1
+            && !(mdir_->mid <= -1
                 || lfs3_mdir_cmp(mdir_, &lfs3->mroot) == 0)) {
         // note! we can no longer read from this mdir as our pcache may
         // be clobbered
@@ -9140,7 +9136,7 @@ static inline void lfs3_file_discardleaf(lfs3_file_t *file);
 static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
     // non-mroot mdirs must have weight
-    LFS3_ASSERT(mdir->mid == -1
+    LFS3_ASSERT(mdir->mid <= -1
             // note inlined mdirs are mroots with mid != -1
             || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0
             || mdir->r.weight > 0);
@@ -9152,7 +9148,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // play out any rattrs that affect our grm _before_ committing to disk,
     // keep in mind we revert to on-disk gstate if we run into an error
-    lfs3_smid_t mid_ = mdir->mid;
+    lfs3_smid_t mid_ = lfs3_smax(mdir->mid, -1);
     for (lfs3_size_t i = 0; i < rattr_count; i++) {
         // push a new grm, this tag lets us push grms atomically when
         // creating new mids
@@ -9481,7 +9477,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                         LFS3_TAG_MASK8 | LFS3_TAG_MTREE, 0,
                         &mtree_),
                     // were we committing to the mroot? include any -1 rattrs
-                    (mdir->mid == -1)
+                    (mdir->mid <= -1)
                         ? LFS3_RATTR_RATTRS(rattrs, rattr_count)
                         : LFS3_RATTR_NOOP()));
         if (err) {
@@ -9604,7 +9600,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     ///////////////////////////////////////////////////////////////////////
 
     // play out any rattrs that affect internal state
-    mid_ = mdir->mid;
+    mid_ = lfs3_smax(mdir->mid, -1);
     for (lfs3_size_t i = 0; i < rattr_count; i++) {
         // adjust any opened mdirs
         for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
@@ -9626,20 +9622,6 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
         // adjust mid
         mid_ = lfs3_rattr_nextrid(rattrs[i], mid_);
-    }
-
-    // if mroot/mtree changed, clobber any mroot/mtree traversals
-    if (lfs3_mdir_cmp(&mroot_, &lfs3->mroot) != 0
-            || lfs3_btree_cmp(&mtree_, &lfs3->mtree) != 0) {
-        for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-            if (lfs3_o_type(h->flags) == LFS3_type_TRV
-                    && h->mdir.mid == -1
-                    // don't clobber the current mdir, assume upper layers
-                    // know what they're doing
-                    && &h->mdir != mdir) {
-                lfs3_trv_clobber(lfs3, (lfs3_trv_t*)h);
-            }
-        }
     }
 
     // update internal mdir state
@@ -9666,7 +9648,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // update mdir to follow requested rid
     if (mdelta > 0
-            && mdir->mid == -1) {
+            && mdir->mid <= -1) {
         lfs3_mdir_sync(mdir, &mroot_);
     } else if (mdelta > 0
             && lfs3_mrid(lfs3, mdir->mid)
@@ -10039,109 +10021,103 @@ static lfs3_stag_t lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
 
 /// Mtree traversal ///
 
-// traversing littlefs is a bit complex, so we use a state machine to keep
-// track of where we are
-enum lfs3_tstate {
-    LFS3_TSTATE_MROOTANCHOR = 0,
-    LFS3_TSTATE_MROOTCHAIN  = 1,
-    LFS3_TSTATE_MTREE       = 2,
-    LFS3_TSTATE_GBMAP       = 3,
-    LFS3_TSTATE_GBMAP_P     = 4,
-    LFS3_TSTATE_MDIRS       = 5,
-    LFS3_TSTATE_MDIR        = 6,
-    LFS3_TSTATE_BTREE       = 7,
-    LFS3_TSTATE_HANDLES     = 8,
-    LFS3_TSTATE_HBTREE      = 9,
-    LFS3_TSTATE_DONE        = 10,
+// special metadata ids
+enum {
+    // mids < -1 are used to encode traversal states
+    LFS3_MID_MROOTANCHOR = -5,
+    LFS3_MID_MTREE       = -4,
+    LFS3_MID_GBMAP       = -3,
+    LFS3_MID_GBMAP_P     = -2,
+    // mid = -1 is reserved for mdir-level tags
+    // mids >= -1 represent mid-level tags
+};
+
+// special btree ids
+enum {
+    // bids < -1 are used to encode traversal states
+    LFS3_BID_MDIR = -2,
+    // bids >= -1 map to btrv steps
 };
 
 static void lfs3_mtrv_init(lfs3_mtrv_t *mtrv, uint32_t flags) {
-    mtrv->b.h.flags = lfs3_o_typeflags(LFS3_type_TRV)
-            | lfs3_t_tstateflags(LFS3_TSTATE_MROOTANCHOR)
-            | flags;
-    mtrv->b.h.mdir.mid = -1;
-    mtrv->b.h.mdir.r.weight = 0;
-    mtrv->b.h.mdir.r.blocks[0] = -1;
-    mtrv->b.h.mdir.r.blocks[1] = -1;
-    lfs3_bshrub_init(&mtrv->b);
-    // reuse the shrub as a tortoise to save memory, see
-    // lfs3_mtree_traverse_:
-    // - shrub.blocks => tortoise blocks
-    // - shrub.weight => cycle distance
-    // - shrub.eoff => power-of-two bound
-    mtrv->b.shrub.r.blocks[0] = -1;
-    mtrv->b.shrub.r.blocks[1] = -1;
-    mtrv->b.shrub.r.weight = 0;
-    #ifndef LFS3_RDONLY
-    mtrv->b.shrub.r.eoff = 0;
-    #endif
-    mtrv->h = NULL;
+    // start at the mroot anchor
+    mtrv->h.mdir.mid = LFS3_MID_MROOTANCHOR;
+    mtrv->u.btrv.bid = LFS3_BID_MDIR;
+    mtrv->h.flags = lfs3_o_typeflags(LFS3_type_TRV) | flags;
+    mtrv->h.mdir.r.weight = 0;
+    mtrv->h.mdir.r.blocks[0] = -1;
+    mtrv->h.mdir.r.blocks[1] = -1;
     mtrv->gcksum = 0;
+}
+
+static void lfs3_mtrv_ckpoint(lfs3_mtrv_t *mtrv) {
+    // mark as ckpointed and dirty
+    mtrv->h.flags |= LFS3_t_CKPOINTED | LFS3_t_DIRTY;
+
+    // when tracked, our mdir should be kept in-sync, but we need to
+    // discard any btrees/bshrubs that may fall out-of-date
+    //
+    // this may revisit seen blocks, but that's ok because this was
+    // always possible due to CoW references
+    mtrv->u.btrv.bid = LFS3_BID_MDIR;
 }
 
 static void lfs3_mgc_init(lfs3_mgc_t *mgc, uint32_t flags) {
     lfs3_mtrv_init(&mgc->t, flags);
 }
 
+static void lfs3_mgc_ckpoint(lfs3_mgc_t *mgc) {
+    lfs3_mtrv_ckpoint(&mgc->t);
+}
+
 // low-level traversal _only_ finds blocks
 static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
         lfs3_bptr_t *bptr_) {
-    while (true) {
-        switch (lfs3_t_tstate(mtrv->b.h.flags)) {
-        // start with the mrootanchor 0x{0,1}
+again:;
+    // fetch a btree/bshrub?
+    if (mtrv->u.btrv.bid == LFS3_BID_MDIR) {
+        // default to null btree
+        lfs3_btree_init(&mtrv->b);
+        // reset our position in the opened handles
         //
-        // note we make sure to include all mroots in our mroot chain!
-        //
-        case LFS3_TSTATE_MROOTANCHOR:;
-            // fetch the first mroot 0x{0,1}
-            int err = lfs3_mdir_fetch(lfs3, &mtrv->b.h.mdir,
-                    -1, LFS3_MPTR_MROOTANCHOR());
+        // after traversing on-disk bshrubs/btrees, we'll need
+        // to traverse any open bshrubs/btrees
+        lfs3_handle_rewind(lfs3, &mtrv->h);
+
+        // fetch mroot anchor (mdir 0x{0,1})?
+        if (mtrv->h.mdir.mid == LFS3_MID_MROOTANCHOR) {
+            int err = lfs3_mdir_fetch(lfs3, &mtrv->h.mdir,
+                    LFS3_MID_MTREE, LFS3_MPTR_MROOTANCHOR());
             if (err) {
                 return err;
             }
 
-            // transition to traversing the mroot chain
-            lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MROOTCHAIN);
+            // setup mtortoise to detect cycles
+            mtrv->u.mtortoise.blocks[0] = mtrv->h.mdir.r.blocks[0];
+            mtrv->u.mtortoise.blocks[0] = mtrv->h.mdir.r.blocks[1];
+            mtrv->u.mtortoise.dist = 0;
+            mtrv->u.mtortoise.nlog2 = 0;
 
-            bptr_->d.u.buffer = (const uint8_t*)&mtrv->b.h.mdir;
+            // traverse the mroot anchor
+            bptr_->d.u.buffer = (const uint8_t*)&mtrv->h.mdir;
             return LFS3_TAG_MDIR;
 
-        // traverse the mroot chain, checking for mroots/mtrees
-        case LFS3_TSTATE_MROOTCHAIN:;
-            // lookup mroot, if we find one this is not the active mroot
+        // try to fetch either another mroot in the mroot chain, or
+        // the mtree if we find it
+        } else if (mtrv->h.mdir.mid == LFS3_MID_MTREE) {
             lfs3_data_t data;
-            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &mtrv->b.h.mdir,
+            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &mtrv->h.mdir,
                     LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
                     &data);
-            if (tag < 0) {
-                if (tag == LFS3_ERR_NOENT) {
-                    // if we have no mtree (inlined mdir), we need to
-                    // traverse any auxiliary btrees next
-                    if (LFS3_IFDEF_GBMAP(
-                            lfs3_f_isgbmap(lfs3->flags)
-                                && !lfs3_t_ismtreeonly(mtrv->b.h.flags),
-                            false)) {
-                        #ifdef LFS3_GBMAP
-                        mtrv->b.shrub = lfs3->gbmap.b;
-                        lfs3_btrv_init(&mtrv->btrv);
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_GBMAP);
-                        continue;
-                        #endif
-                    // or any files in our mroot
-                    } else {
-                        mtrv->b.h.mdir.mid = 0;
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIRS);
-                        continue;
-                    }
-                }
+            if (tag < 0 && tag != LFS3_ERR_NOENT) {
                 return tag;
             }
 
-            // found a new mroot
+            // found a new mroot?
             if (tag == LFS3_TAG_MROOT) {
                 // fetch this mroot
-                err = lfs3_data_fetchmdir(lfs3, &data, -1,
-                        &mtrv->b.h.mdir);
+                int err = lfs3_data_fetchmdir(lfs3, &data, LFS3_MID_MTREE,
+                        &mtrv->h.mdir);
                 if (err) {
                     return err;
                 }
@@ -10152,263 +10128,179 @@ static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
                 // btree inner nodes require checksums of their pointers,
                 // so creating a valid cycle is actually quite difficult
                 //
-                // the big hack here is we repurpose our shrub as a tortoise
-                // to save memory, unfortunately there's not an easy way to
-                // union these in C:
-                //
-                // - shrub.blocks => tortoise blocks
-                // - shrub.weight => cycle distance
-                // - shrub.trunk => power-of-two bound
-                //
                 if (lfs3_mptr_cmp(
-                        mtrv->b.h.mdir.r.blocks,
-                        mtrv->b.shrub.r.blocks) == 0) {
+                        mtrv->h.mdir.r.blocks,
+                        mtrv->u.mtortoise.blocks) == 0) {
                     LFS3_ERROR("Cycle detected during mtree traversal "
                                 "0x{%"PRIx32",%"PRIx32"}",
-                            mtrv->b.h.mdir.r.blocks[0],
-                            mtrv->b.h.mdir.r.blocks[1]);
+                            mtrv->h.mdir.r.blocks[0],
+                            mtrv->h.mdir.r.blocks[1]);
                     return LFS3_ERR_CORRUPT;
                 }
-                if (mtrv->b.shrub.r.weight == (1U << mtrv->b.shrub.r.trunk)) {
-                    mtrv->b.shrub.r.blocks[0] = mtrv->b.h.mdir.r.blocks[0];
-                    mtrv->b.shrub.r.blocks[1] = mtrv->b.h.mdir.r.blocks[1];
-                    mtrv->b.shrub.r.weight = 0;
-                    mtrv->b.shrub.r.trunk += 1;
+                if (mtrv->u.mtortoise.dist
+                        == (1U << mtrv->u.mtortoise.nlog2)) {
+                    mtrv->u.mtortoise.blocks[0] = mtrv->h.mdir.r.blocks[0];
+                    mtrv->u.mtortoise.blocks[1] = mtrv->h.mdir.r.blocks[1];
+                    mtrv->u.mtortoise.dist = 0;
+                    mtrv->u.mtortoise.nlog2 += 1;
                 }
-                mtrv->b.shrub.r.weight += 1;
+                mtrv->u.mtortoise.dist += 1;
 
-                bptr_->d.u.buffer = (const uint8_t*)&mtrv->b.h.mdir;
+                bptr_->d.u.buffer = (const uint8_t*)&mtrv->h.mdir;
                 return LFS3_TAG_MDIR;
 
             // found an mtree?
             } else if (tag == LFS3_TAG_MTREE) {
                 // fetch the root of the mtree
-                err = lfs3_data_fetchbtree(lfs3, &data,
-                        &mtrv->b.shrub);
+                int err = lfs3_data_fetchbtree(lfs3, &data,
+                        &mtrv->b);
                 if (err) {
                     return err;
                 }
 
-                // transition to traversing the mtree
-                lfs3_btrv_init(&mtrv->btrv);
-                lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MTREE);
-                continue;
-
-            } else {
+            // found something else?
+            } else if (tag != LFS3_ERR_NOENT) {
                 LFS3_ERROR("Weird mroot entry? 0x%"PRIx32, tag);
                 return LFS3_ERR_CORRUPT;
             }
-            LFS3_UNREACHABLE();
 
-        // iterate over mdirs in the mtree
-        case LFS3_TSTATE_MDIRS:;
-            // find the next mdir
-            err = lfs3_mtree_lookup(lfs3, mtrv->b.h.mdir.mid,
-                    &mtrv->b.h.mdir);
-            if (err) {
-                // end of mtree? guess we're done
-                if (err == LFS3_ERR_NOENT) {
-                    // guess we're done
-                    lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_DONE);
-                    continue;
-                }
-                return err;
-            }
+        // traverse the gbmap if we have one
+        } else if (LFS3_IFDEF_GBMAP(
+                mtrv->h.mdir.mid == LFS3_MID_GBMAP
+                    && lfs3_f_isgbmap(lfs3->flags)
+                    && !lfs3_t_ismtreeonly(mtrv->h.flags),
+                false)) {
+            #ifdef LFS3_GBMAP
+            mtrv->b = lfs3->gbmap.b;
+            #endif
 
-            // transition to traversing the mdir
-            lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIR);
+        // traverse on-disk gbmap if it doesn't match our in-RAM
+        // snapshot
+        //
+        // we need to include this in case the gbmap is rebuilt
+        // multiple times before an mdir commit
+        } else if (LFS3_IFDEF_GBMAP(
+                mtrv->h.mdir.mid == LFS3_MID_GBMAP_P
+                    && lfs3_f_isgbmap(lfs3->flags)
+                    && !lfs3_t_ismtreeonly(mtrv->h.flags)
+                    && lfs3_btree_cmp(
+                        &lfs3->gbmap.b_p,
+                        &lfs3->gbmap.b) != 0,
+                false)) {
+            #ifdef LFS3_GBMAP
+            mtrv->b = lfs3->gbmap.b_p;
+            #endif
 
-            // wait, no mtree? don't repeat the mroot
-            if (lfs3->mtree.r.weight == 0) {
-                continue;
-            }
-
-            bptr_->d.u.buffer = (const uint8_t*)&mtrv->b.h.mdir;
-            return LFS3_TAG_MDIR;
-
-        // scan for blocks/btrees in the current mdir
-        case LFS3_TSTATE_MDIR:;
-            // not traversing all blocks? have we exceeded our mdir's weight?
-            // return to mtree iteration
-            if (lfs3_t_ismtreeonly(mtrv->b.h.flags)
-                    || lfs3_mrid(lfs3, mtrv->b.h.mdir.mid)
-                        >= (lfs3_srid_t)mtrv->b.h.mdir.r.weight) {
-                mtrv->b.h.mdir.mid = lfs3_mbid(lfs3, mtrv->b.h.mdir.mid) + 1;
-                lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIRS);
-                continue;
-            }
-
-            // do we have a bshrub/btree?
-            err = lfs3_bshrub_fetch(lfs3, &mtrv->b);
+        // fetch the next btree/bshrub
+        } else if (mtrv->h.mdir.mid >= 0
+                && !lfs3_t_ismtreeonly(mtrv->h.flags)) {
+            // try to fetch bshrub/btree, if we don't find one
+            // that's ok
+            int err = lfs3_bshrub_fetch_(lfs3, &mtrv->h.mdir, &mtrv->b);
             if (err && err != LFS3_ERR_NOENT) {
                 return err;
             }
+        }
 
-            // found a bshrub/btree? note we may also run into dirs/dids
-            // here, lfs3_bshrub_fetch ignores these for us
-            if (err != LFS3_ERR_NOENT) {
-                // start traversing
-                lfs3_btrv_init(&mtrv->btrv);
-                lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_BTREE);
-                continue;
+        mtrv->u.btrv.bid = -1;
+    }
 
-            // no? next we need to check any opened files
-            } else {
-                mtrv->h = lfs3->handles;
-                lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_HANDLES);
-                continue;
+    // traverse any btrees/bshrubs we find
+    LFS3_ASSERT(mtrv->u.btrv.bid >= -1);
+    while (true) {
+        lfs3_data_t data;
+        lfs3_stag_t tag = lfs3_btree_traverse(lfs3, &mtrv->b, &mtrv->u.btrv,
+                NULL, NULL, &data);
+        if (tag < 0) {
+            if (tag == LFS3_ERR_NOENT) {
+                break;
             }
-            LFS3_UNREACHABLE();
+            return tag;
+        }
 
-        // scan for blocks/btrees in our opened file list
-        case LFS3_TSTATE_HANDLES:;
-            // reached end of opened files? return to mdir traversal
-            //
-            // note we can skip checking opened files if mounted rdonly,
-            // this saves a bit of code when compiled rdonly
-            if (lfs3_m_isrdonly(lfs3->flags) || !mtrv->h) {
-                mtrv->h = NULL;
-                mtrv->b.h.mdir.mid += 1;
-                lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIR);
-                continue;
-            }
+        // found an inner btree node?
+        if (tag == LFS3_TAG_BRANCH) {
+            bptr_->d = data;
+            return LFS3_TAG_BRANCH;
 
-            // skip unrelated files, we only care about unsync reg files
-            // associated with the current mid
-            //
-            // we traverse mids separately to make recovery from clobbered
-            // traversals easier, which means this grows O(n^2) if you have
-            // literally every file open, but other things grow O(n^2) with
-            // this list anyways
-            //
-            if (mtrv->h->mdir.mid != mtrv->b.h.mdir.mid
-                    || lfs3_o_type(mtrv->h->flags) != LFS3_TYPE_REG
-                    || !lfs3_o_isunsync(mtrv->h->flags)) {
-                mtrv->h = mtrv->h->next;
-                continue;
+        // found an indirect block?
+        } else if (tag == LFS3_TAG_BLOCK) {
+            int err = lfs3_data_readbptr(lfs3, &data,
+                    bptr_);
+            if (err) {
+                return err;
             }
 
-            // transition to traversing the file
-            const lfs3_file_t *file = (const lfs3_file_t*)mtrv->h;
-            mtrv->b.shrub = file->b.shrub;
-            lfs3_btrv_init(&mtrv->btrv);
-            lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_HBTREE);
-
-            // wait, do we have an ungrafted leaf?
-            if (lfs3_o_isungraft(file->b.h.flags)) {
-                *bptr_ = file->leaf.bptr;
-                return LFS3_TAG_BLOCK;
-            }
-
-            continue;
-
-        // traverse any bshrubs/btrees we see, this includes the mtree
-        // and any file btrees/bshrubs
-        case LFS3_TSTATE_MTREE:;
-        case LFS3_TSTATE_GBMAP:;
-        case LFS3_TSTATE_GBMAP_P:;
-        case LFS3_TSTATE_BTREE:;
-        case LFS3_TSTATE_HBTREE:;
-            // traverse through our bshrub/btree
-            tag = lfs3_bshrub_traverse(lfs3, &mtrv->b, &mtrv->btrv,
-                    NULL, NULL, &data);
-            if (tag < 0) {
-                if (tag == LFS3_ERR_NOENT) {
-                    // clear the bshrub state
-                    lfs3_bshrub_init(&mtrv->b);
-                    // end of mtree? have a gbmap? not mtreeonly? start
-                    // iterating over the gbmap
-                    if (LFS3_IFDEF_GBMAP(
-                            lfs3_f_isgbmap(lfs3->flags)
-                                && lfs3_t_tstate(mtrv->b.h.flags)
-                                    == LFS3_TSTATE_MTREE
-                                && !lfs3_t_ismtreeonly(mtrv->b.h.flags),
-                            false)) {
-                        #ifdef LFS3_GBMAP
-                        mtrv->b.shrub = lfs3->gbmap.b;
-                        lfs3_btrv_init(&mtrv->btrv);
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_GBMAP);
-                        continue;
-                        #endif
-                    // end of gbmap? check if we also have an outdated on-disk
-                    // gbmap that doesn't match the active gbmap
-                    //
-                    // we need to include this in case the gbmap is rebuilt
-                    // multiple times before an mdir commit
-                    } else if (LFS3_IFDEF_GBMAP(
-                            lfs3_f_isgbmap(lfs3->flags)
-                                && lfs3_t_tstate(mtrv->b.h.flags)
-                                    == LFS3_TSTATE_GBMAP
-                                && lfs3_btree_cmp(
-                                    &lfs3->gbmap.b_p,
-                                    &lfs3->gbmap.b) != 0,
-                            false)) {
-                        #ifdef LFS3_GBMAP
-                        mtrv->b.shrub = lfs3->gbmap.b_p;
-                        lfs3_btrv_init(&mtrv->btrv);
-                        lfs3_t_settstate(&mtrv->b.h.flags,
-                                    LFS3_TSTATE_GBMAP_P);
-                        continue;
-                        #endif
-                    // end of mtree and auxiliary btrees? start
-                    // iterating over mdirs
-                    } else if (lfs3_t_tstate(mtrv->b.h.flags)
-                                == LFS3_TSTATE_MTREE
-                            || LFS3_IFDEF_GBMAP(
-                                lfs3_t_tstate(mtrv->b.h.flags)
-                                    == LFS3_TSTATE_GBMAP,
-                                false)
-                            || LFS3_IFDEF_GBMAP(
-                                lfs3_t_tstate(mtrv->b.h.flags)
-                                    == LFS3_TSTATE_GBMAP_P,
-                                false)) {
-                        mtrv->b.h.mdir.mid = 0;
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_MDIRS);
-                        continue;
-                    // end of mdir btree? start iterating over opened files
-                    } else if (lfs3_t_tstate(mtrv->b.h.flags)
-                            == LFS3_TSTATE_BTREE) {
-                        mtrv->h = lfs3->handles;
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_HANDLES);
-                        continue;
-                    // end of opened btree? go to next opened file
-                    } else if (lfs3_t_tstate(mtrv->b.h.flags)
-                            == LFS3_TSTATE_HBTREE) {
-                        mtrv->h = mtrv->h->next;
-                        lfs3_t_settstate(&mtrv->b.h.flags, LFS3_TSTATE_HANDLES);
-                        continue;
-                    } else {
-                        LFS3_UNREACHABLE();
-                    }
-                }
-                return tag;
-            }
-
-            // found an inner btree node?
-            if (tag == LFS3_TAG_BRANCH) {
-                bptr_->d = data;
-                return LFS3_TAG_BRANCH;
-
-            // found an indirect block?
-            } else if (tag == LFS3_TAG_BLOCK) {
-                err = lfs3_data_readbptr(lfs3, &data,
-                        bptr_);
-                if (err) {
-                    return err;
-                }
-
-                return LFS3_TAG_BLOCK;
-            }
-
-            continue;
-
-        case LFS3_TSTATE_DONE:;
-            return LFS3_ERR_NOENT;
-
-        default:;
-            LFS3_UNREACHABLE();
+            return LFS3_TAG_BLOCK;
         }
     }
+
+    // done with this btree/bshrub? search our opened handle list
+    // for any unsynced bshrubs/btrees related to this mid
+    //
+    // yes this grows potentially O(n^2) in-ram, but do we care?
+    //
+    // note we can skip this when rdonly, which saves a bit of code
+    if (!lfs3_m_isrdonly(lfs3->flags)) {
+        for (lfs3_handle_t *h = mtrv->h.next; h; h = h->next) {
+            // found one?
+            if (h->mdir.mid == mtrv->h.mdir.mid
+                    && lfs3_o_type(h->flags) == LFS3_TYPE_REG
+                    && lfs3_o_isunsync(h->flags)) {
+                // found one!
+                const lfs3_file_t *file = (const lfs3_file_t*)h;
+                mtrv->b = file->b.shrub;
+                mtrv->u.btrv.bid = -1;
+
+                // move our handle to make progress
+                //
+                // this looks scary with lfs3_handle_seek running in
+                // O(n), but, because we only visit each unique mid +
+                // handle once, in total this should still run O(n^2)
+                // in-ram
+                lfs3_handle_seek(lfs3, &mtrv->h, &h->next);
+
+                // wait, do we have an ungrafted leaf?
+                if (lfs3_o_isungraft(file->b.h.flags)) {
+                    *bptr_ = file->leaf.bptr;
+                    return LFS3_TAG_BLOCK;
+                }
+
+                goto again;
+            }
+        }
+    }
+
+    // done with this mid? transition to next mid
+    // TODO is this correct?
+    if (mtrv->h.mdir.mid >= 0
+            && (lfs3_t_ismtreeonly(mtrv->h.flags)
+                || lfs3_mrid(lfs3, mtrv->h.mdir.mid)
+                    >= (lfs3_srid_t)mtrv->h.mdir.r.weight-1)) {
+        mtrv->h.mdir.mid = lfs3_mbid(lfs3, mtrv->h.mdir.mid) + 1;
+    } else {
+        mtrv->h.mdir.mid += 1;
+    }
+    mtrv->u.btrv.bid = LFS3_BID_MDIR;
+
+    // fetch mdirs on first access
+    //
+    // note lfs3_mrid maps mids<=-1 => rid=-1
+    if (lfs3_mrid(lfs3, mtrv->h.mdir.mid) == 0) {
+        int err = lfs3_mtree_lookup(lfs3, mtrv->h.mdir.mid,
+                &mtrv->h.mdir);
+        if (err) {
+            return err;
+        }
+
+        // traverse this mdir, but don't repeat the mroot
+        if (lfs3->mtree.r.weight != 0) {
+            bptr_->d.u.buffer = (const uint8_t*)&mtrv->h.mdir;
+            return LFS3_TAG_MDIR;
+        }
+    }
+
+    goto again;
 }
 
 // needed in lfs3_mtree_traverse
@@ -10440,8 +10332,8 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
     //
     // we also compare mdir checksums with any open mdirs to try to
     // avoid traversing any outdated bshrubs/btrees
-    if ((lfs3_t_isckmeta(mtrv->b.h.flags)
-                || lfs3_t_isckdata(mtrv->b.h.flags))
+    if ((lfs3_t_isckmeta(mtrv->h.flags)
+                || lfs3_t_isckdata(mtrv->h.flags))
             && tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
 
@@ -10483,8 +10375,8 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
     // this may end up revalidating some btree nodes when ckfetches
     // is enabled, but we need to revalidate cached btree nodes or
     // we risk missing errors in ckmeta scans
-    if ((lfs3_t_isckmeta(mtrv->b.h.flags)
-                || lfs3_t_isckdata(mtrv->b.h.flags))
+    if ((lfs3_t_isckmeta(mtrv->h.flags)
+                || lfs3_t_isckdata(mtrv->h.flags))
             && tag == LFS3_TAG_BRANCH) {
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
         int err = lfs3_rbyd_fetchck(lfs3, rbyd,
@@ -10496,7 +10388,7 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
     }
 
     // validate data blocks?
-    if (lfs3_t_isckdata(mtrv->b.h.flags)
+    if (lfs3_t_isckdata(mtrv->h.flags)
             && tag == LFS3_TAG_BLOCK) {
         int err = lfs3_bptr_ck(lfs3, bptr_);
         if (err) {
@@ -10508,9 +10400,9 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
 
 eot:;
     // compare gcksum with in-RAM gcksum
-    if ((lfs3_t_isckmeta(mtrv->b.h.flags)
-                || lfs3_t_isckdata(mtrv->b.h.flags))
-            && !lfs3_t_isckpointed(mtrv->b.h.flags)
+    if ((lfs3_t_isckmeta(mtrv->h.flags)
+                || lfs3_t_isckdata(mtrv->h.flags))
+            && !lfs3_t_isckpointed(mtrv->h.flags)
             && mtrv->gcksum != lfs3->gcksum) {
         LFS3_ERROR("Found gcksum mismatch, cksum %08"PRIx32" (!= %08"PRIx32")",
                 mtrv->gcksum,
@@ -10520,15 +10412,15 @@ eot:;
 
     // was ckmeta/ckdata successful? we only consider our filesystem
     // checked if we weren't mutated
-    if ((lfs3_t_isckmeta(mtrv->b.h.flags)
-                || lfs3_t_isckdata(mtrv->b.h.flags))
-            && !lfs3_t_ismtreeonly(mtrv->b.h.flags)
-            && !lfs3_t_isckpointed(mtrv->b.h.flags)) {
+    if ((lfs3_t_isckmeta(mtrv->h.flags)
+                || lfs3_t_isckdata(mtrv->h.flags))
+            && !lfs3_t_ismtreeonly(mtrv->h.flags)
+            && !lfs3_t_isckpointed(mtrv->h.flags)) {
         lfs3->flags &= ~LFS3_I_CKMETA;
     }
-    if (lfs3_t_isckdata(mtrv->b.h.flags)
-            && !lfs3_t_ismtreeonly(mtrv->b.h.flags)
-            && !lfs3_t_isckpointed(mtrv->b.h.flags)) {
+    if (lfs3_t_isckdata(mtrv->h.flags)
+            && !lfs3_t_ismtreeonly(mtrv->h.flags)
+            && !lfs3_t_isckpointed(mtrv->h.flags)) {
         lfs3->flags &= ~LFS3_I_CKDATA;
     }
 
@@ -10551,18 +10443,18 @@ static void lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
 static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_bptr_t *bptr_) {
     // start of traversal?
-    if (lfs3_t_tstate(mgc->t.b.h.flags) == LFS3_TSTATE_MROOTANCHOR) {
+    if (mgc->t.h.mdir.mid == LFS3_MID_MROOTANCHOR) {
         #ifndef LFS3_RDONLY
         // checkpoint the allocator to maximize any lookahead scans
         //
         // note we try to repopupate even if the relookahead flag isn't
         // set because there's no real downside
-        if (lfs3_t_isrelookahead(mgc->t.b.h.flags)
-                && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
-                && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
+        if (lfs3_t_isrelookahead(mgc->t.h.flags)
+                && !lfs3_t_ismtreeonly(mgc->t.h.flags)
+                && !lfs3_t_isckpointed(mgc->t.h.flags)) {
             lfs3_alloc_ckpoint_(lfs3);
             // keep our own ckpointed flag clear
-            mgc->t.b.h.flags &= ~LFS3_t_CKPOINTED & ~LFS3_t_DIRTY;
+            mgc->t.h.flags &= ~LFS3_t_CKPOINTED & ~LFS3_t_DIRTY;
         }
         #endif
 
@@ -10577,11 +10469,11 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // (lfs3_t_isckpointed), we don't need to include this snapshot
         // in traversals, the ckpointed flag also means we don't need to
         // worry about this repopulation condition becoming true later
-        if (lfs3_t_isregbmap(mgc->t.b.h.flags)
+        if (lfs3_t_isregbmap(mgc->t.h.flags)
                 && lfs3_f_isgbmap(lfs3->flags)
                 && lfs3_t_isregbmap(lfs3->flags)
-                && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
-                && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
+                && !lfs3_t_ismtreeonly(mgc->t.h.flags)
+                && !lfs3_t_isckpointed(mgc->t.h.flags)) {
             // at least checkpoint the lookahead buffer
             lfs3_alloc_ckpoint_(lfs3);
 
@@ -10599,12 +10491,12 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             }
 
             // keep our own ckpointed flag clear
-            mgc->t.b.h.flags &= ~LFS3_t_CKPOINTED & ~LFS3_t_DIRTY;
+            mgc->t.h.flags &= ~LFS3_t_CKPOINTED & ~LFS3_t_DIRTY;
         }
         #endif
     }
 
-dropped:;
+again:;
     lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mgc->t,
             bptr_);
     if (tag < 0) {
@@ -10617,56 +10509,55 @@ dropped:;
 
     #ifndef LFS3_RDONLY
     // mark in-use blocks in lookahead?
-    if (lfs3_t_isrelookahead(mgc->t.b.h.flags)
-            && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
-            && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
+    if (lfs3_t_isrelookahead(mgc->t.h.flags)
+            && !lfs3_t_ismtreeonly(mgc->t.h.flags)
+            && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         lfs3_alloc_markinusebptr(lfs3, tag, bptr_);
     }
 
     // mark in-use blocks in gbmap?
     #ifdef LFS3_GBMAP
-    if (lfs3_t_isregbmap(mgc->t.b.h.flags)
+    if (lfs3_t_isregbmap(mgc->t.h.flags)
             && lfs3_f_isgbmap(lfs3->flags)
             && lfs3_t_isregbmap(lfs3->flags)
-            && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
-            && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
+            && !lfs3_t_ismtreeonly(mgc->t.h.flags)
+            && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         int err = lfs3_gbmap_markbptr(lfs3, &mgc->gbmap_, tag, bptr_,
                 LFS3_TAG_BMINUSE);
         if (err) {
             return err;
         }
-
-        // keep our own ckpointed flag clear
-        mgc->t.b.h.flags &= ~LFS3_t_CKPOINTED;
     }
     #endif
 
     // mkconsistencing mdirs?
-    if (lfs3_t_ismkconsistent(mgc->t.b.h.flags)
+    if (lfs3_t_ismkconsistent(mgc->t.h.flags)
             && lfs3_t_ismkconsistent(lfs3->flags)
             && tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
-        uint32_t dirty = mgc->t.b.h.flags;
+        uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mdir_mkconsistent(lfs3, mdir);
         if (err) {
             return err;
         }
 
         // reset dirty flag
-        mgc->t.b.h.flags &= ~LFS3_t_DIRTY | dirty;
+        mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
         // make sure we clear any zombie flags
-        mgc->t.b.h.flags &= ~LFS3_o_ZOMBIE;
+        mgc->t.h.flags &= ~LFS3_o_ZOMBIE;
 
         // did this drop our mdir?
-        if (mdir->mid != -1 && mdir->r.weight == 0) {
+        if (mdir->mid >= 0 && mdir->r.weight == 0) {
             // continue traversal
-            lfs3_t_settstate(&mgc->t.b.h.flags, LFS3_TSTATE_MDIRS);
-            goto dropped;
+            // TODO big hack! is it big enough?
+            mgc->t.h.mdir.mid -= 1;
+            mgc->t.u.btrv.bid = LFS3_BID_MDIR;
+            goto again;
         }
     }
 
     // compacting mdirs?
-    if (lfs3_t_compactmeta(mgc->t.b.h.flags)
+    if (lfs3_t_compactmeta(mgc->t.h.flags)
             && tag == LFS3_TAG_MDIR
             // exceed compaction threshold?
             && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr_->d.u.buffer)->r)
@@ -10684,14 +10575,14 @@ dropped:;
                     ? lfs3->cfg->gc_compactmeta_thresh
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
         // compact the mdir
-        uint32_t dirty = mgc->t.b.h.flags;
+        uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mdir_compact(lfs3, mdir);
         if (err) {
             return err;
         }
 
         // reset dirty flag
-        mgc->t.b.h.flags &= ~LFS3_t_DIRTY | dirty;
+        mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
     }
     #endif
 
@@ -10707,33 +10598,33 @@ eot:;
     //
     // gbmap takes priority because it actually writes to disk
     if (LFS3_IFDEF_GBMAP(
-            lfs3_t_isregbmap(mgc->t.b.h.flags)
+            lfs3_t_isregbmap(mgc->t.h.flags)
                 && lfs3_f_isgbmap(lfs3->flags)
                 && lfs3_t_isregbmap(lfs3->flags)
-                && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
-                && !lfs3_t_isckpointed(mgc->t.b.h.flags),
+                && !lfs3_t_ismtreeonly(mgc->t.h.flags)
+                && !lfs3_t_isckpointed(mgc->t.h.flags),
             false)) {
         #ifdef LFS3_GBMAP
         lfs3_alloc_adoptgbmap(lfs3, &mgc->gbmap_, lfs3->lookahead.ckpoint);
         #endif
 
     // was lookahead scan successful?
-    } else if (lfs3_t_isrelookahead(mgc->t.b.h.flags)
-            && !lfs3_t_ismtreeonly(mgc->t.b.h.flags)
-            && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
+    } else if (lfs3_t_isrelookahead(mgc->t.h.flags)
+            && !lfs3_t_ismtreeonly(mgc->t.h.flags)
+            && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         lfs3_alloc_adopt(lfs3, lfs3->lookahead.ckpoint);
     }
 
     // was mkconsistent successful?
-    if (lfs3_t_ismkconsistent(mgc->t.b.h.flags)
-            && !lfs3_t_isdirty(mgc->t.b.h.flags)) {
+    if (lfs3_t_ismkconsistent(mgc->t.h.flags)
+            && !lfs3_t_isdirty(mgc->t.h.flags)) {
         lfs3->flags &= ~LFS3_I_MKCONSISTENT;
     }
 
     // was compaction successful? note we may need multiple passes if
     // we want to be sure everything is compacted
-    if (lfs3_t_compactmeta(mgc->t.b.h.flags)
-            && !lfs3_t_isckpointed(mgc->t.b.h.flags)) {
+    if (lfs3_t_compactmeta(mgc->t.h.flags)
+            && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         lfs3->flags &= ~LFS3_I_COMPACTMETA;
     }
     #endif
@@ -11017,17 +10908,22 @@ static int lfs3_gbmap_markbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 
 /// Block allocator ///
 
+// needed in lfs3_alloc_ckpoint_
+#ifndef LFS3_RDONLY
+static void lfs3_trv_ckpoint_(lfs3_t *lfs3, lfs3_trv_t *trv);
+#endif
+
 // checkpoint only the lookahead buffer
 #ifndef LFS3_RDONLY
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3) {
     // set ckpoint = disk size
     lfs3->lookahead.ckpoint = lfs3->block_count;
 
-    // mark all traversals as ckpointed + dirty, self-mutating
-    // traversals should clear the dirty bit
+    // ckpoint traversals, marking them as ckpointed + dirty and
+    // reseting aany btrv state
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_type_TRV) {
-            h->flags |= LFS3_t_CKPOINTED | LFS3_t_DIRTY;
+            lfs3_trv_ckpoint_(lfs3, (lfs3_trv_t*)h);
         }
     }
 }
@@ -11819,9 +11715,8 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
         // clobber entangled traversals
         } else if (lfs3_o_type(h->flags) == LFS3_type_TRV) {
             if (lfs3_o_iszombie(h->flags)) {
+                // TODO should we just not set ZOMBIE on trvs?
                 h->flags &= ~LFS3_o_ZOMBIE;
-                h->mdir.mid -= 1;
-                lfs3_trv_clobber(lfs3, (lfs3_trv_t*)h);
             }
         }
     }
@@ -12002,12 +11897,6 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
                     ((lfs3_dir_t*)h)->pos -= 1;
                 }
             }
-
-        // clobber entangled traversals
-        } else if (lfs3_o_type(h->flags) == LFS3_type_TRV
-                && ((new_tag != LFS3_ERR_NOENT && h->mdir.mid == new_mdir.mid)
-                    || h->mdir.mid == lfs3->grm.queue[0])) {
-            lfs3_trv_clobber(lfs3, (lfs3_trv_t*)h);
         }
     }
 
@@ -14103,8 +13992,6 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         goto failed;
     }
 
-    // clobber entangled traversals
-    lfs3_handle_clobber(lfs3, &file->b.h);
     // mark as unsynced in case we fail
     file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -14244,11 +14131,8 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_ASSERT(!lfs3_o_isrdonly(file->b.h.flags));
 
     #ifndef LFS3_RDONLY
-    // clobber entangled traversals
-    lfs3_handle_clobber(lfs3, &file->b.h);
-    int err;
-
     // flush our cache
+    int err;
     if (lfs3_o_isunflush(file->b.h.flags)) {
         err = lfs3_file_flush_(lfs3, file,
                 file->cache.pos, file->cache.buffer, file->cache.size);
@@ -14520,12 +14404,6 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                 }
             }
         }
-
-        // clobber entangled traversals
-        if (lfs3_o_type(h->flags) == LFS3_type_TRV
-                && h->mdir.mid == file->b.h.mdir.mid) {
-            lfs3_trv_clobber(lfs3, (lfs3_trv_t*)h);
-        }
     }
 
     // mark as synced
@@ -14719,8 +14597,6 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
         goto failed;
     }
 
-    // clobber entangled traversals
-    lfs3_handle_clobber(lfs3, &file->b.h);
     // mark as unsynced in case we fail
     file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -14810,8 +14686,6 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
         goto failed;
     }
 
-    // clobber entangled traversals
-    lfs3_handle_clobber(lfs3, &file->b.h);
     // mark as unsynced in case we fail
     file->b.h.flags |= LFS3_o_UNSYNC;
 
@@ -15785,6 +15659,8 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 }
 
 static int lfs3_mountinited(lfs3_t *lfs3) {
+    // TODO should these be in lfs3_init?
+
     // mark mroot as invalid to prevent lfs3_mtree_traverse from getting
     // confused
     lfs3->mroot.mid = -1;
@@ -15821,7 +15697,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         if (tag == LFS3_TAG_MDIR) {
             lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
             // found an mroot?
-            if (mdir->mid == -1) {
+            if (mdir->mid <= -1) {
                 // check for the magic string, all mroot should have this
                 lfs3_data_t data_;
                 lfs3_stag_t tag_ = lfs3_mdir_lookup(lfs3, mdir, LFS3_TAG_MAGIC,
@@ -15852,7 +15728,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
                 }
                 if (tag_ == LFS3_ERR_NOENT) {
                     // track active mroot
-                    lfs3->mroot = *mdir;
+                    lfs3_mdir_sync(&lfs3->mroot, mdir);
 
                     // mount/validate config in active mroot
                     int err = lfs3_mountmroot(lfs3, &lfs3->mroot);
@@ -15996,7 +15872,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 }
 
 // needed in lfs3_mount
-static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
+static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
         uint32_t flags, lfs3_soff_t steps);
 
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
@@ -16103,8 +15979,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA)
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) {
-        lfs3_mgc_t mgc;
-        err = lfs3_fs_gc_(lfs3, &mgc,
+        lfs3_trv_t trv;
+        err = lfs3_fs_gc_(lfs3, &trv,
                 flags & (
                     LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                         | LFS3_IFDEF_RDONLY(0, LFS3_M_RELOOKAHEAD)
@@ -16147,8 +16023,8 @@ int lfs3_unmount(lfs3_t *lfs3) {
     LFS3_ASSERT(lfs3->handles == NULL
             // special case for our gc traversal handle
             || LFS3_IFDEF_GC(
-                (lfs3->handles == &lfs3->gc.gc.t.b.h
-                    && lfs3->gc.gc.t.b.h.next == NULL),
+                (lfs3->handles == &lfs3->gc.gc.t.h
+                    && lfs3->gc.gc.t.h.next == NULL),
                 false));
 
     return lfs3_deinit(lfs3);
@@ -16414,8 +16290,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     if (flags & (
             LFS3_F_CKMETA
                 | LFS3_F_CKDATA)) {
-        lfs3_mgc_t mgc;
-        err = lfs3_fs_gc_(lfs3, &mgc,
+        lfs3_trv_t trv;
+        err = lfs3_fs_gc_(lfs3, &trv,
                 flags & (
                     LFS3_F_CKMETA
                         | LFS3_F_CKDATA),
@@ -16711,7 +16587,10 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
 //
 // runs the traversal until all work is completed, which may take
 // multiple passes
-static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
+//
+// TODO can we reduce this to just lfs3_mgc_t? in theory we don't
+// need the block queue here, do we need to track lfs3_mgc_t?
+static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
         uint32_t flags, lfs3_soff_t steps) {
     // unknown gc flags?
     LFS3_ASSERT((flags & ~LFS3_GC_ALL) == 0);
@@ -16741,40 +16620,40 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
     while (pending && (lfs3_off_t)steps > 0) {
         // start a new traversal?
-        if (!lfs3_handle_isopen(lfs3, &mgc->t.b.h)) {
-            lfs3_mgc_init(mgc, pending);
-            lfs3_handle_open(lfs3, &mgc->t.b.h);
+        if (!lfs3_handle_isopen(lfs3, &trv->gc.t.h)) {
+            lfs3_mgc_init(&trv->gc, pending);
+            lfs3_handle_open(lfs3, &trv->gc.t.h);
         }
 
         // don't bother with lookahead/gbmap if we've ckpointed
         #ifndef LFS3_RDONLY
-        if (lfs3_t_isckpointed(mgc->t.b.h.flags)) {
-            mgc->t.b.h.flags &= ~LFS3_T_RELOOKAHEAD;
+        if (lfs3_t_isckpointed(trv->gc.t.h.flags)) {
+            trv->gc.t.h.flags &= ~LFS3_T_RELOOKAHEAD;
             #ifdef LFS3_GBMAP
-            mgc->t.b.h.flags &= ~LFS3_T_REGBMAP;
+            trv->gc.t.h.flags &= ~LFS3_T_REGBMAP;
             #endif
         }
         #endif
 
         // will this traversal still make progress? no? start over
-        if (!(mgc->t.b.h.flags & LFS3_GC_ALL)) {
-            lfs3_handle_close(lfs3, &mgc->t.b.h);
+        if (!(trv->gc.t.h.flags & LFS3_GC_ALL)) {
+            lfs3_handle_close(lfs3, &trv->gc.t.h);
             continue;
         }
 
         // do we really need a full traversal?
-        if (!(mgc->t.b.h.flags & (
+        if (!(trv->gc.t.h.flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_RELOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_GBMAP(LFS3_GC_REGBMAP, 0))
                     | LFS3_GC_CKMETA
                     | LFS3_GC_CKDATA))) {
-            mgc->t.b.h.flags |= LFS3_T_MTREEONLY;
+            trv->gc.t.h.flags |= LFS3_T_MTREEONLY;
         }
 
         // progress gc
         lfs3_bptr_t bptr;
-        lfs3_stag_t tag = lfs3_mtree_gc(lfs3, mgc,
+        lfs3_stag_t tag = lfs3_mtree_gc(lfs3, &trv->gc,
                 &bptr);
         if (tag < 0 && tag != LFS3_ERR_NOENT) {
             return tag;
@@ -16782,7 +16661,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
         // end of traversal?
         if (tag == LFS3_ERR_NOENT) {
-            lfs3_handle_close(lfs3, &mgc->t.b.h);
+            lfs3_handle_close(lfs3, &trv->gc.t.h);
 
             // clear any pending flags we make progress on
             pending &= lfs3->flags & LFS3_GC_ALL;
@@ -16802,7 +16681,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 // perform any pending janitorial work
 #ifdef LFS3_GC
 int lfs3_fs_gc(lfs3_t *lfs3) {
-    return lfs3_fs_gc_(lfs3, &lfs3->gc.gc,
+    return lfs3_fs_gc_(lfs3, &lfs3->gc,
             lfs3->cfg->gc_flags,
             (lfs3->cfg->gc_steps)
                 ? lfs3->cfg->gc_steps
@@ -16830,7 +16709,7 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
     // lfs3_fs_gc will terminate early if it discovers it can no longer
     // make progress
     #ifdef LFS3_GC
-    lfs3->gc.gc.t.b.h.flags &= ~flags;
+    lfs3->gc.gc.t.h.flags &= ~flags;
     #endif
 
     return 0;
@@ -17040,7 +16919,7 @@ static int lfs3_trv_rewind_(lfs3_t *lfs3, lfs3_trv_t *trv);
 
 int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     // already open?
-    LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &trv->gc.t.b.h));
+    LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &trv->gc.t.h));
     // unknown flags?
     LFS3_ASSERT((flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_T_RDWR)
@@ -17066,7 +16945,7 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isckdata(flags));
 
     // setup traversal state
-    trv->gc.t.b.h.flags = flags | lfs3_o_typeflags(LFS3_type_TRV);
+    trv->gc.t.h.flags = flags | lfs3_o_typeflags(LFS3_type_TRV);
 
     // let rewind initialize/reset things
     int err = lfs3_trv_rewind_(lfs3, trv);
@@ -17075,34 +16954,34 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     }
 
     // add to tracked mdirs
-    lfs3_handle_open(lfs3, &trv->gc.t.b.h);
+    lfs3_handle_open(lfs3, &trv->gc.t.h);
     return 0;
 }
 
 int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->gc.t.b.h));
+    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->gc.t.h));
 
     // remove from tracked mdirs
-    lfs3_handle_close(lfs3, &trv->gc.t.b.h);
+    lfs3_handle_close(lfs3, &trv->gc.t.h);
     return 0;
 }
 
 int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         struct lfs3_tinfo *tinfo) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->gc.t.b.h));
+    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->gc.t.h));
 
     // check for pending grms every step, just in case some other
     // operation introduced new grms
     #ifndef LFS3_RDONLY
-    if (lfs3_t_ismkconsistent(trv->gc.t.b.h.flags)
+    if (lfs3_t_ismkconsistent(trv->gc.t.h.flags)
             && lfs3_grm_count(lfs3) > 0) {
-        uint32_t dirty = trv->gc.t.b.h.flags;
+        uint32_t dirty = trv->gc.t.h.flags;
         int err = lfs3_fs_fixgrm(lfs3);
         if (err) {
             return err;
         }
         // reset dirty flag
-        trv->gc.t.b.h.flags &= ~LFS3_t_DIRTY | dirty;
+        trv->gc.t.h.flags &= ~LFS3_t_DIRTY | dirty;
     }
     #endif
 
@@ -17110,7 +16989,7 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         // some redund blocks left over?
         if (trv->blocks[0] != -1) {
             // write our traversal info
-            tinfo->btype = lfs3_t_btype(trv->gc.t.b.h.flags);
+            tinfo->btype = lfs3_t_btype(trv->gc.t.h.flags);
             tinfo->block = trv->blocks[0];
 
             trv->blocks[0] = trv->blocks[1];
@@ -17129,18 +17008,18 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         // figure out type/blocks
         if (tag == LFS3_TAG_MDIR) {
             lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
-            lfs3_t_setbtype(&trv->gc.t.b.h.flags, LFS3_BTYPE_MDIR);
+            lfs3_t_setbtype(&trv->gc.t.h.flags, LFS3_BTYPE_MDIR);
             trv->blocks[0] = mdir->r.blocks[0];
             trv->blocks[1] = mdir->r.blocks[1];
 
         } else if (tag == LFS3_TAG_BRANCH) {
-            lfs3_t_setbtype(&trv->gc.t.b.h.flags, LFS3_BTYPE_BTREE);
+            lfs3_t_setbtype(&trv->gc.t.h.flags, LFS3_BTYPE_BTREE);
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
             trv->blocks[0] = rbyd->blocks[0];
             trv->blocks[1] = -1;
 
         } else if (tag == LFS3_TAG_BLOCK) {
-            lfs3_t_setbtype(&trv->gc.t.b.h.flags, LFS3_BTYPE_DATA);
+            lfs3_t_setbtype(&trv->gc.t.h.flags, LFS3_BTYPE_DATA);
             trv->blocks[0] = lfs3_bptr_block(&bptr);
             trv->blocks[1] = -1;
 
@@ -17151,30 +17030,11 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
 }
 
 #ifndef LFS3_RDONLY
-static void lfs3_trv_clobber(lfs3_t *lfs3, lfs3_trv_t *trv) {
+static void lfs3_trv_ckpoint_(lfs3_t *lfs3, lfs3_trv_t *trv) {
     (void)lfs3;
-    // mroot/mtree? transition to mdir iteration
-    if (lfs3_t_tstate(trv->gc.t.b.h.flags) < LFS3_TSTATE_MDIRS) {
-        lfs3_t_settstate(&trv->gc.t.b.h.flags, LFS3_TSTATE_MDIRS);
-        trv->gc.t.b.h.mdir.mid = 0;
-        lfs3_bshrub_init(&trv->gc.t.b);
-        trv->gc.t.h = NULL;
-    // in-mtree mdir? increment the mid (to make progress) and reset to
-    // mdir iteration
-    } else if (lfs3_t_tstate(trv->gc.t.b.h.flags) < LFS3_TSTATE_HANDLES) {
-        lfs3_t_settstate(&trv->gc.t.b.h.flags, LFS3_TSTATE_MDIR);
-        trv->gc.t.b.h.mdir.mid += 1;
-        lfs3_bshrub_init(&trv->gc.t.b);
-        trv->gc.t.h = NULL;
-    // opened mdir? skip to next omdir
-    } else if (lfs3_t_tstate(trv->gc.t.b.h.flags) < LFS3_TSTATE_DONE) {
-        lfs3_t_settstate(&trv->gc.t.b.h.flags, LFS3_TSTATE_HANDLES);
-        lfs3_bshrub_init(&trv->gc.t.b);
-        trv->gc.t.h = (trv->gc.t.h) ? trv->gc.t.h->next : NULL;
-    // done traversals should never need clobbering
-    } else {
-        LFS3_UNREACHABLE();
-    }
+
+    // clobber traversal
+    lfs3_mgc_ckpoint(&trv->gc);
 
     // and clear any pending blocks
     trv->blocks[0] = -1;
@@ -17187,10 +17047,9 @@ static int lfs3_trv_rewind_(lfs3_t *lfs3, lfs3_trv_t *trv) {
 
     // reset traversal
     lfs3_mgc_init(&trv->gc,
-            trv->gc.t.b.h.flags
+            trv->gc.t.h.flags
                 & ~LFS3_t_DIRTY
-                & ~LFS3_t_CKPOINTED
-                & ~LFS3_t_TSTATE);
+                & ~LFS3_t_CKPOINTED);
 
     // and clear any pending blocks
     trv->blocks[0] = -1;
@@ -17200,7 +17059,7 @@ static int lfs3_trv_rewind_(lfs3_t *lfs3, lfs3_trv_t *trv) {
 }
 
 int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->gc.t.b.h));
+    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->gc.t.h));
 
     return lfs3_trv_rewind_(lfs3, trv);
 }
