@@ -340,9 +340,10 @@ enum lfs3_btype {
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
 #define LFS3_t_BTYPE    0x00f00000  // The current block type
 #define LFS3_t_ZOMBIE   0x08000000  // File has been removed
-#define LFS3_t_DIRTY    0x04000000  // Filesystem ckpointed outside traversal
 #define LFS3_t_CKPOINTED \
-                        0x02000000  // Filesystem ckpointed during traversal
+                        0x04000000  // Filesystem ckpointed during traversal
+#define LFS3_t_DIRTY    0x02000000  // Filesystem ckpointed outside traversal
+#define LFS3_t_STALE    0x01000000  // Block queue probably out-of-date
 
 // GC flags
 #ifndef LFS3_RDONLY
@@ -1022,7 +1023,7 @@ typedef struct lfs3 {
 
     // optional incremental gc state
     #ifdef LFS3_GC
-    lfs3_trv_t gc;
+    lfs3_mgc_t gc;
     #endif
 } lfs3_t;
 

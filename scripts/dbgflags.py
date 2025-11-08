@@ -159,8 +159,9 @@ t_MDIR          = 0x00100000  # i^  Btype = mdir
 t_BTREE         = 0x00200000  # i^  Btype = btree
 t_DATA          = 0x00300000  # i^  Btype = data
 t_ZOMBIE        = 0x08000000  # i-  File has been removed
-t_DIRTY         = 0x04000000  # i-  Filesystem ckpointed outside traversal
-t_CKPOINTED     = 0x02000000  # i-  Filesystem ckpointed during traversal
+t_CKPOINTED     = 0x04000000  # i-  Filesystem ckpointed during traversal
+t_DIRTY         = 0x02000000  # i-  Filesystem ckpointed outside traversal
+t_STALE         = 0x01000000  # i-  Block queue probably out-of-date
 
 # Block allocator flags
 alloc_ERASE     = 0x00000001  # i-  Please erase the block

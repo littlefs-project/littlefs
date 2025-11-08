@@ -7434,12 +7434,16 @@ static inline void lfs3_t_setbtype(uint32_t *flags, uint8_t btype) {
     *flags = (*flags & ~LFS3_t_BTYPE) | lfs3_t_btypeflags(btype);
 }
 
+static inline bool lfs3_t_isckpointed(uint32_t flags) {
+    return flags & LFS3_t_CKPOINTED;
+}
+
 static inline bool lfs3_t_isdirty(uint32_t flags) {
     return flags & LFS3_t_DIRTY;
 }
 
-static inline bool lfs3_t_isckpointed(uint32_t flags) {
-    return flags & LFS3_t_CKPOINTED;
+static inline bool lfs3_t_isstale(uint32_t flags) {
+    return flags & LFS3_t_STALE;
 }
 
 // mount flags
@@ -10052,7 +10056,7 @@ static void lfs3_mtrv_init(lfs3_mtrv_t *mtrv, uint32_t flags) {
 
 static void lfs3_mtrv_ckpoint(lfs3_mtrv_t *mtrv) {
     // mark as ckpointed and dirty
-    mtrv->h.flags |= LFS3_t_CKPOINTED | LFS3_t_DIRTY;
+    mtrv->h.flags |= LFS3_t_CKPOINTED | LFS3_t_DIRTY | LFS3_t_STALE;
 
     // when tracked, our mdir should be kept in-sync, but we need to
     // discard any btrees/bshrubs that may fall out-of-date
@@ -10920,10 +10924,10 @@ static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3) {
     lfs3->lookahead.ckpoint = lfs3->block_count;
 
     // ckpoint traversals, marking them as ckpointed + dirty and
-    // reseting aany btrv state
+    // reseting any btrv state
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_type_TRV) {
-            lfs3_trv_ckpoint_(lfs3, (lfs3_trv_t*)h);
+            lfs3_mgc_ckpoint(&((lfs3_trv_t*)h)->gc);
         }
     }
 }
@@ -15872,7 +15876,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 }
 
 // needed in lfs3_mount
-static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
+static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         uint32_t flags, lfs3_soff_t steps);
 
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
@@ -15979,8 +15983,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA)
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) {
-        lfs3_trv_t trv;
-        err = lfs3_fs_gc_(lfs3, &trv,
+        lfs3_mgc_t mgc;
+        err = lfs3_fs_gc_(lfs3, &mgc,
                 flags & (
                     LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                         | LFS3_IFDEF_RDONLY(0, LFS3_M_RELOOKAHEAD)
@@ -16023,8 +16027,8 @@ int lfs3_unmount(lfs3_t *lfs3) {
     LFS3_ASSERT(lfs3->handles == NULL
             // special case for our gc traversal handle
             || LFS3_IFDEF_GC(
-                (lfs3->handles == &lfs3->gc.gc.t.h
-                    && lfs3->gc.gc.t.h.next == NULL),
+                (lfs3->handles == &lfs3->gc.t.h
+                    && lfs3->gc.t.h.next == NULL),
                 false));
 
     return lfs3_deinit(lfs3);
@@ -16290,8 +16294,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     if (flags & (
             LFS3_F_CKMETA
                 | LFS3_F_CKDATA)) {
-        lfs3_trv_t trv;
-        err = lfs3_fs_gc_(lfs3, &trv,
+        lfs3_mgc_t mgc;
+        err = lfs3_fs_gc_(lfs3, &mgc,
                 flags & (
                     LFS3_F_CKMETA
                         | LFS3_F_CKDATA),
@@ -16587,10 +16591,7 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
 //
 // runs the traversal until all work is completed, which may take
 // multiple passes
-//
-// TODO can we reduce this to just lfs3_mgc_t? in theory we don't
-// need the block queue here, do we need to track lfs3_mgc_t?
-static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
+static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         uint32_t flags, lfs3_soff_t steps) {
     // unknown gc flags?
     LFS3_ASSERT((flags & ~LFS3_GC_ALL) == 0);
@@ -16620,40 +16621,40 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
 
     while (pending && (lfs3_off_t)steps > 0) {
         // start a new traversal?
-        if (!lfs3_handle_isopen(lfs3, &trv->gc.t.h)) {
-            lfs3_mgc_init(&trv->gc, pending);
-            lfs3_handle_open(lfs3, &trv->gc.t.h);
+        if (!lfs3_handle_isopen(lfs3, &mgc->t.h)) {
+            lfs3_mgc_init(mgc, pending);
+            lfs3_handle_open(lfs3, &mgc->t.h);
         }
 
         // don't bother with lookahead/gbmap if we've ckpointed
         #ifndef LFS3_RDONLY
-        if (lfs3_t_isckpointed(trv->gc.t.h.flags)) {
-            trv->gc.t.h.flags &= ~LFS3_T_RELOOKAHEAD;
+        if (lfs3_t_isckpointed(mgc->t.h.flags)) {
+            mgc->t.h.flags &= ~LFS3_T_RELOOKAHEAD;
             #ifdef LFS3_GBMAP
-            trv->gc.t.h.flags &= ~LFS3_T_REGBMAP;
+            mgc->t.h.flags &= ~LFS3_T_REGBMAP;
             #endif
         }
         #endif
 
         // will this traversal still make progress? no? start over
-        if (!(trv->gc.t.h.flags & LFS3_GC_ALL)) {
-            lfs3_handle_close(lfs3, &trv->gc.t.h);
+        if (!(mgc->t.h.flags & LFS3_GC_ALL)) {
+            lfs3_handle_close(lfs3, &mgc->t.h);
             continue;
         }
 
         // do we really need a full traversal?
-        if (!(trv->gc.t.h.flags & (
+        if (!(mgc->t.h.flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_RELOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_GBMAP(LFS3_GC_REGBMAP, 0))
                     | LFS3_GC_CKMETA
                     | LFS3_GC_CKDATA))) {
-            trv->gc.t.h.flags |= LFS3_T_MTREEONLY;
+            mgc->t.h.flags |= LFS3_T_MTREEONLY;
         }
 
         // progress gc
         lfs3_bptr_t bptr;
-        lfs3_stag_t tag = lfs3_mtree_gc(lfs3, &trv->gc,
+        lfs3_stag_t tag = lfs3_mtree_gc(lfs3, mgc,
                 &bptr);
         if (tag < 0 && tag != LFS3_ERR_NOENT) {
             return tag;
@@ -16661,7 +16662,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_trv_t *trv,
 
         // end of traversal?
         if (tag == LFS3_ERR_NOENT) {
-            lfs3_handle_close(lfs3, &trv->gc.t.h);
+            lfs3_handle_close(lfs3, &mgc->t.h);
 
             // clear any pending flags we make progress on
             pending &= lfs3->flags & LFS3_GC_ALL;
@@ -16709,7 +16710,7 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
     // lfs3_fs_gc will terminate early if it discovers it can no longer
     // make progress
     #ifdef LFS3_GC
-    lfs3->gc.gc.t.h.flags &= ~flags;
+    lfs3->gc.t.h.flags &= ~flags;
     #endif
 
     return 0;
@@ -16985,6 +16986,13 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
     }
     #endif
 
+    // discard current block queue?
+    if (lfs3_t_isstale(trv->gc.t.h.flags)) {
+        trv->blocks[0] = -1;
+        trv->blocks[1] = -1;
+        trv->gc.t.h.flags &= ~LFS3_t_STALE;
+    }
+
     while (true) {
         // some redund blocks left over?
         if (trv->blocks[0] != -1) {
@@ -17004,6 +17012,9 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         if (tag < 0) {
             return tag;
         }
+
+        // ignore new stale flags
+        trv->gc.t.h.flags &= ~LFS3_t_STALE;
 
         // figure out type/blocks
         if (tag == LFS3_TAG_MDIR) {
@@ -17029,38 +17040,19 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
     }
 }
 
-#ifndef LFS3_RDONLY
-static void lfs3_trv_ckpoint_(lfs3_t *lfs3, lfs3_trv_t *trv) {
-    (void)lfs3;
-
-    // clobber traversal
-    lfs3_mgc_ckpoint(&trv->gc);
-
-    // and clear any pending blocks
-    trv->blocks[0] = -1;
-    trv->blocks[1] = -1;
-}
-#endif
-
 static int lfs3_trv_rewind_(lfs3_t *lfs3, lfs3_trv_t *trv) {
     (void)lfs3;
-
     // reset traversal
     lfs3_mgc_init(&trv->gc,
-            trv->gc.t.h.flags
-                & ~LFS3_t_DIRTY
-                & ~LFS3_t_CKPOINTED);
-
-    // and clear any pending blocks
-    trv->blocks[0] = -1;
-    trv->blocks[1] = -1;
-
+            (trv->gc.t.h.flags
+                    & ~LFS3_t_DIRTY
+                    & ~LFS3_t_CKPOINTED)
+                | LFS3_t_STALE);
     return 0;
 }
 
 int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->gc.t.h));
-
     return lfs3_trv_rewind_(lfs3, trv);
 }
 
