@@ -5183,7 +5183,7 @@ static inline int lfs3_btree_cmp(
 }
 
 // needed in lfs3_fs_claimbtree
-static inline bool lfs3_o_isbshrub(uint32_t flags);
+static inline uint8_t lfs3_o_type(uint32_t flags);
 
 // claim all btrees known to the system
 //
@@ -5210,7 +5210,7 @@ static void lfs3_fs_claimbtree(lfs3_t *lfs3, lfs3_btree_t *btree) {
 
     // claim file btrees/bshrubs
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_isbshrub(h->flags)
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 && &((lfs3_bshrub_t*)h)->shrub != btree
                 && ((lfs3_bshrub_t*)h)->shrub.r.blocks[0]
                     == btree->r.blocks[0]) {
@@ -6673,7 +6673,7 @@ static lfs3_ssize_t lfs3_shrub_estimate(lfs3_t *lfs3,
     // only include the last reference
     const lfs3_shrub_t *last = NULL;
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_isbshrub(h->flags)
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 && lfs3_shrub_cmp(
                     &((lfs3_bshrub_t*)h)->shrub.r,
                     shrub) == 0) {
@@ -6707,7 +6707,7 @@ static int lfs3_shrub_compact(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
     //
     // this should include our current bshrub
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_isbshrub(h->flags)
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 && lfs3_shrub_cmp(
                     &((lfs3_bshrub_t*)h)->shrub.r,
                     shrub) == 0) {
@@ -6902,7 +6902,7 @@ static lfs3_ssize_t lfs3_bshrub_estimate(lfs3_t *lfs3,
 
     // this includes our current shrub
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_isbshrub(h->flags)
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 && h->mdir.mid == bshrub->h.mdir.mid
                 && lfs3_bshrub_isbshrub((lfs3_bshrub_t*)h)) {
             lfs3_ssize_t dsize = lfs3_shrub_estimate(lfs3,
@@ -7036,7 +7036,7 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
 
     // update _all_ shrubs with the new estimate
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_isbshrub(h->flags)
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 && h->mdir.mid == bshrub->h.mdir.mid
                 && lfs3_bshrub_isbshrub((lfs3_bshrub_t*)h)) {
             ((lfs3_bshrub_t*)h)->shrub.r.eoff = estimate;
@@ -8567,7 +8567,7 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                 // we're not quite done! we also need to bring over any
                 // unsynced files
                 for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-                    if (lfs3_o_isbshrub(h->flags)
+                    if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                             // belongs to our mid?
                             && h->mdir.mid == mdir__->mid
                             // is a bshrub?
@@ -8793,7 +8793,7 @@ static lfs3_ssize_t lfs3_mdir_estimate___(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         // files, I suppose if this becomes a problem we could sort
         // opened files by mid
         for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-            if (lfs3_o_isbshrub(h->flags)
+            if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                     // belongs to our mdir + rid?
                     && lfs3_mdir_cmp(&h->mdir, mdir) == 0
                     && lfs3_mrid(lfs3, h->mdir.mid) == a_rid
@@ -8915,7 +8915,7 @@ static int lfs3_mdir_compact___(lfs3_t *lfs3,
 
     // we're not quite done! we also need to bring over any unsynced files
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_isbshrub(h->flags)
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 // belongs to our mdir?
                 && lfs3_mdir_cmp(&h->mdir, mdir) == 0
                 && lfs3_mrid(lfs3, h->mdir.mid) >= start_rid
@@ -9185,7 +9185,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // stage any bshrubs
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_isbshrub(h->flags)) {
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG) {
             // a bshrub outside of its mdir means something has gone
             // horribly wrong
             LFS3_ASSERT(!lfs3_bshrub_isbshrub((lfs3_bshrub_t*)h)
@@ -9670,7 +9670,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // update any staged bshrubs
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         // update the shrub
-        if (lfs3_o_isbshrub(h->flags)) {
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG) {
             // if we moved a shrub, we also need to discard any leaves
             // that moved
             if (((lfs3_bshrub_t*)h)->shrub_.blocks[0]
@@ -10927,7 +10927,7 @@ static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3) {
     // reseting any btrv state
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_type_TRV) {
-            lfs3_mgc_ckpoint(&((lfs3_trv_t*)h)->gc);
+            lfs3_mgc_ckpoint((lfs3_mgc_t*)h);
         }
     }
 }
