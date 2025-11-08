@@ -812,9 +812,9 @@ typedef struct lfs3_bshrub {
     // trunk=0       => no bshrub/btree
     // sign(trunk)=1 => bshrub
     // sign(trunk)=0 => btree
-    lfs3_btree_t shrub;
+    lfs3_btree_t b;
     #ifndef LFS3_RDONLY
-    lfs3_shrub_t shrub_;
+    lfs3_shrub_t b_;
     #endif
 } lfs3_bshrub_t;
 
