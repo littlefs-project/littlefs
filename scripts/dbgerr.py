@@ -12,6 +12,7 @@ ERR_OK          = 0     # No error
 ERR_UNKNOWN     = -1    # Unknown error
 ERR_INVAL       = -22   # Invalid parameter
 ERR_NOTSUP      = -95   # Operation not supported
+ERR_BUSY        = -16   # Device or resource busy
 ERR_IO          = -5    # Error during device operation
 ERR_CORRUPT     = -84   # Corrupted
 ERR_NOENT       = -2    # No directory entry

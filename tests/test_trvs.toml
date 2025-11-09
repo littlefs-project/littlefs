@@ -1846,6 +1846,7 @@ code = '''
 # test that we detect filesystem mutation during traversal
 [cases.test_trvs_mutation]
 defines.WHEN = [0, 1, 2]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -1861,6 +1862,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -1873,6 +1875,12 @@ code = '''
     }
 
     struct lfs3_tinfo tinfo;
+    // terminate early?
+    if (EXCL && WHEN == 0) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
@@ -1882,7 +1890,15 @@ code = '''
         lfs3_file_open(&lfs3, &file, "spider",
                 LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
         lfs3_file_close(&lfs3, &file) => 0;
-    } else {
+    }
+
+    // terminate early?
+    if (EXCL && WHEN == 1) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
+    if (WHEN != 1) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         assert(tinfo.block == 0 || tinfo.block == 1);
@@ -1895,6 +1911,12 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
+    // terminate early?
+    if (EXCL && WHEN == 2) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -1904,6 +1926,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1919,6 +1942,7 @@ code = '''
 
 # test that we don't get extra anything after end of traversal
 [cases.test_trvs_mutation_idempotent]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -1934,6 +1958,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -1948,20 +1973,32 @@ code = '''
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_file_close(&lfs3, &file) => 0;
 
-    // traverse gbmap
-    if (GBMAP) {
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
-        assert(tinfo.block == 2);
-    }
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
 
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+    } else {
+        // traverse gbmap
+        if (GBMAP) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+            assert(tinfo.btype == LFS3_BTYPE_BTREE);
+            assert(tinfo.block == 2);
+        }
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    }
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
@@ -1978,12 +2015,22 @@ code = '''
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_file_close(&lfs3, &file) => 0;
 
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+    } else {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+    }
 
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2001,6 +2048,7 @@ code = '''
 
 [cases.test_trvs_mutation_mkdir]
 defines.WHEN = [0, 1, 2]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2016,6 +2064,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2025,13 +2074,27 @@ code = '''
     }
 
     struct lfs3_tinfo tinfo;
+    // terminate early?
+    if (EXCL && WHEN == 0) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 1) {
         lfs3_mkdir(&lfs3, "spider") => 0;
-    } else {
+    }
+
+    // terminate early?
+    if (EXCL && WHEN == 1) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
+    if (WHEN != 1) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         assert(tinfo.block == 0 || tinfo.block == 1);
@@ -2041,6 +2104,12 @@ code = '''
         lfs3_mkdir(&lfs3, "spider") => 0;
     }
 
+    // terminate early?
+    if (EXCL && WHEN == 2) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -2050,6 +2119,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2065,6 +2135,7 @@ code = '''
 
 [cases.test_trvs_mutation_rm]
 defines.WHEN = [0, 1, 2]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2086,6 +2157,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2095,13 +2167,27 @@ code = '''
     }
 
     struct lfs3_tinfo tinfo;
+    // terminate early?
+    if (EXCL && WHEN == 0) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 1) {
         lfs3_remove(&lfs3, "spider") => 0;
-    } else {
+    }
+
+    // terminate early?
+    if (EXCL && WHEN == 1) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
+    if (WHEN != 1) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         assert(tinfo.block == 0 || tinfo.block == 1);
@@ -2111,6 +2197,12 @@ code = '''
         lfs3_remove(&lfs3, "spider") => 0;
     }
 
+    // terminate early?
+    if (EXCL && WHEN == 2) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -2120,6 +2212,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2135,6 +2228,7 @@ code = '''
 
 [cases.test_trvs_mutation_mv]
 defines.WHEN = [0, 1, 2]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2156,6 +2250,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2165,18 +2260,31 @@ code = '''
     }
 
     struct lfs3_tinfo tinfo;
+    // terminate early?
+    if (EXCL && WHEN == 0) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
 
     if (WHEN == 1) {
         lfs3_rename(&lfs3, "spider", "scorpion") => 0;
-    } else {
+    }
+
+    // terminate early?
+    if (EXCL && WHEN == 1) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
+    if (WHEN != 1) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
         assert(tinfo.block == 0 || tinfo.block == 1);
     }
-
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -2186,7 +2294,15 @@ code = '''
 
     if (WHEN == 2) {
         lfs3_rename(&lfs3, "spider", "scorpion") => 0;
+    }
 
+    // terminate early?
+    if (EXCL && WHEN == 2) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
+    if (WHEN == 2) {
         // traverse gbmap again
         if (GBMAP) {
             lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -2194,10 +2310,10 @@ code = '''
             assert(tinfo.block == 2);
         }
     }
-
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2213,6 +2329,7 @@ code = '''
 
 # some more complex mutation tests
 [cases.test_trvs_mutation_fwrite]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2249,6 +2366,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2267,8 +2385,11 @@ code = '''
         // step traversal
         struct lfs3_tinfo tinfo;
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
-        assert(!err || err == LFS3_ERR_NOENT);
-        if (err == LFS3_ERR_NOENT) {
+        assert(!err
+            || err == LFS3_ERR_NOENT
+            || (EXCL && err == LFS3_ERR_BUSY));
+        if (err == LFS3_ERR_NOENT
+                || err == LFS3_ERR_BUSY) {
             break;
         }
     }
@@ -2299,6 +2420,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_fwrite_opened]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2339,6 +2461,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2358,8 +2481,11 @@ code = '''
         // step traversal
         struct lfs3_tinfo tinfo;
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
-        assert(!err || err == LFS3_ERR_NOENT);
-        if (err == LFS3_ERR_NOENT) {
+        assert(!err
+            || err == LFS3_ERR_NOENT
+            || (EXCL && err == LFS3_ERR_BUSY));
+        if (err == LFS3_ERR_NOENT
+                || err == LFS3_ERR_BUSY) {
             break;
         }
     }
@@ -2406,6 +2532,7 @@ code = '''
 # these assume quite a bit more and may be a bit fragile...
 #
 [cases.test_trvs_mutation_file_bsprout]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2445,6 +2572,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2468,6 +2596,12 @@ code = '''
     lfs3_file_write(&lfs3, &file, wbuf1, SIZE) => SIZE;
     lfs3_file_close(&lfs3, &file) => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -2478,6 +2612,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2504,6 +2639,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_file_btree]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2544,6 +2680,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2579,6 +2716,12 @@ code = '''
     lfs3_file_write(&lfs3, &file, wbuf1, SIZE) => SIZE;
     lfs3_file_close(&lfs3, &file) => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse btree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -2599,6 +2742,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2626,6 +2770,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_file_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2665,6 +2810,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2697,6 +2843,12 @@ code = '''
     lfs3_file_write(&lfs3, &file, wbuf1, SIZE) => SIZE;
     lfs3_file_close(&lfs3, &file) => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -2711,6 +2863,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2738,6 +2891,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_uncreat_bsprout]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2777,6 +2931,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2798,6 +2953,12 @@ code = '''
     lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
     lfs3_file_flush(&lfs3, &file1) => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -2808,6 +2969,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2838,6 +3000,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_uncreat_btree]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -2878,6 +3041,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -2911,6 +3075,12 @@ code = '''
     lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
     lfs3_file_flush(&lfs3, &file1) => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse btree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -2931,6 +3101,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2962,6 +3133,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_uncreat_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3001,6 +3173,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3031,6 +3204,12 @@ code = '''
     lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
     lfs3_file_flush(&lfs3, &file1) => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3045,6 +3224,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3076,6 +3256,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_close_bsprout]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3116,6 +3297,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3143,6 +3325,12 @@ code = '''
 
     // if not desync, traversal rewinds to mdir
     if (!DESYNC) {
+        // terminate early?
+        if (EXCL) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            goto done;
+        }
         // traverse gbmap again
         if (GBMAP) {
             lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -3154,6 +3342,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3192,6 +3381,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_close_btree]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3233,6 +3423,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3266,6 +3457,12 @@ code = '''
 
     // if not desync, traversal rewinds to mdir
     if (!DESYNC) {
+        // terminate early?
+        if (EXCL) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            goto done;
+        }
         // traverse btree
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -3288,6 +3485,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3327,6 +3525,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_close_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3367,6 +3566,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3397,6 +3597,12 @@ code = '''
 
     // if not desync, traversal rewinds to mdir
     if (!DESYNC) {
+        // terminate early?
+        if (EXCL) {
+            lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            goto done;
+        }
         // traverse one data block
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3413,6 +3619,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3452,6 +3659,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_rm_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3490,6 +3698,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3515,6 +3724,12 @@ code = '''
     // remove the file
     lfs3_remove(&lfs3, "spider") => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3524,6 +3739,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/etc, unless we're desynced
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3552,6 +3768,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mv_src_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3599,6 +3816,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3624,6 +3842,12 @@ code = '''
     // rename one file over another
     lfs3_rename(&lfs3, "spider", "tarantula") => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3638,6 +3862,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3667,6 +3892,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mv_dst_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3714,6 +3940,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3739,6 +3966,12 @@ code = '''
     // rename one file over another
     lfs3_rename(&lfs3, "tarantula", "spider") => 0;
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -3753,6 +3986,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3782,6 +4016,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_split]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3820,6 +4055,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3841,6 +4077,12 @@ code = '''
         i += 1;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -3871,6 +4113,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3898,6 +4141,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_split_bshrub_l]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -3945,6 +4189,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -3978,6 +4223,12 @@ code = '''
         i += 1;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4002,6 +4253,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4034,6 +4286,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_split_bshrub_r]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4081,6 +4334,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -4119,6 +4373,12 @@ code = '''
         i += 1;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4133,6 +4393,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4165,6 +4426,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_extend]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4205,6 +4467,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -4224,6 +4487,12 @@ code = '''
         lfs3_remove(&lfs3, "uloborus") => 0;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -4244,6 +4513,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4271,6 +4541,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_extend_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4311,6 +4582,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -4342,6 +4614,12 @@ code = '''
         lfs3_remove(&lfs3, "uloborus") => 0;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4356,6 +4634,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4383,6 +4662,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_relocate]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4432,6 +4712,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -4452,6 +4733,12 @@ code = '''
         lfs3_remove(&lfs3, "uloborus") => 0;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // it's a bit unclear if clobbered mroot chain traversals should
     // still traverse inlined mroots, so if this breaks in the future
     // I wouldn't worry too much about it
@@ -4481,6 +4768,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4508,6 +4796,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mroot_relocate_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4557,6 +4846,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -4593,6 +4883,12 @@ code = '''
         lfs3_remove(&lfs3, "uloborus") => 0;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4607,6 +4903,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4634,6 +4931,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_split]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4712,6 +5010,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -4734,6 +5033,12 @@ code = '''
         i += 1;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -4787,6 +5092,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4824,6 +5130,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_split_bshrub_l]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -4902,6 +5209,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -4954,6 +5262,12 @@ code = '''
         i += 1;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -4983,6 +5297,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5020,6 +5335,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_split_bshrub_r]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5098,6 +5414,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -5154,6 +5471,13 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
         i += 1;
     }
+
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -5173,6 +5497,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5210,6 +5535,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_extend]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5294,6 +5620,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -5313,6 +5640,12 @@ code = '''
         lfs3_remove(&lfs3, "vulsor") => 0;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -5361,6 +5694,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5398,6 +5732,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_extend_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5482,6 +5817,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -5531,6 +5867,12 @@ code = '''
         lfs3_remove(&lfs3, "vulsor") => 0;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -5555,6 +5897,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5592,6 +5935,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_relocate]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5681,6 +6025,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -5701,6 +6046,12 @@ code = '''
         lfs3_remove(&lfs3, "vulsor") => 0;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse mdir
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -5754,6 +6105,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5791,6 +6143,7 @@ code = '''
 '''
 
 [cases.test_trvs_mutation_mtree_relocate_bshrub]
+defines.EXCL = [false, true]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -5880,6 +6233,7 @@ code = '''
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv,
             LFS3_T_RDWR
+                | ((EXCL) ? LFS3_T_EXCL : 0)
                 | ((RELOOKAHEAD) ? LFS3_T_RELOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_T_CKMETA : 0)
                 | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
@@ -5934,6 +6288,12 @@ code = '''
         lfs3_remove(&lfs3, "vulsor") => 0;
     }
 
+    // terminate early?
+    if (EXCL) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_BUSY;
+        lfs3_trv_close(&lfs3, &trv) => 0;
+        goto done;
+    }
     // traverse two data blocks
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_DATA);
@@ -5958,6 +6318,7 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+done:;
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;

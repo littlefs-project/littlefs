@@ -139,6 +139,7 @@ T_MODE          =          1  # -m  The traversal's access mode
 T_RDWR          =          0  # -^  Open traversal as read and write
 T_RDONLY        =          1  # -^  Open traversal as read only
 T_MTREEONLY     = 0x00000002  # --  Only traverse the mtree
+T_EXCL          = 0x00000008  # --  Error if filesystem modified
 T_MKCONSISTENT  = 0x00000100  # --  Make the filesystem consistent
 T_RELOOKAHEAD   = 0x00000200  # --  Repopulate lookahead buffer
 T_REGBMAP       = 0x00000400  # --  Repopulate the gbmap

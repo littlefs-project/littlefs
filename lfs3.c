@@ -7355,6 +7355,10 @@ static inline bool lfs3_t_ismtreeonly(uint32_t flags) {
     return flags & LFS3_T_MTREEONLY;
 }
 
+static inline bool lfs3_t_isexcl(uint32_t flags) {
+    return flags & LFS3_T_EXCL;
+}
+
 static inline bool lfs3_t_ismkconsistent(uint32_t flags) {
     (void)flags;
     #ifndef LFS3_RDONLY
@@ -16914,6 +16918,7 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
             LFS3_IFDEF_RDONLY(0, LFS3_T_RDWR)
                 | LFS3_T_RDONLY
                 | LFS3_T_MTREEONLY
+                | LFS3_T_EXCL
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_RELOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
@@ -16958,6 +16963,12 @@ int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv) {
 int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         struct lfs3_tinfo *tinfo) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->gc.t.h));
+
+    // filesystem modified? excl? terminate early
+    if (lfs3_t_isexcl(trv->gc.t.h.flags)
+            && lfs3_t_isdirty(trv->gc.t.h.flags)) {
+        return LFS3_ERR_BUSY;
+    }
 
     // check for pending grms every step, just in case some other
     // operation introduced new grms

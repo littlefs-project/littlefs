@@ -77,6 +77,7 @@ enum lfs3_err {
     LFS3_ERR_UNKNOWN     = -1,   // Unknown error
     LFS3_ERR_INVAL       = -22,  // Invalid parameter
     LFS3_ERR_NOTSUP      = -95,  // Operation not supported
+    LFS3_ERR_BUSY        = -16,  // Device or resource busy
     LFS3_ERR_IO          = -5,   // Error during device operation
     LFS3_ERR_CORRUPT     = -84,  // Corrupted
     LFS3_ERR_NOENT       = -2,   // No directory entry
@@ -318,6 +319,7 @@ enum lfs3_btype {
 #define LFS3_T_RDONLY            1  // Open traversal as read only
 #define LFS3_T_MTREEONLY \
                         0x00000002  // Only traverse the mtree
+#define LFS3_T_EXCL     0x00000008  // Error if filesystem modified
 #ifndef LFS3_RDONLY
 #define LFS3_T_MKCONSISTENT \
                         0x00000100  // Make the filesystem consistent
