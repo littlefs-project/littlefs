@@ -2447,7 +2447,7 @@ code = '''
     // well, because of the root really, but also because of the
     // stickynote
     //
-    lfs3_rename(&lfs3, "batman", "/") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "batman", "/") => LFS3_ERR_BUSY;
 
     // we should still be able to read our uncreat
     lfs3_file_rewind(&lfs3, &uncreat) => 0;

@@ -523,7 +523,7 @@ code = '''
     lfs3_file_write(&lfs3, &file, wbuf, wsize) => wsize;
     lfs3_file_close(&lfs3, &file) => 0;
 
-    lfs3_rename(&lfs3, "not_hello", "/") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "not_hello", "/") => LFS3_ERR_BUSY;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -2247,7 +2247,7 @@ code = '''
     }
 
     // rename the file
-    lfs3_rename(&lfs3, "amethyst", "/") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "amethyst", "/") => LFS3_ERR_BUSY;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?

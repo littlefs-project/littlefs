@@ -2170,7 +2170,7 @@ code = '''
             "espresso/latte") => LFS3_ERR_INVAL;
     lfs3_rename(&lfs3,
             "coffee/vietnamese/../..",
-            "espresso/cappuccino") => LFS3_ERR_INVAL;
+            "espresso/cappuccino") => LFS3_ERR_BUSY;
     // this one works
     lfs3_rename(&lfs3,
             "coffee/thai/..",
@@ -2195,7 +2195,7 @@ code = '''
     }
     lfs3_rename(&lfs3,
             "coffee/coldbrew",
-            "espresso/americano/../..") => LFS3_ERR_INVAL;
+            "espresso/americano/../..") => LFS3_ERR_BUSY;
     lfs3_rename(&lfs3,
             "coffee/turkish",
             "espresso/macchiato/../../..") => LFS3_ERR_INVAL;
@@ -2224,14 +2224,14 @@ code = '''
             "espresso/latte/../../../..") => LFS3_ERR_INVAL;
     lfs3_rename(&lfs3,
             "coffee/vietnamese/../..",
-            "espresso/cappuccino/../../../../..") => LFS3_ERR_INVAL;
+            "espresso/cappuccino/../../../../..") => LFS3_ERR_BUSY;
     lfs3_rename(&lfs3,
             "coffee/thai/..",
             "espresso/mocha/../../../../../..") => LFS3_ERR_INVAL;
 
     // remove paths
     lfs3_remove(&lfs3, "coffee/drip/..") => LFS3_ERR_NOTEMPTY;
-    lfs3_remove(&lfs3, "coffee/coldbrew/../..") => LFS3_ERR_INVAL;
+    lfs3_remove(&lfs3, "coffee/coldbrew/../..") => LFS3_ERR_BUSY;
     lfs3_remove(&lfs3, "coffee/turkish/../../..") => LFS3_ERR_INVAL;
     lfs3_remove(&lfs3, "coffee/tubruk/../../../..") => LFS3_ERR_INVAL;
     lfs3_remove(&lfs3, "coffee/vietnamese/../../../../..") => LFS3_ERR_INVAL;
@@ -4441,7 +4441,7 @@ code = '''
             "espresso/latte") => LFS3_ERR_INVAL;
     lfs3_rename(&lfs3,
             "coffee/_vietnamese/../..",
-            "espresso/cappuccino") => LFS3_ERR_INVAL;
+            "espresso/cappuccino") => LFS3_ERR_BUSY;
     // this one works
     lfs3_rename(&lfs3,
             "coffee/thai_/..",
@@ -4485,7 +4485,7 @@ code = '''
             "espresso/latte/../../../..") => LFS3_ERR_INVAL;
     lfs3_rename(&lfs3,
             "coffee/_vietnamese/../..",
-            "espresso/cappuccino/../../../../..") => LFS3_ERR_INVAL;
+            "espresso/cappuccino/../../../../..") => LFS3_ERR_BUSY;
     lfs3_rename(&lfs3,
             "coffee/thai_/..",
             "espresso/mocha/../../../../../..") => LFS3_ERR_INVAL;
@@ -4505,14 +4505,14 @@ code = '''
             "coffee/tub_uk/../../..") => LFS3_ERR_INVAL;
     lfs3_rename(&lfs3,
             "coffee/_vietnamese/../..",
-            "coffee/_vietnamese/../..") => LFS3_ERR_INVAL;
+            "coffee/_vietnamese/../..") => LFS3_ERR_BUSY;
     lfs3_rename(&lfs3,
             "coffee/thai_/..",
             "coffee/thai_/..") => 0;
 
     // remove paths
     lfs3_remove(&lfs3, "coffee/_rip/..") => LFS3_ERR_NOTEMPTY;
-    lfs3_remove(&lfs3, "coffee/c_ldbrew/../..") => LFS3_ERR_INVAL;
+    lfs3_remove(&lfs3, "coffee/c_ldbrew/../..") => LFS3_ERR_BUSY;
     lfs3_remove(&lfs3, "coffee/tu_kish/../../..") => LFS3_ERR_INVAL;
     lfs3_remove(&lfs3, "coffee/tub_uk/../../../..") => LFS3_ERR_INVAL;
     lfs3_remove(&lfs3, "coffee/_vietnamese/../../../../..") => LFS3_ERR_INVAL;
@@ -5621,7 +5621,7 @@ code = '''
             "espresso/latte") => LFS3_ERR_INVAL;
     lfs3_rename(&lfs3,
             "coffee/vietnamese/../..",
-            "espresso/cappuccino") => LFS3_ERR_INVAL;
+            "espresso/cappuccino") => LFS3_ERR_BUSY;
     // this one works
     lfs3_rename(&lfs3,
             "coffee/thai/..",
@@ -5636,7 +5636,7 @@ code = '''
             "espresso/espresso/..") => LFS3_ERR_ISDIR;
     lfs3_rename(&lfs3,
             "coffee/coldbrew",
-            "espresso/americano/../..") => LFS3_ERR_INVAL;
+            "espresso/americano/../..") => LFS3_ERR_BUSY;
     lfs3_rename(&lfs3,
             "coffee/turkish",
             "espresso/macchiato/../../..") => LFS3_ERR_INVAL;
@@ -5665,7 +5665,7 @@ code = '''
             "espresso/latte/../../../..") => LFS3_ERR_INVAL;
     lfs3_rename(&lfs3,
             "coffee/vietnamese/../..",
-            "espresso/cappuccino/../../../../..") => LFS3_ERR_INVAL;
+            "espresso/cappuccino/../../../../..") => LFS3_ERR_BUSY;
     lfs3_rename(&lfs3,
             "coffee/thai/..",
             "espresso/mocha/../../../../../..") => LFS3_ERR_INVAL;
@@ -5685,14 +5685,14 @@ code = '''
             "coffee/tubruk/../../..") => LFS3_ERR_INVAL;
     lfs3_rename(&lfs3,
             "coffee/vietnamese/../..",
-            "coffee/vietnamese/../..") => LFS3_ERR_INVAL;
+            "coffee/vietnamese/../..") => LFS3_ERR_BUSY;
     lfs3_rename(&lfs3,
             "coffee/thai/..",
             "coffee/thai/..") => 0;
 
     // remove paths
     lfs3_remove(&lfs3, "coffee/drip/..") => LFS3_ERR_NOTEMPTY;
-    lfs3_remove(&lfs3, "coffee/coldbrew/../..") => LFS3_ERR_INVAL;
+    lfs3_remove(&lfs3, "coffee/coldbrew/../..") => LFS3_ERR_BUSY;
     lfs3_remove(&lfs3, "coffee/turkish/../../..") => LFS3_ERR_INVAL;
     lfs3_remove(&lfs3, "coffee/tubruk/../../../..") => LFS3_ERR_INVAL;
     lfs3_remove(&lfs3, "coffee/vietnamese/../../../../..") => LFS3_ERR_INVAL;
@@ -5833,13 +5833,13 @@ code = '''
     lfs3_dir_close(&lfs3, &dir) => 0;
 
     // rename root, this should error
-    lfs3_rename(&lfs3, "/", "coffee") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "/", "coffee") => LFS3_ERR_BUSY;
 
     lfs3_mkdir(&lfs3, "coffee") => 0;
-    lfs3_rename(&lfs3, "coffee", "/") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "coffee", "/") => LFS3_ERR_BUSY;
     lfs3_remove(&lfs3, "coffee") => 0;
 
-    lfs3_rename(&lfs3, "/", "/") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "/", "/") => LFS3_ERR_BUSY;
 
     // stat root
     lfs3_stat(&lfs3, "/", &info) => 0;
@@ -5847,7 +5847,7 @@ code = '''
     assert(info.type == LFS3_TYPE_DIR);
 
     // remove root, this should error
-    lfs3_remove(&lfs3, "/") => LFS3_ERR_INVAL;
+    lfs3_remove(&lfs3, "/") => LFS3_ERR_BUSY;
 
     // stat root
     lfs3_stat(&lfs3, "/", &info) => 0;
@@ -5953,26 +5953,26 @@ code = '''
     lfs3_dir_close(&lfs3, &dir) => 0;
 
     // rename root, this should error
-    lfs3_rename(&lfs3, "/", "coffee") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, ".", "coffee") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "./", "coffee") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "/.", "coffee") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "//", "coffee") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "/", "coffee") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, ".", "coffee") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "./", "coffee") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "/.", "coffee") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "//", "coffee") => LFS3_ERR_BUSY;
 
     lfs3_mkdir(&lfs3, "coffee") => 0;
-    lfs3_rename(&lfs3, "coffee", "/") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "coffee", ".") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "coffee", "./") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "coffee", "/.") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "coffee", "//") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "coffee", "/") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "coffee", ".") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "coffee", "./") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "coffee", "/.") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "coffee", "//") => LFS3_ERR_BUSY;
     lfs3_remove(&lfs3, "coffee") => 0;
 
-    lfs3_rename(&lfs3, "/", "/") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, ".", ".") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "/", "/") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, ".", ".") => LFS3_ERR_BUSY;
     lfs3_rename(&lfs3, "..", "..") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "./", "./") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "/.", "/.") => LFS3_ERR_INVAL;
-    lfs3_rename(&lfs3, "//", "//") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "./", "./") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "/.", "/.") => LFS3_ERR_BUSY;
+    lfs3_rename(&lfs3, "//", "//") => LFS3_ERR_BUSY;
 
     // stat root
     lfs3_stat(&lfs3, "/", &info) => 0;
@@ -5992,11 +5992,11 @@ code = '''
     assert(info.type == LFS3_TYPE_DIR);
 
     // remove root, this should error
-    lfs3_remove(&lfs3, "/") => LFS3_ERR_INVAL;
-    lfs3_remove(&lfs3, ".") => LFS3_ERR_INVAL;
-    lfs3_remove(&lfs3, "./") => LFS3_ERR_INVAL;
-    lfs3_remove(&lfs3, "/.") => LFS3_ERR_INVAL;
-    lfs3_remove(&lfs3, "//") => LFS3_ERR_INVAL;
+    lfs3_remove(&lfs3, "/") => LFS3_ERR_BUSY;
+    lfs3_remove(&lfs3, ".") => LFS3_ERR_BUSY;
+    lfs3_remove(&lfs3, "./") => LFS3_ERR_BUSY;
+    lfs3_remove(&lfs3, "/.") => LFS3_ERR_BUSY;
+    lfs3_remove(&lfs3, "//") => LFS3_ERR_BUSY;
 
     // stat root
     lfs3_stat(&lfs3, "/", &info) => 0;

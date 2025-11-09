@@ -2595,7 +2595,7 @@ code = '''
     }
 
     // try to remove root, which doesn't really make sense
-    lfs3_remove(&lfs3, "/") => LFS3_ERR_INVAL;
+    lfs3_remove(&lfs3, "/") => LFS3_ERR_BUSY;
 
     // make a directory
     err = lfs3_mkdir(&lfs3, "ardvark");
@@ -2605,7 +2605,7 @@ code = '''
     //
     // it doesn't really matter which error returns first, so accept both
     err = lfs3_remove(&lfs3, "/");
-    assert(err == LFS3_ERR_NOTEMPTY || err == LFS3_ERR_INVAL);
+    assert(err == LFS3_ERR_NOTEMPTY || err == LFS3_ERR_BUSY);
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?
@@ -4830,14 +4830,14 @@ code = '''
     }
 
     // try to rename root, which doesn't really make sense
-    lfs3_rename(&lfs3, "/", "notroot") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "/", "notroot") => LFS3_ERR_BUSY;
 
     // make a directory
     err = lfs3_mkdir(&lfs3, "ardvark");
     assert(!err || (TEST_PLS && err == LFS3_ERR_EXIST));
 
     // try to rename root, which doesn't really make sense
-    lfs3_rename(&lfs3, "/", "notroot") => LFS3_ERR_INVAL;
+    lfs3_rename(&lfs3, "/", "notroot") => LFS3_ERR_BUSY;
 
     for (int remount = 0; remount < 2; remount++) {
         // remount?

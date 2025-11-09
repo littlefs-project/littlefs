@@ -11635,7 +11635,7 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
 
     // trying to remove the root dir?
     if (mdir.mid == -1) {
-        return LFS3_ERR_INVAL;
+        return LFS3_ERR_BUSY;
     }
 
     // if we're removing a directory, we need to also remove the
@@ -11756,7 +11756,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
     // trying to rename the root?
     if (old_mdir.mid == -1) {
-        return LFS3_ERR_INVAL;
+        return LFS3_ERR_BUSY;
     }
 
     // lookup new entry
@@ -11786,7 +11786,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     } else {
         // trying to rename the root?
         if (new_mdir.mid == -1) {
-            return LFS3_ERR_INVAL;
+            return LFS3_ERR_BUSY;
         }
 
         // we allow reg <-> stickynote renaming, but renaming a non-dir
