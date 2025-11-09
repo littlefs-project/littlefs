@@ -3551,30 +3551,26 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         } u;
     } ctx;
 
-    switch (rattr.from) {
     // direct buffer?
-    case LFS3_FROM_BUF:;
+    if (rattr.from == LFS3_FROM_BUF) {
         ctx.u.data = LFS3_DATA_BUF(rattr.u.buffer, rattr.count);
         datas = &ctx.u.data;
         data_count = 1;
-        break;
 
     // indirect concatenated data?
-    case LFS3_FROM_DATA:;
+    } else if (rattr.from == LFS3_FROM_DATA) {
         datas = rattr.u.datas;
         data_count = rattr.count;
-        break;
 
     // le32?
-    case LFS3_FROM_LE32:;
+    } else if (rattr.from == LFS3_FROM_LE32) {
         ctx.u.le32.data = lfs3_data_fromle32(rattr.u.le32,
                 ctx.u.le32.buf);
         datas = &ctx.u.le32.data;
         data_count = 1;
-        break;
 
     // leb128?
-    case LFS3_FROM_LEB128:;
+    } else if (rattr.from == LFS3_FROM_LEB128) {
         // leb128s should not exceed 31-bits
         LFS3_ASSERT(rattr.u.leb128 <= 0x7fffffff);
         // little-leb128s should not exceed 28-bits
@@ -3584,43 +3580,38 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 ctx.u.leb128.buf);
         datas = &ctx.u.leb128.data;
         data_count = 1;
-        break;
 
     // name?
-    case LFS3_FROM_NAME:;
+    } else if (rattr.from == LFS3_FROM_NAME) {
         const lfs3_name_t *name = rattr.u.etc;
         ctx.u.name.datas[0] = lfs3_data_fromleb128(name->did, ctx.u.name.buf);
         ctx.u.name.datas[1] = LFS3_DATA_BUF(name->name, name->name_len);
         datas = ctx.u.name.datas;
         data_count = 2;
-        break;
 
     // bptr?
-    case LFS3_FROM_BPTR:;
+    } else if (rattr.from == LFS3_FROM_BPTR) {
         ctx.u.bptr.data = lfs3_data_frombptr(rattr.u.etc,
                 ctx.u.bptr.buf);
         datas = &ctx.u.bptr.data;
         data_count = 1;
-        break;
 
     // ecksum?
-    case LFS3_FROM_ECKSUM:;
+    } else if (rattr.from == LFS3_FROM_ECKSUM) {
         ctx.u.ecksum.data = lfs3_data_fromecksum(rattr.u.etc,
                 ctx.u.ecksum.buf);
         datas = &ctx.u.ecksum.data;
         data_count = 1;
-        break;
 
     // btree?
-    case LFS3_FROM_BTREE:;
+    } else if (rattr.from == LFS3_FROM_BTREE) {
         ctx.u.btree.data = lfs3_data_frombtree(rattr.u.etc,
                 ctx.u.btree.buf);
         datas = &ctx.u.btree.data;
         data_count = 1;
-        break;
 
     // shrub trunk?
-    case LFS3_FROM_SHRUB:;
+    } else if (rattr.from == LFS3_FROM_SHRUB) {
         // note unlike the other lazy tags, we _need_ to lazily encode
         // shrub trunks, since they change underneath us during mdir
         // compactions, relocations, etc
@@ -3628,25 +3619,22 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 ctx.u.shrub.buf);
         datas = &ctx.u.shrub.data;
         data_count = 1;
-        break;
 
     // mptr?
-    case LFS3_FROM_MPTR:;
+    } else if (rattr.from == LFS3_FROM_MPTR) {
         ctx.u.mptr.data = lfs3_data_frommptr(rattr.u.etc,
                 ctx.u.mptr.buf);
         datas = &ctx.u.mptr.data;
         data_count = 1;
-        break;
 
     // geometry?
-    case LFS3_FROM_GEOMETRY:;
+    } else if (rattr.from == LFS3_FROM_GEOMETRY) {
         ctx.u.geometry.data = lfs3_data_fromgeometry(rattr.u.etc,
                 ctx.u.geometry.buf);
         datas = &ctx.u.geometry.data;
         data_count = 1;
-        break;
 
-    default:;
+    } else {
         LFS3_UNREACHABLE();
     }
 
