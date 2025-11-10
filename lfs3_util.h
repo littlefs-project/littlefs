@@ -215,10 +215,22 @@
 #define LFS3_IFDEF_REVDBG(a, b) (b)
 #endif
 
+#ifdef LFS3_YES_REVDBG
+#define LFS3_IFDEF_YES_REVDBG(a, b) (a)
+#else
+#define LFS3_IFDEF_YES_REVDBG(a, b) (b)
+#endif
+
 #ifdef LFS3_REVNOISE
 #define LFS3_IFDEF_REVNOISE(a, b) (a)
 #else
 #define LFS3_IFDEF_REVNOISE(a, b) (b)
+#endif
+
+#ifdef LFS3_YES_REVNOISE
+#define LFS3_IFDEF_YES_REVNOISE(a, b) (a)
+#else
+#define LFS3_IFDEF_YES_REVNOISE(a, b) (b)
 #endif
 
 #ifdef LFS3_CKPROGS

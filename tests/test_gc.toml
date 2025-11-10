@@ -1885,7 +1885,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_MKCONSISTENT
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP)
                     ? (LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
@@ -2028,7 +2030,9 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((!REGBMAP)
                     ? ((GBMAP)
@@ -2116,7 +2120,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_MKCONSISTENT
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP)
                     ? (LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
@@ -2259,7 +2265,9 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((!REGBMAP)
                     ? ((GBMAP)
@@ -2279,7 +2287,9 @@ code = '''
     // check that flags were reset
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_MKCONSISTENT
                 | LFS3_I_RELOOKAHEAD
                 | ((REGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1U)
@@ -2426,7 +2436,9 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((!REGBMAP)
                     ? ((GBMAP)

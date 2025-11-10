@@ -130,10 +130,6 @@ I_CKDATA        = 0x00002000  # --  Data checksums not checked recently
 
 I_GBMAP         = 0x01000000  # --  Global on-disk block-map in use
 
-i_INMODE        = 0x00030000  # im  Btree commit mode
-i_INMTREE       = 0x00010000  # i^  Committing to mtree
-i_INGBMAP       = 0x00020000  # i^  Committing to gbmap
-
 # Traversal flags
 T_MODE          =          1  # -m  The traversal's access mode
 T_RDWR          =          0  # -^  Open traversal as read and write

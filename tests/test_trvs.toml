@@ -1794,7 +1794,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_MKCONSISTENT
                 | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -1832,7 +1834,9 @@ code = '''
     // check flags after
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                 // note ckdata implies ckmeta
@@ -1931,7 +1935,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2004,7 +2010,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2035,7 +2043,9 @@ code = '''
     // we should _not_ update lookahead/compact/ckmeta/ckdata
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2124,7 +2134,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2217,7 +2229,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2318,7 +2332,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2400,7 +2416,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP && SIZE >= BLOCK_SIZE/4)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
                     : 0)
@@ -2496,8 +2514,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            // ok we might've updated lookahead if write stayed in cache
-            ((!RELOOKAHEAD || SIZE > FCACHE_SIZE || SYNC)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                // ok we might've updated lookahead if write stayed in
+                // cache
+                | ((!RELOOKAHEAD || SIZE > FCACHE_SIZE || SYNC)
                     ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP && SIZE >= BLOCK_SIZE/4)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
@@ -2617,7 +2638,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2747,7 +2770,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -2868,7 +2893,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -2974,7 +3001,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -3106,7 +3135,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -3229,7 +3260,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -3347,7 +3380,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!(RELOOKAHEAD && DESYNC)) ? LFS3_I_RELOOKAHEAD : 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -3490,7 +3525,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!(RELOOKAHEAD && DESYNC)) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
@@ -3624,7 +3661,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!(RELOOKAHEAD && DESYNC)) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
@@ -3744,7 +3783,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!(RELOOKAHEAD && DESYNC)) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
@@ -3867,7 +3908,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -3991,7 +4034,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4118,7 +4163,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4258,7 +4305,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4398,7 +4447,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4518,7 +4569,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4639,7 +4692,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4773,7 +4828,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4908,7 +4965,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -5097,7 +5156,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -5302,7 +5363,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -5502,7 +5565,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -5699,7 +5764,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -5902,7 +5969,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -6110,7 +6179,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -6323,7 +6394,9 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -6395,7 +6468,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -6431,7 +6506,9 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -6454,7 +6531,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -6538,7 +6617,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -6583,7 +6664,9 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -6609,7 +6692,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -6676,7 +6761,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -6714,7 +6801,9 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -6738,7 +6827,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -6832,7 +6923,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -6882,7 +6975,9 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -6907,7 +7002,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -7055,7 +7152,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -7113,7 +7212,9 @@ code = '''
         // but because we mutated, we're still marked as uncompacted
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.flags == (
-                LFS3_I_RELOOKAHEAD
+                LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                    | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                    | LFS3_I_RELOOKAHEAD
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                     | LFS3_I_COMPACTMETA
                     | LFS3_I_CKMETA
@@ -7140,7 +7241,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -7293,7 +7396,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -7356,7 +7461,9 @@ code = '''
     // but because we mutated, we're still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -7383,7 +7490,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -7501,7 +7610,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
@@ -7570,7 +7681,9 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
                     : 0)
@@ -7650,7 +7763,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -7736,7 +7851,9 @@ code = '''
     // if we introduced actual orphans, we _must_ be marked as inconsistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
@@ -7842,7 +7959,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
@@ -7922,7 +8041,9 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -8025,7 +8146,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
@@ -8105,7 +8228,9 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -8209,7 +8334,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
@@ -8297,7 +8424,9 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -8401,7 +8530,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
@@ -8489,7 +8620,9 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD || ORPHANS > 0) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1) : 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -8611,7 +8744,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
@@ -8685,7 +8820,9 @@ code = '''
     // still marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
                     : 0)
@@ -8712,7 +8849,9 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((!RELOOKAHEAD) ? LFS3_I_RELOOKAHEAD : 0)
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)
                     : 0)
@@ -8814,7 +8953,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_RELOOKAHEAD
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | LFS3_I_RELOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -8905,7 +9046,9 @@ code = '''
     // if we introduced actual orphans, we _must_ be marked as inconsistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
+            LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
+                | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_RELOOKAHEAD
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_REGBMAP, -1)

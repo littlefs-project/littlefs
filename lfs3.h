@@ -296,13 +296,6 @@ enum lfs3_type {
 #define LFS3_I_GBMAP    0x01000000  // Global on-disk block-map in use
 #endif
 
-// internally used flags, don't use these
-#ifdef LFS3_REVDBG
-#define LFS3_i_INMODE   0x00030000  // Btree commit mode
-#define LFS3_i_INMTREE  0x00010000  // Committing to mtree
-#define LFS3_i_INGBMAP  0x00020000  // Committing to gbmap
-#endif
-
 
 // Block types
 enum lfs3_btype {

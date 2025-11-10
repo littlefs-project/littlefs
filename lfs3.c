@@ -7526,19 +7526,6 @@ static inline bool lfs3_f_isgbmap(uint32_t flags) {
 }
 #endif
 
-// other internal flags
-#ifdef LFS3_REVDBG
-static inline bool lfs3_i_isinmtree(uint32_t flags) {
-    return (flags & LFS3_i_INMODE) == LFS3_i_INMTREE;
-}
-#endif
-
-#ifdef LFS3_REVDBG
-static inline bool lfs3_i_isingbmap(uint32_t flags) {
-    return (flags & LFS3_i_INMODE) == LFS3_i_INGBMAP;
-}
-#endif
-
 
 
 /// Handles - opened mdir things ///
@@ -7946,24 +7933,21 @@ static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
 
 /// Revision count things ///
 
-// in mdirs, our revision count is broken down into three parts:
+// in mdirs, our revision count is broken down into 1-4 parts:
 //
+//   vvvv---- -------- -------- --------
+//   vvvvrrrr rrrrrr-- -------- --------
 //   vvvvrrrr rrrrrrnn nnnnnnnn nnnnnnnn
-//   '-.''----.----''---------.--------'
-//     '------|---------------|---------- 4-bit relocation revision
-//            '---------------|---------- recycle-bits recycle counter
-//                            '---------- pseudorandom noise (if revnoise)
-//
-// in revdbg mode, the bottom 24 bits are initialized with a hint based
-// on rbyd type, though it may be overwritten by the recycle counter if
-// it overlaps:
-//
-//   vvvv---- --1----1 -11-1--1 -11-1---  (68 69 21 v0  hi!r)  mroot anchor
-//   vvvv---- -111111- -111--1- -11-11-1  (6d 72 7e v0  mr~r)  mroot
-//   vvvv---- -111111- -11--1-- -11-11-1  (6d 64 7e v0  md~r)  mdir
-//   vvvv---- -111111- -111-1-- -11---1-  (62 74 7e v0  bt~r)  file btree node
-//   vvvv---- -111111- -11-11-1 -11---1-  (62 6d 7e v0  bm~r)  mtree node
-//   vvvv---- -111111- -11---1- -11---1-  (62 62 7e v0  bb~r)  gbmap node
+//   vvvvrrrr rrrrrrnn nnnnnnnn dddddddd
+//   '-.''----.----''----.- - - '---.--'
+//     '------|----------|----------|---- 4-bit relocation revision
+//            '----------|----------|---- recycle-bits recycle counter
+//                       '----------|---- pseudorandom noise (if revnoise)
+//                                  '---- h, i, m, or b (if revdbg)
+//                              -11-1---  - h = mroot anchor
+//                              -11-1--1  - i = mroot
+//                              -11-11-1  - m = mdir
+//                              -11---1-  - b = btree node
 //
 
 // needed in lfs3_rev_init
@@ -7979,22 +7963,30 @@ static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     rev &= ~((1 << 28)-1);
     // increment revision
     rev += 1 << 28;
+    // xor in pseudorandom noise?
+    #ifdef LFS3_REVNOISE
+    if (lfs3_m_isrevnoise(lfs3->flags)) {
+        rev ^= ((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
+                // we need to use gcksum_p because we have be in the
+                // middle of updating the gcksum
+                & lfs3->gcksum_p;
+    }
+    #endif
     // include debug bits?
     #ifdef LFS3_REVDBG
     if (lfs3_m_isrevdbg(lfs3->flags)) {
+        uint32_t mask = (1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1;
+        // mroot anchor?
+        if (lfs3_mdir_ismrootanchor(mdir)) {
+            rev = (rev & ~(mask & 0xff)) | (mask & 0x68);
         // mroot?
-        if (mdir->mid <= -1 || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
-            rev |= 0x007e726d; // mr~r
+        } else if (mdir->mid <= -1
+                || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
+            rev = (rev & ~(mask & 0xff)) | (mask & 0x69);
         // mdir?
         } else {
-            rev |= 0x007e646d; // md~r
+            rev = (rev & ~(mask & 0xff)) | (mask & 0x6d);
         }
-    }
-    #endif
-    // xor in pseudorandom noise
-    #ifdef LFS3_REVNOISE
-    if (lfs3_m_isrevnoise(lfs3->flags)) {
-        rev ^= ((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1) & lfs3->gcksum;
     }
     #endif
     return rev;
@@ -8007,26 +7999,20 @@ static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
 static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3) {
     (void)lfs3;
     uint32_t rev = 0;
-    // include debug bits?
-    #ifdef LFS3_REVDBG
-    if (lfs3_m_isrevdbg(lfs3->flags)) {
-        // mtree?
-        if (lfs3_i_isinmtree(lfs3->flags)) {
-            rev |= 0x007e6d62; // bm~r
-        // gbmap?
-        } else if (lfs3_i_isingbmap(lfs3->flags)) {
-            rev |= 0x007e6262; // bb~r
-        // file btree?
-        } else {
-            rev |= 0x007e7462; // bt~r
-        }
-    }
-    #endif
-    // xor in pseudorandom noise
+    // xor in pseudorandom noise?
     #ifdef LFS3_REVNOISE
     if (lfs3_m_isrevnoise(lfs3->flags)) {
         // keep the top nibble zero
-        rev ^= 0x0fffffff & lfs3->gcksum;
+        rev ^= 0x0fffffff
+                // we need to use gcksum_p because we have be in the
+                // middle of updating the gcksum
+                & lfs3->gcksum_p;
+    }
+    #endif
+    // include debug bits?
+    #ifdef LFS3_REVDBG
+    if (lfs3_m_isrevdbg(lfs3->flags)) {
+        rev = (rev & ~0xff) | 0x62;
     }
     #endif
     return rev;
@@ -8046,13 +8032,35 @@ static inline bool lfs3_rev_needsrelocation(lfs3_t *lfs3, uint32_t rev) {
 #endif
 
 #ifndef LFS3_RDONLY
-static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, uint32_t rev) {
+static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
+        uint32_t rev) {
+    (void)mdir;
     // increment recycle counter/revision
     rev += 1 << (28-lfs3_smax(lfs3->recycle_bits, 0));
-    // xor in pseudorandom noise
+    // xor in pseudorandom noise?
     #ifdef LFS3_REVNOISE
     if (lfs3_m_isrevnoise(lfs3->flags)) {
-        rev ^= ((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1) & lfs3->gcksum;
+        rev ^= ((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
+                // we need to use gcksum_p because we have be in the
+                // middle of updating the gcksum
+                & lfs3->gcksum_p;
+    }
+    #endif
+    // include debug bits?
+    #ifdef LFS3_REVDBG
+    if (lfs3_m_isrevdbg(lfs3->flags)) {
+        uint32_t mask = (1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1;
+        // mroot anchor?
+        if (lfs3_mdir_ismrootanchor(mdir)) {
+            rev = (rev & ~(mask & 0xff)) | (mask & 0x68);
+        // mroot?
+        } else if (mdir->mid <= -1
+                || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
+            rev = (rev & ~(mask & 0xff)) | (mask & 0x69);
+        // mdir?
+        } else {
+            rev = (rev & ~(mask & 0xff)) | (mask & 0x6d);
+        }
     }
     #endif
     return rev;
@@ -8293,30 +8301,10 @@ static int lfs3_mtree_lookup(lfs3_t *lfs3, lfs3_smid_t mid,
     }
 }
 
-// this is the same as lfs3_btree_commit, but we set the inmtree flag
-// for debugging reasons
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_commit(lfs3_t *lfs3, lfs3_btree_t *mtree,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
-    #ifdef LFS3_REVDBG
-    lfs3->flags |= LFS3_i_INMTREE;
-    #endif
-
-    int err = lfs3_btree_commit(lfs3, mtree, bid, rattrs, rattr_count);
-    if (err) {
-        goto failed;
-    }
-
-    #ifdef LFS3_REVDBG
-    lfs3->flags &= ~LFS3_i_INMTREE;
-    #endif
-    return 0;
-
-failed:;
-    #ifdef LFS3_REVDBG
-    lfs3->flags &= ~LFS3_i_INMTREE;
-    #endif
-    return err;
+    return lfs3_btree_commit(lfs3, mtree, bid, rattrs, rattr_count);
 }
 #endif
 
@@ -8409,7 +8397,7 @@ static int lfs3_mdir_swap___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
     // note we allow corrupt errors here, as long as they are consistent
     rev = (err != LFS3_ERR_CORRUPT) ? lfs3_fromle32(&rev) : 0;
     // increment our revision count
-    rev = lfs3_rev_inc(lfs3, rev);
+    rev = lfs3_rev_inc(lfs3, mdir_, rev);
 
     // decide if we need to relocate
     if (!force && lfs3_rev_needsrelocation(lfs3, rev)) {
@@ -10713,30 +10701,10 @@ static lfs3_stag_t lfs3_gbmap_lookupnext(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 }
 #endif
 
-// this is the same as lfs3_btree_commit, but we set the ingbmap flag
-// for debugging reasons
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_gbmap_commit(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_bid_t bid, const lfs3_rattr_t *rattrs, lfs3_size_t rattr_count) {
-    #ifdef LFS3_REVDBG
-    lfs3->flags |= LFS3_i_INGBMAP;
-    #endif
-
-    int err = lfs3_btree_commit(lfs3, gbmap, bid, rattrs, rattr_count);
-    if (err) {
-        goto failed;
-    }
-
-    #ifdef LFS3_REVDBG
-    lfs3->flags &= ~LFS3_i_INGBMAP;
-    #endif
-    return 0;
-
-failed:;
-    #ifdef LFS3_REVDBG
-    lfs3->flags &= ~LFS3_i_INGBMAP;
-    #endif
-    return err;
+    return lfs3_btree_commit(lfs3, gbmap, bid, rattrs, rattr_count);
 }
 #endif
 
@@ -14968,11 +14936,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
                 | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0))) == 0);
-    // LFS3_M_REVDBG and LFS3_M_REVNOISE are incompatible
-    #if defined(LFS3_REVNOISE) && defined(LFS3_REVDBG)
-    LFS3_ASSERT(!lfs3_m_isrevdbg(flags) || !lfs3_m_isrevnoise(flags));
-    #endif
-
     // TODO this all needs to be cleaned up
     lfs3->cfg = cfg;
     int err = 0;
@@ -16032,10 +15995,6 @@ int lfs3_unmount(lfs3_t *lfs3) {
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_formatgbmap(lfs3_t *lfs3) {
-    #ifdef LFS3_REVDBG
-    lfs3->flags |= LFS3_i_INGBMAP;
-    #endif
-
     // TODO should we try multiple blocks?
     //
     // TODO if we try multiple blocks we should update test_badblocks
@@ -16052,14 +16011,14 @@ static int lfs3_formatgbmap(lfs3_t *lfs3) {
 
     int err = lfs3_bd_erase(lfs3, lfs3->gbmap.b.r.blocks[0]);
     if (err) {
-        goto failed;
+        return err;
     }
 
     #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
     // append a revision count?
     err = lfs3_rbyd_appendrev(lfs3, &lfs3->gbmap.b.r, lfs3_rev_btree(lfs3));
     if (err) {
-        goto failed;
+        return err;
     }
     #endif
 
@@ -16071,19 +16030,10 @@ static int lfs3_formatgbmap(lfs3_t *lfs3) {
                 ? LFS3_RATTR(LFS3_TAG_BMFREE, +(lfs3->block_count - 3))
                 : LFS3_RATTR_NOOP()));
     if (err) {
-        goto failed;
+        return err;
     }
 
-    #ifdef LFS3_REVDBG
-    lfs3->flags &= ~LFS3_i_INGBMAP;
-    #endif
     return 0;
-
-failed:;
-    #ifdef LFS3_REVDBG
-    lfs3->flags &= ~LFS3_i_INGBMAP;
-    #endif
-    return err;
 }
 #endif
 
