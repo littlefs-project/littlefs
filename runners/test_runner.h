@@ -107,13 +107,13 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(LOOKAHEAD_SIZE,         16                                   ) \
     TEST_DEFINE(GC_FLAGS,               LFS3_GC_ALL                          ) \
     TEST_DEFINE(GC_STEPS,               0                                    ) \
-    TEST_DEFINE(GC_RELOOKAHEAD_THRESH,  -1                                   ) \
-    TEST_DEFINE(GC_REGBMAP_THRESH,      -1                                   ) \
+    TEST_DEFINE(GC_LOOKAHEAD_THRESH,    -1                                   ) \
+    TEST_DEFINE(GC_LOOKGBMAP_THRESH,    -1                                   ) \
     TEST_DEFINE(GC_COMPACTMETA_THRESH,  0                                    ) \
     TEST_DEFINE(SHRUB_SIZE,             BLOCK_SIZE/4                         ) \
     TEST_DEFINE(FRAGMENT_SIZE,          LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
     TEST_DEFINE(CRYSTAL_THRESH,         BLOCK_SIZE/8                         ) \
-    TEST_DEFINE(REGBMAP_THRESH,         BLOCK_COUNT/4                        ) \
+    TEST_DEFINE(LOOKGBMAP_THRESH,       BLOCK_COUNT/4                        ) \
     TEST_DEFINE(ERASE_VALUE,            0xff                                 ) \
     TEST_DEFINE(ERASE_CYCLES,           0                                    ) \
     TEST_DEFINE(BADBLOCK_BEHAVIOR,      LFS3_EMUBD_BADBLOCK_PROGERROR        ) \
@@ -140,7 +140,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .lookahead_size             = LOOKAHEAD_SIZE,           \
     TEST_GBMAP_CFG                                          \
     TEST_GC_CFG                                             \
-    .gc_relookahead_thresh      = GC_RELOOKAHEAD_THRESH,    \
+    .gc_lookahead_thresh        = GC_LOOKAHEAD_THRESH,      \
     .gc_compactmeta_thresh      = GC_COMPACTMETA_THRESH,    \
     .shrub_size                 = SHRUB_SIZE,               \
     .fragment_size              = FRAGMENT_SIZE,            \
@@ -148,8 +148,8 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 
 #ifdef LFS3_GBMAP
 #define TEST_GBMAP_CFG \
-    .gc_regbmap_thresh          = GC_REGBMAP_THRESH,        \
-    .regbmap_thresh             = REGBMAP_THRESH,
+    .gc_lookgbmap_thresh        = GC_LOOKGBMAP_THRESH,      \
+    .lookgbmap_thresh           = LOOKGBMAP_THRESH,
 #else
 #define TEST_GBMAP_CFG
 #endif
