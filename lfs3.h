@@ -168,35 +168,46 @@ enum lfs3_type {
 // Filesystem format flags
 #ifndef LFS3_RDONLY
 #define LFS3_F_MODE              1  // Format's access mode
+#endif
+#ifndef LFS3_RDONLY
 #define LFS3_F_RDWR              0  // Format the filesystem as read and write
-#ifdef LFS3_REVDBG
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+#define LFS3_F_GBMAP    0x02000000  // Use the global on-disk block-map
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REVDBG)
 #define LFS3_F_REVDBG   0x00000010  // Add debug info to revision counts
 #endif
-#ifdef LFS3_REVNOISE
+#if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
 #define LFS3_F_REVNOISE 0x00000020  // Add noise to revision counts
 #endif
-#ifdef LFS3_CKPROGS
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKPROGS)
 #define LFS3_F_CKPROGS  0x00100000  // Check progs by reading back progged data
 #endif
-#ifdef LFS3_CKFETCHES
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKFETCHES)
 #define LFS3_F_CKFETCHES \
                         0x00200000  // Check block checksums before first use
 #endif
-#ifdef LFS3_CKMETAPARITY
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKMETAPARITY)
 #define LFS3_F_CKMETAPARITY \
                         0x00400000  // Check metadata tag parity bits
 #endif
-#ifdef LFS3_CKDATACKSUMS
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKDATACKSUMS)
 #define LFS3_F_CKDATACKSUMS \
                         0x01000000  // Check data checksums on reads
 #endif
-
-#define LFS3_F_CKMETA   0x00010000  // Check metadata checksums
-#define LFS3_F_CKDATA   0x00020000  // Check metadata + data checksums
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+#define LFS3_F_REGBMAP  0x00002000  // Repopulate the gbmap
 #endif
-
-#ifdef LFS3_GBMAP
-#define LFS3_F_GBMAP    0x02000000  // Use the global on-disk block-map
+#ifndef LFS3_RDONLY
+#define LFS3_F_COMPACTMETA \
+                        0x00008000  // Compact metadata logs
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_F_CKMETA   0x00010000  // Check metadata checksums
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_F_CKDATA   0x00020000  // Check metadata + data checksums
 #endif
 
 // Filesystem mount flags
@@ -228,7 +239,6 @@ enum lfs3_type {
 #define LFS3_M_CKDATACKSUMS \
                         0x01000000  // Check data checksums on reads
 #endif
-
 #ifndef LFS3_RDONLY
 #define LFS3_M_MKCONSISTENT \
                         0x00000800  // Make the filesystem consistent
@@ -247,9 +257,11 @@ enum lfs3_type {
 #define LFS3_M_CKMETA   0x00010000  // Check metadata checksums
 #define LFS3_M_CKDATA   0x00020000  // Check metadata + data checksums
 
-
 // Filesystem info flags
 #define LFS3_I_RDONLY   0x00000001  // Mounted read only
+#ifdef LFS3_GBMAP
+#define LFS3_I_GBMAP    0x02000000  // Global on-disk block-map in use
+#endif
 #define LFS3_I_FLUSH    0x00000040  // Mounted with LFS3_M_FLUSH
 #define LFS3_I_SYNC     0x00000080  // Mounted with LFS3_M_SYNC
 #if !defined(LFS3_RDONLY) && defined(LFS3_REVDBG)
@@ -273,7 +285,6 @@ enum lfs3_type {
 #define LFS3_I_CKDATACKSUMS \
                         0x01000000  // Mounted with LFS3_M_CKDATACKSUMS
 #endif
-
 #ifndef LFS3_RDONLY
 #define LFS3_I_MKCONSISTENT \
                         0x00000800  // Filesystem needs mkconsistent to write
@@ -291,10 +302,6 @@ enum lfs3_type {
 #endif
 #define LFS3_I_CKMETA   0x00010000  // Metadata checksums not checked recently
 #define LFS3_I_CKDATA   0x00020000  // Data checksums not checked recently
-
-#ifdef LFS3_GBMAP
-#define LFS3_I_GBMAP    0x02000000  // Global on-disk block-map in use
-#endif
 
 
 // Block types

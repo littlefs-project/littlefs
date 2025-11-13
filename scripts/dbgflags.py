@@ -35,6 +35,7 @@ O_APPEND        = 0x00000020  # --  Move to end of file on every write
 O_FLUSH         = 0x00000040  # y-  Flush data on every write
 O_SYNC          = 0x00000080  # y-  Sync metadata on every write
 O_DESYNC        = 0x00100000  # --  Do not sync or recieve file updates
+
 O_CKMETA        = 0x00010000  # --  Check metadata checksums
 O_CKDATA        = 0x00020000  # --  Check metadata + data checksums
 
@@ -70,6 +71,8 @@ A_LAZY          =       0x04  # --  Only write attr if file changed
 # Filesystem format flags
 F_MODE          =          1  # -m  Format's access mode
 F_RDWR          =          0  # -^  Format the filesystem as read and write
+F_GBMAP         = 0x02000000  # y-  Use the global on-disk block-map
+
 F_REVDBG        = 0x00000010  # y-  Add debug info to revision counts
 F_REVNOISE      = 0x00000020  # y-  Add noise to revision counts
 F_CKPROGS       = 0x00100000  # y-  Check progs by reading back progged data
@@ -77,10 +80,10 @@ F_CKFETCHES     = 0x00200000  # y-  Check block checksums before first use
 F_CKMETAPARITY  = 0x00400000  # y-  Check metadata tag parity bits
 F_CKDATACKSUMS  = 0x01000000  # y-  Check data checksums on reads
 
+F_REGBMAP       = 0x00002000  # y-  Repopulate the gbmap
+F_COMPACTMETA   = 0x00008000  # y-  Compact metadata logs
 F_CKMETA        = 0x00010000  # y-  Check metadata checksums
 F_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
-
-F_GBMAP         = 0x02000000  # y-  Use the global on-disk block-map
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -112,6 +115,8 @@ GC_CKDATA       = 0x00020000  # --  Check metadata + data checksums
 
 # Filesystem info flags
 I_RDONLY        = 0x00000001  # --  Mounted read only
+I_GBMAP         = 0x02000000  # --  Global on-disk block-map in use
+
 I_FLUSH         = 0x00000040  # --  Mounted with LFS3_M_FLUSH
 I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
 I_REVDBG        = 0x00000010  # --  Mounted with LFS3_M_REVDBG
@@ -127,8 +132,6 @@ I_REGBMAP       = 0x00002000  # --  The gbmap is not full
 I_COMPACTMETA   = 0x00008000  # --  Filesystem may have uncompacted metadata
 I_CKMETA        = 0x00010000  # --  Metadata checksums not checked recently
 I_CKDATA        = 0x00020000  # --  Data checksums not checked recently
-
-I_GBMAP         = 0x02000000  # --  Global on-disk block-map in use
 
 # Traversal flags
 T_MODE          =          1  # -m  The traversal's access mode

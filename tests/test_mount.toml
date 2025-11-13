@@ -107,6 +107,8 @@ defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
+defines.REGBMAP = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GBMAP = [false, true]
@@ -117,6 +119,7 @@ if = [
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS3_IFDEF_YES_GBMAP(true, !REGBMAP)',
     'LFS3_IFDEF_GBMAP(true, !GBMAP)',
 ]
 code = '''
@@ -133,6 +136,10 @@ code = '''
                 | ((CKDATACKSUMS)
                     ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
                     : 0)
+                | ((REGBMAP)
+                    ? LFS3_IFDEF_GBMAP(LFS3_F_REGBMAP, -1)
+                    : 0)
+                | ((COMPACTMETA) ? LFS3_F_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_F_CKMETA : 0)
                 | ((CKDATA) ? LFS3_F_CKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
