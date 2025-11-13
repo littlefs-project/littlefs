@@ -34,9 +34,9 @@ O_TRUNC         = 0x00000010  # --  Truncate the existing file to zero size
 O_APPEND        = 0x00000020  # --  Move to end of file on every write
 O_FLUSH         = 0x00000040  # y-  Flush data on every write
 O_SYNC          = 0x00000080  # y-  Sync metadata on every write
-O_DESYNC        = 0x04000000  # --  Do not sync or recieve file updates
-O_CKMETA        = 0x00001000  # --  Check metadata checksums
-O_CKDATA        = 0x00002000  # --  Check metadata + data checksums
+O_DESYNC        = 0x00100000  # --  Do not sync or recieve file updates
+O_CKMETA        = 0x00010000  # --  Check metadata checksums
+O_CKDATA        = 0x00020000  # --  Check metadata + data checksums
 
 o_WRSET         =          3  # i-  Open a file as an atomic write
 o_TYPE          = 0xf0000000  # im  The file's type
@@ -48,11 +48,11 @@ o_ORPHAN        = 0x50000000  # i^  Type = orphan
 o_TRAVERSAL     = 0x60000000  # i^  Type = traversal
 o_UNKNOWN       = 0x70000000  # i^  Type = unknown
 o_ZOMBIE        = 0x08000000  # i-  File has been removed
-o_UNCREAT       = 0x02000000  # i-  File does not exist yet
-o_UNSYNC        = 0x01000000  # i-  File's metadata does not match disk
-o_UNCRYST       = 0x00800000  # i-  File's leaf not fully crystallized
-o_UNGRAFT       = 0x00400000  # i-  File's leaf does not match disk
-o_UNFLUSH       = 0x00200000  # i-  File's cache does not match disk
+o_UNCREAT       = 0x04000000  # i-  File does not exist yet
+o_UNSYNC        = 0x02000000  # i-  File's metadata does not match disk
+o_UNCRYST       = 0x01000000  # i-  File's leaf not fully crystallized
+o_UNGRAFT       = 0x00800000  # i-  File's leaf does not match disk
+o_UNFLUSH       = 0x00400000  # i-  File's cache does not match disk
 
 # File seek flags
 seek_MODE       = 0xffffffff  # im  Seek mode
@@ -72,15 +72,15 @@ F_MODE          =          1  # -m  Format's access mode
 F_RDWR          =          0  # -^  Format the filesystem as read and write
 F_REVDBG        = 0x00000010  # y-  Add debug info to revision counts
 F_REVNOISE      = 0x00000020  # y-  Add noise to revision counts
-F_CKPROGS       = 0x00080000  # y-  Check progs by reading back progged data
-F_CKFETCHES     = 0x00100000  # y-  Check block checksums before first use
-F_CKMETAPARITY  = 0x00200000  # y-  Check metadata tag parity bits
-F_CKDATACKSUMS  = 0x00800000  # y-  Check data checksums on reads
+F_CKPROGS       = 0x00100000  # y-  Check progs by reading back progged data
+F_CKFETCHES     = 0x00200000  # y-  Check block checksums before first use
+F_CKMETAPARITY  = 0x00400000  # y-  Check metadata tag parity bits
+F_CKDATACKSUMS  = 0x01000000  # y-  Check data checksums on reads
 
-F_CKMETA        = 0x00001000  # y-  Check metadata checksums
-F_CKDATA        = 0x00002000  # y-  Check metadata + data checksums
+F_CKMETA        = 0x00010000  # y-  Check metadata checksums
+F_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
 
-F_GBMAP         = 0x01000000  # y-  Use the global on-disk block-map
+F_GBMAP         = 0x02000000  # y-  Use the global on-disk block-map
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -90,25 +90,25 @@ M_FLUSH         = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
 M_SYNC          = 0x00000080  # y-  Open all files with LFS3_O_SYNC
 M_REVDBG        = 0x00000010  # y-  Add debug info to revision counts
 M_REVNOISE      = 0x00000020  # y-  Add noise to revision counts
-M_CKPROGS       = 0x00080000  # y-  Check progs by reading back progged data
-M_CKFETCHES     = 0x00100000  # y-  Check block checksums before first use
-M_CKMETAPARITY  = 0x00200000  # y-  Check metadata tag parity bits
-M_CKDATACKSUMS  = 0x00800000  # y-  Check data checksums on reads
+M_CKPROGS       = 0x00100000  # y-  Check progs by reading back progged data
+M_CKFETCHES     = 0x00200000  # y-  Check block checksums before first use
+M_CKMETAPARITY  = 0x00400000  # y-  Check metadata tag parity bits
+M_CKDATACKSUMS  = 0x01000000  # y-  Check data checksums on reads
 
-M_MKCONSISTENT  = 0x00000100  # y-  Make the filesystem consistent
-M_RELOOKAHEAD   = 0x00000200  # y-  Repopulate lookahead buffer
-M_REGBMAP       = 0x00000400  # y-  Repopulate the gbmap
-M_COMPACTMETA   = 0x00000800  # y-  Compact metadata logs
-M_CKMETA        = 0x00001000  # y-  Check metadata checksums
-M_CKDATA        = 0x00002000  # y-  Check metadata + data checksums
+M_MKCONSISTENT  = 0x00000800  # y-  Make the filesystem consistent
+M_RELOOKAHEAD   = 0x00001000  # y-  Repopulate lookahead buffer
+M_REGBMAP       = 0x00002000  # y-  Repopulate the gbmap
+M_COMPACTMETA   = 0x00008000  # y-  Compact metadata logs
+M_CKMETA        = 0x00010000  # y-  Check metadata checksums
+M_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
 
 # GC flags
-GC_MKCONSISTENT = 0x00000100  # --  Make the filesystem consistent
-GC_RELOOKAHEAD  = 0x00000200  # --  Repopulate lookahead buffer
-GC_REGBMAP      = 0x00000400  # --  Repopulate the gbmap
-GC_COMPACTMETA  = 0x00000800  # --  Compact metadata logs
-GC_CKMETA       = 0x00001000  # --  Check metadata checksums
-GC_CKDATA       = 0x00002000  # --  Check metadata + data checksums
+GC_MKCONSISTENT = 0x00000800  # --  Make the filesystem consistent
+GC_RELOOKAHEAD  = 0x00001000  # --  Repopulate lookahead buffer
+GC_REGBMAP      = 0x00002000  # --  Repopulate the gbmap
+GC_COMPACTMETA  = 0x00008000  # --  Compact metadata logs
+GC_CKMETA       = 0x00010000  # --  Check metadata checksums
+GC_CKDATA       = 0x00020000  # --  Check metadata + data checksums
 
 # Filesystem info flags
 I_RDONLY        = 0x00000001  # --  Mounted read only
@@ -116,19 +116,19 @@ I_FLUSH         = 0x00000040  # --  Mounted with LFS3_M_FLUSH
 I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
 I_REVDBG        = 0x00000010  # --  Mounted with LFS3_M_REVDBG
 I_REVNOISE      = 0x00000020  # --  Mounted with LFS3_M_REVNOISE
-I_CKPROGS       = 0x00080000  # --  Mounted with LFS3_M_CKPROGS
-I_CKFETCHES     = 0x00100000  # --  Mounted with LFS3_M_CKFETCHES
-I_CKMETAPARITY  = 0x00200000  # --  Mounted with LFS3_M_CKMETAPARITY
-I_CKDATACKSUMS  = 0x00800000  # --  Mounted with LFS3_M_CKDATACKSUMS
+I_CKPROGS       = 0x00100000  # --  Mounted with LFS3_M_CKPROGS
+I_CKFETCHES     = 0x00200000  # --  Mounted with LFS3_M_CKFETCHES
+I_CKMETAPARITY  = 0x00400000  # --  Mounted with LFS3_M_CKMETAPARITY
+I_CKDATACKSUMS  = 0x01000000  # --  Mounted with LFS3_M_CKDATACKSUMS
 
-I_MKCONSISTENT  = 0x00000100  # --  Filesystem needs mkconsistent to write
-I_RELOOKAHEAD   = 0x00000200  # --  Lookahead buffer is not full
-I_REGBMAP       = 0x00000400  # --  The gbmap is not full
-I_COMPACTMETA   = 0x00000800  # --  Filesystem may have uncompacted metadata
-I_CKMETA        = 0x00001000  # --  Metadata checksums not checked recently
-I_CKDATA        = 0x00002000  # --  Data checksums not checked recently
+I_MKCONSISTENT  = 0x00000800  # --  Filesystem needs mkconsistent to write
+I_RELOOKAHEAD   = 0x00001000  # --  Lookahead buffer is not full
+I_REGBMAP       = 0x00002000  # --  The gbmap is not full
+I_COMPACTMETA   = 0x00008000  # --  Filesystem may have uncompacted metadata
+I_CKMETA        = 0x00010000  # --  Metadata checksums not checked recently
+I_CKDATA        = 0x00020000  # --  Data checksums not checked recently
 
-I_GBMAP         = 0x01000000  # --  Global on-disk block-map in use
+I_GBMAP         = 0x02000000  # --  Global on-disk block-map in use
 
 # Traversal flags
 T_MODE          =          1  # -m  The traversal's access mode
@@ -136,12 +136,12 @@ T_RDWR          =          0  # -^  Open traversal as read and write
 T_RDONLY        =          1  # -^  Open traversal as read only
 T_MTREEONLY     = 0x00000002  # --  Only traverse the mtree
 T_EXCL          = 0x00000008  # --  Error if filesystem modified
-T_MKCONSISTENT  = 0x00000100  # --  Make the filesystem consistent
-T_RELOOKAHEAD   = 0x00000200  # --  Repopulate lookahead buffer
-T_REGBMAP       = 0x00000400  # --  Repopulate the gbmap
-T_COMPACTMETA   = 0x00000800  # --  Compact metadata logs
-T_CKMETA        = 0x00001000  # --  Check metadata checksums
-T_CKDATA        = 0x00002000  # --  Check metadata + data checksums
+T_MKCONSISTENT  = 0x00000800  # --  Make the filesystem consistent
+T_RELOOKAHEAD   = 0x00001000  # --  Repopulate lookahead buffer
+T_REGBMAP       = 0x00002000  # --  Repopulate the gbmap
+T_COMPACTMETA   = 0x00008000  # --  Compact metadata logs
+T_CKMETA        = 0x00010000  # --  Check metadata checksums
+T_CKDATA        = 0x00020000  # --  Check metadata + data checksums
 
 t_TYPE          = 0xf0000000  # im  The traversal's type
 t_REG           = 0x10000000  # i^  Type = regular-file
