@@ -15267,24 +15267,24 @@ static int lfs3_deinit(lfs3_t *lfs3) {
 // note, "understanding" does not necessarily mean support
 //
 #define LFS3_RCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
-#define LFS3_RCOMPAT_WRONLY      0x00000002 // Reading is disallowed
-#define LFS3_RCOMPAT_BMOSS       0x00000010 // Files may use inlined data
-#define LFS3_RCOMPAT_BSPROUT     0x00000020 // Files may use block pointers
-#define LFS3_RCOMPAT_BSHRUB      0x00000040 // Files may use inlined btrees
-#define LFS3_RCOMPAT_BTREE       0x00000080 // Files may use btrees
-#define LFS3_RCOMPAT_MMOSS       0x00000100 // May use an inlined mdir
-#define LFS3_RCOMPAT_MSPROUT     0x00000200 // May use an mdir pointer
-#define LFS3_RCOMPAT_MSHRUB      0x00000400 // May use an inlined mtree
-#define LFS3_RCOMPAT_MTREE       0x00000800 // May use an mtree
-#define LFS3_RCOMPAT_GRM         0x00001000 // Global-remove in use
+#define LFS3_RCOMPAT_WRONLY      0x00000004 // Reading is disallowed
+#define LFS3_RCOMPAT_MMOSS       0x00000010 // May use an inlined mdir
+#define LFS3_RCOMPAT_MSPROUT     0x00000020 // May use an mdir pointer
+#define LFS3_RCOMPAT_MSHRUB      0x00000040 // May use an inlined mtree
+#define LFS3_RCOMPAT_MTREE       0x00000080 // May use an mtree
+#define LFS3_RCOMPAT_BMOSS       0x00000100 // Files may use inlined data
+#define LFS3_RCOMPAT_BSPROUT     0x00000200 // Files may use block pointers
+#define LFS3_RCOMPAT_BSHRUB      0x00000400 // Files may use inlined btrees
+#define LFS3_RCOMPAT_BTREE       0x00000800 // Files may use btrees
+#define LFS3_RCOMPAT_GRM         0x00010000 // Global-remove in use
 // internal
 #define LFS3_rcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
 #define LFS3_WCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
 #define LFS3_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
-#define LFS3_WCOMPAT_DIR         0x00000010 // Directory files in use
-#define LFS3_WCOMPAT_GCKSUM      0x00001000 // Global-checksum in use
-#define LFS3_WCOMPAT_GBMAP       0x00002000 // Global on-disk block-map in use
+#define LFS3_WCOMPAT_GCKSUM      0x00040000 // Global-checksum in use
+#define LFS3_WCOMPAT_GBMAP       0x00080000 // Global on-disk block-map in use
+#define LFS3_WCOMPAT_DIR         0x01000000 // Directory files in use
 // internal
 #define LFS3_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
 
@@ -15303,20 +15303,20 @@ static inline bool lfs3_wcompat_isgbmap(lfs3_wcompat_t flags) {
 // figure out what compat flags the current fs configuration needs
 static inline lfs3_rcompat_t lfs3_rcompat(const lfs3_t *lfs3) {
     (void)lfs3;
-    return LFS3_RCOMPAT_BSHRUB
-            | LFS3_RCOMPAT_BTREE
-            | LFS3_RCOMPAT_MMOSS
+    return LFS3_RCOMPAT_MMOSS
             | LFS3_RCOMPAT_MTREE
+            | LFS3_RCOMPAT_BSHRUB
+            | LFS3_RCOMPAT_BTREE
             | LFS3_RCOMPAT_GRM;
 }
 
 static inline lfs3_wcompat_t lfs3_wcompat(const lfs3_t *lfs3) {
     (void)lfs3;
-    return LFS3_WCOMPAT_DIR
-            | LFS3_WCOMPAT_GCKSUM
+    return LFS3_WCOMPAT_GCKSUM
             | LFS3_IFDEF_GBMAP(
                 (lfs3_f_isgbmap(lfs3->flags)) ? LFS3_WCOMPAT_GBMAP : 0,
-                0);
+                0)
+            | LFS3_WCOMPAT_DIR;
 }
 
 static inline lfs3_ocompat_t lfs3_ocompat(const lfs3_t *lfs3) {

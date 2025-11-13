@@ -170,24 +170,24 @@ alloc_ERASE     = 0x00000001  # i-  Please erase the block
 
 # Read-compat flags
 RCOMPAT_NONSTANDARD = 0x00000001  # --  Non-standard filesystem format
-RCOMPAT_WRONLY      = 0x00000002  # --  Reading is disallowed
-RCOMPAT_BMOSS       = 0x00000010  # --  Files may use inlined data
-RCOMPAT_BSPROUT     = 0x00000020  # --  Files may use block pointers
-RCOMPAT_BSHRUB      = 0x00000040  # --  Files may use inlined btrees
-RCOMPAT_BTREE       = 0x00000080  # --  Files may use btrees
-RCOMPAT_MMOSS       = 0x00000100  # --  May use an inlined mdir
-RCOMPAT_MSPROUT     = 0x00000200  # --  May use an mdir pointer
-RCOMPAT_MSHRUB      = 0x00000400  # --  May use an inlined mtree
-RCOMPAT_MTREE       = 0x00000800  # --  May use an mdir btree
-RCOMPAT_GRM         = 0x00001000  # --  Global-remove in use
+RCOMPAT_WRONLY      = 0x00000004  # --  Reading is disallowed
+RCOMPAT_MMOSS       = 0x00000010  # --  May use an inlined mdir
+RCOMPAT_MSPROUT     = 0x00000020  # --  May use an mdir pointer
+RCOMPAT_MSHRUB      = 0x00000040  # --  May use an inlined mtree
+RCOMPAT_MTREE       = 0x00000080  # --  May use an mdir btree
+RCOMPAT_BMOSS       = 0x00000100  # --  Files may use inlined data
+RCOMPAT_BSPROUT     = 0x00000200  # --  Files may use block pointers
+RCOMPAT_BSHRUB      = 0x00000400  # --  Files may use inlined btrees
+RCOMPAT_BTREE       = 0x00000800  # --  Files may use btrees
+RCOMPAT_GRM         = 0x00010000  # --  Global-remove in use
 rcompat_OVERFLOW    = 0x80000000  # i-  Can't represent all flags
 
 # Write-compat flags
 WCOMPAT_NONSTANDARD = 0x00000001  # --  Non-standard filesystem format
 WCOMPAT_RDONLY      = 0x00000002  # --  Writing is disallowed
-WCOMPAT_DIR         = 0x00000010  # --  Directory file types in use
-WCOMPAT_GCKSUM      = 0x00001000  # --  Global-checksum in use
-WCOMPAT_GBMAP       = 0x00002000  # --  Global on-disk block-map in use
+WCOMPAT_GCKSUM      = 0x00040000  # --  Global-checksum in use
+WCOMPAT_GBMAP       = 0x00080000  # --  Global on-disk block-map in use
+WCOMPAT_DIR         = 0x01000000  # --  Directory file types in use
 wcompat_OVERFLOW    = 0x80000000  # i-  Can't represent all flags
 
 # Optional-compat flags
