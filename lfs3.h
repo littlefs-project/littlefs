@@ -196,6 +196,14 @@ enum lfs3_type {
 #define LFS3_F_CKDATACKSUMS \
                         0x01000000  // Check data checksums on reads
 #endif
+#ifndef LFS3_RDONLY
+#define LFS3_F_MKCONSISTENT \
+                        0x00000800  // Make the filesystem consistent
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_F_RELOOKAHEAD \
+                        0x00001000  // Repopulate lookahead buffer
+#endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_F_REGBMAP  0x00002000  // Repopulate the gbmap
 #endif

@@ -80,6 +80,8 @@ F_CKFETCHES     = 0x00200000  # y-  Check block checksums before first use
 F_CKMETAPARITY  = 0x00400000  # y-  Check metadata tag parity bits
 F_CKDATACKSUMS  = 0x01000000  # y-  Check data checksums on reads
 
+F_MKCONSISTENT  = 0x00000800  # y-  Make the filesystem consistent
+F_RELOOKAHEAD   = 0x00001000  # y-  Repopulate lookahead buffer
 F_REGBMAP       = 0x00002000  # y-  Repopulate the gbmap
 F_COMPACTMETA   = 0x00008000  # y-  Compact metadata logs
 F_CKMETA        = 0x00010000  # y-  Check metadata checksums

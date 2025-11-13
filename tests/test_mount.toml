@@ -107,6 +107,8 @@ defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
+defines.MKCONSISTENT = [false, true]
+defines.RELOOKAHEAD = [false, true]
 defines.REGBMAP = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -136,6 +138,8 @@ code = '''
                 | ((CKDATACKSUMS)
                     ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
                     : 0)
+                | ((MKCONSISTENT) ? LFS3_F_MKCONSISTENT : 0)
+                | ((RELOOKAHEAD) ? LFS3_F_RELOOKAHEAD : 0)
                 | ((REGBMAP)
                     ? LFS3_IFDEF_GBMAP(LFS3_F_REGBMAP, -1)
                     : 0)

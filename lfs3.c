@@ -16180,6 +16180,12 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_CKDATACKSUMS
     flags |= LFS3_F_CKDATACKSUMS;
     #endif
+    #ifdef LFS3_YES_MKCONSISTENT
+    flags |= LFS3_F_MKCONSISTENT;
+    #endif
+    #ifdef LFS3_YES_RELOOKAHEAD
+    flags |= LFS3_F_RELOOKAHEAD;
+    #endif
     #ifdef LFS3_YES_REGBMAP
     flags |= LFS3_F_REGBMAP;
     #endif
@@ -16203,6 +16209,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
+                | LFS3_F_MKCONSISTENT
+                | LFS3_F_RELOOKAHEAD
                 | LFS3_IFDEF_GBMAP(LFS3_F_REGBMAP, 0)
                 | LFS3_F_COMPACTMETA
                 | LFS3_F_CKMETA
@@ -16242,14 +16250,18 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
 
     // run gc if requested
     if (flags & (
-            LFS3_IFDEF_GBMAP(LFS3_F_REGBMAP, 0)
+            LFS3_F_MKCONSISTENT
+                | LFS3_F_RELOOKAHEAD
+                | LFS3_IFDEF_GBMAP(LFS3_F_REGBMAP, 0)
                 | LFS3_F_COMPACTMETA
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA)) {
         lfs3_mgc_t mgc;
         err = lfs3_fs_gc_(lfs3, &mgc,
                 flags & (
-                    LFS3_IFDEF_GBMAP(LFS3_F_REGBMAP, 0)
+                    LFS3_F_MKCONSISTENT
+                        | LFS3_F_RELOOKAHEAD
+                        | LFS3_IFDEF_GBMAP(LFS3_F_REGBMAP, 0)
                         | LFS3_F_COMPACTMETA
                         | LFS3_F_CKMETA
                         | LFS3_F_CKDATA),
