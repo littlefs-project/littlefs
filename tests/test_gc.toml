@@ -14,7 +14,7 @@ if = '''
 
 
 # test that lookahead can make progress in isolation
-[cases.test_gc_repoplookahead_progress]
+[cases.test_gc_relookahead_progress]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
@@ -83,7 +83,7 @@ code = '''
 '''
 
 # test that lookahead dirtying still works with the GC API
-[cases.test_gc_repoplookahead_mutation]
+[cases.test_gc_relookahead_mutation]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
@@ -162,8 +162,8 @@ code = '''
 '''
 
 # test that we can relax lookahead repopulation with
-# gc_repoplookahead_thresh
-[cases.test_gc_repoplookahead_relaxed]
+# gc_relookahead_thresh
+[cases.test_gc_relookahead_relaxed]
 # relax our repop thresh
 defines.GC_RELOOKAHEAD_THRESH = [
     '-1',
@@ -273,8 +273,8 @@ code = '''
 '''
 
 
-# test that repopgbmap can make progress in isolation
-[cases.test_gc_repopgbmap_progress]
+# test that regbmap can make progress in isolation
+[cases.test_gc_regbmap_progress]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -343,8 +343,8 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that repopgbmap dirtying still works with the GC API
-[cases.test_gc_repopgbmap_mutation]
+# test that regbmap dirtying still works with the GC API
+[cases.test_gc_regbmap_mutation]
 defines.RELOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -425,8 +425,8 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that we can relax gbmap repopulation with gc_repopgbmap_thresh
-[cases.test_gc_repopgbmap_relaxed]
+# test that we can relax gbmap repopulation with gc_regbmap_thresh
+[cases.test_gc_regbmap_relaxed]
 # relax our repop thresh
 defines.GC_REGBMAP_THRESH = [
     '-1',

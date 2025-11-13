@@ -171,7 +171,7 @@ code = '''
 
 # test that on-mount traversals do what they say they do
 
-[cases.test_mount_t_repoplookahead]
+[cases.test_mount_t_relookahead]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -213,7 +213,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_mount_t_repopgbmap]
+[cases.test_mount_t_regbmap]
 ifdef = 'LFS3_GBMAP'
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
