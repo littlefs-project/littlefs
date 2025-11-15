@@ -737,7 +737,7 @@ code = '''
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped
@@ -833,7 +833,7 @@ code = '''
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped
@@ -920,7 +920,7 @@ code = '''
     lfs3.mroot.r.eoff = -1;
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 2);
 
     // assert split/drop worked out
@@ -1016,7 +1016,7 @@ code = '''
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 1);
 
     // assert split/drop worked out
@@ -1136,7 +1136,7 @@ code = '''
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 1);
 
     // assert split/drop worked out
@@ -1271,7 +1271,7 @@ code = '''
                 mdir.r.eoff = -1;
             }
             lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
         }
     }
 
@@ -2437,7 +2437,7 @@ code = '''
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 0);
     // assert mroot relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
@@ -2790,7 +2790,7 @@ code = '''
                 mdir.r.eoff = -1;
             }
             lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
         }
     }
 
@@ -2941,7 +2941,7 @@ code = '''
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 2);
 
     // assert neighbor was removed
@@ -2991,7 +2991,7 @@ code = '''
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 2);
 
     // assert neighbor was removed
@@ -3613,7 +3613,7 @@ code = '''
 
     // now remove the middle entry, forcing a drop
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped correctly

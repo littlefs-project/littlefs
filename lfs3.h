@@ -746,7 +746,7 @@ enum lfs3_tag {
     LFS3_TAG_NAMELIMIT      = 0x0039,
     LFS3_TAG_FILELIMIT      = 0x003a,
     // in-device only, to help find unknown config tags
-    LFS3_TAG_UNKNOWNCONFIG  = 0x003b,
+    LFS3_tag_UNKNOWNCONFIG  = 0x003b,
 
     // global-state tags
     LFS3_TAG_GDELTA         = 0x0100,
@@ -761,9 +761,9 @@ enum lfs3_tag {
     LFS3_TAG_STICKYNOTE     = 0x0203,
     LFS3_TAG_BOOKMARK       = 0x0204,
     // in-device only name tags, these should never get written to disk
-    LFS3_TAG_ORPHAN         = 0x0205,
-    LFS3_TAG_TRV            = 0x0206,
-    LFS3_TAG_UNKNOWN        = 0x0207,
+    LFS3_tag_ORPHAN         = 0x0205,
+    LFS3_tag_TRV            = 0x0206,
+    LFS3_tag_UNKNOWN        = 0x0207,
     // non-file name tags
     LFS3_TAG_MNAME          = 0x0220,
 
@@ -808,20 +808,20 @@ enum lfs3_tag {
     LFS3_TAG_GCKSUMDELTA    = 0x3300,
 
     // in-device only tags, these should never get written to disk
-    LFS3_TAG_INTERNAL       = 0x0800,
-    LFS3_TAG_RATTRS         = 0x0800,
-    LFS3_TAG_SHRUBCOMMIT    = 0x0801,
-    LFS3_TAG_GRMPUSH        = 0x0802,
-    LFS3_TAG_MOVE           = 0x0803,
-    LFS3_TAG_ATTRS          = 0x0804,
+    LFS3_tag_INTERNAL       = 0x0800,
+    LFS3_tag_RATTRS         = 0x0800,
+    LFS3_tag_SHRUBCOMMIT    = 0x0801,
+    LFS3_tag_GRMPUSH        = 0x0802,
+    LFS3_tag_MOVE           = 0x0803,
+    LFS3_tag_ATTRS          = 0x0804,
 
     // some in-device only tag modifiers
-    LFS3_TAG_RM             = 0x8000,
-    LFS3_TAG_GROW           = 0x4000,
-    LFS3_TAG_MASK0          = 0x0000,
-    LFS3_TAG_MASK2          = 0x1000,
-    LFS3_TAG_MASK8          = 0x2000,
-    LFS3_TAG_MASK12         = 0x3000,
+    LFS3_tag_RM             = 0x8000,
+    LFS3_tag_GROW           = 0x4000,
+    LFS3_tag_MASK0          = 0x0000,
+    LFS3_tag_MASK2          = 0x1000,
+    LFS3_tag_MASK8          = 0x2000,
+    LFS3_tag_MASK12         = 0x3000,
 };
 
 // some other tag encodings with their own subfields

@@ -705,7 +705,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_MAGIC, 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_MAGIC, 0))) => 0;
     lfs3_unmount(&lfs3) => 0;
 
     // mount should now fail
@@ -1291,7 +1291,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -1378,7 +1378,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -1484,7 +1484,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -1593,7 +1593,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -1702,7 +1702,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     path = "c";
@@ -1710,7 +1710,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -1819,7 +1819,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -1928,7 +1928,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -2037,7 +2037,7 @@ code = '''
             &mdir, &did) => LFS3_TAG_REG;
     lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_CAT(
-                LFS3_TAG_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
+                LFS3_tag_MASK8 | (LFS3_TAG_NAME + 0x13), 0,
                 lfs3_data_fromleb128(did, (uint8_t[LFS3_LEB128_DSIZE]){0}),
                 LFS3_DATA_BUF(path, lfs3_path_namelen(path))))) => 0;
     lfs3_unmount(&lfs3) => 0;

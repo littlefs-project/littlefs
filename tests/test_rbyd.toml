@@ -3000,7 +3000,7 @@ code = '''
                 "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
 
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
@@ -3025,7 +3025,7 @@ code = '''
                 "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
 
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
@@ -3066,7 +3066,7 @@ code = '''
                 "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(2), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(2), 0))) => 0;
 
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
@@ -3170,7 +3170,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_ATTR(j+1), 0))) => 0;
+                        LFS3_tag_RM | LFS3_TAG_ATTR(j+1), 0))) => 0;
 
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
@@ -3317,7 +3317,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_ATTR(j+1), 0))) => 0;
+                        LFS3_tag_RM | LFS3_TAG_ATTR(j+1), 0))) => 0;
 
             // try traversing over the tags
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -3401,7 +3401,7 @@ code = '''
     // try to remove tags that aren't there, this should do nothing
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3427,7 +3427,7 @@ code = '''
 
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(3), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(3), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3453,7 +3453,7 @@ code = '''
 
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(5), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(5), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3543,11 +3543,11 @@ code = '''
     // remove several attributes
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0),
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0),
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(3), 0),
+                LFS3_tag_RM | LFS3_TAG_ATTR(3), 0),
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(5), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(5), 0))) => 0;
 
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
@@ -3575,7 +3575,7 @@ code = '''
     // try to remove tags that aren't there, this should do nothing
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3601,7 +3601,7 @@ code = '''
 
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(3), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(3), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3627,7 +3627,7 @@ code = '''
 
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(5), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(5), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3655,7 +3655,7 @@ code = '''
     // these removes still commit to the rbyd)
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3681,7 +3681,7 @@ code = '''
 
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(3), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(3), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3707,7 +3707,7 @@ code = '''
 
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(5), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(5), 0))) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3783,7 +3783,7 @@ code = '''
                 "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
 
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
@@ -3808,9 +3808,9 @@ code = '''
                 "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0),
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0),
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(2), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(2), 0))) => 0;
 
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
@@ -3835,9 +3835,9 @@ code = '''
                 "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(2), 0),
+                LFS3_tag_RM | LFS3_TAG_ATTR(2), 0),
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
 
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
@@ -3930,7 +3930,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_ATTR(perm[j]+1), 0))) => 0;
+                        LFS3_tag_RM | LFS3_TAG_ATTR(perm[j]+1), 0))) => 0;
         }
 
         // check that all tags are now removed
@@ -4051,7 +4051,7 @@ code = '''
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_ATTR(rattr), 0))) => 0;
+                        LFS3_tag_RM | LFS3_TAG_ATTR(rattr), 0))) => 0;
         }
     }
 
@@ -6401,7 +6401,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j/M, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_ATTR((j%M)+1), 0))) => 0;
+                        LFS3_tag_RM | LFS3_TAG_ATTR((j%M)+1), 0))) => 0;
 
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
             for (unsigned k = 0; k < N; k++) {
@@ -6599,7 +6599,7 @@ code = '''
         for (unsigned j = 0; j < N*M; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, perm[j]/M, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_ATTR(perm[j]%M+1), 0))) => 0;
+                        LFS3_tag_RM | LFS3_TAG_ATTR(perm[j]%M+1), 0))) => 0;
         }
 
         // check that all tags have been removed
@@ -7086,7 +7086,7 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7116,7 +7116,7 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7149,7 +7149,7 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7188,7 +7188,7 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7227,7 +7227,7 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7287,7 +7287,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xbb\xbb",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7335,7 +7335,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xbb\xbb",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7389,7 +7389,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xcc\xcc",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7459,7 +7459,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xcc\xcc",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7529,7 +7529,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xcc\xcc",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -7668,7 +7668,7 @@ code = '''
                 "\xee\xee",         2))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -8018,7 +8018,7 @@ code = '''
                 "\xee\xee\xee\xee", 4))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -8364,7 +8364,7 @@ code = '''
                 "\xee\xee",         2))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -8797,7 +8797,7 @@ code = '''
                 "\xee\xee\xee\xee", 4))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -9214,7 +9214,7 @@ code = '''
                 "\xaa\xaa",         2))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -9632,7 +9632,7 @@ code = '''
                 "\xcc\xcc",         2))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -10018,7 +10018,7 @@ code = '''
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -10447,7 +10447,7 @@ code = '''
                 "\xaa\xaa",         2))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -10986,7 +10986,7 @@ code = '''
                 "\xee\xee",         2))) => 0;
 
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -11477,7 +11477,7 @@ code = '''
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
             assert(rbyd.weight == N-1);
 
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -11649,7 +11649,7 @@ code = '''
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
             assert(rbyd.weight == N-1);
 
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -11845,7 +11845,7 @@ code = '''
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
@@ -11983,7 +11983,7 @@ code = '''
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
             assert(rbyd.weight == N-1);
 
             // try traversing over the tags
@@ -12061,7 +12061,7 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xaa\xaa\xaa\xaa", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12083,8 +12083,8 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1),
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1),
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12106,9 +12106,9 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xbb\xbb\xbb\xbb", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12133,9 +12133,9 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1),
-            LFS3_RATTR(LFS3_TAG_RM, -1),
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1),
+            LFS3_RATTR(LFS3_tag_RM, -1),
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12160,11 +12160,11 @@ code = '''
                 LFS3_TAG_DATA, +1,
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12204,7 +12204,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xaa\xaa",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12232,8 +12232,8 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xbb\xbb",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1),
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1),
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12261,9 +12261,9 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xbb\xbb",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12297,9 +12297,9 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xcc\xcc",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1),
-            LFS3_RATTR(LFS3_TAG_RM, -1),
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1),
+            LFS3_RATTR(LFS3_tag_RM, -1),
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12333,11 +12333,11 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xcc\xcc",         2))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
 
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12444,7 +12444,7 @@ code = '''
 
             lfs3_size_t rbyd_weight_before = rbyd.weight;
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
             assert(rbyd.weight == rbyd_weight_before-1);
         }
 
@@ -12598,7 +12598,7 @@ code = '''
 
             lfs3_size_t rbyd_weight_before = rbyd.weight;
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
             assert(rbyd.weight == rbyd_weight_before-1);
         }
 
@@ -12739,7 +12739,7 @@ code = '''
             count -= 1;
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
         }
     }
 
@@ -13425,7 +13425,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xbb\xbb", 2),
             LFS3_RATTR(
-                LFS3_TAG_GROW, +1),
+                LFS3_tag_GROW, +1),
             LFS3_RATTR_BUF(
                 LFS3_TAG_ATTR(2), 0,
                 "\xbb\xbb", 2))) => 0;
@@ -13526,7 +13526,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xcc\xcc", 2),
             LFS3_RATTR(
-                LFS3_TAG_GROW, +2),
+                LFS3_tag_GROW, +2),
             LFS3_RATTR_BUF(
                 LFS3_TAG_ATTR(2), 0,
                 "\xcc\xcc", 2))) => 0;
@@ -13663,7 +13663,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xdd\xdd", 2),
             LFS3_RATTR(
-                LFS3_TAG_GROW, +3),
+                LFS3_tag_GROW, +3),
             LFS3_RATTR_BUF(
                 LFS3_TAG_ATTR(2), 0,
                 "\xdd\xdd", 2))) => 0;
@@ -13836,7 +13836,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xee\xee", 2),
             LFS3_RATTR(
-                LFS3_TAG_GROW, +4),
+                LFS3_tag_GROW, +4),
             LFS3_RATTR_BUF(
                 LFS3_TAG_ATTR(2), 0,
                 "\xee\xee", 2))) => 0;
@@ -14080,7 +14080,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xbb\xbb", 2),
             LFS3_RATTR(
-                LFS3_TAG_GROW, +1),
+                LFS3_tag_GROW, +1),
             LFS3_RATTR_BUF(
                 LFS3_TAG_ATTR(2), 0,
                 "\xbb\xbb", 2),
@@ -14092,7 +14092,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xcc\xcc", 2),
             LFS3_RATTR(
-                LFS3_TAG_GROW, +2),
+                LFS3_tag_GROW, +2),
             LFS3_RATTR_BUF(
                 LFS3_TAG_ATTR(2), 0,
                 "\xcc\xcc", 2),
@@ -14104,7 +14104,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xdd\xdd", 2),
             LFS3_RATTR(
-                LFS3_TAG_GROW, +3),
+                LFS3_tag_GROW, +3),
             LFS3_RATTR_BUF(
                 LFS3_TAG_ATTR(2), 0,
                 "\xdd\xdd", 2),
@@ -14116,7 +14116,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xee\xee", 2),
             LFS3_RATTR(
-                LFS3_TAG_GROW, +4),
+                LFS3_tag_GROW, +4),
             LFS3_RATTR_BUF(
                 LFS3_TAG_ATTR(2), 0,
                 "\xee\xee", 2))) => 0;
@@ -14402,7 +14402,7 @@ code = '''
                         LFS3_TAG_ATTR(1), 0,
                         names[perm[j] % 6], 2),
                     LFS3_RATTR(
-                        LFS3_TAG_GROW, +W-1),
+                        LFS3_tag_GROW, +W-1),
                     LFS3_RATTR_BUF(
                         LFS3_TAG_ATTR(2), 0,
                         names[perm[j] % 6], 2))) => 0;
@@ -14524,7 +14524,7 @@ code = '''
                         LFS3_TAG_ATTR(1), 0,
                         names[perm[j] % 6], 2),
                     LFS3_RATTR(
-                        LFS3_TAG_GROW, +W-1),
+                        LFS3_tag_GROW, +W-1),
                     LFS3_RATTR_BUF(
                         LFS3_TAG_ATTR(2), 0,
                         names[perm[j] % 6], 2))) => 0;
@@ -14670,7 +14670,7 @@ code = '''
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_GROW, +D))) => 0;
+                    LFS3_RATTR(LFS3_tag_GROW, +D))) => 0;
             assert(rbyd.weight == N*W+D);
 
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -14807,7 +14807,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR_BUF(
-                        LFS3_TAG_GROW | LFS3_TAG_DATA, +D,
+                        LFS3_tag_GROW | LFS3_TAG_DATA, +D,
                         names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W+D);
 
@@ -14957,7 +14957,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR_BUF(
-                        LFS3_TAG_GROW | LFS3_TAG_ATTR(1), +D,
+                        LFS3_tag_GROW | LFS3_TAG_ATTR(1), +D,
                         names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W+D);
 
@@ -15117,7 +15117,7 @@ code = '''
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_GROW, -D))) => 0;
+                    LFS3_RATTR(LFS3_tag_GROW, -D))) => 0;
             assert(rbyd.weight == N*W-D);
 
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -15254,7 +15254,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR_BUF(
-                        LFS3_TAG_GROW | LFS3_TAG_DATA, -D,
+                        LFS3_tag_GROW | LFS3_TAG_DATA, -D,
                         names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W-D);
 
@@ -15404,7 +15404,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR_BUF(
-                        LFS3_TAG_GROW | LFS3_TAG_ATTR(1), -D,
+                        LFS3_tag_GROW | LFS3_TAG_ATTR(1), -D,
                         names[j % 6], 6))) => 0;
             assert(rbyd.weight == N*W-D);
 
@@ -15563,7 +15563,7 @@ code = '''
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -W))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -W))) => 0;
             assert(rbyd.weight == (N-1)*W);
 
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -15772,7 +15772,7 @@ code = '''
             printf("--- removing: %d ---\n", j);
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                        LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
             assert(rbyd.weight == N*W);
 
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -15926,7 +15926,7 @@ code = '''
             count -= 1;
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
         } else if (op == 2) {
             // update our sim
             sim[rid*(M+1) + u+1] = 'a'+(i % 26);
@@ -15942,7 +15942,7 @@ code = '''
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_ATTR(u), 0))) => 0;
+                        LFS3_tag_RM | LFS3_TAG_ATTR(u), 0))) => 0;
         }
     }
 
@@ -16105,7 +16105,7 @@ code = '''
             count -= 1;
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, weighted_rid+weight_-1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -weight_))) => 0;
+                    LFS3_RATTR(LFS3_tag_RM, -weight_))) => 0;
         } else if (op == 2) {
             // get the correct weight from the sim
             weight_ = sim_weights[rid];
@@ -16113,7 +16113,7 @@ code = '''
             sim_weights[rid] += weight;
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, weighted_rid+weight_-1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_GROW, +weight))) => 0;
+                    LFS3_RATTR(LFS3_tag_GROW, +weight))) => 0;
         } else if (op == 3) {
             // get the correct weight from the sim
             weight_ = sim_weights[rid];
@@ -16124,7 +16124,7 @@ code = '''
             sim_weights[rid] -= weight;
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, weighted_rid+weight_-1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_GROW, -weight))) => 0;
+                    LFS3_RATTR(LFS3_tag_GROW, -weight))) => 0;
         }
     }
 
@@ -16276,7 +16276,7 @@ code = '''
             lfs3_stag_t tag_;
             lfs3_data_t data_;
             tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd,
-                    j, LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                    j, LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                     &data_);
             assert(tag_ == LFS3_TAG_ATTR((j + SHIFT) & 0x7f));
             assert(lfs3_data_size(data_) == 2);
@@ -16380,7 +16380,7 @@ code = '''
             // remove with a wide tag
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_MASK8 | LFS3_TAG_ATTR, 0))) => 0;
+                        LFS3_tag_RM | LFS3_tag_MASK8 | LFS3_TAG_ATTR, 0))) => 0;
 
             // try traversing over the tags
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -16412,11 +16412,11 @@ code = '''
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
                     lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                            LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                            LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_) => LFS3_ERR_NOENT;
                 } else {
                     tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                            LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                            LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(lfs3_data_size(data_) == 2);
@@ -16525,7 +16525,7 @@ code = '''
             // replace with bitwise inverse
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
                     LFS3_RATTR_BUF(
-                        LFS3_TAG_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
+                        LFS3_tag_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
                             0,
                         names[j % 6], 3))) => 0;
 
@@ -16563,7 +16563,7 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                        LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                        LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                         &data_);
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
@@ -16661,7 +16661,7 @@ code = '''
             lfs3_stag_t tag_;
             lfs3_data_t data_;
             tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd,
-                    j, LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                    j, LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                     &data_);
             assert(tag_ == LFS3_TAG_ATTR(0x7f & (j + SHIFT)));
             assert(lfs3_data_size(data_) == 2);
@@ -16768,7 +16768,7 @@ code = '''
             // remove with a wide tag
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_MASK8 | LFS3_TAG_ATTR, 0))) => 0;
+                        LFS3_tag_RM | LFS3_tag_MASK8 | LFS3_TAG_ATTR, 0))) => 0;
 
             // try traversing over the tags
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -16807,11 +16807,11 @@ code = '''
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
                     lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                            LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                            LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_) => LFS3_ERR_NOENT;
                 } else {
                     tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                            LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                            LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(lfs3_data_size(data_) == 2);
@@ -16923,7 +16923,7 @@ code = '''
             // replace with bitwise inverse
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
                     LFS3_RATTR_BUF(
-                        LFS3_TAG_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
+                        LFS3_tag_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
                             0,
                         names[j % 6], 3))) => 0;
 
@@ -16968,7 +16968,7 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                        LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                        LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                         &data_);
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
@@ -17060,7 +17060,7 @@ code = '''
             lfs3_stag_t tag_;
             lfs3_data_t data_;
             tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd,
-                    j, LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                    j, LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                     &data_);
             assert(tag_ == LFS3_TAG_ATTR((j + SHIFT) & 0x7f));
             assert(lfs3_data_size(data_) == 4);
@@ -17161,7 +17161,7 @@ code = '''
             // remove with a wide tag
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_MASK8 | LFS3_TAG_ATTR, 0))) => 0;
+                        LFS3_tag_RM | LFS3_tag_MASK8 | LFS3_TAG_ATTR, 0))) => 0;
 
             // try traversing over the tags
             lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], CFG->block_size) => 0;
@@ -17196,11 +17196,11 @@ code = '''
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
                     lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                            LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                            LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_) => LFS3_ERR_NOENT;
                 } else {
                     tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                            LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                            LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(lfs3_data_size(data_) == 4);
@@ -17306,7 +17306,7 @@ code = '''
             // replace with bitwise inverse
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
                     LFS3_RATTR_BUF(
-                        LFS3_TAG_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
+                        LFS3_tag_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
                             0,
                         names[j % 6], 6))) => 0;
 
@@ -17337,7 +17337,7 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                        LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                        LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                         &data_);
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
@@ -17432,7 +17432,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfs3_stag_t tag_;
             lfs3_data_t data_;
-            tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, j, LFS3_TAG_MASK12,
+            tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, j, LFS3_tag_MASK12,
                     &data_);
             assert(tag_ == LFS3_TAG_DATA);
             assert(lfs3_data_size(data_) == 4);
@@ -17536,7 +17536,7 @@ code = '''
             // remove with a wide tag
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM | LFS3_TAG_MASK12 | LFS3_TAG_ATTR,
+                        LFS3_tag_RM | LFS3_tag_MASK12 | LFS3_TAG_ATTR,
                         0))) => 0;
 
             // try traversing over the tags
@@ -17569,11 +17569,11 @@ code = '''
             for (unsigned k = 0; k < N; k++) {
                 if (k == j) {
                     lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                            LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                            LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_) => LFS3_ERR_NOENT;
                 } else {
                     tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                            LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                            LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(lfs3_data_size(data_) == 2);
@@ -17682,7 +17682,7 @@ code = '''
             // replace with bitwise inverse
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
                     LFS3_RATTR_BUF(
-                        LFS3_TAG_MASK12 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
+                        LFS3_tag_MASK12 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
                             0,
                         names[j % 6], 3))) => 0;
 
@@ -17723,7 +17723,7 @@ code = '''
             // also test that we can lookup each tag with a wide lookup
             for (unsigned k = 0; k < N; k++) {
                 tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, k,
-                        LFS3_TAG_MASK8 | LFS3_TAG_ATTR,
+                        LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                         &data_);
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
@@ -17772,7 +17772,7 @@ code = '''
                 LFS3_TAG_ATTR(1), 0,
                 "\xbb\xbb\xbb\xbb", 4),
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(0), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(0), 0))) => 0;
     assert(rbyd.weight == 0);
 
     // can we still access things?
@@ -17823,13 +17823,13 @@ code = '''
                 LFS3_TAG_ATTR(2), 0,
                 "\xcc\xcc\xcc\xcc", 4),
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(0), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(0), 0))) => 0;
     assert(rbyd.weight == 0);
 
     // remove a neighbor to the hole
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(1), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(1), 0))) => 0;
     assert(rbyd.weight == 0);
 
     // can we still access things?
@@ -17881,12 +17881,12 @@ code = '''
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(0), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(0), 0))) => 0;
     assert(rbyd.weight == 2);
 
     // delete a neighbor to the hole
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RM, -1))) => 0;
+            LFS3_RATTR(LFS3_tag_RM, -1))) => 0;
     assert(rbyd.weight == 1);
 
     // can we still access things?
@@ -17937,13 +17937,13 @@ code = '''
                 LFS3_TAG_ATTR(0x80), 0,
                 "\xdd\xdd\xdd\xdd", 4),
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(0), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(0), 0))) => 0;
     assert(rbyd.weight == 0);
 
     // subwide replace a neighbor to the hole
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR_BUF(
-                LFS3_TAG_MASK8 | LFS3_TAG_ATTR(0x02), 0,
+                LFS3_tag_MASK8 | LFS3_TAG_ATTR(0x02), 0,
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
     assert(rbyd.weight == 0);
 
@@ -18005,13 +18005,13 @@ code = '''
                 "\xdd\xdd\xdd\xdd", 4))) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(0), 0))) => 0;
+                LFS3_tag_RM | LFS3_TAG_ATTR(0), 0))) => 0;
     assert(rbyd.weight == 1);
 
     // supwide replace a neighbor to the hole
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR_BUF(
-                LFS3_TAG_MASK12 | LFS3_TAG_ATTR(2), 0,
+                LFS3_tag_MASK12 | LFS3_TAG_ATTR(2), 0,
                 "\xcc\xcc\xcc\xcc", 4))) => 0;
     assert(rbyd.weight == 1);
 

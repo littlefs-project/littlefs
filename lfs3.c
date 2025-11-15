@@ -1075,15 +1075,15 @@ static inline bool lfs3_tag_perturb(lfs3_tag_t tag) {
 }
 
 static inline bool lfs3_tag_isinternal(lfs3_tag_t tag) {
-    return tag & LFS3_TAG_INTERNAL;
+    return tag & LFS3_tag_INTERNAL;
 }
 
 static inline bool lfs3_tag_isrm(lfs3_tag_t tag) {
-    return tag & LFS3_TAG_RM;
+    return tag & LFS3_tag_RM;
 }
 
 static inline bool lfs3_tag_isgrow(lfs3_tag_t tag) {
-    return tag & LFS3_TAG_GROW;
+    return tag & LFS3_tag_GROW;
 }
 
 static inline bool lfs3_tag_ismask0(lfs3_tag_t tag) {
@@ -2061,7 +2061,7 @@ typedef struct lfs3_name {
 // lfs3_mdir_commit___
 #define LFS3_RATTR_RATTRS(_rattrs, _rattr_count) \
     ((lfs3_rattr_t){ \
-        .tag=LFS3_TAG_RATTRS, \
+        .tag=LFS3_tag_RATTRS, \
         .from=LFS3_FROM_BUF, \
         .count=_rattr_count, \
         .weight=0, \
@@ -2069,7 +2069,7 @@ typedef struct lfs3_name {
 
 #define LFS3_RATTR_SHRUBCOMMIT(_shrubcommit) \
     ((lfs3_rattr_t){ \
-        .tag=LFS3_TAG_SHRUBCOMMIT, \
+        .tag=LFS3_tag_SHRUBCOMMIT, \
         .from=LFS3_FROM_BUF, \
         .count=0, \
         .weight=0, \
@@ -2077,7 +2077,7 @@ typedef struct lfs3_name {
 
 #define LFS3_RATTR_MOVE(_move) \
     ((lfs3_rattr_t){ \
-        .tag=LFS3_TAG_MOVE, \
+        .tag=LFS3_tag_MOVE, \
         .from=LFS3_FROM_BUF, \
         .count=0, \
         .weight=0, \
@@ -2085,7 +2085,7 @@ typedef struct lfs3_name {
 
 #define LFS3_RATTR_ATTRS(_attrs, _attr_count) \
     ((lfs3_rattr_t){ \
-        .tag=LFS3_TAG_ATTRS, \
+        .tag=LFS3_tag_ATTRS, \
         .from=LFS3_FROM_BUF, \
         .count=_attr_count, \
         .weight=0, \
@@ -5574,7 +5574,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         if (child_->weight == 0) {
             // drop child
             bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR(
-                    LFS3_TAG_RM, -child.weight);
+                    LFS3_tag_RM, -child.weight);
         } else {
             // update child
             branch = lfs3_data_frombranch(child_, bcommit->ctx.l_buf);
@@ -5583,7 +5583,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
                     branch.u.buffer, lfs3_data_size(branch));
             if (child_->weight != child.weight) {
                 bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR(
-                        LFS3_TAG_GROW, -child.weight + child_->weight);
+                        LFS3_tag_GROW, -child.weight + child_->weight);
             }
         }
         LFS3_ASSERT(rattr_count
@@ -5926,7 +5926,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
                     branch.u.buffer, lfs3_data_size(branch));
             if (child_->weight != child.weight) {
                 bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR(
-                        LFS3_TAG_GROW, -child.weight + child_->weight);
+                        LFS3_tag_GROW, -child.weight + child_->weight);
             }
         }
         // new sibling
@@ -6030,7 +6030,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         rattr_count = 0;
         // merge sibling
         bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR(
-                LFS3_TAG_RM, -sibling.weight);
+                LFS3_tag_RM, -sibling.weight);
         // update child
         branch = lfs3_data_frombranch(child_, bcommit->ctx.l_buf);
         bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR_BUF(
@@ -6038,7 +6038,7 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
                 branch.u.buffer, lfs3_data_size(branch));
         if (child_->weight != child.weight) {
             bcommit->ctx.rattrs[rattr_count++] = LFS3_RATTR(
-                    LFS3_TAG_GROW, -child.weight + child_->weight);
+                    LFS3_tag_GROW, -child.weight + child_->weight);
         }
         LFS3_ASSERT(rattr_count
                 <= sizeof(bcommit->ctx.rattrs)
@@ -6191,7 +6191,7 @@ static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
         // if we found a bname, lookup the branch
         if (tag__ == LFS3_TAG_BNAME) {
             tag__ = lfs3_rbyd_lookup(lfs3, &rbyd__, rid__,
-                    LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                    LFS3_tag_MASK8 | LFS3_TAG_STRUCT,
                     &data__);
             if (tag__ < 0) {
                 LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
@@ -6601,7 +6601,7 @@ static int lfs3_bshrub_fetch_(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     // lookup the file struct, if there is one
     lfs3_data_t data;
     lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mdir,
-            LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+            LFS3_tag_MASK8 | LFS3_TAG_STRUCT,
             &data);
     if (tag < 0) {
         return tag;
@@ -7608,7 +7608,7 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
         int err = lfs3_rbyd_appendrattr(lfs3, rbyd, -1, LFS3_RATTR_BUF(
                 // opportunistically remove this tag if delta is all zero
                 (size == 0)
-                    ? LFS3_TAG_RM | LFS3_TAG_GRMDELTA
+                    ? LFS3_tag_RM | LFS3_TAG_GRMDELTA
                     : LFS3_TAG_GRMDELTA, 0,
                 grmdelta_, size));
         if (err) {
@@ -7659,7 +7659,7 @@ static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
             int err = lfs3_rbyd_appendrattr(lfs3, rbyd, -1, LFS3_RATTR_BUF(
                     // opportunistically remove this tag if delta is all zero
                     (size == 0)
-                        ? LFS3_TAG_RM | LFS3_TAG_GBMAPDELTA
+                        ? LFS3_tag_RM | LFS3_TAG_GBMAPDELTA
                         : LFS3_TAG_GBMAPDELTA, 0,
                     gbmapdelta_, size));
             if (err) {
@@ -7967,22 +7967,22 @@ static lfs3_tag_t lfs3_mdir_nametag(const lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     // same semantics, and this makes it easier to manage the implied
     // mid gap in higher-levels
     if (lfs3_grm_ismidrm(lfs3, mid)) {
-        return LFS3_TAG_ORPHAN;
+        return LFS3_tag_ORPHAN;
 
     // if we find a stickynote, check to see if there are any open
     // in-sync file handles to decide if it really exists
     } else if (tag == LFS3_TAG_STICKYNOTE
             && !lfs3_mid_isopen(lfs3, mid,
                 ~LFS3_o_ZOMBIE & ~LFS3_O_DESYNC)) {
-        return LFS3_TAG_ORPHAN;
+        return LFS3_tag_ORPHAN;
 
-    // map unknown types -> LFS3_TAG_UNKNOWN, this simplifies higher
+    // map unknown types -> LFS3_tag_UNKNOWN, this simplifies higher
     // levels and prevents collisions with internal types
     //
     // Note future types should probably come with WCOMPAT flags, and be
     // at least reported on non-supporting filesystems
     } else if (tag < LFS3_TAG_REG || tag > LFS3_TAG_BOOKMARK) {
-        return LFS3_TAG_UNKNOWN;
+        return LFS3_tag_UNKNOWN;
     }
 
     return tag;
@@ -8236,7 +8236,7 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
             LFS3_ASSERT(!(i > 0 && lfs3_rattr_isinsert(rattrs[i])));
 
             // rattr lists can be chained, but only tail-recursively
-            if (rattrs[i].tag == LFS3_TAG_RATTRS) {
+            if (rattrs[i].tag == LFS3_tag_RATTRS) {
                 // must be the last tag
                 LFS3_ASSERT(i == rattr_count-1);
                 const lfs3_rattr_t *rattrs_ = rattrs[i].u.etc;
@@ -8250,7 +8250,7 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
             // shrub tags append a set of attributes to an unrelated trunk
             // in our rbyd
-            } else if (rattrs[i].tag == LFS3_TAG_SHRUBCOMMIT) {
+            } else if (rattrs[i].tag == LFS3_tag_SHRUBCOMMIT) {
                 const lfs3_shrubcommit_t *shrubcommit = rattrs[i].u.etc;
                 lfs3_bshrub_t *bshrub_ = shrubcommit->bshrub;
                 lfs3_srid_t rid_ = shrubcommit->rid;
@@ -8275,13 +8275,13 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
             // push a new grm, this tag lets us push grms atomically when
             // creating new mids
-            } else if (rattrs[i].tag == LFS3_TAG_GRMPUSH) {
+            } else if (rattrs[i].tag == LFS3_tag_GRMPUSH) {
                 // do nothing here, this is handled up in lfs3_mdir_commit
 
             // move tags copy over any tags associated with the source's rid
             // TODO can this be deduplicated with lfs3_mdir_compact___ more?
             // it _really_ wants to be deduplicated
-            } else if (rattrs[i].tag == LFS3_TAG_MOVE) {
+            } else if (rattrs[i].tag == LFS3_tag_MOVE) {
                 const lfs3_mdir_t *mdir__ = rattrs[i].u.etc;
 
                 // skip the name tag, this is always replaced by upper layers
@@ -8355,7 +8355,7 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                 }
 
             // custom attributes need to be reencoded into our tag format
-            } else if (rattrs[i].tag == LFS3_TAG_ATTRS) {
+            } else if (rattrs[i].tag == LFS3_tag_ATTRS) {
                 const struct lfs3_attr *attrs_ = rattrs[i].u.etc;
                 lfs3_size_t attr_count_ = rattrs[i].count;
 
@@ -8392,7 +8392,7 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                             // removing or updating?
                             (lfs3_attr_isnoattr(&attrs_[j]))
                                 ? LFS3_RATTR(
-                                    LFS3_TAG_RM
+                                    LFS3_tag_RM
                                         | LFS3_TAG_ATTR(attrs_[j].type), 0)
                                 : LFS3_RATTR_DATA(
                                     LFS3_TAG_ATTR(attrs_[j].type), 0,
@@ -8925,7 +8925,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     for (lfs3_size_t i = 0; i < rattr_count; i++) {
         // push a new grm, this tag lets us push grms atomically when
         // creating new mids
-        if (rattrs[i].tag == LFS3_TAG_GRMPUSH) {
+        if (rattrs[i].tag == LFS3_tag_GRMPUSH) {
             lfs3_grm_push(lfs3, mid_);
 
         // adjust pending grms?
@@ -9097,7 +9097,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         // case they introduce a new name!
         lfs3_data_t split_name;
         lfs3_stag_t split_tag = lfs3_rbyd_lookup(lfs3, &mdir_[1].r, 0,
-                LFS3_TAG_MASK8 | LFS3_TAG_NAME,
+                LFS3_tag_MASK8 | LFS3_TAG_NAME,
                 &split_name);
         if (split_tag < 0) {
             LFS3_ASSERT(split_tag != LFS3_ERR_NOENT);
@@ -9166,7 +9166,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         err = lfs3_mtree_commit(lfs3, &mtree_,
                 lfs3_mbid(lfs3, mdir->mid), LFS3_RATTRS(
                     LFS3_RATTR(
-                        LFS3_TAG_RM, -(1 << lfs3->mbits))));
+                        LFS3_tag_RM, -(1 << lfs3->mbits))));
         if (err) {
             goto failed;
         }
@@ -9247,7 +9247,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 NULL,
                 -1, LFS3_RATTRS(
                     LFS3_RATTR_BTREE(
-                        LFS3_TAG_MASK8 | LFS3_TAG_MTREE, 0,
+                        LFS3_tag_MASK8 | LFS3_TAG_MTREE, 0,
                         &mtree_),
                     // were we committing to the mroot? include any -1 rattrs
                     (mdir->mid <= -1)
@@ -9746,7 +9746,7 @@ static lfs3_stag_t lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
 
         // only continue if we hit a directory
         if (tag != LFS3_TAG_DIR) {
-            return (tag == LFS3_TAG_ORPHAN)
+            return (tag == LFS3_tag_ORPHAN)
                     ? LFS3_ERR_NOENT
                     : LFS3_ERR_NOTDIR;
         }
@@ -9880,7 +9880,7 @@ again:;
         } else if (mtrv->h.mdir.mid == LFS3_MID_MTREE) {
             lfs3_data_t data;
             lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &mtrv->h.mdir,
-                    LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                    LFS3_tag_MASK8 | LFS3_TAG_STRUCT,
                     &data);
             if (tag < 0 && tag != LFS3_ERR_NOENT) {
                 return tag;
@@ -10548,7 +10548,7 @@ static int lfs3_gbmap_mark_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         if (r_tag == tag) {
             // delete to prepare merge
             int err = lfs3_gbmap_commit(lfs3, &gbmap_, r_bid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -r_weight)));
+                    LFS3_RATTR(LFS3_tag_RM, -r_weight)));
             if (err) {
                 return err;
             }
@@ -10577,7 +10577,7 @@ static int lfs3_gbmap_mark_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         if (l_tag == tag) {
             // delete to prepare merge
             int err = lfs3_gbmap_commit(lfs3, &gbmap_, l_bid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_RM, -l_weight)));
+                    LFS3_RATTR(LFS3_tag_RM, -l_weight)));
             if (err) {
                 return err;
             }
@@ -10599,8 +10599,8 @@ static int lfs3_gbmap_mark_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     // works
     int err = lfs3_gbmap_commit(lfs3, &gbmap_, bid__, LFS3_RATTRS(
             (bid__-(weight__-1) < block-(weight-1))
-                ? LFS3_RATTR(LFS3_TAG_GROW, -((bid__+1) - (block-(weight-1))))
-                : LFS3_RATTR(LFS3_TAG_RM, -((bid__+1) - (block-(weight-1)))),
+                ? LFS3_RATTR(LFS3_tag_GROW, -((bid__+1) - (block-(weight-1))))
+                : LFS3_RATTR(LFS3_tag_RM, -((bid__+1) - (block-(weight-1)))),
             LFS3_RATTR(tag, +weight_),
             (bid__ > block)
                 ? LFS3_RATTR(tag__, +(bid__ - block))
@@ -11153,7 +11153,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
         return tag;
     }
     // already exists? pretend orphans don't exist
-    if (tag != LFS3_ERR_NOENT && tag != LFS3_TAG_ORPHAN) {
+    if (tag != LFS3_ERR_NOENT && tag != LFS3_tag_ORPHAN) {
         return LFS3_ERR_EXIST;
     }
 
@@ -11258,7 +11258,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
             LFS3_RATTR_NAME(
                 LFS3_TAG_BOOKMARK, +1, did_, NULL, 0),
             LFS3_RATTR(
-                LFS3_TAG_GRMPUSH, 0)));
+                LFS3_tag_GRMPUSH, 0)));
     if (err) {
         return err;
     }
@@ -11280,7 +11280,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     lfs3_grm_pop(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
-                LFS3_TAG_MASK12 | LFS3_TAG_DIR,
+                LFS3_tag_MASK12 | LFS3_TAG_DIR,
                     (tag == LFS3_ERR_NOENT) ? +1 : 0,
                 did, name, name_len),
             LFS3_RATTR_LEB128(
@@ -11343,7 +11343,7 @@ static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
 
     lfs3_data_t data;
     tag = lfs3_mdir_lookup(lfs3, &bookmark_mdir,
-            LFS3_TAG_MASK8 | LFS3_TAG_NAME,
+            LFS3_tag_MASK8 | LFS3_TAG_NAME,
             &data);
     if (tag < 0) {
         LFS3_ASSERT(tag != LFS3_ERR_NOENT);
@@ -11386,7 +11386,7 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
         return tag;
     }
     // pretend orphans don't exist
-    if (tag == LFS3_TAG_ORPHAN) {
+    if (tag == LFS3_tag_ORPHAN) {
         return LFS3_ERR_NOENT;
     }
 
@@ -11430,10 +11430,10 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
             // and trim the entry size
             (zombie)
                 ? LFS3_RATTR_NAME(
-                    LFS3_TAG_MASK12 | LFS3_TAG_STICKYNOTE, 0,
+                    LFS3_tag_MASK12 | LFS3_TAG_STICKYNOTE, 0,
                     did, path, lfs3_path_namelen(path))
                 : LFS3_RATTR(
-                    LFS3_TAG_RM, -1)));
+                    LFS3_tag_RM, -1)));
     if (err) {
         return err;
     }
@@ -11507,7 +11507,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         return old_tag;
     }
     // pretend orphans don't exist
-    if (old_tag == LFS3_TAG_ORPHAN) {
+    if (old_tag == LFS3_tag_ORPHAN) {
         return LFS3_ERR_NOENT;
     }
 
@@ -11554,7 +11554,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         if (old_tag == LFS3_TAG_DIR
                 && new_tag != LFS3_TAG_DIR
                 // pretend orphans don't exist
-                && new_tag != LFS3_TAG_ORPHAN) {
+                && new_tag != LFS3_tag_ORPHAN) {
             return LFS3_ERR_NOTDIR;
         }
 
@@ -11587,10 +11587,10 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         }
     }
 
-    if (old_tag == LFS3_TAG_UNKNOWN) {
+    if (old_tag == LFS3_tag_UNKNOWN) {
         // lookup the actual tag
         old_tag = lfs3_rbyd_lookup(lfs3, &old_mdir.r,
-                lfs3_mrid(lfs3, old_mdir.mid), LFS3_TAG_MASK8 | LFS3_TAG_NAME,
+                lfs3_mrid(lfs3, old_mdir.mid), LFS3_tag_MASK8 | LFS3_TAG_NAME,
                 NULL);
         if (old_tag < 0) {
             return old_tag;
@@ -11604,7 +11604,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     // new rid, while also marking the old rid for removal
     err = lfs3_mdir_commit(lfs3, &new_mdir, LFS3_RATTRS(
             LFS3_RATTR_NAME(
-                LFS3_TAG_MASK12 | old_tag,
+                LFS3_tag_MASK12 | old_tag,
                     (new_tag == LFS3_ERR_NOENT) ? +1 : 0,
                 new_did, new_path, lfs3_path_namelen(new_path)),
             LFS3_RATTR_MOVE(&old_mdir)));
@@ -11692,7 +11692,7 @@ static int lfs3_stat_(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     if (tag == LFS3_TAG_REG) {
         lfs3_data_t data;
         lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mdir,
-                LFS3_TAG_MASK8 | LFS3_TAG_STRUCT,
+                LFS3_tag_MASK8 | LFS3_TAG_STRUCT,
                 &data);
         if (tag < 0 && tag != LFS3_ERR_NOENT) {
             return tag;
@@ -11719,7 +11719,7 @@ int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info) {
         return tag;
     }
     // pretend orphans don't exist
-    if (tag == LFS3_TAG_ORPHAN) {
+    if (tag == LFS3_tag_ORPHAN) {
         return LFS3_ERR_NOENT;
     }
 
@@ -11755,7 +11755,7 @@ int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
         return tag;
     }
     // pretend orphans don't exist
-    if (tag == LFS3_TAG_ORPHAN) {
+    if (tag == LFS3_tag_ORPHAN) {
         return LFS3_ERR_NOENT;
     }
 
@@ -11839,7 +11839,7 @@ int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
         // lookup the next name tag
         lfs3_data_t data;
         lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &dir->h.mdir,
-                LFS3_TAG_MASK8 | LFS3_TAG_NAME,
+                LFS3_tag_MASK8 | LFS3_TAG_NAME,
                 &data);
         if (tag < 0) {
             return tag;
@@ -11858,7 +11858,7 @@ int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
         }
 
         // skip orphans, we pretend these don't exist
-        if (tag == LFS3_TAG_ORPHAN) {
+        if (tag == LFS3_tag_ORPHAN) {
             dir->h.mdir.mid += 1;
             continue;
         }
@@ -11970,7 +11970,7 @@ static int lfs3_lookupattr(lfs3_t *lfs3, const char *path, uint8_t type,
         return tag;
     }
     // pretend orphans don't exist
-    if (tag == LFS3_TAG_ORPHAN) {
+    if (tag == LFS3_tag_ORPHAN) {
         return LFS3_ERR_NOENT;
     }
 
@@ -12090,7 +12090,7 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
     // commit our removal
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
             LFS3_RATTR(
-                LFS3_TAG_RM | LFS3_TAG_ATTR(type), 0)));
+                LFS3_tag_RM | LFS3_TAG_ATTR(type), 0)));
     if (err) {
         return err;
     }
@@ -12292,7 +12292,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // creating a new entry?
-    if (tag == LFS3_ERR_NOENT || tag == LFS3_TAG_ORPHAN) {
+    if (tag == LFS3_ERR_NOENT || tag == LFS3_tag_ORPHAN) {
         if (!lfs3_o_iscreat(file->b.h.flags)) {
             err = LFS3_ERR_NOENT;
             goto failed;
@@ -12329,7 +12329,7 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             err = LFS3_ERR_ISDIR;
             goto failed;
         }
-        if (tag == LFS3_TAG_UNKNOWN) {
+        if (tag == LFS3_tag_UNKNOWN) {
             err = LFS3_ERR_NOTSUP;
             goto failed;
         }
@@ -12782,7 +12782,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
         if (file->b.b.r.weight > 0) {
             bid = lfs3_min(bid, file->b.b.r.weight-1);
             rattrs[rattr_count++] = LFS3_RATTR(
-                    LFS3_TAG_GROW, +(pos - file->b.b.r.weight));
+                    LFS3_tag_GROW, +(pos - file->b.b.r.weight));
 
         // new hole
         } else {
@@ -12819,7 +12819,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
             // can we get away with a grow attribute?
             if (lfs3_bptr_size(&bptr_) == lfs3_bptr_size(&l)) {
                 rattrs[rattr_count++] = LFS3_RATTR(
-                        LFS3_TAG_GROW, -(bid+1 - pos));
+                        LFS3_tag_GROW, -(bid+1 - pos));
 
             // carve fragment?
             } else if (!lfs3_bptr_isbptr(&bptr_)
@@ -12828,14 +12828,14 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
                         && lfs3_bptr_size(&l)
                             < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
                 rattrs[rattr_count++] = LFS3_RATTR_DATA(
-                        LFS3_TAG_GROW | LFS3_TAG_MASK8 | LFS3_TAG_DATA,
+                        LFS3_tag_GROW | LFS3_tag_MASK8 | LFS3_TAG_DATA,
                             -(bid+1 - pos),
                         &l.d);
 
             // carve bptr?
             } else {
                 rattrs[rattr_count++] = LFS3_RATTR_BPTR(
-                        LFS3_TAG_GROW | LFS3_TAG_MASK8 | LFS3_TAG_BLOCK,
+                        LFS3_tag_GROW | LFS3_tag_MASK8 | LFS3_TAG_BLOCK,
                             -(bid+1 - pos),
                         &l);
             }
@@ -12843,7 +12843,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
         // completely overwriting this entry?
         } else {
             rattrs[rattr_count++] = LFS3_RATTR(
-                    LFS3_TAG_RM, -weight_);
+                    LFS3_tag_RM, -weight_);
         }
 
         // spans more than one entry? we can't do everything in one
@@ -12905,7 +12905,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
         if (dsize == 0 && pos > 0) {
             bid = lfs3_min(bid, file->b.b.r.weight-1);
             rattrs[rattr_count++] = LFS3_RATTR(
-                    LFS3_TAG_GROW, +(weight + delta));
+                    LFS3_tag_GROW, +(weight + delta));
 
         // need a new hole?
         } else if (dsize == 0) {
@@ -13964,7 +13964,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             rattrs[rattr_count++] = LFS3_RATTR_DATA(
-                    LFS3_TAG_MASK8 | LFS3_TAG_REG, 0,
+                    LFS3_tag_MASK8 | LFS3_TAG_REG, 0,
                     &name_data);
         }
 
@@ -14012,18 +14012,18 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         // no bshrub/btree?
         if (lfs3_file_size_(file) == 0) {
             rattrs[rattr_count++] = LFS3_RATTR(
-                    LFS3_TAG_RM | LFS3_TAG_MASK8 | LFS3_TAG_STRUCT, 0);
+                    LFS3_tag_RM | LFS3_tag_MASK8 | LFS3_TAG_STRUCT, 0);
         // bshrub?
         } else if (lfs3_bshrub_isbshrub(&file->b)
                 || lfs3_o_isunflush(file->b.h.flags)) {
             rattrs[rattr_count++] = LFS3_RATTR_SHRUB(
-                    LFS3_TAG_MASK8 | LFS3_TAG_BSHRUB, 0,
+                    LFS3_tag_MASK8 | LFS3_TAG_BSHRUB, 0,
                     // note we use the staged trunk here
                     &file->b.b_);
         // btree?
         } else if (lfs3_bshrub_isbtree(&file->b)) {
             rattrs[rattr_count++] = LFS3_RATTR_BTREE(
-                    LFS3_TAG_MASK8 | LFS3_TAG_BTREE, 0,
+                    LFS3_tag_MASK8 | LFS3_TAG_BTREE, 0,
                     &file->b.b);
         } else {
             LFS3_UNREACHABLE();
@@ -15354,7 +15354,7 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     lfs3->file_limit = file_limit;
 
     // check for unknown configs
-    tag = lfs3_mdir_lookupnext(lfs3, mroot, LFS3_TAG_UNKNOWNCONFIG,
+    tag = lfs3_mdir_lookupnext(lfs3, mroot, LFS3_tag_UNKNOWNCONFIG,
             NULL);
     if (tag < 0 && tag != LFS3_ERR_NOENT) {
         return tag;
@@ -16142,7 +16142,7 @@ static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
 
         // remove the rid while atomically updating our grm
         err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_RM, -1)));
+                LFS3_RATTR(LFS3_tag_RM, -1)));
         if (err) {
             // revert grm manually
             lfs3->grm = grm_p;
@@ -16193,7 +16193,7 @@ static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
 
         // remove the orphaned stickynote
         err = lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_RM, -1)));
+                LFS3_RATTR(LFS3_tag_RM, -1)));
         if (err) {
             goto failed;
         }
@@ -16499,7 +16499,7 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
                 LFS3_RATTRS(
                     LFS3_RATTR(
                         (tag == LFS3_TAG_BMFREE)
-                            ? LFS3_TAG_GROW
+                            ? LFS3_tag_GROW
                             : LFS3_TAG_BMFREE,
                         +(block_count_ - block_count))));
         if (err) {
