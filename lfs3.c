@@ -16540,9 +16540,9 @@ failed:;
 // enable the global on-disk block-map
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
-    // do nothing if we already have a gbmap
+    // error if we already have a gbmap
     if (lfs3_f_isgbmap(lfs3->flags)) {
-        return 0;
+        return LFS3_ERR_EXIST;
     }
 
     // prepare our filesystem for writing
@@ -16599,9 +16599,9 @@ failed:;
 // disable the global on-disk block-map
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
-    // do nothing if we already don't have a gbmap
+    // error if we already don't have a gbmap
     if (!lfs3_f_isgbmap(lfs3->flags)) {
-        return 0;
+        return LFS3_ERR_NOENT;
     }
 
     // prepare our filesystem for writing
