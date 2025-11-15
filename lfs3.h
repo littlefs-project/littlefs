@@ -55,6 +55,10 @@ typedef int32_t  lfs3_smid_t;
 typedef uint32_t lfs3_did_t;
 typedef int32_t  lfs3_sdid_t;
 
+typedef uint32_t lfs3_rcompat_t;
+typedef uint32_t lfs3_wcompat_t;
+typedef uint32_t lfs3_ocompat_t;
+
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
@@ -313,7 +317,6 @@ enum lfs3_type {
 #endif
 #define LFS3_I_CKMETA   0x00010000  // Metadata checksums not checked recently
 #define LFS3_I_CKDATA   0x00020000  // Data checksums not checked recently
-
 
 // Block types
 enum lfs3_btype {
@@ -724,7 +727,283 @@ struct lfs3_file_cfg {
 };
 
 
-/// internal littlefs data structures ///
+
+/// On-disk things ///
+
+// On-disk metadata tags
+enum lfs3_tag {
+    // the null tag is reserved
+    LFS3_TAG_NULL           = 0x0000,
+
+    // config tags
+    LFS3_TAG_CONFIG         = 0x0000,
+    LFS3_TAG_MAGIC          = 0x0031,
+    LFS3_TAG_VERSION        = 0x0034,
+    LFS3_TAG_RCOMPAT        = 0x0035,
+    LFS3_TAG_WCOMPAT        = 0x0036,
+    LFS3_TAG_OCOMPAT        = 0x0037,
+    LFS3_TAG_GEOMETRY       = 0x0038,
+    LFS3_TAG_NAMELIMIT      = 0x0039,
+    LFS3_TAG_FILELIMIT      = 0x003a,
+    // in-device only, to help find unknown config tags
+    LFS3_TAG_UNKNOWNCONFIG  = 0x003b,
+
+    // global-state tags
+    LFS3_TAG_GDELTA         = 0x0100,
+    LFS3_TAG_GRMDELTA       = 0x0100,
+    LFS3_TAG_GBMAPDELTA     = 0x0104,
+
+    // name tags
+    LFS3_TAG_NAME           = 0x0200,
+    LFS3_TAG_BNAME          = 0x0200,
+    LFS3_TAG_REG            = 0x0201,
+    LFS3_TAG_DIR            = 0x0202,
+    LFS3_TAG_STICKYNOTE     = 0x0203,
+    LFS3_TAG_BOOKMARK       = 0x0204,
+    // in-device only name tags, these should never get written to disk
+    LFS3_TAG_ORPHAN         = 0x0205,
+    LFS3_TAG_TRV            = 0x0206,
+    LFS3_TAG_UNKNOWN        = 0x0207,
+    // non-file name tags
+    LFS3_TAG_MNAME          = 0x0220,
+
+    // struct tags
+    LFS3_TAG_STRUCT         = 0x0300,
+    LFS3_TAG_BRANCH         = 0x0300,
+    LFS3_TAG_DATA           = 0x0304,
+    LFS3_TAG_BLOCK          = 0x0308,
+    LFS3_TAG_DID            = 0x0314,
+    LFS3_TAG_BSHRUB         = 0x0318,
+    LFS3_TAG_BTREE          = 0x031c,
+    LFS3_TAG_MROOT          = 0x0321,
+    LFS3_TAG_MDIR           = 0x0325,
+    LFS3_TAG_MTREE          = 0x032c,
+    LFS3_TAG_BMRANGE        = 0x0330,
+    LFS3_TAG_BMFREE         = 0x0330,
+    LFS3_TAG_BMINUSE        = 0x0331,
+    LFS3_TAG_BMERASED       = 0x0332,
+    LFS3_TAG_BMBAD          = 0x0333,
+
+    // user/sys attributes
+    LFS3_TAG_ATTR           = 0x0400,
+    LFS3_TAG_UATTR          = 0x0400,
+    LFS3_TAG_SATTR          = 0x0500,
+
+    // shrub tags belong to secondary trees
+    LFS3_TAG_SHRUB          = 0x1000,
+
+    // alt pointers form the inner nodes of our rbyd trees
+    LFS3_TAG_ALT            = 0x4000,
+    LFS3_TAG_B              = 0x0000,
+    LFS3_TAG_R              = 0x2000,
+    LFS3_TAG_LE             = 0x0000,
+    LFS3_TAG_GT             = 0x1000,
+
+    // checksum tags
+    LFS3_TAG_CKSUM          = 0x3000,
+    LFS3_TAG_PHASE          = 0x0003,
+    LFS3_TAG_PERTURB        = 0x0004,
+    LFS3_TAG_NOTE           = 0x3100,
+    LFS3_TAG_ECKSUM         = 0x3200,
+    LFS3_TAG_GCKSUMDELTA    = 0x3300,
+
+    // in-device only tags, these should never get written to disk
+    LFS3_TAG_INTERNAL       = 0x0800,
+    LFS3_TAG_RATTRS         = 0x0800,
+    LFS3_TAG_SHRUBCOMMIT    = 0x0801,
+    LFS3_TAG_GRMPUSH        = 0x0802,
+    LFS3_TAG_MOVE           = 0x0803,
+    LFS3_TAG_ATTRS          = 0x0804,
+
+    // some in-device only tag modifiers
+    LFS3_TAG_RM             = 0x8000,
+    LFS3_TAG_GROW           = 0x4000,
+    LFS3_TAG_MASK0          = 0x0000,
+    LFS3_TAG_MASK2          = 0x1000,
+    LFS3_TAG_MASK8          = 0x2000,
+    LFS3_TAG_MASK12         = 0x3000,
+};
+
+// some other tag encodings with their own subfields
+#define LFS3_TAG_ALT(c, d, key) \
+    (LFS3_TAG_ALT \
+        | (0x2000 & (c)) \
+        | (0x1000 & (d)) \
+        | (0x0fff & (lfs3_tag_t)(key)))
+
+#define LFS3_TAG_ATTR(attr) \
+    (LFS3_TAG_ATTR \
+        | ((0x80 & (lfs3_tag_t)(attr)) << 1) \
+        | (0x7f & (lfs3_tag_t)(attr)))
+
+
+// On-disk compat flags
+//
+// - RCOMPAT => Must understand to read the filesystem
+// - WCOMPAT => Must understand to write to the filesystem
+// - OCOMPAT => No understanding necessary, we don't really use these
+//
+// note, "understanding" does not necessarily mean support
+//
+#define LFS3_RCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
+#define LFS3_RCOMPAT_WRONLY      0x00000004 // Reading is disallowed
+#define LFS3_RCOMPAT_MMOSS       0x00000010 // May use an inlined mdir
+#define LFS3_RCOMPAT_MSPROUT     0x00000020 // May use an mdir pointer
+#define LFS3_RCOMPAT_MSHRUB      0x00000040 // May use an inlined mtree
+#define LFS3_RCOMPAT_MTREE       0x00000080 // May use an mtree
+#define LFS3_RCOMPAT_BMOSS       0x00000100 // Files may use inlined data
+#define LFS3_RCOMPAT_BSPROUT     0x00000200 // Files may use block pointers
+#define LFS3_RCOMPAT_BSHRUB      0x00000400 // Files may use inlined btrees
+#define LFS3_RCOMPAT_BTREE       0x00000800 // Files may use btrees
+#define LFS3_RCOMPAT_GRM         0x00010000 // Global-remove in use
+// internally used flags
+#define LFS3_rcompat_OVERFLOW    0x80000000 // Can't represent all flags
+
+#define LFS3_WCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
+#define LFS3_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
+#define LFS3_WCOMPAT_GCKSUM      0x00040000 // Global-checksum in use
+#define LFS3_WCOMPAT_GBMAP       0x00080000 // Global on-disk block-map in use
+#define LFS3_WCOMPAT_DIR         0x01000000 // Directory files in use
+// internally used flags
+#define LFS3_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
+
+#define LFS3_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
+// internally used flags
+#define LFS3_ocompat_OVERFLOW    0x80000000 // Can't represent all flags
+
+
+// On-disk encodings/decodings
+
+// tag encoding:
+// .---+---+---+- -+- -+- -+- -+---+- -+- -+- -.  tag:    1 be16    2 bytes
+// |  tag  | weight            | size          |  weight: 1 leb128  <=5 bytes
+// '---+---+---+- -+- -+- -+- -+---+- -+- -+- -'  size:   1 leb128  <=4 bytes
+//                                                total:            <=11 bytes
+#define LFS3_TAG_DSIZE (2+5+4)
+
+// le32 encoding:
+// .---+---+---+---.  total: 1 le32  4 bytes
+// |     le32      |
+// '---+---+---+---'
+//
+#define LFS3_LE32_DSIZE 4
+
+// leb128 encoding:
+// .---+- -+- -+- -+- -.  total: 1 leb128  <=5 bytes
+// |      leb128       |
+// '---+- -+- -+- -+- -'
+//
+#define LFS3_LEB128_DSIZE 5
+
+// lleb128 encoding:
+// .---+- -+- -+- -.  total: 1 leb128  <=4 bytes
+// |    lleb128    |
+// '---+- -+- -+- -'
+//
+#define LFS3_LLEB128_DSIZE 4
+
+// geometry encoding
+// .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
+// | block_size    |      block_count: 1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  total:                 <=9 bytes
+// | block_count       |
+// '---+- -+- -+- -+- -'
+//
+#define LFS3_GEOMETRY_DSIZE (4+5)
+
+// grm encoding:
+// .- -+- -+- -+- -+- -.  mids:  2 leb128s  <=2x5 bytes
+// ' mids              '  total:            <=10 bytes
+// +                   +
+// '                   '
+// '- -+- -+- -+- -+- -'
+//
+#define LFS3_GRM_DSIZE (5+5)
+
+// gbmap encoding:
+// .---+- -+- -+- -+- -. window: 1 leb128  <=5 bytes
+// | window            | known:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -+ block:  1 leb128  <=5 bytes
+// | known             | trunk:  1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -+ cksum:  1 le32    4 bytes
+// | block             | total:            23 bytes
+// +---+- -+- -+- -+- -'
+// | trunk         |
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFS3_GBMAP_DSIZE (5+5+5+4+4)
+
+// branch encoding:
+// .---+- -+- -+- -+- -.  block: 1 leb128  <=5 bytes
+// | block             |  trunk: 1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  cksum: 1 le32    4 bytes
+// | trunk         |      total:           <=13 bytes
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFS3_BRANCH_DSIZE (5+4+4)
+
+// bptr encoding:
+// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
+// | size          |      block:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
+// | block             |  cksize: 1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
+// | off           |      total:            <=21 bytes
+// +---+- -+- -+- -+
+// | cksize        |
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFS3_BPTR_DSIZE (4+5+4+4+4)
+
+// btree encoding:
+// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
+// | weight            |  block:  1 leb128  <=5 bytes
+// +---+- -+- -+- -+- -+  trunk:  1 leb128  <=4 bytes
+// | block             |  cksum:  1 le32    4 bytes
+// +---+- -+- -+- -+- -'  total:            <=18 bytes
+// | trunk         |
+// +---+- -+- -+- -+
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFS3_BTREE_DSIZE (5+LFS3_BRANCH_DSIZE)
+
+// shrub encoding:
+// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
+// | weight            |  trunk:  1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -'  total:            <=9 bytes
+// | trunk         |
+// '---+- -+- -+- -'
+//
+#define LFS3_SHRUB_DSIZE (5+4)
+
+// mptr encoding:
+// .---+- -+- -+- -+- -.  blocks: 2 leb128s  <=2x5 bytes
+// | block x 2         |  total:             <=10 bytes
+// +                   +
+// |                   |
+// '---+- -+- -+- -+- -'
+//
+#define LFS3_MPTR_DSIZE (5+5)
+
+// ecksum encoding:
+// .---+- -+- -+- -.  cksize: 1 leb128  <=4 bytes
+// | cksize        |  cksum:  1 le32    4 bytes
+// +---+- -+- -+- -+  total:            <=8 bytes
+// |     cksum     |
+// '---+---+---+---'
+//
+#define LFS3_ECKSUM_DSIZE (4+4)
+
+
+
+/// Internal littlefs structs ///
 
 // either an on-disk or in-RAM data pointer
 //
@@ -917,33 +1196,9 @@ typedef struct lfs3_trv {
 } lfs3_trv_t;
 
 // littlefs global state
-
-// grm encoding:
-// .- -+- -+- -+- -+- -.  mids:  2 leb128s  <=2x5 bytes
-// ' mids              '  total:            <=10 bytes
-// +                   +
-// '                   '
-// '- -+- -+- -+- -+- -'
-//
-#define LFS3_GRM_DSIZE (5+5)
-
 typedef struct lfs3_grm {
     lfs3_smid_t queue[2];
 } lfs3_grm_t;
-
-// gbmap encoding:
-// .---+- -+- -+- -+- -. window: 1 leb128  <=5 bytes
-// | window            | known:  1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -+ block:  1 leb128  <=5 bytes
-// | known             | trunk:  1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -+ cksum:  1 le32    4 bytes
-// | block             | total:            23 bytes
-// +---+- -+- -+- -+- -'
-// | trunk         |
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-#define LFS3_GBMAP_DSIZE (5+5+5+4+4)
 
 typedef struct lfs3_gbmap {
     lfs3_block_t window;
@@ -990,14 +1245,13 @@ typedef struct lfs3 {
     } pcache;
     // optional prog-aligned cksum
     uint32_t pcksum;
-    #endif
-
-    #if !defined(LFS3_RDONLY) && defined(LFS3_CKMETAPARITY)
+    #ifdef LFS3_CKMETAPARITY
     struct {
         lfs3_block_t block;
         // sign(off) => tail parity
         lfs3_size_t off;
     } ptail;
+    #endif
     #endif
 
     #ifndef LFS3_RDONLY
@@ -1041,6 +1295,7 @@ typedef struct lfs3 {
     lfs3_mgc_t gc;
     #endif
 } lfs3_t;
+
 
 
 /// Filesystem functions ///
