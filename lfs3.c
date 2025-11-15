@@ -14282,7 +14282,7 @@ failed:;
 // other file operations
 
 lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
-        lfs3_soff_t off, uint8_t whence) {
+        lfs3_soff_t off, uint32_t whence) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->b.h));
 
     // TODO check for out-of-range?

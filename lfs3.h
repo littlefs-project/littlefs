@@ -1510,7 +1510,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
 // The change in position is determined by the offset and whence flag.
 // Returns the new position of the file, or a negative error code on failure.
 lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
-        lfs3_soff_t off, uint8_t whence);
+        lfs3_soff_t off, uint32_t whence);
 
 // Truncate/grow the size of the file to the specified size
 //
