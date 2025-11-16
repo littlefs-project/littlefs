@@ -190,7 +190,7 @@ def main(command, *,
         lines=0,
         head=False,
         cat=False,
-        sleep=None,
+        wait=None,
         keep_open=False,
         keep_open_paths=None,
         buffer=False,
@@ -285,14 +285,12 @@ def main(command, *,
 
             # try to inotifywait
             if keep_open and Inotify:
-                ptime = time.time()
                 inotify.read()
                 inotify.close()
-                # sleep a minimum amount of time to avoid flickering
-                time.sleep(max(0, (sleep or 0.01) - (time.time()-ptime)))
-            # or sleep
-            else:
-                time.sleep(sleep or 2)
+            # sleep a minimum amount of time to avoid flickering
+            time.sleep(wait if wait is not None
+                    else 2 if not (keep_open and Inotify)
+                    else 0.01)
     except KeyboardInterrupt:
         pass
 
@@ -329,7 +327,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(
-            '-~', '--sleep',
+            '-w', '--wait',
             type=float,
             help="Seconds to sleep between runs. Defaults to 2 seconds.")
     parser.add_argument(

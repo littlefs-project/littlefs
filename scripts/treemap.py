@@ -1320,7 +1320,7 @@ def main(csv_paths, *,
         lines=None,
         head=False,
         cat=False,
-        sleep=False,
+        wait=False,
         **args):
     # keep-open?
     if keep_open:
@@ -1369,13 +1369,12 @@ def main(csv_paths, *,
 
                 # try to inotifywait
                 if Inotify:
-                    ptime = time.time()
                     inotify.read()
                     inotify.close()
-                    # sleep a minimum amount of time to avoid flickering
-                    time.sleep(max(0, (sleep or 0.01) - (time.time()-ptime)))
-                else:
-                    time.sleep(sleep or 2)
+                # sleep a minimum amount of time to avoid flickering
+                time.sleep(wait if wait is not None
+                        else 2 if not Inotify
+                        else 0.01)
         except KeyboardInterrupt:
             pass
 
@@ -1592,7 +1591,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(
-            '-~', '--sleep',
+            '-w', '--wait',
             type=float,
             help="Time in seconds to sleep between redraws when running "
                 "with -k. Defaults to 2 seconds.")

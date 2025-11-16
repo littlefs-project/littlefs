@@ -152,7 +152,7 @@ def main(path='-', *,
         lines=5,
         cat=False,
         coalesce=None,
-        sleep=None,
+        wait=None,
         keep_open=False):
     lock = th.Lock()
     event = th.Event()
@@ -175,7 +175,7 @@ def main(path='-', *,
                 if not keep_open:
                     break
                 # don't just flood open calls
-                time.sleep(sleep or 2)
+                time.sleep(wait or 2)
 
         except FileNotFoundError as e:
             print("error: file not found %r" % path,
@@ -200,7 +200,7 @@ def main(path='-', *,
                 with lock:
                     ring.draw()
                 # sleep a minimum amount of time to avoid flickering
-                time.sleep(sleep or 0.01)
+                time.sleep(wait or 0.01)
         th.Thread(target=background, daemon=True).start()
 
         main_(ring)
@@ -240,7 +240,7 @@ if __name__ == "__main__":
             type=lambda x: int(x, 0),
             help="Number of lines to coalesce together.")
     parser.add_argument(
-            '-~', '--sleep',
+            '-w', '--wait',
             type=float,
             help="Seconds to sleep between draws, coalescing lines in "
                 "between.")

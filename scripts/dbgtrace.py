@@ -1039,7 +1039,7 @@ def main(path='-', *,
         head=False,
         cat=False,
         coalesce=None,
-        sleep=None,
+        wait=None,
         keep_open=False,
         **args):
     # figure out what color should be
@@ -1633,14 +1633,14 @@ def main(path='-', *,
 
                             # always redraw if we're sleeping, otherwise
                             # wait for coalesce number of operations
-                            if sleep is not None or count >= (coalesce or 1):
+                            if wait is not None or count >= (coalesce or 1):
                                 event.set()
                                 count = 0
 
                 if not keep_open:
                     break
                 # don't just flood open calls
-                time.sleep(sleep or 2)
+                time.sleep(wait or 2)
 
         except FileNotFoundError as e:
             print("error: file not found %r" % path,
@@ -1692,7 +1692,7 @@ def main(path='-', *,
             with lock:
                 draw_()
             # sleep a minimum amount of time to avoid flickering
-            time.sleep(sleep or 0.01)
+            time.sleep(wait or 0.01)
     th.Thread(target=background, daemon=True).start()
 
     main_()
@@ -1754,10 +1754,8 @@ if __name__ == "__main__":
             action='store_true',
             help="Only render wear, don't render bd ops. Implies --wear.")
     parser.add_argument(
-            '-w', '--block-cycles',
-            nargs='?',
+            '--block-cycles',
             type=lambda x: int(x, 0),
-            const=0,
             help="Assumed maximum number of erase cycles when measuring "
                 "wear. Defaults to the maximum wear on any single block. "
                 "Implies --wear.")
@@ -1919,7 +1917,7 @@ if __name__ == "__main__":
             type=lambda x: int(x, 0),
             help="Number of operations to coalesce together.")
     parser.add_argument(
-            '-~', '--sleep',
+            '-w', '--wait',
             type=float,
             help="Seconds to sleep between draws, coalescing operations "
                 "in between.")
