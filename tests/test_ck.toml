@@ -180,7 +180,7 @@ code = '''
 
 # test we can detect at least fully clobbered blocks
 [cases.test_ck_ckmeta_easy]
-# METHOD=0 => lfs3_fs_ckmeta
+# METHOD=0 => lfs3_fs_ck
 # METHOD=1 => lfs3_fs_gc
 # METHOD=2 => lfs3_trv_read
 # METHOD=3 => lfs3_mount
@@ -268,9 +268,9 @@ code = '''
         }
 
     clobbered:;
-        // find clobbered blocks with lfs3_fs_ckmeta
+        // find clobbered blocks with lfs3_fs_ck
         if (METHOD == 0) {
-            lfs3_fs_ckmeta(&lfs3) => LFS3_ERR_CORRUPT;
+            lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => LFS3_ERR_CORRUPT;
 
         // find clobbered blocks with lfs3_fs_gc
         } else if (METHOD == 1) {
@@ -317,7 +317,7 @@ done:;
 '''
 
 [cases.test_ck_ckdata_easy]
-# METHOD=0 => lfs3_fs_ckdata
+# METHOD=0 => lfs3_fs_ck
 # METHOD=1 => lfs3_fs_gc
 # METHOD=2 => lfs3_trv_read
 # METHOD=3 => lfs3_mount
@@ -406,9 +406,9 @@ code = '''
         }
 
     clobbered:;
-        // find clobbered blocks with lfs3_fs_ckmeta
+        // find clobbered blocks with lfs3_fs_ck
         if (METHOD == 0) {
-            lfs3_fs_ckdata(&lfs3) => LFS3_ERR_CORRUPT;
+            lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => LFS3_ERR_CORRUPT;
 
         // find clobbered blocks with lfs3_fs_gc
         } else if (METHOD == 1) {
@@ -456,7 +456,7 @@ done:;
 
 # test some more interesting errors
 [cases.test_ck_ckmeta_hard]
-# METHOD=0 => lfs3_fs_ckmeta
+# METHOD=0 => lfs3_fs_ck
 # METHOD=1 => lfs3_fs_gc
 # METHOD=2 => lfs3_trv_read
 # METHOD=3 => lfs3_mount
@@ -550,9 +550,9 @@ code = '''
             printf("flipping 0x%x.%x+%x\n", badblock, badbit/8, badbit%8);
             lfs3_emubd_flipbit(CFG, badblock, badbit) => 0;
 
-            // find clobbered blocks with lfs3_fs_ckmeta
+            // find clobbered blocks with lfs3_fs_ck
             if (METHOD == 0) {
-                int err = lfs3_fs_ckmeta(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto detected;
@@ -711,7 +711,7 @@ done:;
 '''
 
 [cases.test_ck_ckdata_hard]
-# METHOD=0 => lfs3_fs_ckdata
+# METHOD=0 => lfs3_fs_ck
 # METHOD=1 => lfs3_fs_gc
 # METHOD=2 => lfs3_trv_read
 # METHOD=3 => lfs3_mount
@@ -806,9 +806,9 @@ code = '''
             printf("flipping 0x%x.%x+%x\n", badblock, badbit/8, badbit%8);
             lfs3_emubd_flipbit(CFG, badblock, badbit) => 0;
 
-            // find clobbered blocks with lfs3_fs_ckdata
+            // find clobbered blocks with lfs3_fs_ck
             if (METHOD == 0) {
-                int err = lfs3_fs_ckdata(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto detected;
@@ -971,8 +971,8 @@ done:;
 
 # test we can detect at least fully clobbered blocks
 [cases.test_ck_file_ckmeta_easy]
-# METHOD=0 => lfs3_file_ckmeta
-# METHOD=1 => lfs3_file_close+open+ckmeta
+# METHOD=0 => lfs3_file_ck
+# METHOD=1 => lfs3_file_close+open+ck
 # METHOD=2 => lfs3_file_close+open
 defines.METHOD = [0, 1, 2]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1042,15 +1042,15 @@ code = '''
         }
 
     clobbered:;
-        // find clobbered blocks with lfs3_file_ckmeta
+        // find clobbered blocks with lfs3_file_ck
         if (METHOD == 0) {
-            lfs3_file_ckmeta(&lfs3, &file) => LFS3_ERR_CORRUPT;
+            lfs3_file_ck(&lfs3, &file, LFS3_CK_CKMETA) => LFS3_ERR_CORRUPT;
 
-        // find clobbered blocks with lfs3_file_close+open+ckmeta
+        // find clobbered blocks with lfs3_file_close+open+ck
         } else if (METHOD == 1) {
             lfs3_file_close(&lfs3, &file) => 0;
             lfs3_file_open(&lfs3, &file, "octopus", LFS3_O_RDONLY) => 0;
-            lfs3_file_ckmeta(&lfs3, &file) => LFS3_ERR_CORRUPT;
+            lfs3_file_ck(&lfs3, &file, LFS3_CK_CKMETA) => LFS3_ERR_CORRUPT;
 
         // find clobbered blocks with lfs3_file_close+open
         } else if (METHOD == 2) {
@@ -1070,8 +1070,8 @@ done:;
 '''
 
 [cases.test_ck_file_ckdata_easy]
-# METHOD=0 => lfs3_file_ckdata
-# METHOD=1 => lfs3_file_close+open+ckdata
+# METHOD=0 => lfs3_file_ck
+# METHOD=1 => lfs3_file_close+open+ck
 # METHOD=2 => lfs3_file_close+open
 defines.METHOD = [0, 1, 2]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1142,15 +1142,15 @@ code = '''
         }
 
     clobbered:;
-        // find clobbered blocks with lfs3_file_ckmeta
+        // find clobbered blocks with lfs3_file_ck
         if (METHOD == 0) {
-            lfs3_file_ckdata(&lfs3, &file) => LFS3_ERR_CORRUPT;
+            lfs3_file_ck(&lfs3, &file, LFS3_CK_CKDATA) => LFS3_ERR_CORRUPT;
 
-        // find clobbered blocks with lfs3_file_close+open+ckmeta
+        // find clobbered blocks with lfs3_file_close+open+ck
         } else if (METHOD == 1) {
             lfs3_file_close(&lfs3, &file) => 0;
             lfs3_file_open(&lfs3, &file, "octopus", LFS3_O_RDONLY) => 0;
-            lfs3_file_ckdata(&lfs3, &file) => LFS3_ERR_CORRUPT;
+            lfs3_file_ck(&lfs3, &file, LFS3_CK_CKDATA) => LFS3_ERR_CORRUPT;
 
         // find clobbered blocks with lfs3_file_close+open
         } else if (METHOD == 2) {
@@ -1172,8 +1172,8 @@ done:;
 
 # test some more interesting errors
 [cases.test_ck_file_ckmeta_hard]
-# METHOD=0 => lfs3_file_ckmeta
-# METHOD=1 => lfs3_file_close+open+ckmeta
+# METHOD=0 => lfs3_file_ck
+# METHOD=1 => lfs3_file_close+open+ck
 # METHOD=2 => lfs3_file_close+open
 defines.METHOD = [0, 1, 2]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1251,19 +1251,19 @@ code = '''
             printf("flipping 0x%x.%x+%x\n", badblock, badbit/8, badbit%8);
             lfs3_emubd_flipbit(CFG, badblock, badbit) => 0;
 
-            // find clobbered blocks with lfs3_file_ckmeta
+            // find clobbered blocks with lfs3_file_ck
             if (METHOD == 0) {
-                int err = lfs3_file_ckmeta(&lfs3, &file);
+                int err = lfs3_file_ck(&lfs3, &file, LFS3_CK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto detected;
                 }
 
-            // find clobbered blocks with lfs3_file_close+open+ckmeta
+            // find clobbered blocks with lfs3_file_close+open+ck
             } else if (METHOD == 1) {
                 lfs3_file_close(&lfs3, &file) => 0;
                 lfs3_file_open(&lfs3, &file, "octopus", LFS3_O_RDONLY) => 0;
-                int err = lfs3_file_ckmeta(&lfs3, &file);
+                int err = lfs3_file_ck(&lfs3, &file, LFS3_CK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto detected;
@@ -1322,8 +1322,8 @@ done:;
 '''
 
 [cases.test_ck_file_ckdata_hard]
-# METHOD=0 => lfs3_file_ckdata
-# METHOD=1 => lfs3_file_close+open+ckdata
+# METHOD=0 => lfs3_file_ck
+# METHOD=1 => lfs3_file_close+open+ck
 # METHOD=2 => lfs3_file_close+open
 defines.METHOD = [0, 1, 2]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1402,9 +1402,9 @@ code = '''
             printf("flipping 0x%x.%x+%x\n", badblock, badbit/8, badbit%8);
             lfs3_emubd_flipbit(CFG, badblock, badbit) => 0;
 
-            // find clobbered blocks with lfs3_file_ckdata
+            // find clobbered blocks with lfs3_file_ck
             if (METHOD == 0) {
-                int err = lfs3_file_ckdata(&lfs3, &file);
+                int err = lfs3_file_ck(&lfs3, &file, LFS3_CK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto detected;
@@ -1414,7 +1414,7 @@ code = '''
             } else if (METHOD == 1) {
                 lfs3_file_close(&lfs3, &file) => 0;
                 lfs3_file_open(&lfs3, &file, "octopus", LFS3_O_RDONLY) => 0;
-                int err = lfs3_file_ckdata(&lfs3, &file);
+                int err = lfs3_file_ck(&lfs3, &file, LFS3_CK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto detected;
@@ -2827,14 +2827,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ckdata(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ckmeta(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
@@ -3145,14 +3145,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ckdata(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ckmeta(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
@@ -3561,14 +3561,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ckdata(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_open;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ckmeta(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_open;
@@ -3846,14 +3846,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ckdata(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ckmeta(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
@@ -4450,14 +4450,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ckdata(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ckmeta(&lfs3);
+                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;

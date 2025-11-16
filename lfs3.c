@@ -12240,7 +12240,6 @@ static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file);
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_name_t *name);
 #endif
-static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
 
 int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
@@ -12399,17 +12398,18 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         goto failed;
     }
 
+    // add to tracked mdirs
+    lfs3_handle_open(lfs3, &file->b.h);
+
     // check metadata/data for errors?
-    if (lfs3_t_isckmeta(file->b.h.flags)
-            || lfs3_t_isckdata(file->b.h.flags)) {
-        err = lfs3_file_ck(lfs3, file, file->b.h.flags);
+    if (file->b.h.flags & LFS3_CK_ALL) {
+        err = lfs3_file_ck(lfs3, file, file->b.h.flags & LFS3_CK_ALL);
         if (err) {
+            lfs3_handle_close(lfs3, &file->b.h);
             goto failed;
         }
     }
 
-    // add to tracked mdirs
-    lfs3_handle_open(lfs3, &file->b.h);
     return 0;
 
 failed:;
@@ -14532,9 +14532,14 @@ failed:;
 }
 #endif
 
-// file check functions
+// file check function
+int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
+    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->b.h));
+    // can't read from writeonly files
+    LFS3_ASSERT(!lfs3_o_iswronly(file->b.h.flags));
+    // unknown ck flags?
+    LFS3_ASSERT((flags & ~LFS3_CK_ALL) == 0);
 
-static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     // validate ungrafted data block?
     if (lfs3_t_isckdata(flags)
             && lfs3_o_isungraft(file->b.h.flags)) {
@@ -14594,25 +14599,6 @@ static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     }
 
     return 0;
-}
-
-int lfs3_file_ckmeta(lfs3_t *lfs3, lfs3_file_t *file) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->b.h));
-    // can't read from writeonly files
-    LFS3_ASSERT(!lfs3_o_iswronly(file->b.h.flags));
-
-    return lfs3_file_ck(lfs3, file,
-            LFS3_T_RDONLY | LFS3_T_CKMETA);
-}
-
-int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->b.h));
-    // can't read from writeonly files
-    LFS3_ASSERT(!lfs3_o_iswronly(file->b.h.flags));
-
-    // in 2-block mode this is a noop
-    return lfs3_file_ck(lfs3, file,
-            LFS3_T_RDONLY | LFS3_T_CKMETA | LFS3_T_CKDATA);
 }
 
 
@@ -14757,13 +14743,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     #ifdef LFS3_GC
     // unknown gc flags?
-    LFS3_ASSERT((lfs3->cfg->gc_flags & ~(
-            LFS3_GC_MKCONSISTENT
-                | LFS3_GC_LOOKAHEAD
-                | LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0)
-                | LFS3_GC_COMPACTMETA
-                | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) == 0);
+    LFS3_ASSERT((lfs3->cfg->gc_flags & ~LFS3_GC_ALL) == 0);
 
     // check that gc_compactmeta_thresh makes sense
     //
@@ -15583,10 +15563,6 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     return 0;
 }
 
-// needed in lfs3_mount
-static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
-        uint32_t flags, lfs3_soff_t steps);
-
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_cfg *cfg) {
     #ifdef LFS3_YES_RDONLY
@@ -15683,25 +15659,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     }
 
     // run gc if requested
-    if (flags & (
-            LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
-                | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA)
-                | LFS3_M_CKMETA
-                | LFS3_M_CKDATA)) {
-        lfs3_mgc_t mgc;
-        err = lfs3_fs_gc_(lfs3, &mgc,
-                flags & (
-                    LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0))
-                        | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA)
-                        | LFS3_M_CKMETA
-                        | LFS3_M_CKDATA),
-                -1);
+    if (flags & LFS3_FSCK_ALL) {
+        err = lfs3_fs_ck(lfs3, flags & LFS3_FSCK_ALL);
         if (err) {
             goto failed;
         }
@@ -16002,23 +15961,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     }
 
     // run gc if requested
-    if (flags & (
-            LFS3_F_MKCONSISTENT
-                | LFS3_F_LOOKAHEAD
-                | LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)
-                | LFS3_F_COMPACTMETA
-                | LFS3_F_CKMETA
-                | LFS3_F_CKDATA)) {
-        lfs3_mgc_t mgc;
-        err = lfs3_fs_gc_(lfs3, &mgc,
-                flags & (
-                    LFS3_F_MKCONSISTENT
-                        | LFS3_F_LOOKAHEAD
-                        | LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)
-                        | LFS3_F_COMPACTMETA
-                        | LFS3_F_CKMETA
-                        | LFS3_F_CKDATA),
-                -1);
+    if (flags & LFS3_FSCK_ALL) {
+        err = lfs3_fs_ck(lfs3, flags & LFS3_FSCK_ALL);
         if (err) {
             goto failed;
         }
@@ -16101,6 +16045,12 @@ lfs3_ssize_t lfs3_fs_usage(lfs3_t *lfs3) {
     }
 
     return count;
+}
+
+// get the filesystem checksum
+int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
+    *cksum = lfs3->gcksum;
+    return 0;
 }
 
 
@@ -16272,58 +16222,12 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
 }
 #endif
 
-// filesystem check functions
-static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
-    // we leave this up to lfs3_mtree_traverse
-    lfs3_mtrv_t mtrv;
-    lfs3_mtrv_init(&mtrv, flags);
-    while (true) {
-        lfs3_bptr_t bptr;
-        lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
-                &bptr);
-        if (tag < 0) {
-            if (tag == LFS3_ERR_NOENT) {
-                break;
-            }
-            return tag;
-        }
-    }
-
-    return 0;
-}
-
-int lfs3_fs_ckmeta(lfs3_t *lfs3) {
-    return lfs3_fs_ck(lfs3, LFS3_T_RDONLY | LFS3_T_CKMETA);
-}
-
-int lfs3_fs_ckdata(lfs3_t *lfs3) {
-    return lfs3_fs_ck(lfs3, LFS3_T_RDONLY | LFS3_T_CKMETA | LFS3_T_CKDATA);
-}
-
-// get the filesystem checksum
-int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
-    *cksum = lfs3->gcksum;
-    return 0;
-}
-
 // low-level filesystem gc
 //
 // runs the traversal until all work is completed, which may take
 // multiple passes
 static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         uint32_t flags, lfs3_soff_t steps) {
-    // unknown gc flags?
-    LFS3_ASSERT((flags & ~LFS3_GC_ALL) == 0);
-    // these flags require a writable filesystem
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_t_ismkconsistent(flags));
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_t_islookahead(flags));
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_t_islookgbmap(flags));
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_t_compactmeta(flags));
-
     // fix pending grms if requested
     #ifndef LFS3_RDONLY
     if (lfs3_t_ismkconsistent(flags)
@@ -16336,7 +16240,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     #endif
 
     // do we have any pending work?
-    uint32_t pending = flags & (lfs3->flags & LFS3_GC_ALL);
+    uint32_t pending = flags & lfs3->flags & LFS3_GC_ALL;
 
     while (pending && (lfs3_off_t)steps > 0) {
         // start a new traversal?
@@ -16376,13 +16280,13 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_stag_t tag = lfs3_mtree_gc(lfs3, mgc,
                 &bptr);
         if (tag < 0 && tag != LFS3_ERR_NOENT) {
+            lfs3_handle_close(lfs3, &mgc->t.h);
             return tag;
         }
 
         // end of traversal?
         if (tag == LFS3_ERR_NOENT) {
             lfs3_handle_close(lfs3, &mgc->t.h);
-
             // clear any pending flags we make progress on
             pending &= lfs3->flags & LFS3_GC_ALL;
         }
@@ -16396,11 +16300,49 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     return 0;
 }
 
+// filesystem check function
+//
+// this just calls lfs3_fs_gc_ with unbounded steps
+int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
+    // unknown ck flags?
+    LFS3_ASSERT((flags & ~LFS3_FSCK_ALL) == 0);
+    // these flags require a writable filesystem
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_ismkconsistent(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_islookahead(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_islookgbmap(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_compactmeta(flags));
+
+    // set needs-ck flags, this has the side-effect of signaling ck work
+    // is incomplete if we encounter an error, which is probably a good
+    // thing
+    lfs3->flags |= flags & (LFS3_I_CKMETA | LFS3_I_CKDATA);
+
+    lfs3_mgc_t mgc;
+    return lfs3_fs_gc_(lfs3, &mgc, flags, -1);
+}
+
 // incremental filesystem gc
 //
 // perform any pending janitorial work
 #ifdef LFS3_GC
 int lfs3_fs_gc(lfs3_t *lfs3) {
+    // unknown gc flags?
+    LFS3_ASSERT((lfs3->cfg->gc_flags & ~LFS3_GC_ALL) == 0);
+    // these flags require a writable filesystem
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_ismkconsistent(lfs3->cfg->gc_flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_islookahead(lfs3->cfg->gc_flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_islookgbmap(lfs3->cfg->gc_flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_t_compactmeta(lfs3->cfg->gc_flags));
+
+    // run gc a configurable number of steps
     return lfs3_fs_gc_(lfs3, &lfs3->gc,
             lfs3->cfg->gc_flags,
             (lfs3->cfg->gc_steps)
@@ -16412,14 +16354,7 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
 // unperform janitorial work
 int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
     // unknown flags?
-    LFS3_ASSERT((flags & ~(
-            LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
-                | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA)) == 0);
+    LFS3_ASSERT((flags & ~LFS3_FSCK_ALL) == 0);
 
     // reset the requested flags
     lfs3->flags |= flags;

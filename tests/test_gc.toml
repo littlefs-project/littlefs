@@ -1293,7 +1293,7 @@ code = '''
 done:;
 '''
 
-# test that our explicit functions (lfs3_fs_ckmeta/ckdata) work as well,
+# test that our explicit functions (lfs3_fs_ck) work as well,
 # these call the same logic internally
 [cases.test_gc_ckmeta_explicit]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1377,8 +1377,8 @@ code = '''
         }
 
     clobbered:;
-        // lfs3_fs_ckmeta should find the clobbered block
-        lfs3_fs_ckmeta(&lfs3) => LFS3_ERR_CORRUPT;
+        // lfs3_fs_ckshould find the clobbered block
+        lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => LFS3_ERR_CORRUPT;
 
         lfs3_unmount(&lfs3) => 0;
     }
@@ -1468,8 +1468,8 @@ code = '''
         }
 
     clobbered:;
-        // lfs3_fs_ckdata should find the clobbered block
-        lfs3_fs_ckdata(&lfs3) => LFS3_ERR_CORRUPT;
+        // lfs3_fs_ckshould find the clobbered block
+        lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => LFS3_ERR_CORRUPT;
 
         lfs3_unmount(&lfs3) => 0;
     }
@@ -1482,7 +1482,7 @@ done:;
 # AFTER=0 => after running lfs3_fs_gc once
 # AFTER=1 => after running lfs3_fs_gc to completion
 # AFTER=2 => after running lfs3_trv_t
-# AFTER=3 => after lfs3_fs_ckmeta
+# AFTER=3 => after lfs3_fs_ck
 # AFTER=4 => after remounting with LFS3_M_CKMETA
 defines.AFTER = [0, 1, 2, 3, 4]
 defines.GC_FLAGS = 'LFS3_GC_CKMETA'
@@ -1563,9 +1563,9 @@ code = '''
             }
             lfs3_trv_close(&lfs3, &trv) => 0;
 
-        // run lfs3_fs_ckmeta
+        // run lfs3_fs_ck
         } else if (AFTER == 3) {
-            lfs3_fs_ckmeta(&lfs3) => 0;
+            lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => 0;
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1648,7 +1648,7 @@ done:;
 # AFTER=0 => after running lfs3_fs_gc once
 # AFTER=1 => after running lfs3_fs_gc to completion
 # AFTER=2 => after running lfs3_trv_t
-# AFTER=3 => after lfs3_fs_ckdata
+# AFTER=3 => after lfs3_fs_ck
 # AFTER=4 => after remounting with LFS3_M_CKDATA
 defines.AFTER = [0, 1, 2, 3, 4]
 defines.GC_FLAGS = 'LFS3_GC_CKDATA'
@@ -1729,9 +1729,9 @@ code = '''
             }
             lfs3_trv_close(&lfs3, &trv) => 0;
 
-        // run lfs3_fs_ckdata
+        // run lfs3_fs_ck
         } else if (AFTER == 3) {
-            lfs3_fs_ckdata(&lfs3) => 0;
+            lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => 0;
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2010,11 +2010,11 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ckmeta(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ckdata(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => 0;
             }
         }
 
@@ -2245,11 +2245,11 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ckmeta(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ckdata(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => 0;
             }
         }
 
@@ -2416,11 +2416,11 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ckmeta(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ckdata(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => 0;
             }
         }
 

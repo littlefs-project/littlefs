@@ -362,6 +362,47 @@ enum lfs3_btype {
 #define LFS3_t_DIRTY    0x02000000  // Filesystem ckpointed outside traversal
 #define LFS3_t_STALE    0x01000000  // Block queue probably out-of-date
 
+// File check flags
+#define LFS3_CK_CKMETA  0x00010000  // Check metadata checksums
+#define LFS3_CK_CKDATA  0x00020000  // Check metadata + data checksums
+
+// an alias for all possible file check work
+#define LFS3_CK_ALL ( \
+        LFS3_GC_CKMETA \
+            | LFS3_GC_CKDATA)
+
+// Filesystem check flags
+#ifndef LFS3_RDONLY
+#define LFS3_FSCK_MKCONSISTENT \
+                        0x00000800  // Make the filesystem consistent
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_FSCK_LOOKAHEAD \
+                        0x00001000  // Repopulate lookahead buffer
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+#define LFS3_FSCK_LOOKGBMAP \
+                        0x00002000  // Repopulate the gbmap
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_FSCK_COMPACTMETA \
+                        0x00008000  // Compact metadata logs
+#endif
+#define LFS3_FSCK_CKMETA \
+                        0x00010000  // Check metadata checksums
+#define LFS3_FSCK_CKDATA \
+                        0x00020000  // Check metadata + data checksums
+
+// an alias for all possible filesystem check work
+#define LFS3_FSCK_ALL ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_FSCK_MKCONSISTENT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_FSCK_LOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, \
+                LFS3_IFDEF_GBMAP(LFS3_FSCK_LOOKGBMAP, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_FSCK_COMPACTMETA) \
+            | LFS3_FSCK_CKMETA \
+            | LFS3_FSCK_CKDATA)
+
 // GC flags
 #ifndef LFS3_RDONLY
 #define LFS3_GC_MKCONSISTENT \
@@ -1550,17 +1591,11 @@ int lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file);
 
-// Check a file for metadata errors
+// Check a file for errors and other work
 //
 // Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
 // error code on failure.
-int lfs3_file_ckmeta(lfs3_t *lfs3, lfs3_file_t *file);
-
-// Check a file for metadata + data errors
-//
-// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
-// error code on failure.
-int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file);
+int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
 
 
 /// Directory operations ///
@@ -1660,30 +1695,6 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo);
 // Returns the number of allocated blocks, or a negative error code on failure.
 lfs3_ssize_t lfs3_fs_usage(lfs3_t *lfs3);
 
-// Attempt to make the filesystem consistent and ready for writing
-//
-// Calling this function is not required, consistency will be implicitly
-// enforced on the first operation that writes to the filesystem, but this
-// function allows the work to be performed earlier and without other
-// filesystem changes.
-//
-// Returns a negative error code on failure.
-#ifndef LFS3_RDONLY
-int lfs3_fs_mkconsistent(lfs3_t *lfs3);
-#endif
-
-// Check the filesystem for metadata errors
-//
-// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
-// error code on failure.
-int lfs3_fs_ckmeta(lfs3_t *lfs3);
-
-// Check the filesystem for metadata + data errors
-//
-// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
-// error code on failure.
-int lfs3_fs_ckdata(lfs3_t *lfs3);
-
 // Get the current filesystem checksum
 //
 // This is a checksum of all metadata + data in the filesystem, which
@@ -1699,6 +1710,27 @@ int lfs3_fs_ckdata(lfs3_t *lfs3);
 //
 // Returns a negative error code on failure.
 int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum);
+
+// Attempt to make the filesystem consistent and ready for writing
+//
+// Calling this function is not required, consistency will be implicitly
+// enforced on the first operation that writes to the filesystem, but this
+// function allows the work to be performed earlier and without other
+// filesystem changes.
+//
+// Returns a negative error code on failure.
+#ifndef LFS3_RDONLY
+int lfs3_fs_mkconsistent(lfs3_t *lfs3);
+#endif
+
+// Check the filesystem for errors and other work
+//
+// This actually supports all janitorial work, but spins until all work
+// is complete. See lfs3_fs_gc for incremental gc.
+//
+// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
+// error code on failure.
+int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags);
 
 // Perform any janitorial work that may be pending
 //
