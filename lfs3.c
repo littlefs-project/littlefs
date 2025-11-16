@@ -12402,8 +12402,13 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     lfs3_handle_open(lfs3, &file->b.h);
 
     // check metadata/data for errors?
-    if (file->b.h.flags & LFS3_CK_ALL) {
-        err = lfs3_file_ck(lfs3, file, file->b.h.flags & LFS3_CK_ALL);
+    if (file->b.h.flags & (
+            LFS3_CK_CKMETA
+                | LFS3_CK_CKDATA)) {
+        err = lfs3_file_ck(lfs3, file,
+                file->b.h.flags & (
+                    LFS3_CK_CKMETA
+                        | LFS3_CK_CKDATA));
         if (err) {
             lfs3_handle_close(lfs3, &file->b.h);
             goto failed;
@@ -14537,8 +14542,10 @@ int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->b.h));
     // can't read from writeonly files
     LFS3_ASSERT(!lfs3_o_iswronly(file->b.h.flags));
-    // unknown ck flags?
-    LFS3_ASSERT((flags & ~LFS3_CK_ALL) == 0);
+    // unknown ck flags? note only some ck flags work on files
+    LFS3_ASSERT((flags & ~(
+            LFS3_CK_CKMETA
+                | LFS3_CK_CKDATA)) == 0);
 
     // validate ungrafted data block?
     if (lfs3_t_isckdata(flags)
@@ -15659,8 +15666,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     }
 
     // run gc if requested
-    if (flags & LFS3_FSCK_ALL) {
-        err = lfs3_fs_ck(lfs3, flags & LFS3_FSCK_ALL);
+    if (flags & LFS3_GC_ALL) {
+        err = lfs3_fs_ck(lfs3, flags & LFS3_GC_ALL);
         if (err) {
             goto failed;
         }
@@ -15961,8 +15968,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     }
 
     // run gc if requested
-    if (flags & LFS3_FSCK_ALL) {
-        err = lfs3_fs_ck(lfs3, flags & LFS3_FSCK_ALL);
+    if (flags & LFS3_GC_ALL) {
+        err = lfs3_fs_ck(lfs3, flags & LFS3_GC_ALL);
         if (err) {
             goto failed;
         }
@@ -16305,7 +16312,7 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 // this just calls lfs3_fs_gc_ with unbounded steps
 int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     // unknown ck flags?
-    LFS3_ASSERT((flags & ~LFS3_FSCK_ALL) == 0);
+    LFS3_ASSERT((flags & ~LFS3_GC_ALL) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_ismkconsistent(flags));
@@ -16354,7 +16361,7 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
 // unperform janitorial work
 int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
     // unknown flags?
-    LFS3_ASSERT((flags & ~LFS3_FSCK_ALL) == 0);
+    LFS3_ASSERT((flags & ~LFS3_GC_ALL) == 0);
 
     // reset the requested flags
     lfs3->flags |= flags;

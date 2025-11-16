@@ -1378,7 +1378,7 @@ code = '''
 
     clobbered:;
         // lfs3_fs_ckshould find the clobbered block
-        lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => LFS3_ERR_CORRUPT;
+        lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => LFS3_ERR_CORRUPT;
 
         lfs3_unmount(&lfs3) => 0;
     }
@@ -1469,7 +1469,7 @@ code = '''
 
     clobbered:;
         // lfs3_fs_ckshould find the clobbered block
-        lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => LFS3_ERR_CORRUPT;
+        lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => LFS3_ERR_CORRUPT;
 
         lfs3_unmount(&lfs3) => 0;
     }
@@ -1565,7 +1565,7 @@ code = '''
 
         // run lfs3_fs_ck
         } else if (AFTER == 3) {
-            lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => 0;
+            lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1731,7 +1731,7 @@ code = '''
 
         // run lfs3_fs_ck
         } else if (AFTER == 3) {
-            lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => 0;
+            lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2010,11 +2010,11 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
         }
 
@@ -2245,11 +2245,11 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
         }
 
@@ -2416,11 +2416,11 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
         }
 

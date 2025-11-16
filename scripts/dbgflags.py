@@ -15,7 +15,6 @@ PREFIX_A       = ['--a', '--attr']      # Filter by LFS3_A_* flags
 PREFIX_F       = ['--f', '--format']    # Filter by LFS3_F_* flags
 PREFIX_M       = ['--m', '--mount']     # Filter by LFS3_M_* flags
 PREFIX_CK      = ['--ck']               # Filter by LFS3_CK_* flags
-PREFIX_FSCK    = ['--fsck']             # Filter by LFS3_FSCK_* flags
 PREFIX_GC      = ['--gc']               # Filter by LFS3_GC_* flags
 PREFIX_I       = ['--i', '--info']      # Filter by LFS3_I_* flags
 PREFIX_T       = ['--t', '--trv']       # Filter by LFS3_T_* flags
@@ -109,19 +108,13 @@ M_COMPACTMETA   = 0x00008000  # y-  Compact metadata logs
 M_CKMETA        = 0x00010000  # y-  Check metadata checksums
 M_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
 
-# File check flags
+# File/filesystem check flags
+CK_MKCONSISTENT = 0x00000800  # --  Make the filesystem consistent
+CK_LOOKAHEAD    = 0x00001000  # --  Repopulate lookahead buffer
+CK_LOOKGBMAP    = 0x00002000  # --  Repopulate the gbmap
+CK_COMPACTMETA  = 0x00008000  # --  Compact metadata logs
 CK_CKMETA       = 0x00010000  # --  Check metadata checksums
 CK_CKDATA       = 0x00020000  # --  Check metadata + data checksums
-
-# Filesystem check flags
-FSCK_MKCONSISTENT \
-                = 0x00000800  # --  Make the filesystem consistent
-FSCK_LOOKAHEAD  = 0x00001000  # --  Repopulate lookahead buffer
-FSCK_LOOKGBMAP  = 0x00002000  # --  Repopulate the gbmap
-FSCK_COMPACTMETA \
-                = 0x00008000  # --  Compact metadata logs
-FSCK_CKMETA     = 0x00010000  # --  Check metadata checksums
-FSCK_CKDATA     = 0x00020000  # --  Check metadata + data checksums
 
 # GC flags
 GC_MKCONSISTENT = 0x00000800  # --  Make the filesystem consistent

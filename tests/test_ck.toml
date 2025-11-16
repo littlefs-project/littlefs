@@ -270,7 +270,7 @@ code = '''
     clobbered:;
         // find clobbered blocks with lfs3_fs_ck
         if (METHOD == 0) {
-            lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA) => LFS3_ERR_CORRUPT;
+            lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => LFS3_ERR_CORRUPT;
 
         // find clobbered blocks with lfs3_fs_gc
         } else if (METHOD == 1) {
@@ -408,7 +408,7 @@ code = '''
     clobbered:;
         // find clobbered blocks with lfs3_fs_ck
         if (METHOD == 0) {
-            lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA) => LFS3_ERR_CORRUPT;
+            lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => LFS3_ERR_CORRUPT;
 
         // find clobbered blocks with lfs3_fs_gc
         } else if (METHOD == 1) {
@@ -552,7 +552,7 @@ code = '''
 
             // find clobbered blocks with lfs3_fs_ck
             if (METHOD == 0) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto detected;
@@ -808,7 +808,7 @@ code = '''
 
             // find clobbered blocks with lfs3_fs_ck
             if (METHOD == 0) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto detected;
@@ -2827,14 +2827,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
@@ -3145,14 +3145,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
@@ -3561,14 +3561,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_open;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_open;
@@ -3846,14 +3846,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
@@ -4450,14 +4450,14 @@ code = '''
 
             // run ckdata?
             if (CKDATA) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKDATA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;
                 }
             // run ckmeta?
             } else if (CKMETA && !MTREEONLY) {
-                int err = lfs3_fs_ck(&lfs3, LFS3_FSCK_CKMETA);
+                int err = lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     goto corrupt_mounted;

@@ -362,46 +362,25 @@ enum lfs3_btype {
 #define LFS3_t_DIRTY    0x02000000  // Filesystem ckpointed outside traversal
 #define LFS3_t_STALE    0x01000000  // Block queue probably out-of-date
 
-// File check flags
-#define LFS3_CK_CKMETA  0x00010000  // Check metadata checksums
-#define LFS3_CK_CKDATA  0x00020000  // Check metadata + data checksums
-
-// an alias for all possible file check work
-#define LFS3_CK_ALL ( \
-        LFS3_GC_CKMETA \
-            | LFS3_GC_CKDATA)
-
-// Filesystem check flags
+// File/filesystem check flags
 #ifndef LFS3_RDONLY
-#define LFS3_FSCK_MKCONSISTENT \
+#define LFS3_CK_MKCONSISTENT \
                         0x00000800  // Make the filesystem consistent
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_FSCK_LOOKAHEAD \
+#define LFS3_CK_LOOKAHEAD \
                         0x00001000  // Repopulate lookahead buffer
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_FSCK_LOOKGBMAP \
+#define LFS3_CK_LOOKGBMAP \
                         0x00002000  // Repopulate the gbmap
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_FSCK_COMPACTMETA \
+#define LFS3_CK_COMPACTMETA \
                         0x00008000  // Compact metadata logs
 #endif
-#define LFS3_FSCK_CKMETA \
-                        0x00010000  // Check metadata checksums
-#define LFS3_FSCK_CKDATA \
-                        0x00020000  // Check metadata + data checksums
-
-// an alias for all possible filesystem check work
-#define LFS3_FSCK_ALL ( \
-        LFS3_IFDEF_RDONLY(0, LFS3_FSCK_MKCONSISTENT) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_FSCK_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, \
-                LFS3_IFDEF_GBMAP(LFS3_FSCK_LOOKGBMAP, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_FSCK_COMPACTMETA) \
-            | LFS3_FSCK_CKMETA \
-            | LFS3_FSCK_CKDATA)
+#define LFS3_CK_CKMETA  0x00010000  // Check metadata checksums
+#define LFS3_CK_CKDATA  0x00020000  // Check metadata + data checksums
 
 // GC flags
 #ifndef LFS3_RDONLY
