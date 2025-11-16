@@ -717,8 +717,8 @@ def find_runner(runner, id=None, main=True, **args):
     # other context
     if args.get('define_depth'):
         cmd.append('--define-depth=%s' % args['define_depth'])
-    if args.get('all'):
-        cmd.append('-a')
+    if args.get('force'):
+        cmd.append('--force')
 
     # only one thread should write to disk/trace, otherwise the output
     # ends up clobbered and useless
@@ -1616,7 +1616,7 @@ if __name__ == "__main__":
             '--define-depth',
             help="How deep to evaluate recursive defines before erroring.")
     bench_parser.add_argument(
-            '-a', '--all',
+            '--force',
             action='store_true',
             help="Ignore bench filters.")
     bench_parser.add_argument(

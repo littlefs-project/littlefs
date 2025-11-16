@@ -737,8 +737,8 @@ def find_runner(runner, id=None, main=True, **args):
         cmd.append('--define-depth=%s' % args['define_depth'])
     if args.get('powerloss'):
         cmd.append('-P%s' % args['powerloss'])
-    if args.get('all'):
-        cmd.append('-a')
+    if args.get('force'):
+        cmd.append('--force')
 
     # only one thread should write to disk/trace, otherwise the output
     # ends up clobbered and useless
@@ -1639,7 +1639,7 @@ if __name__ == "__main__":
             '-P', '--powerloss',
             help="Comma-separated list of power-loss scenarios to test.")
     test_parser.add_argument(
-            '-a', '--all',
+            '--force',
             action='store_true',
             help="Ignore test filters.")
     test_parser.add_argument(

@@ -439,7 +439,7 @@ size_t test_id_count = 1;
 size_t test_step_start = 0;
 size_t test_step_stop = -1;
 size_t test_step_step = 1;
-bool test_all = false;
+bool test_force = false;
 
 const char *test_disk_path = NULL;
 const char *test_trace_path = NULL;
@@ -812,7 +812,7 @@ void perm_count(
 
     // set pls to 1 if running under powerloss so it useful for if predicates
     TEST_PLS = (powerloss->run != run_powerloss_none);
-    if (!case_->run || !(test_all || !case_->if_ || case_->if_())) {
+    if (!case_->run || !(test_force || !case_->if_ || case_->if_())) {
         return;
     }
 
@@ -1811,7 +1811,7 @@ void perm_run(
     // set pls to 1 if running under powerloss so it useful for if predicates
     TEST_PLS = (powerloss->run != run_powerloss_none);
     // filter?
-    if (!case_->run || !(test_all || !case_->if_ || case_->if_())) {
+    if (!case_->run || !(test_force || !case_->if_ || case_->if_())) {
         printf("skipped ");
         perm_printid(suite, case_, NULL, 0);
         printf("\n");
@@ -1869,18 +1869,18 @@ enum opt_flags {
     OPT_DEFINE_DEPTH             = 7,
     OPT_POWERLOSS                = 'P',
     OPT_STEP                     = 's',
-    OPT_ALL                      = 'a',
+    OPT_FORCE                    = 8,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 8,
-    OPT_TRACE_PERIOD             = 9,
-    OPT_TRACE_FREQ               = 10,
-    OPT_READ_SLEEP               = 11,
-    OPT_PROG_SLEEP               = 12,
-    OPT_ERASE_SLEEP              = 13,
+    OPT_TRACE_BACKTRACE          = 9,
+    OPT_TRACE_PERIOD             = 10,
+    OPT_TRACE_FREQ               = 11,
+    OPT_READ_SLEEP               = 12,
+    OPT_PROG_SLEEP               = 13,
+    OPT_ERASE_SLEEP              = 14,
 };
 
-const char *short_opts = "hYlLD:P:s:ad:t:";
+const char *short_opts = "hYlLD:P:s:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -1899,7 +1899,7 @@ const struct option long_opts[] = {
     {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
     {"powerloss",        required_argument, NULL, OPT_POWERLOSS},
     {"step",             required_argument, NULL, OPT_STEP},
-    {"all",              no_argument,       NULL, OPT_ALL},
+    {"force",            no_argument,       NULL, OPT_FORCE},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
@@ -2414,8 +2414,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "error: invalid step: %s\n", optarg);
             exit(-1);
 
-        case OPT_ALL:;
-            test_all = true;
+        case OPT_FORCE:;
+            test_force = true;
             break;
 
         case OPT_DISK:;

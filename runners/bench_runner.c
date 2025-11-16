@@ -428,7 +428,7 @@ size_t bench_id_count = 1;
 size_t bench_step_start = 0;
 size_t bench_step_stop = -1;
 size_t bench_step_step = 1;
-bool bench_all = false;
+bool bench_force = false;
 
 const char *bench_disk_path = NULL;
 const char *bench_trace_path = NULL;
@@ -842,7 +842,7 @@ void perm_count(
 
     state->total += 1;
 
-    if (!case_->run || !(bench_all || !case_->if_ || case_->if_())) {
+    if (!case_->run || !(bench_force || !case_->if_ || case_->if_())) {
         return;
     }
 
@@ -1335,7 +1335,7 @@ void perm_run(
     bench_step += 1;
 
     // filter?
-    if (!case_->run || !(bench_all || !case_->if_ || case_->if_())) {
+    if (!case_->run || !(bench_force || !case_->if_ || case_->if_())) {
         printf("skipped ");
         perm_printid(suite, case_);
         printf("\n");
@@ -1432,18 +1432,18 @@ enum opt_flags {
     OPT_DEFINE                   = 'D',
     OPT_DEFINE_DEPTH             = 6,
     OPT_STEP                     = 's',
-    OPT_ALL                      = 'a',
+    OPT_FORCE                    = 7,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 7,
-    OPT_TRACE_PERIOD             = 8,
-    OPT_TRACE_FREQ               = 9,
-    OPT_READ_SLEEP               = 10,
-    OPT_PROG_SLEEP               = 11,
-    OPT_ERASE_SLEEP              = 12,
+    OPT_TRACE_BACKTRACE          = 8,
+    OPT_TRACE_PERIOD             = 9,
+    OPT_TRACE_FREQ               = 10,
+    OPT_READ_SLEEP               = 11,
+    OPT_PROG_SLEEP               = 12,
+    OPT_ERASE_SLEEP              = 13,
 };
 
-const char *short_opts = "hYlLD:s:ad:t:";
+const char *short_opts = "hYlLD:s:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -1460,7 +1460,7 @@ const struct option long_opts[] = {
     {"define",           required_argument, NULL, OPT_DEFINE},
     {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
     {"step",             required_argument, NULL, OPT_STEP},
-    {"all",              no_argument,       NULL, OPT_ALL},
+    {"force",            no_argument,       NULL, OPT_FORCE},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
@@ -1808,8 +1808,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "error: invalid step: %s\n", optarg);
             exit(-1);
 
-        case OPT_ALL:;
-            bench_all = true;
+        case OPT_FORCE:;
+            bench_force = true;
             break;
 
         case OPT_DISK:;
