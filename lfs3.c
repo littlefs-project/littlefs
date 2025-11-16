@@ -7342,7 +7342,7 @@ static void lfs3_handle_open(lfs3_t *lfs3, lfs3_handle_t *h) {
     lfs3->handles = h;
 }
 
-static bool lfs3_handle_close_(lfs3_t *lfs3, lfs3_handle_t *h) {
+static bool lfs3_handle_close(lfs3_t *lfs3, lfs3_handle_t *h) {
     // remove from opened list
     for (lfs3_handle_t **h_ = &lfs3->handles; *h_; h_ = &(*h_)->next) {
         if (*h_ == h) {
@@ -7352,11 +7352,6 @@ static bool lfs3_handle_close_(lfs3_t *lfs3, lfs3_handle_t *h) {
     }
 
     return false;
-}
-
-static void lfs3_handle_close(lfs3_t *lfs3, lfs3_handle_t *h) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, h));
-    lfs3_handle_close_(lfs3, h);
 }
 
 // check if a given mid is open
@@ -7383,7 +7378,7 @@ static bool lfs3_mid_isopen(const lfs3_t *lfs3,
 // iterations through the handle list
 
 static void lfs3_handle_rewind(lfs3_t *lfs3, lfs3_handle_t *h) {
-    bool entangled = lfs3_handle_close_(lfs3, h);
+    bool entangled = lfs3_handle_close(lfs3, h);
     h->next = lfs3->handles;
     if (entangled) {
         lfs3->handles = h;
@@ -7393,7 +7388,7 @@ static void lfs3_handle_rewind(lfs3_t *lfs3, lfs3_handle_t *h) {
 // seek _after_ h_
 static void lfs3_handle_seek(lfs3_t *lfs3, lfs3_handle_t *h,
         lfs3_handle_t **h_) {
-    bool entangled = lfs3_handle_close_(lfs3, h);
+    bool entangled = lfs3_handle_close(lfs3, h);
     h->next = *h_;
     if (entangled) {
         *h_ = h;
@@ -12235,7 +12230,7 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
 }
 
 // needed in lfs3_file_opencfg
-static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file);
+static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file);
 #ifndef LFS3_RDONLY
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_name_t *name);
@@ -12410,7 +12405,6 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_CK_CKMETA
                         | LFS3_CK_CKDATA));
         if (err) {
-            lfs3_handle_close(lfs3, &file->b.h);
             goto failed;
         }
     }
@@ -12472,8 +12466,11 @@ int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
 }
 
 // clean up resources
-static void lfs3_file_close_(lfs3_t *lfs3, const lfs3_file_t *file) {
+static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
+    // remove from tracked mdirs
+    lfs3_handle_close(lfs3, &file->b.h);
+
     // clean up memory
     if (!file->cfg->fcache_buffer) {
         lfs3_free(file->cache.buffer);
@@ -12516,9 +12513,6 @@ int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file) {
             && !lfs3_o_isdesync(file->b.h.flags)) {
         err = lfs3_file_sync(lfs3, file);
     }
-
-    // remove from tracked mdirs
-    lfs3_handle_close(lfs3, &file->b.h);
 
     // clean up resources
     lfs3_file_close_(lfs3, file);
