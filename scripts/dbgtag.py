@@ -383,7 +383,8 @@ if __name__ == "__main__":
             '-i', '--input',
             help="Read tags from this file. Can use - for stdin.")
     parser.add_argument(
-            '-w', '--word-bits',
+            '-w', '--word', '--word-bits',
+            dest='word_bits',
             nargs='?',
             type=lambda x: int(x, 0),
             const=0,

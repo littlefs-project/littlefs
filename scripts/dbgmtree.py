@@ -2350,7 +2350,7 @@ class TreeArt:
                 else:
                     alts[ralt.toff] |= {'nf': ralt.off, 'c': ralt.color}
 
-        if args.get('tree_rbyd'):
+        if args.get('tree_rbyd_all'):
             # treat unreachable alts as converging paths
             for j_, alt in alts.items():
                 if 'f' not in alt:
@@ -2899,8 +2899,8 @@ def main(disk, mroots=None, *,
 
         # precompute tree renderings
         t_width = 0
-        if (args.get('tree')
-                or args.get('tree_rbyd')
+        if (args.get('tree_rbyd')
+                or args.get('tree_rbyd_all')
                 or args.get('tree_btree')):
             treeart = TreeArt.frommtree(mtree, **args)
             t_width = treeart.width
@@ -2929,8 +2929,8 @@ def main(disk, mroots=None, *,
                             if not isinstance(pmdir, Mdir) or mdir != pmdir
                             else '',
                         treeart.repr((mid, d, rattr.tag), color)
-                            if args.get('tree')
-                                or args.get('tree_rbyd')
+                            if args.get('tree_rbyd')
+                                or args.get('tree_rbyd_all')
                                 or args.get('tree_btree')
                             else '',
                         '%*s %-*s%s' % (
@@ -2980,8 +2980,8 @@ def main(disk, mroots=None, *,
                                 (mtree.mid(bid-(name.weight-1), -1),
                                     d, rattr.tag),
                                 color)
-                            if args.get('tree')
-                                or args.get('tree_rbyd')
+                            if args.get('tree_rbyd')
+                                or args.get('tree_rbyd_all')
                                 or args.get('tree_btree')
                             else '',
                         2*w_width+1, '%d-%d' % (
@@ -3138,15 +3138,18 @@ if __name__ == "__main__":
             action='store_true',
             help="Don't truncate, show the full contents.")
     parser.add_argument(
-            '-t', '--tree',
+            '-R', '--tree', '--rbyd', '--tree-rbyd',
+            dest='tree_rbyd',
             action='store_true',
             help="Show the rbyd tree.")
     parser.add_argument(
-            '-R', '--tree-rbyd',
+            '-Y', '--rbyd-all', '--tree-rbyd-all',
+            dest='tree_rbyd_all',
             action='store_true',
             help="Show the full rbyd tree.")
     parser.add_argument(
-            '-B', '--tree-btree',
+            '-B', '--btree', '--tree-btree',
+            dest='tree_btree',
             action='store_true',
             help="Show a simplified btree tree.")
     parser.add_argument(

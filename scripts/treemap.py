@@ -1557,7 +1557,7 @@ if __name__ == "__main__":
                     if ':' in x else float(x)),
             help="Aspect ratio to use with --to-scale. Defaults to 1:1.")
     parser.add_argument(
-            '-t', '--tiny',
+            '--tiny',
             action='store_true',
             help="Tiny mode, alias for --to-scale=1 and --no-header.")
     parser.add_argument(

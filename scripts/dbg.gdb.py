@@ -40,7 +40,7 @@ def gdbsplit(v):
 #
 # Note some tricks to help interact with bash and gdb:
 #
-# - Flags are passed as is (-b4096, -t, --trunk)
+# - Flags are passed as is (-h, -b4096, --trunk)
 # - All non-flags are parsed as expressions (file->b.shrub.blocks[0])
 # - String expressions may be useful for paths and stuff ("./disk")
 #
