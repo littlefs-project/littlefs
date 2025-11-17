@@ -9,19 +9,19 @@ import functools as ft
 
 
 # Flag prefixes
-PREFIX_O       = ['--o', '--open']      # Filter by LFS3_O_* flags
-PREFIX_SEEK    = ['--seek']             # Filter by LFS3_SEEK_* flags
-PREFIX_A       = ['--a', '--attr']      # Filter by LFS3_A_* flags
-PREFIX_F       = ['--f', '--format']    # Filter by LFS3_F_* flags
-PREFIX_M       = ['--m', '--mount']     # Filter by LFS3_M_* flags
-PREFIX_CK      = ['--ck']               # Filter by LFS3_CK_* flags
-PREFIX_GC      = ['--gc']               # Filter by LFS3_GC_* flags
-PREFIX_I       = ['--i', '--info']      # Filter by LFS3_I_* flags
-PREFIX_T       = ['--t', '--trv']       # Filter by LFS3_T_* flags
-PREFIX_ALLOC   = ['--alloc']            # Filter by LFS3_ALLOC_* flags
-PREFIX_RCOMPAT = ['--rc', '--rcompat']  # Filter by LFS3_RCOMPAT_* flags
-PREFIX_WCOMPAT = ['--wc', '--wcompat']  # Filter by LFS3_WCOMPAT_* flags
-PREFIX_OCOMPAT = ['--oc', '--ocompat']  # Filter by LFS3_OCOMPAT_* flags
+PREFIX_O       = ['+o', '+open']        # Filter by LFS3_O_* flags
+PREFIX_SEEK    = ['+seek']              # Filter by LFS3_SEEK_* flags
+PREFIX_A       = ['+a', '+attr']        # Filter by LFS3_A_* flags
+PREFIX_F       = ['+f', '+format']      # Filter by LFS3_F_* flags
+PREFIX_M       = ['+m', '+mount']       # Filter by LFS3_M_* flags
+PREFIX_CK      = ['+ck']                # Filter by LFS3_CK_* flags
+PREFIX_GC      = ['+gc']                # Filter by LFS3_GC_* flags
+PREFIX_I       = ['+i', '+info']        # Filter by LFS3_I_* flags
+PREFIX_T       = ['+t', '+trv']         # Filter by LFS3_T_* flags
+PREFIX_ALLOC   = ['+alloc']             # Filter by LFS3_ALLOC_* flags
+PREFIX_RCOMPAT = ['+rc', '+rcompat']    # Filter by LFS3_RCOMPAT_* flags
+PREFIX_WCOMPAT = ['+wc', '+wcompat']    # Filter by LFS3_WCOMPAT_* flags
+PREFIX_OCOMPAT = ['+oc', '+ocompat']    # Filter by LFS3_OCOMPAT_* flags
 
 
 # File open flags
@@ -417,7 +417,9 @@ if __name__ == "__main__":
     import sys
     parser = argparse.ArgumentParser(
             description="Decode littlefs flags.",
-            allow_abbrev=False)
+            allow_abbrev=False,
+            # allow + for prefix filters
+            prefix_chars='-+')
     parser.add_argument(
             'flags',
             nargs='*',
