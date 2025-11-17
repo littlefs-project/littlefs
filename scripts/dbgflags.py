@@ -57,7 +57,7 @@ o_UNGRAFT       = 0x00800000  # i-  File's leaf does not match disk
 o_UNFLUSH       = 0x00400000  # i-  File's cache does not match disk
 
 # File seek flags
-seek_MODE       = 0xffffffff  # im  Seek mode
+SEEK_MODE       = 0xffffffff  # -m  Seek mode
 SEEK_SET        =          0  # -^  Seek relative to an absolute position
 SEEK_CUR        =          1  # -^  Seek relative to the current file position
 SEEK_END        =          2  # -^  Seek relative to the end of the file
