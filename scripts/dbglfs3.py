@@ -4422,8 +4422,14 @@ def dbg_files(lfs, paths, *,
     # parse all paths first, error if anything is malformed
     dirs = []
     # default paths to the root dir
-    for path in (paths or ['/']):
+    for path in (paths or ['%']):
         try:
+            # skip leading %
+            if path == '%':
+                path = '/'
+            if path.startswith('%/'):
+                path = path[1:]
+            # lookup path
             dir = lfs.pathlookup(path,
                     all=args.get('all'))
         except Lfs3.PathError as e:
@@ -4952,16 +4958,17 @@ if __name__ == "__main__":
     parser.add_argument(
             'mroots',
             nargs='*',
-            type=lambda x: rbydaddr(x) if not x.startswith('/') else x,
+            type=lambda x: rbydaddr(x) if not x.startswith('%') else x,
             action=AppendMrootOrPath,
             help="Block address of the mroots. Defaults to 0x{0,1}.")
     parser.add_argument(
             'paths',
             nargs='*',
-            type=lambda x: rbydaddr(x) if not x.startswith('/') else x,
+            type=lambda x: rbydaddr(x) if not x.startswith('%') else x,
             action=AppendMrootOrPath,
-            help="Paths to show, must start with a leading slash. Defaults "
-                "to the root directory.")
+            help="Paths to show, must start with %% where %% indicates the "
+                "root littlefs directory. Defaults to the root littlefs "
+                "directory.")
     parser.add_argument(
             '--trunk',
             type=lambda x: int(x, 0),
