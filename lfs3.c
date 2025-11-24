@@ -1074,10 +1074,6 @@ static inline bool lfs3_tag_perturb(lfs3_tag_t tag) {
     return tag & LFS3_TAG_PERTURB;
 }
 
-static inline bool lfs3_tag_isinternal(lfs3_tag_t tag) {
-    return tag & LFS3_tag_INTERNAL;
-}
-
 static inline bool lfs3_tag_isrm(lfs3_tag_t tag) {
     return tag & LFS3_tag_RM;
 }
@@ -3235,7 +3231,8 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd, uint32_t rev) {
 static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag, lfs3_rid_t weight, lfs3_size_t size) {
     // tag must not be internal at this point
-    LFS3_ASSERT(!lfs3_tag_isinternal(tag));
+    LFS3_ASSERT(lfs3_tag_suptype(tag) != LFS3_tag_INTERNAL
+            || !tag);
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(tag & 0x80));
 
@@ -3285,7 +3282,8 @@ static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
 static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_rattr_t rattr) {
     // tag must not be internal at this point
-    LFS3_ASSERT(!lfs3_tag_isinternal(rattr.tag));
+    LFS3_ASSERT(lfs3_tag_suptype(rattr.tag) != LFS3_tag_INTERNAL
+            || !rattr.tag);
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(rattr.tag & 0x80));
 
@@ -3620,7 +3618,8 @@ static int lfs3_rbyd_appendrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // must fetch before mutating!
     LFS3_ASSERT(lfs3_rbyd_isfetched(rbyd));
     // tag must not be internal at this point
-    LFS3_ASSERT(!lfs3_tag_isinternal(rattr.tag));
+    LFS3_ASSERT(lfs3_tag_suptype(rattr.tag) != LFS3_tag_INTERNAL
+            || lfs3_rattr_isnoop(rattr));
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(rattr.tag & 0x80));
     // you can't delete more than what's in the rbyd
@@ -8401,7 +8400,9 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
             // write out normal tags normally
             } else {
-                LFS3_ASSERT(!lfs3_tag_isinternal(rattrs[i].tag));
+                LFS3_ASSERT(lfs3_tag_suptype(rattrs[i].tag)
+                            != LFS3_tag_INTERNAL
+                        || lfs3_rattr_isnoop(rattrs[i]));
 
                 int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
                         rid - lfs3_smax(start_rid, 0),
