@@ -78,9 +78,9 @@ code = '''
 
             // add to btree
             lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
-                    LFS3_RATTR_BUF(
-                        LFS3_TAG_DATA, +1,
-                        &(uint8_t){'a'+(i % 26)}, 1))) => 0;
+                    LFS3_RATTR(2, LFS3_TAG_DATA, +1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
+                    LFS3_RATTR_NULL)) => 0;
 
             // add to sim
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -2041,9 +2041,9 @@ code = '''
 
         // add to btree
         lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
-                LFS3_RATTR_BUF(
-                    LFS3_TAG_DATA, +1,
-                    &(uint8_t){'a'+(i % 26)}, 1))) => 0;
+                LFS3_RATTR(2, LFS3_TAG_DATA, +1, LFS3_FROM_BUF, 1),
+                LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
+                LFS3_RATTR_NULL)) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -4006,9 +4006,9 @@ code = '''
 
         // add to btree
         lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
-                LFS3_RATTR_BUF(
-                    LFS3_TAG_DATA, +1,
-                    &(uint8_t){'a'+(i % 26)}, 1))) => 0;
+                LFS3_RATTR(2, LFS3_TAG_DATA, +1, LFS3_FROM_BUF, 1),
+                LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
+                LFS3_RATTR_NULL)) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);

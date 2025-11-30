@@ -24,7 +24,9 @@ code = '''
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
     lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
+            LFS3_RATTR(2, LFS3_TAG_BMFREE, -2),
+            LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
+            LFS3_RATTR_NULL)) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
     lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
@@ -85,7 +87,9 @@ code = '''
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
     lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
+            LFS3_RATTR(2, LFS3_TAG_BMFREE, -2),
+            LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
+            LFS3_RATTR_NULL)) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
     lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
@@ -150,7 +154,9 @@ code = '''
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
     lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
+            LFS3_RATTR(2, LFS3_TAG_BMFREE, -2),
+            LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
+            LFS3_RATTR_NULL)) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
     lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
@@ -216,7 +222,9 @@ code = '''
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
     lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
+            LFS3_RATTR(2, LFS3_TAG_BMFREE, -2),
+            LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
+            LFS3_RATTR_NULL)) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
     lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE) => 0;
@@ -283,7 +291,9 @@ code = '''
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
     lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
+            LFS3_RATTR(2, LFS3_TAG_BMFREE, -2),
+            LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
+            LFS3_RATTR_NULL)) => 0;
 
     // test that setting the first and last blocks don't break anything
     //
@@ -333,7 +343,9 @@ code = '''
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
     lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_BMFREE, +BLOCK_COUNT))) => 0;
+            LFS3_RATTR(2, LFS3_TAG_BMFREE, -2),
+            LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
+            LFS3_RATTR_NULL)) => 0;
 
     // create a simulation to compare against
     lfs3_tag_t *sim = malloc(BLOCK_COUNT*sizeof(lfs3_tag_t));

@@ -38,7 +38,7 @@ typedef uint32_t lfs3_off_t;
 typedef int32_t  lfs3_soff_t;
 
 typedef uint32_t lfs3_block_t;
-typedef int32_t lfs3_sblock_t;
+typedef int32_t  lfs3_sblock_t;
 
 typedef uint32_t lfs3_rid_t;
 typedef int32_t  lfs3_srid_t;
@@ -1142,8 +1142,6 @@ typedef struct lfs3_file {
     lfs3_off_t pos;
 
     // in-RAM cache
-    //
-    // note this lines up with lfs3_data_t's buffer representation
     struct {
         lfs3_off_t pos;
         lfs3_off_t size;
