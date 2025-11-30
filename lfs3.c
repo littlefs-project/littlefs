@@ -1945,9 +1945,6 @@ typedef uint8_t lfs3_count_t;
 // null rattr terminates rattr lists
 #define LFS3_RATTR_NULL ((lfs3_rattr_t)0)
 
-// alternatively, a tail rattr tail-recurses into another rattr list
-#define LFS3_RATTR_TAIL LFS3_RATTR(0, LFS3_tag_TAIL, 0)
-
 // create an attribute list
 #define LFS3_RATTRS(...) ((const lfs3_rattr_t[]){__VA_ARGS__})
 
@@ -8261,20 +8258,24 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
             // is still included
             && (lfs3_size_t)(rid + 1) <= (lfs3_size_t)end_rid) {
 
-        const lfs3_rattr_t *r = rattrs;
-        recurse:;
-        for (; *r; r = lfs3_rattr_next(r, &rid)) {
+        for (const lfs3_rattr_t *r = rattrs;
+                *r;
+                r = lfs3_rattr_next(r, &rid)) {
             // we just happen to never split in an mdir commit
             LFS3_ASSERT(!(r > rattrs && lfs3_rattr_isinsert(r)));
 
-            // rattr lists can be chained, but only tail-recursively
-            if (lfs3_rattr_tag(r) == LFS3_tag_TAIL) {
+            // nested rattr list? we only support simple rattrs here
+            if (lfs3_rattr_tag(r) == LFS3_tag_RATTRS) {
                 const lfs3_rattr_t *rattrs_
                         = (const lfs3_rattr_t*)lfs3_rattr_arg(r, 0);
 
-                // switch to chained rattr-list
-                r = rattrs_;
-                goto recurse;
+                // recurse once
+                int err = lfs3_rbyd_appendrattrs(lfs3, &mdir_->r,
+                        rid, start_rid, end_rid,
+                        rattrs_);
+                if (err) {
+                    return err;
+                }
 
             // shrub tags append a set of attributes to an unrelated trunk
             // in our rbyd
@@ -9286,9 +9287,10 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     LFS3_RATTR_ARG(&mtree_),
                     // were we committing to the mroot? include any -1 rattrs
                     (mdir->mid <= -1)
-                        ? LFS3_RATTR_TAIL
-                        : LFS3_RATTR_NULL,
-                    LFS3_RATTR_ARG(rattrs)));
+                        ? LFS3_RATTR(2, LFS3_tag_RATTRS, 0)
+                        : LFS3_RATTR(2, LFS3_TAG_NULL, 0),
+                    LFS3_RATTR_ARG(rattrs),
+                    LFS3_RATTR_NULL));
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             goto failed;

@@ -829,7 +829,7 @@ enum lfs3_tag {
 
     // in-device only tags, these should never get written to disk
     LFS3_tag_INTERNAL       = 0x0000,
-    LFS3_tag_TAIL           = 0x0001,
+    LFS3_tag_RATTRS         = 0x0001,
     LFS3_tag_SHRUBCOMMIT    = 0x0002,
     LFS3_tag_GRMPUSH        = 0x0003,
     LFS3_tag_MOVE           = 0x0004,
