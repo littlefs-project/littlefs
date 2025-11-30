@@ -1945,6 +1945,9 @@ typedef uint8_t lfs3_count_t;
 // null rattr terminates rattr lists
 #define LFS3_RATTR_NULL ((lfs3_rattr_t)0)
 
+// alternatively, a tail rattr tail-recurses into another rattr list
+#define LFS3_RATTR_TAIL LFS3_RATTR(0, LFS3_tag_TAIL, 0)
+
 // create an attribute list
 #define LFS3_RATTRS(...) ((const lfs3_rattr_t[]){__VA_ARGS__})
 
@@ -8265,9 +8268,7 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
             LFS3_ASSERT(!(r > rattrs && lfs3_rattr_isinsert(r)));
 
             // rattr lists can be chained, but only tail-recursively
-            if (lfs3_rattr_tag(r) == LFS3_tag_RATTRS) {
-                // must be the last tag
-                LFS3_ASSERT(!*lfs3_rattr_next(r, NULL));
+            if (lfs3_rattr_tag(r) == LFS3_tag_TAIL) {
                 const lfs3_rattr_t *rattrs_
                         = (const lfs3_rattr_t*)lfs3_rattr_arg(r, 0);
 
@@ -9285,10 +9286,9 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     LFS3_RATTR_ARG(&mtree_),
                     // were we committing to the mroot? include any -1 rattrs
                     (mdir->mid <= -1)
-                        ? LFS3_RATTR(2, LFS3_tag_RATTRS, 0)
-                        : LFS3_RATTR(2, LFS3_TAG_NULL, 0),
-                    LFS3_RATTR_ARG(rattrs),
-                    LFS3_RATTR_NULL));
+                        ? LFS3_RATTR_TAIL
+                        : LFS3_RATTR_NULL,
+                    LFS3_RATTR_ARG(rattrs)));
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_RANGE);
             goto failed;
