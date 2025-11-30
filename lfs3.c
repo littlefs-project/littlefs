@@ -12413,7 +12413,8 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(did),
                     LFS3_RATTR_ARG(path),
-                    LFS3_RATTR_ARG(lfs3_path_namelen(path))));
+                    LFS3_RATTR_ARG(lfs3_path_namelen(path)),
+                    LFS3_RATTR_NULL));
             if (err) {
                 goto failed;
             }
@@ -14017,10 +14018,8 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
     if (lfs3_o_isunsync(file->b.h.flags)) {
         // explicit name?
         if (rname) {
-            LFS3_ASSERT(lfs3_rattr_len(rname) <= 4);
-            for (lfs3_size_t i = 0; i < lfs3_rattr_len(rname); i++) {
-                *r++ = rname[i];
-            }
+            *r++ = LFS3_RATTR(2, LFS3_tag_RATTRS, +1);
+            *r++ = LFS3_RATTR_ARG(rname);
 
         // not created yet? need to convert to normal file
         } else if (lfs3_o_isuncreat(file->b.h.flags)) {
