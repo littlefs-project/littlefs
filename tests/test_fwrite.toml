@@ -213,7 +213,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // keep track of how many fragments we've seen
                 fragments += 1;
@@ -361,7 +361,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
                 // left with any inlined data fragments
@@ -627,7 +627,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // keep track of how many fragments we've seen
                 fragments += 1;
@@ -790,7 +790,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
                 // left with any inlined data fragments
@@ -2118,7 +2118,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // keep track of how many fragments we've seen
                 fragments += 1;
@@ -2270,7 +2270,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // keep track of how many fragments we've seen
                 fragments += 1;
@@ -2569,7 +2569,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // keep track of how many fragments we've seen
                 fragments += 1;
@@ -2736,7 +2736,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
                 // left with any inlined data fragments
@@ -3029,7 +3029,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // keep track of how many fragments we've seen
                 fragments += 1;
@@ -3200,7 +3200,7 @@ code = '''
                         bid,
                         tag,
                         weight,
-                        lfs3_data_size(data));
+                        lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
                 // left with any inlined data fragments

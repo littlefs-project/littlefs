@@ -4507,7 +4507,7 @@ code = '''
                     bid,
                     tag,
                     weight,
-                    lfs3_data_size(data));
+                    lfs3_data_size(&data));
 
         } else {
             // well this shouldn't happen
@@ -4665,7 +4665,7 @@ code = '''
                     bid,
                     tag,
                     weight,
-                    lfs3_data_size(data));
+                    lfs3_data_size(&data));
 
         } else {
             // well this shouldn't happen

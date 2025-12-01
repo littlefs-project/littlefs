@@ -151,7 +151,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -160,7 +160,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -178,12 +178,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -192,12 +192,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -215,12 +215,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -229,12 +229,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 '''
@@ -269,7 +269,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -278,7 +278,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -298,12 +298,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -312,12 +312,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -337,12 +337,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -351,12 +351,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 '''
@@ -597,12 +597,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // split the other direction
     //          >b
@@ -622,12 +622,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_bflips]
@@ -668,12 +668,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // flip a black edge
     //   <b           >b
@@ -695,12 +695,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_trifoliate]
@@ -743,17 +743,17 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // flip a black edge
     //                >r
@@ -777,17 +777,17 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_rflips]
@@ -832,17 +832,17 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // ignore a red edge, flip a black edge
     //      <r              <r
@@ -868,17 +868,17 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // flip a red edge and black edge
     //      <r              >r
@@ -904,17 +904,17 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // flip a red edge, ignore a black edge
     //      <r              >r
@@ -940,17 +940,17 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_quadrifoliate]
@@ -997,22 +997,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // ignore a red edge, flip a black edge
     //                      <y              >y
@@ -1040,22 +1040,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // flip a red edge and black edge
     //                      >y
@@ -1083,22 +1083,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // flip a red edge, ignore a black edge
     //                      >y
@@ -1126,22 +1126,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_rotations]
@@ -1188,22 +1188,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // yellow and red alt the same
     //                      <y
@@ -1231,22 +1231,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // yellow and black alt the same
     //                      <y              <y
@@ -1274,22 +1274,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // red and black alt the same
     //                      >y              <y
@@ -1317,22 +1317,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_ysplits]
@@ -1383,22 +1383,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // split a yellow triple, taking the black alt
     //                            <b
@@ -1430,22 +1430,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // split a yellow triple, taking the red alt
     //         <y                 >b
@@ -1475,22 +1475,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // split a yellow triple, taking the yellow alt
     //         <y                 >b
@@ -1520,22 +1520,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_quintifoliate]
@@ -1588,27 +1588,27 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // split a yellow triple, taking the black alt
     //                            <b
@@ -1642,27 +1642,27 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // split a yellow triple, taking the red alt
     //                            >b
@@ -1694,27 +1694,27 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // split a yellow triple, taking the yellow alt
     //                            >b
@@ -1746,27 +1746,27 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_prunes]
@@ -1821,27 +1821,27 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // prune by taking a red alt
     //            <b
@@ -1877,27 +1877,27 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // prune by taking a yellow alt (this needs to prune during the rflip)
     //            <b
@@ -1933,27 +1933,27 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_sextifoliate]
@@ -2010,32 +2010,32 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(6),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(6));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // prune by taking a red alt
     //            <b                    >b
@@ -2071,32 +2071,32 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(6),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(6));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // prune by taking a yellow alt (this needs to prune during the rflip)
     //            <b                    >b
@@ -2132,32 +2132,32 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(5));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(6),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(6));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_atomic_permutations]
@@ -2226,7 +2226,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_ATTR(j+1));
             assert(rid_ == -1);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
         }
 
         // keep track of the worst size
@@ -2315,7 +2315,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_ATTR(j+1));
             assert(rid_ == -1);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
         }
 
         // keep track of the worst size
@@ -2374,12 +2374,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -2388,12 +2388,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -2411,12 +2411,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -2425,12 +2425,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 '''
@@ -2471,12 +2471,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -2485,12 +2485,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -2510,12 +2510,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -2524,12 +2524,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 '''
@@ -2599,7 +2599,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_ATTR(j+1));
             assert(rid_ == -1);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
         }
         lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                 &rid_, NULL, &data_) => LFS3_ERR_NOENT;
@@ -2670,7 +2670,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_ATTR(j+1));
             assert(rid_ == -1);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
         }
         lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                 &rid_, NULL, &data_) => LFS3_ERR_NOENT;
@@ -2768,7 +2768,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_ATTR(j+1));
             assert(rid_ == -1);
-            assert(lfs3_data_size(data_) == 6);
+            assert(lfs3_data_size(&data_) == 6);
         }
 
         // keep track of the worst size
@@ -2858,7 +2858,7 @@ code = '''
                 &rid_, NULL, &data_);
         assert(tag_ == LFS3_TAG_ATTR(x & 0x7f));
         assert(rid_ == -1);
-        assert(lfs3_data_size(data_) == 4);
+        assert(lfs3_data_size(&data_) == 4);
     }
 '''
 
@@ -2922,12 +2922,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -2936,12 +2936,12 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -2962,7 +2962,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
@@ -2973,7 +2973,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
@@ -3074,12 +3074,12 @@ code = '''
                     } else {
                         assert(tag_ == LFS3_TAG_ATTR(j+1+1));
                         assert(rid_ == -1);
-                        assert(lfs3_data_size(data_) == 4);
+                        assert(lfs3_data_size(&data_) == 4);
                     }
                 } else {
                     assert(tag_ == LFS3_TAG_ATTR(k+1));
                     assert(rid_ == -1);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
             }
 
@@ -3098,11 +3098,11 @@ code = '''
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(k+1));
                     assert(rid_ == -1);
-                    assert(lfs3_data_size(data_) == 6);
+                    assert(lfs3_data_size(&data_) == 6);
                 } else {
                     assert(tag_ == LFS3_TAG_ATTR(k+1));
                     assert(rid_ == -1);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
             }
 
@@ -3222,11 +3222,11 @@ code = '''
                 if (k >= j) {
                     assert(tag_ == LFS3_TAG_ATTR(k+1+1));
                     assert(rid_ == -1);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 } else {
                     assert(tag_ == LFS3_TAG_ATTR(k+1));
                     assert(rid_ == -1);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
             }
 
@@ -3270,22 +3270,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3297,22 +3297,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3323,22 +3323,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3349,22 +3349,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3374,22 +3374,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 '''
@@ -3438,22 +3438,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3465,22 +3465,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3491,22 +3491,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3517,22 +3517,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3545,22 +3545,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3571,22 +3571,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3597,22 +3597,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
@@ -3622,22 +3622,22 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(4),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(4));
     assert(rid_ == -1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(5),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 '''
@@ -3833,7 +3833,7 @@ code = '''
                 &rid_, NULL, &data_);
         assert(tag_ == LFS3_TAG_ATTR(1));
         assert(rid_ == -1);
-        assert(lfs3_data_size(data_) == 6);
+        assert(lfs3_data_size(&data_) == 6);
         for (unsigned j = 1; j < N; j++) {
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(j+1),
                     &rid_, NULL, &data_) => LFS3_ERR_NOENT;
@@ -4476,7 +4476,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4485,7 +4485,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4498,7 +4498,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4507,7 +4507,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4554,7 +4554,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4563,7 +4563,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4576,7 +4576,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4585,7 +4585,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4609,7 +4609,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4618,7 +4618,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4631,7 +4631,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4640,7 +4640,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -4730,7 +4730,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_DATA);
             assert(rid_ == j);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                     &data) => tag_;
@@ -4810,7 +4810,7 @@ code = '''
                 &rid_, NULL, &data_);
         assert(tag_ == LFS3_TAG_DATA);
         assert(rid_ == x);
-        assert(lfs3_data_size(data_) == 4);
+        assert(lfs3_data_size(&data_) == 4);
     }
 '''
 
@@ -5612,7 +5612,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5621,7 +5621,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5630,7 +5630,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5639,7 +5639,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5652,7 +5652,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5661,7 +5661,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5670,7 +5670,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5679,7 +5679,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5734,7 +5734,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5743,7 +5743,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5752,7 +5752,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5761,7 +5761,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5774,7 +5774,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5783,7 +5783,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5792,7 +5792,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5801,7 +5801,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5833,7 +5833,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5842,7 +5842,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5851,7 +5851,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5860,7 +5860,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5873,7 +5873,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5882,7 +5882,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5891,7 +5891,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -5900,7 +5900,7 @@ code = '''
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 1);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
             &data) => tag_;
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
@@ -5999,7 +5999,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_DATA);
             assert(rid_ == j);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                     &data) => tag_;
@@ -6011,7 +6011,7 @@ code = '''
                         &rid_, NULL, &data_);
                 assert(tag_ == LFS3_TAG_ATTR(u+1));
                 assert(rid_ == j);
-                assert(lfs3_data_size(data_) == 2);
+                assert(lfs3_data_size(&data_) == 2);
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                         &data) => tag_;
@@ -6290,16 +6290,16 @@ code = '''
                         } else if (u == M-1) {
                             assert(tag_ == LFS3_TAG_DATA);
                             assert(rid_ == k+1);
-                            assert(lfs3_data_size(data_) == 4);
+                            assert(lfs3_data_size(&data_) == 4);
                         } else {
                             assert(tag_ == LFS3_TAG_ATTR(u+1+1));
                             assert(rid_ == k);
-                            assert(lfs3_data_size(data_) == 2);
+                            assert(lfs3_data_size(&data_) == 2);
                         }
                     } else {
                         assert(tag_ == LFS3_TAG_ATTR(u+1));
                         assert(rid_ == k);
-                        assert(lfs3_data_size(data_) == 2);
+                        assert(lfs3_data_size(&data_) == 2);
 
                         lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                                 &data) => tag_;
@@ -6330,7 +6330,7 @@ code = '''
                     if (k == j/M && u == j%M) {
                         assert(tag_ == LFS3_TAG_ATTR(u+1));
                         assert(rid_ == k);
-                        assert(lfs3_data_size(data_) == 3);
+                        assert(lfs3_data_size(&data_) == 3);
 
                         lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                                 &data) => tag_;
@@ -6339,7 +6339,7 @@ code = '''
                     } else {
                         assert(tag_ == LFS3_TAG_ATTR(u+1));
                         assert(rid_ == k);
-                        assert(lfs3_data_size(data_) == 2);
+                        assert(lfs3_data_size(&data_) == 2);
 
                         lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                                 &data) => tag_;
@@ -6590,14 +6590,14 @@ code = '''
                 &rid_, NULL, &data_);
         assert(tag_ == LFS3_TAG_DATA);
         assert(rid_ == x);
-        assert(lfs3_data_size(data_) == 4);
+        assert(lfs3_data_size(&data_) == 4);
 
         for (unsigned u = 0; u < M; u++) {
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, x, LFS3_TAG_ATTR(u+1),
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_ATTR(u+1));
             assert(rid_ == x);
-            assert(lfs3_data_size(data_) == 2);
+            assert(lfs3_data_size(&data_) == 2);
         }
     }
 '''
@@ -6709,7 +6709,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_ATTR(j+1));
             assert(rid_ == -1);
-            assert(lfs3_data_size(data_) == 1);
+            assert(lfs3_data_size(&data_) == 1);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                     &data) => tag_;
@@ -6721,7 +6721,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_DATA);
             assert(rid_ == j);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                     &data) => tag_;
@@ -6871,7 +6871,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_ATTR(j+1));
             assert(rid_ == -1);
-            assert(lfs3_data_size(data_) == 1);
+            assert(lfs3_data_size(&data_) == 1);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                     &data) => tag_;
@@ -6883,7 +6883,7 @@ code = '''
                     &rid_, NULL, &data_);
             assert(tag_ == LFS3_TAG_DATA);
             assert(rid_ == j);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                     &data) => tag_;
@@ -6895,7 +6895,7 @@ code = '''
                         &rid_, NULL, &data_);
                 assert(tag_ == LFS3_TAG_ATTR(u+1));
                 assert(rid_ == j);
-                assert(lfs3_data_size(data_) == 2);
+                assert(lfs3_data_size(&data_) == 2);
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                         &data) => tag_;
@@ -11551,7 +11551,7 @@ code = '''
                         &rid_, NULL, &data_);
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(rid_ == k);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                         &data) => tag_;
@@ -11690,7 +11690,7 @@ code = '''
                         &rid_, NULL, &data_);
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(rid_ == k);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                         &data) => tag_;
@@ -11706,7 +11706,7 @@ code = '''
                             &rid_, NULL, &data_);
                     assert(tag_ == LFS3_TAG_ATTR(u+1));
                     assert(rid_ == k);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -12503,7 +12503,7 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12511,7 +12511,7 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // make id2 with weight w2
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
@@ -12525,13 +12525,13 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12539,13 +12539,13 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // make id5 with weight w3
     lfs3_rbyd_commit(&lfs3, &rbyd, 3, LFS3_RATTRS(
@@ -12559,19 +12559,19 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12579,19 +12579,19 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // make id9 with weight w4
     lfs3_rbyd_commit(&lfs3, &rbyd, 6, LFS3_RATTRS(
@@ -12605,25 +12605,25 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12631,25 +12631,25 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     // make id14 with weight w5
     lfs3_rbyd_commit(&lfs3, &rbyd, 10, LFS3_RATTRS(
@@ -12663,31 +12663,31 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 14, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 14);
     assert(weight_ == 5);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
@@ -12695,31 +12695,31 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 14, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 14);
     assert(weight_ == 5);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
 '''
 
 [cases.test_rbyd_sparse_traverse]
@@ -12771,31 +12771,31 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 14);
     assert(weight_ == 5);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
@@ -12805,31 +12805,31 @@ code = '''
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 14);
     assert(weight_ == 5);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
 '''
@@ -12916,7 +12916,7 @@ code = '''
             assert(tag_ == LFS3_TAG_DATA);
             assert(rid_ == j*W+W-1);
             assert(weight_ == W);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, j*W+W-1, LFS3_TAG_DATA,
                     &data) => LFS3_TAG_DATA;
@@ -13011,7 +13011,7 @@ code = '''
             assert(tag_ == LFS3_TAG_DATA);
             assert(rid_ == j*W+W-1);
             assert(weight_ == W);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                     &data) => tag_;
@@ -13062,25 +13062,25 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
@@ -13088,25 +13088,25 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     // make id2 with weight w2
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
@@ -13124,43 +13124,43 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
@@ -13168,43 +13168,43 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     // make id5 with weight w3
     lfs3_rbyd_commit(&lfs3, &rbyd, 3, LFS3_RATTRS(
@@ -13223,61 +13223,61 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
@@ -13285,61 +13285,61 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     // make id9 with weight w4
     lfs3_rbyd_commit(&lfs3, &rbyd, 6, LFS3_RATTRS(
@@ -13358,79 +13358,79 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
@@ -13438,79 +13438,79 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     // make id14 with weight w5
     lfs3_rbyd_commit(&lfs3, &rbyd, 10, LFS3_RATTRS(
@@ -13529,97 +13529,97 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 14, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 14);
     assert(weight_ == 5);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 14, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 14);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 14, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 14);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
@@ -13627,97 +13627,97 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 5, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 9, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 14, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 14);
     assert(weight_ == 5);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 14, LFS3_TAG_ATTR(1),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 14);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 14, LFS3_TAG_ATTR(2),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 14);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
 '''
 
 [cases.test_rbyd_sparse_mixed_traverse]
@@ -13794,97 +13794,97 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 14);
     assert(weight_ == 5);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 14);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 14);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
@@ -13894,97 +13894,97 @@ code = '''
     assert(tag_ == LFS3_TAG_ATTR(3));
     assert(rid_ == -1);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 9);
+    assert(lfs3_data_size(&data_) == 9);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 0);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 0);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 2);
     assert(weight_ == 2);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 2);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 5);
     assert(weight_ == 3);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 5);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 9);
     assert(weight_ == 4);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 9);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
     assert(rid_ == 14);
     assert(weight_ == 5);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(rid_ == 14);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(rid_ == 14);
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 2);
+    assert(lfs3_data_size(&data_) == 2);
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
 '''
@@ -14080,26 +14080,26 @@ code = '''
         assert(tag_ == LFS3_TAG_ATTR(3));
         assert(rid_ == -1);
         assert(weight_ == 0);
-        assert(lfs3_data_size(data_) == 9);
+        assert(lfs3_data_size(&data_) == 9);
         for (unsigned j = 0; j < N; j++) {
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, j*W+W-1, LFS3_TAG_DATA,
                     &rid_, &weight_, &data_);
             assert(tag_ == LFS3_TAG_DATA);
             assert(rid_ == j*W+W-1);
             assert(weight_ == W);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, j*W+W-1, LFS3_TAG_ATTR(1),
                     &rid_, &weight_, &data_);
             assert(tag_ == LFS3_TAG_ATTR(1));
             assert(rid_ == j*W+W-1);
             assert(weight_ == 0);
-            assert(lfs3_data_size(data_) == 2);
+            assert(lfs3_data_size(&data_) == 2);
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, j*W+W-1, LFS3_TAG_ATTR(2),
                     &rid_, &weight_, &data_);
             assert(tag_ == LFS3_TAG_ATTR(2));
             assert(rid_ == j*W+W-1);
             assert(weight_ == 0);
-            assert(lfs3_data_size(data_) == 2);
+            assert(lfs3_data_size(&data_) == 2);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, j*W+W-1, LFS3_TAG_DATA,
                     &data) => LFS3_TAG_DATA;
@@ -14203,14 +14203,14 @@ code = '''
         assert(tag_ == LFS3_TAG_ATTR(3));
         assert(rid_ == -1);
         assert(weight_ == 0);
-        assert(lfs3_data_size(data_) == 9);
+        assert(lfs3_data_size(&data_) == 9);
         for (unsigned j = 0; j < N; j++) {
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                     &rid_, &weight_, &data_);
             assert(tag_ == LFS3_TAG_DATA);
             assert(rid_ == j*W+W-1);
             assert(weight_ == W);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
 
             lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                     &data) => tag_;
@@ -14222,13 +14222,13 @@ code = '''
             assert(tag_ == LFS3_TAG_ATTR(1));
             assert(rid_ == j*W+W-1);
             assert(weight_ == 0);
-            assert(lfs3_data_size(data_) == 2);
+            assert(lfs3_data_size(&data_) == 2);
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                     &rid_, &weight_, &data_);
             assert(tag_ == LFS3_TAG_ATTR(2));
             assert(rid_ == j*W+W-1);
             assert(weight_ == 0);
-            assert(lfs3_data_size(data_) == 2);
+            assert(lfs3_data_size(&data_) == 2);
         }
         lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                 &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
@@ -14349,7 +14349,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1+D);
                     assert(weight_ == W+D);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 } else if (k > j) {
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd,
                             k*W+W-1+D, LFS3_TAG_DATA,
@@ -14357,7 +14357,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1+D);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 } else {
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd,
                             k*W+W-1, LFS3_TAG_DATA,
@@ -14365,7 +14365,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
@@ -14490,7 +14490,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1+D);
                     assert(weight_ == W+D);
-                    assert(lfs3_data_size(data_) == 6);
+                    assert(lfs3_data_size(&data_) == 6);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14503,7 +14503,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1+D);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14516,7 +14516,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14643,7 +14643,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(1));
                     assert(rid_ == k*W+W-1+D);
                     assert(weight_ == W+D);
-                    assert(lfs3_data_size(data_) == 6);
+                    assert(lfs3_data_size(&data_) == 6);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14656,7 +14656,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(2));
                     assert(rid_ == k*W+W-1+D);
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14669,7 +14669,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(2));
                     assert(rid_ == k*W+W-1+D);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14682,7 +14682,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(2));
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14805,7 +14805,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1-D);
                     assert(weight_ == W-D);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 } else if (k > j) {
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd,
                             k*W+W-1-D, LFS3_TAG_DATA,
@@ -14813,7 +14813,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1-D);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 } else {
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd,
                             k*W+W-1, LFS3_TAG_DATA,
@@ -14821,7 +14821,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
@@ -14946,7 +14946,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1-D);
                     assert(weight_ == W-D);
-                    assert(lfs3_data_size(data_) == 6);
+                    assert(lfs3_data_size(&data_) == 6);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14959,7 +14959,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1-D);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -14972,7 +14972,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15099,7 +15099,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(1));
                     assert(rid_ == k*W+W-1-D);
                     assert(weight_ == W-D);
-                    assert(lfs3_data_size(data_) == 6);
+                    assert(lfs3_data_size(&data_) == 6);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15112,7 +15112,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(2));
                     assert(rid_ == k*W+W-1-D);
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15125,7 +15125,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(2));
                     assert(rid_ == k*W+W-1-D);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15138,7 +15138,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(2));
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15260,7 +15260,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15273,7 +15273,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15301,7 +15301,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 6);
+                    assert(lfs3_data_size(&data_) == 6);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15314,7 +15314,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == W);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                             &data) => tag_;
@@ -15436,7 +15436,7 @@ code = '''
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(rid_ == k*W+W-1);
                 assert(weight_ == W);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                         &data) => tag_;
@@ -15450,7 +15450,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(1));
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
 
@@ -15470,7 +15470,7 @@ code = '''
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(rid_ == k*W+W-1);
                 assert(weight_ == W);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                         &data) => tag_;
@@ -15500,7 +15500,7 @@ code = '''
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(rid_ == k*W+W-1);
                 assert(weight_ == W);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 lfs3_rbyd_lookup(&lfs3, &rbyd, rid_, tag_,
                         &data) => tag_;
@@ -15514,7 +15514,7 @@ code = '''
                     assert(tag_ == LFS3_TAG_ATTR(1));
                     assert(rid_ == k*W+W-1);
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
         }
@@ -15973,7 +15973,7 @@ code = '''
                     j, LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                     &data_);
             assert(tag_ == LFS3_TAG_ATTR((j + SHIFT) & 0x7f));
-            assert(lfs3_data_size(data_) == 2);
+            assert(lfs3_data_size(&data_) == 2);
         }
     }
 '''
@@ -16089,7 +16089,7 @@ code = '''
                 assert(rid_ == k);
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(weight_ == 1);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 if (k != j) {
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -16097,7 +16097,7 @@ code = '''
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -16114,7 +16114,7 @@ code = '''
                             LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
         }
@@ -16237,7 +16237,7 @@ code = '''
                 assert(rid_ == k);
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(weight_ == 1);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                         &rid_, &weight_, &data_);
@@ -16245,12 +16245,12 @@ code = '''
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 3);
+                    assert(lfs3_data_size(&data_) == 3);
                 } else {
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -16263,10 +16263,10 @@ code = '''
                         &data_);
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 3);
+                    assert(lfs3_data_size(&data_) == 3);
                 } else {
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
         }
@@ -16359,7 +16359,7 @@ code = '''
                     j, LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                     &data_);
             assert(tag_ == LFS3_TAG_ATTR(0x7f & (j + SHIFT)));
-            assert(lfs3_data_size(data_) == 2);
+            assert(lfs3_data_size(&data_) == 2);
         }
     }
 '''
@@ -16477,7 +16477,7 @@ code = '''
                 assert(rid_ == k);
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(weight_ == 1);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 if (k != j) {
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -16485,7 +16485,7 @@ code = '''
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR(0x7f & (k + SHIFT)));
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
 
                 tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -16493,7 +16493,7 @@ code = '''
                 assert(rid_ == k);
                 assert(tag_ == LFS3_TAG_ATTR(0x80));
                 assert(weight_ == 0);
-                assert(lfs3_data_size(data_) == 1);
+                assert(lfs3_data_size(&data_) == 1);
             }
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                     &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
@@ -16509,7 +16509,7 @@ code = '''
                             LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
         }
@@ -16634,7 +16634,7 @@ code = '''
                 assert(rid_ == k);
                 assert(tag_ == LFS3_TAG_DATA);
                 assert(weight_ == 1);
-                assert(lfs3_data_size(data_) == 4);
+                assert(lfs3_data_size(&data_) == 4);
 
                 tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                         &rid_, &weight_, &data_);
@@ -16642,12 +16642,12 @@ code = '''
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR(0x7f & ~(k + SHIFT)));
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 3);
+                    assert(lfs3_data_size(&data_) == 3);
                 } else {
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR(0x7f & (k + SHIFT)));
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
 
                 tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -16655,7 +16655,7 @@ code = '''
                 assert(rid_ == k);
                 assert(tag_ == LFS3_TAG_ATTR(0x80));
                 assert(weight_ == 0);
-                assert(lfs3_data_size(data_) == 1);
+                assert(lfs3_data_size(&data_) == 1);
             }
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                     &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
@@ -16667,10 +16667,10 @@ code = '''
                         &data_);
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 3);
+                    assert(lfs3_data_size(&data_) == 3);
                 } else {
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
         }
@@ -16759,7 +16759,7 @@ code = '''
                     j, LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                     &data_);
             assert(tag_ == LFS3_TAG_ATTR((j + SHIFT) & 0x7f));
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
         }
     }
 '''
@@ -16874,17 +16874,17 @@ code = '''
                     assert(rid_ == k+1);
                     assert(tag_ == LFS3_TAG_ATTR((k+1 + SHIFT) & 0x7f));
                     assert(weight_ == 2);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 } else if (k > j) {
                     assert(rid_ == k+1);
                     assert(tag_ == LFS3_TAG_ATTR((k+1 + SHIFT) & 0x7f));
                     assert(weight_ == 1);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 } else {
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 1);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
             }
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -16901,7 +16901,7 @@ code = '''
                             LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
             }
         }
@@ -17023,12 +17023,12 @@ code = '''
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
                     assert(weight_ == 1);
-                    assert(lfs3_data_size(data_) == 6);
+                    assert(lfs3_data_size(&data_) == 6);
                 } else {
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 1);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
             }
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -17041,10 +17041,10 @@ code = '''
                         &data_);
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 6);
+                    assert(lfs3_data_size(&data_) == 6);
                 } else {
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
                 }
             }
         }
@@ -17135,7 +17135,7 @@ code = '''
             tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd, j, LFS3_tag_MASK12,
                     &data_);
             assert(tag_ == LFS3_TAG_DATA);
-            assert(lfs3_data_size(data_) == 4);
+            assert(lfs3_data_size(&data_) == 4);
         }
     }
 '''
@@ -17253,14 +17253,14 @@ code = '''
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(weight_ == ((k == j+1) ? 2 : 1));
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                             &rid_, &weight_, &data_);
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -17277,7 +17277,7 @@ code = '''
                             LFS3_tag_MASK8 | LFS3_TAG_ATTR,
                             &data_);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
         }
@@ -17401,7 +17401,7 @@ code = '''
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
                     assert(weight_ == 1);
-                    assert(lfs3_data_size(data_) == 3);
+                    assert(lfs3_data_size(&data_) == 3);
 
                 } else {
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -17409,14 +17409,14 @@ code = '''
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_DATA);
                     assert(weight_ == 1);
-                    assert(lfs3_data_size(data_) == 4);
+                    assert(lfs3_data_size(&data_) == 4);
 
                     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
                             &rid_, &weight_, &data_);
                     assert(rid_ == k);
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
                     assert(weight_ == 0);
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
@@ -17429,10 +17429,10 @@ code = '''
                         &data_);
                 if (k == j) {
                     assert(tag_ == LFS3_TAG_ATTR(~(k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 3);
+                    assert(lfs3_data_size(&data_) == 3);
                 } else {
                     assert(tag_ == LFS3_TAG_ATTR((k + SHIFT) & 0x7f));
-                    assert(lfs3_data_size(data_) == 2);
+                    assert(lfs3_data_size(&data_) == 2);
                 }
             }
         }
@@ -17485,7 +17485,7 @@ code = '''
     assert(rid_ == -1);
     assert(tag_ == LFS3_TAG_ATTR(1));
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     uint8_t rbuf[32];
     lfs3_data_read(&lfs3, &data_, rbuf, 32) => 4;
     assert(memcmp(rbuf, "\xbb\xbb\xbb\xbb", 4) == 0);
@@ -17539,7 +17539,7 @@ code = '''
     assert(rid_ == -1);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     uint8_t rbuf[32];
     lfs3_data_read(&lfs3, &data_, rbuf, 32) => 4;
     assert(memcmp(rbuf, "\xcc\xcc\xcc\xcc", 4) == 0);
@@ -17595,7 +17595,7 @@ code = '''
     assert(rid_ == 0);
     assert(tag_ == LFS3_TAG_DATA);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     uint8_t rbuf[32];
     lfs3_data_read(&lfs3, &data_, rbuf, 32) => 4;
     assert(memcmp(rbuf, "\xcc\xcc\xcc\xcc", 4) == 0);
@@ -17651,7 +17651,7 @@ code = '''
     assert(rid_ == -1);
     assert(tag_ == LFS3_TAG_ATTR(0x02));
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     uint8_t rbuf[32];
     lfs3_data_read(&lfs3, &data_, rbuf, 32) => 4;
     assert(memcmp(rbuf, "\xcc\xcc\xcc\xcc", 4) == 0);
@@ -17661,7 +17661,7 @@ code = '''
     assert(rid_ == -1);
     assert(tag_ == LFS3_TAG_ATTR(0x80));
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_data_read(&lfs3, &data_, rbuf, 32) => 4;
     assert(memcmp(rbuf, "\xdd\xdd\xdd\xdd", 4) == 0);
 
@@ -17718,7 +17718,7 @@ code = '''
     assert(rid_ == -1);
     assert(tag_ == LFS3_TAG_ATTR(2));
     assert(weight_ == 0);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     uint8_t rbuf[32];
     lfs3_data_read(&lfs3, &data_, rbuf, 32) => 4;
     assert(memcmp(rbuf, "\xcc\xcc\xcc\xcc", 4) == 0);
@@ -17728,7 +17728,7 @@ code = '''
     assert(rid_ == 0);
     assert(tag_ == LFS3_TAG_DATA);
     assert(weight_ == 1);
-    assert(lfs3_data_size(data_) == 4);
+    assert(lfs3_data_size(&data_) == 4);
     lfs3_data_read(&lfs3, &data_, rbuf, 32) => 4;
     assert(memcmp(rbuf, "\xdd\xdd\xdd\xdd", 4) == 0);
 
