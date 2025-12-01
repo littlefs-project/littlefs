@@ -3214,10 +3214,9 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aaa"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("0"),
             LFS3_RATTR_NULL)) => 0;
@@ -3276,20 +3275,18 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aaa"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("0"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("0"),
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aab"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("1"),
             LFS3_RATTR_NULL)) => 0;
@@ -3359,30 +3356,27 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aaa"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("0"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("0"),
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(1*DID),
             LFS3_RATTR_ARG("aab"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("1"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("1"),
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(2*DID),
             LFS3_RATTR_ARG("aac"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("2"),
             LFS3_RATTR_NULL)) => 0;
@@ -3463,30 +3457,27 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aaa"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("0"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("1"),
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(2*DID),
             LFS3_RATTR_ARG("aac"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("2"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("0"),
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(1*DID),
             LFS3_RATTR_ARG("aab"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("1"),
             LFS3_RATTR_NULL)) => 0;
@@ -3567,29 +3558,27 @@ code = '''
     // create a tree with N elements
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    char name[3] = {
-        'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
+    char name[4] = {
+        'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26), '\0',
     };
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG(name),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG(&(uint8_t){'0'+(0 % 10)}),
             LFS3_RATTR_NULL)) => 0;
     lfs3_size_t n = 1;
     for (lfs3_size_t i = 1; i < N; i++) {
-        char name[3] = {
-            'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
+        char name[4] = {
+            'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26), '\0',
         };
         lfs3_btree_commit(&lfs3, &btree, i-1, LFS3_RATTRS(
                 LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+((i-1) % 10)}),
-                LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+                LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
                 LFS3_RATTR_ARG(i*DID),
                 LFS3_RATTR_ARG(name),
-                LFS3_RATTR_ARG(3),
                 LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+((i-0) % 10)}),
                 LFS3_RATTR_NULL)) => 0;
@@ -3646,10 +3635,9 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("___"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("_"),
             LFS3_RATTR_NULL)) => 0;
@@ -3670,8 +3658,8 @@ code = '''
     for (lfs3_size_t i = 1; i < N; i++) {
         // choose a pseudo-random name
         lfs3_size_t x = TEST_PRNG(&prng) % (26*26*26);
-        char name[3] = {
-            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26)
+        char name[4] = {
+            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26), '\0',
         };
 
         // find where to split
@@ -3688,10 +3676,9 @@ code = '''
         lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
                 LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+                LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
                 LFS3_RATTR_ARG(0),
                 LFS3_RATTR_ARG(name),
-                LFS3_RATTR_ARG(3),
                 LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
                 LFS3_RATTR_NULL)) => 0;
@@ -3766,31 +3753,29 @@ code = '''
     // create a tree with N elements
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    char name[3] = {
-        'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26)
+    char name[4] = {
+        'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26), '\0',
     };
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(5, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
+            LFS3_RATTR(4, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG(name),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG(&(uint8_t){'0'+(0 % 10)}),
             LFS3_RATTR_NULL)) => 0;
     lfs3_size_t n = 1;
     for (lfs3_size_t i = 1; i < N; i++) {
-        char name[3] = {
-            'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26)
+        char name[4] = {
+            'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26), '\0',
         };
         lfs3_btree_commit(&lfs3, &btree, (i-1)*W+W-1, LFS3_RATTRS(
                 LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+((i-1) % 10)}),
-                LFS3_RATTR(5, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
+                LFS3_RATTR(4, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
                 LFS3_RATTR_WEIGHT(+W),
                 LFS3_RATTR_ARG(i*DID),
                 LFS3_RATTR_ARG(name),
-                LFS3_RATTR_ARG(3),
                 LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+((i-0) % 10)}),
                 LFS3_RATTR_NULL)) => 0;
@@ -3848,11 +3833,10 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(5, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
+            LFS3_RATTR(4, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("___"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("_"),
             LFS3_RATTR_NULL)) => 0;
@@ -3876,8 +3860,8 @@ code = '''
     for (lfs3_size_t i = 1; i < N; i++) {
         // choose a pseudo-random name
         lfs3_size_t x = TEST_PRNG(&prng) % (26*26*26);
-        char name[3] = {
-            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26)
+        char name[4] = {
+            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26), '\0',
         };
         // choose pseudo-random weights
         lfs3_size_t weight1 = 1 + (TEST_PRNG(&prng) % W);
@@ -3906,11 +3890,10 @@ code = '''
                     LFS3_RATTR_WEIGHT(+weight1-sim_weights[bid]),
                     LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                    LFS3_RATTR(5, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
+                    LFS3_RATTR(4, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
                     LFS3_RATTR_WEIGHT(+weight2),
                     LFS3_RATTR_ARG(0),
                     LFS3_RATTR_ARG(name),
-                    LFS3_RATTR_ARG(3),
                     LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
                     LFS3_RATTR_NULL)) => 0;
@@ -4012,10 +3995,9 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+            LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("___"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("_"),
             LFS3_RATTR_NULL)) => 0;
@@ -4040,8 +4022,8 @@ code = '''
         lfs3_size_t bid = TEST_PRNG(&prng) % ((sim_size == 0) ? 1 : sim_size);
         // choose a pseudo-random name
         lfs3_size_t x = TEST_PRNG(&prng) % (26*26*26);
-        char name[3] = {
-            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26)
+        char name[4] = {
+            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26), '\0',
         };
 
         // don't let sim drop below one element
@@ -4087,10 +4069,9 @@ code = '''
             assert(cmp != LFS3_CMP_EQ);
             if (cmp > LFS3_CMP_EQ) {
                 lfs3_btree_commit(&lfs3, &btree, split_bid, LFS3_RATTRS(
-                        LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+                        LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
                         LFS3_RATTR_ARG(0),
                         LFS3_RATTR_ARG(name),
-                        LFS3_RATTR_ARG(3),
                         LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                         LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
                         LFS3_RATTR_NULL)) => 0;
@@ -4098,10 +4079,9 @@ code = '''
                 lfs3_btree_commit(&lfs3, &btree, split_bid, LFS3_RATTRS(
                         // yes, we need this noop, see above
                         LFS3_RATTR(1, LFS3_RATTR_NULL, 0),
-                        LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+                        LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
                         LFS3_RATTR_ARG(0),
                         LFS3_RATTR_ARG(name),
-                        LFS3_RATTR_ARG(3),
                         LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                         LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
                         LFS3_RATTR_NULL)) => 0;
@@ -4199,11 +4179,10 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
-            LFS3_RATTR(5, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
+            LFS3_RATTR(4, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("___"),
-            LFS3_RATTR_ARG(3),
             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
             LFS3_RATTR_ARG("_"),
             LFS3_RATTR_NULL)) => 0;
@@ -4231,8 +4210,8 @@ code = '''
         lfs3_size_t bid = TEST_PRNG(&prng) % ((sim_size == 0) ? 1 : sim_size);
         // choose a pseudo-random name
         lfs3_size_t x = TEST_PRNG(&prng) % (26*26*26);
-        char name[3] = {
-            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26)
+        char name[4] = {
+            'a'+((x/26/26) % 26), 'a'+((x/26) % 26), 'a'+(x % 26), '\0',
         };
         // choose a pseudo-random weight
         lfs3_size_t weight = 1 + (TEST_PRNG(&prng) % W);
@@ -4289,11 +4268,10 @@ code = '''
             if (cmp > LFS3_CMP_EQ) {
                 lfs3_btree_commit(&lfs3, &btree,
                         split_bid-(split_weight-1), LFS3_RATTRS(
-                            LFS3_RATTR(5, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
+                            LFS3_RATTR(4, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
                             LFS3_RATTR_WEIGHT(+weight),
                             LFS3_RATTR_ARG(0),
                             LFS3_RATTR_ARG(name),
-                            LFS3_RATTR_ARG(3),
                             LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                             LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
                             LFS3_RATTR_NULL)) => 0;
@@ -4301,11 +4279,10 @@ code = '''
                 lfs3_btree_commit(&lfs3, &btree, split_bid, LFS3_RATTRS(
                         // yes, we need this noop, see above
                         LFS3_RATTR(1, LFS3_RATTR_NULL, 0),
-                        LFS3_RATTR(5, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
+                        LFS3_RATTR(4, LFS3_TAG_REG, -2, LFS3_FROM_NAME),
                         LFS3_RATTR_WEIGHT(+weight),
                         LFS3_RATTR_ARG(0),
                         LFS3_RATTR_ARG(name),
-                        LFS3_RATTR_ARG(3),
                         LFS3_RATTR(2, LFS3_TAG_DATA, 0, LFS3_FROM_BUF, 1),
                         LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
                         LFS3_RATTR_NULL)) => 0;

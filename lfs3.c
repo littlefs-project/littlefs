@@ -3260,6 +3260,7 @@ static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 #endif
 
 // needed in lfs3_rbyd_appendrattr_
+static inline lfs3_size_t lfs3_path_namelen(const char *path);
 static lfs3_data_t lfs3_data_frombranch(const lfs3_rbyd_t *branch,
         uint8_t buffer[static LFS3_BRANCH_DSIZE]);
 static lfs3_data_t lfs3_data_frombtree(const lfs3_btree_t *btree,
@@ -3398,7 +3399,9 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // name?
     } else if (from == LFS3_FROM_NAME) {
         ctx.u.name.datas[0] = lfs3_data_fromleb128(args[0], ctx.u.name.buf);
-        ctx.u.name.datas[1] = LFS3_DATA_BUF((const uint8_t*)args[1], args[2]);
+        ctx.u.name.datas[1] = LFS3_DATA_BUF(
+                (const char*)args[1],
+                lfs3_path_namelen((const char*)args[1]));
         datas = ctx.u.name.datas;
         data_count = 2;
 
@@ -11334,12 +11337,11 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     // process
     lfs3_grm_pop(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_tag_MASK12 | LFS3_TAG_DIR,
+            LFS3_RATTR(3, LFS3_tag_MASK12 | LFS3_TAG_DIR,
                 (tag == LFS3_ERR_NOENT) ? +1 : 0,
                 LFS3_FROM_NAME),
             LFS3_RATTR_ARG(did),
             LFS3_RATTR_ARG(name),
-            LFS3_RATTR_ARG(name_len),
             LFS3_RATTR(2, LFS3_TAG_DID, 0, LFS3_FROM_LEB128),
             LFS3_RATTR_ARG(did_),
             LFS3_RATTR_NULL));
@@ -11487,12 +11489,11 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
             // we use a create+delete here to also clear any rattrs
             // and trim the entry size
             (zombie)
-                ? LFS3_RATTR(4, LFS3_tag_MASK12 | LFS3_TAG_STICKYNOTE, 0,
+                ? LFS3_RATTR(3, LFS3_tag_MASK12 | LFS3_TAG_STICKYNOTE, 0,
                     LFS3_FROM_NAME)
-                : LFS3_RATTR(4, LFS3_tag_RM, -1),
+                : LFS3_RATTR(3, LFS3_tag_RM, -1),
             LFS3_RATTR_ARG(did),
             LFS3_RATTR_ARG(path),
-            LFS3_RATTR_ARG(lfs3_path_namelen(path)),
             LFS3_RATTR_NULL));
     if (err) {
         return err;
@@ -11663,12 +11664,11 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
     err = lfs3_mdir_commit(lfs3, &new_mdir, LFS3_RATTRS(
-            LFS3_RATTR(4, LFS3_tag_MASK12 | old_tag,
+            LFS3_RATTR(3, LFS3_tag_MASK12 | old_tag,
                     (new_tag == LFS3_ERR_NOENT) ? +1 : 0,
                     LFS3_FROM_NAME),
             LFS3_RATTR_ARG(new_did),
             LFS3_RATTR_ARG(new_path),
-            LFS3_RATTR_ARG(lfs3_path_namelen(new_path)),
             LFS3_RATTR(2, LFS3_tag_MOVE, 0),
             LFS3_RATTR_ARG(&old_mdir),
             LFS3_RATTR_NULL));
@@ -12423,10 +12423,9 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             file->b.h.flags |= LFS3_o_UNSYNC;
 
             err = lfs3_file_sync_(lfs3, file, LFS3_RATTRS(
-                    LFS3_RATTR(4, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+                    LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(did),
                     LFS3_RATTR_ARG(path),
-                    LFS3_RATTR_ARG(lfs3_path_namelen(path)),
                     LFS3_RATTR_NULL));
             if (err) {
                 goto failed;
@@ -12436,10 +12435,9 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             // create a stickynote entry if we don't have one, this
             // reserves the mid until first sync
             err = lfs3_mdir_commit(lfs3, &file->b.h.mdir, LFS3_RATTRS(
-                    LFS3_RATTR(4, LFS3_TAG_STICKYNOTE, +1, LFS3_FROM_NAME),
+                    LFS3_RATTR(3, LFS3_TAG_STICKYNOTE, +1, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(did),
                     LFS3_RATTR_ARG(path),
-                    LFS3_RATTR_ARG(lfs3_path_namelen(path)),
                     LFS3_RATTR_NULL));
             if (err) {
                 goto failed;
