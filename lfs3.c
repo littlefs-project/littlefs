@@ -1894,16 +1894,17 @@ enum lfs3_from {
 
     LFS3_FROM_LE32      = 4,
     LFS3_FROM_LEB128    = 5,
-    LFS3_FROM_NAME      = 6,
+    LFS3_FROM_LLEB128   = 6,
+    LFS3_FROM_NAME      = 7,
 
-    LFS3_FROM_ECKSUM    = 7,
-    LFS3_FROM_BRANCH    = 8,
+    LFS3_FROM_ECKSUM    = 8,
+    LFS3_FROM_BRANCH    = 9,
 
-    LFS3_FROM_BPTR      = 9,
-    LFS3_FROM_BTREE     = 10,
-    LFS3_FROM_SHRUB     = 11,
-    LFS3_FROM_MPTR      = 12,
-    LFS3_FROM_GEOMETRY  = 13,
+    LFS3_FROM_BPTR      = 10,
+    LFS3_FROM_BTREE     = 11,
+    LFS3_FROM_SHRUB     = 12,
+    LFS3_FROM_MPTR      = 13,
+    LFS3_FROM_GEOMETRY  = 14,
 };
 
 typedef uint8_t lfs3_from_t;
@@ -3296,6 +3297,10 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 uint8_t buf[LFS3_LEB128_DSIZE];
             } leb128;
             struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_LLEB128_DSIZE];
+            } lleb128;
+            struct {
                 lfs3_data_t datas[2];
                 uint8_t buf[LFS3_LEB128_DSIZE];
             } name;
@@ -3373,10 +3378,13 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         datas = &ctx.u.le32.data;
         data_count = 1;
 
-    // leb128?
-    } else if (from == LFS3_FROM_LEB128) {
+    // leb128? little-leb128?
+    } else if (from == LFS3_FROM_LEB128
+            || from == LFS3_FROM_LLEB128) {
         // leb128s should not exceed 31-bits
         LFS3_ASSERT(args[0] <= 0x7fffffff);
+        // little-leb128s should not exceed 28-bits
+        LFS3_ASSERT(from != LFS3_FROM_LLEB128 || args[0] <= 0x0fffffff);
         ctx.u.leb128.data = lfs3_data_fromleb128(args[0],
                 ctx.u.leb128.buf);
         datas = &ctx.u.leb128.data;
@@ -15897,7 +15905,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
         *r++ = LFS3_RATTR_ARG(lfs3_wcompat(lfs3));
         *r++ = LFS3_RATTR(2, LFS3_TAG_GEOMETRY, 0, LFS3_FROM_GEOMETRY);
         *r++ = LFS3_RATTR_ARG(&geometry);
-        *r++ = LFS3_RATTR(2, LFS3_TAG_NAMELIMIT, 0, LFS3_FROM_LEB128);
+        *r++ = LFS3_RATTR(2, LFS3_TAG_NAMELIMIT, 0, LFS3_FROM_LLEB128);
         *r++ = LFS3_RATTR_ARG(lfs3->name_limit);
         *r++ = LFS3_RATTR(2, LFS3_TAG_FILELIMIT, 0, LFS3_FROM_LEB128);
         *r++ = LFS3_RATTR_ARG(lfs3->file_limit);
