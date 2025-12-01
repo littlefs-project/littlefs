@@ -9143,37 +9143,28 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         // new mtree?
         if (lfs3->mtree.r.weight == 0) {
             lfs3_btree_init(&mtree_);
-
-            err = lfs3_mtree_commit(lfs3, &mtree_,
-                    0, LFS3_RATTRS(
-                        LFS3_RATTR(3, LFS3_TAG_MDIR, -2, LFS3_FROM_MPTR),
-                        LFS3_RATTR_WEIGHT(+(1 << lfs3->mbits)),
-                        LFS3_RATTR_ARG(mdir_[0].r.blocks),
-                        LFS3_RATTR(3, LFS3_TAG_MNAME, -2, LFS3_FROM_CAT, 1),
-                        LFS3_RATTR_WEIGHT(+(1 << lfs3->mbits)),
-                        LFS3_RATTR_ARG(&split_name),
-                        LFS3_RATTR(2, LFS3_TAG_MDIR, 0, LFS3_FROM_MPTR),
-                        LFS3_RATTR_ARG(mdir_[1].r.blocks),
-                        LFS3_RATTR_NULL));
-            if (err) {
-                goto failed;
-            }
+        }
 
         // update our mtree
-        } else {
-            err = lfs3_mtree_commit(lfs3, &mtree_,
-                    lfs3_mbid(lfs3, mdir->mid), LFS3_RATTRS(
-                        LFS3_RATTR(2, LFS3_TAG_MDIR, 0, LFS3_FROM_MPTR),
-                        LFS3_RATTR_ARG(mdir_[0].r.blocks),
-                        LFS3_RATTR(3, LFS3_TAG_MNAME, -2, LFS3_FROM_CAT, 1),
-                        LFS3_RATTR_WEIGHT(+(1 << lfs3->mbits)),
-                        LFS3_RATTR_ARG(&split_name),
-                        LFS3_RATTR(2, LFS3_TAG_MDIR, 0, LFS3_FROM_MPTR),
-                        LFS3_RATTR_ARG(mdir_[1].r.blocks),
-                        LFS3_RATTR_NULL));
-            if (err) {
-                goto failed;
-            }
+        err = lfs3_mtree_commit(lfs3, &mtree_,
+                (lfs3->mtree.r.weight == 0)
+                    ? 0
+                    : lfs3_mbid(lfs3, mdir->mid),
+                LFS3_RATTRS(
+                    LFS3_RATTR(3, LFS3_TAG_MDIR, -2, LFS3_FROM_MPTR),
+                    LFS3_RATTR_WEIGHT(
+                        (lfs3->mtree.r.weight == 0)
+                            ? +(1 << lfs3->mbits)
+                            : 0),
+                    LFS3_RATTR_ARG(mdir_[0].r.blocks),
+                    LFS3_RATTR(3, LFS3_TAG_MNAME, -2, LFS3_FROM_CAT, 1),
+                    LFS3_RATTR_WEIGHT(+(1 << lfs3->mbits)),
+                    LFS3_RATTR_ARG(&split_name),
+                    LFS3_RATTR(2, LFS3_TAG_MDIR, 0, LFS3_FROM_MPTR),
+                    LFS3_RATTR_ARG(mdir_[1].r.blocks),
+                    LFS3_RATTR_NULL));
+        if (err) {
+            goto failed;
         }
 
     // need to drop?
@@ -9219,27 +9210,23 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         // new mtree?
         if (lfs3->mtree.r.weight == 0) {
             lfs3_btree_init(&mtree_);
-
-            err = lfs3_mtree_commit(lfs3, &mtree_,
-                    0, LFS3_RATTRS(
-                        LFS3_RATTR(3, LFS3_TAG_MDIR, -2, LFS3_FROM_MPTR),
-                        LFS3_RATTR_WEIGHT(+(1 << lfs3->mbits)),
-                        LFS3_RATTR_ARG(mdir_[0].r.blocks),
-                        LFS3_RATTR_NULL));
-            if (err) {
-                goto failed;
-            }
+        }
 
         // update our mtree
-        } else {
-            err = lfs3_mtree_commit(lfs3, &mtree_,
-                    lfs3_mbid(lfs3, mdir->mid), LFS3_RATTRS(
-                        LFS3_RATTR(2, LFS3_TAG_MDIR, 0, LFS3_FROM_MPTR),
-                        LFS3_RATTR_ARG(mdir_[0].r.blocks),
-                        LFS3_RATTR_NULL));
-            if (err) {
-                goto failed;
-            }
+        err = lfs3_mtree_commit(lfs3, &mtree_,
+                (lfs3->mtree.r.weight == 0)
+                    ? 0
+                    : lfs3_mbid(lfs3, mdir->mid),
+                LFS3_RATTRS(
+                    LFS3_RATTR(3, LFS3_TAG_MDIR, -2, LFS3_FROM_MPTR),
+                    LFS3_RATTR_WEIGHT(
+                        (lfs3->mtree.r.weight == 0)
+                            ? +(1 << lfs3->mbits)
+                            : 0),
+                    LFS3_RATTR_ARG(mdir_[0].r.blocks),
+                    LFS3_RATTR_NULL));
+        if (err) {
+            goto failed;
         }
     }
 
