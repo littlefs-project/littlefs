@@ -267,6 +267,42 @@ code = '''
     memcmp(buffer, "hello", strlen("hello")) => 0;
     lfs_file_close(&lfs, &file);
     lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_attr attrs4[] = {
+        {'A', buffer,    4},
+    };
+    memset(buffer, 'a', sizeof(buffer));
+    struct lfs_file_config cfg4 = {.attrs=attrs4};
+    lfs_file_open(&lfs, &file, "hello/hello2", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_close(&lfs, &file);
+
+
+    cfg4.attr_count = 1;
+    lfs_file_opencfg(&lfs, &file, "hello/hello2", LFS_O_WRONLY | LFS_O_RDONLY, &cfg4) => 0;
+    lfs_off_t origin_file_metadata_offset = file.m.off;
+    cfg4.attr_count = 0;
+    lfs_file_sync(&lfs, &file); // No write expected, although that upon opening attr_count was 1
+    lfs_getattr(&lfs, "hello/hello2", 'A', buffer,  4) => LFS_ERR_NOATTR;
+    (file.m.off != origin_file_metadata_offset) => 0; // expecten no write to happen
+    cfg4.attr_count = 1;
+    lfs_file_sync(&lfs, &file); // attributes expected to be written because attr_count is 1, although no write happened
+    lfs_getattr(&lfs, "hello/hello2", 'A', buffer,  4) => 4;
+    lfs_file_close(&lfs, &file);
+
+    memset(buffer, 'b', sizeof(buffer));
+    cfg4.attr_count = 1;
+    lfs_file_opencfg(&lfs, &file, "hello/hello3", LFS_O_WRONLY | LFS_O_CREAT, &cfg4) => 0;
+    lfs_file_sync(&lfs, &file);
+    lfs_getattr(&lfs, "hello/hello3", 'A', buffer,  4) => 4;
+    memcmp(buffer,    "bbbb",      4) => 0;
+    memset(buffer, 'c', sizeof(buffer));
+    lfs_file_sync(&lfs, &file); // attributes expected to be re-written because attr_count is still 1, although no write happened
+    lfs_getattr(&lfs, "hello/hello3", 'A', buffer,  4) => 4;
+    memcmp(buffer,    "cccc",      4) => 0;
+    lfs_file_close(&lfs, &file);
+    lfs_unmount(&lfs) => 0;
+
 '''
 
 [cases.test_attrs_deferred_file]

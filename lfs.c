@@ -3180,8 +3180,6 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
                 err = LFS_ERR_NOSPC;
                 goto cleanup;
             }
-
-            file->flags |= LFS_F_DIRTY;
         }
 #endif
     }
@@ -3441,7 +3439,9 @@ static int lfs_file_sync_(lfs_t *lfs, lfs_file_t *file) {
     }
 
 
-    if ((file->flags & LFS_F_DIRTY) &&
+    if (((file->flags & LFS_F_DIRTY) ||
+            (/* User request attributes write */(file->cfg->attr_count > 0) && (file->flags & LFS_O_WRONLY)))
+            &&
             !lfs_pair_isnull(file->m.pair)) {
         // before we commit metadata, we need sync the disk to make sure
         // data writes don't complete after metadata writes
