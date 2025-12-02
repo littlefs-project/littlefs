@@ -2,7 +2,7 @@
 after = 'test_rbyd'
 
 # don't bother testing with more complicated block allocators
-ifndef = 'LFS3_GBMAP'
+ifndef = 'LFS3_YES_GBMAP'
 
 # maximize lookahead buffer, we don't actually gc so we only get one pass
 # of the disk for these tests
