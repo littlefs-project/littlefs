@@ -472,7 +472,7 @@ struct lfs3_cfg {
     lfs3_size_t block_size;
 
     // Number of erasable blocks on the device.
-    lfs3_size_t block_count;
+    lfs3_block_t block_count;
 
     // Number of erase cycles before metadata blocks are relocated for
     // wear-leveling. Suggested values are in the range 16-1024. Larger values
@@ -601,7 +601,7 @@ struct lfs3_cfg {
     // but must be <= LFS3_FILE_MAX. Defaults to LFS3_FILE_MAX when zero. Stored
     // in superblock and must be respected by other littlefs drivers.
     #ifndef LFS3_RDONLY
-    lfs3_size_t file_limit;
+    lfs3_off_t file_limit;
     #endif
 
     // TODO these are pretty low-level details, should we have reasonable
@@ -680,13 +680,13 @@ struct lfs3_fsinfo {
     lfs3_size_t block_size;
 
     // Number of logical blocks in the filesystem.
-    lfs3_size_t block_count;
+    lfs3_block_t block_count;
 
     // Upper limit on the length of file names in bytes.
     lfs3_size_t name_limit;
 
     // Upper limit on the size of files in bytes.
-    lfs3_size_t file_limit;
+    lfs3_off_t file_limit;
 };
 
 // Traversal info structure
@@ -1230,7 +1230,7 @@ typedef struct lfs3_gbmap {
 typedef struct lfs3 {
     const struct lfs3_cfg *cfg;
     uint32_t flags;
-    lfs3_size_t block_count;
+    lfs3_block_t block_count;
     lfs3_size_t name_limit;
     lfs3_off_t file_limit;
 
@@ -1670,7 +1670,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo);
 // usage may be larger than the filesystem actually is.
 //
 // Returns the number of allocated blocks, or a negative error code on failure.
-lfs3_ssize_t lfs3_fs_usage(lfs3_t *lfs3);
+lfs3_sblock_t lfs3_fs_usage(lfs3_t *lfs3);
 
 // Get the current filesystem checksum
 //

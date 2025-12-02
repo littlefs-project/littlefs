@@ -15197,8 +15197,8 @@ static inline int lfs3_data_readocompat(lfs3_t *lfs3, lfs3_data_t *data,
 //
 // note these are stored minus 1 to avoid overflow issues
 struct lfs3_geometry {
-    lfs3_off_t block_size;
-    lfs3_off_t block_count;
+    lfs3_size_t block_size;
+    lfs3_block_t block_count;
 };
 
 // geometry on-disk encoding
@@ -16102,8 +16102,8 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     return 0;
 }
 
-lfs3_ssize_t lfs3_fs_usage(lfs3_t *lfs3) {
-    lfs3_size_t count = 0;
+lfs3_sblock_t lfs3_fs_usage(lfs3_t *lfs3) {
+    lfs3_block_t count = 0;
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv, LFS3_T_RDONLY);
     while (true) {
