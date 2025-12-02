@@ -2007,7 +2007,7 @@ static inline bool lfs3_rattr_isgrow_(lfs3_rattr_t rattr) {
 #ifndef LFS3_RDONLY
 static inline lfs3_srid_t lfs3_rattr_weight(const lfs3_rattr_t *rattr) {
     lfs3_srid_t weight = lfs3_rattr_weight_(rattr[0]);
-    if (weight == -2) {
+    if (weight <= -2) {
         return rattr[1];
     } else {
         return weight;
@@ -2018,7 +2018,7 @@ static inline lfs3_srid_t lfs3_rattr_weight(const lfs3_rattr_t *rattr) {
 #ifndef LFS3_RDONLY
 static inline const lfs3_rattr_t *lfs3_rattr_args(const lfs3_rattr_t *rattr) {
     lfs3_srid_t weight = lfs3_rattr_weight_(rattr[0]);
-    if (weight == -2) {
+    if (weight <= -2) {
         return &rattr[2];
     } else {
         return &rattr[1];
@@ -8652,15 +8652,10 @@ static int lfs3_mdir_compact___(lfs3_t *lfs3,
     //
     // it's really tempting to deduplicate this via recursion! but we
     // can't do that here
-    //
-    // TODO this true?
-    // note that any inlined updates here depend on the pre-commit state
-    // (btree), not the staged state (btree_), this is important,
-    // we can't trust btree_ after a failed commit
 
     // assume we keep any gcksumdelta, this will get fixed the first time
     // we commit anything
-    if (start_rid == -2) {
+    if (start_rid <= -2) {
         mdir_->gcksumdelta = mdir->gcksumdelta;
     }
 
@@ -8833,7 +8828,7 @@ compact:;
                 mdir_->r.blocks[0], mdir_->r.blocks[1]);
         #endif
 
-        // don't copy over gcksum if relocating
+        // don't copy over gstate if relocating
         lfs3_srid_t start_rid_ = start_rid;
         if (relocated) {
             start_rid_ = lfs3_smax(start_rid_, -1);
@@ -9018,7 +9013,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // attempt to commit/compact the mdir normally
     lfs3_mdir_t mdir_[2];
     lfs3_srid_t split_rid;
-    int err = lfs3_mdir_commit__(lfs3, &mdir_[0], mdir, -2, -1,
+    int err = lfs3_mdir_commit__(lfs3, &mdir_[0], mdir, -2, -2,
             &split_rid,
             mdir->mid, rattrs);
     if (err && err != LFS3_ERR_RANGE
@@ -9346,7 +9341,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
             // commit mrootchild
             lfs3_mdir_t mrootparent_;
-            err = lfs3_mdir_commit__(lfs3, &mrootparent_, &mrootparent, -2, -1,
+            err = lfs3_mdir_commit__(lfs3, &mrootparent_, &mrootparent, -2, -2,
                     NULL,
                     -1, LFS3_RATTRS(
                         LFS3_RATTR(2, LFS3_TAG_MROOT, 0, LFS3_FROM_MPTR),
@@ -9393,7 +9388,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 goto failed;
             }
 
-            err = lfs3_mdir_commit___(lfs3, &mrootanchor_, -2, -1,
+            err = lfs3_mdir_commit___(lfs3, &mrootanchor_, -2, -2,
                     -1, LFS3_RATTRS(
                         LFS3_RATTR(2, LFS3_TAG_MAGIC, 0, LFS3_FROM_BUF, 8),
                         LFS3_RATTR_ARG("littlefs"),
