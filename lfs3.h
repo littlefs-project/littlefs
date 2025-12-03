@@ -687,6 +687,16 @@ struct lfs3_fsinfo {
 
     // Upper limit on the size of files in bytes.
     lfs3_off_t file_limit;
+
+    // Number of known free blocks
+    //
+    // Note this is limited by lookahead/gbmap
+    lfs3_block_t known_free;
+
+    // Number of known in-use blocks
+    //
+    // Note this is limited by lookahead/gbmap
+    lfs3_block_t known_inuse;
 };
 
 // Traversal info structure
@@ -1221,6 +1231,7 @@ typedef struct lfs3_grm {
 typedef struct lfs3_gbmap {
     lfs3_block_t window;
     lfs3_block_t known;
+    lfs3_sblock_t known_free;
     lfs3_btree_t b;
     lfs3_btree_t b_p;
 } lfs3_gbmap_t;
@@ -1276,7 +1287,7 @@ typedef struct lfs3 {
     struct lfs3_lookahead {
         lfs3_block_t window;
         lfs3_block_t off;
-        lfs3_block_t known;
+        lfs3_size_t known;
         lfs3_block_t ckpoint;
         uint8_t *buffer;
     } lookahead;

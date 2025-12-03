@@ -10459,6 +10459,8 @@ eot:;
 static void lfs3_gbmap_init(lfs3_gbmap_t *gbmap) {
     gbmap->window = 0;
     gbmap->known = 0;
+    // we lazily populate this during lookahead scans
+    gbmap->known_free = -1;
     lfs3_btree_init(&gbmap->b);
     lfs3_btree_init(&gbmap->b_p);
 }
@@ -16069,6 +16071,7 @@ failed:;
 
 /// Other filesystem things  ///
 
+// note lfs3_fs_stat should never go to disk
 int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     // return various filesystem flags
     fsinfo->flags = lfs3->flags & (
@@ -16098,6 +16101,34 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     fsinfo->block_count = lfs3->block_count;
     fsinfo->name_limit = lfs3->name_limit;
     fsinfo->file_limit = lfs3->file_limit;
+
+    // return best effort knowledge of block usage
+
+    // if we have a gbmap, we choose whichever allocator has more
+    // information, otherwise we fall back to the lookahead buffer
+    if (LFS3_IFDEF_GBMAP(
+            lfs3_f_isgbmap(lfs3->flags)
+                // known_free=-1 indicates we don't know the free/inuse
+                // breakdown yet
+                && lfs3->gbmap.known_free != -1
+                && lfs3->gbmap.known >= lfs3->lookahead.known,
+            false)) {
+        #ifdef LFS3_GBMAP
+        fsinfo->known_free = lfs3->gbmap.known_free;
+        fsinfo->known_inuse = lfs3->gbmap.known - lfs3->gbmap.known_free;
+        #endif
+
+    } else {
+        lfs3_block_t free = 0;
+        for (lfs3_size_t i = 0; i < lfs3->lookahead.known; i++) {
+            if (!(lfs3->lookahead.buffer[(lfs3->lookahead.off+i) / 8]
+                    & (1 << ((lfs3->lookahead.off+i) % 8)))) {
+                free += 1;
+            }
+        }
+        fsinfo->known_free = free;
+        fsinfo->known_inuse = lfs3->lookahead.known - free;
+    }
 
     return 0;
 }
