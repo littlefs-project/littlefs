@@ -1221,6 +1221,7 @@ typedef struct lfs3_grm {
 typedef struct lfs3_gbmap {
     lfs3_block_t window;
     lfs3_block_t known;
+    lfs3_sblock_t free;
     lfs3_btree_t b;
     lfs3_btree_t b_p;
 } lfs3_gbmap_t;
