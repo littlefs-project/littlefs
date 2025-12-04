@@ -1107,7 +1107,20 @@ static inline bool lfs3_tag_ismask12(lfs3_tag_t tag) {
 }
 
 static inline lfs3_tag_t lfs3_tag_mask(lfs3_tag_t tag) {
+    // this is based off the parity impl in Sean Eron Anderson's Bit
+    // Twiddling Hacks, who attributes the idea to Mathew Hendry
+    //
+    // basically the idea is to encode a small lookup table in an
+    // integer, and extract using a shift + mask
+    //
+    //                             .-- LFS3_tag_MASK0
+    //                            .|-- LFS3_tag_MASK2
+    //                           .||-- LFS3_tag_MASK8
+    //                          .|||-- LFS3_tag_MASK12
+    //                          vvvv
     return 0x0fff & (-1U << ((0xc820 >> (4*((tag >> 12) & 0x3))) & 0xf));
+    //     '--.-'      ^                   '--------.--------'
+    //     key mask  gcc complains w/o this     mask bits
 }
 
 // alt operations
