@@ -83,7 +83,6 @@ F_CKDATACKSUMS  = 0x01000000  # y-  Check data checksums on reads
 
 F_MKCONSISTENT  = 0x00000800  # y-  Make the filesystem consistent
 F_LOOKAHEAD     = 0x00001000  # y-  Repopulate lookahead buffer
-F_LOOKGBMAP     = 0x00002000  # y-  Repopulate the gbmap
 F_COMPACTMETA   = 0x00008000  # y-  Compact metadata logs
 F_CKMETA        = 0x00010000  # y-  Check metadata checksums
 F_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
@@ -103,7 +102,6 @@ M_CKDATACKSUMS  = 0x01000000  # y-  Check data checksums on reads
 
 M_MKCONSISTENT  = 0x00000800  # y-  Make the filesystem consistent
 M_LOOKAHEAD     = 0x00001000  # y-  Repopulate lookahead buffer
-M_LOOKGBMAP     = 0x00002000  # y-  Repopulate the gbmap
 M_COMPACTMETA   = 0x00008000  # y-  Compact metadata logs
 M_CKMETA        = 0x00010000  # y-  Check metadata checksums
 M_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
@@ -111,7 +109,6 @@ M_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
 # File/filesystem check flags
 CK_MKCONSISTENT = 0x00000800  # --  Make the filesystem consistent
 CK_LOOKAHEAD    = 0x00001000  # --  Repopulate lookahead buffer
-CK_LOOKGBMAP    = 0x00002000  # --  Repopulate the gbmap
 CK_COMPACTMETA  = 0x00008000  # --  Compact metadata logs
 CK_CKMETA       = 0x00010000  # --  Check metadata checksums
 CK_CKDATA       = 0x00020000  # --  Check metadata + data checksums
@@ -119,7 +116,6 @@ CK_CKDATA       = 0x00020000  # --  Check metadata + data checksums
 # GC flags
 GC_MKCONSISTENT = 0x00000800  # --  Make the filesystem consistent
 GC_LOOKAHEAD    = 0x00001000  # --  Repopulate lookahead buffer
-GC_LOOKGBMAP    = 0x00002000  # --  Repopulate the gbmap
 GC_COMPACTMETA  = 0x00008000  # --  Compact metadata logs
 GC_CKMETA       = 0x00010000  # --  Check metadata checksums
 GC_CKDATA       = 0x00020000  # --  Check metadata + data checksums
@@ -139,7 +135,6 @@ I_CKDATACKSUMS  = 0x01000000  # --  Mounted with LFS3_M_CKDATACKSUMS
 
 I_MKCONSISTENT  = 0x00000800  # --  Filesystem needs mkconsistent to write
 I_LOOKAHEAD     = 0x00001000  # --  Lookahead buffer is not full
-I_LOOKGBMAP     = 0x00002000  # --  The gbmap is not full
 I_COMPACTMETA   = 0x00008000  # --  Filesystem may have uncompacted metadata
 I_CKMETA        = 0x00010000  # --  Metadata checksums not checked recently
 I_CKDATA        = 0x00020000  # --  Data checksums not checked recently
@@ -152,7 +147,6 @@ T_MTREEONLY     = 0x00000002  # --  Only traverse the mtree
 T_EXCL          = 0x00000008  # --  Error if filesystem modified
 T_MKCONSISTENT  = 0x00000800  # --  Make the filesystem consistent
 T_LOOKAHEAD     = 0x00001000  # --  Repopulate lookahead buffer
-T_LOOKGBMAP     = 0x00002000  # --  Repopulate the gbmap
 T_COMPACTMETA   = 0x00008000  # --  Compact metadata logs
 T_CKMETA        = 0x00010000  # --  Check metadata checksums
 T_CKDATA        = 0x00020000  # --  Check metadata + data checksums

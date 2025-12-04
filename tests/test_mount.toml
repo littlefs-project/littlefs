@@ -1,12 +1,23 @@
 # Advanced mount tests
 after = ['test_mtree', 'test_trvs']
 
+# Test both with and without the gbmap if available
+defines.GBMAP = [false, true]
+if = '''
+    LFS3_IFDEF_YES_GBMAP(
+        GBMAP,
+        LFS3_IFDEF_GBMAP(true, !GBMAP))
+'''
+
 
 # test we can mount
 [cases.test_mount_simple]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -25,7 +36,6 @@ defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.LOOKGBMAP = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -38,13 +48,14 @@ if = [
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
-    'LFS3_IFDEF_YES_GBMAP(true, !LOOKGBMAP)',
-    '!RDONLY || !LOOKGBMAP',
     '!RDONLY || !COMPACTMETA',
 ]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3,
             ((RDONLY) ? LFS3_M_RDONLY : LFS3_M_RDWR)
                 | ((FLUSH) ? LFS3_M_FLUSH : 0)
@@ -61,9 +72,6 @@ code = '''
                     : 0)
                 | ((MKCONSISTENT) ? LFS3_M_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
-                | ((LOOKGBMAP)
-                    ? LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, -1)
-                    : 0)
                 | ((COMPACTMETA) ? LFS3_M_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
@@ -87,12 +95,12 @@ code = '''
                     ? LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, -1)
                     : 0)
                 | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -109,11 +117,9 @@ defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.LOOKGBMAP = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.GBMAP = [false, true]
 if = [
     'LFS3_IFDEF_YES_REVDBG(REVDBG, LFS3_IFDEF_REVDBG(true, !REVDBG))',
     'LFS3_IFDEF_YES_REVNOISE(REVNOISE, LFS3_IFDEF_REVNOISE(true, !REVNOISE))',
@@ -121,8 +127,6 @@ if = [
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
-    'LFS3_IFDEF_YES_GBMAP(true, !LOOKGBMAP)',
-    'LFS3_IFDEF_GBMAP(true, !GBMAP)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -140,9 +144,6 @@ code = '''
                     : 0)
                 | ((MKCONSISTENT) ? LFS3_F_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_F_LOOKAHEAD : 0)
-                | ((LOOKGBMAP)
-                    ? LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, -1)
-                    : 0)
                 | ((COMPACTMETA) ? LFS3_F_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_F_CKMETA : 0)
                 | ((CKDATA) ? LFS3_F_CKDATA : 0)
@@ -157,13 +158,11 @@ code = '''
             LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
                 | LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_GBMAP(
-                    LFS3_I_GBMAP,
-                    (GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -171,14 +170,20 @@ code = '''
 
 # test that on-mount traversals do what they say they do
 
-[cases.test_mount_t_relookahead]
+[cases.test_mount_t_lookahead]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // by default we need a lookahead scan
+    //
+    // unless we have a gbmap, the gbmap is persistent so usually
+    // _doesn't_ need a lookahead scan
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -186,11 +191,11 @@ code = '''
             LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
                 | LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_LOOKAHEAD, mount performs a lookahead scan
@@ -209,12 +214,11 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_mount_t_regbmap]
-ifdef = 'LFS3_GBMAP'
+[cases.test_mount_t_lookgbmap]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = [
@@ -223,9 +227,14 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+ifdef = 'LFS3_GBMAP'
+if = 'GBMAP'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -237,11 +246,10 @@ code = '''
             LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
                 | LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     // write to a file
     lfs3_file_t file;
     lfs3_file_open(&lfs3, &file, "jellyfish",
@@ -262,18 +270,16 @@ code = '''
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
                 | LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
-                | LFS3_I_LOOKGBMAP
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     lfs3_unmount(&lfs3) => 0;
 
-    // with LFS3_M_LOOKGBMAP, mount performs a gbmap repop
+    // with LFS3_M_LOOKAHEAD, mount rebuild the gbmap
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
                 | LFS3_M_LOOKAHEAD
-                | LFS3_M_LOOKGBMAP
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
             CFG) => 0;
@@ -286,7 +292,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -306,7 +312,10 @@ defines.SIZE = [
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -340,14 +349,13 @@ code = '''
             LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
                 | LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_YES_GBMAP(
-                    (SIZE >= BLOCK_SIZE/4) ? LFS3_I_LOOKGBMAP : 0,
-                    0)
+                | ((!GBMAP || SIZE >= BLOCK_SIZE/4)
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_COMPACTMETA, mount compacts any uncompacted blocks
@@ -363,14 +371,13 @@ code = '''
             LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
                 | LFS3_I_MKCONSISTENT
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_YES_GBMAP(
-                    (SIZE >= BLOCK_SIZE/4) ? LFS3_I_LOOKGBMAP : 0,
-                    0)
+                | ((!LOOKAHEAD && (!GBMAP || SIZE >= BLOCK_SIZE/4))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // mdir should have been compacted
     lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
@@ -396,7 +403,10 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -454,14 +464,13 @@ code = '''
             LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
                 | LFS3_I_MKCONSISTENT
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_YES_GBMAP(
-                    (ORPHANS >= 100) ? LFS3_I_LOOKGBMAP : 0,
-                    0)
+                | ((!GBMAP || ORPHANS >= 100)
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     lfs3_unmount(&lfs3) => 0;
 
     // with LFS3_M_MKCONSISTENT, mount cleans up orphans eagerly
@@ -477,15 +486,14 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_YES_GBMAP(
-                    (ORPHANS >= 100) ? LFS3_I_LOOKGBMAP : 0,
-                    0)
+                | ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
                 | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | LFS3_IFDEF_YES_GBMAP(LFS3_I_GBMAP, 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
     lfs3_file_open(&lfs3, &file, "cuttlefish", LFS3_O_RDONLY) => 0;
@@ -524,7 +532,10 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                CFG) => 0;
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -613,7 +624,10 @@ code = '''
         assert(i < 2*BLOCK_COUNT);
 
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_format(&lfs3,
+                LFS3_F_RDWR
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                CFG) => 0;
         lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create an interesting filesystem
@@ -696,7 +710,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // delete the magic string
     //
@@ -719,7 +736,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // tweak the magic string
     //
@@ -743,7 +763,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // bump the major version
     //
@@ -769,7 +792,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // bump the minor version
     //
@@ -795,7 +821,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set the nonstandard rcompat flag, this will always be incompatible
     // with standard littlefs
@@ -822,7 +851,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set the nonstandard rcompat flag, this will always be incompatible
     // with standard littlefs
@@ -852,7 +884,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set the nonstandard ocompat flag, this will always be incompatible
     // with standard littlefs
@@ -881,7 +916,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set the rdonly flag, this prevents writing from a littlefs image
     //
@@ -910,7 +948,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set the wronly flag, this prevents reading from a littlefs image
     //
@@ -938,7 +979,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set a really far rcompat flag
     //
@@ -969,7 +1013,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     uint8_t flags[9] = {0};
     flags[FLAG / 8] |= 1 << (FLAG % 8);
@@ -1006,7 +1053,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set a really far ocompat flag
     //
@@ -1038,7 +1088,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set a really far rcompat flag
     //
@@ -1069,7 +1122,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     uint8_t flags[9] = {0};
     flags[FLAG / 8] |= 1 << (FLAG % 8);
@@ -1103,7 +1159,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set a really far ocompat flag
     //
@@ -1134,7 +1193,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set an incompatible block size
     //
@@ -1161,7 +1223,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set an incompatible block count
     //
@@ -1188,7 +1253,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set an incompatible block size
     //
@@ -1212,7 +1280,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // set an incompatible file limit
     //
@@ -1249,7 +1320,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create an unknown config
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -1271,7 +1345,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -1359,7 +1436,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -1466,7 +1546,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -1576,7 +1659,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -1686,7 +1772,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -1805,7 +1894,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -1919,7 +2011,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -2029,7 +2124,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // create some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
@@ -2150,7 +2248,10 @@ in = 'lfs3.c'
 code = '''
     // create a superblock
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
 
     // with some files
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;

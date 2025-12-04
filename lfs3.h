@@ -206,11 +206,7 @@ enum lfs3_type {
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_F_LOOKAHEAD \
-                        0x00001000  // Repopulate lookahead buffer
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_F_LOOKGBMAP \
-                        0x00002000  // Repopulate the gbmap
+                        0x00001000  // Repopulate lookahead/gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_F_COMPACTMETA \
@@ -258,11 +254,7 @@ enum lfs3_type {
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_LOOKAHEAD \
-                        0x00001000  // Repopulate lookahead buffer
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_M_LOOKGBMAP \
-                        0x00002000  // Repopulate the gbmap
+                        0x00001000  // Repopulate lookahead/gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_COMPACTMETA \
@@ -305,11 +297,7 @@ enum lfs3_type {
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_LOOKAHEAD \
-                        0x00001000  // Lookahead buffer is not full
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_I_LOOKGBMAP \
-                        0x00002000  // The gbmap is not full
+                        0x00001000  // Lookahead/gbmap is not full
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_COMPACTMETA \
@@ -340,11 +328,7 @@ enum lfs3_btype {
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_T_LOOKAHEAD \
-                        0x00001000  // Repopulate lookahead buffer
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_T_LOOKGBMAP \
-                        0x00002000  // Repopulate the gbmap
+                        0x00001000  // Repopulate lookahead/gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_T_COMPACTMETA \
@@ -369,11 +353,7 @@ enum lfs3_btype {
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_CK_LOOKAHEAD \
-                        0x00001000  // Repopulate lookahead buffer
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_CK_LOOKGBMAP \
-                        0x00002000  // Repopulate the gbmap
+                        0x00001000  // Repopulate lookahead/gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_CK_COMPACTMETA \
@@ -389,11 +369,7 @@ enum lfs3_btype {
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_GC_LOOKAHEAD \
-                        0x00001000  // Repopulate lookahead buffer
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_GC_LOOKGBMAP \
-                        0x00002000  // Repopulate the gbmap
+                        0x00001000  // Repopulate lookahead/gbmap
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_GC_COMPACTMETA \
@@ -406,8 +382,6 @@ enum lfs3_btype {
 #define LFS3_GC_ALL ( \
         LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, \
-                LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA) \
             | LFS3_GC_CKMETA \
             | LFS3_GC_CKDATA)
