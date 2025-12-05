@@ -463,11 +463,11 @@ code = '''
 [cases.test_kv_many]
 defines.N = [40, 400]
 defines.SIZE = 4
-defines.COMPACTMETA = [false, true]
-defines.GC_FLAGS = 'LFS3_GC_COMPACTMETA'
+defines.COMPACT = [false, true]
+defines.GC_FLAGS = 'LFS3_GC_COMPACT'
 defines.GC_STEPS = -1
-defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
-if = 'LFS3_IFDEF_GC(true, !COMPACTMETA)'
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+if = 'LFS3_IFDEF_GC(true, !COMPACT)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -489,7 +489,7 @@ code = '''
 
     // try compacting?
     #ifdef LFS3_GC
-    if (COMPACTMETA) {
+    if (COMPACT) {
         lfs3_fs_gc(&lfs3) => 0;
     }
     #endif
@@ -633,11 +633,11 @@ code = '''
 defines.N = 40
 # size is more an upper limit here
 defines.SIZE = 40000
-defines.COMPACTMETA = [false, true]
-defines.GC_FLAGS = 'LFS3_GC_COMPACTMETA'
+defines.COMPACT = [false, true]
+defines.GC_FLAGS = 'LFS3_GC_COMPACT'
 defines.GC_STEPS = -1
-defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
-if = 'LFS3_IFDEF_GC(true, !COMPACTMETA)'
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+if = 'LFS3_IFDEF_GC(true, !COMPACT)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -664,7 +664,7 @@ code = '''
 
     // try compacting?
     #ifdef LFS3_GC
-    if (COMPACTMETA) {
+    if (COMPACT) {
         lfs3_fs_gc(&lfs3) => 0;
     }
     #endif
