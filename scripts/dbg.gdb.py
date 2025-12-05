@@ -60,7 +60,7 @@ class DbgCommand(gdb.Command):
         args_ = []
         for a in args:
             # pass flags as is
-            if a.startswith('-'):
+            if a.startswith('-') or a.startswith('+'):
                 args_.append(a)
 
             # parse and eval
