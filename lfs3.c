@@ -7255,11 +7255,11 @@ static inline bool lfs3_t_isckdata(uint32_t flags) {
 
 // internal traversal flags
 static inline uint8_t lfs3_t_btype(uint32_t flags) {
-    return (flags >> 20) & 0xf;
+    return (flags >> 16) & 0xff;
 }
 
 static inline uint32_t lfs3_t_btypeflags(uint8_t btype) {
-    return (uint32_t)btype << 20;
+    return (uint32_t)btype << 16;
 }
 
 static inline void lfs3_t_setbtype(uint32_t *flags, uint8_t btype) {

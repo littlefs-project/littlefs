@@ -37,8 +37,8 @@ O_FLUSH         = 0x00000040  # y-  Flush data on every write
 O_SYNC          = 0x00000080  # y-  Sync metadata on every write
 O_DESYNC        = 0x00100000  # --  Do not sync or recieve file updates
 
-O_CKMETA        = 0x00010000  # --  Check metadata checksums
-O_CKDATA        = 0x00020000  # --  Check metadata + data checksums
+O_CKMETA        = 0x00001000  # --  Check metadata checksums
+O_CKDATA        = 0x00002000  # --  Check metadata + data checksums
 
 o_WRSET         =          3  # i-  Open a file as an atomic write
 o_TYPE          = 0xf0000000  # im  The file's type
@@ -81,11 +81,11 @@ F_CKFETCHES     = 0x00200000  # y-  Check block checksums before first use
 F_CKMETAPARITY  = 0x00400000  # y-  Check metadata tag parity bits
 F_CKDATACKSUMS  = 0x01000000  # y-  Check data checksums on reads
 
-F_MKCONSISTENT  = 0x00000800  # y-  Make the filesystem consistent
-F_LOOKAHEAD     = 0x00001000  # y-  Repopulate lookahead buffer
-F_COMPACT       = 0x00008000  # y-  Compact metadata logs
-F_CKMETA        = 0x00010000  # y-  Check metadata checksums
-F_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
+F_MKCONSISTENT  = 0x00000100  # y-  Make the filesystem consistent
+F_LOOKAHEAD     = 0x00000200  # y-  Repopulate lookahead buffer
+F_COMPACT       = 0x00000800  # y-  Compact metadata logs
+F_CKMETA        = 0x00001000  # y-  Check metadata checksums
+F_CKDATA        = 0x00002000  # y-  Check metadata + data checksums
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -100,25 +100,25 @@ M_CKFETCHES     = 0x00200000  # y-  Check block checksums before first use
 M_CKMETAPARITY  = 0x00400000  # y-  Check metadata tag parity bits
 M_CKDATACKSUMS  = 0x01000000  # y-  Check data checksums on reads
 
-M_MKCONSISTENT  = 0x00000800  # y-  Make the filesystem consistent
-M_LOOKAHEAD     = 0x00001000  # y-  Repopulate lookahead buffer
-M_COMPACT       = 0x00008000  # y-  Compact metadata logs
-M_CKMETA        = 0x00010000  # y-  Check metadata checksums
-M_CKDATA        = 0x00020000  # y-  Check metadata + data checksums
+M_MKCONSISTENT  = 0x00000100  # y-  Make the filesystem consistent
+M_LOOKAHEAD     = 0x00000200  # y-  Repopulate lookahead buffer
+M_COMPACT       = 0x00000800  # y-  Compact metadata logs
+M_CKMETA        = 0x00001000  # y-  Check metadata checksums
+M_CKDATA        = 0x00002000  # y-  Check metadata + data checksums
 
 # File/filesystem check flags
-CK_MKCONSISTENT = 0x00000800  # --  Make the filesystem consistent
-CK_LOOKAHEAD    = 0x00001000  # --  Repopulate lookahead buffer
-CK_COMPACT      = 0x00008000  # --  Compact metadata logs
-CK_CKMETA       = 0x00010000  # --  Check metadata checksums
-CK_CKDATA       = 0x00020000  # --  Check metadata + data checksums
+CK_MKCONSISTENT = 0x00000100  # --  Make the filesystem consistent
+CK_LOOKAHEAD    = 0x00000200  # --  Repopulate lookahead buffer
+CK_COMPACT      = 0x00000800  # --  Compact metadata logs
+CK_CKMETA       = 0x00001000  # --  Check metadata checksums
+CK_CKDATA       = 0x00002000  # --  Check metadata + data checksums
 
 # GC flags
-GC_MKCONSISTENT = 0x00000800  # --  Make the filesystem consistent
-GC_LOOKAHEAD    = 0x00001000  # --  Repopulate lookahead buffer
-GC_COMPACT      = 0x00008000  # --  Compact metadata logs
-GC_CKMETA       = 0x00010000  # --  Check metadata checksums
-GC_CKDATA       = 0x00020000  # --  Check metadata + data checksums
+GC_MKCONSISTENT = 0x00000100  # --  Make the filesystem consistent
+GC_LOOKAHEAD    = 0x00000200  # --  Repopulate lookahead buffer
+GC_COMPACT      = 0x00000800  # --  Compact metadata logs
+GC_CKMETA       = 0x00001000  # --  Check metadata checksums
+GC_CKDATA       = 0x00002000  # --  Check metadata + data checksums
 
 # Filesystem info flags
 I_RDONLY        = 0x00000001  # --  Mounted read only
@@ -133,11 +133,11 @@ I_CKFETCHES     = 0x00200000  # --  Mounted with LFS3_M_CKFETCHES
 I_CKMETAPARITY  = 0x00400000  # --  Mounted with LFS3_M_CKMETAPARITY
 I_CKDATACKSUMS  = 0x01000000  # --  Mounted with LFS3_M_CKDATACKSUMS
 
-I_MKCONSISTENT  = 0x00000800  # --  Filesystem needs mkconsistent to write
-I_LOOKAHEAD     = 0x00001000  # --  Lookahead buffer is not full
-I_COMPACT       = 0x00008000  # --  Filesystem may have uncompacted metadata
-I_CKMETA        = 0x00010000  # --  Metadata checksums not checked recently
-I_CKDATA        = 0x00020000  # --  Data checksums not checked recently
+I_MKCONSISTENT  = 0x00000100  # --  Filesystem needs mkconsistent to write
+I_LOOKAHEAD     = 0x00000200  # --  Lookahead buffer is not full
+I_COMPACT       = 0x00000800  # --  Filesystem may have uncompacted metadata
+I_CKMETA        = 0x00001000  # --  Metadata checksums not checked recently
+I_CKDATA        = 0x00002000  # --  Data checksums not checked recently
 
 # Traversal flags
 T_MODE          =          1  # -m  The traversal's access mode
@@ -145,11 +145,11 @@ T_RDWR          =          0  # -^  Open traversal as read and write
 T_RDONLY        =          1  # -^  Open traversal as read only
 T_MTREEONLY     = 0x00000002  # --  Only traverse the mtree
 T_EXCL          = 0x00000008  # --  Error if filesystem modified
-T_MKCONSISTENT  = 0x00000800  # --  Make the filesystem consistent
-T_LOOKAHEAD     = 0x00001000  # --  Repopulate lookahead buffer
-T_COMPACT       = 0x00008000  # --  Compact metadata logs
-T_CKMETA        = 0x00010000  # --  Check metadata checksums
-T_CKDATA        = 0x00020000  # --  Check metadata + data checksums
+T_MKCONSISTENT  = 0x00000100  # --  Make the filesystem consistent
+T_LOOKAHEAD     = 0x00000200  # --  Repopulate lookahead buffer
+T_COMPACT       = 0x00000800  # --  Compact metadata logs
+T_CKMETA        = 0x00001000  # --  Check metadata checksums
+T_CKDATA        = 0x00002000  # --  Check metadata + data checksums
 
 t_TYPE          = 0xf0000000  # im  The traversal's type
 t_REG           = 0x10000000  # i^  Type = regular-file
@@ -159,10 +159,10 @@ t_BOOKMARK      = 0x40000000  # i^  Type = bookmark
 t_ORPHAN        = 0x50000000  # i^  Type = orphan
 t_TRAVERSAL     = 0x60000000  # i^  Type = traversal
 t_UNKNOWN       = 0x70000000  # i^  Type = unknown
-t_BTYPE         = 0x00f00000  # im  The current block type
-t_MDIR          = 0x00100000  # i^  Btype = mdir
-t_BTREE         = 0x00200000  # i^  Btype = btree
-t_DATA          = 0x00300000  # i^  Btype = data
+t_BTYPE         = 0x00ff0000  # im  The current block type
+t_MDIR          = 0x00010000  # i^  Btype = mdir
+t_BTREE         = 0x00020000  # i^  Btype = btree
+t_DATA          = 0x00030000  # i^  Btype = data
 t_ZOMBIE        = 0x08000000  # i-  File has been removed
 t_CKPOINTED     = 0x04000000  # i-  Filesystem ckpointed during traversal
 t_DIRTY         = 0x02000000  # i-  Filesystem ckpointed outside traversal
