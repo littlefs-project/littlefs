@@ -16812,21 +16812,6 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         return LFS3_ERR_BUSY;
     }
 
-    // check for pending grms every step, just in case some other
-    // operation introduced new grms
-    #ifndef LFS3_RDONLY
-    if (lfs3_t_ismkconsistent(trv->gc.t.h.flags)
-            && lfs3_grm_count(lfs3) > 0) {
-        uint32_t dirty = trv->gc.t.h.flags;
-        int err = lfs3_fs_fixgrm(lfs3);
-        if (err) {
-            return err;
-        }
-        // reset dirty flag
-        trv->gc.t.h.flags &= ~LFS3_t_DIRTY | dirty;
-    }
-    #endif
-
     // discard current block queue?
     if (lfs3_t_isstale(trv->gc.t.h.flags)) {
         trv->blocks[0] = -1;
