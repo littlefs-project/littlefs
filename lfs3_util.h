@@ -118,11 +118,11 @@
 #ifndef LFS3_NO_ASSERT
 #include <assert.h>
 #endif
-#if !defined(LFS3_NO_DEBUG) || \
-        !defined(LFS3_NO_INFO) || \
-        !defined(LFS3_NO_WARN) || \
-        !defined(LFS3_NO_ERROR) || \
-        defined(LFS3_YES_TRACE)
+#if !defined(LFS3_NO_DEBUG) \
+        || !defined(LFS3_NO_INFO) \
+        || !defined(LFS3_NO_WARN) \
+        || !defined(LFS3_NO_ERROR) \
+        || defined(LFS3_YES_TRACE)
 #include <stdio.h>
 #endif
 
