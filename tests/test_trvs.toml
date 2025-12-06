@@ -7611,28 +7611,29 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // we should have cleaned up all orphans (maybe not grms)
+    // we should have cleaned up all grms/orphans
+    assert(lfs3.grm.queue[0] == 0);
+    assert(lfs3.grm.queue[1] == 0);
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
-    assert(file1.b.h.mdir.r.weight <= 4);
-    assert(file2.b.h.mdir.r.weight <= 4);
+    assert(file1.b.h.mdir.r.weight <= 3);
+    assert(file2.b.h.mdir.r.weight <= 3);
 
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_IFDEF_YES_REVDBG(LFS3_I_REVDBG, 0)
                 | LFS3_IFDEF_YES_REVNOISE(LFS3_I_REVNOISE, 0)
-                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | (((!LOOKAHEAD || ORPHANS >= 100)
+                | (((!LOOKAHEAD || ORPHANS > 0)
                         && (!GBMAP || ORPHANS >= 100))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
-                | (((!CKMETA && !CKDATA) || ORPHANS >= 100) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA || ORPHANS >= 100) ? LFS3_I_CKDATA : 0)
+                | (((!CKMETA && !CKDATA) || ORPHANS > 0) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA || ORPHANS > 0) ? LFS3_I_CKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -7782,6 +7783,9 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+    // we should be able to clean up grms
+    assert(lfs3.grm.queue[0] == 0);
+    assert(lfs3.grm.queue[1] == 0);
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
         assert(lfs3.flags & LFS3_I_MKCONSISTENT);
@@ -7966,7 +7970,9 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // we should have cleaned up all orphans (maybe not grms)
+    // we should have cleaned up all grms/orphans
+    assert(lfs3.grm.queue[0] == 0);
+    assert(lfs3.grm.queue[1] == 0);
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -8149,7 +8155,9 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // we should have cleaned up all orphans (maybe not grms)
+    // we should have cleaned up all grms/orphans
+    assert(lfs3.grm.queue[0] == 0);
+    assert(lfs3.grm.queue[1] == 0);
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -8341,7 +8349,9 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // we should have cleaned up all orphans (maybe not grms)
+    // we should have cleaned up all grms/orphans
+    assert(lfs3.grm.queue[0] == 0);
+    assert(lfs3.grm.queue[1] == 0);
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -8533,7 +8543,9 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // we should have cleaned up all orphans (maybe not grms)
+    // we should have cleaned up all grms/orphans
+    assert(lfs3.grm.queue[0] == 0);
+    assert(lfs3.grm.queue[1] == 0);
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -8724,7 +8736,9 @@ code = '''
     }
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
 
-    // we should have cleaned up all orphans (maybe not grms)
+    // we should have cleaned up all grms/orphans
+    assert(lfs3.grm.queue[0] == 0);
+    assert(lfs3.grm.queue[1] == 0);
     assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     // which means there shouldn't be that many files left
@@ -8949,6 +8963,9 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
     lfs3_trv_close(&lfs3, &trv) => 0;
 
+    // we should be able to clean up grms
+    assert(lfs3.grm.queue[0] == 0);
+    assert(lfs3.grm.queue[1] == 0);
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
         assert(lfs3.flags & LFS3_I_MKCONSISTENT);
