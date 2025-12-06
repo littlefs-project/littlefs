@@ -153,6 +153,9 @@ enum lfs3_type {
 #define LFS3_o_UNGRAFT  0x00800000  // File's leaf does not match disk
 #define LFS3_o_UNFLUSH  0x00400000  // File's cache does not match disk
 
+// an alias for ck work
+#define LFS3_O_CK (LFS3_O_CKMETA | LFS3_O_CKDATA)
+
 // File seek flags
 #define LFS3_SEEK_SET 0  // Seek relative to an absolute position
 #define LFS3_SEEK_CUR 1  // Seek relative to the current file position
@@ -218,6 +221,17 @@ enum lfs3_type {
 #define LFS3_F_CKDATA   0x00002000  // Check metadata + data checksums
 #endif
 
+// an alias for ck work
+#define LFS3_F_CK (LFS3_F_CKMETA | LFS3_F_CKDATA)
+
+// an alias for all possible gc work
+#define LFS3_F_GC ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_F_MKCONSISTENT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_F_LOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_F_COMPACT) \
+            | LFS3_F_CKMETA \
+            | LFS3_F_CKDATA)
+
 // Filesystem mount flags
 #define LFS3_M_MODE              1  // Mount's access mode
 #ifndef LFS3_RDONLY
@@ -260,6 +274,17 @@ enum lfs3_type {
 #endif
 #define LFS3_M_CKMETA   0x00001000  // Check metadata checksums
 #define LFS3_M_CKDATA   0x00002000  // Check metadata + data checksums
+
+// an alias for ck work
+#define LFS3_M_CK (LFS3_M_CKMETA | LFS3_M_CKDATA)
+
+// an alias for all possible gc work
+#define LFS3_M_GC ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT) \
+            | LFS3_M_CKMETA \
+            | LFS3_M_CKDATA)
 
 // Filesystem info flags
 #define LFS3_I_RDONLY   0x00000001  // Mounted read only
@@ -342,6 +367,17 @@ enum lfs3_btype {
 #define LFS3_t_DIRTY    0x02000000  // Filesystem ckpointed outside traversal
 #define LFS3_t_STALE    0x01000000  // Block queue probably out-of-date
 
+// an alias for ck work
+#define LFS3_T_CK (LFS3_T_CKMETA | LFS3_T_CKDATA)
+
+// an alias for all possible gc work
+#define LFS3_T_GC ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT) \
+            | LFS3_T_CKMETA \
+            | LFS3_T_CKDATA)
+
 // File/filesystem check flags
 #ifndef LFS3_RDONLY
 #define LFS3_CK_MKCONSISTENT \
@@ -356,6 +392,17 @@ enum lfs3_btype {
 #endif
 #define LFS3_CK_CKMETA  0x00001000  // Check metadata checksums
 #define LFS3_CK_CKDATA  0x00002000  // Check metadata + data checksums
+
+// an alias for ck work
+#define LFS3_CK_CK (LFS3_CK_CKMETA | LFS3_CK_CKDATA)
+
+// an alias for all possible gc work
+#define LFS3_CK_GC ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_CK_MKCONSISTENT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_CK_LOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_CK_COMPACT) \
+            | LFS3_CK_CKMETA \
+            | LFS3_CK_CKDATA)
 
 // GC flags
 #ifndef LFS3_RDONLY
@@ -372,8 +419,11 @@ enum lfs3_btype {
 #define LFS3_GC_CKMETA  0x00001000  // Check metadata checksums
 #define LFS3_GC_CKDATA  0x00002000  // Check metadata + data checksums
 
-// an alias for all possible GC work
-#define LFS3_GC_ALL ( \
+// an alias for ck work
+#define LFS3_GC_CK (LFS3_GC_CKMETA | LFS3_GC_CKDATA)
+
+// an alias for all possible gc work
+#define LFS3_GC_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT) \

@@ -105,7 +105,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(PCACHE_SIZE,            LFS3_MAX(16, PROG_SIZE)              ) \
     TEST_DEFINE(FCACHE_SIZE,            16                                   ) \
     TEST_DEFINE(LOOKAHEAD_SIZE,         16                                   ) \
-    TEST_DEFINE(GC_FLAGS,               LFS3_GC_ALL                          ) \
+    TEST_DEFINE(GC_FLAGS,               LFS3_GC_GC                           ) \
     TEST_DEFINE(GC_STEPS,               0                                    ) \
     TEST_DEFINE(GC_LOOKAHEAD_THRESH,    -1                                   ) \
     TEST_DEFINE(GC_LOOKGBMAP_THRESH,    -1                                   ) \

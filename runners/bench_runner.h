@@ -114,7 +114,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
     BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)              ) \
     BENCH_DEFINE(FCACHE_SIZE,           16                                   ) \
     BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                   ) \
-    BENCH_DEFINE(GC_FLAGS,              LFS3_GC_ALL                          ) \
+    BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                           ) \
     BENCH_DEFINE(GC_STEPS,              0                                    ) \
     BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   -1                                   ) \
     BENCH_DEFINE(GC_LOOKGBMAP_THRESH,   -1                                   ) \
