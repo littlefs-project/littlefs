@@ -10248,6 +10248,7 @@ eot:;
 }
 
 // needed in lfs3_mtree_gc
+static int lfs3_fs_fixgrm(lfs3_t *lfs3);
 static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
@@ -10264,6 +10265,22 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
 // mutation here
 static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_bptr_t *bptr_) {
+    // check for pending grms every step, just in case some other
+    // operation introduced new grms
+    #ifndef LFS3_RDONLY
+    if (lfs3_t_ismkconsistent(mgc->t.h.flags)
+            && lfs3_grm_count(lfs3) > 0) {
+        // fix pending grms
+        uint32_t dirty = mgc->t.h.flags;
+        int err = lfs3_fs_fixgrm(lfs3);
+        if (err) {
+            return err;
+        }
+        // reset dirty flag
+        mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
+    }
+    #endif
+
     // start of traversal?
     if (mgc->t.h.mdir.mid == LFS3_MID_MROOTANCHOR) {
         #ifndef LFS3_RDONLY
@@ -11446,9 +11463,6 @@ empty:;
     return 0;
 }
 #endif
-
-// needed in lfs3_remove
-static int lfs3_fs_fixgrm(lfs3_t *lfs3);
 
 #ifndef LFS3_RDONLY
 int lfs3_remove(lfs3_t *lfs3, const char *path) {
@@ -16300,9 +16314,15 @@ failed:;
 }
 #endif
 
+// prepare the filesystem for mutation
 #ifndef LFS3_RDONLY
-static int lfs3_fs_fixorphans(lfs3_t *lfs3) {
-    // LFS3_T_MKCONSISTENT really just removes orphans
+int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
+    // filesystem must be writeable
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
+
+    // LFS3_T_MKCONSISTENT does most of the work:
+    // 1. fixes pending grms
+    // 2. fixes orphaned stickynotes
     lfs3_mgc_t mgc;
     lfs3_mgc_init(&mgc,
             LFS3_T_RDWR | LFS3_T_MTREEONLY | LFS3_T_MKCONSISTENT);
@@ -16315,36 +16335,6 @@ static int lfs3_fs_fixorphans(lfs3_t *lfs3) {
                 break;
             }
             return tag;
-        }
-    }
-
-    return 0;
-}
-#endif
-
-// prepare the filesystem for mutation
-#ifndef LFS3_RDONLY
-int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
-    // filesystem must be writeable
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
-
-    // fix pending grms
-    if (lfs3_grm_count(lfs3) > 0) {
-        int err = lfs3_fs_fixgrm(lfs3);
-        if (err) {
-            return err;
-        }
-    }
-
-    // fix orphaned stickynotes
-    //
-    // this must happen after fixgrm, since removing orphaned
-    // stickynotes risks outdating the grm
-    //
-    if (lfs3_t_ismkconsistent(lfs3->flags)) {
-        int err = lfs3_fs_fixorphans(lfs3);
-        if (err) {
-            return err;
         }
     }
 
@@ -16811,21 +16801,6 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
             && lfs3_t_isdirty(trv->gc.t.h.flags)) {
         return LFS3_ERR_BUSY;
     }
-
-    // check for pending grms every step, just in case some other
-    // operation introduced new grms
-    #ifndef LFS3_RDONLY
-    if (lfs3_t_ismkconsistent(trv->gc.t.h.flags)
-            && lfs3_grm_count(lfs3) > 0) {
-        uint32_t dirty = trv->gc.t.h.flags;
-        int err = lfs3_fs_fixgrm(lfs3);
-        if (err) {
-            return err;
-        }
-        // reset dirty flag
-        trv->gc.t.h.flags &= ~LFS3_t_DIRTY | dirty;
-    }
-    #endif
 
     // discard current block queue?
     if (lfs3_t_isstale(trv->gc.t.h.flags)) {
