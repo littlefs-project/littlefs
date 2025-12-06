@@ -1232,18 +1232,8 @@ typedef struct lfs3_trv {
 } lfs3_trv_t;
 
 // littlefs global state
-typedef struct lfs3_grm {
-    lfs3_smid_t queue[2];
-} lfs3_grm_t;
-
-typedef struct lfs3_gbmap {
-    lfs3_block_t window;
-    lfs3_block_t known;
-    lfs3_sblock_t free;
-    lfs3_btree_t b;
-    lfs3_btree_t b_p;
-} lfs3_gbmap_t;
-
+typedef struct lfs3_grm lfs3_grm_t;
+typedef struct lfs3_gbmap lfs3_gbmap_t;
 
 // The littlefs filesystem type
 typedef struct lfs3 {
@@ -1314,7 +1304,9 @@ typedef struct lfs3 {
     // TODO can we actually get rid of grm_d when LFS3_RDONLY?
     uint32_t gcksum_d;
 
-    lfs3_grm_t grm;
+    struct lfs3_grm {
+        lfs3_smid_t queue[2];
+    } grm;
     #ifndef LFS3_RDONLY
     uint8_t grm_p[LFS3_GRM_DSIZE];
     #endif
@@ -1322,7 +1314,13 @@ typedef struct lfs3 {
     uint8_t grm_d[LFS3_GRM_DSIZE];
 
     #ifdef LFS3_GBMAP
-    lfs3_gbmap_t gbmap;
+    struct lfs3_gbmap {
+        lfs3_block_t window;
+        lfs3_block_t known;
+        lfs3_sblock_t free;
+        lfs3_btree_t b;
+        lfs3_btree_t b_p;
+    } gbmap;
     uint8_t gbmap_p[LFS3_GBMAP_DSIZE];
     uint8_t gbmap_d[LFS3_GBMAP_DSIZE];
     #endif
