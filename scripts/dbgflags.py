@@ -39,6 +39,7 @@ O_DESYNC        = 0x00100000  # --  Do not sync or recieve file updates
 
 O_CKMETA        = 0x00001000  # --  Check metadata checksums
 O_CKDATA        = 0x00002000  # --  Check metadata + data checksums
+O_CK            = 0x00003000  # a-  Alias for all check work
 
 o_WRSET         =          3  # i-  Open a file as an atomic write
 o_TYPE          = 0xf0000000  # im  The file's type
@@ -86,6 +87,8 @@ F_LOOKAHEAD     = 0x00000200  # y-  Repopulate lookahead buffer
 F_COMPACT       = 0x00000800  # y-  Compact metadata logs
 F_CKMETA        = 0x00001000  # y-  Check metadata checksums
 F_CKDATA        = 0x00002000  # y-  Check metadata + data checksums
+F_CK            = 0x00003000  # a-  Alias for all check work
+F_GC            = 0x00003b00  # a-  Alias for all gc work
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -105,6 +108,8 @@ M_LOOKAHEAD     = 0x00000200  # y-  Repopulate lookahead buffer
 M_COMPACT       = 0x00000800  # y-  Compact metadata logs
 M_CKMETA        = 0x00001000  # y-  Check metadata checksums
 M_CKDATA        = 0x00002000  # y-  Check metadata + data checksums
+M_CK            = 0x00003000  # a-  Alias for all check work
+M_GC            = 0x00003b00  # a-  Alias for all gc work
 
 # File/filesystem check flags
 CK_MKCONSISTENT = 0x00000100  # --  Make the filesystem consistent
@@ -112,6 +117,8 @@ CK_LOOKAHEAD    = 0x00000200  # --  Repopulate lookahead buffer
 CK_COMPACT      = 0x00000800  # --  Compact metadata logs
 CK_CKMETA       = 0x00001000  # --  Check metadata checksums
 CK_CKDATA       = 0x00002000  # --  Check metadata + data checksums
+CK_CK           = 0x00003000  # a-  Alias for all check work
+CK_GC           = 0x00003b00  # a-  Alias for all gc work
 
 # GC flags
 GC_MKCONSISTENT = 0x00000100  # --  Make the filesystem consistent
@@ -119,6 +126,8 @@ GC_LOOKAHEAD    = 0x00000200  # --  Repopulate lookahead buffer
 GC_COMPACT      = 0x00000800  # --  Compact metadata logs
 GC_CKMETA       = 0x00001000  # --  Check metadata checksums
 GC_CKDATA       = 0x00002000  # --  Check metadata + data checksums
+GC_CK           = 0x00003000  # a-  Alias for all check work
+GC_GC           = 0x00003b00  # a-  Alias for all gc work
 
 # Filesystem info flags
 I_RDONLY        = 0x00000001  # --  Mounted read only
@@ -150,6 +159,8 @@ T_LOOKAHEAD     = 0x00000200  # --  Repopulate lookahead buffer
 T_COMPACT       = 0x00000800  # --  Compact metadata logs
 T_CKMETA        = 0x00001000  # --  Check metadata checksums
 T_CKDATA        = 0x00002000  # --  Check metadata + data checksums
+T_CK            = 0x00003000  # a-  Alias for all check work
+T_GC            = 0x00003b00  # a-  Alias for all gc work
 
 t_TYPE          = 0xf0000000  # im  The traversal's type
 t_REG           = 0x10000000  # i^  Type = regular-file
@@ -247,6 +258,7 @@ class Flag:
     def __init__(self, name, flag, help, *,
             prefix=None,
             yes=False,
+            alias=False,
             internal=False,
             mask=False,
             type=False):
@@ -255,6 +267,7 @@ class Flag:
         self.help = help
         self.prefix = prefix
         self.yes = yes
+        self.alias = alias
         self.internal = internal
         self.mask = mask
         self.type = type
@@ -310,6 +323,7 @@ class Flag:
                         prefix=prefixes_[
                             m.group('name').split('_', 1)[0].upper()],
                         yes='y' in m.group('mode'),
+                        alias='a' in m.group('mode'),
                         internal='i' in m.group('mode'),
                         mask='m' in m.group('mode'),
                         # associate types -> mask
@@ -376,8 +390,8 @@ def main(flags, *,
                 f__ = int(f_, 0)
                 f___ = f__
                 for f in flags__:
-                    # ignore type masks here
-                    if f.mask:
+                    # ignore aliases and type masks here
+                    if f.alias or f.mask:
                         continue
                     # matches flag?
                     if not f.type and (f__ & f.flag) == f.flag:
