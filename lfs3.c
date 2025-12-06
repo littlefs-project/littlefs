@@ -16128,34 +16128,29 @@ failed:;
 // note lfs3_fs_stat should never go to disk
 int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     // return various filesystem flags
-    uint32_t flags = lfs3->flags & (
-            LFS3_I_RDONLY
-                | LFS3_I_FLUSH
-                | LFS3_I_SYNC
-                | LFS3_IFDEF_REVDBG(LFS3_I_REVDBG, 0)
-                | LFS3_IFDEF_REVNOISE(LFS3_I_REVNOISE, 0)
-                | LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, 0)
-                | LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, 0)
-                | LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, 0)
-                | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
-                | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
-                | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
-                | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0));
-
-    // some flags we calculate on demand
-
-    // internally, LFS3_I_MKCONSISTENT just means we may have orphaned
-    // stickynotes, need to also include any grms
-    #ifndef LFS3_RDONLY
-    if (lfs3_t_ismkconsistent(lfs3->flags) || lfs3_grm_count(lfs3) > 0) {
-        flags |= LFS3_I_MKCONSISTENT;
-    }
-    #endif
-
-    fsinfo->flags = flags;
+    fsinfo->flags = (lfs3->flags & (
+                LFS3_I_RDONLY
+                    | LFS3_I_FLUSH
+                    | LFS3_I_SYNC
+                    | LFS3_IFDEF_REVDBG(LFS3_I_REVDBG, 0)
+                    | LFS3_IFDEF_REVNOISE(LFS3_I_REVNOISE, 0)
+                    | LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, 0)
+                    | LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, 0)
+                    | LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, 0)
+                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, 0)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
+                    | LFS3_I_CKMETA
+                    | LFS3_I_CKDATA
+                    | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)))
+            // LFS3_I_MKCONSISTENT is a bit of a special case,
+            // internally it strictly indicates untracked orphans, but
+            // externally it also includes any pending grms
+            | LFS3_IFDEF_RDONLY(0,
+                (lfs3_grm_count(lfs3) > 0)
+                    ? LFS3_I_MKCONSISTENT
+                    : 0);
 
     // return filesystem config, this may come from disk
     fsinfo->block_size = lfs3->cfg->block_size;
@@ -16358,26 +16353,20 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
 // multiple passes
 static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         uint32_t flags, lfs3_soff_t steps) {
-    // fix pending grms if requested
-    #ifndef LFS3_RDONLY
-    if (lfs3_t_ismkconsistent(flags)
-            && lfs3_grm_count(lfs3) > 0) {
-        int err = lfs3_fs_fixgrm(lfs3);
-        if (err) {
-            return err;
-        }
-    }
-    #endif
-
     while ((lfs3_off_t)steps > 0) {
         // do we have any pending work?
         uint32_t pending = flags & (
-                (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
-                        | LFS3_GC_CKMETA
-                        | LFS3_GC_CKDATA)
-                    & lfs3->flags);
+                (lfs3->flags & (
+                        LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                            | LFS3_GC_CKMETA
+                            | LFS3_GC_CKDATA))
+                    // including any pending grms
+                    | LFS3_IFDEF_RDONLY(0,
+                        (lfs3_grm_count(lfs3) > 0)
+                            ? LFS3_GC_MKCONSISTENT
+                            : 0));
         if (!pending) {
             break;
         }
@@ -16401,13 +16390,12 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // note that even though our current API prevents flags from
         // changing mid-traversal, lfs3->flags can be updated by other
         // operations
-        mgc->t.h.flags &= ~(
-                (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
-                        | LFS3_GC_CKMETA
-                        | LFS3_GC_CKDATA)
-                    ^ pending);
+        mgc->t.h.flags &= ~(pending ^ (
+                LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                    | LFS3_GC_CKMETA
+                    | LFS3_GC_CKDATA));
 
         // will this traversal still make progress? no? start over
         if (!(mgc->t.h.flags
