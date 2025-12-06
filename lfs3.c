@@ -16354,29 +16354,53 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     }
     #endif
 
-    // do we have any pending work?
-    while ((flags & (lfs3->flags & LFS3_GC_ALL))
-            && (lfs3_off_t)steps > 0) {
+    while ((lfs3_off_t)steps > 0) {
+        // do we have any pending work?
+        uint32_t pending = flags & (LFS3_GC_ALL & lfs3->flags);
+        if (!pending) {
+            break;
+        }
+        // prioritize lookahead/gbmap before any work that may need to
+        // allocate
+        #ifndef LFS3_RDONLY
+        if (lfs3_t_islookahead(pending)) {
+            pending &= ~(
+                    LFS3_GC_MKCONSISTENT
+                        | LFS3_GC_COMPACT);
+        }
+        #endif
+
         // start a new traversal?
         if (!lfs3_handle_isopen(lfs3, &mgc->t.h)) {
-            lfs3_mgc_init(mgc, flags & (lfs3->flags & LFS3_GC_ALL));
+            lfs3_mgc_init(mgc, pending);
             lfs3_handle_open(lfs3, &mgc->t.h);
+        }
+        // mask out any flags that changed
+        //
+        // note that even though our current API prevents flags from
+        // changing mid-traversal, lfs3->flags can be updated by other
+        // operations
+        mgc->t.h.flags &= ~(LFS3_GC_ALL ^ pending);
 
-            // prioritize lookahead/gbmap before any work that may need to
-            // allocate
-            if (lfs3_t_islookahead(mgc->t.h.flags)) {
-                mgc->t.h.flags &= ~(
-                        LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT));
-            }
+        // will this traversal still make progress? no? start over
+        if (!(mgc->t.h.flags & (
+                LFS3_GC_ALL
+                    // don't bother with lookahead/gbmap if we've ckpointed
+                    & ~LFS3_IFDEF_RDONLY(
+                        0,
+                        (lfs3_t_isckpointed(mgc->t.h.flags))
+                            ? LFS3_GC_LOOKAHEAD
+                            : 0)))) {
+            lfs3_handle_close(lfs3, &mgc->t.h);
+            continue;
+        }
 
-            // do we really need a full traversal?
-            if (!(mgc->t.h.flags & (
-                    LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                        | LFS3_GC_CKMETA
-                        | LFS3_GC_CKDATA))) {
-                mgc->t.h.flags |= LFS3_T_MTREEONLY;
-            }
+        // do we really need a full traversal?
+        if (!(mgc->t.h.flags & (
+                LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+                    | LFS3_GC_CKMETA
+                    | LFS3_GC_CKDATA))) {
+            mgc->t.h.flags |= LFS3_T_MTREEONLY;
         }
 
         // progress gc
@@ -16387,7 +16411,6 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             lfs3_handle_close(lfs3, &mgc->t.h);
             return tag;
         }
-
         // end of traversal?
         if (tag == LFS3_ERR_NOENT) {
             lfs3_handle_close(lfs3, &mgc->t.h);
