@@ -109,6 +109,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     TEST_DEFINE(GC_STEPS,               0                                    ) \
     TEST_DEFINE(GC_LOOKAHEAD_THRESH,    -1                                   ) \
     TEST_DEFINE(GC_LOOKGBMAP_THRESH,    -1                                   ) \
+    TEST_DEFINE(GC_PREERASE_COUNT,      -1                                   ) \
     TEST_DEFINE(GC_COMPACT_THRESH,      0                                    ) \
     TEST_DEFINE(SHRUB_SIZE,             BLOCK_SIZE/4                         ) \
     TEST_DEFINE(FRAGMENT_SIZE,          LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
@@ -139,6 +140,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .fcache_size                = FCACHE_SIZE,              \
     .lookahead_size             = LOOKAHEAD_SIZE,           \
     TEST_GBMAP_CFG                                          \
+    TEST_PREERASE_CFG                                       \
     TEST_GC_CFG                                             \
     .gc_lookahead_thresh        = GC_LOOKAHEAD_THRESH,      \
     .gc_compact_thresh          = GC_COMPACT_THRESH,        \
@@ -152,6 +154,13 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
     .lookgbmap_thresh           = LOOKGBMAP_THRESH,
 #else
 #define TEST_GBMAP_CFG
+#endif
+
+#if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#define TEST_PREERASE_CFG \
+    .gc_preerase_count          = GC_PREERASE_COUNT,
+#else
+#define TEST_PREERASE_CFG
 #endif
 
 #ifdef LFS3_GC

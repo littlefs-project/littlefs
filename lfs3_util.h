@@ -276,6 +276,12 @@
 #define LFS3_IFDEF_YES_GBMAP(a, b) (b)
 #endif
 
+#ifndef LFS3_NO_PREERASE
+#define LFS3_IFDEF_PREERASE(a, b) (a)
+#else
+#define LFS3_IFDEF_PREERASE(a, b) (b)
+#endif
+
 #ifdef LFS3_BLEAFCACHE
 #define LFS3_IFDEF_BLEAFCACHE(a, b) (a)
 #else
