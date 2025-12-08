@@ -16633,11 +16633,18 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             }
             #endif
 
-        // TODO do this
-        // // if we have nothing else to do, try to commit the gbmap to
-        // // disk so it's recoverable if we lose power
-        // } else if (lfs3_btree_cmp(&lfs3->gbmap.b, &lfs3->gbmap.b_p) != 0) {
-        //     // TODO
+        // if we have nothing else to do, try to commit the gbmap to
+        // disk so it's recoverable if we lose power
+        } else if (LFS3_IFDEF_GBMAP(
+                lfs3_btree_cmp(&lfs3->gbmap.b, &lfs3->gbmap.b_p) != 0,
+                false)) {
+            #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+            int err = lfs3_mdir_commit(lfs3, &lfs3->mroot,
+                    LFS3_RATTRS(LFS3_RATTR_NULL));
+            if (err) {
+                return err;
+            }
+            #endif
 
         // nothing to do at all? guess we're done
         } else {
