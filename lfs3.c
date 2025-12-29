@@ -7114,41 +7114,29 @@ static inline bool lfs3_o_iswrset(uint32_t flags) {
     #endif
 }
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_o_iscreat(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_O_CREAT;
-    #else
-    return false;
-    #endif
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_o_isexcl(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_O_EXCL;
-    #else
-    return false;
-    #endif
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_o_istrunc(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_O_TRUNC;
-    #else
-    return false;
-    #endif
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_o_isappend(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_O_APPEND;
-    #else
-    return false;
-    #endif
 }
+#endif
 
 static inline bool lfs3_o_isflush(uint32_t flags) {
     (void)flags;
@@ -7237,60 +7225,38 @@ static inline bool lfs3_t_isexcl(uint32_t flags) {
     return flags & LFS3_T_EXCL;
 }
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_t_ismkconsistent(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_T_MKCONSISTENT;
-    #else
-    return false;
-    #endif
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_t_islookahead(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_T_LOOKAHEAD;
-    #else
-    return false;
-    #endif
 }
+#endif
 
+#if !defined(LFS3_RDONLY) \
+        && defined(LFS3_GBMAP) \
+        && !defined(LFS3_NO_PREERASE)
 static inline bool lfs3_t_ispreerase(uint32_t flags) {
-    (void)flags;
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
     return flags & LFS3_T_PREERASE;
-    #else
-    return false;
-    #endif
 }
+#endif
 
+#ifndef LFS3_RDONLY
 static inline bool lfs3_t_compact(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_T_COMPACT;
-    #else
-    return false;
-    #endif
 }
+#endif
 
 static inline bool lfs3_t_isckmeta(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_T_CKMETA;
-    #else
-    return false;
-    #endif
 }
 
 static inline bool lfs3_t_isckdata(uint32_t flags) {
-    (void)flags;
-    #ifndef LFS3_RDONLY
     return flags & LFS3_T_CKDATA;
-    #else
-    return false;
-    #endif
 }
 
 // internal traversal flags
@@ -11022,8 +10988,10 @@ static void lfs3_alloc_markinusebptr(lfs3_t *lfs3,
 #endif
 
 // needed in lfs3_alloc_adopt
+#ifndef LFS3_RDONLY
 static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
         lfs3_ecksum_t *ecksum_);
+#endif
 
 // mark any not-in-use blocks as free
 #ifndef LFS3_RDONLY
@@ -12562,7 +12530,9 @@ static void lfs3_file_init(lfs3_file_t *file, uint32_t flags,
 
 static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     // don't bother reading disk if we're not created or truncating
-    if (!lfs3_o_isuncreat(flags) && !lfs3_o_istrunc(flags)) {
+    if (!LFS3_IFDEF_RDONLY(
+            false,
+            lfs3_o_isuncreat(flags) || lfs3_o_istrunc(flags))) {
         // fetch the file's bshrub/btree, if there is one
         int err = lfs3_bshrub_fetch(lfs3, &file->b);
         if (err && err != LFS3_ERR_NOENT) {
@@ -12678,14 +12648,14 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // creating a new entry?
-    if (tag == LFS3_ERR_NOENT || tag == LFS3_tag_ORPHAN) {
-        if (!lfs3_o_iscreat(file->b.h.flags)) {
-            err = LFS3_ERR_NOENT;
-            goto failed;
-        }
+    if (LFS3_IFDEF_RDONLY(
+            false,
+            (tag == LFS3_ERR_NOENT || tag == LFS3_tag_ORPHAN)
+                && lfs3_o_iscreat(file->b.h.flags))) {
+        #ifndef LFS3_RDONLY
+        // we'd better not be rdonly
         LFS3_ASSERT(!lfs3_o_isrdonly(file->b.h.flags));
 
-        #ifndef LFS3_RDONLY
         // we're a file, don't allow trailing slashes
         if (lfs3_path_isdir(path)) {
             err = LFS3_ERR_NOTDIR;
@@ -12703,12 +12673,16 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             file->b.h.flags |= LFS3_o_UNCREAT | LFS3_o_UNSYNC;
         }
         #endif
-    } else {
+
+    // existing entry?
+    } else if (!(tag == LFS3_ERR_NOENT || tag == LFS3_tag_ORPHAN)) {
+        #ifndef LFS3_RDONLY
         // wanted to create a new entry?
         if (lfs3_o_isexcl(file->b.h.flags)) {
             err = LFS3_ERR_EXIST;
             goto failed;
         }
+        #endif
 
         // wrong type?
         if (tag == LFS3_TAG_DIR) {
@@ -12731,6 +12705,11 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             file->b.h.flags |= LFS3_o_UNSYNC;
         }
         #endif
+
+    // no?
+    } else {
+        err = LFS3_ERR_NOENT;
+        goto failed;
     }
 
     // need to create an entry?
@@ -12835,6 +12814,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     // writeable files require a writeable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || lfs3_o_isrdonly(flags));
     // these flags require a writable file
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !lfs3_o_iscreat(flags));
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !lfs3_o_isexcl(flags));
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !lfs3_o_istrunc(flags));
@@ -12845,6 +12825,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
                 || !lfs3_o_isexcl(cfg->attrs[i].flags));
     }
+    #endif
 
     return lfs3_file_opencfg_(lfs3, file, path, flags,
             cfg);
@@ -16055,10 +16036,16 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) == 0);
     // these flags require a writable filesystem
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_islookahead(flags));
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_ispreerase(flags));
+    #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_compact(flags));
+    #endif
 
     int err = lfs3_init(lfs3,
             flags & (
@@ -16822,14 +16809,20 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
                 | LFS3_CK_CKMETA
                 | LFS3_CK_CKDATA)) == 0);
     // these flags require a writable filesystem
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_islookahead(flags));
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_ispreerase(flags));
+    #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_compact(flags));
+    #endif
 
     // set needs-ck flags, this has the side-effect of signaling ck work
     // is incomplete if we encounter an error, which is probably a good
@@ -16860,8 +16853,12 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
             || !lfs3_t_ismkconsistent(lfs3->cfg->gc_flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_islookahead(lfs3->cfg->gc_flags));
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_ispreerase(lfs3->cfg->gc_flags));
+    #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_compact(lfs3->cfg->gc_flags));
 
@@ -17130,12 +17127,20 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     // writeable traversals require a writeable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags) || lfs3_t_isrdonly(flags));
     // these flags require a writable traversal
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_islookahead(flags));
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_ispreerase(flags));
+    #endif
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_compact(flags));
+    #endif
     // some flags don't make sense when only traversing the mtree
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_islookahead(flags));
+    #endif
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isckdata(flags));
 
     // setup traversal state
