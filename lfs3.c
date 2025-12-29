@@ -10995,11 +10995,12 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
 
                 // free? erased?
                 //
-                // well, we can only use erased if pre-erase support is
-                // enabled
+                // well, we can only use erased if pre-erase and
+                // revperturb is enabled
                 if (tag == LFS3_TAG_BMFREE
                         || LFS3_IFDEF_PREERASE(
-                            tag == LFS3_TAG_BMERASED,
+                            tag == LFS3_TAG_BMERASED
+                                && lfs3_m_isrevperturb(lfs3->flags),
                             false)) {
                     lfs3->gbmap.next = lfs3_min(
                             (block+1) - lfs3->gbmap.window,
@@ -15964,6 +15965,13 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_compact(flags));
     #endif
+    // we can't use preerased blocks without revperturb, so this is
+    // likely a mistake
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
+    LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_t_ispreerase(flags));
+    #endif
 
     int err = lfs3_init(lfs3,
             flags & (
@@ -16270,6 +16278,13 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_F_COMPACT
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA)) == 0);
+    // we can't use preerased blocks without revperturb, so this is
+    // likely a mistake
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
+    LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_t_ispreerase(flags));
+    #endif
 
     int err = lfs3_init(lfs3,
             flags & (
@@ -16733,6 +16748,14 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_compact(flags));
     #endif
+    // we can't use preerased blocks without revperturb, so this is
+    // likely a mistake
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
+    LFS3_ASSERT(lfs3_m_isrevperturb(lfs3->flags)
+            || !lfs3_t_ispreerase(flags));
+    #endif
 
     // set needs-ck flags, this has the side-effect of signaling ck work
     // is incomplete if we encounter an error, which is probably a good
@@ -16748,6 +16771,7 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
 // perform any pending janitorial work
 #ifdef LFS3_GC
 int lfs3_fs_gc(lfs3_t *lfs3) {
+    // TODO should we actually assert on these in lfs3_init?
     // unknown gc flags?
     LFS3_ASSERT((lfs3->cfg->gc_flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
@@ -16771,6 +16795,14 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_compact(lfs3->cfg->gc_flags));
+    // we can't use preerased blocks without revperturb, so this is
+    // likely a mistake
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
+    LFS3_ASSERT(lfs3_m_isrevperturb(lfs3->flags)
+            || !lfs3_t_ispreerase(lfs3->cfg->gc_flags));
+    #endif
 
     // run gc a configurable number of steps
     return lfs3_fs_gc_(lfs3, &lfs3->gc,
@@ -17052,6 +17084,13 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_islookahead(flags));
     #endif
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isckdata(flags));
+    // we can't use preerased blocks without revperturb, so this is
+    // likely a mistake
+    #if !defined(LFS3_RDONLY) \
+            && defined(LFS3_GBMAP) \
+            && !defined(LFS3_NO_PREERASE)
+    LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_t_ispreerase(flags));
+    #endif
 
     // setup traversal state
     trv->gc.t.h.flags = flags | lfs3_o_typeflags(LFS3_type_TRV);
