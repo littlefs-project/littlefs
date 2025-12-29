@@ -10900,8 +10900,8 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
 #endif
 
 // can we repopulate the lookahead buffer?
+#ifndef LFS3_RDONLY
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3) {
-    #ifndef LFS3_RDONLY
     // below gc_lookahead_thresh?
     return lfs3_max(
                 lfs3->lookahead.known,
@@ -10918,16 +10918,12 @@ static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3) {
                 lfs3_min(
                     8*lfs3->cfg->lookahead_size-1,
                     lfs3->block_count-1));
-    #else
-    // TODO adopt this localized void in flag functions?
-    (void)lfs3;
-    return false;
-    #endif
 }
+#endif
 
 // can we repopulate the gbmap?
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3) {
-    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     // do we even have a gbmap?
     return lfs3_f_isgbmap(lfs3->flags)
             // below gc_lookgbmap_thresh?
@@ -10937,18 +10933,14 @@ static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3) {
                         lfs3->cfg->gc_lookgbmap_thresh,
                         lfs3->cfg->lookgbmap_thresh),
                     lfs3->block_count-1);
-    #else
-    // TODO adopt this localized void in flag functions?
-    (void)lfs3;
-    return false;
-    #endif
 }
+#endif
 
 // can we pre-erase?
+#if !defined(LFS3_RDONLY) \
+        && defined(LFS3_GBMAP) \
+        && !defined(LFS3_NO_PREERASE)
 static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3) {
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
     // do we even have a gbmap?
     return lfs3_f_isgbmap(lfs3->flags)
             // have we pre-erased enough blocks?
@@ -10957,23 +10949,15 @@ static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3) {
             // are there any more blocks in our known window?
             && lfs3->gbmap.preeraser.known
                 < lfs3->gbmap.known;
-    #else
-    // TODO adopt this localized void in flag functions?
-    (void)lfs3;
-    return false;
-    #endif
 }
+#endif
 
 // is gbmap out-of-sync with disk?
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static inline bool lfs3_alloc_cansyncgbmap(const lfs3_t *lfs3) {
-    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     return lfs3_btree_cmp(&lfs3->gbmap.b, &lfs3->gbmap.b_p) != 0;
-    #else
-    // TODO adopt this localized void in flag functions?
-    (void)lfs3;
-    return false;
-    #endif
 }
+#endif
 
 // discard any lookahead/gbmap windows, this is necessary if block_count
 // changes
@@ -11118,7 +11102,7 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
 
     // signal that lookahead/gbmap is no longer full
     if (lfs3_alloc_canlookahead(lfs3)
-            || lfs3_alloc_canlookgbmap(lfs3)) {
+            || LFS3_IFDEF_GBMAP(lfs3_alloc_canlookgbmap(lfs3), false)) {
         lfs3->flags |= LFS3_I_LOOKAHEAD;
     }
 }
@@ -16779,7 +16763,13 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             }
 
         // if we have no pending gc work, can we preerase blocks?
-        } else if (lfs3_alloc_canpreerase(lfs3)) {
+        } else if (LFS3_IFDEF_RDONLY(
+                false,
+                LFS3_IFDEF_GBMAP(
+                    LFS3_IFDEF_PREERASE(
+                        lfs3_alloc_canpreerase(lfs3),
+                        false),
+                    false))) {
             #if !defined(LFS3_RDONLY) \
                     && defined(LFS3_GBMAP) \
                     && !defined(LFS3_NO_PREERASE)
@@ -16791,7 +16781,11 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
         // if we have nothing else to do, try to commit the gbmap to
         // disk so it's recoverable if we lose power
-        } else if (lfs3_alloc_cansyncgbmap(lfs3)) {
+        } else if (LFS3_IFDEF_RDONLY(
+                false,
+                LFS3_IFDEF_GBMAP(
+                    lfs3_alloc_cansyncgbmap(lfs3),
+                    false))) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
             int err = lfs3_alloc_syncgbmap(lfs3);
             if (err) {
