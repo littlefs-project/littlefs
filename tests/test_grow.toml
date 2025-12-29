@@ -10,11 +10,7 @@ after = [
 
 # Test both with and without the gbmap if available
 defines.GBMAP = [false, true]
-if = '''
-    LFS3_IFDEF_YES_GBMAP(
-        GBMAP,
-        LFS3_IFDEF_GBMAP(true, !GBMAP))
-'''
+if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
 defines.FORMAT_BLOCK_COUNT = '(GBMAP) ? 3 : 2'
 
 

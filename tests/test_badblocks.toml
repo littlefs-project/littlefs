@@ -11,7 +11,7 @@ after = [
     'test_compat',
 ]
 
-defines.FORMAT_BLOCK_COUNT = 'LFS3_IFDEF_YES_GBMAP(3, 2)'
+defines.FORMAT_BLOCK_COUNT = 'LFS3_IFYES_GBMAP(3, 2, 2)'
 
 
 ## Single-block badblock tests

@@ -15626,7 +15626,7 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     // optional wcompat flags
     lfs3_wcompat_t wmask = ~(
-            LFS3_IFDEF_GBMAP(LFS3_IFDEF_YES_GBMAP(0, LFS3_WCOMPAT_GBMAP), 0));
+            LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0));
     if ((wcompat_ & wmask) != (wcompat & wmask)) {
         LFS3_WARN("Incompatible wcompat flags 0x%0"PRIx32" "
                     "(!= 0x%0"PRIx32" & ~0x%0"PRIx32")",

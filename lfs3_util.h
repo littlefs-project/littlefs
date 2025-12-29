@@ -215,10 +215,12 @@
 #define LFS3_IFDEF_REVDBG(a, b) (b)
 #endif
 
-#ifdef LFS3_YES_REVDBG
-#define LFS3_IFDEF_YES_REVDBG(a, b) (a)
+#if defined(LFS3_REVDBG) && defined(LFS3_YES_REVDBG)
+#define LFS3_IFYES_REVDBG(a, b, c) (a)
+#elif defined(LFS3_REVDBG)
+#define LFS3_IFYES_REVDBG(a, b, c) (b)
 #else
-#define LFS3_IFDEF_YES_REVDBG(a, b) (b)
+#define LFS3_IFYES_REVDBG(a, b, c) (c)
 #endif
 
 #ifdef LFS3_REVNOISE
@@ -227,10 +229,12 @@
 #define LFS3_IFDEF_REVNOISE(a, b) (b)
 #endif
 
-#ifdef LFS3_YES_REVNOISE
-#define LFS3_IFDEF_YES_REVNOISE(a, b) (a)
+#if defined(LFS3_REVNOISE) && defined(LFS3_YES_REVNOISE)
+#define LFS3_IFYES_REVNOISE(a, b, c) (a)
+#elif defined(LFS3_REVNOISE)
+#define LFS3_IFYES_REVNOISE(a, b, c) (b)
 #else
-#define LFS3_IFDEF_YES_REVNOISE(a, b) (b)
+#define LFS3_IFYES_REVNOISE(a, b, c) (c)
 #endif
 
 #ifdef LFS3_CKPROGS
@@ -239,10 +243,26 @@
 #define LFS3_IFDEF_CKPROGS(a, b) (b)
 #endif
 
+#if defined(LFS3_CKPROGS) && defined(LFS3_YES_CKPROGS)
+#define LFS3_IFYES_CKPROGS(a, b, c) (a)
+#elif defined(LFS3_CKPROGS)
+#define LFS3_IFYES_CKPROGS(a, b, c) (b)
+#else
+#define LFS3_IFYES_CKPROGS(a, b, c) (c)
+#endif
+
 #ifdef LFS3_CKFETCHES
 #define LFS3_IFDEF_CKFETCHES(a, b) (a)
 #else
 #define LFS3_IFDEF_CKFETCHES(a, b) (b)
+#endif
+
+#if defined(LFS3_CKFETCHES) && defined(LFS3_YES_CKFETCHES)
+#define LFS3_IFYES_CKFETCHES(a, b, c) (a)
+#elif defined(LFS3_CKFETCHES)
+#define LFS3_IFYES_CKFETCHES(a, b, c) (b)
+#else
+#define LFS3_IFYES_CKFETCHES(a, b, c) (c)
 #endif
 
 #ifdef LFS3_CKMETAPARITY
@@ -251,10 +271,26 @@
 #define LFS3_IFDEF_CKMETAPARITY(a, b) (b)
 #endif
 
+#if defined(LFS3_CKMETAPARITY) && defined(LFS3_YES_CKMETAPARITY)
+#define LFS3_IFYES_CKMETAPARITY(a, b, c) (a)
+#elif defined(LFS3_CKMETAPARITY)
+#define LFS3_IFYES_CKMETAPARITY(a, b, c) (b)
+#else
+#define LFS3_IFYES_CKMETAPARITY(a, b, c) (c)
+#endif
+
 #ifdef LFS3_CKDATACKSUMS
 #define LFS3_IFDEF_CKDATACKSUMS(a, b) (a)
 #else
 #define LFS3_IFDEF_CKDATACKSUMS(a, b) (b)
+#endif
+
+#if defined(LFS3_CKDATACKSUMS) && defined(LFS3_YES_CKDATACKSUMS)
+#define LFS3_IFYES_CKDATACKSUMS(a, b, c) (a)
+#elif defined(LFS3_CKDATACKSUMS)
+#define LFS3_IFYES_CKDATACKSUMS(a, b, c) (b)
+#else
+#define LFS3_IFYES_CKDATACKSUMS(a, b, c) (c)
 #endif
 
 #ifdef LFS3_GC
@@ -269,17 +305,26 @@
 #define LFS3_IFDEF_GBMAP(a, b) (b)
 #endif
 
-// TODO other LFS3_IFDEF_YES_* macros?
-#ifdef LFS3_YES_GBMAP
-#define LFS3_IFDEF_YES_GBMAP(a, b) (a)
+#if defined(LFS3_GBMAP) && defined(LFS3_YES_GBMAP)
+#define LFS3_IFYES_GBMAP(a, b, c) (a)
+#elif defined(LFS3_GBMAP)
+#define LFS3_IFYES_GBMAP(a, b, c) (b)
 #else
-#define LFS3_IFDEF_YES_GBMAP(a, b) (b)
+#define LFS3_IFYES_GBMAP(a, b, c) (c)
 #endif
 
 #ifndef LFS3_NO_PREERASE
 #define LFS3_IFDEF_PREERASE(a, b) (a)
 #else
 #define LFS3_IFDEF_PREERASE(a, b) (b)
+#endif
+
+#if !defined(LFS3_NO_PREERASE) && defined(LFS3_YES_PREERASE)
+#define LFS3_IFYES_PREERASE(a, b, c) (a)
+#elif !defined(LFS3_NO_PREERASE)
+#define LFS3_IFYES_PREERASE(a, b, c) (b)
+#else
+#define LFS3_IFYES_PREERASE(a, b, c) (c)
 #endif
 
 #ifdef LFS3_BLEAFCACHE
