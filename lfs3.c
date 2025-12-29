@@ -15446,6 +15446,11 @@ static inline lfs3_rcompat_t lfs3_rcompat(const lfs3_t *lfs3) {
             | LFS3_RCOMPAT_GRM;
 }
 
+static inline lfs3_rcompat_t lfs3_rmask(const lfs3_t *lfs3) {
+    (void)lfs3;
+    return ~0;
+}
+
 static inline lfs3_wcompat_t lfs3_wcompat(const lfs3_t *lfs3) {
     (void)lfs3;
     return LFS3_WCOMPAT_GCKSUM
@@ -15455,9 +15460,20 @@ static inline lfs3_wcompat_t lfs3_wcompat(const lfs3_t *lfs3) {
             | LFS3_WCOMPAT_DIR;
 }
 
+static inline lfs3_wcompat_t lfs3_wmask(const lfs3_t *lfs3) {
+    (void)lfs3;
+    return ~(
+            LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0));
+}
+
 static inline lfs3_ocompat_t lfs3_ocompat(const lfs3_t *lfs3) {
     (void)lfs3;
     return 0;
+}
+
+static inline lfs3_rcompat_t lfs3_omask(const lfs3_t *lfs3) {
+    (void)lfs3;
+    return ~0;
 }
 
 // compat flags on-disk encoding
@@ -15587,7 +15603,6 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     // check for any rcompatflags, we must understand these to read
     // the filesystem
-    lfs3_rcompat_t rcompat = lfs3_rcompat(lfs3);
     lfs3_rcompat_t rcompat_ = 0;
     tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_RCOMPAT,
             &data);
@@ -15601,16 +15616,20 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
         }
     }
 
-    if (rcompat_ != rcompat) {
-        LFS3_ERROR("Incompatible rcompat flags 0x%0"PRIx32" (!= 0x%0"PRIx32")",
+    // optional rcompat flags
+    lfs3_rcompat_t rcompat = lfs3_rcompat(lfs3);
+    lfs3_rcompat_t rmask = lfs3_rmask(lfs3);
+    if ((rcompat_ & rmask) != (rcompat & rmask)) {
+        LFS3_ERROR("Incompatible rcompat flags 0x%"PRIx32" "
+                    "(!= 0x%"PRIx32" & ~0x%"PRIx32")",
                 rcompat_,
-                rcompat);
+                rcompat,
+                ~rmask);
         return LFS3_ERR_NOTSUP;
     }
 
     // check for any wcompatflags, we must understand these to write
     // the filesystem
-    lfs3_wcompat_t wcompat = lfs3_wcompat(lfs3);
     lfs3_wcompat_t wcompat_ = 0;
     tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_WCOMPAT,
             &data);
@@ -15625,11 +15644,11 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     }
 
     // optional wcompat flags
-    lfs3_wcompat_t wmask = ~(
-            LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0));
+    lfs3_wcompat_t wcompat = lfs3_wcompat(lfs3);
+    lfs3_wcompat_t wmask = lfs3_wmask(lfs3);
     if ((wcompat_ & wmask) != (wcompat & wmask)) {
-        LFS3_WARN("Incompatible wcompat flags 0x%0"PRIx32" "
-                    "(!= 0x%0"PRIx32" & ~0x%0"PRIx32")",
+        LFS3_WARN("Incompatible wcompat flags 0x%"PRIx32" "
+                    "(!= 0x%"PRIx32" & ~0x%"PRIx32")",
                 wcompat_,
                 wcompat,
                 ~wmask);
