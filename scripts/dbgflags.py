@@ -75,7 +75,7 @@ F_MODE          =          1  # -m  Format's access mode
 F_RDWR          =          0  # -^  Format the filesystem as read and write
 F_GBMAP         = 0x02000000  # y-  Use the global on-disk block-map
 
-F_REVDBG        = 0x00000010  # y-  Add debug info to revision counts
+F_REVPERTURB    = 0x00000010  # y-  Perturb first bit in revision count
 F_REVNOISE      = 0x00000020  # y-  Add noise to revision counts
 F_CKPROGS       = 0x00100000  # y-  Check progs by reading back progged data
 F_CKFETCHES     = 0x00200000  # y-  Check block checksums before first use
@@ -97,7 +97,7 @@ M_RDWR          =          0  # -^  Mount the filesystem as read and write
 M_RDONLY        =          1  # -^  Mount the filesystem as read only
 M_FLUSH         = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
 M_SYNC          = 0x00000080  # y-  Open all files with LFS3_O_SYNC
-M_REVDBG        = 0x00000010  # y-  Add debug info to revision counts
+M_REVPERTURB    = 0x00000010  # y-  Perturb first bit in revision count
 M_REVNOISE      = 0x00000020  # y-  Add noise to revision counts
 M_CKPROGS       = 0x00100000  # y-  Check progs by reading back progged data
 M_CKFETCHES     = 0x00200000  # y-  Check block checksums before first use
@@ -139,7 +139,7 @@ I_GBMAP         = 0x02000000  # --  Global on-disk block-map in use
 
 I_FLUSH         = 0x00000040  # --  Mounted with LFS3_M_FLUSH
 I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
-I_REVDBG        = 0x00000010  # --  Mounted with LFS3_M_REVDBG
+I_REVPERTURB    = 0x00000010  # --  Mounted with LFS3_M_REVPERTURB
 I_REVNOISE      = 0x00000020  # --  Mounted with LFS3_M_REVNOISE
 I_CKPROGS       = 0x00100000  # --  Mounted with LFS3_M_CKPROGS
 I_CKFETCHES     = 0x00200000  # --  Mounted with LFS3_M_CKFETCHES

@@ -182,8 +182,9 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_F_GBMAP    0x02000000  // Use the global on-disk block-map
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVDBG)
-#define LFS3_F_REVDBG   0x00000010  // Add debug info to revision counts
+#if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
+#define LFS3_F_REVPERTURB \
+                        0x00000010  // Perturb first bit in revision count
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
 #define LFS3_F_REVNOISE 0x00000020  // Add noise to revision counts
@@ -246,8 +247,9 @@ enum lfs3_type {
 #define LFS3_M_RDONLY            1  // Mount the filesystem as read only
 #define LFS3_M_FLUSH    0x00000040  // Open all files with LFS3_O_FLUSH
 #define LFS3_M_SYNC     0x00000080  // Open all files with LFS3_O_SYNC
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVDBG)
-#define LFS3_M_REVDBG   0x00000010  // Add debug info to revision counts
+#if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
+#define LFS3_M_REVPERTURB \
+                        0x00000010  // Add debug info to revision counts
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
 #define LFS3_M_REVNOISE 0x00000020  // Add noise to revision counts
@@ -305,8 +307,9 @@ enum lfs3_type {
 #endif
 #define LFS3_I_FLUSH    0x00000040  // Mounted with LFS3_M_FLUSH
 #define LFS3_I_SYNC     0x00000080  // Mounted with LFS3_M_SYNC
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVDBG)
-#define LFS3_I_REVDBG   0x00000010  // Mounted with LFS3_M_REVDBG
+#if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
+#define LFS3_I_REVPERTURB \
+                        0x00000010  // Mounted with LFS3_M_REVPERTURB
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
 #define LFS3_I_REVNOISE 0x00000020  // Mounted with LFS3_M_REVNOISE

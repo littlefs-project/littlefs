@@ -24,7 +24,7 @@ code = '''
 defines.RDONLY = [false, true]
 defines.FLUSH = [false, true]
 defines.SYNC = [false, true]
-defines.REVDBG = [false, true]
+defines.REVPERTURB = [false, true]
 defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
@@ -36,7 +36,7 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
-    'LFS3_IFYES_REVDBG(REVDBG, true, !REVDBG)',
+    'LFS3_IFYES_REVPERTURB(REVPERTURB, true, !REVPERTURB)',
     'LFS3_IFYES_REVNOISE(REVNOISE, true, !REVNOISE)',
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
@@ -56,7 +56,9 @@ code = '''
             ((RDONLY) ? LFS3_M_RDONLY : LFS3_M_RDWR)
                 | ((FLUSH) ? LFS3_M_FLUSH : 0)
                 | ((SYNC) ? LFS3_M_SYNC : 0)
-                | ((REVDBG) ? LFS3_IFDEF_REVDBG(LFS3_M_REVDBG, -1) : 0)
+                | ((REVPERTURB)
+                    ? LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, -1)
+                    : 0)
                 | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1) : 0)
@@ -80,7 +82,9 @@ code = '''
             ((RDONLY) ? LFS3_I_RDONLY : 0)
                 | ((FLUSH) ? LFS3_I_FLUSH : 0)
                 | ((SYNC) ? LFS3_I_SYNC : 0)
-                | ((REVDBG) ? LFS3_IFDEF_REVDBG(LFS3_I_REVDBG, -1) : 0)
+                | ((REVPERTURB)
+                    ? LFS3_IFDEF_REVPERTURB(LFS3_I_REVPERTURB, -1)
+                    : 0)
                 | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_I_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, -1) : 0)
@@ -105,7 +109,7 @@ code = '''
 # 
 # these end up passed to mount internally
 [cases.test_mount_format_flags]
-defines.REVDBG = [false, true]
+defines.REVPERTURB = [false, true]
 defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
@@ -117,7 +121,7 @@ defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 if = [
-    'LFS3_IFYES_REVDBG(REVDBG, true, !REVDBG)',
+    'LFS3_IFYES_REVPERTURB(REVPERTURB, true, !REVPERTURB)',
     'LFS3_IFYES_REVNOISE(REVNOISE, true, !REVNOISE)',
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
@@ -128,7 +132,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((REVDBG) ? LFS3_IFDEF_REVDBG(LFS3_F_REVDBG, -1) : 0)
+                | ((REVPERTURB)
+                    ? LFS3_IFDEF_REVPERTURB(LFS3_F_REVPERTURB, -1)
+                    : 0)
                 | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_F_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, -1) : 0)
@@ -151,7 +157,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
@@ -184,7 +190,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
@@ -203,7 +209,7 @@ code = '''
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | LFS3_I_COMPACT
@@ -239,7 +245,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | LFS3_I_COMPACT
@@ -262,7 +268,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
@@ -281,7 +287,7 @@ code = '''
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | LFS3_I_COMPACT
@@ -342,7 +348,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | ((!GBMAP || SIZE >= BLOCK_SIZE/4)
@@ -364,7 +370,7 @@ code = '''
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | ((!LOOKAHEAD && (!GBMAP || SIZE >= BLOCK_SIZE/4))
@@ -457,7 +463,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | ((!GBMAP || ORPHANS >= 100)
@@ -480,7 +486,7 @@ code = '''
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVDBG(LFS3_I_REVDBG, 0, 0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
                     ? LFS3_I_LOOKAHEAD

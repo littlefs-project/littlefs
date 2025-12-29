@@ -26,8 +26,8 @@
 
 // LFS3_BIGGEST enables all opt-in features
 #ifdef LFS3_BIGGEST
-#ifndef LFS3_REVDBG
-#define LFS3_REVDBG
+#ifndef LFS3_REVPERTURB
+#define LFS3_REVPERTURB
 #endif
 #ifndef LFS3_REVNOISE
 #define LFS3_REVNOISE
@@ -59,8 +59,8 @@
 #ifdef LFS3_YES_RDONLY
 #define LFS3_RDONLY
 #endif
-#ifdef LFS3_YES_REVDBG
-#define LFS3_REVDBG
+#ifdef LFS3_YES_REVPERTURB
+#define LFS3_REVPERTURB
 #endif
 #ifdef LFS3_YES_REVNOISE
 #define LFS3_REVNOISE
@@ -209,18 +209,18 @@
 #define LFS3_IFDEF_RDONLY(a, b) (b)
 #endif
 
-#ifdef LFS3_REVDBG
-#define LFS3_IFDEF_REVDBG(a, b) (a)
+#ifdef LFS3_REVPERTURB
+#define LFS3_IFDEF_REVPERTURB(a, b) (a)
 #else
-#define LFS3_IFDEF_REVDBG(a, b) (b)
+#define LFS3_IFDEF_REVPERTURB(a, b) (b)
 #endif
 
-#if defined(LFS3_REVDBG) && defined(LFS3_YES_REVDBG)
-#define LFS3_IFYES_REVDBG(a, b, c) (a)
-#elif defined(LFS3_REVDBG)
-#define LFS3_IFYES_REVDBG(a, b, c) (b)
+#if defined(LFS3_REVPERTURB) && defined(LFS3_YES_REVPERTURB)
+#define LFS3_IFYES_REVPERTURB(a, b, c) (a)
+#elif defined(LFS3_REVPERTURB)
+#define LFS3_IFYES_REVPERTURB(a, b, c) (b)
 #else
-#define LFS3_IFYES_REVDBG(a, b, c) (c)
+#define LFS3_IFYES_REVPERTURB(a, b, c) (c)
 #endif
 
 #ifdef LFS3_REVNOISE

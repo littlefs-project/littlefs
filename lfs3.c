@@ -3241,14 +3241,54 @@ static lfs3_stag_t lfs3_rbyd_lookup(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 // rbyd append operations
 
 
+// needed in lfs3_rbyd_appendrev
+static inline bool lfs3_m_isrevperturb(uint32_t flags);
+static inline bool lfs3_m_isrevnoise(uint32_t flags);
+
 // append a revision count
 //
-// this is optional, if not called revision count defaults to 0 (for btrees)
+// this is optional, if not called revision count defaults
+// to ~0 (+noise/perturb/debug, for btrees)
 #ifndef LFS3_RDONLY
-static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd, uint32_t rev) {
+static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
+        uint32_t rev) {
     // should only be called before any tags are written
     LFS3_ASSERT(rbyd->eoff == 0);
     LFS3_ASSERT(rbyd->cksum == 0);
+
+    // perturb first bit?
+    //
+    // this ensures at least one big changes in the new rbyd, and is
+    // necessary to invalidate any ecksums
+    #ifdef LFS3_REVPERTURB
+    if (lfs3_m_isrevperturb(lfs3->flags)) {
+        uint8_t e = 0;
+        int err = lfs3_bd_read(lfs3,
+                rbyd->blocks[0], 0, 0,
+                &e, 1);
+        if (err && err != LFS3_ERR_CORRUPT) {
+            return err;
+        }
+
+        // perturb!
+        rev = (rev & ~0x80) | (~e & 0x80);
+    }
+    #endif
+
+    // xor in pseudorandom noise?
+    //
+    // this reduces chance of checksum collisions due to filesystem
+    // bugs, but is otherwise unnecessary, note we really don't want
+    // this enabled during testing!
+    #ifdef LFS3_REVNOISE
+    if (lfs3_m_isrevnoise(lfs3->flags)) {
+        rev ^= ~(~((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
+                    | 0xff)
+                // we need to use gcksum_p because we have be in the
+                // middle of updating the gcksum
+                & lfs3->gcksum_p;
+    }
+    #endif
 
     // revision count stored as le32, we don't use a leb128 encoding as we
     // intentionally allow the revision count to overflow
@@ -3578,7 +3618,9 @@ static int lfs3_rbyd_appendinit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
 
     // make sure every rbyd starts with a revision count
     if (rbyd->eoff == 0) {
-        int err = lfs3_rbyd_appendrev(lfs3, rbyd, 0);
+        // we only fallback to this when updating btrees, so default to
+        // btree debug bits, they're called low-effort after all
+        int err = lfs3_rbyd_appendrev(lfs3, rbyd, 'b');
         if (err) {
             return err;
         }
@@ -5814,18 +5856,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             return err;
         }
 
-        #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
-        // append a revision count?
-        err = lfs3_rbyd_appendrev(lfs3, child_, lfs3_rev_btree(lfs3));
-        if (err) {
-            // bad prog? try another block
-            if (err == LFS3_ERR_CORRUPT) {
-                goto relocate;
-            }
-            return err;
-        }
-        #endif
-
         // try to compact
         err = lfs3_rbyd_compact(lfs3, child_, &child, -1, -1);
         if (err) {
@@ -5863,18 +5893,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         if (err) {
             return err;
         }
-
-        #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
-        // append a revision count?
-        err = lfs3_rbyd_appendrev(lfs3, child_, lfs3_rev_btree(lfs3));
-        if (err) {
-            // bad prog? try another block
-            if (err == LFS3_ERR_CORRUPT) {
-                goto split_relocate_l;
-            }
-            return err;
-        }
-        #endif
 
         // copy over tags < split_rid
         err = lfs3_rbyd_compact(lfs3, child_, &child, -1, split_rid);
@@ -5919,18 +5937,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
         if (err) {
             return err;
         }
-
-        #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
-        // append a revision count?
-        err = lfs3_rbyd_appendrev(lfs3, &sibling, lfs3_rev_btree(lfs3));
-        if (err) {
-            // bad prog? try another block
-            if (err == LFS3_ERR_CORRUPT) {
-                goto split_relocate_r;
-            }
-            return err;
-        }
-        #endif
 
         // copy over tags >= split_rid
         err = lfs3_rbyd_compact(lfs3, &sibling, &child, split_rid, -1);
@@ -6048,18 +6054,6 @@ static int lfs3_btree_commit_(lfs3_t *lfs3,
             return err;
         }
 
-        #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
-        // append a revision count?
-        err = lfs3_rbyd_appendrev(lfs3, child_, lfs3_rev_btree(lfs3));
-        if (err) {
-            // bad prog? try another block
-            if (err == LFS3_ERR_CORRUPT) {
-                goto merge_relocate;
-            }
-            return err;
-        }
-        #endif
-
         // merge the siblings together
         err = lfs3_rbyd_appendcompactrbyd(lfs3, child_, &child, -1, -1);
         if (err) {
@@ -6153,18 +6147,6 @@ relocate:;
     if (err) {
         return err;
     }
-
-    #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
-    // append a revision count?
-    err = lfs3_rbyd_appendrev(lfs3, btree_, lfs3_rev_btree(lfs3));
-    if (err) {
-        // bad prog? try another block
-        if (err == LFS3_ERR_CORRUPT) {
-            goto relocate;
-        }
-        return err;
-    }
-    #endif
 
     // bshrubs may call this just to migrate rattrs to a btree
     if (lfs3_rbyd_isshrub(&btree->r)) {
@@ -7294,13 +7276,13 @@ static inline bool lfs3_m_isrdonly(uint32_t flags) {
     #endif
 }
 
-#ifdef LFS3_REVDBG
-static inline bool lfs3_m_isrevdbg(uint32_t flags) {
+#ifdef LFS3_REVPERTURB
+static inline bool lfs3_m_isrevperturb(uint32_t flags) {
     (void)flags;
-    #ifdef LFS3_YES_REVDBG
+    #ifdef LFS3_YES_REVPERTURB
     return true;
     #else
-    return flags & LFS3_M_REVDBG;
+    return flags & LFS3_M_REVPERTURB;
     #endif
 }
 #endif
@@ -7773,89 +7755,32 @@ static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
 
 /// Revision count things ///
 
-// in mdirs, our revision count is broken down into 1-4 parts:
+// note! the only strict requirement for revision counts is that the
+// most recent block has the most recent revision count, all drivers
+// must be ok with _simple_ 32-bit counters!
 //
-//   vvvv---- -------- -------- --------
-//   vvvvrrrr rrrrrr-- -------- --------
-//   vvvvrrrr rrrrrrnn nnnnnnnn nnnnnnnn
-//   vvvvrrrr rrrrrrnn nnnnnnnn dddddddd
-//   '-.''----.----''----.- - - '---.--'
-//     '------|----------|----------|---- 4-bit relocation revision
-//            '----------|----------|---- recycle-bits recycle counter
-//                       '----------|---- pseudorandom noise (if revnoise)
-//                                  '---- h, i, m, or b (if revdbg)
-//                              -11-1---  - h = mroot anchor
-//                              -11-1--1  - i = mroot
-//                              -11-11-1  - m = mdir
-//                              -11---1-  - b = btree node
+// with that said, this driver crams a few more _optional_ features
+// into those 32-bits:
 //
-
-// needed in lfs3_rev_init
-static inline bool lfs3_mdir_ismrootanchor(const lfs3_mdir_t *mdir);
-static inline int lfs3_mdir_cmp(const lfs3_mdir_t *a, const lfs3_mdir_t *b);
+//   vvvv---- -------- -------- -ddddddd
+//   vvvvrrrr rrrrrr-- -------- -ddddddd
+//   vvvvrrrr rrrrrrnn nnnnnnnn pddddddd
+//   '-.''----.----''----.----' ^'--.--'
+//     '------|----------|------|---|---- 4-bit relocation revision
+//            '----------|------|---|---- recycle-bits recycle counter
+//                       '------|---|---- pseudorandom noise (if revnoise)
+//                              '---|---- perturb bit (if revperturb)
+//                                  '---- low-effort debug bits
+//                               11-1---  - h = mroot anchor
+//                               11-11-1  - m = mdir
+//                               11---1-  - b = btree node
+//
 
 #ifndef LFS3_RDONLY
-static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
-        uint32_t rev) {
+static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, uint32_t rev) {
     (void)lfs3;
-    (void)mdir;
-    // we really only care about the top revision bits here
-    rev &= ~((1 << 28)-1);
-    // increment revision
-    rev += 1 << 28;
-    // xor in pseudorandom noise?
-    #ifdef LFS3_REVNOISE
-    if (lfs3_m_isrevnoise(lfs3->flags)) {
-        rev ^= ((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
-                // we need to use gcksum_p because we have be in the
-                // middle of updating the gcksum
-                & lfs3->gcksum_p;
-    }
-    #endif
-    // include debug bits?
-    #ifdef LFS3_REVDBG
-    if (lfs3_m_isrevdbg(lfs3->flags)) {
-        uint32_t mask = (1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1;
-        // mroot anchor?
-        if (lfs3_mdir_ismrootanchor(mdir)) {
-            rev = (rev & ~(mask & 0xff)) | (mask & 0x68);
-        // mroot?
-        } else if (mdir->mid <= -1
-                || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
-            rev = (rev & ~(mask & 0xff)) | (mask & 0x69);
-        // mdir?
-        } else {
-            rev = (rev & ~(mask & 0xff)) | (mask & 0x6d);
-        }
-    }
-    #endif
-    return rev;
-}
-#endif
-
-// btrees don't normally need revision counts, but we make use of them
-// if revdbg or revnoise is enabled
-#ifndef LFS3_RDONLY
-static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3) {
-    (void)lfs3;
-    uint32_t rev = 0;
-    // xor in pseudorandom noise?
-    #ifdef LFS3_REVNOISE
-    if (lfs3_m_isrevnoise(lfs3->flags)) {
-        // keep the top nibble zero
-        rev ^= 0x0fffffff
-                // we need to use gcksum_p because we have be in the
-                // middle of updating the gcksum
-                & lfs3->gcksum_p;
-    }
-    #endif
-    // include debug bits?
-    #ifdef LFS3_REVDBG
-    if (lfs3_m_isrevdbg(lfs3->flags)) {
-        rev = (rev & ~0xff) | 0x62;
-    }
-    #endif
-    return rev;
+    // we really only care about the top revision bits here, increment
+    return (rev & ~((1 << 28)-1)) + (1 << 28);
 }
 #endif
 
@@ -7872,38 +7797,9 @@ static inline bool lfs3_rev_needsrelocation(lfs3_t *lfs3, uint32_t rev) {
 #endif
 
 #ifndef LFS3_RDONLY
-static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
-        uint32_t rev) {
-    (void)mdir;
+static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, uint32_t rev) {
     // increment recycle counter/revision
-    rev += 1 << (28-lfs3_smax(lfs3->recycle_bits, 0));
-    // xor in pseudorandom noise?
-    #ifdef LFS3_REVNOISE
-    if (lfs3_m_isrevnoise(lfs3->flags)) {
-        rev ^= ((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
-                // we need to use gcksum_p because we have be in the
-                // middle of updating the gcksum
-                & lfs3->gcksum_p;
-    }
-    #endif
-    // include debug bits?
-    #ifdef LFS3_REVDBG
-    if (lfs3_m_isrevdbg(lfs3->flags)) {
-        uint32_t mask = (1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1;
-        // mroot anchor?
-        if (lfs3_mdir_ismrootanchor(mdir)) {
-            rev = (rev & ~(mask & 0xff)) | (mask & 0x68);
-        // mroot?
-        } else if (mdir->mid <= -1
-                || lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
-            rev = (rev & ~(mask & 0xff)) | (mask & 0x69);
-        // mdir?
-        } else {
-            rev = (rev & ~(mask & 0xff)) | (mask & 0x6d);
-        }
-    }
-    #endif
-    return rev;
+    return rev + (1 << (28-lfs3_smax(lfs3->recycle_bits, 0)));
 }
 #endif
 
@@ -8190,8 +8086,8 @@ static int lfs3_mdir_alloc___(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     }
     // note we allow corrupt errors here, as long as they are consistent
     rev = (err != LFS3_ERR_CORRUPT) ? lfs3_fromle32(&rev) : 0;
-    // reset recycle bits in revision count and increment
-    rev = lfs3_rev_init(lfs3, mdir, rev);
+    // reset recycle bits in revision count, add low-effort debug bits
+    rev = lfs3_rev_init(lfs3, rev) | 'm';
 
 relocate:;
     // allocate another block with an erase
@@ -8236,8 +8132,6 @@ static int lfs3_mdir_swap___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
     }
     // note we allow corrupt errors here, as long as they are consistent
     rev = (err != LFS3_ERR_CORRUPT) ? lfs3_fromle32(&rev) : 0;
-    // increment our revision count
-    rev = lfs3_rev_inc(lfs3, mdir_, rev);
 
     // decide if we need to relocate
     if (!force && lfs3_rev_needsrelocation(lfs3, rev)) {
@@ -8259,7 +8153,8 @@ static int lfs3_mdir_swap___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
     }
 
     // increment our revision count and write it to our rbyd
-    err = lfs3_rbyd_appendrev(lfs3, &mdir_->r, rev);
+    err = lfs3_rbyd_appendrev(lfs3, &mdir_->r,
+            lfs3_rev_inc(lfs3, rev));
     if (err) {
         return err;
     }
@@ -15098,7 +14993,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_M_RDONLY
                 | LFS3_M_FLUSH
                 | LFS3_M_SYNC
-                | LFS3_IFDEF_REVDBG(LFS3_M_REVDBG, 0)
+                | LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, 0)
                 | LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, 0)
                 | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
@@ -15266,6 +15161,10 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
         lfs3->recycle_bits = lfs3_min(
                 lfs3_nlog2(2*(lfs3->cfg->block_recycles+1)+1)-1,
                 28);
+        // we're currently limited to 20-bits to keep space for
+        // perturb/low-effort debug bits, though this could be relaxed
+        // in the future
+        LFS3_ASSERT(lfs3->recycle_bits <= 20);
     } else {
         lfs3->recycle_bits = -1;
     }
@@ -15997,8 +15896,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_SYNC
     flags |= LFS3_M_SYNC;
     #endif
-    #ifdef LFS3_YES_REVDBG
-    flags |= LFS3_M_REVDBG;
+    #ifdef LFS3_YES_REVPERTURB
+    flags |= LFS3_M_REVPERTURB;
     #endif
     #ifdef LFS3_YES_REVNOISE
     flags |= LFS3_M_REVNOISE;
@@ -16040,7 +15939,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_M_RDONLY
                 | LFS3_M_FLUSH
                 | LFS3_M_SYNC
-                | LFS3_IFDEF_REVDBG(LFS3_M_REVDBG, 0)
+                | LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, 0)
                 | LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, 0)
                 | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
@@ -16072,7 +15971,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_M_RDONLY
                     | LFS3_M_FLUSH
                     | LFS3_M_SYNC
-                    | LFS3_IFDEF_REVDBG(LFS3_M_REVDBG, 0)
+                    | LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, 0)
                     | LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, 0)
                     | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
@@ -16172,14 +16071,6 @@ static int lfs3_formatgbmap(lfs3_t *lfs3) {
         return err;
     }
 
-    #if defined(LFS3_REVDBG) || defined(LFS3_REVNOISE)
-    // append a revision count?
-    err = lfs3_rbyd_appendrev(lfs3, &lfs3->gbmap.b.r, lfs3_rev_btree(lfs3));
-    if (err) {
-        return err;
-    }
-    #endif
-
     err = lfs3_rbyd_commit(lfs3, &lfs3->gbmap.b.r, 0, LFS3_RATTRS(
             // blocks 0..3 - in-use
             LFS3_RATTR(2, LFS3_TAG_BMINUSE, -2),
@@ -16228,7 +16119,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
 
         // the initial revision count is arbitrary, but it's nice to have
         // something here to tell the initial mroot apart from btree nodes
-        // (rev=0), it's also useful for start with -1 and 0 in the upper
+        // (rev=0), it's also useful to start with -1 and 0 in the upper
         // bits to help test overflow/sequence comparison
         uint32_t rev = (((uint32_t)i-1) << 28)
                 | (((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
@@ -16324,8 +16215,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_GBMAP
     flags |= LFS3_F_GBMAP;
     #endif
-    #ifdef LFS3_YES_REVDBG
-    flags |= LFS3_F_REVDBG;
+    #ifdef LFS3_YES_REVPERTURB
+    flags |= LFS3_F_REVPERTURB;
     #endif
     #ifdef LFS3_YES_REVNOISE
     flags |= LFS3_F_REVNOISE;
@@ -16365,7 +16256,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT((flags & ~(
             LFS3_F_RDWR
                 | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
-                | LFS3_IFDEF_REVDBG(LFS3_F_REVDBG, 0)
+                | LFS3_IFDEF_REVPERTURB(LFS3_F_REVPERTURB, 0)
                 | LFS3_IFDEF_REVNOISE(LFS3_F_REVNOISE, 0)
                 | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
@@ -16384,7 +16275,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
             flags & (
                 LFS3_F_RDWR
                     | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
-                    | LFS3_IFDEF_REVDBG(LFS3_F_REVDBG, 0)
+                    | LFS3_IFDEF_REVPERTURB(LFS3_F_REVPERTURB, 0)
                     | LFS3_IFDEF_REVNOISE(LFS3_F_REVNOISE, 0)
                     | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
@@ -16456,7 +16347,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 LFS3_I_RDONLY
                     | LFS3_I_FLUSH
                     | LFS3_I_SYNC
-                    | LFS3_IFDEF_REVDBG(LFS3_I_REVDBG, 0)
+                    | LFS3_IFDEF_REVPERTURB(LFS3_I_REVPERTURB, 0)
                     | LFS3_IFDEF_REVNOISE(LFS3_I_REVNOISE, 0)
                     | LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, 0)
