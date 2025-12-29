@@ -2169,10 +2169,10 @@ static lfs3_scmp_t lfs3_attr_cmp(lfs3_t *lfs3, const struct lfs3_attr *attr,
 // everything we need here
 
 // block allocator flags
-#define LFS3_ALLOC_ERASE    0x000000001 // Please erase the block
+#define LFS3_alloc_ERASE    0x000000001 // Please erase the block
 
 static inline bool lfs3_alloc_iserase(uint32_t flags) {
-    return flags & LFS3_ALLOC_ERASE;
+    return flags & LFS3_alloc_ERASE;
 }
 
 // checkpoint the allocator
@@ -2194,6 +2194,12 @@ static inline void lfs3_alloc_discard(lfs3_t *lfs3);
 // allocate a block
 #ifndef LFS3_RDONLY
 static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags);
+#endif
+
+// allocate a block and sync gbmap if necessary
+#ifndef LFS3_RDONLY
+static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
+        uint32_t flags);
 #endif
 
 
@@ -2386,8 +2392,10 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
 
 // allocate a bptr
 #ifndef LFS3_RDONLY
-static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_bptr_t *bptr) {
-    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
+static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_mdir_t *mdir,
+        lfs3_bptr_t *bptr) {
+    lfs3_sblock_t block = lfs3_allocclaim(lfs3, mdir,
+            LFS3_alloc_ERASE);
     if (block < 0) {
         return block;
     }
@@ -2624,7 +2632,7 @@ static inline int lfs3_rbyd_cmp(
 // allocate an rbyd block
 #ifndef LFS3_RDONLY
 static int lfs3_rbyd_alloc(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
-    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
+    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_alloc_ERASE);
     if (block < 0) {
         return block;
     }
@@ -8221,7 +8229,7 @@ static int lfs3_mdir_alloc___(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
 relocate:;
     // allocate another block with an erase
-    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
+    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_alloc_ERASE);
     if (block < 0) {
         return block;
     }
@@ -10956,6 +10964,17 @@ static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3) {
     #endif
 }
 
+// is gbmap out-of-sync with disk?
+static inline bool lfs3_alloc_cansync(const lfs3_t *lfs3) {
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+    return lfs3_btree_cmp(&lfs3->gbmap.b, &lfs3->gbmap.b_p) != 0;
+    #else
+    // TODO adopt this localized void in flag functions?
+    (void)lfs3;
+    return false;
+    #endif
+}
+
 // discard any lookahead/gbmap windows, this is necessary if block_count
 // changes
 #ifndef LFS3_RDONLY
@@ -11019,7 +11038,8 @@ static void lfs3_alloc_markinusebptr(lfs3_t *lfs3,
 #endif
 
 // needed in lfs3_alloc_adopt
-static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3);
+static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
+        lfs3_ecksum_t *ecksum_);
 
 // mark any not-in-use blocks as free
 #ifndef LFS3_RDONLY
@@ -11031,7 +11051,7 @@ static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known) {
 
     // eagerly find the next free block so lookahead scans can make
     // the most progress
-    lfs3_sblock_t block = lfs3_alloc_findfree(lfs3);
+    lfs3_sblock_t block = lfs3_alloc_findfree(lfs3, NULL);
     if (block < 0 && block != LFS3_ERR_NOSPC) {
         // scanning the lookahead buffer shouldn't error
         LFS3_UNREACHABLE();
@@ -11056,7 +11076,7 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
 
     // eagerly find the next free block so lookgbmap scans can make
     // the most progress
-    lfs3_sblock_t block = lfs3_alloc_findfree(lfs3);
+    lfs3_sblock_t block = lfs3_alloc_findfree(lfs3, NULL);
     if (block < 0 && block != LFS3_ERR_NOSPC) {
         return block;
     }
@@ -11106,7 +11126,9 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
 
 // find next free block in lookahead/gbmap, if there is one
 #ifndef LFS3_RDONLY
-static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
+static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
+        lfs3_ecksum_t *ecksum_) {
+    (void)ecksum_;
     while (true) {
         // known block in our gbmap?
         if (LFS3_IFDEF_GBMAP(
@@ -11118,16 +11140,24 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
                 lfs3_block_t block;
                 lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, &lfs3->gbmap.b,
                         lfs3->gbmap.window,
-                        &block, NULL, NULL);
+                        &block, NULL,
+                        LFS3_IFDEF_PREERASE(&lfs3->gbmap.ecksum, NULL));
                 if (tag < 0) {
                     return tag;
                 }
 
-                // free?
-                if (tag == LFS3_TAG_BMFREE) {
+                // free? erased?
+                //
+                // well, we can only use erased if pre-erase support is
+                // enabled
+                if (tag == LFS3_TAG_BMFREE
+                        || LFS3_IFDEF_PREERASE(
+                            tag == LFS3_TAG_BMERASED,
+                            false)) {
                     lfs3->gbmap.free = lfs3_min(
                             (block+1) - lfs3->gbmap.window,
                             lfs3->gbmap.known);
+
                 // in-use? bad? erased? treat as in-use
                 } else {
                     lfs3->gbmap.free = -lfs3_min(
@@ -11139,6 +11169,11 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
             // free block in our gbmap?
             if (lfs3->gbmap.free > 0) {
                 // found a free block
+                #ifndef LFS3_NO_PREERASE
+                if (ecksum_) {
+                    *ecksum_ = lfs3->gbmap.ecksum;
+                }
+                #endif
                 return lfs3->gbmap.window;
             }
             #endif
@@ -11149,6 +11184,11 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3) {
             if (!(lfs3->lookahead.buffer[lfs3->lookahead.off / 8]
                     & (1 << (lfs3->lookahead.off % 8)))) {
                 // found a free block
+                #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+                if (ecksum_) {
+                    ecksum_->cksize = -1;
+                }
+                #endif
                 return lfs3->lookahead.window;
             }
 
@@ -11167,46 +11207,29 @@ static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
 
 // allocate a block
 #ifndef LFS3_RDONLY
-static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
+static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
+        lfs3_ecksum_t *ecksum_) {
+    (void)flags;
     while (true) {
         // scan our lookahead/gbmap for free blocks
-        lfs3_sblock_t block = lfs3_alloc_findfree(lfs3);
+        lfs3_sblock_t block = lfs3_alloc_findfree(lfs3,
+                ecksum_);
         if (block < 0 && block != LFS3_ERR_NOSPC) {
             return block;
         }
 
         if (block != LFS3_ERR_NOSPC) {
-            // we should never alloc blocks {0,1}
+            // we should never alloc blocks 0x{0,1}
             LFS3_ASSERT(block != 0 && block != 1);
-
-            // erase requested?
-            if (lfs3_alloc_iserase(flags)) {
-                int err = lfs3_bd_erase(lfs3, block);
-                if (err) {
-                    // bad erase? try another block
-                    if (err == LFS3_ERR_CORRUPT) {
-                        lfs3_alloc_inc(lfs3);
-                        continue;
-                    }
-                    return err;
-                }
-            }
 
             // eagerly find the next free block to maximize how many blocks
             // lfs3_alloc_ckpoint makes available for scanning
             lfs3_alloc_inc(lfs3);
-            lfs3_sblock_t block_ = lfs3_alloc_findfree(lfs3);
+            lfs3_sblock_t block_ = lfs3_alloc_findfree(lfs3, NULL);
             if (block_ < 0 && block_ != LFS3_ERR_NOSPC) {
                 return block_;
             }
 
-            #ifdef LFS3_DBGALLOCS
-            LFS3_DEBUG("Allocated block 0x%"PRIx32", "
-                        "lookahead %"PRId32"/%"PRId32,
-                    block,
-                    lfs3->lookahead.known,
-                    lfs3->block_count);
-            #endif
             return block;
         }
 
@@ -11257,6 +11280,125 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
         // mark anything not seen as free
         lfs3_alloc_adopt(lfs3, lfs3->lookahead.ckpoint);
     }
+}
+#endif
+
+// alloc and optionally erase a block
+#ifndef LFS3_RDONLY
+static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
+        lfs3_ecksum_t *ecksum_) {
+    // we need ecksum to be non-null here, hey this is an internal
+    // API anyways
+    #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+    LFS3_ASSERT(ecksum_);
+    #endif
+
+    while (true) {
+        lfs3_sblock_t block = lfs3_alloc__(lfs3, flags,
+                ecksum_);
+        if (block < 0) {
+            return block;
+        }
+
+        // erase requested?
+        if (lfs3_alloc_iserase(flags)) {
+            // pre-erased?
+            if (LFS3_IFDEF_GBMAP(LFS3_IFDEF_PREERASE(
+                    ecksum_->cksize != -1,
+                    false), false)) {
+                #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+                // check ecksum
+                int err = lfs3_ecksum_ck(lfs3, ecksum_, block, 0);
+                if (err && err != LFS3_ERR_CORRUPT) {
+                    return err;
+                }
+
+                // good to go!
+                if (err != LFS3_ERR_CORRUPT) {
+                    #ifdef LFS3_DBGALLOCS
+                    LFS3_DEBUG("Allocated block 0x%"PRIx32", "
+                                "lookahead %"PRId32"/%"PRId32,
+                            block,
+                            lfs3->lookahead.known,
+                            lfs3->block_count);
+                    #endif
+                    return block;
+                }
+                #endif
+            }
+
+            // needs an explicit erase
+            int err = lfs3_bd_erase(lfs3, block);
+            if (err) {
+                // bad erase? try another block
+                if (err == LFS3_ERR_CORRUPT) {
+                    lfs3_alloc_inc(lfs3);
+                    continue;
+                }
+                return err;
+            }
+        }
+
+        #ifdef LFS3_DBGALLOCS
+        LFS3_DEBUG("Allocated block 0x%"PRIx32", "
+                    "lookahead %"PRId32"/%"PRId32,
+                block,
+                lfs3->lookahead.known,
+                lfs3->block_count);
+        #endif
+        return block;
+    }
+}
+#endif
+
+// allocate a block
+//
+// preerase: caller is responsible for perturbing erased-state
+#ifndef LFS3_RDONLY
+static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
+    #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+    lfs3_ecksum_t ecksum_;
+    #endif
+    return lfs3_alloc_(lfs3, flags,
+            LFS3_IFDEF_GBMAP(LFS3_IFDEF_PREERASE(
+                &ecksum_,
+                NULL), NULL));
+}
+#endif
+
+// needed in lfs3_allocclaim
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static int lfs3_alloc_sync(lfs3_t *lfs3);
+#endif
+
+// allocate a block and sync gbmap if necessary
+//
+// preerase: gbmap is synced if necessary, no perturb needed
+#ifndef LFS3_RDONLY
+static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
+        uint32_t flags) {
+    (void)mdir;
+    #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+    lfs3_ecksum_t ecksum_;
+    #endif
+    lfs3_sblock_t block = lfs3_alloc_(lfs3, flags,
+            LFS3_IFDEF_GBMAP(LFS3_IFDEF_PREERASE(
+                &ecksum_,
+                NULL), NULL));
+    if (block < 0) {
+        return block;
+    }
+
+    #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+    // need to claim?
+    if (ecksum_.cksize != -1) {
+        LFS3_ASSERT(lfs3_alloc_cansync(lfs3));
+        // lfs3_mdir_commit implicitly commits any pending gbmap state
+        return lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(LFS3_RATTR_NULL));
+    }
+    #endif
+
+    return block;
 }
 #endif
 
@@ -11371,6 +11513,19 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
     }
 
     return LFS3_ERR_NOENT;
+}
+#endif
+
+// commit gbmap to disk
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static int lfs3_alloc_sync(lfs3_t *lfs3) {
+    // noop if already in sync
+    if (!lfs3_alloc_cansync(lfs3)) {
+        return 0;
+    }
+
+    // lfs3_mdir_commit implicitly commits any pending gbmap state
+    return lfs3_mdir_commit(lfs3, &lfs3->mroot, LFS3_RATTRS(LFS3_RATTR_NULL));
 }
 #endif
 
@@ -13538,7 +13693,8 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file,
         // if we relocate, we rewrite the entire block from block_pos
         // using what we can find in our tree/leaf/cache
         //
-        block_ = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
+        block_ = lfs3_allocclaim(lfs3, &file->b.h.mdir,
+                LFS3_alloc_ERASE);
         if (block_ < 0) {
             return block_;
         }
@@ -16635,12 +16791,9 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
         // if we have nothing else to do, try to commit the gbmap to
         // disk so it's recoverable if we lose power
-        } else if (LFS3_IFDEF_GBMAP(
-                lfs3_btree_cmp(&lfs3->gbmap.b, &lfs3->gbmap.b_p) != 0,
-                false)) {
+        } else if (lfs3_alloc_cansync(lfs3)) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-            int err = lfs3_mdir_commit(lfs3, &lfs3->mroot,
-                    LFS3_RATTRS(LFS3_RATTR_NULL));
+            int err = lfs3_alloc_sync(lfs3);
             if (err) {
                 return err;
             }
