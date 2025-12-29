@@ -10965,7 +10965,7 @@ static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3) {
 }
 
 // is gbmap out-of-sync with disk?
-static inline bool lfs3_alloc_cansync(const lfs3_t *lfs3) {
+static inline bool lfs3_alloc_cansyncgbmap(const lfs3_t *lfs3) {
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     return lfs3_btree_cmp(&lfs3->gbmap.b, &lfs3->gbmap.b_p) != 0;
     #else
@@ -11368,7 +11368,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 
 // needed in lfs3_allocclaim
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_alloc_sync(lfs3_t *lfs3);
+static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 #endif
 
 // allocate a block and sync gbmap if necessary
@@ -11392,7 +11392,7 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
     // need to claim?
     if (ecksum_.cksize != -1) {
-        LFS3_ASSERT(lfs3_alloc_cansync(lfs3));
+        LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
         // lfs3_mdir_commit implicitly commits any pending gbmap state
         return lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(LFS3_RATTR_NULL));
     }
@@ -11518,9 +11518,9 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
 
 // commit gbmap to disk
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_alloc_sync(lfs3_t *lfs3) {
+static int lfs3_alloc_syncgbmap(lfs3_t *lfs3) {
     // noop if already in sync
-    if (!lfs3_alloc_cansync(lfs3)) {
+    if (!lfs3_alloc_cansyncgbmap(lfs3)) {
         return 0;
     }
 
@@ -16791,9 +16791,9 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
         // if we have nothing else to do, try to commit the gbmap to
         // disk so it's recoverable if we lose power
-        } else if (lfs3_alloc_cansync(lfs3)) {
+        } else if (lfs3_alloc_cansyncgbmap(lfs3)) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-            int err = lfs3_alloc_sync(lfs3);
+            int err = lfs3_alloc_syncgbmap(lfs3);
             if (err) {
                 return err;
             }
