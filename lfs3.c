@@ -10522,7 +10522,7 @@ static void lfs3_gbmap_init(lfs3_gbmap_t *gbmap) {
     gbmap->window = 0;
     gbmap->known = 0;
     #ifndef LFS3_RDONLY
-    gbmap->free = 0;
+    gbmap->next = 0;
     #endif
     #if !defined(LFS3_RDONLY) && !defined(LFS3_NO_PREERASE)
     gbmap->ecksum.cksize = -1;
@@ -10585,7 +10585,7 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
     }
 
     // we don't save free, so assume zero at first
-    gbmap->free = 0;
+    gbmap->next = 0;
     #ifdef LFS3_BLEAFCACHE
     // make sure to zero btree leaf
     lfs3_btree_discardleaf(&gbmap->b);
@@ -10986,7 +10986,7 @@ static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
     // discard the gbmap window
     #ifdef LFS3_GBMAP
     lfs3->gbmap.known = 0;
-    lfs3->gbmap.free = 0;
+    lfs3->gbmap.next = 0;
     #endif
 }
 #endif
@@ -11108,10 +11108,10 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     if (lfs3_f_isgbmap(lfs3->flags)) {
         lfs3->gbmap.window = (lfs3->gbmap.window + 1) % lfs3->block_count;
         lfs3->gbmap.known -= lfs3_min(1, lfs3->gbmap.known);
-        if (lfs3->gbmap.free > 0) {
-            lfs3->gbmap.free -= 1;
-        } else if (lfs3->gbmap.free < 0) {
-            lfs3->gbmap.free += 1;
+        if (lfs3->gbmap.next > 0) {
+            lfs3->gbmap.next -= 1;
+        } else if (lfs3->gbmap.next < 0) {
+            lfs3->gbmap.next += 1;
         }
     }
     #endif
@@ -11136,7 +11136,7 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
                 false)) {
             #ifdef LFS3_GBMAP
             // need to look up known block info
-            if (lfs3->gbmap.free == 0) {
+            if (lfs3->gbmap.next == 0) {
                 lfs3_block_t block;
                 lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, &lfs3->gbmap.b,
                         lfs3->gbmap.window,
@@ -11154,20 +11154,20 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
                         || LFS3_IFDEF_PREERASE(
                             tag == LFS3_TAG_BMERASED,
                             false)) {
-                    lfs3->gbmap.free = lfs3_min(
+                    lfs3->gbmap.next = lfs3_min(
                             (block+1) - lfs3->gbmap.window,
                             lfs3->gbmap.known);
 
                 // in-use? bad? erased? treat as in-use
                 } else {
-                    lfs3->gbmap.free = -lfs3_min(
+                    lfs3->gbmap.next = -lfs3_min(
                             (block+1) - lfs3->gbmap.window,
                             lfs3->gbmap.known);
                 }
             }
 
             // free block in our gbmap?
-            if (lfs3->gbmap.free > 0) {
+            if (lfs3->gbmap.next > 0) {
                 // found a free block
                 #ifndef LFS3_NO_PREERASE
                 if (ecksum_) {

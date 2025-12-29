@@ -1378,7 +1378,7 @@ typedef struct lfs3 {
         lfs3_block_t window;
         lfs3_block_t known;
         #if !defined(LFS3_RDONLY)
-        lfs3_sblock_t free;
+        lfs3_sblock_t next;
         #endif
         #if !defined(LFS3_RDONLY) && !defined(LFS3_NO_PREERASE)
         lfs3_ecksum_t ecksum;
