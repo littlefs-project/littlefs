@@ -15934,24 +15934,6 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_CKDATACKSUMS
     flags |= LFS3_M_CKDATACKSUMS;
     #endif
-    #ifdef LFS3_YES_MKCONSISTENT
-    flags |= LFS3_M_MKCONSISTENT;
-    #endif
-    #ifdef LFS3_YES_LOOKAHEAD
-    flags |= LFS3_M_LOOKAHEAD;
-    #endif
-    #ifdef LFS3_YES_PREERASE
-    flags |= LFS3_M_PREERASE;
-    #endif
-    #ifdef LFS3_YES_COMPACT
-    flags |= LFS3_M_COMPACT;
-    #endif
-    #ifdef LFS3_YES_CKMETA
-    flags |= LFS3_M_CKMETA;
-    #endif
-    #ifdef LFS3_YES_CKDATA
-    flags |= LFS3_M_CKDATA
-    #endif
 
     // unknown flags?
     LFS3_ASSERT((flags & ~(
@@ -16252,24 +16234,6 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #endif
     #ifdef LFS3_YES_CKDATACKSUMS
     flags |= LFS3_F_CKDATACKSUMS;
-    #endif
-    #ifdef LFS3_YES_MKCONSISTENT
-    flags |= LFS3_F_MKCONSISTENT;
-    #endif
-    #ifdef LFS3_YES_LOOKAHEAD
-    flags |= LFS3_F_LOOKAHEAD;
-    #endif
-    #ifdef LFS3_YES_PREERASE
-    flags |= LFS3_F_PREERASE;
-    #endif
-    #ifdef LFS3_YES_COMPACT
-    flags |= LFS3_F_COMPACT;
-    #endif
-    #ifdef LFS3_YES_CKMETA
-    flags |= LFS3_F_CKMETA;
-    #endif
-    #ifdef LFS3_YES_CKDATA
-    flags |= LFS3_F_CKDATA;
     #endif
 
     // unknown flags?

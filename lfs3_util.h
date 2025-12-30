@@ -86,9 +86,6 @@
 #ifdef LFS3_YES_GBMAP
 #define LFS3_GBMAP
 #endif
-#ifdef LFS3_YES_PREERASE
-#define LFS3_PREERASE
-#endif
 #ifdef LFS3_YES_BLEAFCACHE
 #define LFS3_BLEAFCACHE
 #endif
@@ -329,14 +326,6 @@
 #define LFS3_IFDEF_PREERASE(a, b) (a)
 #else
 #define LFS3_IFDEF_PREERASE(a, b) (b)
-#endif
-
-#if defined(LFS3_PREERASE) && defined(LFS3_YES_PREERASE)
-#define LFS3_IFYES_PREERASE(a, b, c) (a)
-#elif defined(LFS3_PREERASE)
-#define LFS3_IFYES_PREERASE(a, b, c) (b)
-#else
-#define LFS3_IFYES_PREERASE(a, b, c) (c)
 #endif
 
 #ifdef LFS3_BLEAFCACHE
