@@ -4103,6 +4103,9 @@ code = '''
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         assert(tinfo.block == 2);
     }
+    // traverse mtree
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -4762,11 +4765,6 @@ code = '''
     // still traverse inlined mroots, so if this breaks in the future
     // I wouldn't worry too much about it
     //
-    // traverse an mdir
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
@@ -6078,11 +6076,6 @@ code = '''
         lfs3_trv_close(&lfs3, &trv) => 0;
         goto done;
     }
-    // traverse mdir
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_MDIR);
     // traverse mtree
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_BTREE);
@@ -7766,6 +7759,9 @@ code = '''
             assert(tinfo.btype == LFS3_BTYPE_BTREE);
             assert(tinfo.block == 2);
         }
+        // traverse mtree
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -8946,6 +8942,9 @@ code = '''
             assert(tinfo.btype == LFS3_BTYPE_BTREE);
             assert(tinfo.block == 2);
         }
+        // traverse mtree
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);

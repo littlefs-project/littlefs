@@ -9371,6 +9371,9 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
             }
         } else if (h->mdir.mid > mdir->mid) {
             h->mdir.mid += mdelta;
+        // and any mroot updates, though this clobbers chain mroots
+        } else if (h->mdir.mid <= -1) {
+            lfs3_mdir_sync(&h->mdir, &mroot_);
         }
     }
 
