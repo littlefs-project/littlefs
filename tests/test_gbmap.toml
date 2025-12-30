@@ -437,7 +437,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 5);
     assert(weight_ == 6);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 6,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 6);
@@ -447,7 +447,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 7);
     assert(weight_ == 1);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 8,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 8);
@@ -457,7 +457,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 9);
     assert(weight_ == 1);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 10,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 10);
@@ -467,7 +467,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == BLOCK_COUNT-11);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -515,7 +515,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 5);
     assert(weight_ == 6);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 6,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 6);
@@ -525,7 +525,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 7);
     assert(weight_ == 1);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 8,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 8);
@@ -535,7 +535,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 9);
     assert(weight_ == 1);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 10,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 10);
@@ -545,7 +545,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == BLOCK_COUNT-11);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -593,7 +593,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 4);
     assert(weight_ == 5);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 5,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 6);
@@ -603,7 +603,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 7);
     assert(weight_ == 1);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 8,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 10);
@@ -613,7 +613,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 11);
     assert(weight_ == 1);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 12,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 13);
@@ -623,7 +623,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == BLOCK_COUNT-14);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -673,7 +673,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 4);
     assert(weight_ == 5);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 5,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 5);
@@ -688,7 +688,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 7);
     assert(weight_ == 1);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 8,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 8);
@@ -708,7 +708,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == 11);
     assert(weight_ == 1);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
     lfs3_gbmap_lookupnext(&lfs3, &gbmap, 12,
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMERASED;
     assert(bid_ == 12);
@@ -723,7 +723,7 @@ code = '''
             &bid_, &weight_, &ecksum_) => LFS3_TAG_BMFREE;
     assert(bid_ == BLOCK_COUNT-1);
     assert(weight_ == BLOCK_COUNT-14);
-    assert(lfs3_ecksum_cmp(&ecksum_, NULL) == 0);
+    assert(!lfs3_ecksum_isecksum(&ecksum_));
 
     lfs3_unmount(&lfs3) => 0;
 '''
