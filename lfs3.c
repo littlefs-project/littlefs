@@ -2482,7 +2482,18 @@ static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr) {
 /// Erased-state checksum stuff ///
 
 #ifndef LFS3_RDONLY
-static int lfs3_ecksum_eck(lfs3_t *lfs3, lfs3_ecksum_t *ecksum,
+static inline bool lfs3_ecksum_isecksum(const lfs3_ecksum_t *ecksum) {
+    // accept NULL as cksize=-1 (gbmap relies on this)
+    #ifdef LFS3_GBMAP
+    return ecksum && ecksum->cksize != -1;
+    #else
+    return ecksum->cksize != -1;
+    #endif
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static int lfs3_ecksum_read(lfs3_t *lfs3, lfs3_ecksum_t *ecksum,
         lfs3_block_t block, lfs3_off_t off) {
     // keep track of prog size
     ecksum->cksize = lfs3->cfg->prog_size;
@@ -2498,6 +2509,8 @@ static int lfs3_ecksum_eck(lfs3_t *lfs3, lfs3_ecksum_t *ecksum,
 #ifndef LFS3_RDONLY
 static int lfs3_ecksum_ck(lfs3_t *lfs3, const lfs3_ecksum_t *ecksum,
         lfs3_block_t block, lfs3_off_t off) {
+    // you shouldn't try to check a not-ecksum, that doesn't make sense
+    LFS3_ASSERT(lfs3_ecksum_isecksum(ecksum));
     uint32_t cksum_ = 0;
     int err = lfs3_bd_cksum(lfs3,
             block, off, 0,
@@ -2515,11 +2528,12 @@ static int lfs3_ecksum_ck(lfs3_t *lfs3, const lfs3_ecksum_t *ecksum,
 static inline int lfs3_ecksum_cmp(
         const lfs3_ecksum_t *a,
         const lfs3_ecksum_t *b) {
-    // accept NULL as cksize=-1
+    // accept NULL as cksize=-1, note this cmps both not-ecksums and
+    // not-not-ecksum cksizes
     if (((a) ? a->cksize : -1) != ((b) ? b->cksize : -1)) {
         return ((a) ? a->cksize : -1) - ((b) ? b->cksize : -1);
-    // only cmp cksum if cksize!=-1
-    } else if (((a) ? a->cksize : -1) != -1) {
+    // only cmp cksum if not-not-ecksum
+    } else if (lfs3_ecksum_isecksum(a)) {
         return a->cksum - b->cksum;
     } else {
         return 0;
@@ -2531,8 +2545,15 @@ static inline int lfs3_ecksum_cmp(
 #ifndef LFS3_RDONLY
 static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
         uint8_t buffer[static LFS3_ECKSUM_DSIZE]) {
+    // treat not-ecksums as nil data (gbmap relies on this)
+    #ifdef LFS3_GBMAP
+    if (!lfs3_ecksum_isecksum(ecksum)) {
+        return LFS3_DATA_NULL();
+    }
+    #else
     // you shouldn't try to encode a not-ecksum, that doesn't make sense
-    LFS3_ASSERT(ecksum->cksize != -1);
+    LFS3_ASSERT(lfs3_ecksum_isecksum(ecksum));
+    #endif
     // cksize should not exceed 28-bits
     LFS3_ASSERT((lfs3_size_t)ecksum->cksize <= 0x0fffffff);
 
@@ -2553,6 +2574,14 @@ static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
 #ifndef LFS3_RDONLY
 static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_ecksum_t *ecksum) {
+    // treat nil data as not-ecksums (gbmap relies on this)
+    #ifdef LFS3_GBMAP
+    if (lfs3_data_size(data) == 0) {
+        ecksum->cksize = -1;
+        return 0;
+    }
+    #endif
+
     int err = lfs3_data_readlleb128(lfs3, data, (lfs3_size_t*)&ecksum->cksize);
     if (err) {
         return err;
@@ -2932,7 +2961,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     // did we end on a valid commit? we may have erased-state
     #ifndef LFS3_RDONLY
     bool erased = false;
-    if (ecksum.cksize != -1) {
+    if (lfs3_ecksum_isecksum(&ecksum)) {
         // check the erased-state checksum
         int err = lfs3_rbyd_ckecksum(lfs3, rbyd, &ecksum);
         if (err && err != LFS3_ERR_CORRUPT) {
@@ -4426,7 +4455,7 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
         // calculate the erased-state checksum
         lfs3_ecksum_t ecksum;
-        err = lfs3_ecksum_eck(lfs3, &ecksum,
+        err = lfs3_ecksum_read(lfs3, &ecksum,
                 rbyd->blocks[0], off_);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
@@ -10471,7 +10500,7 @@ static lfs3_stag_t lfs3_gbmap_lookupnext(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     }
 
     if (ecksum_) {
-        if (tag == LFS3_TAG_BMERASED && lfs3_data_size(&data) > 0) {
+        if (tag == LFS3_TAG_BMERASED) {
             int err = lfs3_data_readecksum(lfs3, &data,
                     ecksum_);
             if (err) {
@@ -10605,15 +10634,11 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
                 ? LFS3_RATTR(2, LFS3_tag_GROW, -2)
                 : LFS3_RATTR(2, LFS3_tag_RM, -2),
             LFS3_RATTR_WEIGHT(-((bid__+1) - (block-(weight-1)))),
-            (ecksum && ecksum->cksize != -1)
-                ? LFS3_RATTR(3, tag, -2, LFS3_FROM_ECKSUM)
-                : LFS3_RATTR(3, tag, -2),
+            LFS3_RATTR(3, tag, -2, LFS3_FROM_ECKSUM),
             LFS3_RATTR_WEIGHT(+weight_),
             LFS3_RATTR_ARG(ecksum),
             (bid__ > block)
-                ? ((ecksum__.cksize != -1)
-                    ? LFS3_RATTR(3, tag__, -2, LFS3_FROM_ECKSUM)
-                    : LFS3_RATTR(3, tag__, -2))
+                ? LFS3_RATTR(3, tag__, -2, LFS3_FROM_ECKSUM)
                 : LFS3_RATTR(3, LFS3_TAG_NULL, 0),
             LFS3_RATTR_WEIGHT(+(bid__ - block)),
             LFS3_RATTR_ARG(&ecksum__),
@@ -11152,7 +11177,7 @@ static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
         if (lfs3_alloc_iserase(flags)) {
             // pre-erased?
             if (LFS3_IFDEF_GBMAP(LFS3_IFDEF_PREERASE(
-                    ecksum_->cksize != -1,
+                    lfs3_ecksum_isecksum(ecksum_),
                     false), false)) {
                 #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
                 // check ecksum
@@ -11239,7 +11264,7 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
     // need to claim?
-    if (ecksum_.cksize != -1) {
+    if (lfs3_ecksum_isecksum(&ecksum_)) {
         LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
         // lfs3_mdir_commit implicitly commits any pending gbmap state
         return lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(LFS3_RATTR_NULL));
@@ -11340,7 +11365,7 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
 
         // calculate erased-state checksum
         lfs3_ecksum_t ecksum;
-        err = lfs3_ecksum_eck(lfs3, &ecksum, block, 0);
+        err = lfs3_ecksum_read(lfs3, &ecksum, block, 0);
         if (err) {
             return err;
         }
