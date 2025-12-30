@@ -10025,7 +10025,7 @@ again:;
 }
 
 // needed in lfs3_mtree_traverse
-static void lfs3_alloc_markinusebptr(lfs3_t *lfs3,
+static void lfs3_alloc_setinusebptr(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr);
 
 // high-level immutable traversal, handle extra features here,
@@ -10156,7 +10156,7 @@ static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
 static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known);
 static int lfs3_gbmap_zero(lfs3_t *lfs3, lfs3_btree_t *gbmap);
-static int lfs3_gbmap_markbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_);
 static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
@@ -10263,7 +10263,7 @@ again:;
         // mark in-use blocks in gbmap?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.r.weight != 0, false)) {
             #ifdef LFS3_GBMAP
-            int err = lfs3_gbmap_markbptr(lfs3, &mgc->gbmap_, tag, bptr_,
+            int err = lfs3_gbmap_setbptr(lfs3, &mgc->gbmap_, tag, bptr_,
                     LFS3_TAG_BMINUSE);
             if (err) {
                 return err;
@@ -10272,7 +10272,7 @@ again:;
 
         // mark in-use blocks in lookahead buffer?
         } else {
-            lfs3_alloc_markinusebptr(lfs3, tag, bptr_);
+            lfs3_alloc_setinusebptr(lfs3, tag, bptr_);
         }
     }
 
@@ -10498,7 +10498,7 @@ static int lfs3_gbmap_commit(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 //
 // the purpose of weight is really just to provide a shortcut for bulk
 // clearing ranges in lfs3_alloc_lookgbmap
-static int lfs3_gbmap_mark_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t block, lfs3_block_t weight,
         lfs3_tag_t tag, const lfs3_ecksum_t *ecksum) {
     // lookup gbmap range
@@ -10629,14 +10629,14 @@ static int lfs3_gbmap_mark_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_gbmap_mark(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t block, lfs3_tag_t tag, const lfs3_ecksum_t *ecksum) {
-    return lfs3_gbmap_mark_(lfs3, gbmap, block, 1, tag, ecksum);
+    return lfs3_gbmap_set_(lfs3, gbmap, block, 1, tag, ecksum);
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_gbmap_markbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_) {
     const lfs3_block_t *blocks;
@@ -10660,7 +10660,7 @@ static int lfs3_gbmap_markbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     }
 
     for (lfs3_size_t i = 0; i < block_count; i++) {
-        int err = lfs3_gbmap_mark(lfs3, gbmap, blocks[i], tag_, NULL);
+        int err = lfs3_gbmap_set(lfs3, gbmap, blocks[i], tag_, NULL);
         if (err) {
             return err;
         }
@@ -10688,7 +10688,7 @@ static int lfs3_gbmap_zero(lfs3_t *lfs3, lfs3_btree_t *gbmap) {
 
         // mark in-use/erased ranges as free
         if (tag__ == LFS3_TAG_BMINUSE || tag__ == LFS3_TAG_BMERASED) {
-            int err = lfs3_gbmap_mark_(lfs3, gbmap,
+            int err = lfs3_gbmap_set_(lfs3, gbmap,
                     block__, weight__, LFS3_TAG_BMFREE, NULL);
             if (err) {
                 return err;
@@ -10838,7 +10838,7 @@ static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
 
 // mark a block as in-use
 #ifndef LFS3_RDONLY
-static void lfs3_alloc_markinuse(lfs3_t *lfs3, lfs3_block_t block) {
+static void lfs3_alloc_setinuse(lfs3_t *lfs3, lfs3_block_t block) {
     // TODO can this be simplified?
 
     // translate to lookahead-relative
@@ -10862,19 +10862,19 @@ static void lfs3_alloc_markinuse(lfs3_t *lfs3, lfs3_block_t block) {
 
 // mark some filesystem object as in-use
 #ifndef LFS3_RDONLY
-static void lfs3_alloc_markinusebptr(lfs3_t *lfs3,
+static void lfs3_alloc_setinusebptr(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr) {
     if (tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
-        lfs3_alloc_markinuse(lfs3, mdir->r.blocks[0]);
-        lfs3_alloc_markinuse(lfs3, mdir->r.blocks[1]);
+        lfs3_alloc_setinuse(lfs3, mdir->r.blocks[0]);
+        lfs3_alloc_setinuse(lfs3, mdir->r.blocks[1]);
 
     } else if (tag == LFS3_TAG_BRANCH) {
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->d.u.buffer;
-        lfs3_alloc_markinuse(lfs3, rbyd->blocks[0]);
+        lfs3_alloc_setinuse(lfs3, rbyd->blocks[0]);
 
     } else if (tag == LFS3_TAG_BLOCK) {
-        lfs3_alloc_markinuse(lfs3, lfs3_bptr_block(bptr));
+        lfs3_alloc_setinuse(lfs3, lfs3_bptr_block(bptr));
 
     } else {
         LFS3_UNREACHABLE();
@@ -11115,14 +11115,14 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
             }
 
             // track in-use blocks
-            lfs3_alloc_markinusebptr(lfs3, tag, &bptr);
+            lfs3_alloc_setinusebptr(lfs3, tag, &bptr);
         }
 
         // mask out any in-flight graft state
         for (lfs3_size_t i = 0;
                 i < lfs3_graft_count(lfs3->graft_count);
                 i++) {
-            lfs3_alloc_markinuse(lfs3, lfs3->graft[i].u.disk.block);
+            lfs3_alloc_setinuse(lfs3, lfs3->graft[i].u.disk.block);
         }
 
         // mark anything not seen as free
@@ -11286,7 +11286,7 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
         }
 
         // track in-use blocks
-        err = lfs3_gbmap_markbptr(lfs3, &gbmap_, tag, &bptr,
+        err = lfs3_gbmap_setbptr(lfs3, &gbmap_, tag, &bptr,
                 LFS3_TAG_BMINUSE);
         if (err) {
             return err;
@@ -11348,7 +11348,7 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
         // commit into gbmap
         //
         // this relies on lfs3_gbmap_commit being atomic
-        err = lfs3_gbmap_mark(lfs3, &lfs3->gbmap.b,
+        err = lfs3_gbmap_set(lfs3, &lfs3->gbmap.b,
                 block, LFS3_TAG_BMERASED, &ecksum);
         if (err) {
             return err;

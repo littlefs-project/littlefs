@@ -12,7 +12,7 @@ ifdef = 'LFS3_GBMAP'
 # test low-level gbmap operations
 
 # test simple set operations
-[cases.test_gbmap_mark_split]
+[cases.test_gbmap_set_split]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -29,9 +29,9 @@ code = '''
             LFS3_RATTR_NULL)) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -75,7 +75,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_replace]
+[cases.test_gbmap_set_replace]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -92,13 +92,13 @@ code = '''
             LFS3_RATTR_NULL)) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
     // replace those blocks as bad, this tests deleting ranges
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMBAD, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMBAD, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMBAD, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMBAD, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMBAD, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMBAD, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -142,7 +142,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_merge]
+[cases.test_gbmap_set_merge]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -159,14 +159,14 @@ code = '''
             LFS3_RATTR_NULL)) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 12, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 12, LFS3_TAG_BMINUSE, NULL) => 0;
     // set neighboring blocks as in-use, triggering merges
-    lfs3_gbmap_mark(&lfs3, &gbmap, 5, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 9, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 13, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 5, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 13, LFS3_TAG_BMINUSE, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -210,7 +210,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_noop]
+[cases.test_gbmap_set_noop]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -227,15 +227,15 @@ code = '''
             LFS3_RATTR_NULL)) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
     // test a bunch of noops
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 7, LFS3_TAG_BMFREE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 9, LFS3_TAG_BMFREE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 7, LFS3_TAG_BMFREE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMFREE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -279,7 +279,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_bounds]
+[cases.test_gbmap_set_bounds]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -298,8 +298,8 @@ code = '''
     // test that setting the first and last blocks don't break anything
     //
     // though in theory blocks 0x{0,1} are immutable...
-    lfs3_gbmap_mark(&lfs3, &gbmap, 0, LFS3_TAG_BMINUSE, NULL) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, BLOCK_COUNT-1, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 0, LFS3_TAG_BMINUSE, NULL) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, BLOCK_COUNT-1, LFS3_TAG_BMINUSE, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -327,7 +327,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_fuzz]
+[cases.test_gbmap_set_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.TYPES = [2, 3, 4]
 defines.SEED = 'range(20)'
@@ -361,7 +361,7 @@ code = '''
         lfs3_tag_t tag = LFS3_TAG_BMRANGE + (TEST_PRNG(&prng) % TYPES);
 
         // set in gbmap
-        lfs3_gbmap_mark(&lfs3, &gbmap, block, tag, NULL) => 0;
+        lfs3_gbmap_set(&lfs3, &gbmap, block, tag, NULL) => 0;
 
         // and set in sim
         sim[block] = tag;
@@ -399,7 +399,7 @@ code = '''
 
 
 # set operations with ecksums are a bit more complicated
-[cases.test_gbmap_mark_ecksum_split]
+[cases.test_gbmap_set_ecksum_split]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -418,9 +418,9 @@ code = '''
     // set some blocks as erased with ecksums, avoid any weird merges
     // for now
     lfs3_ecksum_t ecksum = {.cksize=CFG->prog_size, .cksum=0x12345678};
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -472,7 +472,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_ecksum_replace]
+[cases.test_gbmap_set_ecksum_replace]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -491,14 +491,14 @@ code = '''
     // set some blocks as erased with ecksums, avoid any weird merges
     // for now
     lfs3_ecksum_t ecksum_a = {.cksize=CFG->prog_size, .cksum=0x12345678};
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum_a) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum_a) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum_a) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum_a) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum_a) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum_a) => 0;
     // replace those blocks with different ecksums
     lfs3_ecksum_t ecksum_b = {.cksize=CFG->prog_size, .cksum=0x9abcdef0};
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum_b) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum_b) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum_b) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum_b) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum_b) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum_b) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -550,7 +550,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_ecksum_merge]
+[cases.test_gbmap_set_ecksum_merge]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -569,14 +569,14 @@ code = '''
     // set some blocks as erased with ecksums, avoid any weird merges
     // for now
     lfs3_ecksum_t ecksum = {.cksize=CFG->prog_size, .cksum=0x12345678};
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 12, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 12, LFS3_TAG_BMERASED, &ecksum) => 0;
     // set neighboring blocks as erased with ecksums, triggering merges
-    lfs3_gbmap_mark(&lfs3, &gbmap, 5, LFS3_TAG_BMERASED, &ecksum) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 9, LFS3_TAG_BMERASED, &ecksum) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 13, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 5, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMERASED, &ecksum) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 13, LFS3_TAG_BMERASED, &ecksum) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -628,7 +628,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_ecksum_nomerge]
+[cases.test_gbmap_set_ecksum_nomerge]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -647,16 +647,16 @@ code = '''
     // set some blocks as erased with ecksums, avoid any weird merges
     // for now
     lfs3_ecksum_t ecksum_a = {.cksize=CFG->prog_size, .cksum=0x12345678};
-    lfs3_gbmap_mark(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum_a) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum_a) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum_a) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 12, LFS3_TAG_BMERASED, &ecksum_a) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMERASED, &ecksum_a) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum_a) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum_a) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 12, LFS3_TAG_BMERASED, &ecksum_a) => 0;
     // set neighboring blocks as erased with _different_ ecksums, this
     // should _not_ trigger a merge!
     lfs3_ecksum_t ecksum_b = {.cksize=CFG->prog_size, .cksum=0x9abcdef0};
-    lfs3_gbmap_mark(&lfs3, &gbmap, 5, LFS3_TAG_BMERASED, &ecksum_b) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 9, LFS3_TAG_BMERASED, &ecksum_b) => 0;
-    lfs3_gbmap_mark(&lfs3, &gbmap, 13, LFS3_TAG_BMERASED, &ecksum_b) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 5, LFS3_TAG_BMERASED, &ecksum_b) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMERASED, &ecksum_b) => 0;
+    lfs3_gbmap_set(&lfs3, &gbmap, 13, LFS3_TAG_BMERASED, &ecksum_b) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
             gbmap.r.weight,
             gbmap.r.blocks[0],
@@ -728,7 +728,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_gbmap_mark_ecksum_fuzz]
+[cases.test_gbmap_set_ecksum_fuzz]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 defines.MASK = [0x1, 0x3, 0xf, 0xffff]
 defines.SEED = 'range(20)'
@@ -764,7 +764,7 @@ code = '''
         ecksum.cksum = TEST_PRNG(&prng) & MASK;
 
         // set in gbmap
-        lfs3_gbmap_mark(&lfs3, &gbmap,
+        lfs3_gbmap_set(&lfs3, &gbmap,
                 block, LFS3_TAG_BMERASED, &ecksum) => 0;
 
         // and set in sim
