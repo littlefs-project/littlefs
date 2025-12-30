@@ -50,6 +50,9 @@
 #ifndef LFS3_GBMAP
 #define LFS3_GBMAP
 #endif
+#ifndef LFS3_PREERASE
+#define LFS3_PREERASE
+#endif
 #ifndef LFS3_BLEAFCACHE
 #define LFS3_BLEAFCACHE
 #endif
@@ -83,6 +86,9 @@
 #ifdef LFS3_YES_GBMAP
 #define LFS3_GBMAP
 #endif
+#ifdef LFS3_YES_PREERASE
+#define LFS3_PREERASE
+#endif
 #ifdef LFS3_YES_BLEAFCACHE
 #define LFS3_BLEAFCACHE
 #endif
@@ -101,6 +107,12 @@
 #ifndef LFS3_NO_ERROR
 #define LFS3_NO_ERROR
 #endif
+#endif
+
+// some define dependencies
+#if defined(LFS3_PREERASE) \
+        && (!defined(LFS3_GBMAP) || !defined(LFS3_REVPERTURB))
+#error "LFS3_PREERASE requires LFS3_GBMAP and LFS3_REVPERTURB"
 #endif
 
 
@@ -313,15 +325,15 @@
 #define LFS3_IFYES_GBMAP(a, b, c) (c)
 #endif
 
-#ifndef LFS3_NO_PREERASE
+#ifdef LFS3_PREERASE
 #define LFS3_IFDEF_PREERASE(a, b) (a)
 #else
 #define LFS3_IFDEF_PREERASE(a, b) (b)
 #endif
 
-#if !defined(LFS3_NO_PREERASE) && defined(LFS3_YES_PREERASE)
+#if defined(LFS3_PREERASE) && defined(LFS3_YES_PREERASE)
 #define LFS3_IFYES_PREERASE(a, b, c) (a)
-#elif !defined(LFS3_NO_PREERASE)
+#elif defined(LFS3_PREERASE)
 #define LFS3_IFYES_PREERASE(a, b, c) (b)
 #else
 #define LFS3_IFYES_PREERASE(a, b, c) (c)

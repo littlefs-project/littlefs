@@ -156,7 +156,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 #define TEST_GBMAP_CFG
 #endif
 
-#if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#ifdef LFS3_PREERASE
 #define TEST_PREERASE_CFG \
     .gc_preerase_count          = GC_PREERASE_COUNT,
 #else

@@ -7228,9 +7228,7 @@ static inline bool lfs3_t_islookahead(uint32_t flags) {
 }
 #endif
 
-#if !defined(LFS3_RDONLY) \
-        && defined(LFS3_GBMAP) \
-        && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 static inline bool lfs3_t_ispreerase(uint32_t flags) {
     return flags & LFS3_T_PREERASE;
 }
@@ -10394,7 +10392,7 @@ static void lfs3_gbmap_init(lfs3_gbmap_t *gbmap) {
     #ifndef LFS3_RDONLY
     gbmap->next = 0;
     #endif
-    #if !defined(LFS3_RDONLY) && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     gbmap->ecksum.cksize = -1;
     gbmap->preeraser.known = 0;
     gbmap->preeraser.count = 0;
@@ -10822,9 +10820,7 @@ static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3) {
 #endif
 
 // can we pre-erase?
-#if !defined(LFS3_RDONLY) \
-        && defined(LFS3_GBMAP) \
-        && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3) {
     // do we even have a gbmap?
     return lfs3_f_isgbmap(lfs3->flags)
@@ -11041,7 +11037,7 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
             // free block in our gbmap?
             if (lfs3->gbmap.next > 0) {
                 // found a free block
-                #ifndef LFS3_NO_PREERASE
+                #ifdef LFS3_PREERASE
                 if (ecksum_) {
                     *ecksum_ = lfs3->gbmap.ecksum;
                 }
@@ -11056,7 +11052,7 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
             if (!(lfs3->lookahead.buffer[lfs3->lookahead.off / 8]
                     & (1 << (lfs3->lookahead.off % 8)))) {
                 // found a free block
-                #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+                #ifdef LFS3_PREERASE
                 if (ecksum_) {
                     ecksum_->cksize = -1;
                 }
@@ -11161,7 +11157,7 @@ static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
         lfs3_ecksum_t *ecksum_) {
     // we need ecksum to be non-null here, hey this is an internal
     // API anyways
-    #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+    #ifdef LFS3_PREERASE
     LFS3_ASSERT(ecksum_);
     #endif
 
@@ -11175,10 +11171,10 @@ static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
         // erase requested?
         if (lfs3_alloc_iserase(flags)) {
             // pre-erased?
-            if (LFS3_IFDEF_GBMAP(LFS3_IFDEF_PREERASE(
+            if (LFS3_IFDEF_PREERASE(
                     lfs3_ecksum_isecksum(ecksum_),
-                    false), false)) {
-                #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+                    false)) {
+                #ifdef LFS3_PREERASE
                 // check ecksum
                 int err = lfs3_ecksum_ck(lfs3, ecksum_, block, 0);
                 if (err && err != LFS3_ERR_CORRUPT) {
@@ -11228,13 +11224,13 @@ static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
 // preerase: caller is responsible for perturbing erased-state
 #ifndef LFS3_RDONLY
 static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
-    #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+    #ifdef LFS3_PREERASE
     lfs3_ecksum_t ecksum_;
     #endif
     return lfs3_alloc_(lfs3, flags,
-            LFS3_IFDEF_GBMAP(LFS3_IFDEF_PREERASE(
+            LFS3_IFDEF_PREERASE(
                 &ecksum_,
-                NULL), NULL));
+                NULL));
 }
 #endif
 
@@ -11250,18 +11246,18 @@ static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         uint32_t flags) {
     (void)mdir;
-    #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+    #ifdef LFS3_PREERASE
     lfs3_ecksum_t ecksum_;
     #endif
     lfs3_sblock_t block = lfs3_alloc_(lfs3, flags,
-            LFS3_IFDEF_GBMAP(LFS3_IFDEF_PREERASE(
+            LFS3_IFDEF_PREERASE(
                 &ecksum_,
-                NULL), NULL));
+                NULL));
     if (block < 0) {
         return block;
     }
 
-    #if defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+    #ifdef LFS3_PREERASE
     // need to claim?
     if (lfs3_ecksum_isecksum(&ecksum_)) {
         LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
@@ -11329,7 +11325,7 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
 #endif
 
 // try to pre-erase _one_ block
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 static int lfs3_alloc_preerase(lfs3_t *lfs3) {
     while (lfs3->gbmap.preeraser.known < lfs3->gbmap.known) {
         // lookup next known block
@@ -15061,8 +15057,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
@@ -15973,8 +15968,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) == 0);
@@ -15982,18 +15976,14 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_islookahead(flags));
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_ispreerase(flags));
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_t_compact(flags));
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_t_ispreerase(flags));
     #endif
 
@@ -16024,8 +16014,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) {
@@ -16033,8 +16022,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_GBMAP(
-                            LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0), 0))
+                        LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
                     | LFS3_GC_CKMETA
                     | LFS3_GC_CKDATA));
@@ -16297,16 +16285,13 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_F_MKCONSISTENT
                 | LFS3_F_LOOKAHEAD
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0))
                 | LFS3_F_COMPACT
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA)) == 0);
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_t_ispreerase(flags));
     #endif
 
@@ -16347,8 +16332,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) {
@@ -16356,8 +16340,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_GBMAP(
-                            LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0), 0))
+                        LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
                     | LFS3_GC_CKMETA
                     | LFS3_GC_CKDATA));
@@ -16409,11 +16392,10 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
             // on both gc_preerase_count and preerase vs free known
             // windows
             | LFS3_IFDEF_RDONLY(0,
-                LFS3_IFDEF_GBMAP(
-                    LFS3_IFDEF_PREERASE(
-                        (lfs3_alloc_canpreerase(lfs3))
-                            ? LFS3_I_PREERASE
-                            : 0, 0), 0));
+                LFS3_IFDEF_PREERASE(
+                    (lfs3_alloc_canpreerase(lfs3))
+                        ? LFS3_I_PREERASE
+                        : 0, 0));
 
     // return filesystem config, this may come from disk
     fsinfo->block_size = lfs3->cfg->block_size;
@@ -16701,14 +16683,10 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // if we have no pending gc work, can we preerase blocks?
         } else if (LFS3_IFDEF_RDONLY(
                 false,
-                LFS3_IFDEF_GBMAP(
-                    LFS3_IFDEF_PREERASE(
-                        lfs3_alloc_canpreerase(lfs3),
-                        false),
+                LFS3_IFDEF_PREERASE(
+                    lfs3_alloc_canpreerase(lfs3),
                     false))) {
-            #if !defined(LFS3_RDONLY) \
-                    && defined(LFS3_GBMAP) \
-                    && !defined(LFS3_NO_PREERASE)
+            #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
             int err = lfs3_alloc_preerase(lfs3);
             if (err && err != LFS3_ERR_NOENT) {
                 return err;
@@ -16752,8 +16730,7 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
             LFS3_IFDEF_RDONLY(0, LFS3_CK_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_CK_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_CK_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_CK_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_CK_COMPACT)
                 | LFS3_CK_CKMETA
                 | LFS3_CK_CKDATA)) == 0);
@@ -16763,9 +16740,7 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
             || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_islookahead(flags));
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_ispreerase(flags));
     #endif
@@ -16774,9 +16749,7 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(lfs3_m_isrevperturb(lfs3->flags)
             || !lfs3_t_ispreerase(flags));
     #endif
@@ -16801,8 +16774,7 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
@@ -16811,9 +16783,7 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
             || !lfs3_t_ismkconsistent(lfs3->cfg->gc_flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_islookahead(lfs3->cfg->gc_flags));
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_t_ispreerase(lfs3->cfg->gc_flags));
     #endif
@@ -16821,9 +16791,7 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
             || !lfs3_t_compact(lfs3->cfg->gc_flags));
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(lfs3_m_isrevperturb(lfs3->flags)
             || !lfs3_t_ispreerase(lfs3->cfg->gc_flags));
     #endif
@@ -16844,8 +16812,7 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
@@ -17085,8 +17052,7 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_GBMAP(
-                        LFS3_IFDEF_PREERASE(LFS3_T_PREERASE, 0), 0))
+                    LFS3_IFDEF_PREERASE(LFS3_T_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT)
                 | LFS3_T_CKMETA
                 | LFS3_T_CKDATA)) == 0);
@@ -17096,9 +17062,7 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_islookahead(flags));
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_ispreerase(flags));
     #endif
     LFS3_ASSERT(!lfs3_t_isrdonly(flags) || !lfs3_t_compact(flags));
@@ -17110,9 +17074,7 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     LFS3_ASSERT(!lfs3_t_ismtreeonly(flags) || !lfs3_t_isckdata(flags));
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_t_ispreerase(flags));
     #endif
 

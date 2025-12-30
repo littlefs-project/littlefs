@@ -212,7 +212,7 @@ enum lfs3_type {
 #define LFS3_F_LOOKAHEAD \
                         0x00000200  // Repopulate lookahead/gbmap
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_F_PREERASE 0x00000400  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
@@ -232,9 +232,7 @@ enum lfs3_type {
 #define LFS3_F_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_F_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_F_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, \
-                LFS3_IFDEF_GBMAP( \
-                    LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0), 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_F_COMPACT) \
             | LFS3_F_CKMETA \
             | LFS3_F_CKDATA)
@@ -277,7 +275,7 @@ enum lfs3_type {
 #define LFS3_M_LOOKAHEAD \
                         0x00000200  // Repopulate lookahead/gbmap
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_M_PREERASE 0x00000400  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
@@ -293,9 +291,7 @@ enum lfs3_type {
 #define LFS3_M_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, \
-                LFS3_IFDEF_GBMAP( \
-                    LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0), 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT) \
             | LFS3_M_CKMETA \
             | LFS3_M_CKDATA)
@@ -337,7 +333,7 @@ enum lfs3_type {
 #define LFS3_I_LOOKAHEAD \
                         0x00000200  // Lookahead/gbmap is not full
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_I_PREERASE 0x00000400  // Blocks can be pre-erased
 #endif
 #ifndef LFS3_RDONLY
@@ -370,7 +366,7 @@ enum lfs3_btype {
 #define LFS3_T_LOOKAHEAD \
                         0x00000200  // Repopulate lookahead/gbmap
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_T_PREERASE 0x00000400  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
@@ -395,9 +391,7 @@ enum lfs3_btype {
 #define LFS3_T_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_T_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_T_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, \
-                LFS3_IFDEF_GBMAP( \
-                    LFS3_IFDEF_PREERASE(LFS3_T_PREERASE, 0), 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_T_PREERASE, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_T_COMPACT) \
             | LFS3_T_CKMETA \
             | LFS3_T_CKDATA)
@@ -411,7 +405,7 @@ enum lfs3_btype {
 #define LFS3_CK_LOOKAHEAD \
                         0x00000200  // Repopulate lookahead/gbmap
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_CK_PREERASE \
                         0x00000400  // Try to pre-erase free blocks
 #endif
@@ -428,9 +422,7 @@ enum lfs3_btype {
 #define LFS3_CK_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_CK_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_CK_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, \
-                LFS3_IFDEF_GBMAP( \
-                    LFS3_IFDEF_PREERASE(LFS3_CK_PREERASE, 0), 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_CK_PREERASE, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_CK_COMPACT) \
             | LFS3_CK_CKMETA \
             | LFS3_CK_CKDATA)
@@ -444,7 +436,7 @@ enum lfs3_btype {
 #define LFS3_GC_LOOKAHEAD \
                         0x00000200  // Repopulate lookahead/gbmap
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_NO_PREERASE)
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_GC_PREERASE \
                         0x00000400  // Try to pre-erase free blocks
 #endif
@@ -461,9 +453,7 @@ enum lfs3_btype {
 #define LFS3_GC_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, \
-                LFS3_IFDEF_GBMAP( \
-                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0), 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT) \
             | LFS3_GC_CKMETA \
             | LFS3_GC_CKDATA)
@@ -625,9 +615,7 @@ struct lfs3_cfg {
     // value >= block_count attempts to pre-erase all known free blocks
     // during gc.
     //
-    #if !defined(LFS3_RDONLY) \
-            && defined(LFS3_GBMAP) \
-            && !defined(LFS3_NO_PREERASE)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     lfs3_block_t gc_preerase_count;
     #endif
 
@@ -1383,7 +1371,7 @@ typedef struct lfs3 {
         #if !defined(LFS3_RDONLY)
         lfs3_sblock_t next;
         #endif
-        #if !defined(LFS3_RDONLY) && !defined(LFS3_NO_PREERASE)
+        #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
         lfs3_ecksum_t ecksum;
         struct lfs3_preeraser {
             lfs3_block_t known;
