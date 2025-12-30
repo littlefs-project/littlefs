@@ -11203,7 +11203,6 @@ static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
             if (err) {
                 // bad erase? try another block
                 if (err == LFS3_ERR_CORRUPT) {
-                    lfs3_alloc_inc(lfs3);
                     continue;
                 }
                 return err;
