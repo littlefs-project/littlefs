@@ -10507,7 +10507,7 @@ static int lfs3_gbmap_commit(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 //
 // the purpose of weight is really just to provide a shortcut for bulk
 // clearing ranges in lfs3_alloc_lookgbmap
-static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_set__(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t block, lfs3_block_t weight,
         lfs3_tag_t tag, const lfs3_ecksum_t *ecksum) {
     // lookup gbmap range
@@ -10522,10 +10522,7 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     }
 
     // wait, already set to expected type? guess we're done
-    if (tag__ == tag
-            && ((ecksum)
-                ? lfs3_ecksum_cmp(&ecksum__, ecksum) == 0
-                : !lfs3_ecksum_isecksum(&ecksum__))) {
+    if (tag__ == tag && lfs3_ecksum_cmp(&ecksum__, ecksum) == 0) {
         return 0;
     }
 
@@ -10555,10 +10552,7 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         }
         LFS3_ASSERT(r_weight == r_bid - block);
 
-        if (r_tag == tag
-                && ((ecksum)
-                    ? lfs3_ecksum_cmp(&r_ecksum, ecksum) == 0
-                    : !lfs3_ecksum_isecksum(&r_ecksum))) {
+        if (r_tag == tag && lfs3_ecksum_cmp(&r_ecksum, ecksum) == 0) {
             // delete to prepare merge
             int err = lfs3_gbmap_commit(lfs3, &gbmap_, r_bid, LFS3_RATTRS(
                     LFS3_RATTR(2, LFS3_tag_RM, -2),
@@ -10590,10 +10584,7 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         }
         LFS3_ASSERT(l_bid == block-weight);
 
-        if (l_tag == tag
-                && ((ecksum)
-                    ? lfs3_ecksum_cmp(&l_ecksum, ecksum) == 0
-                    : !lfs3_ecksum_isecksum(&l_ecksum))) {
+        if (l_tag == tag && lfs3_ecksum_cmp(&l_ecksum, ecksum) == 0) {
             // delete to prepare merge
             int err = lfs3_gbmap_commit(lfs3, &gbmap_, l_bid, LFS3_RATTRS(
                     LFS3_RATTR(2, LFS3_tag_RM, -2),
@@ -10623,7 +10614,7 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
                 ? LFS3_RATTR(2, LFS3_tag_GROW, -2)
                 : LFS3_RATTR(2, LFS3_tag_RM, -2),
             LFS3_RATTR_WEIGHT(-((bid__+1) - (block-(weight-1)))),
-            (ecksum && lfs3_ecksum_isecksum(ecksum))
+            (lfs3_ecksum_isecksum(ecksum))
                 ? LFS3_RATTR(3, tag, -2, LFS3_FROM_ECKSUM)
                 : LFS3_RATTR(3, tag, -2),
             LFS3_RATTR_WEIGHT(+weight_),
@@ -10643,6 +10634,21 @@ static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
     // done!
     *gbmap = gbmap_;
     return 0;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static const lfs3_ecksum_t lfs3_gbmap_defaultecksum = {.cksize=-1};
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_block_t block, lfs3_block_t weight,
+        lfs3_tag_t tag, const lfs3_ecksum_t *ecksum) {
+    return lfs3_gbmap_set__(lfs3, gbmap,
+            block, weight, tag,
+            // default to not-ecksum if NULL
+            (ecksum) ? ecksum : &lfs3_gbmap_defaultecksum);
 }
 #endif
 
