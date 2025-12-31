@@ -9232,7 +9232,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // need to update mroot chain?
     if (lfs3_mdir_cmp(&mroot_, &lfs3->mroot) != 0
-            || (mdelta == 0 && mdir->mid <= -1)) {
+            || (mdir->mid <= -1 && lfs3_mdir_cmp(mdir, &lfs3->mroot) != 0)) {
         // tail recurse, updating mroots until a commit sticks
         lfs3_mdir_t mrootchild;
         lfs3_mdir_t mrootchild_;
@@ -9399,8 +9399,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     }
 
     // update mdir to follow requested rid
-    if (mdelta > 0
-            && mdir->mid <= -1) {
+    if (mdir->mid <= -1 && lfs3_mdir_cmp(mdir, &lfs3->mroot) == 0) {
         lfs3_mdir_sync(mdir, &mroot_);
     } else if (mdelta > 0
             && lfs3_mrid(lfs3, mdir->mid)
