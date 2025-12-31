@@ -2639,6 +2639,9 @@ getopt_done:;
     test_define_cleanup();
     if (test_override_defines) {
         for (size_t i = 0; i < test_override_define_count; i++) {
+            free((void*)(
+                    (const test_override_data_t*)
+                        test_override_defines[i].data)->values);
             free((void*)test_override_defines[i].data);
         }
         free((void*)test_override_defines);

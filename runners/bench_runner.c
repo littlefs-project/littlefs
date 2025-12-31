@@ -1958,6 +1958,9 @@ getopt_done: ;
     bench_define_cleanup();
     if (bench_override_defines) {
         for (size_t i = 0; i < bench_override_define_count; i++) {
+            free((void*)(
+                    (const bench_override_data_t*)
+                        bench_override_defines[i].data)->values);
             free((void*)bench_override_defines[i].data);
         }
         free((void*)bench_override_defines);
