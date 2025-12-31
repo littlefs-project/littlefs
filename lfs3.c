@@ -9825,7 +9825,7 @@ again:;
 
             // setup mtortoise to detect cycles
             mtrv->u.mtortoise.blocks[0] = mtrv->h.mdir.r.blocks[0];
-            mtrv->u.mtortoise.blocks[0] = mtrv->h.mdir.r.blocks[1];
+            mtrv->u.mtortoise.blocks[1] = mtrv->h.mdir.r.blocks[1];
             mtrv->u.mtortoise.dist = 0;
             mtrv->u.mtortoise.nlog2 = 0;
 
