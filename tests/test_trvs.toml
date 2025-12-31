@@ -4097,15 +4097,15 @@ code = '''
         lfs3_trv_close(&lfs3, &trv) => 0;
         goto done;
     }
+    // traverse mtree
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse gbmap
     if (GBMAP) {
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_BTREE);
         assert(tinfo.block == 2);
     }
-    // traverse mtree
-    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-    assert(tinfo.btype == LFS3_BTYPE_BTREE);
     // traverse mdir
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -6507,15 +6507,16 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_trvs_compact_mrootchain]
+[cases.test_trvs_compact_mrootanchor]
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
-# force early relocations
-defines.BLOCK_RECYCLES = 0
+# force early relocations, but keep at least 1 to prevent mroot anchor
+# from extendeding during compaction
+defines.BLOCK_RECYCLES = 1
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -6589,6 +6590,165 @@ code = '''
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
     assert(tinfo.block == 0 || tinfo.block == 1);
+    // traverse mroot
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    // traverse gbmap
+    if (GBMAP) {
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
+        assert(tinfo.block == 2);
+    }
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => LFS3_ERR_NOENT;
+
+    // mrootanchor should have been compacted
+    lfs3_mdir_t mrootanchor;
+    lfs3_mdir_fetch(&lfs3, &mrootanchor,
+            -1, LFS3_MPTR_MROOTANCHOR()) => 0;
+    assert(lfs3_rbyd_eoff(&mrootanchor.r) <= GC_COMPACT_THRESH);
+
+    // but because we mutated, we're still marked as uncompacted
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // running another traversal should clear the uncompacted flag
+    lfs3_trv_rewind(&lfs3, &trv) => 0;
+    while (true) {
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // mrootanchor should have been compacted
+    lfs3_mdir_fetch(&lfs3, &mrootanchor,
+            -1, LFS3_MPTR_MROOTANCHOR()) => 0;
+    assert(lfs3_rbyd_eoff(&mrootanchor.r) <= GC_COMPACT_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        uint8_t rbuf[SIZE];
+        lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_trvs_compact_mrootanchor_extend]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = 'FCACHE_SIZE/2'
+# set compact thresh to minimum
+defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+# force early relocations, this will cause the mroot anchor to extend
+defines.BLOCK_RECYCLES = 0
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // write to our mdir until mroot extends
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    uint8_t wbuf[SIZE];
+    while (lfs3.mroot.r.blocks[0] == 0
+            || lfs3.mroot.r.blocks[0] == 1) {
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_sync(&lfs3, &file) => 0;
+    }
+
+    // now write to our mdir until mrootanchor >gc_compact_thresh full
+    while (true) {
+        // we need internals to check this
+        lfs3_mdir_t mrootanchor;
+        lfs3_mdir_fetch(&lfs3, &mrootanchor,
+                -1, LFS3_MPTR_MROOTANCHOR()) => 0;
+        if (lfs3_rbyd_eoff(&mrootanchor.r) > GC_COMPACT_THRESH) {
+            break;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_sync(&lfs3, &file) => 0;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_LOOKAHEAD
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try traversing and compacting
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv,
+            LFS3_T_RDWR
+                | LFS3_T_COMPACT
+                | ((LOOKAHEAD) ? LFS3_T_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_T_CKMETA : 0)
+                | ((CKDATA) ? LFS3_T_CKDATA : 0)) => 0;
+    // traverse mrootanchor, trigger compaction, no longer mrootanchor
+    struct lfs3_tinfo tinfo;
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    assert(tinfo.block != 0 && tinfo.block != 1);
+    lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+    assert(tinfo.btype == LFS3_BTYPE_MDIR);
+    assert(tinfo.block != 0 && tinfo.block != 1);
     // traverse mroot
     lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
     assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -7753,15 +7913,15 @@ code = '''
             assert(tinfo.block == 2);
         }
     } else {
+        // traverse mtree
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse gbmap
         if (GBMAP) {
             lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
             assert(tinfo.btype == LFS3_BTYPE_BTREE);
             assert(tinfo.block == 2);
         }
-        // traverse mtree
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);
@@ -8936,15 +9096,15 @@ code = '''
             assert(tinfo.block == 2);
         }
     } else {
+        // traverse mtree
+        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
+        assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse gbmap
         if (GBMAP) {
             lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
             assert(tinfo.btype == LFS3_BTYPE_BTREE);
             assert(tinfo.block == 2);
         }
-        // traverse mtree
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        assert(tinfo.btype == LFS3_BTYPE_BTREE);
         // traverse mdirs
         lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
         assert(tinfo.btype == LFS3_BTYPE_MDIR);

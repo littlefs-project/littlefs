@@ -9140,7 +9140,8 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // need to relocate?
     } else if (lfs3_mdir_cmp(&mdir_[0], mdir) != 0
-            && lfs3_mdir_cmp(mdir, &lfs3->mroot) != 0) {
+            && lfs3_mdir_cmp(mdir, &lfs3->mroot) != 0
+            && mdir->mid > -1) {
         LFS3_INFO("Relocating mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "-> 0x{%"PRIx32",%"PRIx32"}",
                 lfs3_dbgmbid(lfs3, mdir->mid),
@@ -9230,10 +9231,18 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     }
 
     // need to update mroot chain?
-    if (lfs3_mdir_cmp(&mroot_, &lfs3->mroot) != 0) {
+    if (lfs3_mdir_cmp(&mroot_, &lfs3->mroot) != 0
+            || (mdelta == 0 && mdir->mid <= -1)) {
         // tail recurse, updating mroots until a commit sticks
-        lfs3_mdir_t mrootchild = lfs3->mroot;
-        lfs3_mdir_t mrootchild_ = mroot_;
+        lfs3_mdir_t mrootchild;
+        lfs3_mdir_t mrootchild_;
+        if (lfs3_mdir_cmp(&mroot_, &lfs3->mroot) != 0) {
+            mrootchild = lfs3->mroot;
+            mrootchild_ = mroot_;
+        } else {
+            mrootchild = *mdir;
+            mrootchild_ = mdir_[0];
+        }
         while (lfs3_mdir_cmp(&mrootchild_, &mrootchild) != 0
                 && !lfs3_mdir_ismrootanchor(&mrootchild)) {
             // find the mroot's parent
@@ -9370,8 +9379,12 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
             continue;
         }
 
+        // update any mroots, this clobbers chain mroots but that's
+        // better than letting them point to garbage
+        if (h->mdir.mid <= -1) {
+            lfs3_mdir_sync(&h->mdir, &mroot_);
         // update any splits/drops
-        if (lfs3_mdir_cmp(&h->mdir, mdir) == 0) {
+        } else if (lfs3_mdir_cmp(&h->mdir, mdir) == 0) {
             if (mdelta > 0
                     && lfs3_mrid(lfs3, h->mdir.mid)
                         >= (lfs3_srid_t)mdir_[0].r.weight) {
@@ -9382,9 +9395,6 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
             }
         } else if (h->mdir.mid > mdir->mid) {
             h->mdir.mid += mdelta;
-        // and any mroot updates, though this clobbers chain mroots
-        } else if (h->mdir.mid <= -1) {
-            lfs3_mdir_sync(&h->mdir, &mroot_);
         }
     }
 
