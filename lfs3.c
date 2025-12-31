@@ -7798,7 +7798,10 @@ static inline bool lfs3_rev_needsrelocation(lfs3_t *lfs3, uint32_t rev) {
     }
 
     // does out recycle counter overflow?
-    uint32_t rev_ = rev + (1 << (28-lfs3_smax(lfs3->recycle_bits, 0)));
+    uint32_t rev_ = rev + (2 << (28-lfs3_smax(lfs3->recycle_bits, 0)));
+    //                     ^ note the +2! this ensures we overflow after
+    //                       an odd number of recycles, otherwise we'd
+    //                       only ever relocate one block in mdirs
     return (rev_ >> 28) != (rev >> 28);
 }
 #endif
@@ -7806,7 +7809,15 @@ static inline bool lfs3_rev_needsrelocation(lfs3_t *lfs3, uint32_t rev) {
 #ifndef LFS3_RDONLY
 static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, uint32_t rev) {
     // increment recycle counter/revision
-    return rev + (1 << (28-lfs3_smax(lfs3->recycle_bits, 0)));
+    //
+    // this mess increments by 2 unless we _don't_ overflow, in effect
+    // it implements a mod (2^n)-1 counter, the goal is to avoid
+    // multiple needsrelocation triggers (see above)
+    uint32_t rev_ = rev + (2 << (28-lfs3_smax(lfs3->recycle_bits, 0)));
+    if ((rev_ >> 28) == (rev >> 28)) {
+        rev_ -= 1 << (28-lfs3_smax(lfs3->recycle_bits, 0));
+    }
+    return rev_;
 }
 #endif
 
@@ -15174,18 +15185,17 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     // find the number of bits to use for recycle counters
     //
-    // Add 1, to include the initial erase, multiply by 2, since we
-    // alternate which metadata block we erase each compaction, and limit
-    // to 28-bits so we always have some bits to determine the most recent
-    // revision.
+    // Add 1 for the initial erase, and multiply by 2 since we alternate
+    // which metadata block we erase each compaction.
+    //
+    // We're currently limited to 20-bits to keep space for
+    // perturb/low-effort debug bits, though this could be relaxed
+    // in the future (though >28 bits may cause problems since we need
+    // some bits to tell revisions apart).
+    //
     #ifndef LFS3_RDONLY
     if (lfs3->cfg->block_recycles != -1) {
-        lfs3->recycle_bits = lfs3_min(
-                lfs3_nlog2(2*(lfs3->cfg->block_recycles+1)+1)-1,
-                28);
-        // we're currently limited to 20-bits to keep space for
-        // perturb/low-effort debug bits, though this could be relaxed
-        // in the future
+        lfs3->recycle_bits = lfs3_nlog2(2*(lfs3->cfg->block_recycles+1)+1)-1;
         LFS3_ASSERT(lfs3->recycle_bits <= 20);
     } else {
         lfs3->recycle_bits = -1;
