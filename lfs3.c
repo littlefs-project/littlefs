@@ -6332,9 +6332,9 @@ static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3,
     // restart from the root?
     if (btrv->bid == -1
             || btrv->rid >= (lfs3_srid_t)btrv->rbyd.weight
-            // we do this unconditionally when rbyd == root to avoid
-            // bshrubs falling out-of-sync
-            || btrv->rbyd.weight == btree->r.weight) {
+            // we do this unconditionally when rbyd is a shrub to avoid
+            // bshrub root traversals falling out-of-sync under mutation
+            || lfs3_rbyd_isshrub(&btrv->rbyd)) {
         // end of traversal?
         if (btrv->bid >= (lfs3_sbid_t)btree->r.weight) {
             return LFS3_ERR_NOENT;
