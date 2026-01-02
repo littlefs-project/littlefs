@@ -37,6 +37,8 @@ defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
+# don't bother testing with more complicated block allocators
+ifndef = 'LFS3_YES_GBMAP'
 in = 'lfs3.c'
 code = '''
     // test all possible bad blocks
@@ -1999,6 +2001,8 @@ defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
+# don't bother testing with more complicated block allocators
+ifndef = 'LFS3_YES_GBMAP'
 in = 'lfs3.c'
 code = '''
     // test a large region of bad blocks
@@ -3964,6 +3968,8 @@ defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
+# don't bother testing with more complicated block allocators
+ifndef = 'LFS3_YES_GBMAP'
 in = 'lfs3.c'
 code = '''
     // test a large region of bad blocks

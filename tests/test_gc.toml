@@ -1818,12 +1818,14 @@ done:;
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.PREERASE = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -1842,6 +1844,10 @@ defines.SIZE = [
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
     'LFS3_IFDEF_GC(true, AFTER != 0)',
+    'LFS3_IFDEF_PREERASE(true, !PREERASE)',
+    'GBMAP || !PREERASE',
+    # lfs3_trv_t doesn't make progress on this
+    '!PREERASE || AFTER != 1',
 ]
 code = '''
     lfs3_t lfs3;
@@ -1883,6 +1889,7 @@ code = '''
                 | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -1904,6 +1911,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((PREERASE)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -1933,6 +1943,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((PREERASE)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -1944,35 +1957,17 @@ code = '''
             }
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
-                // we need an explicit traversal for this
-                lfs3_trv_t trv;
-                lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
-                while (true) {
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
-                    assert(err == 0 || err == LFS3_ERR_NOENT);
-                    if (err == LFS3_ERR_NOENT) {
-                        break;
-                    }
-                }
-                lfs3_trv_close(&lfs3, &trv) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
             }
 
+            #ifdef LFS3_PREERASE
+            if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
+                lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
+            }
+            #endif
+
             if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
-                // we need an explicit traversal for this
-                lfs3_trv_t trv;
-                lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
-                while (true) {
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
-                    assert(err == 0 || err == LFS3_ERR_NOENT);
-                    if (err == LFS3_ERR_NOENT) {
-                        break;
-                    }
-                }
-                lfs3_trv_close(&lfs3, &trv) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACT) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
@@ -2003,6 +1998,9 @@ code = '''
                         && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE(
+                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -2021,12 +2019,14 @@ code = '''
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.PREERASE = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACT) ? LFS3_GC_COMPACT : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -2045,6 +2045,10 @@ defines.SIZE = [
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
     'LFS3_IFDEF_GC(true, AFTER != 0)',
+    'LFS3_IFDEF_PREERASE(true, !PREERASE)',
+    'GBMAP || !PREERASE',
+    # lfs3_trv_t doesn't make progress on this
+    '!PREERASE || AFTER != 1',
 ]
 code = '''
     lfs3_t lfs3;
@@ -2086,6 +2090,7 @@ code = '''
                 | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -2107,6 +2112,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((PREERASE)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -2136,6 +2144,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((PREERASE)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -2147,35 +2158,17 @@ code = '''
             }
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
-                // we need an explicit traversal for this
-                lfs3_trv_t trv;
-                lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
-                while (true) {
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
-                    assert(err == 0 || err == LFS3_ERR_NOENT);
-                    if (err == LFS3_ERR_NOENT) {
-                        break;
-                    }
-                }
-                lfs3_trv_close(&lfs3, &trv) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
             }
 
+            #ifdef LFS3_PREERASE
+            if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
+                lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
+            }
+            #endif
+
             if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
-                // we need an explicit traversal for this
-                lfs3_trv_t trv;
-                lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
-                while (true) {
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
-                    assert(err == 0 || err == LFS3_ERR_NOENT);
-                    if (err == LFS3_ERR_NOENT) {
-                        break;
-                    }
-                }
-                lfs3_trv_close(&lfs3, &trv) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACT) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
@@ -2206,6 +2199,9 @@ code = '''
                         && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE(
+                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -2224,6 +2220,9 @@ code = '''
                 | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE(
+                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta, but uncking ckdata does
                 // _not_ imply uncking ckmeta
@@ -2247,6 +2246,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((PREERASE)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -2276,6 +2278,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((PREERASE)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            : 0)
                         | ((COMPACT) ? LFS3_I_COMPACT : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
@@ -2287,35 +2292,17 @@ code = '''
             }
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
-                // we need an explicit traversal for this
-                lfs3_trv_t trv;
-                lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_LOOKAHEAD) => 0;
-                while (true) {
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
-                    assert(err == 0 || err == LFS3_ERR_NOENT);
-                    if (err == LFS3_ERR_NOENT) {
-                        break;
-                    }
-                }
-                lfs3_trv_close(&lfs3, &trv) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
             }
 
+            #ifdef LFS3_PREERASE
+            if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
+                lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
+            }
+            #endif
+
             if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
-                // we need an explicit traversal for this
-                lfs3_trv_t trv;
-                lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDWR | LFS3_T_COMPACT) => 0;
-                while (true) {
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
-                    assert(err == 0 || err == LFS3_ERR_NOENT);
-                    if (err == LFS3_ERR_NOENT) {
-                        break;
-                    }
-                }
-                lfs3_trv_close(&lfs3, &trv) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACT) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
@@ -2346,6 +2333,9 @@ code = '''
                         && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE(
+                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)

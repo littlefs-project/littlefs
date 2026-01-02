@@ -10185,7 +10185,8 @@ static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
 static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known);
-static int lfs3_gbmap_zero(lfs3_t *lfs3, lfs3_btree_t *gbmap);
+static int lfs3_gbmap_zerounknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_block_t window, lfs3_block_t size);
 static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_);
@@ -10236,8 +10237,8 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         && !lfs3_alloc_canlookahead(lfs3),
                     false)) {
                 #ifdef LFS3_GBMAP
-                // lfs3_gbmap_zero may allocate, so checkpoint the
-                // lookahead buffer
+                // lfs3_gbmap_zerounknown may allocate, so checkpoint
+                // the lookahead buffer
                 lfs3_alloc_ckpoint_(lfs3);
 
                 // create a copy of the gbmap
@@ -10246,9 +10247,12 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 // mark any in-use blocks as free
                 //
                 // we do this instead of creating a new gbmap to
-                // (1) preserve any erased/bad info and (2) try to best
-                // use any available erased-state
-                int err = lfs3_gbmap_zero(lfs3, &mgc->gbmap_);
+                // (1) preserve any known erased/bad info and (2) try to
+                // best use any in-btree erased-state
+                LFS3_ASSERT(lfs3->lookahead.ckpoint >= lfs3->gbmap.known);
+                int err = lfs3_gbmap_zerounknown(lfs3, &mgc->gbmap_,
+                        lfs3->gbmap.window + lfs3->gbmap.known,
+                        lfs3->lookahead.ckpoint - lfs3->gbmap.known);
                 if (err) {
                     return err;
                 }
@@ -10666,8 +10670,7 @@ static const lfs3_ecksum_t lfs3_gbmap_defaultecksum = {.cksize=-1};
 static int lfs3_gbmap_set_(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t block, lfs3_block_t weight,
         lfs3_tag_t tag, const lfs3_ecksum_t *ecksum) {
-    return lfs3_gbmap_set__(lfs3, gbmap,
-            block, weight, tag,
+    return lfs3_gbmap_set__(lfs3, gbmap, block, weight, tag,
             // default to not-ecksum if NULL
             (ecksum) ? ecksum : &lfs3_gbmap_defaultecksum);
 }
@@ -10718,27 +10721,33 @@ static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 // note this is not completely atomic, but worst case we just end up with
 // only some ranges zeroed
-static int lfs3_gbmap_zero(lfs3_t *lfs3, lfs3_btree_t *gbmap) {
-    lfs3_block_t block__ = -1;
-    while (true) {
-        lfs3_block_t weight__;
-        lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block__+1,
-                &block__, &weight__, NULL);
+static int lfs3_gbmap_zerounknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_block_t window, lfs3_block_t size) {
+    lfs3_block_t window_ = window % lfs3->block_count;
+    lfs3_block_t size_ = size;
+    while (size_ > 0) {
+        lfs3_block_t block__;
+        lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, window_,
+                &block__, NULL, NULL);
         if (tag__ < 0) {
-            if (tag__ == LFS3_ERR_NOENT) {
-                break;
-            }
+            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
             return tag__;
         }
+        lfs3_sblock_t d = lfs3_min(
+                block__+1 - window_,
+                size_);
 
         // mark in-use/erased ranges as free
         if (tag__ == LFS3_TAG_BMINUSE || tag__ == LFS3_TAG_BMERASED) {
-            int err = lfs3_gbmap_set_(lfs3, gbmap,
-                    block__, weight__, LFS3_TAG_BMFREE, NULL);
+            int err = lfs3_gbmap_set_(lfs3, gbmap, window_+d-1, d,
+                    LFS3_TAG_BMFREE, NULL);
             if (err) {
                 return err;
             }
         }
+
+        window_ = (window_ + d) % lfs3->block_count;
+        size_ -= d;
     }
 
     return 0;
@@ -10849,7 +10858,7 @@ static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3) {
     return lfs3_f_isgbmap(lfs3->flags)
             // have we pre-erased enough blocks?
             && lfs3->gbmap.preeraser.count
-                < lfs3->cfg->gc_preerase_count
+                < (lfs3_block_t)lfs3->cfg->gc_preerase_count
             // are there any more blocks in our known window?
             && lfs3->gbmap.preeraser.known
                 < lfs3->gbmap.known;
@@ -10963,6 +10972,12 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
     // adopt new gbmap
     lfs3->gbmap.known = known;
     lfs3->gbmap.b = *gbmap;
+    // reset preeraser, don't worry this should rediscover any
+    // erased ranges in the gbmap
+    #ifdef LFS3_PREERASE
+    lfs3->gbmap.preeraser.known = 0;
+    lfs3->gbmap.preeraser.count = 0;
+    #endif
 
     // eagerly find the next free block so lookgbmap scans can make
     // the most progress
@@ -10998,8 +11013,18 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     if (lfs3_f_isgbmap(lfs3->flags)) {
         lfs3->gbmap.window = (lfs3->gbmap.window + 1) % lfs3->block_count;
         lfs3->gbmap.known -= lfs3_min(1, lfs3->gbmap.known);
+        #ifdef LFS3_PREERASE
+        lfs3->gbmap.preeraser.known
+                -= lfs3_min(1, lfs3->gbmap.preeraser.known);
+        #endif
         if (lfs3->gbmap.next > 0) {
             lfs3->gbmap.next -= 1;
+            #ifdef LFS3_PREERASE
+            if (lfs3_ecksum_isecksum(&lfs3->gbmap.ecksum)) {
+                lfs3->gbmap.preeraser.count
+                        -= lfs3_min(1, lfs3->gbmap.preeraser.count);
+            }
+            #endif
         } else if (lfs3->gbmap.next < 0) {
             lfs3->gbmap.next += 1;
         }
@@ -11035,6 +11060,9 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
                 if (tag < 0) {
                     return tag;
                 }
+                lfs3_block_t d = lfs3_min(
+                        (block+1) - lfs3->gbmap.window,
+                        lfs3->gbmap.known);
 
                 // free? erased?
                 //
@@ -11045,15 +11073,11 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
                             tag == LFS3_TAG_BMERASED
                                 && lfs3_m_isrevperturb(lfs3->flags),
                             false)) {
-                    lfs3->gbmap.next = lfs3_min(
-                            (block+1) - lfs3->gbmap.window,
-                            lfs3->gbmap.known);
+                    lfs3->gbmap.next = +d;
 
                 // in-use? bad? erased? treat as in-use
                 } else {
-                    lfs3->gbmap.next = -lfs3_min(
-                            (block+1) - lfs3->gbmap.window,
-                            lfs3->gbmap.known);
+                    lfs3->gbmap.next = -d;
                 }
             }
 
@@ -11215,6 +11239,9 @@ static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
                     #endif
                     return block;
                 }
+
+                // try another block in case we have other preerased blocks
+                continue;
                 #endif
             }
 
@@ -11305,9 +11332,12 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
     // mark any in-use blocks as free
     //
     // we do this instead of creating a new gbmap to (1) preserve any
-    // erased/bad info and (2) try to best use any available
+    // known erased/bad info and (2) try to best use any in-btree
     // erased-state
-    int err = lfs3_gbmap_zero(lfs3, &gbmap_);
+    LFS3_ASSERT(lfs3->lookahead.ckpoint >= lfs3->gbmap.known);
+    int err = lfs3_gbmap_zerounknown(lfs3, &gbmap_,
+            lfs3->gbmap.window + lfs3->gbmap.known,
+            lfs3->lookahead.ckpoint - lfs3->gbmap.known);
     if (err) {
         return err;
     }
@@ -11360,12 +11390,12 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
             LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
             return tag__;
         }
+        lfs3_block_t d = lfs3_min(
+                block__+1 - block,
+                lfs3->gbmap.known - lfs3->gbmap.preeraser.known);
 
         // not free?
         if (tag__ != LFS3_TAG_BMFREE) {
-            lfs3_sblock_t d = lfs3_min(
-                    block__+1 - block,
-                    lfs3->gbmap.known - lfs3->gbmap.preeraser.known);
             // wait, already erased?
             if (tag__ == LFS3_TAG_BMERASED) {
                 lfs3->gbmap.preeraser.count += d;
@@ -11390,8 +11420,8 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
         // commit into gbmap
         //
         // this relies on lfs3_gbmap_commit being atomic
-        err = lfs3_gbmap_set(lfs3, &lfs3->gbmap.b,
-                block, LFS3_TAG_BMERASED, &ecksum);
+        err = lfs3_gbmap_set(lfs3, &lfs3->gbmap.b, block,
+                LFS3_TAG_BMERASED, &ecksum);
         if (err) {
             return err;
         }
@@ -16669,7 +16699,8 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         } else if (LFS3_IFDEF_RDONLY(
                 false,
                 LFS3_IFDEF_PREERASE(
-                    lfs3_alloc_canpreerase(lfs3),
+                    lfs3_t_ispreerase(flags)
+                        && lfs3_alloc_canpreerase(lfs3),
                     false))) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
             int err = lfs3_alloc_preerase(lfs3);

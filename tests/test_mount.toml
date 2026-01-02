@@ -32,6 +32,7 @@ defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.PREERASE = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -44,6 +45,9 @@ if = [
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
+    'LFS3_IFDEF_PREERASE(true, !PREERASE)',
+    'GBMAP || !PREERASE',
+    '!RDONLY || !PREERASE',
     '!RDONLY || !COMPACT',
 ]
 code = '''
@@ -70,6 +74,7 @@ code = '''
                     : 0)
                 | ((MKCONSISTENT) ? LFS3_M_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, -1) : 0)
                 | ((COMPACT) ? LFS3_M_COMPACT : 0)
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
                 | ((CKDATA) ? LFS3_M_CKDATA : 0),
@@ -95,7 +100,12 @@ code = '''
                     ? LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, -1)
                     : 0)
                 | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!LOOKAHEAD && (!GBMAP || PREERASE))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | LFS3_IFDEF_PREERASE(
+                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -117,6 +127,7 @@ defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.PREERASE = [false, true]
 defines.COMPACT = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
@@ -127,6 +138,8 @@ if = [
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
+    'LFS3_IFDEF_PREERASE(true, !PREERASE)',
+    'GBMAP || !PREERASE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -146,6 +159,7 @@ code = '''
                     : 0)
                 | ((MKCONSISTENT) ? LFS3_F_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_F_LOOKAHEAD : 0)
+                | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, -1) : 0)
                 | ((COMPACT) ? LFS3_F_COMPACT : 0)
                 | ((CKMETA) ? LFS3_F_CKMETA : 0)
                 | ((CKDATA) ? LFS3_F_CKDATA : 0)
@@ -160,7 +174,10 @@ code = '''
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
-                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!GBMAP || (PREERASE && !LOOKAHEAD))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -194,6 +211,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -212,6 +230,7 @@ code = '''
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -248,6 +267,7 @@ code = '''
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -272,6 +292,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -290,6 +311,7 @@ code = '''
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_MKCONSISTENT
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -354,6 +376,7 @@ code = '''
                 | ((!GBMAP || SIZE >= BLOCK_SIZE/4)
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -376,6 +399,7 @@ code = '''
                 | ((!LOOKAHEAD && (!GBMAP || SIZE >= BLOCK_SIZE/4))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -469,6 +493,7 @@ code = '''
                 | ((!GBMAP || ORPHANS >= 100)
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACT
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
@@ -491,6 +516,7 @@ code = '''
                 | ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | ((!COMPACT) ? LFS3_I_COMPACT : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
