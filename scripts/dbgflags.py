@@ -6,6 +6,7 @@ if __name__ == "__main__":
 
 import collections as co
 import functools as ft
+import math as mt
 
 
 # Flag prefixes
@@ -262,6 +263,7 @@ class Prefix:
 # self-parsing flags
 class Flag:
     def __init__(self, name, flag, help, *,
+            lineno=0,
             prefix=None,
             yes=False,
             alias=False,
@@ -271,6 +273,7 @@ class Flag:
         self.name = name
         self.flag = flag
         self.help = help
+        self.lineno = lineno
         self.prefix = prefix
         self.yes = yes
         self.alias = alias
@@ -285,20 +288,32 @@ class Flag:
                 self.help)
 
     def __eq__(self, other):
-        return self.name == other.name
+        return self.name == getattr(other, 'name', None)
 
     def __ne__(self, other):
-        return self.name != other.name
+        return self.name != getattr(other, 'name', None)
 
     def __hash__(self):
         return hash(self.name)
 
     def line(self):
-        return ('LFS3_%s' % self.name, '0x%08x' % self.flag, self.help)
+        if isinstance(self, Flag):
+            return ('LFS3_%s' % self.name, '0x%08x' % self.flag, self.help)
+        elif isinstance(self, int):
+            return ('?', '0x%08x' % self, 'Unknown flags')
+        else:
+            return ('?', str(self), 'Unknown flag')
 
     @staticmethod
     @ft.cache
-    def flags():
+    def _flags(*, filter=None):
+        # filter by prefixes
+        if filter:
+            assert isinstance(filter, frozenset)
+            # make sure to cache all flags
+            flags = Flag._flags()
+            return [f for f in flags if f.prefix in filter]
+
         # parse our script's source to figure out flags
         import inspect
         import re
@@ -315,16 +330,17 @@ class Flag:
                         '*= *(?P<flag>[^#]*?) *'
                         '#+ (?P<mode>[^ ]+) *(?P<help>.*)$'
                     % '|'.join(prefixes_.keys()))
-        for line in (inspect.getsource(
-                    inspect.getmodule(inspect.currentframe()))
-                .replace('\\\n', '')
-                .splitlines()):
+        for i, line in enumerate(
+                inspect.getsource(inspect.getmodule(inspect.currentframe()))
+                    .replace('\\\n', '')
+                    .splitlines()):
             m = flag_pattern.match(line)
             if m:
                 flags.append(Flag(
                         m.group('name'),
                         globals()[m.group('name')],
                         m.group('help'),
+                        lineno=1+i,
                         # associate flags -> prefix
                         prefix=prefixes_[
                             m.group('name').split('_', 1)[0].upper()],
@@ -341,76 +357,129 @@ class Flag:
 
         return flags
 
+    @staticmethod
+    def flags(*, filter=None):
+        if isinstance(filter, str):
+            filter = frozenset((filter,))
+        if filter is not None and not isinstance(filter, frozenset):
+            filter = frozenset(filter)
+        return Flag._flags(filter=filter)
+
+    _sentinel = object()
+    @staticmethod
+    def find(f_, *, filter=None, default=_sentinel):
+        # find flags, note this is cached
+        flags__ = Flag.flags(filter=filter)
+
+        flags_ = []
+        # find by LFS3_+prefix+_+name
+        for f in flags__:
+            if 'LFS3_%s' % f.name.upper() == f_.upper():
+                flags_.append(f)
+        if flags_:
+            return flags_
+        # find by prefix+_+name
+        for f in flags__:
+            if '%s' % f.name.upper() == f_.upper():
+                flags_.append(f)
+        if flags_:
+            return flags_
+        # find by name
+        for f in flags__:
+            if f.name.split('_', 1)[1].upper() == f_.upper():
+                flags_.append(f)
+        if flags_:
+            return flags_
+        # find by value
+        try:
+            f__ = int(f_, 0)
+            f___ = f__
+            for f in flags__:
+                # ignore aliases and type masks here
+                if f.alias or f.mask:
+                    continue
+                # matches flag?
+                if not f.type and (f__ & f.flag) == f.flag:
+                    flags_.append(f)
+                    f___ &= ~f.flag
+                # matches type?
+                elif f.type and (f__ & f.type.flag) == f.flag:
+                    flags_.append(f)
+                    f___ &= ~f.type.flag
+            if f___:
+                flags_.append(f___)
+            return flags_
+        except ValueError:
+            pass
+        # not found
+        if default is Flag._sentinel:
+            raise KeyError(f_)
+        else:
+            return default
+
 
 def main(flags, *,
         list=False,
         all=False,
+        diff=None,
+        color='auto',
         prefixes=[]):
     import builtins
     list_, list = list, builtins.list
     all_, all = all, builtins.all
 
-    # find flags
-    flags__ = Flag.flags()
-
-    # filter by prefixes if there are any prefixes
-    if prefixes:
-        prefixes = set(prefixes)
-        flags__ = [f for f in flags__ if f.prefix in prefixes]
+    # figure out what color should be
+    if color == 'auto':
+        color = sys.stdout.isatty()
+    elif color == 'always':
+        color = True
+    else:
+        color = False
 
     lines = []
     # list all known flags
     if list_:
-        for f in flags__:
+        for f in Flag.flags(filter=prefixes or None):
             if not all_ and (f.internal or f.type):
                 continue
             lines.append(f.line())
 
+    # diff flags by name or value
+    elif diff:
+        # first find flags
+        a = []
+        for f_ in flags:
+            a.extend(Flag.find(f_, filter=prefixes or None, default=[f_]))
+
+        b = Flag.find(diff, filter=prefixes or None, default=[diff])
+
+        # compute line-by-line diff
+        a_set = set(a)
+        b_set = set(b)
+        i, j = 0, 0
+        while i < len(a) or j < len(b):
+            if i < len(a) and (
+                    j >= len(b)
+                        or getattr(a[i], 'lineno', mt.inf)
+                            <= getattr(b[j], 'lineno', mt.inf)):
+                if a[i] not in b_set:
+                    l = Flag.line(a[i])
+                    lines.append(('+'+l[0], *l[1:]))
+                else:
+                    l = Flag.line(a[i])
+                    lines.append((' '+l[0], *l[1:]))
+                i += 1
+            else:
+                if b[j] not in a_set:
+                    l = Flag.line(b[j])
+                    lines.append(('-'+l[0], *l[1:]))
+                j += 1
+
     # find flags by name or value
     else:
         for f_ in flags:
-            found = False
-            # find by LFS3_+prefix+_+name
-            for f in flags__:
-                if 'LFS3_%s' % f.name.upper() == f_.upper():
-                    lines.append(f.line())
-                    found = True
-            if found:
-                continue
-            # find by prefix+_+name
-            for f in flags__:
-                if '%s' % f.name.upper() == f_.upper():
-                    lines.append(f.line())
-                    found = True
-            if found:
-                continue
-            # find by name
-            for f in flags__:
-                if f.name.split('_', 1)[1].upper() == f_.upper():
-                    lines.append(f.line())
-                    found = True
-            if found:
-                continue
-            # find by value
-            try:
-                f__ = int(f_, 0)
-                f___ = f__
-                for f in flags__:
-                    # ignore aliases and type masks here
-                    if f.alias or f.mask:
-                        continue
-                    # matches flag?
-                    if not f.type and (f__ & f.flag) == f.flag:
-                        lines.append(f.line())
-                        f___ &= ~f.flag
-                    # matches type?
-                    elif f.type and (f__ & f.type.flag) == f.flag:
-                        lines.append(f.line())
-                        f___ &= ~f.type.flag
-                if f___:
-                    lines.append(('?', '0x%08x' % f___, 'Unknown flags'))
-            except ValueError:
-                lines.append(('?', f_, 'Unknown flag'))
+            for f in Flag.find(f_, filter=prefixes or None, default=[f_]):
+                lines.append(Flag.line(f))
 
     # first find widths
     w = [0, 0]
@@ -420,10 +489,16 @@ def main(flags, *,
 
     # then print results
     for l in lines:
-        print('%-*s  %-*s  %s' % (
+        print('%s%-*s  %-*s  %s%s' % (
+                '\x1b[32m' if color and diff and l[0].startswith('+')
+                    else '\x1b[31m' if color and diff and l[0].startswith('-')
+                    else '',
                 w[0], l[0],
                 w[1], l[1],
-                l[2]))
+                l[2],
+                '\x1b[m' if color and diff and l[0].startswith('+')
+                    else '\x1b[m' if color and diff and l[0].startswith('-')
+                    else ''))
 
 
 if __name__ == "__main__":
@@ -446,6 +521,15 @@ if __name__ == "__main__":
             '-a', '--all',
             action='store_true',
             help="Also show internal flags and types.")
+    parser.add_argument(
+            '-d', '--diff',
+            help="Diff against these flags.")
+    parser.add_argument(
+            '--color',
+            choices=['never', 'always', 'auto'],
+            default='auto',
+            help="When to use terminal colors. Defaults to 'auto'.")
+    prefixes = parser.add_argument_group('prefixes')
     class AppendPrefix(argparse.Action):
         def __init__(self, nargs=None, **kwargs):
             super().__init__(nargs=0, **kwargs)
@@ -454,7 +538,7 @@ if __name__ == "__main__":
                 namespace.prefixes = []
             namespace.prefixes.append(self.const)
     for p in Prefix.prefixes():
-        parser.add_argument(
+        prefixes.add_argument(
                 *p.aliases,
                 action=AppendPrefix,
                 const=p,

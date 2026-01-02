@@ -30,10 +30,12 @@ ERR_RANGE       = -34   # Result out of range
 
 # self-parsing error codes
 class Err:
-    def __init__(self, name, code, help):
+    def __init__(self, name, code, help, *,
+            lineno=0):
         self.name = name
         self.code = code
         self.help = help
+        self.lineno = lineno
 
     def __repr__(self):
         return 'Err(%r, %r, %r)' % (
@@ -51,7 +53,10 @@ class Err:
         return hash(self.name)
 
     def line(self):
-        return ('LFS3_%s' % self.name, '%d' % self.code, self.help)
+        if isinstance(self, Err):
+            return ('LFS3_%s' % self.name, '%d' % self.code, self.help)
+        else:
+            return ('?', str(self), 'Unknown err code')
 
     @staticmethod
     @ft.cache
@@ -63,17 +68,57 @@ class Err:
         err_pattern = re.compile(
                 '^(?P<name>ERR_[^ ]*) *= *(?P<code>[^#]*?) *'
                     '#+ *(?P<help>.*)$')
-        for line in (inspect.getsource(
-                    inspect.getmodule(inspect.currentframe()))
-                .replace('\\\n', '')
-                .splitlines()):
+        for i, line in enumerate(
+                inspect.getsource(inspect.getmodule(inspect.currentframe()))
+                    .replace('\\\n', '')
+                    .splitlines()):
             m = err_pattern.match(line)
             if m:
                 errs.append(Err(
                         m.group('name'),
                         globals()[m.group('name')],
-                        m.group('help')))
+                        m.group('help'),
+                        lineno=1+i))
         return errs
+
+    _sentinel = object()
+    @staticmethod
+    def find(e_, *, default=_sentinel):
+        # find errs, note this is cached
+        errs__ = Err.errs()
+
+        # find by LFS3_ERR_+name
+        for e in errs__:
+            if 'LFS3_%s' % e.name.upper() == e_.upper():
+                return e
+        # find by ERR_+name
+        for e in errs__:
+            if e.name.upper() == e_.upper():
+                return e
+        # find by name
+        for e in errs__:
+            if e.name.split('_', 1)[1] == e_.upper():
+                return e
+        # find by E+name
+        for e in errs__:
+            if 'E%s' % e.name.split('_', 1)[1].upper() == e_.upper():
+                return e
+        try:
+            # find by err code
+            for e in errs__:
+                if e.code == int(e_, 0):
+                    return e
+            # find by negated err code
+            for e in errs__:
+                if e.code == -int(e_, 0):
+                    return e
+        except ValueError:
+            pass
+        # not found
+        if default is Err._sentinel:
+            raise KeyError(e_)
+        else:
+            return default
 
 
 def main(errs, *,
@@ -81,64 +126,16 @@ def main(errs, *,
     import builtins
     list_, list = list, builtins.list
 
-    # find errs
-    errs__ = Err.errs()
-
     lines = []
     # list all known error codes
     if list_:
-        for e in errs__:
+        for e in Err.errs():
             lines.append(e.line())
 
     # find errs by name or value
     else:
         for e_ in errs:
-            found = False
-            # find by LFS3_ERR_+name
-            for e in errs__:
-                if 'LFS3_%s' % e.name.upper() == e_.upper():
-                    lines.append(e.line())
-                    found = True
-            if found:
-                continue
-            # find by ERR_+name
-            for e in errs__:
-                if e.name.upper() == e_.upper():
-                    lines.append(e.line())
-                    found = True
-            if found:
-                continue
-            # find by name
-            for e in errs__:
-                if e.name.split('_', 1)[1] == e_.upper():
-                    lines.append(e.line())
-                    found = True
-            if found:
-                continue
-            # find by E+name
-            for e in errs__:
-                if 'E%s' % e.name.split('_', 1)[1].upper() == e_.upper():
-                    lines.append(e.line())
-                    found = True
-            if found:
-                continue
-            try:
-                # find by err code
-                for e in errs__:
-                    if e.code == int(e_, 0):
-                        lines.append(e.line())
-                        found = True
-                if found:
-                    continue
-                # find by negated err code
-                for e in errs__:
-                    if e.code == -int(e_, 0):
-                        lines.append(e.line())
-                        found = True
-                if found:
-                    continue
-            except ValueError:
-                lines.append(('?', e_, 'Unknown err code'))
+            lines.append(Err.line(Err.find(e_, default=e_)))
 
     # first find widths
     w = [0, 0]

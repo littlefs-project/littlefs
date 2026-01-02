@@ -187,11 +187,13 @@ TAG_GCKSUMDELTA = 0x3300    ##  v-11 --11 ++++ ++++
 
 # self-parsing tag repr
 class Tag:
-    def __init__(self, name, tag, encoding, help):
+    def __init__(self, name, tag, encoding, help, *,
+            lineno=0):
         self.name = name
         self.tag = tag
         self.encoding = encoding
         self.help = help
+        self.lineno = lineno
         # derive mask from encoding
         self.mask = sum(
                 (1 if x in 'v-01' else 0) << len(self.encoding)-1-i
@@ -260,29 +262,37 @@ class Tag:
         tag_pattern = re.compile(
             '^(?P<name>TAG_[^ ]*) *= *(?P<tag>[^#]*?) *'
                 '#+ *(?P<encoding>(?:[^ ] *?){16}) *(?P<help>.*)$')
-        for line in (inspect.getsource(
-                    inspect.getmodule(inspect.currentframe()))
-                .replace('\\\n', '')
-                .splitlines()):
+        for i, line in enumerate(
+                inspect.getsource(inspect.getmodule(inspect.currentframe()))
+                    .replace('\\\n', '')
+                    .splitlines()):
             m = tag_pattern.match(line)
             if m:
                 tags.append(Tag(
                         m.group('name'),
                         globals()[m.group('name')],
                         m.group('encoding').replace(' ', ''),
-                        m.group('help')))
+                        m.group('help'),
+                        lineno=1+i))
         return tags
 
     # find best matching tag
+    _sentinel = object()
     @staticmethod
-    def find(tag):
+    def find(tag, *, default=_sentinel):
         # find tags, note this is cached
         tags__ = Tag.tags()
 
         # find the most specific matching tag, ignoring valid bits
-        return max((t for t in tags__ if t.matches(tag & 0x7fff)),
+        t = max((t for t in tags__ if t.matches(tag & 0x7fff)),
                 key=lambda t: t.specificity(),
                 default=None)
+        if t is not None:
+            return t
+        elif default is Tag._sentinel:
+            raise KeyError(tag)
+        else:
+            return default
 
     # human readable tag repr
     @staticmethod
@@ -290,7 +300,9 @@ class Tag:
             global_=False,
             toff=None):
         # find the most specific matching tag, ignoring the shrub bit
-        t = Tag.find(tag & ~(TAG_SHRUB if tag & 0x7000 == TAG_SHRUB else 0))
+        t = Tag.find(
+                tag & ~(TAG_SHRUB if tag & 0x7000 == TAG_SHRUB else 0),
+                default=None)
 
         # build repr
         r = []
