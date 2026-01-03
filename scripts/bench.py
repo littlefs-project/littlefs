@@ -402,9 +402,13 @@ def compile(bench_paths, **args):
                     # write any ifdef prologues
                     if case.ifdef or case.ifndef:
                         for ifdef in case.ifdef:
-                            f.writeln('#ifdef %s' % ifdef)
+                            f.writeln('#if (%s)' % re.sub(
+                                    '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                                    ifdef))
                         for ifndef in case.ifndef:
-                            f.writeln('#ifndef %s' % ifndef)
+                            f.writeln('#if !(%s)' % re.sub(
+                                    '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                                    ifndef))
                         f.writeln()
 
                     # create case define functions
@@ -474,9 +478,13 @@ def compile(bench_paths, **args):
                 # write any ifdef prologues
                 if suite.ifdef or suite.ifndef:
                     for ifdef in suite.ifdef:
-                        f.writeln('#ifdef %s' % ifdef)
+                        f.writeln('#if (%s)' % re.sub(
+                                '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                                ifdef))
                     for ifndef in suite.ifndef:
-                        f.writeln('#ifndef %s' % ifndef)
+                        f.writeln('#if !(%s)' % re.sub(
+                                '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                                ifndef))
                     f.writeln()
 
                 # write any suite defines
@@ -534,9 +542,13 @@ def compile(bench_paths, **args):
                                 'BENCH_INTERNAL' if suite.internal else None]))
                             or 0))
                 for ifdef in suite.ifdef:
-                    f.writeln(4*' '+'#ifdef %s' % ifdef)
+                    f.writeln(4*' '+'#if (%s)' % re.sub(
+                            '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                            ifdef))
                 for ifndef in suite.ifndef:
-                    f.writeln(4*' '+'#ifndef %s' % ifndef)
+                    f.writeln(4*' '+'#if !(%s)' % re.sub(
+                            '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                            ifndef))
                 # create suite defines
                 if suite.defines:
                     f.writeln(4*' '+'.defines = (const bench_define_t[]){')
@@ -562,9 +574,13 @@ def compile(bench_paths, **args):
                                             else None]))
                                     or 0))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
-                            f.writeln(12*' '+'#ifdef %s' % ifdef)
+                            f.writeln(12*' '+'#if (%s)' % re.sub(
+                                    '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                                    ifdef))
                         for ifndef in it.chain(suite.ifndef, case.ifndef):
-                            f.writeln(12*' '+'#ifndef %s' % ifndef)
+                            f.writeln(12*' '+'#if !(%s)' % re.sub(
+                                    '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                                    ifndef))
                         # create case defines
                         if case.defines:
                             f.writeln(12*' '+'.defines'
@@ -633,9 +649,13 @@ def compile(bench_paths, **args):
                     # any ifdef prologues
                     if suite.ifdef or suite.ifndef:
                         for ifdef in suite.ifdef:
-                            f.writeln('#ifdef %s' % ifdef)
+                            f.writeln('#if (%s)' % re.sub(
+                                    '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                                    ifdef))
                         for ifndef in suite.ifndef:
-                            f.writeln('#ifndef %s' % ifndef)
+                            f.writeln('#if !(%s)' % re.sub(
+                                    '[a-zA-Z_0-9]+', 'defined(\g<0>)',
+                                    ifndef))
                         f.writeln()
 
                     # any suite code
