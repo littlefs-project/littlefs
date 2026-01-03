@@ -10868,7 +10868,15 @@ static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3) {
 // is gbmap out-of-sync with disk?
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static inline bool lfs3_alloc_cansyncgbmap(const lfs3_t *lfs3) {
-    return lfs3_btree_cmp(&lfs3->gbmap.b, &lfs3->gbmap.b_p) != 0;
+    // do we even have a gbmap?
+    if (!lfs3_f_isgbmap(lfs3->flags)) {
+        return false;
+    }
+
+    // just compare the on-disk encoding
+    uint8_t gbmap_[LFS3_GBMAP_DSIZE];
+    lfs3_data_fromgbmap(&lfs3->gbmap, gbmap_);
+    return memcmp(gbmap_, lfs3->gbmap_p, LFS3_GBMAP_DSIZE) != 0;
 }
 #endif
 
@@ -11311,7 +11319,10 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     if (lfs3_ecksum_isecksum(&ecksum_)) {
         LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
         // lfs3_mdir_commit implicitly commits any pending gbmap state
-        return lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(LFS3_RATTR_NULL));
+        int err = lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(LFS3_RATTR_NULL));
+        if (err) {
+            return err;
+        }
     }
     #endif
 
@@ -17091,7 +17102,8 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_t_ispreerase(flags));
+    LFS3_ASSERT(lfs3_m_isrevperturb(lfs3->flags)
+            || !lfs3_t_ispreerase(flags));
     #endif
 
     // setup traversal state

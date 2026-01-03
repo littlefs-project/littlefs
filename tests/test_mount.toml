@@ -47,6 +47,7 @@ if = [
     '!RDONLY || !LOOKAHEAD',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
+    'REVPERTURB || !PREERASE',
     '!RDONLY || !PREERASE',
     '!RDONLY || !COMPACT',
 ]
@@ -140,6 +141,7 @@ if = [
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
+    'REVPERTURB || !PREERASE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -259,7 +261,7 @@ code = '''
 
     uint32_t prng = 42;
 
-    // gbmap is persistant, so by default we _don't_ need a gbmap scan
+    // gbmap is persistent, so by default we _don't_ need a gbmap scan
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -317,6 +319,112 @@ code = '''
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_mount_t_preerase]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = [
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+# REMOUNT=0 => don't remount
+# REMOUNT=1 => remount with preerase
+# REMOUNT=2 => remount without preerase
+defines.REMOUNT = [0, 1, 2]
+ifdef = 'LFS3_GBMAP && LFS3_REVPERTURB && LFS3_PREERASE'
+if = 'GBMAP'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                // note preerasing needs revperturb
+                | LFS3_F_REVPERTURB
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // by default, we don't preerase
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                // note preerasing needs revperturb
+                | LFS3_M_REVPERTURB,
+            CFG) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_REVPERTURB
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_MKCONSISTENT
+                | LFS3_I_PREERASE
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+    lfs3_unmount(&lfs3) => 0;
+
+    // with LFS3_M_PREERASE, mount preerases a configurable number of
+    // blocks
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                // note preerasing needs revperturb
+                | LFS3_M_REVPERTURB
+                | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | LFS3_M_PREERASE,
+            CFG) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_REVPERTURB
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_MKCONSISTENT
+                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | LFS3_I_COMPACT
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // remount?
+    //
+    // preerasing is persistent, but our preeraser doesn't know the
+    // gbmap state until triggered at least once
+    if (REMOUNT) {
+        lfs3_unmount(&lfs3) => 0;
+        lfs3_mount(&lfs3,
+                LFS3_M_RDWR
+                    // note preerasing needs revperturb
+                    | LFS3_M_REVPERTURB
+                    | ((REMOUNT == 1 && LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                    | ((REMOUNT == 1) ? LFS3_M_PREERASE : 0),
+                CFG) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert(fsinfo.flags == (
+                LFS3_I_REVPERTURB
+                    | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                    | LFS3_I_MKCONSISTENT
+                    | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                    | ((REMOUNT != 1) ? LFS3_I_PREERASE : 0)
+                    | LFS3_I_COMPACT
+                    | LFS3_I_CKMETA
+                    | LFS3_I_CKDATA
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+    }
+
+    // write to a file to try to make sure nothing obvious is broken
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
     lfs3_unmount(&lfs3) => 0;
 '''
 
