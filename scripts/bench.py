@@ -98,10 +98,6 @@ class BenchCase:
 
         self.internal = bool(self.in_)
 
-        # figure out defines and build possible permutations
-        self.defines = set()
-        self.permutations = []
-
         # defines can be a dict or a list or dicts
         suite_defines = config.pop('suite_defines', {})
         if not isinstance(suite_defines, list):
@@ -149,14 +145,17 @@ class BenchCase:
             else:
                 return [v]
 
-        # build possible permutations
+        # figure out defines and build possible permutations
+        defines__ = set()
+        permutations__ = []
         for suite_defines_ in suite_defines:
-            self.defines |= suite_defines_.keys()
+            defines__ |= suite_defines_.keys()
             for defines_ in defines:
-                self.defines |= defines_.keys()
-                self.permutations.append({
-                        k: parse_define(v)
-                            for k, v in (suite_defines_ | defines_).items()})
+                defines__ |= defines_.keys()
+                permutations__.append({k: parse_define(v)
+                        for k, v in (suite_defines_ | defines_).items()})
+        self.defines = defines__
+        self.permutations = permutations__
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
@@ -169,10 +168,26 @@ class BenchCase:
     def __repr__(self):
         return '<BenchCase %s>' % self.name
 
+    # sort by suite, lineno, and name
+    def __eq__(self, other):
+        return ((self.suite, self.lineno, self.name)
+                == (other.suite, other.lineno, other.name))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __lt__(self, other):
-        # sort by suite, lineno, and name
         return ((self.suite, self.lineno, self.name)
                 < (other.suite, other.lineno, other.name))
+
+    def __gt__(self, other):
+        return self.__class__.__lt__(other, self)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
 
     def isin(self, path):
         return (self.in_ is not None
@@ -286,11 +301,26 @@ class BenchSuite:
     def __repr__(self):
         return '<BenchSuite %s>' % self.name
 
+    # sort by name
+    #
+    # note we override this with a topological sort during compilation
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __lt__(self, other):
-        # sort by name
-        #
-        # note we override this with a topological sort during compilation
         return self.name < other.name
+
+    def __gt__(self, other):
+        return self.__class__.__lt__(other, self)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
 
     def isin(self, path):
         return (self.in_ is not None
