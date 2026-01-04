@@ -336,7 +336,7 @@ defines.SIZE = [
 # REMOUNT=1 => remount with preerase
 # REMOUNT=2 => remount without preerase
 defines.REMOUNT = [0, 1, 2]
-ifdef = 'LFS3_GBMAP && LFS3_REVPERTURB && LFS3_PREERASE'
+ifdef = ['LFS3_GBMAP', 'LFS3_REVPERTURB', 'LFS3_PREERASE']
 if = 'GBMAP'
 code = '''
     lfs3_t lfs3;

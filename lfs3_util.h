@@ -383,7 +383,7 @@ static inline int32_t lfs3_smax(int32_t a, int32_t b) {
 }
 
 // Absolute value of signed numbers
-static inline int32_t lfs3_abs(int32_t a) {
+static inline uint32_t lfs3_abs(int32_t a) {
     return (a < 0) ? -a : a;
 }
 

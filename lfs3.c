@@ -11319,7 +11319,10 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     if (lfs3_ecksum_isecksum(&ecksum_)) {
         LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
         // lfs3_mdir_commit implicitly commits any pending gbmap state
-        int err = lfs3_mdir_commit(lfs3, mdir, LFS3_RATTRS(LFS3_RATTR_NULL));
+        //
+        // note we need to not lfs3_alloc_ckpoint! the block we just
+        // allocated is still very much in-flight!
+        int err = lfs3_mdir_commit_(lfs3, mdir, LFS3_RATTRS(LFS3_RATTR_NULL));
         if (err) {
             return err;
         }
@@ -11393,7 +11396,7 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
     while (lfs3->gbmap.preeraser.known < lfs3->gbmap.known) {
         // lookup next known block
         lfs3_block_t block = (lfs3->gbmap.window + lfs3->gbmap.preeraser.known)
-                % lfs3->cfg->block_count;
+                % lfs3->block_count;
         lfs3_bid_t block__;
         lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, &lfs3->gbmap.b, block,
                 &block__, NULL, NULL);
@@ -11430,16 +11433,30 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
 
         // commit into gbmap
         //
-        // this relies on lfs3_gbmap_commit being atomic
+        // note this relies on lfs3_gbmap_commit being atomic
         err = lfs3_gbmap_set(lfs3, &lfs3->gbmap.b, block,
                 LFS3_TAG_BMERASED, &ecksum);
         if (err) {
             return err;
         }
 
-        // successful pre-erase
-        lfs3->gbmap.preeraser.count += 1;
-        lfs3->gbmap.preeraser.known += 1;
+        // successful pre-erase, kinda
+        //
+        // we're only actually successful if the gbmap didn't allocate
+        // the block we were trying to erase
+        // TODO can this be simplified?
+        if (((block+lfs3->block_count - lfs3->gbmap.window)
+                    % lfs3->block_count)
+                < lfs3->gbmap.known) {
+            // increment preeraser
+            lfs3->gbmap.preeraser.count += 1;
+            lfs3->gbmap.preeraser.known += 1;
+            // if we're in the gbmap's next range, force the allocator to
+            // refetch ecksums
+            if (lfs3->gbmap.preeraser.known <= lfs3_abs(lfs3->gbmap.next)) {
+                lfs3->gbmap.next = 0;
+            }
+        }
         return 0;
     }
 
