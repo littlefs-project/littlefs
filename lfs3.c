@@ -10899,16 +10899,10 @@ static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
 // mark a block as in-use
 #ifndef LFS3_RDONLY
 static void lfs3_alloc_setinuse(lfs3_t *lfs3, lfs3_block_t block) {
-    // TODO can this be simplified?
-
     // translate to lookahead-relative
-    lfs3_block_t block_ = ((
-                (lfs3_sblock_t)(block - lfs3->lookahead.window)
-            // we only need this mess because C's mod is actually rem, and
-            // we want real mod in case block_ goes negative
-                    % (lfs3_sblock_t)lfs3->block_count)
-                + (lfs3_sblock_t)lfs3->block_count)
-            % (lfs3_sblock_t)lfs3->block_count;
+    lfs3_block_t block_
+            = (block + lfs3->block_count - lfs3->lookahead.window)
+            % lfs3->block_count;
 
     if (block_ < 8*lfs3->cfg->lookahead_size) {
         // mark as in-use
@@ -11444,8 +11438,7 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
         //
         // we're only actually successful if the gbmap didn't allocate
         // the block we were trying to erase
-        // TODO can this be simplified?
-        if (((block+lfs3->block_count - lfs3->gbmap.window)
+        if (((block + lfs3->block_count - lfs3->gbmap.window)
                     % lfs3->block_count)
                 < lfs3->gbmap.known) {
             // increment preeraser
