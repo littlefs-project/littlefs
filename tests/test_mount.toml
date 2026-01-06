@@ -336,6 +336,8 @@ defines.SIZE = [
 # REMOUNT=1 => remount with preerase
 # REMOUNT=2 => remount without preerase
 defines.REMOUNT = [0, 1, 2]
+# test with a number of different erase values
+defines.ERASE_VALUE = [0xff, 0x00, -1]
 ifdef = ['LFS3_GBMAP', 'LFS3_REVPERTURB', 'LFS3_PREERASE']
 if = 'GBMAP'
 code = '''

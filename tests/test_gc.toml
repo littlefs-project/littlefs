@@ -535,6 +535,8 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '8*BLOCK_SIZE',
 ]
+# test with a number of different erase values
+defines.ERASE_VALUE = [0xff, 0x00, -1]
 if = 'GBMAP'
 ifdef = ['LFS3_GC', 'LFS3_GBMAP', 'LFS3_REVPERTURB', 'LFS3_PREERASE']
 code = '''
@@ -660,6 +662,8 @@ defines.GC_FLAGS = '''
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 defines.SIZE = 'BLOCK_SIZE'
+# test with a number of different erase values
+defines.ERASE_VALUE = [0xff, 0x00, -1]
 if = 'GBMAP'
 ifdef = ['LFS3_GC', 'LFS3_GBMAP', 'LFS3_REVPERTURB', 'LFS3_PREERASE']
 code = '''

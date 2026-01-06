@@ -926,10 +926,12 @@ defines.WRAPAROUND = 3
 defines.PREERASE = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_LOOKAHEAD
-        | ((PREERASE) ? LFS3_GC_PREERASE : 0)
+        | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
 '''
 defines.GC_STEPS = -1
 defines.GC_PREERASE_COUNT = ['0', '4', 'COUNT/2', 'COUNT-4', '-1']
+# test with a number of different erase values
+defines.ERASE_VALUE = [0xff, 0x00, -1]
 ifdef = 'LFS3_GC'
 if = [
     'COUNT >= 3',
@@ -937,6 +939,7 @@ if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     # this is just to reduce useless permutations
     'PREERASE || GC_PREERASE_COUNT == 0',
+    'PREERASE || ERASE_VALUE == 0xff',
 ]
 code = '''
     // test various block counts
