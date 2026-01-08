@@ -122,26 +122,23 @@ typedef struct bench_id {
 
 // implicit defines declared here
 #define BENCH_DEFINE(k, v) \
-    intmax_t k;
-
-    BENCH_IMPLICIT_DEFINES
+        intmax_t k;
+    #include "bench_defines.h"
 #undef BENCH_DEFINE
 
 #define BENCH_DEFINE(k, v) \
-    intmax_t bench_define_##k(void *data, size_t i) { \
-        (void)data; \
-        (void)i; \
-        return v; \
-    }
-
-    BENCH_IMPLICIT_DEFINES
+        intmax_t bench_define_##k(void *data, size_t i) { \
+            (void)data; \
+            (void)i; \
+            return v; \
+        }
+    #include "bench_defines.h"
 #undef BENCH_DEFINE
 
 const bench_define_t bench_implicit_defines[] = {
     #define BENCH_DEFINE(k, v) \
-        {#k, &k, bench_define_##k, NULL, 1},
-
-        BENCH_IMPLICIT_DEFINES
+            {#k, &k, bench_define_##k, NULL, 1},
+        #include "bench_defines.h"
     #undef BENCH_DEFINE
 };
 const size_t bench_implicit_define_count
@@ -1351,14 +1348,20 @@ void perm_run(
         .prog               = lfs3_emubd_prog,
         .erase              = lfs3_emubd_erase,
         .sync               = lfs3_emubd_sync,
-        BENCH_CFG
+        #define BENCH_CFG(k, v) \
+                .k = v,
+            #include "bench_defines.h"
+        #undef BENCH_CFG
     };
 
     struct lfs3_emubd_cfg bdcfg = {
         .read_sleep         = bench_read_sleep,
         .prog_sleep         = bench_prog_sleep,
         .erase_sleep        = bench_erase_sleep,
-        BENCH_BDCFG
+        #define BENCH_BDCFG(k, v) \
+                .k = v,
+            #include "bench_defines.h"
+        #undef BENCH_CFG
     };
 
     int err = lfs3_emubd_createcfg(&cfg, bench_disk_path, &bdcfg);

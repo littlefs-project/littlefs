@@ -133,26 +133,23 @@ typedef struct test_id {
 
 // implicit defines declared here
 #define TEST_DEFINE(k, v) \
-    intmax_t k;
-
-    TEST_IMPLICIT_DEFINES
+        intmax_t k;
+    #include "test_defines.h"
 #undef TEST_DEFINE
 
 #define TEST_DEFINE(k, v) \
-    intmax_t test_define_##k(void *data, size_t i) { \
-        (void)data; \
-        (void)i; \
-        return v; \
-    }
-
-    TEST_IMPLICIT_DEFINES
+        intmax_t test_define_##k(void *data, size_t i) { \
+            (void)data; \
+            (void)i; \
+            return v; \
+        }
+    #include "test_defines.h"
 #undef TEST_DEFINE
 
 const test_define_t test_implicit_defines[] = {
     #define TEST_DEFINE(k, v) \
-        {#k, &k, test_define_##k, NULL, 1},
-
-        TEST_IMPLICIT_DEFINES
+            {#k, &k, test_define_##k, NULL, 1},
+        #include "test_defines.h"
     #undef TEST_DEFINE
 };
 const size_t test_implicit_define_count
@@ -1315,14 +1312,20 @@ static void run_powerloss_none(
         .prog               = lfs3_emubd_prog,
         .erase              = lfs3_emubd_erase,
         .sync               = lfs3_emubd_sync,
-        TEST_CFG
+        #define TEST_CFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_CFG
     };
 
     struct lfs3_emubd_cfg bdcfg = {
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
         .erase_sleep        = test_erase_sleep,
-        TEST_BDCFG
+        #define TEST_BDCFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_BDCFG
     };
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -1375,7 +1378,10 @@ static void run_powerloss_linear(
         .prog               = lfs3_emubd_prog,
         .erase              = lfs3_emubd_erase,
         .sync               = lfs3_emubd_sync,
-        TEST_CFG
+        #define TEST_CFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_CFG
     };
 
     struct lfs3_emubd_cfg bdcfg = {
@@ -1387,7 +1393,10 @@ static void run_powerloss_linear(
                 : 0,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
-        TEST_BDCFG
+        #define TEST_BDCFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_BDCFG
     };
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -1451,7 +1460,10 @@ static void run_powerloss_log(
         .prog               = lfs3_emubd_prog,
         .erase              = lfs3_emubd_erase,
         .sync               = lfs3_emubd_sync,
-        TEST_CFG
+        #define TEST_CFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_CFG
     };
 
     struct lfs3_emubd_cfg bdcfg = {
@@ -1463,7 +1475,10 @@ static void run_powerloss_log(
                 : 0,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
-        TEST_BDCFG
+        #define TEST_BDCFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_BDCFG
     };
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -1527,7 +1542,10 @@ static void run_powerloss_cycles(
         .prog               = lfs3_emubd_prog,
         .erase              = lfs3_emubd_erase,
         .sync               = lfs3_emubd_sync,
-        TEST_CFG
+        #define TEST_CFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_CFG
     };
 
     struct lfs3_emubd_cfg bdcfg = {
@@ -1539,7 +1557,10 @@ static void run_powerloss_cycles(
                 : 0,
         .powerloss_cb       = powerloss_longjmp,
         .powerloss_data     = &powerloss_jmp,
-        TEST_BDCFG
+        #define TEST_BDCFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_BDCFG
     };
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
@@ -1701,7 +1722,10 @@ static void run_powerloss_exhaustive(
         .prog               = lfs3_emubd_prog,
         .erase              = lfs3_emubd_erase,
         .sync               = lfs3_emubd_sync,
-        TEST_CFG
+        #define TEST_CFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_CFG
     };
 
     struct lfs3_emubd_cfg bdcfg = {
@@ -1710,7 +1734,10 @@ static void run_powerloss_exhaustive(
         .erase_sleep        = test_erase_sleep,
         .powerloss_cb       = powerloss_exhaustive_branch,
         .powerloss_data     = NULL,
-        TEST_BDCFG
+        #define TEST_BDCFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_BDCFG
     };
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);

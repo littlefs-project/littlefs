@@ -92,91 +92,11 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 #define TEST_PERMUTATION(i, buffer, size) test_permutation(i, buffer, size)
 
 
-// a few preconfigured defines that control how tests run
-#define TEST_IMPLICIT_DEFINES \
-    /*          name                    value (overridable)                 */ \
-    TEST_DEFINE(READ_SIZE,              1                                    ) \
-    TEST_DEFINE(PROG_SIZE,              1                                    ) \
-    TEST_DEFINE(BLOCK_SIZE,             4096                                 ) \
-    TEST_DEFINE(BLOCK_COUNT,            DISK_SIZE/BLOCK_SIZE                 ) \
-    TEST_DEFINE(DISK_SIZE,              1024*1024                            ) \
-    TEST_DEFINE(BLOCK_RECYCLES,         -1                                   ) \
-    TEST_DEFINE(RCACHE_SIZE,            LFS3_MAX(16, READ_SIZE)              ) \
-    TEST_DEFINE(PCACHE_SIZE,            LFS3_MAX(16, PROG_SIZE)              ) \
-    TEST_DEFINE(FCACHE_SIZE,            16                                   ) \
-    TEST_DEFINE(LOOKAHEAD_SIZE,         16                                   ) \
-    TEST_DEFINE(GC_FLAGS,               LFS3_GC_GC                           ) \
-    TEST_DEFINE(GC_STEPS,               0                                    ) \
-    TEST_DEFINE(GC_LOOKAHEAD_THRESH,    -1                                   ) \
-    TEST_DEFINE(GC_LOOKGBMAP_THRESH,    -1                                   ) \
-    TEST_DEFINE(GC_PREERASE_COUNT,      -1                                   ) \
-    TEST_DEFINE(GC_COMPACT_THRESH,      0                                    ) \
-    TEST_DEFINE(SHRUB_SIZE,             BLOCK_SIZE/4                         ) \
-    TEST_DEFINE(FRAGMENT_SIZE,          LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
-    TEST_DEFINE(CRYSTAL_THRESH,         BLOCK_SIZE/8                         ) \
-    TEST_DEFINE(LOOKGBMAP_THRESH,       BLOCK_COUNT/4                        ) \
-    TEST_DEFINE(ERASE_VALUE,            0xff                                 ) \
-    TEST_DEFINE(ERASE_CYCLES,           0                                    ) \
-    TEST_DEFINE(BADBLOCK_BEHAVIOR,      LFS3_EMUBD_BADBLOCK_PROGERROR        ) \
-    TEST_DEFINE(POWERLOSS_BEHAVIOR,     LFS3_EMUBD_POWERLOSS_ATOMIC          ) \
-    TEST_DEFINE(EMUBD_SEED,             0                                    )
-
-// declare defines as global intmax_ts
+// declare implicit defines as global intmax_ts
 #define TEST_DEFINE(k, v) \
-    extern intmax_t k;
-
-    TEST_IMPLICIT_DEFINES
+        extern intmax_t k;
+    #include "test_defines.h"
 #undef TEST_DEFINE
-
-// map defines to cfg struct fields
-#define TEST_CFG \
-    .read_size                  = READ_SIZE,                \
-    .prog_size                  = PROG_SIZE,                \
-    .block_size                 = BLOCK_SIZE,               \
-    .block_count                = BLOCK_COUNT,              \
-    .block_recycles             = BLOCK_RECYCLES,           \
-    .rcache_size                = RCACHE_SIZE,              \
-    .pcache_size                = PCACHE_SIZE,              \
-    .fcache_size                = FCACHE_SIZE,              \
-    .lookahead_size             = LOOKAHEAD_SIZE,           \
-    TEST_GBMAP_CFG                                          \
-    TEST_PREERASE_CFG                                       \
-    TEST_GC_CFG                                             \
-    .gc_lookahead_thresh        = GC_LOOKAHEAD_THRESH,      \
-    .gc_compact_thresh          = GC_COMPACT_THRESH,        \
-    .shrub_size                 = SHRUB_SIZE,               \
-    .fragment_size              = FRAGMENT_SIZE,            \
-    .crystal_thresh             = CRYSTAL_THRESH,
-
-#ifdef LFS3_GBMAP
-#define TEST_GBMAP_CFG \
-    .gc_lookgbmap_thresh        = GC_LOOKGBMAP_THRESH,      \
-    .lookgbmap_thresh           = LOOKGBMAP_THRESH,
-#else
-#define TEST_GBMAP_CFG
-#endif
-
-#ifdef LFS3_PREERASE
-#define TEST_PREERASE_CFG \
-    .gc_preerase_count          = GC_PREERASE_COUNT,
-#else
-#define TEST_PREERASE_CFG
-#endif
-
-#ifdef LFS3_GC
-#define TEST_GC_CFG \
-    .gc_flags                   = GC_FLAGS,                 \
-    .gc_steps                   = GC_STEPS,
-#else
-#define TEST_GC_CFG
-#endif
-
-#define TEST_BDCFG \
-    .erase_value                = ERASE_VALUE,              \
-    .erase_cycles               = ERASE_CYCLES,             \
-    .badblock_behavior          = BADBLOCK_BEHAVIOR,        \
-    .powerloss_behavior         = POWERLOSS_BEHAVIOR,       \
-    .seed                       = EMUBD_SEED,
 
 
 #endif

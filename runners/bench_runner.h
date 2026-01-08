@@ -101,91 +101,11 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 #define BENCH_PERMUTATION(i, buffer, size) bench_permutation(i, buffer, size)
 
 
-// a few preconfigured defines that control how benches run
-#define BENCH_IMPLICIT_DEFINES \
-    /*           name                   value (overridable)                 */ \
-    BENCH_DEFINE(READ_SIZE,             1                                    ) \
-    BENCH_DEFINE(PROG_SIZE,             1                                    ) \
-    BENCH_DEFINE(BLOCK_SIZE,            4096                                 ) \
-    BENCH_DEFINE(BLOCK_COUNT,           DISK_SIZE/BLOCK_SIZE                 ) \
-    BENCH_DEFINE(DISK_SIZE,             1024*1024                            ) \
-    BENCH_DEFINE(BLOCK_RECYCLES,        -1                                   ) \
-    BENCH_DEFINE(RCACHE_SIZE,           LFS3_MAX(16, READ_SIZE)              ) \
-    BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)              ) \
-    BENCH_DEFINE(FCACHE_SIZE,           16                                   ) \
-    BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                   ) \
-    BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                           ) \
-    BENCH_DEFINE(GC_STEPS,              0                                    ) \
-    BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   -1                                   ) \
-    BENCH_DEFINE(GC_LOOKGBMAP_THRESH,   -1                                   ) \
-    BENCH_DEFINE(GC_PREERASE_COUNT,     -1                                   ) \
-    BENCH_DEFINE(GC_COMPACT_THRESH,     0                                    ) \
-    BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/4                         ) \
-    BENCH_DEFINE(FRAGMENT_SIZE,         LFS3_MIN(BLOCK_SIZE/8, 512)          ) \
-    BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/8                         ) \
-    BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                        ) \
-    BENCH_DEFINE(ERASE_VALUE,           0xff                                 ) \
-    BENCH_DEFINE(ERASE_CYCLES,          0                                    ) \
-    BENCH_DEFINE(BADBLOCK_BEHAVIOR,     LFS3_EMUBD_BADBLOCK_PROGERROR        ) \
-    BENCH_DEFINE(POWERLOSS_BEHAVIOR,    LFS3_EMUBD_POWERLOSS_ATOMIC          ) \
-    BENCH_DEFINE(EMUBD_SEED,            0                                    )
-
-// declare defines as global intmax_ts
+// declare implicit defines as global intmax_ts
 #define BENCH_DEFINE(k, v) \
-    extern intmax_t k;
-
-    BENCH_IMPLICIT_DEFINES
+        extern intmax_t k;
+    #include "bench_defines.h"
 #undef BENCH_DEFINE
-
-// map defines to cfg struct fields
-#define BENCH_CFG \
-    .read_size                  = READ_SIZE,                \
-    .prog_size                  = PROG_SIZE,                \
-    .block_size                 = BLOCK_SIZE,               \
-    .block_count                = BLOCK_COUNT,              \
-    .block_recycles             = BLOCK_RECYCLES,           \
-    .rcache_size                = RCACHE_SIZE,              \
-    .pcache_size                = PCACHE_SIZE,              \
-    .fcache_size                = FCACHE_SIZE,              \
-    .lookahead_size             = LOOKAHEAD_SIZE,           \
-    BENCH_GBMAP_CFG                                         \
-    BENCH_PREERASE_CFG                                      \
-    BENCH_GC_CFG                                            \
-    .gc_lookahead_thresh        = GC_LOOKAHEAD_THRESH,      \
-    .gc_compact_thresh          = GC_COMPACT_THRESH,        \
-    .shrub_size                 = SHRUB_SIZE,               \
-    .fragment_size              = FRAGMENT_SIZE,            \
-    .crystal_thresh             = CRYSTAL_THRESH,
-
-#ifdef LFS3_GBMAP
-#define BENCH_GBMAP_CFG \
-    .gc_lookgbmap_thresh        = GC_LOOKGBMAP_THRESH,      \
-    .lookgbmap_thresh           = LOOKGBMAP_THRESH,
-#else
-#define BENCH_GBMAP_CFG
-#endif
-
-#ifdef LFS3_PREERASE
-#define BENCH_PREERASE_CFG \
-    .gc_preerase_count          = GC_PREERASE_COUNT,
-#else
-#define BENCH_PREERASE_CFG
-#endif
-
-#ifdef LFS3_GC
-#define BENCH_GC_CFG \
-    .gc_flags               = GC_FLAGS,                 \
-    .gc_steps               = GC_STEPS,
-#else
-#define BENCH_GC_CFG
-#endif
-
-#define BENCH_BDCFG \
-    .erase_value            = ERASE_VALUE,              \
-    .erase_cycles           = ERASE_CYCLES,             \
-    .badblock_behavior      = BADBLOCK_BEHAVIOR,        \
-    .powerloss_behavior     = POWERLOSS_BEHAVIOR,       \
-    .seed                   = EMUBD_SEED,
 
 
 #endif
