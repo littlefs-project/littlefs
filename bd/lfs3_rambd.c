@@ -114,6 +114,7 @@ int lfs3_rambd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     LFS3_ASSERT(block < cfg->block_count);
 
     // erase is a noop
+    (void)cfg;
     (void)block;
 
     LFS3_RAMBD_TRACE("lfs3_rambd_erase -> %d", 0);
