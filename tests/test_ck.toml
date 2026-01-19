@@ -1493,7 +1493,7 @@ code = '''
                 (lfs3_size_t)BADBLOCK, badbit/8, badbit, badbit/8, badbit%8);
 
         // mark our badbit as bad
-        lfs3_emubd_markbadbit(CFG, BADBLOCK, badbit) => 0;
+        lfs3_emubd_mkbadbit(CFG, BADBLOCK, badbit) => 0;
 
         // formatting the filesystem may already find the bit error
         lfs3_t lfs3;
@@ -1552,7 +1552,7 @@ code = '''
 
     corrupt:;
         // reset badbit
-        lfs3_emubd_markgood(CFG, BADBLOCK) => 0;
+        lfs3_emubd_mkgood(CFG, BADBLOCK) => 0;
     }
 '''
 
@@ -1610,7 +1610,7 @@ code = '''
                 badblock, badbit/8, badbit, badbit/8, badbit%8);
 
         // mark our badbit as bad
-        lfs3_emubd_markbadbit(CFG, badblock, badbit) => 0;
+        lfs3_emubd_mkbadbit(CFG, badblock, badbit) => 0;
 
         // format
         lfs3_t lfs3;
@@ -1660,7 +1660,7 @@ code = '''
         lfs3_unmount(&lfs3) => 0;
 
         // reset badbit
-        lfs3_emubd_markgood(CFG, badblock) => 0;
+        lfs3_emubd_mkgood(CFG, badblock) => 0;
     }
 '''
 
@@ -1721,7 +1721,7 @@ code = '''
                 badblock, badbit/8, badbit, badbit/8, badbit%8);
 
         // mark our badbit as bad
-        lfs3_emubd_markbadbit(CFG, badblock, badbit) => 0;
+        lfs3_emubd_mkbadbit(CFG, badblock, badbit) => 0;
 
         // format
         lfs3_t lfs3;
@@ -1771,7 +1771,7 @@ code = '''
         lfs3_unmount(&lfs3) => 0;
 
         // reset badbit
-        lfs3_emubd_markgood(CFG, badblock) => 0;
+        lfs3_emubd_mkgood(CFG, badblock) => 0;
     }
 '''
 
@@ -1816,8 +1816,8 @@ code = '''
                 badbit_/8, badbit_%8);
 
         // mark our badbits as bad
-        lfs3_emubd_markbadbit(CFG, BADBLOCK, badbit) => 0;
-        lfs3_emubd_markbadbit(CFG, BADBLOCK_, badbit_) => 0;
+        lfs3_emubd_mkbadbit(CFG, BADBLOCK, badbit) => 0;
+        lfs3_emubd_mkbadbit(CFG, BADBLOCK_, badbit_) => 0;
 
         // keep track of open files so we clean up correctly
         lfs3_file_t files[N];
@@ -1980,8 +1980,8 @@ code = '''
 
     corrupt:;
         // reset badbits
-        lfs3_emubd_markgood(CFG, BADBLOCK) => 0;
-        lfs3_emubd_markgood(CFG, BADBLOCK_) => 0;
+        lfs3_emubd_mkgood(CFG, BADBLOCK) => 0;
+        lfs3_emubd_mkgood(CFG, BADBLOCK_) => 0;
     }
 '''
 
@@ -2063,7 +2063,7 @@ code = '''
 
     corrupt:;
         // reset badbit
-        lfs3_emubd_markgood(CFG, BADBLOCK) => 0;
+        lfs3_emubd_mkgood(CFG, BADBLOCK) => 0;
     }
 '''
 
@@ -2171,7 +2171,7 @@ code = '''
         lfs3_unmount(&lfs3) => 0;
 
         // reset badbit
-        lfs3_emubd_markgood(CFG, badblock) => 0;
+        lfs3_emubd_mkgood(CFG, badblock) => 0;
     }
 '''
 
@@ -2282,7 +2282,7 @@ code = '''
         lfs3_unmount(&lfs3) => 0;
 
         // reset badbit
-        lfs3_emubd_markgood(CFG, badblock) => 0;
+        lfs3_emubd_mkgood(CFG, badblock) => 0;
     }
 '''
 
@@ -2346,7 +2346,7 @@ code = '''
                 (lfs3_size_t)BADBLOCK, badbit/8, badbit, badbit/8, badbit%8);
 
         // mark our badbit as bad
-        lfs3_emubd_markbadbit(CFG, BADBLOCK, badbit) => 0;
+        lfs3_emubd_mkbadbit(CFG, BADBLOCK, badbit) => 0;
 
         // With metastability, basically any filesystem operation can
         // return LFS3_ERR_CORRUPT. This is ok, what we're really testing
@@ -2430,7 +2430,7 @@ code = '''
 
     corrupt:;
         // reset badbit
-        lfs3_emubd_markgood(CFG, BADBLOCK) => 0;
+        lfs3_emubd_mkgood(CFG, BADBLOCK) => 0;
     }
 '''
 
@@ -2504,7 +2504,7 @@ code = '''
                 badblock, badbit/8, badbit, badbit/8, badbit%8);
 
         // mark our badbit as bad
-        lfs3_emubd_markbadbit(CFG, badblock, badbit) => 0;
+        lfs3_emubd_mkbadbit(CFG, badblock, badbit) => 0;
 
         // With metastability, basically any filesystem operation can
         // return LFS3_ERR_CORRUPT. This is ok, what we're really testing
@@ -2573,7 +2573,7 @@ code = '''
         lfs3_unmount(&lfs3) => 0;
 
         // reset badbit
-        lfs3_emubd_markgood(CFG, badblock) => 0;
+        lfs3_emubd_mkgood(CFG, badblock) => 0;
     }
 '''
 
@@ -2641,7 +2641,7 @@ code = '''
                 badblock, badbit/8, badbit, badbit/8, badbit%8);
 
         // mark our badbit as bad
-        lfs3_emubd_markbadbit(CFG, badblock, badbit) => 0;
+        lfs3_emubd_mkbadbit(CFG, badblock, badbit) => 0;
 
         // With metastability, basically any filesystem operation can
         // return LFS3_ERR_CORRUPT. This is ok, what we're really testing
@@ -2710,7 +2710,7 @@ code = '''
         lfs3_unmount(&lfs3) => 0;
 
         // reset badbit
-        lfs3_emubd_markgood(CFG, badblock) => 0;
+        lfs3_emubd_mkgood(CFG, badblock) => 0;
     }
 '''
 
@@ -2818,7 +2818,7 @@ code = '''
             // bit differently
 
             // mark our badblock as bad
-            lfs3_emubd_markbad(CFG, badblock) => 0;
+            lfs3_emubd_mkbad(CFG, badblock) => 0;
 
             // manually flipping? flip all badbits in badblocks
             if (BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_MANUAL) {
@@ -3136,7 +3136,7 @@ code = '''
             // bit differently
 
             // mark our badblock as bad
-            lfs3_emubd_markbad(CFG, badblock) => 0;
+            lfs3_emubd_mkbad(CFG, badblock) => 0;
 
             // manually flipping? flip all badbits in badblocks
             if (BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_MANUAL) {
@@ -3552,7 +3552,7 @@ code = '''
             // bit differently
 
             // mark our badblock as bad
-            lfs3_emubd_markbad(CFG, badblock) => 0;
+            lfs3_emubd_mkbad(CFG, badblock) => 0;
 
             // manually flipping? flip all badbits in badblocks
             if (BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_MANUAL) {
@@ -3837,7 +3837,7 @@ code = '''
             // bit differently
 
             // mark our badblock as bad
-            lfs3_emubd_markbad(CFG, badblock) => 0;
+            lfs3_emubd_mkbad(CFG, badblock) => 0;
 
             // manually flipping? flip all badbits in badblocks
             if (BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_MANUAL) {
@@ -4441,7 +4441,7 @@ code = '''
             // bit differently
 
             // mark our badblock as bad
-            lfs3_emubd_markbad(CFG, badblock) => 0;
+            lfs3_emubd_mkbad(CFG, badblock) => 0;
 
             // manually flipping? flip all badbits in badblocks
             if (BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_MANUAL) {

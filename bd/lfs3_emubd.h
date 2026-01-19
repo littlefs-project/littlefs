@@ -63,8 +63,8 @@ typedef uint32_t lfs3_emubd_powercycles_t;
 typedef int32_t lfs3_emubd_spowercycles_t;
 
 // Type for delays in nanoseconds
-typedef uint64_t lfs3_emubd_sleep_t;
-typedef int64_t lfs3_emubd_ssleep_t;
+typedef uint64_t lfs3_emubd_ns_t;
+typedef int64_t lfs3_emubd_sns_t;
 
 // emubd config, this is required for testing
 struct lfs3_emubd_cfg {
@@ -73,6 +73,42 @@ struct lfs3_emubd_cfg {
     // nor-masking, which is useful for testing other filesystems (littlefs
     // does _not_ rely on this!).
     int32_t erase_value;
+
+    // Simulated read transaction timing in nanoseconds, this is added
+    // to simtime each read call, ignoring the requested size
+    lfs3_emubd_ns_t reads_timing;
+
+    // Simulated prog transaction timing in nanoseconds, this is added
+    // to simtime each prog call, ignoring the requested size
+    lfs3_emubd_ns_t progs_timing;
+
+    // Simulated erase transaction timing in nanoseconds, this is added
+    // to simtime each erase call, ignoring the requested size
+    lfs3_emubd_ns_t erases_timing;
+
+    // Simulated read byte timing in nanoseconds, this is scaled by the
+    // requested size and added to simtime each read call.
+    lfs3_emubd_ns_t readed_timing;
+
+    // Simulated prog byte timing in nanoseconds, this is scaled by the
+    // requested size and added to simtime each prog call.
+    lfs3_emubd_ns_t progged_timing;
+
+    // Simulated erase byte timing in nanoseconds, this is scaled by the
+    // requested size and added to simtime each erase call.
+    lfs3_emubd_ns_t erased_timing;
+
+    // Artificial read transaction delay in nanoseconds, there is no
+    // purpose for this other than slowing down the simulation.
+    lfs3_emubd_ns_t read_sleep;
+
+    // Artificial prog transaction delay in nanoseconds, there is no
+    // purpose for this other than slowing down the simulation.
+    lfs3_emubd_ns_t prog_sleep;
+
+    // Artificial erase transaction delay in nanoseconds, there is no
+    // purpose for this other than slowing down the simulation.
+    lfs3_emubd_ns_t erase_sleep;
 
     // Number of erase cycles before a block becomes "bad". The exact behavior
     // of bad blocks is controlled by badblock_behavior.
@@ -99,18 +135,6 @@ struct lfs3_emubd_cfg {
     // Seed for prng, which may be used for emulating failed progs. This does
     // not affect normal operation.
     uint32_t seed;
-
-    // Artificial delay in nanoseconds, there is no purpose for this other
-    // than slowing down the simulation.
-    lfs3_emubd_sleep_t read_sleep;
-
-    // Artificial delay in nanoseconds, there is no purpose for this other
-    // than slowing down the simulation.
-    lfs3_emubd_sleep_t prog_sleep;
-
-    // Artificial delay in nanoseconds, there is no purpose for this other
-    // than slowing down the simulation.
-    lfs3_emubd_sleep_t erase_sleep;
 };
 
 // A reference counted block
@@ -138,8 +162,11 @@ typedef struct lfs3_emubd {
     lfs3_emubd_block_t **blocks;
 
     // some other test state
+    lfs3_emubd_io_t reads;
+    lfs3_emubd_io_t progs;
+    lfs3_emubd_io_t erases;
     lfs3_emubd_io_t readed;
-    lfs3_emubd_io_t proged;
+    lfs3_emubd_io_t progged;
     lfs3_emubd_io_t erased;
     uint32_t prng;
     lfs3_emubd_powercycles_t power_cycles;
@@ -188,32 +215,31 @@ int lfs3_emubd_sync(const struct lfs3_cfg *cfg);
 
 /// Additional emubd features for testing ///
 
-// Set the current prng state
-void lfs3_emubd_seed(const struct lfs3_cfg *cfg, uint32_t seed);
+// Get total simulated runtime
+lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg);
 
-// Get a pseudo-random number from emubd's internal prng
-uint32_t lfs3_emubd_prng(const struct lfs3_cfg *cfg);
+// Reset simulation counters
+//
+// You probably shouldn't call this, instead diff before/after simtimes
+int lfs3_emubd_simreset(const struct lfs3_cfg *cfg);
+
+// Get total number of read transactions
+lfs3_emubd_sio_t lfs3_emubd_reads(const struct lfs3_cfg *cfg);
+
+// Get total number of prog transactions
+lfs3_emubd_sio_t lfs3_emubd_progs(const struct lfs3_cfg *cfg);
+
+// Get total number of erase transactions
+lfs3_emubd_sio_t lfs3_emubd_erases(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes read
 lfs3_emubd_sio_t lfs3_emubd_readed(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes programmed
-lfs3_emubd_sio_t lfs3_emubd_proged(const struct lfs3_cfg *cfg);
+lfs3_emubd_sio_t lfs3_emubd_progged(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes erased
 lfs3_emubd_sio_t lfs3_emubd_erased(const struct lfs3_cfg *cfg);
-
-// Manually set amount of bytes read
-int lfs3_emubd_setreaded(const struct lfs3_cfg *cfg,
-        lfs3_emubd_io_t readed);
-
-// Manually set amount of bytes programmed
-int lfs3_emubd_setproged(const struct lfs3_cfg *cfg,
-        lfs3_emubd_io_t proged);
-
-// Manually set amount of bytes erased
-int lfs3_emubd_seterased(const struct lfs3_cfg *cfg,
-        lfs3_emubd_io_t erased);
 
 // Get simulated wear on a given block
 lfs3_emubd_swear_t lfs3_emubd_wear(const struct lfs3_cfg *cfg,
@@ -224,10 +250,10 @@ int lfs3_emubd_setwear(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_emubd_wear_t wear);
 
 // Mark a block as bad, this is equivalent to setting wear to maximum
-int lfs3_emubd_markbad(const struct lfs3_cfg *cfg, lfs3_block_t block);
+int lfs3_emubd_mkbad(const struct lfs3_cfg *cfg, lfs3_block_t block);
 
 // Clear any simulated wear on a given block
-int lfs3_emubd_markgood(const struct lfs3_cfg *cfg, lfs3_block_t block);
+int lfs3_emubd_mkgood(const struct lfs3_cfg *cfg, lfs3_block_t block);
 
 // Get which bit failed, this changes on erase/power-loss unless manually set
 lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_cfg *cfg,
@@ -242,7 +268,7 @@ int lfs3_emubd_randomizebadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block);
 
 // Mark a block as bad and which bit should fail
-int lfs3_emubd_markbadbit(const struct lfs3_cfg *cfg,
+int lfs3_emubd_mkbadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit);
 
 // Flip a bit in a given block, intended for emulating bit errors
@@ -259,6 +285,12 @@ lfs3_emubd_spowercycles_t lfs3_emubd_powercycles(
 // Manually set the remaining power-cycles
 int lfs3_emubd_setpowercycles(const struct lfs3_cfg *cfg,
         lfs3_emubd_powercycles_t power_cycles);
+
+// Get a pseudo-random number from emubd's internal prng
+uint32_t lfs3_emubd_prng(const struct lfs3_cfg *cfg);
+
+// Set the current prng state
+void lfs3_emubd_seed(const struct lfs3_cfg *cfg, uint32_t seed);
 
 // Create a copy-on-write copy of the state of this block device
 int lfs3_emubd_cpy(const struct lfs3_cfg *cfg, lfs3_emubd_t *copy);

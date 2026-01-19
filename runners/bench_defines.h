@@ -25,6 +25,42 @@
     BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/8                        )
     BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
     BENCH_DEFINE(ERASE_VALUE,           0xff                                )
+    // the default timings here are based on NOR flash, specifically
+    // w25q64jv:
+    // 
+    // https://www.winbond.com/resource-files/W25Q256JV%20SPI%20RevQ%2002072025%20Plus.pdf
+    //
+    // note one thing unique to NOR flash is the extreme erase cost
+    //
+    // FR=104 MHz, quad prog (9.6 ns * 8/4)
+    // => +~19 ns for bus (not read!)
+    //
+    // readed=40ns/B fR=50 MHz, quad read (20 ns * 8/4)
+    // progged=1582ns/B tPP=0.4 ms, page=256 (0.4 ms / 256 + bus)
+    // erased=10986ns/B tSE=45 ms, sector=4096 (45 ms / 4096)
+    //
+    // reads=0ns (no transaction cost)
+    // progs=400000ns tPP=0.4 ms, page=256
+    // erases=45000000ns tSE=45 ms, sector=4096
+    // readed=40ns/B fR=50 MHz, quad read (20 ns * 8/4)
+    // progged=1484ns/B tPP=0.4 ms (((4096/256)*0.4 ms - 0.4 ms)/4096 + bus)
+    // erased=0ns/B (no per-byte cost)
+    //
+    #ifdef BENCH_SIMPLE
+    BENCH_DEFINE(READS_TIMING,          0                                   )
+    BENCH_DEFINE(PROGS_TIMING,          0                                   )
+    BENCH_DEFINE(ERASES_TIMING,         0                                   )   
+    BENCH_DEFINE(READED_TIMING,         40                                  )
+    BENCH_DEFINE(PROGGED_TIMING,        1582                                )
+    BENCH_DEFINE(ERASED_TIMING,         10986                               )
+    #else
+    BENCH_DEFINE(READS_TIMING,          0                                   )
+    BENCH_DEFINE(PROGS_TIMING,          400000                              )
+    BENCH_DEFINE(ERASES_TIMING,         45000000                            )   
+    BENCH_DEFINE(READED_TIMING,         40                                  )
+    BENCH_DEFINE(PROGGED_TIMING,        1484                                )
+    BENCH_DEFINE(ERASED_TIMING,         0                                   )
+    #endif
     BENCH_DEFINE(ERASE_CYCLES,          0                                   )
     BENCH_DEFINE(BADBLOCK_BEHAVIOR,     LFS3_EMUBD_BADBLOCK_PROGERROR       )
     BENCH_DEFINE(POWERLOSS_BEHAVIOR,    LFS3_EMUBD_POWERLOSS_ATOMIC         )
@@ -65,6 +101,12 @@
 // struct lfs3_*bd_cfg fields
 #ifdef BENCH_BDCFG
     BENCH_BDCFG(erase_value,            ERASE_VALUE                         )
+    BENCH_BDCFG(reads_timing,           READS_TIMING                        )
+    BENCH_BDCFG(progs_timing,           PROGS_TIMING                        )
+    BENCH_BDCFG(erases_timing,          ERASES_TIMING                       )
+    BENCH_BDCFG(readed_timing,          READED_TIMING                       )
+    BENCH_BDCFG(progged_timing,         PROGGED_TIMING                      )
+    BENCH_BDCFG(erased_timing,          ERASED_TIMING                       )
     BENCH_BDCFG(erase_cycles,           ERASE_CYCLES                        )
     BENCH_BDCFG(badblock_behavior,      BADBLOCK_BEHAVIOR                   )
     BENCH_BDCFG(powerloss_behavior,     POWERLOSS_BEHAVIOR                  )

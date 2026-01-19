@@ -436,9 +436,9 @@ FILE *bench_trace_file = NULL;
 uint32_t bench_trace_cycles = 0;
 uint64_t bench_trace_time = 0;
 uint64_t bench_trace_open_time = 0;
-lfs3_emubd_sleep_t bench_read_sleep = 0.0;
-lfs3_emubd_sleep_t bench_prog_sleep = 0.0;
-lfs3_emubd_sleep_t bench_erase_sleep = 0.0;
+lfs3_emubd_ns_t bench_read_sleep = 0.0;
+lfs3_emubd_ns_t bench_prog_sleep = 0.0;
+lfs3_emubd_ns_t bench_erase_sleep = 0.0;
 
 // this determines both the backtrace buffer and the trace printf buffer, if
 // trace ends up interleaved or truncated this may need to be increased
@@ -604,9 +604,13 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
 typedef struct bench_record {
     const char *m;
     uintmax_t n;
+    lfs3_emubd_io_t last_reads;
+    lfs3_emubd_io_t last_progs;
+    lfs3_emubd_io_t last_erases;
     lfs3_emubd_io_t last_readed;
-    lfs3_emubd_io_t last_proged;
+    lfs3_emubd_io_t last_progged;
     lfs3_emubd_io_t last_erased;
+    lfs3_emubd_ns_t last_simtime;
 } bench_record_t;
 
 static struct lfs3_cfg *bench_cfg = NULL;
@@ -622,12 +626,20 @@ void bench_reset(struct lfs3_cfg *cfg) {
 void bench_start(const char *m, uintmax_t n) {
     // measure current read/prog/erase
     assert(bench_cfg);
+    lfs3_emubd_sio_t reads = lfs3_emubd_reads(bench_cfg);
+    assert(reads >= 0);
+    lfs3_emubd_sio_t progs = lfs3_emubd_progs(bench_cfg);
+    assert(progs >= 0);
+    lfs3_emubd_sio_t erases = lfs3_emubd_erases(bench_cfg);
+    assert(erases >= 0);
     lfs3_emubd_sio_t readed = lfs3_emubd_readed(bench_cfg);
     assert(readed >= 0);
-    lfs3_emubd_sio_t proged = lfs3_emubd_proged(bench_cfg);
-    assert(proged >= 0);
+    lfs3_emubd_sio_t progged = lfs3_emubd_progged(bench_cfg);
+    assert(progged >= 0);
     lfs3_emubd_sio_t erased = lfs3_emubd_erased(bench_cfg);
     assert(erased >= 0);
+    // note this can error if no timings provided
+    lfs3_emubd_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
 
     // allocate a new record
     bench_record_t *record = mappend(
@@ -637,31 +649,64 @@ void bench_start(const char *m, uintmax_t n) {
             &bench_record_capacity);
     record->m = m;
     record->n = n;
+    record->last_reads = reads;
+    record->last_progs = progs;
+    record->last_erases = erases;
     record->last_readed = readed;
-    record->last_proged = proged;
+    record->last_progged = progged;
     record->last_erased = erased;
+    record->last_simtime = simtime;
 }
 
 void bench_stop(const char *m) {
     // measure current read/prog/erase
     assert(bench_cfg);
+    lfs3_emubd_sio_t reads = lfs3_emubd_reads(bench_cfg);
+    assert(reads >= 0);
+    lfs3_emubd_sio_t progs = lfs3_emubd_progs(bench_cfg);
+    assert(progs >= 0);
+    lfs3_emubd_sio_t erases = lfs3_emubd_erases(bench_cfg);
+    assert(erases >= 0);
     lfs3_emubd_sio_t readed = lfs3_emubd_readed(bench_cfg);
     assert(readed >= 0);
-    lfs3_emubd_sio_t proged = lfs3_emubd_proged(bench_cfg);
-    assert(proged >= 0);
+    lfs3_emubd_sio_t progged = lfs3_emubd_progged(bench_cfg);
+    assert(progged >= 0);
     lfs3_emubd_sio_t erased = lfs3_emubd_erased(bench_cfg);
     assert(erased >= 0);
+    // note this can error if no timings provided
+    lfs3_emubd_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
 
     // find our record
     for (size_t i = 0; i < bench_record_count; i++) {
         if (strcmp(bench_records[i].m, m) == 0) {
             // print results
-            printf("benched %s %jd %"PRIu64" %"PRIu64" %"PRIu64"\n",
-                    bench_records[i].m,
-                    bench_records[i].n,
-                    readed - bench_records[i].last_readed,
-                    proged - bench_records[i].last_proged,
-                    erased - bench_records[i].last_erased);
+            if (simtime >= 0) {
+                printf("benched %s %jd "
+                            "%"PRIu64" %"PRIu64" %"PRIu64" "
+                            "%"PRIu64" %"PRIu64" %"PRIu64" "
+                            "%"PRIu64"\n",
+                        bench_records[i].m,
+                        bench_records[i].n,
+                        reads   - bench_records[i].last_reads,
+                        progs   - bench_records[i].last_progs,
+                        erases  - bench_records[i].last_erases,
+                        readed  - bench_records[i].last_readed,
+                        progged - bench_records[i].last_progged,
+                        erased  - bench_records[i].last_erased,
+                        simtime - bench_records[i].last_simtime);
+            } else {
+                printf("benched %s %jd "
+                            "%"PRIu64" %"PRIu64" %"PRIu64" "
+                            "%"PRIu64" %"PRIu64" %"PRIu64"\n",
+                        bench_records[i].m,
+                        bench_records[i].n,
+                        reads   - bench_records[i].last_reads,
+                        progs   - bench_records[i].last_progs,
+                        erases  - bench_records[i].last_erases,
+                        readed  - bench_records[i].last_readed,
+                        progged - bench_records[i].last_progged,
+                        erased  - bench_records[i].last_erased);
+            }
 
             // remove our record
             memmove(&bench_records[i],

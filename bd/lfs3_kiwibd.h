@@ -28,32 +28,56 @@ typedef uint64_t lfs3_kiwibd_io_t;
 typedef int64_t lfs3_kiwibd_sio_t;
 
 // Type for delays in nanoseconds
-typedef uint64_t lfs3_kiwibd_sleep_t;
-typedef int64_t lfs3_kiwibd_ssleep_t;
+typedef uint64_t lfs3_kiwibd_ns_t;
+typedef int64_t lfs3_kiwibd_sns_t;
 
 // kiwibd config, this is required for testing
 struct lfs3_kiwibd_cfg {
+    // Optional statically allocated buffer for the block device. Ignored
+    // if disk_path is provided.
+    void *buffer;
+
     // 8-bit erase value to use for simulating erases. -1 simulates a noop
     // erase, which is faster than simulating a fixed erase value. -2 emulates
     // nor-masking, which is useful for testing other filesystems (littlefs
     // does _not_ rely on this!).
     int32_t erase_value;
 
-    // Optional statically allocated buffer for the block device. Ignored
-    // if disk_path is provided.
-    void *buffer;
+    // Simulated read transaction timing in nanoseconds, this is added
+    // to simtime each read call, ignoring the requested size
+    lfs3_kiwibd_ns_t reads_timing;
 
-    // Artificial delay in nanoseconds, there is no purpose for this other
-    // than slowing down the simulation.
-    lfs3_kiwibd_sleep_t read_sleep;
+    // Simulated prog transaction timing in nanoseconds, this is added
+    // to simtime each prog call, ignoring the requested size
+    lfs3_kiwibd_ns_t progs_timing;
 
-    // Artificial delay in nanoseconds, there is no purpose for this other
-    // than slowing down the simulation.
-    lfs3_kiwibd_sleep_t prog_sleep;
+    // Simulated erase transaction timing in nanoseconds, this is added
+    // to simtime each erase call, ignoring the requested size
+    lfs3_kiwibd_ns_t erases_timing;
 
-    // Artificial delay in nanoseconds, there is no purpose for this other
-    // than slowing down the simulation.
-    lfs3_kiwibd_sleep_t erase_sleep;
+    // Simulated read byte timing in nanoseconds, this is scaled by the
+    // requested size and added to simtime each read call.
+    lfs3_kiwibd_ns_t readed_timing;
+
+    // Simulated prog byte timing in nanoseconds, this is scaled by the
+    // requested size and added to simtime each prog call.
+    lfs3_kiwibd_ns_t progged_timing;
+
+    // Simulated erase byte timing in nanoseconds, this is scaled by the
+    // requested size and added to simtime each erase call.
+    lfs3_kiwibd_ns_t erased_timing;
+
+    // Artificial read transaction delay in nanoseconds, there is no
+    // purpose for this other than slowing down the simulation.
+    lfs3_kiwibd_ns_t read_sleep;
+
+    // Artificial prog transaction delay in nanoseconds, there is no
+    // purpose for this other than slowing down the simulation.
+    lfs3_kiwibd_ns_t prog_sleep;
+
+    // Artificial erase transaction delay in nanoseconds, there is no
+    // purpose for this other than slowing down the simulation.
+    lfs3_kiwibd_ns_t erase_sleep;
 };
 
 // kiwibd state
@@ -66,8 +90,11 @@ typedef struct lfs3_kiwibd {
     } u;
 
     // amount read/progged/erased
+    lfs3_kiwibd_io_t reads;
+    lfs3_kiwibd_io_t progs;
+    lfs3_kiwibd_io_t erases;
     lfs3_kiwibd_io_t readed;
-    lfs3_kiwibd_io_t proged;
+    lfs3_kiwibd_io_t progged;
     lfs3_kiwibd_io_t erased;
 
     const struct lfs3_kiwibd_cfg *cfg;
@@ -110,26 +137,31 @@ int lfs3_kiwibd_sync(const struct lfs3_cfg *cfg);
 
 /// Additional kiwibd features ///
 
+// Get total simulated runtime
+lfs3_kiwibd_sns_t lfs3_kiwibd_simtime(const struct lfs3_cfg *cfg);
+
+// Reset simulation counters
+//
+// You probably shouldn't call this, instead diff before/after simtimes
+int lfs3_kiwibd_simreset(const struct lfs3_cfg *cfg);
+
+// Get total number of read transactions
+lfs3_kiwibd_sio_t lfs3_kiwibd_reads(const struct lfs3_cfg *cfg);
+
+// Get total number of prog transactions
+lfs3_kiwibd_sio_t lfs3_kiwibd_progs(const struct lfs3_cfg *cfg);
+
+// Get total number of erase transactions
+lfs3_kiwibd_sio_t lfs3_kiwibd_erases(const struct lfs3_cfg *cfg);
+
 // Get total amount of bytes read
 lfs3_kiwibd_sio_t lfs3_kiwibd_readed(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes programmed
-lfs3_kiwibd_sio_t lfs3_kiwibd_proged(const struct lfs3_cfg *cfg);
+lfs3_kiwibd_sio_t lfs3_kiwibd_progged(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes erased
 lfs3_kiwibd_sio_t lfs3_kiwibd_erased(const struct lfs3_cfg *cfg);
-
-// Manually set amount of bytes read
-int lfs3_kiwibd_setreaded(const struct lfs3_cfg *cfg,
-        lfs3_kiwibd_io_t readed);
-
-// Manually set amount of bytes programmed
-int lfs3_kiwibd_setproged(const struct lfs3_cfg *cfg,
-        lfs3_kiwibd_io_t proged);
-
-// Manually set amount of bytes erased
-int lfs3_kiwibd_seterased(const struct lfs3_cfg *cfg,
-        lfs3_kiwibd_io_t erased);
 
 
 #endif

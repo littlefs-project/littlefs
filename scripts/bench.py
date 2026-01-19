@@ -1081,7 +1081,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
     passed_perms = 0
     failed_perms = 0
     readed = 0
-    proged = 0
+    progged = 0
     erased = 0
     failures = []
     killed = False
@@ -1094,9 +1094,15 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                 '|' '(?P<op__>benched)'
                     ' (?P<m>[^\s]+)'
                     ' (?P<n>\d+)'
-                    '(?: (?P<readed>[\d\.]+))?'
-                    '(?: (?P<proged>[\d\.]+))?'
-                    '(?: (?P<erased>[\d\.]+))?'
+                    '(?:'
+                        '(?:'
+                            ' (?P<reads>[\d\.]+)'
+                            ' (?P<progs>[\d\.]+)'
+                            ' (?P<erases>[\d\.]+)' ')?'
+                        ' (?P<readed>[\d\.]+)'
+                        ' (?P<progged>[\d\.]+)'
+                        ' (?P<erased>[\d\.]+)' ')?'
+                    '(?: (?P<simtime>[\d\.]+))?'
             ')$')
     locals = th.local()
     children = set()
@@ -1106,7 +1112,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         nonlocal passed_case_perms
         nonlocal passed_perms
         nonlocal readed
-        nonlocal proged
+        nonlocal progged
         nonlocal erased
         nonlocal locals
 
@@ -1127,9 +1133,13 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         last_defines = None # fetched on demand
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
+        creads = co.defaultdict(lambda: 0)
+        cprogs = co.defaultdict(lambda: 0)
+        cerases = co.defaultdict(lambda: 0)
         creaded = co.defaultdict(lambda: 0)
-        cproged = co.defaultdict(lambda: 0)
+        cprogged = co.defaultdict(lambda: 0)
         cerased = co.defaultdict(lambda: 0)
+        csimtime = co.defaultdict(lambda: 0)
         try:
             while True:
                 # parse a line for state changes
@@ -1160,9 +1170,13 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         last_defines = None
                         last_stdout.clear()
                         last_assert = None
+                        creads.clear()
+                        cprogs.clear()
+                        cerases.clear()
                         creaded.clear()
-                        cproged.clear()
+                        cprogged.clear()
                         cerased.clear()
+                        csimtime.clear()
                     elif op == 'finished':
                         # force a failure
                         if args.get('fail'):
@@ -1195,13 +1209,21 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                 return float(v)
                             else:
                                 return int(v)
-                        readed_ = dat(m.group('readed'))
-                        proged_ = dat(m.group('proged'))
-                        erased_ = dat(m.group('erased'))
+                        reads_   = dat(m.group('reads'))
+                        progs_   = dat(m.group('progs'))
+                        erases_  = dat(m.group('erases'))
+                        readed_  = dat(m.group('readed'))
+                        progged_ = dat(m.group('progged'))
+                        erased_  = dat(m.group('erased'))
+                        simtime_ = dat(m.group('simtime'))
                         # keep track of cumulative measurements
-                        creaded[m_] += readed_
-                        cproged[m_] += proged_
-                        cerased[m_] += erased_
+                        creads[m_]   += reads_
+                        cprogs[m_]   += progs_
+                        cerases[m_]  += erases_
+                        creaded[m_]  += readed_
+                        cprogged[m_] += progged_
+                        cerased[m_]  += erased_
+                        csimtime[m_] += simtime_
                         if output_:
                             # fetch defines if needed, only do this at most
                             # once per perm
@@ -1216,15 +1238,23 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     **last_defines,
                                     'm': m_,
                                     'n': n_,
+                                    'bench_reads': reads_,
+                                    'bench_progs': progs_,
+                                    'bench_erases': erases_,
                                     'bench_readed': readed_,
-                                    'bench_proged': proged_,
+                                    'bench_progged': progged_,
                                     'bench_erased': erased_,
+                                    'bench_simtime': simtime_,
+                                    'bench_creads': creads[m_],
+                                    'bench_cprogs': cprogs[m_],
+                                    'bench_cerases': cerases[m_],
                                     'bench_creaded': creaded[m_],
-                                    'bench_cproged': cproged[m_],
-                                    'bench_cerased': cerased[m_]})
+                                    'bench_cprogged': cprogged[m_],
+                                    'bench_cerased': cerased[m_],
+                                    'bench_csimtime': csimtime[m_]})
                         # keep track of total for summary
                         readed += readed_
-                        proged += proged_
+                        progged += progged_
                         erased += erased_
         except KeyboardInterrupt:
             proc.kill()
@@ -1357,7 +1387,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
             passed_perms,
             failed_perms,
             readed,
-            proged,
+            progged,
             erased,
             failures,
             killed)
@@ -1401,12 +1431,20 @@ def run(runner, bench_ids=[], **args):
                 ['suite', 'case'],
                 # defines go here
                 ['m', 'n',
+                    'bench_reads',
+                    'bench_progs',
+                    'bench_erases',
                     'bench_readed',
-                    'bench_proged',
+                    'bench_progged',
                     'bench_erased',
+                    'bench_simtime',
+                    'bench_creads',
+                    'bench_cprogs',
+                    'bench_cerases',
                     'bench_creaded',
-                    'bench_cproged',
-                    'bench_cerased'])
+                    'bench_cprogged',
+                    'bench_cerased',
+                    'bench_csimtime'])
 
     # measure runtime
     start = time.time()
@@ -1416,7 +1454,7 @@ def run(runner, bench_ids=[], **args):
     passed = 0
     failed = 0
     readed = 0
-    proged = 0
+    progged = 0
     erased = 0
     failures = []
     for by in (bench_ids if bench_ids else [None]):
@@ -1425,7 +1463,7 @@ def run(runner, bench_ids=[], **args):
                 passed_,
                 failed_,
                 readed_,
-                proged_,
+                progged_,
                 erased_,
                 failures_,
                 killed) = run_stage(
@@ -1438,11 +1476,11 @@ def run(runner, bench_ids=[], **args):
                     **args)
         # collect passes/failures
         expected += expected_
-        passed += passed_
-        failed += failed_
-        readed += readed_
-        proged += proged_
-        erased += erased_
+        passed   += passed_
+        failed   += failed_
+        readed   += readed_
+        progged  += progged_
+        erased   += erased_
         # do not store more failures than we need to, otherwise we
         # quickly explode RAM when a common bug fails a bunch of cases
         failures.extend(failures_[:max(
@@ -1475,7 +1513,7 @@ def run(runner, bench_ids=[], **args):
                 '\x1b[m' if args['color'] else '',
                 ', '.join(filter(None, [
                     '%d readed' % readed,
-                    '%d proged' % proged,
+                    '%d progged' % progged,
                     '%d erased' % erased,
                     'in %.2fs' % (stop-start)]))))
         print()

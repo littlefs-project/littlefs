@@ -447,9 +447,9 @@ FILE *test_trace_file = NULL;
 uint32_t test_trace_cycles = 0;
 uint64_t test_trace_time = 0;
 uint64_t test_trace_open_time = 0;
-lfs3_emubd_sleep_t test_read_sleep = 0.0;
-lfs3_emubd_sleep_t test_prog_sleep = 0.0;
-lfs3_emubd_sleep_t test_erase_sleep = 0.0;
+lfs3_emubd_ns_t test_read_sleep = 0.0;
+lfs3_emubd_ns_t test_prog_sleep = 0.0;
+lfs3_emubd_ns_t test_erase_sleep = 0.0;
 
 volatile size_t TEST_PLS = 0;
 
