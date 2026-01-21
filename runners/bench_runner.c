@@ -603,7 +603,6 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
 // bench recording state
 typedef struct bench_record {
     const char *m;
-    uintmax_t n;
     lfs3_emubd_io_t last_reads;
     lfs3_emubd_io_t last_progs;
     lfs3_emubd_io_t last_erases;
@@ -623,7 +622,7 @@ void bench_reset(struct lfs3_cfg *cfg) {
     bench_record_count = 0;
 }
 
-void bench_start(const char *m, uintmax_t n) {
+void bench_start(const char *m) {
     // measure current read/prog/erase
     assert(bench_cfg);
     lfs3_emubd_sio_t reads = lfs3_emubd_reads(bench_cfg);
@@ -648,7 +647,6 @@ void bench_start(const char *m, uintmax_t n) {
             &bench_record_count,
             &bench_record_capacity);
     record->m = m;
-    record->n = n;
     record->last_reads = reads;
     record->last_progs = progs;
     record->last_erases = erases;
@@ -658,7 +656,7 @@ void bench_start(const char *m, uintmax_t n) {
     record->last_simtime = simtime;
 }
 
-void bench_stop(const char *m) {
+void bench_stop(const char *m, uintmax_t n) {
     // measure current read/prog/erase
     assert(bench_cfg);
     lfs3_emubd_sio_t reads = lfs3_emubd_reads(bench_cfg);
@@ -685,8 +683,8 @@ void bench_stop(const char *m) {
                             "%"PRIu64" %"PRIu64" %"PRIu64" "
                             "%"PRIu64" %"PRIu64" %"PRIu64" "
                             "%"PRIu64"\n",
-                        bench_records[i].m,
-                        bench_records[i].n,
+                        m,
+                        n,
                         reads   - bench_records[i].last_reads,
                         progs   - bench_records[i].last_progs,
                         erases  - bench_records[i].last_erases,
@@ -698,8 +696,8 @@ void bench_stop(const char *m) {
                 printf("benched %s %jd "
                             "%"PRIu64" %"PRIu64" %"PRIu64" "
                             "%"PRIu64" %"PRIu64" %"PRIu64"\n",
-                        bench_records[i].m,
-                        bench_records[i].n,
+                        m,
+                        n,
                         reads   - bench_records[i].last_reads,
                         progs   - bench_records[i].last_progs,
                         erases  - bench_records[i].last_erases,

@@ -21,11 +21,11 @@ void bench_trace(const char *fmt, ...);
 
 // BENCH_START/BENCH_STOP macros measure readed/proged/erased bytes
 // through emubd
-void bench_start(const char *m, uintmax_t n);
-void bench_stop(const char *m);
+void bench_start(const char *m);
+void bench_stop(const char *m, uintmax_t n);
 
-#define BENCH_START(m, n) bench_start(m, n)
-#define BENCH_STOP(m) bench_stop(m)
+#define BENCH_START(m) bench_start(m)
+#define BENCH_STOP(m, n) bench_stop(m, n)
 
 // BENCH_RESULT/BENCH_FRESULT allow for explicit non-io measurements
 void bench_result(const char *m, uintmax_t n, uintmax_t result);
