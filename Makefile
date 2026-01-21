@@ -145,7 +145,7 @@ endif
 ifdef TESTMARKS
 TESTFLAGS  += -o$(TEST_CSV)
 endif
-ifdef BENCHMARKS
+ifndef NO_BENCHMARKS
 BENCHFLAGS += -o$(BENCH_CSV)
 endif
 ifdef VERBOSE
@@ -499,12 +499,12 @@ test-list list-tests: test-runner
 
 ## Summarize the test results
 .PHONY: testmarks
-testmarks: SUMMARYFLAGS+=-spassed -Stime
+testmarks: SUMMARYFLAGS+=-spassed -Sruntime
 testmarks: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-bsuite \
 		-fpassed=test_passed \
-		-ftime=test_time \
+		-fruntime=test_runtime \
 		$(SUMMARYFLAGS))
 
 ## Save the test results
@@ -517,7 +517,7 @@ testmarks-diff: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-bsuite \
 		-fpassed=test_passed \
-		-ftime=test_time \
+		-fruntime=test_runtime \
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs3.test.csv)
 
 ## Build the bench-runner
@@ -548,13 +548,11 @@ bench-list list-benches: bench-runner
 
 ## Summarize the bench results
 .PHONY: benchmarks
-benchmarks: SUMMARYFLAGS+=-Serased -Sproged -Sreaded
 benchmarks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-bsuite \
-		-freaded=bench_readed \
-		-fproged=bench_proged \
-		-ferased=bench_erased \
+		-bcase='%(case)s+%(m)s' \
+		-fsimtime='float(bench_simtime)/1.0e9' \
+		-fsimthroughput='float(n)/max(float(bench_simtime)/1.0e9,1.0e-9)' \
 		$(SUMMARYFLAGS))
 
 ## Save the bench results
@@ -565,10 +563,9 @@ benchmarks-csv: $(BUILDDIR)/lfs3.bench.csv
 .PHONY: benchmarks-diff
 benchmarks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-bsuite \
-		-freaded=bench_readed \
-		-fproged=bench_proged \
-		-ferased=bench_erased \
+		-bcase='%(case)s+%(m)s' \
+		-fsimtime='float(bench_simtime)/1.0e9' \
+		-fsimthroughput='float(n)/max(float(bench_simtime)/1.0e9,1.0e-9)' \
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs3.bench.csv)
 
 

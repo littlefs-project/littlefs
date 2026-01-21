@@ -1186,7 +1186,7 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
                                     'case': case,
                                     **defines,
                                     'test_passed': '1/1',
-                                    'test_time': '%.6f' % (
+                                    'test_runtime': '%.6f' % (
                                         time.time() - last_time)})
                     elif op == 'skipped':
                         locals.seen_perms += 1
@@ -1384,7 +1384,7 @@ def run(runner, test_ids=[], **args):
         output = TestOutput(args['output'],
                 ['suite', 'case'],
                 # defines go here
-                ['test_passed', 'test_time'])
+                ['test_passed', 'test_runtime'])
 
     # measure runtime
     start = time.time()
