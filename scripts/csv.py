@@ -2623,7 +2623,7 @@ if __name__ == "__main__":
             type=lambda x: (
                 lambda k, v=None: (
                     k.strip(),
-                    v.strip() if v is not None else None)
+                    CsvExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
             help="Like -f/--field, but hidden from the table renderer, "
                 "and doesn't affect -f/--field defaults.")
