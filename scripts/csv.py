@@ -540,8 +540,8 @@ class CsvExpr:
         def fold(self, types={}):
             return self.a.fold(types)
 
-        def eval(self, fields={}):
-            return self.a.eval(fields)
+        def eval(self, fields={}, state=None):
+            return self.a.eval(fields, state)
 
     # expr nodes
 
@@ -556,7 +556,7 @@ class CsvExpr:
         def fold(self, types={}):
             return CsvSum, CsvInt
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             return self.a
 
     class FloatLit(Expr):
@@ -569,7 +569,7 @@ class CsvExpr:
         def fold(self, types={}):
             return CsvSum, CsvFloat
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             return self.a
 
     # field expr
@@ -587,7 +587,7 @@ class CsvExpr:
                 raise CsvExpr.Error("unfoldable field? %s" % self.a)
             return CsvSum, types[self.a]
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if self.a not in fields:
                 raise CsvExpr.Error("unknown field? %s" % self.a)
             return fields[self.a]
@@ -613,8 +613,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def eval(self, fields={}):
-            return CsvInt(self.a.eval(fields))
+        def eval(self, fields={}, state=None):
+            return CsvInt(self.a.eval(fields, state))
 
     @func('float', 'a')
     class Float(Expr):
@@ -622,8 +622,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFloat
 
-        def eval(self, fields={}):
-            return CsvFloat(self.a.eval(fields))
+        def eval(self, fields={}, state=None):
+            return CsvFloat(self.a.eval(fields, state))
 
     @func('frac', 'a[, b]')
     class Frac(Expr):
@@ -631,11 +631,14 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFrac
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return CsvFrac(self.a.eval(fields))
+                return CsvFrac(
+                        self.a.eval(fields, state))
             else:
-                return CsvFrac(self.a.eval(fields), self.b.eval(fields))
+                return CsvFrac(
+                        self.a.eval(fields, state),
+                        self.b.eval(fields, state))
 
     # fold exprs
     @func('sum', 'a[, ...]')
@@ -647,11 +650,11 @@ class CsvExpr:
             else:
                 return self.a.fold(types)
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return self.a.eval(fields)
+                return self.a.eval(fields, state)
             else:
-                return CsvSum()([v.eval(fields) for v in self])
+                return CsvSum()([v.eval(fields, state) for v in self])
 
     @func('prod', 'a[, ...]')
     class Prod(Expr):
@@ -662,11 +665,11 @@ class CsvExpr:
             else:
                 return self.a.fold(types)
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return self.a.eval(fields)
+                return self.a.eval(fields, state)
             else:
-                return Prod()([v.eval(fields) for v in self])
+                return Prod()([v.eval(fields, state) for v in self])
 
     @func('min', 'a[, ...]')
     class Min(Expr):
@@ -677,11 +680,11 @@ class CsvExpr:
             else:
                 return self.a.fold(types)
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return self.a.eval(fields)
+                return self.a.eval(fields, state)
             else:
-                return CsvMin()([v.eval(fields) for v in self])
+                return CsvMin()([v.eval(fields, state) for v in self])
 
     @func('max', 'a[, ...]')
     class Max(Expr):
@@ -692,11 +695,11 @@ class CsvExpr:
             else:
                 return self.a.fold(types)
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return self.a.eval(fields)
+                return self.a.eval(fields, state)
             else:
-                return CsvMax()([v.eval(fields) for v in self])
+                return CsvMax()([v.eval(fields, state) for v in self])
 
     @func('avg', 'a[, ...]')
     class Avg(Expr):
@@ -713,11 +716,11 @@ class CsvExpr:
             else:
                 return self.a.fold(types)
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return self.a.eval(fields)
+                return self.a.eval(fields, state)
             else:
-                return CsvAvg()([v.eval(fields) for v in self])
+                return CsvAvg()([v.eval(fields, state) for v in self])
 
     @func('stddev', 'a[, ...]')
     class Stddev(Expr):
@@ -734,11 +737,11 @@ class CsvExpr:
             else:
                 return self.a.fold(types)
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return self.a.eval(fields)
+                return self.a.eval(fields, state)
             else:
-                return CsvStddev()([v.eval(fields) for v in self])
+                return CsvStddev()([v.eval(fields, state) for v in self])
 
     @func('gmean', 'a[, ...]')
     class GMean(Expr):
@@ -755,11 +758,11 @@ class CsvExpr:
             else:
                 return self.a.fold(types)
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return self.a.eval(fields)
+                return self.a.eval(fields, state)
             else:
-                return CsvGMean()([v.eval(fields) for v in self])
+                return CsvGMean()([v.eval(fields, state) for v in self])
 
     @func('gstddev', 'a[, ...]')
     class GStddev(Expr):
@@ -776,11 +779,54 @@ class CsvExpr:
             else:
                 return self.a.fold(types)
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
-                return self.a.eval(fields)
+                return self.a.eval(fields, state)
             else:
-                return CsvGStddev()([v.eval(fields) for v in self])
+                return CsvGStddev()([v.eval(fields, state) for v in self])
+
+    # enumerate exprs
+    @func('enumerate', '')
+    class Enumerate(Expr):
+        """A number incremented each result"""
+        def fields(self):
+            return set()
+
+        def type(self, types={}):
+            return CsvInt
+
+        def fold(self, types={}):
+            return CsvSum, CsvInt
+
+        def eval(self, fields={}, state=None):
+            if state is None:
+                return CsvInt(0)
+            # enumerate
+            v = state.get(('enumerate', id(self)))
+            if v is None:
+                v = 0
+            else:
+                v += 1
+            # keep track of unique enumerate state
+            state[('enumerate', id(self))] = v
+            return CsvInt(v)
+
+    @func('accumulate', 'a')
+    class Accumulate(Expr):
+        """A running sum across results"""
+        def eval(self, fields={}, state=None):
+            v = self.a.eval(fields, state)
+            if state is None:
+                return v
+            # accumulate
+            v_ = state.get(('accumulate', id(self)))
+            if v_ is None:
+                v_ = v
+            else:
+                v_ += v
+            # keep track of unique accumulate state
+            state[('accumulate', id(self))] = v_
+            return v_
 
     # functions
     @func('ratio', 'a')
@@ -789,8 +835,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFloat
 
-        def eval(self, fields={}):
-            v = CsvFrac(self.a.eval(fields))
+        def eval(self, fields={}, state=None):
+            v = CsvFrac(self.a.eval(fields, state))
             if not float(v.b) and not float(v.a):
                 return CsvFloat(1)
             elif not float(v.b):
@@ -804,14 +850,14 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def eval(self, fields={}):
-            return CsvFrac(self.a.eval(fields)).b
+        def eval(self, fields={}, state=None):
+            return CsvFrac(self.a.eval(fields, state)).b
 
     @func('abs', 'a')
     class Abs(Expr):
         """Absolute value"""
-        def eval(self, fields={}):
-            return abs(self.a.eval(fields))
+        def eval(self, fields={}, state=None):
+            return abs(self.a.eval(fields, state))
 
     @func('ceil', 'a')
     class Ceil(Expr):
@@ -819,8 +865,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFloat
 
-        def eval(self, fields={}):
-            return CsvFloat(mt.ceil(float(self.a.eval(fields))))
+        def eval(self, fields={}, state=None):
+            return CsvFloat(mt.ceil(float(self.a.eval(fields, state))))
 
     @func('floor', 'a')
     class Floor(Expr):
@@ -828,8 +874,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFloat
 
-        def eval(self, fields={}):
-            return CsvFloat(mt.floor(float(self.a.eval(fields))))
+        def eval(self, fields={}, state=None):
+            return CsvFloat(mt.floor(float(self.a.eval(fields, state))))
 
     @func('log', 'a[, b]')
     class Log(Expr):
@@ -837,14 +883,14 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFloat
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
                 return CsvFloat(mt.log(
-                        float(self.a.eval(fields))))
+                        float(self.a.eval(fields, state))))
             else:
                 return CsvFloat(mt.log(
-                        float(self.a.eval(fields)),
-                        float(self.b.eval(fields))))
+                        float(self.a.eval(fields, state)),
+                        float(self.b.eval(fields, state))))
 
     @func('pow', 'a[, b]')
     class Pow(Expr):
@@ -852,14 +898,14 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFloat
 
-        def eval(self, fields={}):
+        def eval(self, fields={}, state=None):
             if len(self) == 1:
                 return CsvFloat(mt.exp(
-                        float(self.a.eval(fields))))
+                        float(self.a.eval(fields, state))))
             else:
                 return CsvFloat(mt.pow(
-                        float(self.a.eval(fields)),
-                        float(self.b.eval(fields))))
+                        float(self.a.eval(fields, state)),
+                        float(self.b.eval(fields, state))))
 
     @func('sqrt', 'a')
     class Sqrt(Expr):
@@ -867,8 +913,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFloat
 
-        def eval(self, fields={}):
-            return CsvFloat(mt.sqrt(float(self.a.eval(fields))))
+        def eval(self, fields={}, state=None):
+            return CsvFloat(mt.sqrt(float(self.a.eval(fields, state))))
 
     @func('isint', 'a')
     class IsInt(Expr):
@@ -876,8 +922,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def eval(self, fields={}):
-            if isinstance(self.a.eval(fields), CsvInt):
+        def eval(self, fields={}, state=None):
+            if isinstance(self.a.eval(fields, state), CsvInt):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -888,8 +934,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def eval(self, fields={}):
-            if isinstance(self.a.eval(fields), CsvFloat):
+        def eval(self, fields={}, state=None):
+            if isinstance(self.a.eval(fields, state), CsvFloat):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -900,8 +946,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def eval(self, fields={}):
-            if isinstance(self.a.eval(fields), CsvFrac):
+        def eval(self, fields={}, state=None):
+            if isinstance(self.a.eval(fields, state), CsvFrac):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -912,8 +958,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def eval(self, fields={}):
-            if mt.isinf(self.a.eval(fields)):
+        def eval(self, fields={}, state=None):
+            if mt.isinf(self.a.eval(fields, state)):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -924,8 +970,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def eval(self, fields={}):
-            if mt.isnan(self.a.eval(fields)):
+        def eval(self, fields={}, state=None):
+            if mt.isnan(self.a.eval(fields, state)):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -947,14 +993,14 @@ class CsvExpr:
     @uop('+')
     class Pos(Expr):
         """Non-negation"""
-        def eval(self, fields={}):
-            return +self.a.eval(fields)
+        def eval(self, fields={}, state=None):
+            return +self.a.eval(fields, state)
 
     @uop('-')
     class Neg(Expr):
         """Negation"""
-        def eval(self, fields={}):
-            return -self.a.eval(fields)
+        def eval(self, fields={}, state=None):
+            return -self.a.eval(fields, state)
 
     @uop('!')
     class NotNot(Expr):
@@ -962,8 +1008,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def eval(self, fields={}):
-            if self.a.eval(fields):
+        def eval(self, fields={}, state=None):
+            if self.a.eval(fields, state):
                 return CsvInt(0)
             else:
                 return CsvInt(1)
@@ -988,40 +1034,38 @@ class CsvExpr:
     @bop('*', 10)
     class Mul(Expr):
         """Multiplication"""
-        def eval(self, fields={}):
-            return self.a.eval(fields) * self.b.eval(fields)
+        def eval(self, fields={}, state=None):
+            return self.a.eval(fields, state) * self.b.eval(fields, state)
 
     @bop('/', 10)
     class Div(Expr):
         """Division"""
-        def eval(self, fields={}):
-            return self.a.eval(fields) / self.b.eval(fields)
+        def eval(self, fields={}, state=None):
+            return self.a.eval(fields, state) / self.b.eval(fields, state)
 
     @bop('%', 10)
     class Mod(Expr):
         """Modulo"""
-        def eval(self, fields={}):
-            return self.a.eval(fields) % self.b.eval(fields)
+        def eval(self, fields={}, state=None):
+            return self.a.eval(fields, state) % self.b.eval(fields, state)
 
     @bop('+', 9)
     class Add(Expr):
         """Addition"""
-        def eval(self, fields={}):
-            a = self.a.eval(fields)
-            b = self.b.eval(fields)
-            return a + b
+        def eval(self, fields={}, state=None):
+            return self.a.eval(fields, state) + self.b.eval(fields, state)
 
     @bop('-', 9)
     class Sub(Expr):
         """Subtraction"""
-        def eval(self, fields={}):
-            return self.a.eval(fields) - self.b.eval(fields)
+        def eval(self, fields={}, state=None):
+            return self.a.eval(fields, state) - self.b.eval(fields, state)
 
     @bop('==', 4)
     class Eq(Expr):
         """1 if a equals b, otherwise 0"""
-        def eval(self, fields={}):
-            if self.a.eval(fields) == self.b.eval(fields):
+        def eval(self, fields={}, state=None):
+            if self.a.eval(fields, state) == self.b.eval(fields, state):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -1029,8 +1073,8 @@ class CsvExpr:
     @bop('!=', 4)
     class Ne(Expr):
         """1 if a does not equal b, otherwise 0"""
-        def eval(self, fields={}):
-            if self.a.eval(fields) != self.b.eval(fields):
+        def eval(self, fields={}, state=None):
+            if self.a.eval(fields, state) != self.b.eval(fields, state):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -1038,8 +1082,8 @@ class CsvExpr:
     @bop('<', 4)
     class Lt(Expr):
         """1 if a is less than b"""
-        def eval(self, fields={}):
-            if self.a.eval(fields) < self.b.eval(fields):
+        def eval(self, fields={}, state=None):
+            if self.a.eval(fields, state) < self.b.eval(fields, state):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -1047,8 +1091,8 @@ class CsvExpr:
     @bop('<=', 4)
     class Le(Expr):
         """1 if a is less than or equal to b"""
-        def eval(self, fields={}):
-            if self.a.eval(fields) <= self.b.eval(fields):
+        def eval(self, fields={}, state=None):
+            if self.a.eval(fields, state) <= self.b.eval(fields, state):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -1056,8 +1100,8 @@ class CsvExpr:
     @bop('>', 4)
     class Gt(Expr):
         """1 if a is greater than b"""
-        def eval(self, fields={}):
-            if self.a.eval(fields) > self.b.eval(fields):
+        def eval(self, fields={}, state=None):
+            if self.a.eval(fields, state) > self.b.eval(fields, state):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -1065,8 +1109,8 @@ class CsvExpr:
     @bop('>=', 4)
     class Ge(Expr):
         """1 if a is greater than or equal to b"""
-        def eval(self, fields={}):
-            if self.a.eval(fields) >= self.b.eval(fields):
+        def eval(self, fields={}, state=None):
+            if self.a.eval(fields, state) >= self.b.eval(fields, state):
                 return CsvInt(1)
             else:
                 return CsvInt(0)
@@ -1074,22 +1118,22 @@ class CsvExpr:
     @bop('&&', 3)
     class AndAnd(Expr):
         """b if a is non-zero, otherwise a"""
-        def eval(self, fields={}):
-            a = self.a.eval(fields)
+        def eval(self, fields={}, state=None):
+            a = self.a.eval(fields, state)
             if a:
-                return self.b.eval(fields)
+                return self.b.eval(fields, state)
             else:
                 return a
 
     @bop('||', 2)
     class OrOr(Expr):
         """a if a is non-zero, otherwise b"""
-        def eval(self, fields={}):
-            a = self.a.eval(fields)
+        def eval(self, fields={}, state=None):
+            a = self.a.eval(fields, state)
             if a:
                 return a
             else:
-                return self.b.eval(fields)
+                return self.b.eval(fields, state)
 
     # ternary expr help
     def top(tops, tprecs):
@@ -1121,12 +1165,12 @@ class CsvExpr:
         def fold(self, types={}):
             return self.b.fold(types)
 
-        def eval(self, fields={}):
-            a = self.a.eval(fields)
+        def eval(self, fields={}, state=None):
+            a = self.a.eval(fields, state)
             if a:
-                return self.b.eval(fields)
+                return self.b.eval(fields, state)
             else:
-                return self.c.eval(fields)
+                return self.c.eval(fields, state)
 
     # show expr help text
     @classmethod
@@ -1178,17 +1222,17 @@ class CsvExpr:
                         raise CsvExpr.Error("unknown function? %s" % a)
                     args = []
                     while True:
-                        b = p_expr(p)
-                        args.append(b)
-                        if p.match(','):
-                            p.chomp()
-                            continue
-                        else:
-                            if not p.match('\)'):
-                                raise CsvExpr.Error("mismatched parens? %s" % p)
-                            p.chomp()
-                            a = CsvExpr.funcs[a](*args)
-                            break
+                        if not p.match('\)'):
+                            b = p_expr(p)
+                            args.append(b)
+                            if p.match(','):
+                                p.chomp()
+                                continue
+                        if not p.match('\)'):
+                            raise CsvExpr.Error("mismatched parens? %s" % p)
+                        p.chomp()
+                        a = CsvExpr.funcs[a](*args)
+                        break
                 else:
                     a = CsvExpr.Field(a)
 
@@ -1296,9 +1340,9 @@ class CsvExpr:
             sys.exit(3)
 
     # recursive evaluate the expr
-    def eval(self, fields={}):
+    def eval(self, fields={}, state=None):
         try:
-            return self.tree.eval(fields)
+            return self.tree.eval(fields, state)
         except CsvExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
@@ -1408,15 +1452,6 @@ def punescape_help():
             '%(field)[dboxX]', 'An existing field formatted as an integer'))
     print('  %-21s %s' % (
             '%(field)[fFeEgG]', 'An existing field formatted as a float'))
-
-
-# a couple marker classes
-class CsvEnumerate:
-    pass
-
-class CsvAccumulate:
-    def __init__(self, expr):
-        self.expr = expr
 
 
 # open with '-' for stdin/stdout
@@ -1577,7 +1612,7 @@ def compile(fields_, results,
     folds___ = {k: (f(), t) for k, (f, t) in folds___.items()}
 
     # create result class
-    def __new__(cls, **r):
+    def __new__(cls, _state=None, **r):
         r_ = r.copy()
         # evaluate types, strip prefix
         for k, t in types__.items():
@@ -1586,7 +1621,7 @@ def compile(fields_, results,
         r__ = r_.copy()
         # evaluate exprs
         for k, expr in exprs.items():
-            r__[k] = expr.eval(r_)
+            r__[k] = expr.eval(r_, _state)
         # evaluate mods
         for k, m in mods.items():
             r__[k] = punescape(m, r_)
@@ -1656,18 +1691,12 @@ def compile(fields_, results,
 
 def homogenize(Result, results, *,
         enumerates=None,
-        accumulates=None,
         defines=[],
         depth=1,
         **_):
+    # running result state
+    state = {}
     # convert all (possibly recursive) results to our result type
-
-    # prepare accumulators
-    accumulators = {
-        k: {'i': CsvInt(0), 'a': CsvInt(0), 'b': CsvInt(0), 'i': CsvInt(0)}
-        for k, v in accumulates}
-
-    # homogenize results
     results_ = []
     for r in results:
         # filter by matching defines
@@ -1682,26 +1711,24 @@ def homogenize(Result, results, *,
             continue
 
         # append a result
-        results_.append(Result(**(
-                r
+        results_.append(Result(
+                **(r
                     # enumerate?
                     | ({e: len(results_) for e in enumerates}
                         if enumerates is not None
                         else {})
-                    # accumulate?
-                    # TODO
                     # recurse?
                     | ({Result._children: homogenize(
                             Result, r[Result._children],
                             # only filter defines at the top level!
                             enumerates=enumerates,
-                            accumulates=accumulates,
                             depth=depth-1)}
                         if hasattr(Result, '_children')
                             and Result._children in r
                             and r[Result._children] is not None
                             and depth > 1
-                        else {}))))
+                        else {})),
+                _state=state))
     return results_
 
 
@@ -2366,25 +2393,20 @@ def main(csv_paths, *,
     # separate out enumerates/mods/exprs
     #
     # enumerate enumerates: -ia
-    # accumulate supports exprs: -ga=0.99*g+0.01*b
     # by supports mods: -ba=%(b)s
     # fields/sort/etc supports exprs: -fa=b+c
     #
     enumerates = [k
             for (k, v), hidden in (by or [])
-                if isinstance(v, CsvEnumerate)]
-    accumulates = [(k, v)
-            for (k, v), hidden in (fields or [])
-                if isinstance(v, CsvAccumulate)]
+                if v == enumerate]
     mods = [(k, v)
             for k, v in it.chain(
                 ((k, v) for (k, v), hidden in (by or [])
-                    if not isinstance(v, CsvEnumerate)))
+                    if v != enumerate))
             if v is not None]
     exprs = [(k, v)
             for k, v in it.chain(
-                ((k, v) for (k, v), hidden in (fields or [])
-                    if not isinstance(v, CsvAccumulate)),
+                ((k, v) for (k, v), hidden in (fields or [])),
                 ((k, v) for (k, v), reverse in (sort or [])),
                 ((k, v) for (k, v), reverse in (hot or [])))
             if v is not None]
@@ -2457,7 +2479,6 @@ def main(csv_paths, *,
     # homogenize
     results = homogenize(Result, results,
             enumerates=enumerates,
-            accumulates=accumulates,
             defines=defines,
             depth=depth)
 
@@ -2495,7 +2516,6 @@ def main(csv_paths, *,
         # homogenize
         diff_results = homogenize(Result, diff_results,
                 enumerates=enumerates,
-                accumulates=accumulates,
                 defines=defines,
                 depth=depth)
 
@@ -2594,16 +2614,16 @@ if __name__ == "__main__":
             '-i', '--enumerate',
             action=AppendBy,
             nargs='?',
-            type=lambda x: (x, CsvEnumerate()),
-            const=('i', CsvEnumerate()),
-            help="Enumerate results with this field. This will prevent "
-                "result folding.")
+            type=lambda x: (x, enumerate),
+            const=('i', enumerate),
+            help="Enumerate results with this field, equivalent to "
+                " -bi -Fi=enumerate(). This will prevent result folding.")
     parser.add_argument(
             '-I', '--hidden-enumerate',
             action=AppendBy,
             nargs='?',
-            type=lambda x: (x, CsvEnumerate()),
-            const=('i', CsvEnumerate()),
+            type=lambda x: (x, enumerate),
+            const=('i', enumerate),
             help="Like -i/--enumerate, but hidden from the table renderer, "
                 "and doesn't affect -b/--by defaults.")
     parser.add_argument(
@@ -2631,8 +2651,7 @@ if __name__ == "__main__":
             if namespace.fields is None:
                 namespace.fields = []
             namespace.fields.append((value, option in {
-                    '-F', '--hidden-field',
-                    '-G', '--hidden-accumulate'}))
+                    '-F', '--hidden-field'}))
     parser.add_argument(
             '-f', '--field',
             dest='fields',
@@ -2654,31 +2673,6 @@ if __name__ == "__main__":
                     CsvExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
             help="Like -f/--field, but hidden from the table renderer, "
-                "and doesn't affect -f/--field defaults.")
-    parser.add_argument(
-            '-g', '--accumulate',
-            dest='fields',
-            action=AppendField,
-            type=lambda x: (
-                lambda k, v=None: (
-                    k.strip(),
-                    CsvAccumulate(CsvExpr(v) if v is not None else None))
-                )(*x.split('=', 1)),
-            help="Accumulate this field. Note accumulation is dependent "
-                "on input row order, and may need a second pass after "
-                "sorting. Can include an expression, but the expression "
-                "is evaluated early with i, a, b, and g as arguments. "
-                "Default behavior matches the expression (i==0)?b:g+b.")
-    parser.add_argument(
-            '-G', '--hidden-accumulate',
-            dest='fields',
-            action=AppendField,
-            type=lambda x: (
-                lambda k, v=None: (
-                    k.strip(),
-                    CsvAccumulate(CsvExpr(v) if v is not None else None))
-                )(*x.split('=', 1)),
-            help="Like -g/--accumulate, but hidden from the table renderer, "
                 "and doesn't affect -f/--field defaults.")
     parser.add_argument(
             '-D', '--define',
