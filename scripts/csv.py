@@ -1306,6 +1306,7 @@ class CsvExpr:
                     file=sys.stderr)
             sys.exit(3)
 
+
 # SI-prefix formatter
 def si(x):
     if x == 0:
@@ -1407,6 +1408,15 @@ def punescape_help():
             '%(field)[dboxX]', 'An existing field formatted as an integer'))
     print('  %-21s %s' % (
             '%(field)[fFeEgG]', 'An existing field formatted as a float'))
+
+
+# a couple marker classes
+class CsvEnumerate:
+    pass
+
+class CsvAccumulate:
+    def __init__(self, expr):
+        self.expr = expr
 
 
 # open with '-' for stdin/stdout
@@ -1646,11 +1656,18 @@ def compile(fields_, results,
 
 def homogenize(Result, results, *,
         enumerates=None,
+        accumulates=None,
         defines=[],
         depth=1,
         **_):
-    # this just converts all (possibly recursive) results to our
-    # result type
+    # convert all (possibly recursive) results to our result type
+
+    # prepare accumulators
+    accumulators = {
+        k: {'i': CsvInt(0), 'a': CsvInt(0), 'b': CsvInt(0), 'i': CsvInt(0)}
+        for k, v in accumulates}
+
+    # homogenize results
     results_ = []
     for r in results:
         # filter by matching defines
@@ -1671,11 +1688,14 @@ def homogenize(Result, results, *,
                     | ({e: len(results_) for e in enumerates}
                         if enumerates is not None
                         else {})
+                    # accumulate?
+                    # TODO
                     # recurse?
                     | ({Result._children: homogenize(
                             Result, r[Result._children],
                             # only filter defines at the top level!
                             enumerates=enumerates,
+                            accumulates=accumulates,
                             depth=depth-1)}
                         if hasattr(Result, '_children')
                             and Result._children in r
@@ -2346,20 +2366,25 @@ def main(csv_paths, *,
     # separate out enumerates/mods/exprs
     #
     # enumerate enumerates: -ia
+    # accumulate supports exprs: -ga=0.99*g+0.01*b
     # by supports mods: -ba=%(b)s
     # fields/sort/etc supports exprs: -fa=b+c
     #
     enumerates = [k
             for (k, v), hidden in (by or [])
-                if v == enumerate]
+                if isinstance(v, CsvEnumerate)]
+    accumulates = [(k, v)
+            for (k, v), hidden in (fields or [])
+                if isinstance(v, CsvAccumulate)]
     mods = [(k, v)
             for k, v in it.chain(
                 ((k, v) for (k, v), hidden in (by or [])
-                    if v != enumerate))
+                    if not isinstance(v, CsvEnumerate)))
             if v is not None]
     exprs = [(k, v)
             for k, v in it.chain(
-                ((k, v) for (k, v), hidden in (fields or [])),
+                ((k, v) for (k, v), hidden in (fields or [])
+                    if not isinstance(v, CsvAccumulate)),
                 ((k, v) for (k, v), reverse in (sort or [])),
                 ((k, v) for (k, v), reverse in (hot or [])))
             if v is not None]
@@ -2432,6 +2457,7 @@ def main(csv_paths, *,
     # homogenize
     results = homogenize(Result, results,
             enumerates=enumerates,
+            accumulates=accumulates,
             defines=defines,
             depth=depth)
 
@@ -2469,6 +2495,7 @@ def main(csv_paths, *,
         # homogenize
         diff_results = homogenize(Result, diff_results,
                 enumerates=enumerates,
+                accumulates=accumulates,
                 defines=defines,
                 depth=depth)
 
@@ -2567,16 +2594,16 @@ if __name__ == "__main__":
             '-i', '--enumerate',
             action=AppendBy,
             nargs='?',
-            type=lambda x: (x, enumerate),
-            const=('i', enumerate),
+            type=lambda x: (x, CsvEnumerate()),
+            const=('i', CsvEnumerate()),
             help="Enumerate results with this field. This will prevent "
                 "result folding.")
     parser.add_argument(
             '-I', '--hidden-enumerate',
             action=AppendBy,
             nargs='?',
-            type=lambda x: (x, enumerate),
-            const=('i', enumerate),
+            type=lambda x: (x, CsvEnumerate()),
+            const=('i', CsvEnumerate()),
             help="Like -i/--enumerate, but hidden from the table renderer, "
                 "and doesn't affect -b/--by defaults.")
     parser.add_argument(
@@ -2604,7 +2631,8 @@ if __name__ == "__main__":
             if namespace.fields is None:
                 namespace.fields = []
             namespace.fields.append((value, option in {
-                    '-F', '--hidden-field'}))
+                    '-F', '--hidden-field',
+                    '-G', '--hidden-accumulate'}))
     parser.add_argument(
             '-f', '--field',
             dest='fields',
@@ -2626,6 +2654,31 @@ if __name__ == "__main__":
                     CsvExpr(v) if v is not None else None)
                 )(*x.split('=', 1)),
             help="Like -f/--field, but hidden from the table renderer, "
+                "and doesn't affect -f/--field defaults.")
+    parser.add_argument(
+            '-g', '--accumulate',
+            dest='fields',
+            action=AppendField,
+            type=lambda x: (
+                lambda k, v=None: (
+                    k.strip(),
+                    CsvAccumulate(CsvExpr(v) if v is not None else None))
+                )(*x.split('=', 1)),
+            help="Accumulate this field. Note accumulation is dependent "
+                "on input row order, and may need a second pass after "
+                "sorting. Can include an expression, but the expression "
+                "is evaluated early with i, a, b, and g as arguments. "
+                "Default behavior matches the expression (i==0)?b:g+b.")
+    parser.add_argument(
+            '-G', '--hidden-accumulate',
+            dest='fields',
+            action=AppendField,
+            type=lambda x: (
+                lambda k, v=None: (
+                    k.strip(),
+                    CsvAccumulate(CsvExpr(v) if v is not None else None))
+                )(*x.split('=', 1)),
+            help="Like -g/--accumulate, but hidden from the table renderer, "
                 "and doesn't affect -f/--field defaults.")
     parser.add_argument(
             '-D', '--define',
