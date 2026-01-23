@@ -150,6 +150,7 @@ class StructResult(co.namedtuple('StructResult', [
     _fields = ['off', 'size', 'align']
     _sort = ['size', 'align']
     _types = {'off': CsvInt, 'size': CsvInt, 'align': CsvInt}
+    _z = 'z'
     _children = 'children'
 
     __slots__ = ()
@@ -703,14 +704,14 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        enumerates=None,
         depth=1,
         hot=None,
         **_):
-    # note! hotifying risks confusion if you don't enumerate/have a
-    # z field, since it will allow folding across recursive boundaries
+    # note! hotifying risks confusion if you don't have a z field, since
+    # it will allow folding across recursive boundaries
 
     # hotify only makes sense for recursive results
+    assert hasattr(Result, '_z')
     assert hasattr(Result, '_children')
 
     results_ = []
@@ -732,12 +733,8 @@ def hotify(Result, results, *,
                                 for k_ in ([k] if k else Result._sort)))
                         for k, reverse in it.chain(hot, [(None, False)])))
 
-            hot_.append(r._replace(**(
-                    # enumerate?
-                    ({e: len(hot_) for e in enumerates}
-                            if enumerates is not None
-                            else {})
-                        | {Result._children: []})))
+            # flatten, dropping children
+            hot_.append(r._replace(**{Result._children: []}))
 
             # recurse?
             if depth_ > 1:

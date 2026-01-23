@@ -1560,6 +1560,7 @@ def compile(fields_, results,
         mods=[],
         exprs=[],
         sort=None,
+        z=None,
         children=None,
         hot=None,
         notes=None,
@@ -1646,6 +1647,8 @@ def compile(fields_, results,
                 {k: r__.get(k, '') for k in by}
                     | {k: ([r__[k]], 1) if k in r__ else ([], 0)
                         for k in fields}
+                    | ({z: r[z] if z in r else 0}
+                        if z is not None else {})
                     | ({children: r[children] if children in r else []}
                         if children is not None else {})
                     | ({notes: r[notes] if notes in r else set()}
@@ -1667,6 +1670,8 @@ def compile(fields_, results,
                             object.__getattribute__(self, k),
                             object.__getattribute__(other, k))
                         for k in fields}
+                    | ({z: object.__getattribute__(self, z)}
+                        if z is not None else {})
                     | ({children: object.__getattribute__(self, children)
                             + object.__getattribute__(other, children)}
                         if children is not None else {})
@@ -1703,6 +1708,7 @@ def compile(fields_, results,
                 _types={k: t for k, (_, t) in folds___.items()},
                 _mods=mods,
                 _exprs=exprs,
+                **{'_z': z} if z is not None else {},
                 **{'_children': children} if children is not None else {},
                 **{'_notes': notes} if notes is not None else {}))
 
@@ -1710,6 +1716,7 @@ def homogenize(Result, results, *,
         enumerates=None,
         defines=[],
         depth=1,
+        depth_=0,
         **_):
     # running result state
     state = {}
@@ -1734,12 +1741,15 @@ def homogenize(Result, results, *,
                     | ({e: len(results_) for e in enumerates}
                         if enumerates is not None
                         else {})
+                    # keep track of depth?
+                    | ({Result._z: depth_} if hasattr(Result, '_z') else {})
                     # recurse?
                     | ({Result._children: homogenize(
                             Result, r[Result._children],
                             # only filter defines at the top level!
                             enumerates=enumerates,
-                            depth=depth-1)}
+                            depth=depth-1,
+                            depth_=depth_+1)}
                         if hasattr(Result, '_children')
                             and Result._children in r
                             and r[Result._children] is not None
@@ -1834,14 +1844,14 @@ def fold(Result, results, *,
     return folded
 
 def hotify(Result, results, *,
-        enumerates=None,
         depth=1,
         hot=None,
         **_):
-    # note! hotifying risks confusion if you don't enumerate/have a
-    # z field, since it will allow folding across recursive boundaries
+    # note! hotifying risks confusion if you don't have a z field, since
+    # it will allow folding across recursive boundaries
 
     # hotify only makes sense for recursive results
+    assert hasattr(Result, '_z')
     assert hasattr(Result, '_children')
 
     results_ = []
@@ -1863,12 +1873,8 @@ def hotify(Result, results, *,
                                 for k_ in ([k] if k else Result._sort)))
                         for k, reverse in it.chain(hot, [(None, False)])))
 
-            hot_.append(r._replace(**(
-                    # enumerate?
-                    ({e: len(hot_) for e in enumerates}
-                            if enumerates is not None
-                            else {})
-                        | {Result._children: []})))
+            # flatten, dropping children
+            hot_.append(r._replace(**{Result._children: []}))
 
             # recurse?
             if depth_ > 1:
@@ -2360,12 +2366,17 @@ def main(csv_paths, *,
                 file=sys.stderr)
         sys.exit(-1)
 
+    z = None
     if children is not None:
         if len(children) > 1:
             print("error: multiple --children fields currently not supported",
                     file=sys.stderr)
             sys.exit(-1)
         children = children[0]
+        if len(children) > 1:
+            z, children = children
+        else:
+            children, = children
 
     if notes is not None:
         if len(notes) > 1:
@@ -2375,8 +2386,11 @@ def main(csv_paths, *,
         notes = notes[0]
 
     # recursive results imply --children
-    if (depth is not None or hot is not None) and children is None:
-        children = 'children'
+    if depth is not None or hot is not None:
+        if z is None:
+            z = 'z'
+        if children is None:
+            children = 'children'
 
     # figure out depth
     if depth is None:
@@ -2442,6 +2456,10 @@ def main(csv_paths, *,
                     or args.get('output')
                     or args.get('output_json')]
 
+    # insert zed
+    if z is not None:
+        by__.insert(0, z)
+
     # if by not specified, guess it's anything not in fields/defines/exprs/etc
     if by is None or all(hidden for (k, v), hidden in by):
         by__.extend(k for k in fields_
@@ -2449,8 +2467,9 @@ def main(csv_paths, *,
                     and not any(k == k_ for (k_, _), _ in (fields or []))
                     and not any(k == k_ for k_, _ in defines)
                     and not any(k == k_ for (k_, _), _ in (sort or []))
-                    and k != children
                     and not any(k == k_ for (k_, _), _ in (hot or []))
+                    and k != z
+                    and k != children
                     and k != notes
                     and not any(k == k_
                         for _, expr in exprs
@@ -2463,8 +2482,9 @@ def main(csv_paths, *,
                     and not any(k == k_ for (k_, _), _ in (fields or []))
                     and not any(k == k_ for k_, _ in defines)
                     and not any(k == k_ for (k_, _), _ in (sort or []))
-                    and k != children
                     and not any(k == k_ for (k_, _), _ in (hot or []))
+                    and k != z
+                    and k != children
                     and k != notes
                     and not any(k == k_
                         for _, expr in exprs
@@ -2488,6 +2508,7 @@ def main(csv_paths, *,
             mods=mods,
             exprs=exprs,
             sort=sort,
+            z=z,
             children=children,
             hot=hot,
             notes=notes)
@@ -2507,7 +2528,6 @@ def main(csv_paths, *,
     # hotify?
     if hot:
         results = hotify(Result, results,
-                enumerates=enumerates,
                 depth=depth,
                 hot=hot)
 
@@ -2543,7 +2563,6 @@ def main(csv_paths, *,
         # hotify?
         if hot:
             diff_results = hotify(Result, diff_results,
-                    enumerates=enumerates,
                     depth=depth,
                     hot=hot)
 
@@ -2740,10 +2759,12 @@ if __name__ == "__main__":
     parser.add_argument(
             '-Z', '--children',
             nargs='?',
-            const='children',
+            const=('z', 'children'),
             action='append',
-            help="Field to use for recursive results. This expects a list "
-                "and really only works with JSON input.")
+            type=lambda x: tuple(v.strip() for v in x.split(',')),
+            help="Fields to use for recursive results, either the children "
+                "field or depth,children fields. This really only works with "
+                "JSON input. Defaults to 'z' and 'children'.")
     class AppendHot(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.hot is None:
@@ -2778,7 +2799,7 @@ if __name__ == "__main__":
             nargs='?',
             const='notes',
             action='append',
-            help="Field to use for notes.")
+            help="Field to use for notes. Defaults to 'notes'.")
     parser.add_argument(
             '--no-header',
             action='store_true',
