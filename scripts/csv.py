@@ -1469,7 +1469,19 @@ def collect_csv(csv_paths, *,
         depth=1,
         children=None,
         notes=None,
+        prefix=None,
         **_):
+    # useful function for stripping the optional prefix
+    #
+    # what, it's not like any of the other scripts avoided prefix
+    # conflicts, trying to avoid conflicts until after expr eval
+    # quickly became unmaintainable
+    def stripprefix(k):
+        if prefix is not None and k.startswith(prefix):
+            return k[len(prefix):]
+        else:
+            return k
+
     # collect both results and fields from CSV files
     fields = co.OrderedDict()
     results = []
@@ -1483,8 +1495,12 @@ def collect_csv(csv_paths, *,
                 if not is_json:
                     reader = csv.DictReader(f, restval='')
                     # collect fields
-                    fields.update((k, True) for k in reader.fieldnames or [])
+                    fields.update((stripprefix(k), True)
+                            for k in reader.fieldnames or [])
                     for r in reader:
+                        # strip prefix early
+                        if prefix is not None:
+                            r = {stripprefix(k): v for k, v in r.items()}
                         # strip and drop empty fields
                         r_ = {k: v.strip()
                                 for k, v in r.items()
@@ -1501,6 +1517,9 @@ def collect_csv(csv_paths, *,
                     def unjsonify(results, depth_):
                         results_ = []
                         for r in results:
+                            # strip prefix early
+                            if prefix is not None:
+                                r = {stripprefix(k): v for k, v in r.items()}
                             # collect fields
                             fields.update((k, True) for k in r.keys())
                             # convert to strings, we'll reparse these later
@@ -1544,12 +1563,7 @@ def compile(fields_, results,
         children=None,
         hot=None,
         notes=None,
-        prefix=None,
         **_):
-    # default to no prefix
-    if prefix is None:
-        prefix = ''
-
     by = by.copy()
     fields = fields.copy()
 
@@ -1580,16 +1594,16 @@ def compile(fields_, results,
         #
         # it's tempting to also allow enumerate fields here, but this
         # currently doesn't work when hotifying
-        if prefix+k not in fields_:
+        if k not in fields_:
             print("error: no field %r?" % k,
                     file=sys.stderr)
             sys.exit(2)
 
         for t in [CsvInt, CsvFloat, CsvFrac]:
             for r in results:
-                if prefix+k in r and r[prefix+k].strip():
+                if k in r and r[k].strip():
                     try:
-                        t(r[prefix+k])
+                        t(r[k])
                     except ValueError:
                         break
             else:
@@ -1615,9 +1629,9 @@ def compile(fields_, results,
     # create result class
     def __new__(cls, _state=None, **r):
         r_ = r.copy()
-        # evaluate types, strip prefix
+        # evaluate types
         for k, t in types__.items():
-            r_[k] = t(r[prefix+k]) if prefix+k in r else t()
+            r_[k] = t(r[k]) if k in r else t()
 
         r__ = r_.copy()
         # evaluate exprs
@@ -2476,8 +2490,7 @@ def main(csv_paths, *,
             sort=sort,
             children=children,
             hot=hot,
-            notes=notes,
-            **args)
+            notes=notes)
 
     # homogenize
     results = homogenize(Result, results,
