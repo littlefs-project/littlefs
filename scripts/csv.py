@@ -1488,7 +1488,7 @@ def collect_csv(csv_paths, *,
                         # strip and drop empty fields
                         r_ = {k: v.strip()
                                 for k, v in r.items()
-                                if k not in {'notes'}
+                                if k != notes
                                     and v.strip()}
                         # special handling for notes field
                         if notes is not None and notes in r:
@@ -1510,7 +1510,8 @@ def collect_csv(csv_paths, *,
                             # everything came from a csv
                             r_ = {k: str(v).strip()
                                     for k, v in r.items()
-                                    if k not in {'children', 'notes'}
+                                    if k != notes
+                                        and k != children
                                         and str(v).strip()}
                             # special handling for children field
                             if (children is not None
@@ -1652,9 +1653,11 @@ def compile(fields_, results,
                             object.__getattribute__(self, k),
                             object.__getattribute__(other, k))
                         for k in fields}
-                    | ({children: self.children + other.children}
+                    | ({children: object.__getattribute__(self, children)
+                            + object.__getattribute__(other, children)}
                         if children is not None else {})
-                    | ({notes: self.notes | other.notes}
+                    | ({notes: object.__getattribute__(self, notes)
+                            | object.__getattribute__(other, notes)}
                         if notes is not None else {})))
 
     def __getattribute__(self, k):
