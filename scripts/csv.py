@@ -1713,7 +1713,6 @@ def compile(fields_, results,
                 **{'_notes': notes} if notes is not None else {}))
 
 def homogenize(Result, results, *,
-        enumerates=None,
         defines=[],
         depth=1,
         depth_=0,
@@ -1737,17 +1736,12 @@ def homogenize(Result, results, *,
         # append a result
         results_.append(Result(
                 **(r
-                    # enumerate?
-                    | ({e: len(results_) for e in enumerates}
-                        if enumerates is not None
-                        else {})
                     # keep track of depth?
                     | ({Result._z: depth_} if hasattr(Result, '_z') else {})
                     # recurse?
                     | ({Result._children: homogenize(
                             Result, r[Result._children],
                             # only filter defines at the top level!
-                            enumerates=enumerates,
                             depth=depth-1,
                             depth_=depth_+1)}
                         if hasattr(Result, '_children')
@@ -2421,19 +2415,14 @@ def main(csv_paths, *,
                 notes=notes,
                 **args)
 
-    # separate out enumerates/mods/exprs
+    # separate out mods/exprs
     #
-    # enumerate enumerates: -ia
     # by supports mods: -ba=%(b)s
     # fields/sort/etc supports exprs: -fa=b+c
     #
-    enumerates = [k
-            for (k, v), hidden in (by or [])
-                if v == enumerate]
     mods = [(k, v)
             for k, v in it.chain(
-                ((k, v) for (k, v), hidden in (by or [])
-                    if v != enumerate))
+                ((k, v) for (k, v), hidden in (by or [])))
             if v is not None]
     exprs = [(k, v)
             for k, v in it.chain(
@@ -2515,7 +2504,6 @@ def main(csv_paths, *,
 
     # homogenize
     results = homogenize(Result, results,
-            enumerates=enumerates,
             defines=defines,
             depth=depth)
 
@@ -2551,7 +2539,6 @@ def main(csv_paths, *,
 
         # homogenize
         diff_results = homogenize(Result, diff_results,
-                enumerates=enumerates,
                 defines=defines,
                 depth=depth)
 
@@ -2638,29 +2625,35 @@ if __name__ == "__main__":
             '-a', '--all',
             action='store_true',
             help="Show all, not just the ones that changed.")
+    class AppendEnumerate(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.by is None:
+                namespace.by = []
+            if namespace.fields is None:
+                namespace.fields = []
+            namespace.by.append(((value, None), option in {
+                    '-I', '--hidden-enumerate'}))
+            namespace.fields.append(((value, CsvExpr('enumerate()')), True))
+    parser.add_argument(
+            '-i', '--enumerate',
+            action=AppendEnumerate,
+            nargs='?',
+            const='i',
+            help="Enumerate results with this field, equivalent to "
+                " -bi -Fi=enumerate(). This will prevent result folding.")
+    parser.add_argument(
+            '-I', '--hidden-enumerate',
+            action=AppendEnumerate,
+            nargs='?',
+            const='i',
+            help="Like -i/--enumerate, but hidden from the table renderer, "
+                "and doesn't affect -b/--by defaults.")
     class AppendBy(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.by is None:
                 namespace.by = []
             namespace.by.append((value, option in {
-                    '-B', '--hidden-by',
-                    '-I', '--hidden-enumerate'}))
-    parser.add_argument(
-            '-i', '--enumerate',
-            action=AppendBy,
-            nargs='?',
-            type=lambda x: (x, enumerate),
-            const=('i', enumerate),
-            help="Enumerate results with this field, equivalent to "
-                " -bi -Fi=enumerate(). This will prevent result folding.")
-    parser.add_argument(
-            '-I', '--hidden-enumerate',
-            action=AppendBy,
-            nargs='?',
-            type=lambda x: (x, enumerate),
-            const=('i', enumerate),
-            help="Like -i/--enumerate, but hidden from the table renderer, "
-                "and doesn't affect -b/--by defaults.")
+                    '-B', '--hidden-by'}))
     parser.add_argument(
             '-b', '--by',
             action=AppendBy,
