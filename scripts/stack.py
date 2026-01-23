@@ -145,7 +145,7 @@ class StackResult(co.namedtuple('StackResult', [
         'z', 'file', 'function',
         'frame', 'limit',
         'children', 'notes'])):
-    _prefix = 'stack'
+    _prefix = 'stack_'
     _by = ['z', 'file', 'function']
     _fields = ['frame', 'limit']
     _sort = ['limit', 'frame']
@@ -921,7 +921,7 @@ def read_csv(path, Result, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -999,7 +999,7 @@ def write_csv(path, Result, results, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1306,7 +1306,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
-                "to %r." % ("%s_" % StackResult._prefix))
+                "to %r." % StackResult._prefix)
     parser.add_argument(
             '-!', '--everything',
             action='store_true',

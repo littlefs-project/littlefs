@@ -145,7 +145,7 @@ class CtxResult(co.namedtuple('CtxResult', [
         'z', 'i', 'file', 'function',
         'off', 'size',
         'children', 'notes'])):
-    _prefix = 'ctx'
+    _prefix = 'ctx_'
     _by = ['z', 'i', 'file', 'function']
     _fields = ['off', 'size']
     _sort = ['size']
@@ -1180,7 +1180,7 @@ def read_csv(path, Result, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1258,7 +1258,7 @@ def write_csv(path, Result, results, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1563,7 +1563,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
-                "to %r." % ("%s_" % CtxResult._prefix))
+                "to %r." % CtxResult._prefix)
     parser.add_argument(
             '-i', '--internal',
             action='store_true',

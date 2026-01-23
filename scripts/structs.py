@@ -145,7 +145,7 @@ class StructResult(co.namedtuple('StructResult', [
         'z', 'i', 'file', 'struct',
         'off', 'size', 'align',
         'children'])):
-    _prefix = 'struct'
+    _prefix = 'struct_'
     _by = ['z', 'i', 'file', 'struct']
     _fields = ['off', 'size', 'align']
     _sort = ['size', 'align']
@@ -1069,7 +1069,7 @@ def read_csv(path, Result, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1147,7 +1147,7 @@ def write_csv(path, Result, results, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1452,7 +1452,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
-                "to %r." % ("%s_" % StructResult._prefix))
+                "to %r." % StructResult._prefix)
     parser.add_argument(
             '-i', '--internal',
             action='store_true',

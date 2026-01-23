@@ -148,7 +148,7 @@ class CsvInt(co.namedtuple('CsvInt', 'a')):
 class CodeResult(co.namedtuple('CodeResult', [
         'file', 'function',
         'size'])):
-    _prefix = 'code'
+    _prefix = 'code_'
     _by = ['file', 'function']
     _fields = ['size']
     _sort = ['size']
@@ -918,7 +918,7 @@ def read_csv(path, Result, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -996,7 +996,7 @@ def write_csv(path, Result, results, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1242,7 +1242,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
-                "to %r." % ("%s_" % CodeResult._prefix))
+                "to %r." % CodeResult._prefix)
     parser.add_argument(
             '-!', '--everything',
             action='store_true',

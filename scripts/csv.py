@@ -2200,7 +2200,7 @@ def read_csv(path, Result, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -2278,7 +2278,7 @@ def write_csv(path, Result, results, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 

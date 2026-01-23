@@ -150,7 +150,7 @@ class PerfBdResult(co.namedtuple('PerfBdResult', [
         'z', 'file', 'function', 'line',
         'readed', 'proged', 'erased',
         'children'])):
-    _prefix = 'perfbd'
+    _prefix = 'perfbd_'
     _by = ['z', 'file', 'function', 'line']
     _fields = ['readed', 'proged', 'erased']
     _sort = ['erased', 'proged', 'readed']
@@ -1253,7 +1253,7 @@ def read_csv(path, Result, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1331,7 +1331,7 @@ def write_csv(path, Result, results, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1813,7 +1813,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
-                "to %r." % ("%s_" % PerfBdResult._prefix))
+                "to %r." % PerfBdResult._prefix)
     parser.add_argument(
             '-F', '--source',
             dest='sources',

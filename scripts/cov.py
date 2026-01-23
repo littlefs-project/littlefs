@@ -255,7 +255,7 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
 class CovResult(co.namedtuple('CovResult', [
         'file', 'function', 'line',
         'calls', 'hits', 'funcs', 'lines', 'branches'])):
-    _prefix = 'cov'
+    _prefix = 'cov_'
     _by = ['file', 'function', 'line']
     _fields = ['calls', 'hits', 'funcs', 'lines', 'branches']
     _sort = ['funcs', 'lines', 'branches', 'hits', 'calls']
@@ -781,7 +781,7 @@ def read_csv(path, Result, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -859,7 +859,7 @@ def write_csv(path, Result, results, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1215,7 +1215,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
-                "to %r." % ("%s_" % CovResult._prefix))
+                "to %r." % CovResult._prefix)
     parser.add_argument(
             '-F', '--source',
             dest='sources',

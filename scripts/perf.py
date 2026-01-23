@@ -159,7 +159,7 @@ class PerfResult(co.namedtuple('PerfResult', [
         'z', 'file', 'function', 'line',
         'cycles', 'bmisses', 'branches', 'cmisses', 'caches',
         'children'])):
-    _prefix = 'perf'
+    _prefix = 'perf_'
     _by = ['z', 'file', 'function', 'line']
     _fields = ['cycles', 'bmisses', 'branches', 'cmisses', 'caches']
     _sort = ['cycles', 'bmisses', 'cmisses', 'branches', 'caches']
@@ -1279,7 +1279,7 @@ def read_csv(path, Result, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1357,7 +1357,7 @@ def write_csv(path, Result, results, *,
     # prefix? this only applies to field fields
     if prefix is None:
         if hasattr(Result, '_prefix'):
-            prefix = '%s_' % Result._prefix
+            prefix = Result._prefix
         else:
             prefix = ''
 
@@ -1812,7 +1812,7 @@ if __name__ == "__main__":
     parser.add_argument(
             '--prefix',
             help="Prefix to use for fields in CSV/JSON output. Defaults "
-                "to %r." % ("%s_" % PerfResult._prefix))
+                "to %r." % PerfResult._prefix)
     parser.add_argument(
             '-F', '--source',
             dest='sources',
