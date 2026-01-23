@@ -1632,12 +1632,12 @@ def compile(fields_, results,
             r_[k] = t(r[k]) if k in r else t()
 
         r__ = r_.copy()
-        # evaluate exprs
-        for k, expr in exprs.items():
-            r__[k] = expr.eval(r_, _state)
         # evaluate mods
         for k, m in mods.items():
             r__[k] = punescape(m, r_)
+        # evaluate exprs
+        for k, expr in exprs.items():
+            r__[k] = expr.eval(r_, _state)
 
         # return result
         return cls.__mro__[1].__new__(cls, **(
@@ -1699,10 +1699,13 @@ def compile(fields_, results,
                 __new__=__new__,
                 __add__=__add__,
                 __getattribute__=__getattribute__,
+                _fields_ = fields_,
+                _types_ = types__,
                 _by=by,
                 _fields=fields,
                 _sort=fields,
                 _types={k: t for k, (_, t) in folds___.items()},
+                _folds={k: f for k, (f, _) in folds___.items()},
                 _mods=mods,
                 _exprs=exprs,
                 **{'_z': z} if z is not None else {},
@@ -2369,20 +2372,159 @@ def list_fields(csv_paths, **args):
         except AttributeError:
             pass
 
-    # find widths
-    w = [0]
-    for k in fields_:
-        w[0] = max(w[0], len(k))
-
+    # find best name for types
+    types__ = []
     for k in fields_:
         if k in types_:
             t = types_[k].__name__
             if t.startswith('Csv'):
                 t = t[len('Csv'):]
-            t = t.lower()
+            types__.append(t.lower())
         else:
-            t = '?'
+            types__.append('?')
+
+    # find widths
+    w = [0]
+    for k in fields_:
+        w[0] = max(w[0], len(k))
+
+    for k, t in zip(fields_, types__):
         print('%-*s  %s' % (w[0], k, t))
+
+def list_computed(Result, **args):
+    # figure out input fields and types, these are stashed in the
+    # compiled Result type for this sort of introspection
+    fields_ = Result._fields_
+    types_ = Result._types_
+
+    # find best name for types
+    types__ = []
+    for k in fields_:
+        if k in types_:
+            t = types_[k].__name__
+            if t.startswith('Csv'):
+                t = t[len('Csv'):]
+            types__.append(t.lower())
+        else:
+            types__.append('?')
+
+    # figure out output fields
+    fields = list(co.OrderedDict.fromkeys(it.chain(
+            Result._by,
+            Result._fields,
+            (Result._z,) if hasattr(Result, '_z') else (),
+            (Result._children,) if hasattr(Result, '_children') else (),
+            (Result._notes,) if hasattr(Result, '_notes') else ())).keys())
+
+    # figure out deps
+    deps = []
+    for k in fields:
+        deps_ = set()
+        if k in Result._exprs:
+            deps_.update(Result._exprs[k].fields())
+        elif k in Result._mods:
+            # bit of a hack, but we don't usually know mod deps
+            # until eval time
+            deps_.update(re.findall('(?<!%)%\(([^)]*)\)', Result._mods[k]))
+        else:
+            # by default, dep is the field itself
+            deps_ = {k}
+        # ignore non-existant deps
+        deps_ = {d for d in deps_ if d in fields_}
+        deps.append(deps_)
+
+    # find best name for types
+    types = []
+    for k in fields:
+        # special cases for z/children/notes
+        if hasattr(Result, '_z') and k == Result._z:
+            types.append('z')
+        elif hasattr(Result, '_children') and k == Result._children:
+            types.append('children')
+        elif hasattr(Result, '_notes') and k == Result._notes:
+            types.append('notes')
+        # figure out name
+        elif k in Result._types:
+            t = Result._types[k].__name__
+            if t.startswith('Csv'):
+                t = t[len('Csv'):]
+            types.append(t.lower())
+        else:
+            types.append('?')
+
+    # find best name for folds
+    folds = []
+    for k in fields:
+        # special cases for children/notes
+        if hasattr(Result, '_z') and k == Result._z:
+            folds.append('z')
+        elif hasattr(Result, '_children') and k == Result._children:
+            folds.append('children')
+        elif hasattr(Result, '_notes') and k == Result._notes:
+            folds.append('notes')
+        # figure out name
+        elif k in Result._folds:
+            t = Result._folds[k].__class__.__name__
+            if t.startswith('Csv'):
+                t = t[len('Csv'):]
+            folds.append(t.lower())
+        else:
+            folds.append('?')
+
+    # build dep grid
+    dwidth = 2 + sum(1 for d in deps if d)
+    dheight = max(len(fields_), len(fields))
+    dgrid = [' ' for _ in range(dwidth*dheight)]
+
+    for i, (k, d) in enumerate((k, d) for k, d in zip(fields, deps) if d):
+        # find starting ys
+        a = []
+        for y, k_ in enumerate(fields_):
+            if k_ in d:
+                a.append(y)
+        # find ending y
+        b = i
+        for y, k_ in enumerate(fields):
+            if k_ == k:
+                b = y
+        # draw start lines
+        for y in a:
+            for x in range(0, 1+i):
+                dgrid[y*dwidth + x] = '-'
+        # draw end lines
+        for x in range(1+i+1, dwidth):
+            dgrid[b*dwidth + x] = '>' if x == dwidth-1 else '-'
+        # draw connections
+        min_ = min(min(a), b)
+        max_ = max(max(a), b)
+        for y in range(min_, max_+1):
+            dgrid[y*dwidth + 1+i] = (
+                    '-' if min_ == max_
+                        else '+' if y in a and y == b
+                        else '.' if y == min_
+                        else '\'' if y == max_
+                        else '+' if y in a or y == b
+                        else '|')
+
+    # find widths
+    w = [0, 0, 0, 0]
+    for k_, t_, k, t in it.zip_longest(
+            fields_, types__, fields, types):
+        w[0] = max(w[0], len(k_ or ''))
+        w[1] = max(w[1], len(t_ or ''))
+        w[2] = max(w[2], len(k or ''))
+        w[3] = max(w[3], len(t or ''))
+
+    for i, (k_, t_, k, t, f) in enumerate(
+            it.zip_longest(
+                fields_, types__, fields, types, folds)):
+        print('%-*s  %-*s  %s  %-*s  %-*s  %s' % (
+                w[0], k_ or '',
+                w[1], t_ or '',
+                ''.join(dgrid[i*dwidth:i*dwidth+dwidth]),
+                w[2], k or '',
+                w[3], t or '',
+                f or ''))
 
 
 # entry point
@@ -2553,6 +2695,10 @@ def main(csv_paths, *,
             hot=hot,
             notes=notes)
 
+    # list computed?
+    if args.get('list_computed'):
+        return list_computed(Result, **args)
+
     # homogenize
     results = homogenize(Result, results,
             defines=defines,
@@ -2651,6 +2797,10 @@ if __name__ == "__main__":
             '--list-fields',
             action='store_true',
             help="List fields and inferred types before processing.")
+    parser.add_argument(
+            '--list-computed',
+            action='store_true',
+            help="List computed fields and expression dependencies.")
     parser.add_argument(
             '-q', '--quiet',
             action='store_true',
