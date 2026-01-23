@@ -1592,9 +1592,6 @@ def compile(fields_, results,
     types__ = {}
     for k in fields__:
         # check if dependency is in original fields
-        #
-        # it's tempting to also allow enumerate fields here, but this
-        # currently doesn't work when hotifying
         if k not in fields_:
             print("error: no field %r?" % k,
                     file=sys.stderr)
@@ -2337,6 +2334,58 @@ def write_csv(path, Result, results, *,
                     separators=(',', ':'))
 
 
+# some list rules
+def list_fields(csv_paths, **args):
+    # find results
+    if not args.get('use', None):
+        # not enough info?
+        if not csv_paths:
+            print("error: no *.csv files?",
+                    file=sys.stderr)
+            sys.exit(1)
+
+        # collect info
+        fields_, results = collect_csv(csv_paths,
+                **args)
+    else:
+        # use is just an alias but takes priority
+        fields_, results = collect_csv([args['use']],
+                **args)
+
+    # find best type for fields, note this matches compile behavior
+    types_ = {}
+    for k in fields_:
+        try:
+            for t in [CsvInt, CsvFloat, CsvFrac]:
+                for r in results:
+                    if k in r and r[k].strip():
+                        try:
+                            t(r[k])
+                        except ValueError:
+                            break
+                else:
+                    types_[k] = t
+                    break
+        except AttributeError:
+            pass
+
+    # find widths
+    w = [0]
+    for k in fields_:
+        w[0] = max(w[0], len(k))
+
+    for k in fields_:
+        if k in types_:
+            t = types_[k].__name__
+            if t.startswith('Csv'):
+                t = t[len('Csv'):]
+            t = t.lower()
+        else:
+            t = '?'
+        print('%-*s  %s' % (w[0], k, t))
+
+
+# entry point
 def main(csv_paths, *,
         by=None,
         fields=None,
@@ -2353,6 +2402,9 @@ def main(csv_paths, *,
     # show expr help text?
     if args.get('help_exprs'):
         return CsvExpr.help()
+    # list fields?
+    if args.get('list_fields'):
+        return list_fields(csv_paths, **args)
 
     if ((by is None or all(hidden for (k, v), hidden in by))
             and (fields is None or all(hidden for (k, v), hidden in fields))):
@@ -2406,7 +2458,6 @@ def main(csv_paths, *,
                 children=children,
                 notes=notes,
                 **args)
-
     else:
         # use is just an alias but takes priority
         fields_, results = collect_csv([args['use']],
@@ -2596,6 +2647,10 @@ if __name__ == "__main__":
             '--help-exprs',
             action='store_true',
             help="Show what field exprs are available.")
+    parser.add_argument(
+            '--list-fields',
+            action='store_true',
+            help="List fields and inferred types before processing.")
     parser.add_argument(
             '-q', '--quiet',
             action='store_true',
