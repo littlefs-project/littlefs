@@ -1092,7 +1092,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                 '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
                     ' *(?P<message>.*)'
                 '|' '(?P<op__>benched)'
-                    ' (?P<m>[^\s]+)'
+                    ' (?P<probe>[^\s]+)'
                     ' (?P<n>\d+)'
                     '(?:'
                         '(?:'
@@ -1185,7 +1185,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         if args.get('keep_going'):
                             proc.kill()
                     elif op == 'benched':
-                        m_ = m.group('m')
+                        probe_ = m.group('probe')
                         n_ = int(m.group('n'))
                         # parse measurements
                         def dat(v):
@@ -1214,7 +1214,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     'suite': last_suite,
                                     'case': last_case,
                                     **last_defines,
-                                    'm': m_,
+                                    'probe': probe_,
                                     'n': n_,
                                     'bench_reads': reads_,
                                     'bench_progs': progs_,
@@ -1401,7 +1401,7 @@ def run(runner, bench_ids=[], **args):
         output = BenchOutput(args['output'],
                 ['suite', 'case'],
                 # defines go here
-                ['m', 'n',
+                ['probe', 'n',
                     'bench_reads',
                     'bench_progs',
                     'bench_erases',

@@ -602,7 +602,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
 
 // bench recording state
 typedef struct bench_record {
-    const char *m;
+    const char *probe;
     lfs3_emubd_io_t last_reads;
     lfs3_emubd_io_t last_progs;
     lfs3_emubd_io_t last_erases;
@@ -622,7 +622,7 @@ void bench_reset(struct lfs3_cfg *cfg) {
     bench_record_count = 0;
 }
 
-void bench_start(const char *m) {
+void bench_start(const char *probe) {
     // measure current read/prog/erase
     assert(bench_cfg);
     lfs3_emubd_sio_t reads = lfs3_emubd_reads(bench_cfg);
@@ -646,7 +646,7 @@ void bench_start(const char *m) {
             sizeof(bench_record_t),
             &bench_record_count,
             &bench_record_capacity);
-    record->m = m;
+    record->probe = probe;
     record->last_reads = reads;
     record->last_progs = progs;
     record->last_erases = erases;
@@ -656,7 +656,7 @@ void bench_start(const char *m) {
     record->last_simtime = simtime;
 }
 
-void bench_stop(const char *m, uintmax_t n) {
+void bench_stop(const char *probe, uintmax_t n) {
     // measure current read/prog/erase
     assert(bench_cfg);
     lfs3_emubd_sio_t reads = lfs3_emubd_reads(bench_cfg);
@@ -676,14 +676,14 @@ void bench_stop(const char *m, uintmax_t n) {
 
     // find our record
     for (size_t i = 0; i < bench_record_count; i++) {
-        if (strcmp(bench_records[i].m, m) == 0) {
+        if (strcmp(bench_records[i].probe, probe) == 0) {
             // print results
             if (simtime >= 0) {
                 printf("benched %s %jd "
                             "%"PRIu64" %"PRIu64" %"PRIu64" "
                             "%"PRIu64" %"PRIu64" %"PRIu64" "
                             "%"PRIu64"\n",
-                        m,
+                        probe,
                         n,
                         reads   - bench_records[i].last_reads,
                         progs   - bench_records[i].last_progs,
@@ -696,7 +696,7 @@ void bench_stop(const char *m, uintmax_t n) {
                 printf("benched %s %jd "
                             "%"PRIu64" %"PRIu64" %"PRIu64" "
                             "%"PRIu64" %"PRIu64" %"PRIu64"\n",
-                        m,
+                        probe,
                         n,
                         reads   - bench_records[i].last_reads,
                         progs   - bench_records[i].last_progs,
@@ -717,23 +717,23 @@ void bench_stop(const char *m, uintmax_t n) {
 
     // not found?
     fprintf(stderr, "error: bench stopped before it was started (%s)\n",
-            m);
+            probe);
     assert(false);
     exit(-1);
 }
 
-void bench_result(const char *m, uintmax_t n, uintmax_t result) {
+void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
     // we just print these directly
     printf("benched %s %jd %"PRIu64"\n",
-            m,
+            probe,
             n,
             result);
 }
 
-void bench_fresult(const char *m, uintmax_t n, double result) {
+void bench_fresult(const char *probe, uintmax_t n, double result) {
     // we just print these directly
     printf("benched %s %jd %.6f\n",
-            m,
+            probe,
             n,
             result);
 }

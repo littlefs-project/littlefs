@@ -19,20 +19,20 @@ void bench_trace(const char *fmt, ...);
 #define LFS3_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 #define LFS3_EMUBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 
-// BENCH_START/BENCH_STOP macros measure readed/proged/erased bytes
+// BENCH_START/BENCH_STOP macros measure readed/progged/erased bytes
 // through emubd
-void bench_start(const char *m);
-void bench_stop(const char *m, uintmax_t n);
+void bench_start(const char *probe);
+void bench_stop(const char *probe, uintmax_t n);
 
-#define BENCH_START(m) bench_start(m)
-#define BENCH_STOP(m, n) bench_stop(m, n)
+#define BENCH_START(probe) bench_start(probe)
+#define BENCH_STOP(probe, n) bench_stop(probe, n)
 
 // BENCH_RESULT/BENCH_FRESULT allow for explicit non-io measurements
-void bench_result(const char *m, uintmax_t n, uintmax_t result);
-void bench_fresult(const char *m, uintmax_t n, double result);
+void bench_result(const char *probe, uintmax_t n, uintmax_t result);
+void bench_fresult(const char *probe, uintmax_t n, double result);
 
-#define BENCH_RESULT(m, n, result) bench_result(m, n, result)
-#define BENCH_FRESULT(m, n, result) bench_fresult(m, n, result)
+#define BENCH_RESULT(probe, n, result) bench_result(probe, n, result)
+#define BENCH_FRESULT(probe, n, result) bench_fresult(probe, n, result)
 
 
 // note these are indirectly included in any generated files
