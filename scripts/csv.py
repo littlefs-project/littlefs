@@ -2619,7 +2619,9 @@ def main(csv_paths, *,
             if v is not None]
     exprs = [(k, v)
             for k, v in it.chain(
-                ((k, v) for (k, v), hidden in (fields or [])),
+                # expr-less fields at least imply typechecking
+                ((k, v) if v is not None else (k, CsvExpr(k))
+                    for (k, v), hidden in (fields or [])),
                 ((k, v) for (k, v), reverse in (sort or [])),
                 ((k, v) for (k, v), reverse in (hot or [])))
             if v is not None]
