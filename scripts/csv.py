@@ -2819,11 +2819,11 @@ if __name__ == "__main__":
             action='store_true',
             help="Show what field exprs are available.")
     parser.add_argument(
-            '--list-fields',
+            '-l', '--list-fields',
             action='store_true',
             help="List fields and inferred types before processing.")
     parser.add_argument(
-            '--list-computed',
+            '-L', '--list-computed',
             action='store_true',
             help="List computed fields and expression dependencies.")
     parser.add_argument(
