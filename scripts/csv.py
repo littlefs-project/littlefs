@@ -2391,11 +2391,34 @@ def list_fields(csv_paths, **args):
     for k, t in zip(fields_, types__):
         print('%-*s  %s' % (w[0], k, t))
 
-def list_computed(Result, **args):
-    # figure out input fields and types, these are stashed in the
-    # compiled Result type for this sort of introspection
-    fields_ = Result._fields_
-    types_ = Result._types_
+def list_computed(fields_, results, Result, **args):
+    # find best type for fields, note this matches compile behavior
+    types_ = {}
+    for k in fields_:
+        try:
+            for t in [CsvInt, CsvFloat, CsvFrac]:
+                for r in results:
+                    if k in r and r[k].strip():
+                        try:
+                            t(r[k])
+                        except ValueError:
+                            break
+                else:
+                    types_[k] = t
+                    break
+        except AttributeError:
+            pass
+
+    # find best name for types
+    types__ = []
+    for k in fields_:
+        if k in types_:
+            t = types_[k].__name__
+            if t.startswith('Csv'):
+                t = t[len('Csv'):]
+            types__.append(t.lower())
+        else:
+            types__.append('?')
 
     # find best name for types
     types__ = []
@@ -2699,7 +2722,7 @@ def main(csv_paths, *,
 
     # list computed?
     if args.get('list_computed'):
-        return list_computed(Result, **args)
+        return list_computed(fields_, results, Result, **args)
 
     # homogenize
     results = homogenize(Result, results,
