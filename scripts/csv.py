@@ -1662,7 +1662,7 @@ def compile(fields_, results,
 
         # lazily fold results
         return self.__class__.__mro__[1].__new__(self.__class__, **(
-                {k: getattr(self, k) for k in by}
+                {k: object.__getattribute__(self, k) for k in by}
                     | {k: extend(
                             object.__getattribute__(self, k),
                             object.__getattribute__(other, k))
