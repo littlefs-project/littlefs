@@ -1133,13 +1133,6 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         last_defines = None # fetched on demand
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
-        creads = co.defaultdict(lambda: 0)
-        cprogs = co.defaultdict(lambda: 0)
-        cerases = co.defaultdict(lambda: 0)
-        creaded = co.defaultdict(lambda: 0)
-        cprogged = co.defaultdict(lambda: 0)
-        cerased = co.defaultdict(lambda: 0)
-        csimtime = co.defaultdict(lambda: 0)
         try:
             while True:
                 # parse a line for state changes
@@ -1170,13 +1163,6 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         last_defines = None
                         last_stdout.clear()
                         last_assert = None
-                        creads.clear()
-                        cprogs.clear()
-                        cerases.clear()
-                        creaded.clear()
-                        cprogged.clear()
-                        cerased.clear()
-                        csimtime.clear()
                     elif op == 'finished':
                         # force a failure
                         if args.get('fail'):
@@ -1216,14 +1202,6 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         progged_ = dat(m.group('progged'))
                         erased_  = dat(m.group('erased'))
                         simtime_ = dat(m.group('simtime'))
-                        # keep track of cumulative measurements
-                        creads[m_]   += reads_
-                        cprogs[m_]   += progs_
-                        cerases[m_]  += erases_
-                        creaded[m_]  += readed_
-                        cprogged[m_] += progged_
-                        cerased[m_]  += erased_
-                        csimtime[m_] += simtime_
                         if output_:
                             # fetch defines if needed, only do this at most
                             # once per perm
@@ -1244,14 +1222,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     'bench_readed': readed_,
                                     'bench_progged': progged_,
                                     'bench_erased': erased_,
-                                    'bench_simtime': simtime_,
-                                    'bench_creads': creads[m_],
-                                    'bench_cprogs': cprogs[m_],
-                                    'bench_cerases': cerases[m_],
-                                    'bench_creaded': creaded[m_],
-                                    'bench_cprogged': cprogged[m_],
-                                    'bench_cerased': cerased[m_],
-                                    'bench_csimtime': csimtime[m_]})
+                                    'bench_simtime': simtime_})
                         # keep track of total for summary
                         readed += readed_
                         progged += progged_
@@ -1437,14 +1408,7 @@ def run(runner, bench_ids=[], **args):
                     'bench_readed',
                     'bench_progged',
                     'bench_erased',
-                    'bench_simtime',
-                    'bench_creads',
-                    'bench_cprogs',
-                    'bench_cerases',
-                    'bench_creaded',
-                    'bench_cprogged',
-                    'bench_cerased',
-                    'bench_csimtime'])
+                    'bench_simtime'])
 
     # measure runtime
     start = time.time()
