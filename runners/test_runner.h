@@ -115,6 +115,34 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 #define TEST_FACTORIAL(x) test_factorial(x)
 #define TEST_PERMUTATION(i, buffer, size) test_permutation(i, buffer, size)
 
+#ifdef TEST_YES_STACK
+// get the maximum/current stack usage for this run
+size_t test_stack(void);
+__attribute__((noinline))
+size_t test_stack_current(void);
+__attribute__((noinline))
+void test_stack_pause(void);
+void test_stack_resume(void);
+
+#define TEST_STACK() test_stack()
+#define TEST_STACK_CURRENT() test_stack_current()
+#define TEST_STACK_PAUSE() test_stack_pause()
+#define TEST_STACK_RESUME() test_stack_resume()
+#endif
+
+#ifdef TEST_YES_HEAP
+// get the maximum/current heap usage for this run
+size_t test_heap(void);
+size_t test_heap_current(void);
+void test_heap_pause(void);
+void test_heap_resume(void);
+
+#define TEST_HEAP() test_heap()
+#define TEST_HEAP_CURRENT() test_heap_current()
+#define TEST_HEAP_PAUSE() test_heap_pause()
+#define TEST_HEAP_RESUME() test_heap_resume()
+#endif
+
 
 // declare implicit defines as global intmax_ts
 #define TEST_DEFINE(k, v) \

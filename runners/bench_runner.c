@@ -614,6 +614,222 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
 }
 
 
+// stack hooks
+#ifdef BENCH_YES_STACK
+uint8_t *bench_stack_watermark_enter;
+uint8_t *bench_stack_watermark_depth;
+#endif
+
+// call me when entering/exiting a bench!
+#ifdef BENCH_YES_STACK
+__attribute__((noinline))
+void bench_stack_enter(void) {
+    bench_stack_watermark_enter = __builtin_frame_address(0);
+    bench_stack_watermark_depth = bench_stack_watermark_enter;
+}
+#endif
+
+#ifdef BENCH_YES_STACK
+void bench_stack_exit(void) {
+    // do nothing
+}
+#endif
+
+// call me when entering/exiting a bd op!
+#ifdef BENCH_YES_STACK
+__attribute__((noinline))
+void bench_stack_pause(void) {
+    uint8_t *watermark = __builtin_frame_address(0);
+
+    // keep track of the deepest stack
+    ssize_t depth = bench_stack_watermark_depth - bench_stack_watermark_enter;
+    if (depth < 0) {
+        depth = -depth;
+    }
+    ssize_t depth_ = watermark - bench_stack_watermark_enter;
+    if (depth_ < 0) {
+        depth_ = -depth_;
+    }
+    if (depth_ > depth) {
+        bench_stack_watermark_depth = watermark;
+    }
+}
+#endif
+
+#ifdef BENCH_YES_STACK
+void bench_stack_resume(void) {
+    // do nothing
+}
+#endif
+
+// get the worst-case stack usage
+#ifdef BENCH_YES_STACK
+size_t bench_stack(void) {
+    ssize_t depth = bench_stack_watermark_depth - bench_stack_watermark_enter;
+    if (depth < 0) {
+        depth = -depth;
+    }
+    return depth;
+}
+#endif
+
+// get the current stack usage, note this is included in bench_stack
+//
+// note note the noinline here is important for forcing a new stack frame
+#ifdef BENCH_YES_STACK
+__attribute__((noinline))
+size_t bench_stack_current(void) {
+    uint8_t *watermark = __builtin_frame_address(0);
+
+    ssize_t depth = watermark - bench_stack_watermark_enter;
+    if (depth < 0) {
+        depth = -depth;
+    }
+    return depth;
+}
+#endif
+
+
+// heap hooks
+#ifdef BENCH_YES_HEAP
+uint32_t bench_heap_entered = 0;
+size_t bench_heap_watermark = 0;
+size_t bench_heap_watermark_depth = 0;
+#endif
+
+// call me when entering/exiting a bench!
+#ifdef BENCH_YES_HEAP
+void bench_heap_enter(void) {
+    bench_heap_entered = 1;
+    bench_heap_watermark = 0;
+    bench_heap_watermark_depth = 0;
+}
+#endif
+
+#ifdef BENCH_YES_HEAP
+void bench_heap_exit(void) {
+    bench_heap_entered = 0;
+    if (bench_heap_watermark != 0) {
+        fprintf(stderr, "warning: memory leak detected (%zd > 0)\n",
+                bench_heap_watermark);
+    }
+}
+#endif
+
+// call me when entering/exiting a bd op!
+#ifdef BENCH_YES_HEAP
+void bench_heap_pause(void) {
+    // haha, a little 32-bit stack
+    bench_heap_entered <<= 1;
+}
+#endif
+
+#ifdef BENCH_YES_HEAP
+void bench_heap_resume(void) {
+    bench_heap_entered >>= 1;
+}
+#endif
+
+#ifdef BENCH_YES_HEAP
+static void bench_heap_inc(size_t size) {
+    if (bench_heap_entered & 1) {
+        bench_heap_watermark += size;
+        // keep track of the deepest heap
+        if (bench_heap_watermark > bench_heap_watermark_depth) {
+            bench_heap_watermark_depth = bench_heap_watermark;
+        }
+    }
+}
+#endif
+
+#ifdef BENCH_YES_HEAP
+static void bench_heap_dec(size_t size) {
+    if (bench_heap_entered & 1) {
+        assert(bench_heap_watermark >= size);
+        bench_heap_watermark -= size;
+    }
+}
+#endif
+
+// get the worst-case heap usage
+#ifdef BENCH_YES_HEAP
+size_t bench_heap(void) {
+    return bench_heap_watermark_depth;
+}
+#endif
+
+// get the current heap usage
+#ifdef BENCH_YES_HEAP
+size_t bench_heap_current(void) {
+    return bench_heap_watermark;
+}
+#endif
+
+// __real_malloc stubs, gcc's --wrap wraps these over the original symbols
+#ifdef BENCH_YES_HEAP
+extern void *__real_malloc(size_t size);
+extern void __real_free(void *p);
+extern void *__real_realloc(void *p, size_t size);
+#endif
+
+// the actual malloc hooks
+//
+// these only work if wrapped via gcc's --wrap
+#ifdef BENCH_YES_HEAP
+void *__wrap_malloc(size_t size) {
+    // prefix with allocation size, note we use uintptr_t to hopefully
+    // keep things aligned
+    uintptr_t *p_ = __real_malloc(sizeof(uintptr_t) + size);
+    if (!p_) {
+        return NULL;
+    }
+
+    bench_heap_inc(size);
+    *p_ = size;
+    return p_ + 1;
+}
+#endif
+
+#ifdef BENCH_YES_HEAP
+void __wrap_free(void *p) {
+    if (!p) {
+        return;
+    }
+
+    uintptr_t *p_ = ((uintptr_t*)p) - 1;
+    size_t size = *p_;
+    bench_heap_dec(size);
+
+    __real_free(p_);
+}
+#endif
+
+#ifdef BENCH_YES_HEAP
+void *__wrap_realloc(void *p, size_t size) {
+    uintptr_t *p_;
+    size_t old;
+    if (p) {
+        p_ = ((uintptr_t*)p) - 1;
+        old = *p_;
+    } else {
+        p_ = NULL;
+        old = 0;
+    }
+
+    assert(size != 0);
+    p_ = __real_realloc(p_, sizeof(uintptr_t) + size);
+    if (!p_) {
+        return NULL;
+    }
+
+    bench_heap_dec(old);
+    bench_heap_inc(size);
+    *p_ = size;
+    return p_ + 1;
+}
+#endif
+
+
 // bench recording state
 typedef struct bench_record {
     const char *probe;
@@ -637,6 +853,13 @@ void bench_reset(struct lfs3_cfg *cfg) {
 }
 
 void bench_start(const char *probe) {
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_PAUSE();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_PAUSE();
+    #endif
+
     // measure current read/prog/erase
     assert(bench_cfg);
     #ifndef BENCH_KIWIBD
@@ -685,9 +908,23 @@ void bench_start(const char *probe) {
     record->last_progged = progged;
     record->last_erased = erased;
     record->last_simtime = simtime;
+
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_RESUME();
+    #endif
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_RESUME();
+    #endif
 }
 
 void bench_stop(const char *probe, uintmax_t n) {
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_PAUSE();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_PAUSE();
+    #endif
+
     // measure current read/prog/erase
     assert(bench_cfg);
     #ifndef BENCH_KIWIBD
@@ -759,7 +996,7 @@ void bench_stop(const char *probe, uintmax_t n) {
                     &bench_records[i+1],
                     bench_record_count-(i+1));
             bench_record_count -= 1;
-            return;
+            goto done;
         }
     }
 
@@ -768,22 +1005,58 @@ void bench_stop(const char *probe, uintmax_t n) {
             probe);
     assert(false);
     exit(-1);
+
+done:;
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_RESUME();
+    #endif
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_RESUME();
+    #endif
 }
 
 void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_PAUSE();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_PAUSE();
+    #endif
+
     // we just print these directly
     printf("benched %s %jd %"PRIu64"\n",
             probe,
             n,
             result);
+
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_RESUME();
+    #endif
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_RESUME();
+    #endif
 }
 
 void bench_fresult(const char *probe, uintmax_t n, double result) {
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_PAUSE();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_PAUSE();
+    #endif
+
     // we just print these directly
     printf("benched %s %jd %.6f\n",
             probe,
             n,
             result);
+
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_RESUME();
+    #endif
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_RESUME();
+    #endif
 }
 
 
@@ -1404,6 +1677,103 @@ static void list_implicit_defines(void) {
 
 
 
+// bench bd wrappers for heap/stack tracking
+int bench_bd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size) {
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_PAUSE();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_PAUSE();
+    #endif
+
+    #ifdef BENCH_KIWIBD
+    int err = lfs3_kiwibd_read(cfg, block, off, buffer, size);
+    #else
+    int err = lfs3_emubd_read(cfg, block, off, buffer, size);
+    #endif
+
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_RESUME();
+    #endif
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_RESUME();
+    #endif
+    return err;
+}
+
+int bench_bd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size) {
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_PAUSE();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_PAUSE();
+    #endif
+
+    #ifdef BENCH_KIWIBD
+    int err = lfs3_kiwibd_prog(cfg, block, off, buffer, size);
+    #else
+    int err = lfs3_emubd_prog(cfg, block, off, buffer, size);
+    #endif
+
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_RESUME();
+    #endif
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_RESUME();
+    #endif
+    return err;
+}
+
+int bench_bd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_PAUSE();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_PAUSE();
+    #endif
+
+    #ifdef BENCH_KIWIBD
+    int err = lfs3_kiwibd_erase(cfg, block);
+    #else
+    int err = lfs3_emubd_erase(cfg, block);
+    #endif
+
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_RESUME();
+    #endif
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_RESUME();
+    #endif
+    return err;
+}
+
+int bench_bd_sync(const struct lfs3_cfg *cfg) {
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_PAUSE();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_PAUSE();
+    #endif
+
+    #ifdef BENCH_KIWIBD
+    int err = lfs3_kiwibd_sync(cfg);
+    #else
+    int err = lfs3_emubd_sync(cfg);
+    #endif
+
+    #ifdef BENCH_YES_HEAP
+    BENCH_HEAP_RESUME();
+    #endif
+    #ifdef BENCH_YES_STACK
+    BENCH_STACK_RESUME();
+    #endif
+    return err;
+}
+
+
+
 // global bench step count
 size_t bench_step = 0;
 
@@ -1439,17 +1809,10 @@ void perm_run(
 
     struct lfs3_cfg cfg = {
         .context            = &bd,
-        #ifndef BENCH_KIWIBD
-        .read               = lfs3_emubd_read,
-        .prog               = lfs3_emubd_prog,
-        .erase              = lfs3_emubd_erase,
-        .sync               = lfs3_emubd_sync,
-        #else
-        .read               = lfs3_kiwibd_read,
-        .prog               = lfs3_kiwibd_prog,
-        .erase              = lfs3_kiwibd_erase,
-        .sync               = lfs3_kiwibd_sync,
-        #endif
+        .read               = bench_bd_read,
+        .prog               = bench_bd_prog,
+        .erase              = bench_bd_erase,
+        .sync               = bench_bd_sync,
         #define BENCH_CFG(k, v) \
                 .k = v,
             #include "bench_defines.h"
@@ -1494,13 +1857,25 @@ void perm_run(
     #endif
 
     // run the bench
-    bench_reset(&cfg);
     printf("running ");
     perm_printid(suite, case_);
     printf("\n");
+    bench_reset(&cfg);
+    #ifdef BENCH_YES_STACK
+    bench_stack_enter();
+    #endif
+    #ifdef BENCH_YES_HEAP
+    bench_heap_enter();
+    #endif
 
     case_->run(&cfg);
 
+    #ifdef BENCH_YES_HEAP
+    bench_heap_exit();
+    #endif
+    #ifdef BENCH_YES_STACK
+    bench_stack_exit();
+    #endif
     printf("finished ");
     perm_printid(suite, case_);
     printf("\n");

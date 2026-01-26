@@ -630,6 +630,222 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size) {
 }
 
 
+// stack hooks
+#ifdef TEST_YES_STACK
+uint8_t *test_stack_watermark_enter;
+uint8_t *test_stack_watermark_depth;
+#endif
+
+// call me when entering/exiting a test!
+#ifdef TEST_YES_STACK
+__attribute__((noinline))
+void test_stack_enter(void) {
+    test_stack_watermark_enter = __builtin_frame_address(0);
+    test_stack_watermark_depth = test_stack_watermark_enter;
+}
+#endif
+
+#ifdef TEST_YES_STACK
+void test_stack_exit(void) {
+    // do nothing
+}
+#endif
+
+// call me when entering/exiting a bd op!
+#ifdef TEST_YES_STACK
+__attribute__((noinline))
+void test_stack_pause(void) {
+    uint8_t *watermark = __builtin_frame_address(0);
+
+    // keep track of the deepest stack
+    ssize_t depth = test_stack_watermark_depth - test_stack_watermark_enter;
+    if (depth < 0) {
+        depth = -depth;
+    }
+    ssize_t depth_ = watermark - test_stack_watermark_enter;
+    if (depth_ < 0) {
+        depth_ = -depth_;
+    }
+    if (depth_ > depth) {
+        test_stack_watermark_depth = watermark;
+    }
+}
+#endif
+
+#ifdef TEST_YES_STACK
+void test_stack_resume(void) {
+    // do nothing
+}
+#endif
+
+// get the worst-case stack usage
+#ifdef TEST_YES_STACK
+size_t test_stack(void) {
+    ssize_t depth = test_stack_watermark_depth - test_stack_watermark_enter;
+    if (depth < 0) {
+        depth = -depth;
+    }
+    return depth;
+}
+#endif
+
+// get the current stack usage, note this is included in test_stack
+//
+// note note the noinline here is important for forcing a new stack frame
+#ifdef TEST_YES_STACK
+__attribute__((noinline))
+size_t test_stack_current(void) {
+    uint8_t *watermark = __builtin_frame_address(0);
+
+    ssize_t depth = watermark - test_stack_watermark_enter;
+    if (depth < 0) {
+        depth = -depth;
+    }
+    return depth;
+}
+#endif
+
+
+// heap hooks
+#ifdef TEST_YES_HEAP
+uint32_t test_heap_entered = 0;
+size_t test_heap_watermark = 0;
+size_t test_heap_watermark_depth = 0;
+#endif
+
+// call me when entering/exiting a test!
+#ifdef TEST_YES_HEAP
+void test_heap_enter(void) {
+    test_heap_entered = 1;
+    test_heap_watermark = 0;
+    test_heap_watermark_depth = 0;
+}
+#endif
+
+#ifdef TEST_YES_HEAP
+void test_heap_exit(void) {
+    test_heap_entered = 0;
+    if (test_heap_watermark != 0) {
+        fprintf(stderr, "warning: memory leak detected (%zd > 0)\n",
+                test_heap_watermark);
+    }
+}
+#endif
+
+// call me when entering/exiting a bd op!
+#ifdef TEST_YES_HEAP
+void test_heap_pause(void) {
+    // haha, a little 32-bit stack
+    test_heap_entered <<= 1;
+}
+#endif
+
+#ifdef TEST_YES_HEAP
+void test_heap_resume(void) {
+    test_heap_entered >>= 1;
+}
+#endif
+
+#ifdef TEST_YES_HEAP
+static void test_heap_inc(size_t size) {
+    if (test_heap_entered & 1) {
+        test_heap_watermark += size;
+        // keep track of the deepest heap
+        if (test_heap_watermark > test_heap_watermark_depth) {
+            test_heap_watermark_depth = test_heap_watermark;
+        }
+    }
+}
+#endif
+
+#ifdef TEST_YES_HEAP
+static void test_heap_dec(size_t size) {
+    if (test_heap_entered & 1) {
+        assert(test_heap_watermark >= size);
+        test_heap_watermark -= size;
+    }
+}
+#endif
+
+// get the worst-case heap usage
+#ifdef TEST_YES_HEAP
+size_t test_heap(void) {
+    return test_heap_watermark_depth;
+}
+#endif
+
+// get the current heap usage
+#ifdef TEST_YES_HEAP
+size_t test_heap_current(void) {
+    return test_heap_watermark;
+}
+#endif
+
+// __real_malloc stubs, gcc's --wrap wraps these over the original symbols
+#ifdef TEST_YES_HEAP
+extern void *__real_malloc(size_t size);
+extern void __real_free(void *p);
+extern void *__real_realloc(void *p, size_t size);
+#endif
+
+// the actual malloc hooks
+//
+// these only work if wrapped via gcc's --wrap
+#ifdef TEST_YES_HEAP
+void *__wrap_malloc(size_t size) {
+    // prefix with allocation size, note we use uintptr_t to hopefully
+    // keep things aligned
+    uintptr_t *p_ = __real_malloc(sizeof(uintptr_t) + size);
+    if (!p_) {
+        return NULL;
+    }
+
+    test_heap_inc(size);
+    *p_ = size;
+    return p_ + 1;
+}
+#endif
+
+#ifdef TEST_YES_HEAP
+void __wrap_free(void *p) {
+    if (!p) {
+        return;
+    }
+
+    uintptr_t *p_ = ((uintptr_t*)p) - 1;
+    size_t size = *p_;
+    test_heap_dec(size);
+
+    __real_free(p_);
+}
+#endif
+
+#ifdef TEST_YES_HEAP
+void *__wrap_realloc(void *p, size_t size) {
+    uintptr_t *p_;
+    size_t old;
+    if (p) {
+        p_ = ((uintptr_t*)p) - 1;
+        old = *p_;
+    } else {
+        p_ = NULL;
+        old = 0;
+    }
+
+    assert(size != 0);
+    p_ = __real_realloc(p_, sizeof(uintptr_t) + size);
+    if (!p_) {
+        return NULL;
+    }
+
+    test_heap_dec(old);
+    test_heap_inc(size);
+    *p_ = size;
+    return p_ + 1;
+}
+#endif
+
+
 // encode our permutation into a reusable id
 static void perm_printid(
         const struct test_suite *suite,
@@ -1315,6 +1531,103 @@ static void list_implicit_defines(void) {
 
 
 
+// test bd wrappers for heap/stack tracking
+int test_bd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size) {
+    #ifdef TEST_YES_STACK
+    TEST_STACK_PAUSE();
+    #endif
+    #ifdef TEST_YES_HEAP
+    TEST_HEAP_PAUSE();
+    #endif
+
+    #ifdef TEST_KIWIBD
+    int err = lfs3_kiwibd_read(cfg, block, off, buffer, size);
+    #else
+    int err = lfs3_emubd_read(cfg, block, off, buffer, size);
+    #endif
+
+    #ifdef TEST_YES_HEAP
+    TEST_HEAP_RESUME();
+    #endif
+    #ifdef TEST_YES_STACK
+    TEST_STACK_RESUME();
+    #endif
+    return err;
+}
+
+int test_bd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size) {
+    #ifdef TEST_YES_STACK
+    TEST_STACK_PAUSE();
+    #endif
+    #ifdef TEST_YES_HEAP
+    TEST_HEAP_PAUSE();
+    #endif
+
+    #ifdef TEST_KIWIBD
+    int err = lfs3_kiwibd_prog(cfg, block, off, buffer, size);
+    #else
+    int err = lfs3_emubd_prog(cfg, block, off, buffer, size);
+    #endif
+
+    #ifdef TEST_YES_HEAP
+    TEST_HEAP_RESUME();
+    #endif
+    #ifdef TEST_YES_STACK
+    TEST_STACK_RESUME();
+    #endif
+    return err;
+}
+
+int test_bd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
+    #ifdef TEST_YES_STACK
+    TEST_STACK_PAUSE();
+    #endif
+    #ifdef TEST_YES_HEAP
+    TEST_HEAP_PAUSE();
+    #endif
+
+    #ifdef TEST_KIWIBD
+    int err = lfs3_kiwibd_erase(cfg, block);
+    #else
+    int err = lfs3_emubd_erase(cfg, block);
+    #endif
+
+    #ifdef TEST_YES_HEAP
+    TEST_HEAP_RESUME();
+    #endif
+    #ifdef TEST_YES_STACK
+    TEST_STACK_RESUME();
+    #endif
+    return err;
+}
+
+int test_bd_sync(const struct lfs3_cfg *cfg) {
+    #ifdef TEST_YES_STACK
+    TEST_STACK_PAUSE();
+    #endif
+    #ifdef TEST_YES_HEAP
+    TEST_HEAP_PAUSE();
+    #endif
+
+    #ifdef TEST_KIWIBD
+    int err = lfs3_kiwibd_sync(cfg);
+    #else
+    int err = lfs3_emubd_sync(cfg);
+    #endif
+
+    #ifdef TEST_YES_HEAP
+    TEST_HEAP_RESUME();
+    #endif
+    #ifdef TEST_YES_STACK
+    TEST_STACK_RESUME();
+    #endif
+    return err;
+}
+
+
+
 // scenarios to run tests under powerloss
 
 static void run_powerloss_none(
@@ -1322,6 +1635,9 @@ static void run_powerloss_none(
         const struct test_suite *suite,
         const struct test_case *case_) {
     (void)powerloss;
+
+    // zero pls
+    TEST_PLS = 0;
 
     // create block device and configuration
     #ifndef TEST_KIWIBD
@@ -1332,17 +1648,10 @@ static void run_powerloss_none(
 
     struct lfs3_cfg cfg = {
         .context            = &bd,
-        #ifndef TEST_KIWIBD
-        .read               = lfs3_emubd_read,
-        .prog               = lfs3_emubd_prog,
-        .erase              = lfs3_emubd_erase,
-        .sync               = lfs3_emubd_sync,
-        #else
-        .read               = lfs3_kiwibd_read,
-        .prog               = lfs3_kiwibd_prog,
-        .erase              = lfs3_kiwibd_erase,
-        .sync               = lfs3_kiwibd_sync,
-        #endif
+        .read               = test_bd_read,
+        .prog               = test_bd_prog,
+        .erase              = test_bd_erase,
+        .sync               = test_bd_sync,
         #define TEST_CFG(k, v) \
                 .k = v,
             #include "test_defines.h"
@@ -1390,12 +1699,21 @@ static void run_powerloss_none(
     printf("running ");
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
-
-    // zero pls
-    TEST_PLS = 0;
+    #ifdef TEST_YES_STACK
+    test_stack_enter();
+    #endif
+    #ifdef TEST_YES_HEAP
+    test_heap_enter();
+    #endif
 
     case_->run(&cfg);
 
+    #ifdef TEST_YES_HEAP
+    test_heap_exit();
+    #endif
+    #ifdef TEST_YES_STACK
+    test_stack_exit();
+    #endif
     printf("finished ");
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
@@ -1437,10 +1755,10 @@ static void run_powerloss_linear(
 
     struct lfs3_cfg cfg = {
         .context            = &bd,
-        .read               = lfs3_emubd_read,
-        .prog               = lfs3_emubd_prog,
-        .erase              = lfs3_emubd_erase,
-        .sync               = lfs3_emubd_sync,
+        .read               = test_bd_read,
+        .prog               = test_bd_prog,
+        .erase              = test_bd_erase,
+        .sync               = test_bd_sync,
         #define TEST_CFG(k, v) \
                 .k = v,
             #include "test_defines.h"
@@ -1475,8 +1793,22 @@ static void run_powerloss_linear(
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
+            #ifdef TEST_YES_STACK
+            test_stack_enter();
+            #endif
+            #ifdef TEST_YES_HEAP
+            test_heap_enter();
+            #endif
+
             // run the test
             case_->run(&cfg);
+
+            #ifdef TEST_YES_HEAP
+            test_heap_exit();
+            #endif
+            #ifdef TEST_YES_STACK
+            test_stack_exit();
+            #endif
             break;
         }
 
@@ -1521,10 +1853,10 @@ static void run_powerloss_log(
 
     struct lfs3_cfg cfg = {
         .context            = &bd,
-        .read               = lfs3_emubd_read,
-        .prog               = lfs3_emubd_prog,
-        .erase              = lfs3_emubd_erase,
-        .sync               = lfs3_emubd_sync,
+        .read               = test_bd_read,
+        .prog               = test_bd_prog,
+        .erase              = test_bd_erase,
+        .sync               = test_bd_sync,
         #define TEST_CFG(k, v) \
                 .k = v,
             #include "test_defines.h"
@@ -1559,8 +1891,22 @@ static void run_powerloss_log(
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
+            #ifdef TEST_YES_STACK
+            test_stack_enter();
+            #endif
+            #ifdef TEST_YES_HEAP
+            test_heap_enter();
+            #endif
+
             // run the test
             case_->run(&cfg);
+
+            #ifdef TEST_YES_HEAP
+            test_heap_exit();
+            #endif
+            #ifdef TEST_YES_STACK
+            test_stack_exit();
+            #endif
             break;
         }
 
@@ -1605,10 +1951,10 @@ static void run_powerloss_cycles(
 
     struct lfs3_cfg cfg = {
         .context            = &bd,
-        .read               = lfs3_emubd_read,
-        .prog               = lfs3_emubd_prog,
-        .erase              = lfs3_emubd_erase,
-        .sync               = lfs3_emubd_sync,
+        .read               = test_bd_read,
+        .prog               = test_bd_prog,
+        .erase              = test_bd_erase,
+        .sync               = test_bd_sync,
         #define TEST_CFG(k, v) \
                 .k = v,
             #include "test_defines.h"
@@ -1643,8 +1989,22 @@ static void run_powerloss_cycles(
 
     while (true) {
         if (!setjmp(powerloss_jmp)) {
+            #ifdef TEST_YES_STACK
+            test_stack_enter();
+            #endif
+            #ifdef TEST_YES_HEAP
+            test_heap_enter();
+            #endif
+
             // run the test
             case_->run(&cfg);
+
+            #ifdef TEST_YES_HEAP
+            test_heap_exit();
+            #endif
+            #ifdef TEST_YES_STACK
+            test_stack_exit();
+            #endif
             break;
         }
 
@@ -1742,8 +2102,22 @@ static void run_powerloss_exhaustive_layer(
     lfs3_emubd_setpowercycles(state.cfg, (depth > 0) ? 1 : 0);
     bdcfg->powerloss_data = &state;
 
+    #ifdef TEST_YES_STACK
+    test_stack_enter();
+    #endif
+    #ifdef TEST_YES_HEAP
+    test_heap_enter();
+    #endif
+
     // run the tests
     case_->run(cfg);
+
+    #ifdef TEST_YES_HEAP
+    test_heap_exit();
+    #endif
+    #ifdef TEST_YES_STACK
+    test_stack_exit();
+    #endif
 
     // aggressively clean up memory here to try to keep our memory usage low
     int err = lfs3_emubd_destroy(cfg);
@@ -1795,10 +2169,10 @@ static void run_powerloss_exhaustive(
 
     struct lfs3_cfg cfg = {
         .context            = &bd,
-        .read               = lfs3_emubd_read,
-        .prog               = lfs3_emubd_prog,
-        .erase              = lfs3_emubd_erase,
-        .sync               = lfs3_emubd_sync,
+        .read               = test_bd_read,
+        .prog               = test_bd_prog,
+        .erase              = test_bd_erase,
+        .sync               = test_bd_sync,
         #define TEST_CFG(k, v) \
                 .k = v,
             #include "test_defines.h"
