@@ -25,10 +25,12 @@
     TEST_DEFINE(CRYSTAL_THRESH,         BLOCK_SIZE/8                        )
     TEST_DEFINE(LOOKGBMAP_THRESH,       BLOCK_COUNT/4                       )
     TEST_DEFINE(ERASE_VALUE,            0xff                                )
+    #ifndef TEST_KIWIBD
     TEST_DEFINE(ERASE_CYCLES,           0                                   )
     TEST_DEFINE(BADBLOCK_BEHAVIOR,      LFS3_EMUBD_BADBLOCK_PROGERROR       )
     TEST_DEFINE(POWERLOSS_BEHAVIOR,     LFS3_EMUBD_POWERLOSS_ATOMIC         )
-    TEST_DEFINE(EMUBD_SEED,             0                                   )
+    TEST_DEFINE(BD_SEED,                0                                   )
+    #endif
 #endif
 
 
@@ -65,9 +67,11 @@
 // struct lfs3_*bd_cfg fields
 #ifdef TEST_BDCFG
     TEST_BDCFG(erase_value,             ERASE_VALUE                         )
+    #ifndef TEST_KIWIBD
     TEST_BDCFG(erase_cycles,            ERASE_CYCLES                        )
     TEST_BDCFG(badblock_behavior,       BADBLOCK_BEHAVIOR                   )
     TEST_BDCFG(powerloss_behavior,      POWERLOSS_BEHAVIOR                  )
-    TEST_BDCFG(seed,                    EMUBD_SEED                          )
+    TEST_BDCFG(seed,                    BD_SEED                             )
+    #endif
 #endif
 

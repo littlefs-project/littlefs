@@ -9,7 +9,6 @@
 #endif
 
 #include "runners/bench_runner.h"
-#include "bd/lfs3_emubd.h"
 
 #include <getopt.h>
 #include <sys/types.h>
@@ -22,6 +21,21 @@
 #include <execinfo.h>
 #include <signal.h>
 #include <time.h>
+#include <stddef.h>
+
+
+// some common types
+#ifndef BENCH_KIWIBD
+typedef lfs3_emubd_io_t   bench_io_t;
+typedef lfs3_emubd_sio_t  bench_sio_t;
+typedef lfs3_emubd_ns_t   bench_ns_t;
+typedef lfs3_emubd_sns_t  bench_sns_t;
+#else
+typedef lfs3_kiwibd_io_t  bench_io_t;
+typedef lfs3_kiwibd_sio_t bench_sio_t;
+typedef lfs3_kiwibd_ns_t  bench_ns_t;
+typedef lfs3_kiwibd_sns_t bench_sns_t;
+#endif
 
 
 // some helpers
@@ -436,9 +450,9 @@ FILE *bench_trace_file = NULL;
 uint32_t bench_trace_cycles = 0;
 uint64_t bench_trace_time = 0;
 uint64_t bench_trace_open_time = 0;
-lfs3_emubd_ns_t bench_read_sleep = 0.0;
-lfs3_emubd_ns_t bench_prog_sleep = 0.0;
-lfs3_emubd_ns_t bench_erase_sleep = 0.0;
+bench_ns_t bench_read_sleep = 0.0;
+bench_ns_t bench_prog_sleep = 0.0;
+bench_ns_t bench_erase_sleep = 0.0;
 
 // this determines both the backtrace buffer and the trace printf buffer, if
 // trace ends up interleaved or truncated this may need to be increased
@@ -603,13 +617,13 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
 // bench recording state
 typedef struct bench_record {
     const char *probe;
-    lfs3_emubd_io_t last_reads;
-    lfs3_emubd_io_t last_progs;
-    lfs3_emubd_io_t last_erases;
-    lfs3_emubd_io_t last_readed;
-    lfs3_emubd_io_t last_progged;
-    lfs3_emubd_io_t last_erased;
-    lfs3_emubd_ns_t last_simtime;
+    bench_io_t last_reads;
+    bench_io_t last_progs;
+    bench_io_t last_erases;
+    bench_io_t last_readed;
+    bench_io_t last_progged;
+    bench_io_t last_erased;
+    bench_ns_t last_simtime;
 } bench_record_t;
 
 static struct lfs3_cfg *bench_cfg = NULL;
@@ -625,20 +639,37 @@ void bench_reset(struct lfs3_cfg *cfg) {
 void bench_start(const char *probe) {
     // measure current read/prog/erase
     assert(bench_cfg);
-    lfs3_emubd_sio_t reads = lfs3_emubd_reads(bench_cfg);
+    #ifndef BENCH_KIWIBD
+    bench_sio_t reads = lfs3_emubd_reads(bench_cfg);
     assert(reads >= 0);
-    lfs3_emubd_sio_t progs = lfs3_emubd_progs(bench_cfg);
+    bench_sio_t progs = lfs3_emubd_progs(bench_cfg);
     assert(progs >= 0);
-    lfs3_emubd_sio_t erases = lfs3_emubd_erases(bench_cfg);
+    bench_sio_t erases = lfs3_emubd_erases(bench_cfg);
     assert(erases >= 0);
-    lfs3_emubd_sio_t readed = lfs3_emubd_readed(bench_cfg);
+    bench_sio_t readed = lfs3_emubd_readed(bench_cfg);
     assert(readed >= 0);
-    lfs3_emubd_sio_t progged = lfs3_emubd_progged(bench_cfg);
+    bench_sio_t progged = lfs3_emubd_progged(bench_cfg);
     assert(progged >= 0);
-    lfs3_emubd_sio_t erased = lfs3_emubd_erased(bench_cfg);
+    bench_sio_t erased = lfs3_emubd_erased(bench_cfg);
     assert(erased >= 0);
     // note this can error if no timings provided
-    lfs3_emubd_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
+    bench_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
+    #else
+    bench_sio_t reads = lfs3_kiwibd_reads(bench_cfg);
+    assert(reads >= 0);
+    bench_sio_t progs = lfs3_kiwibd_progs(bench_cfg);
+    assert(progs >= 0);
+    bench_sio_t erases = lfs3_kiwibd_erases(bench_cfg);
+    assert(erases >= 0);
+    bench_sio_t readed = lfs3_kiwibd_readed(bench_cfg);
+    assert(readed >= 0);
+    bench_sio_t progged = lfs3_kiwibd_progged(bench_cfg);
+    assert(progged >= 0);
+    bench_sio_t erased = lfs3_kiwibd_erased(bench_cfg);
+    assert(erased >= 0);
+    // note this can error if no timings provided
+    bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
+    #endif
 
     // allocate a new record
     bench_record_t *record = mappend(
@@ -659,20 +690,37 @@ void bench_start(const char *probe) {
 void bench_stop(const char *probe, uintmax_t n) {
     // measure current read/prog/erase
     assert(bench_cfg);
-    lfs3_emubd_sio_t reads = lfs3_emubd_reads(bench_cfg);
+    #ifndef BENCH_KIWIBD
+    bench_sio_t reads = lfs3_emubd_reads(bench_cfg);
     assert(reads >= 0);
-    lfs3_emubd_sio_t progs = lfs3_emubd_progs(bench_cfg);
+    bench_sio_t progs = lfs3_emubd_progs(bench_cfg);
     assert(progs >= 0);
-    lfs3_emubd_sio_t erases = lfs3_emubd_erases(bench_cfg);
+    bench_sio_t erases = lfs3_emubd_erases(bench_cfg);
     assert(erases >= 0);
-    lfs3_emubd_sio_t readed = lfs3_emubd_readed(bench_cfg);
+    bench_sio_t readed = lfs3_emubd_readed(bench_cfg);
     assert(readed >= 0);
-    lfs3_emubd_sio_t progged = lfs3_emubd_progged(bench_cfg);
+    bench_sio_t progged = lfs3_emubd_progged(bench_cfg);
     assert(progged >= 0);
-    lfs3_emubd_sio_t erased = lfs3_emubd_erased(bench_cfg);
+    bench_sio_t erased = lfs3_emubd_erased(bench_cfg);
     assert(erased >= 0);
     // note this can error if no timings provided
-    lfs3_emubd_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
+    bench_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
+    #else
+    bench_sio_t reads = lfs3_kiwibd_reads(bench_cfg);
+    assert(reads >= 0);
+    bench_sio_t progs = lfs3_kiwibd_progs(bench_cfg);
+    assert(progs >= 0);
+    bench_sio_t erases = lfs3_kiwibd_erases(bench_cfg);
+    assert(erases >= 0);
+    bench_sio_t readed = lfs3_kiwibd_readed(bench_cfg);
+    assert(readed >= 0);
+    bench_sio_t progged = lfs3_kiwibd_progged(bench_cfg);
+    assert(progged >= 0);
+    bench_sio_t erased = lfs3_kiwibd_erased(bench_cfg);
+    assert(erased >= 0);
+    // note this can error if no timings provided
+    bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
+    #endif
 
     // find our record
     for (size_t i = 0; i < bench_record_count; i++) {
@@ -1383,20 +1431,33 @@ void perm_run(
     }
 
     // create block device and configuration
+    #ifndef BENCH_KIWIBD
     lfs3_emubd_t bd;
+    #else
+    lfs3_kiwibd_t bd;
+    #endif
 
     struct lfs3_cfg cfg = {
         .context            = &bd,
+        #ifndef BENCH_KIWIBD
         .read               = lfs3_emubd_read,
         .prog               = lfs3_emubd_prog,
         .erase              = lfs3_emubd_erase,
         .sync               = lfs3_emubd_sync,
+        #else
+        .read               = lfs3_kiwibd_read,
+        .prog               = lfs3_kiwibd_prog,
+        .erase              = lfs3_kiwibd_erase,
+        .sync               = lfs3_kiwibd_sync,
+        #endif
         #define BENCH_CFG(k, v) \
                 .k = v,
             #include "bench_defines.h"
         #undef BENCH_CFG
     };
 
+    // using emubd?
+    #ifndef BENCH_KIWIBD
     struct lfs3_emubd_cfg bdcfg = {
         .read_sleep         = bench_read_sleep,
         .prog_sleep         = bench_prog_sleep,
@@ -1409,9 +1470,28 @@ void perm_run(
 
     int err = lfs3_emubd_createcfg(&cfg, bench_disk_path, &bdcfg);
     if (err) {
-        fprintf(stderr, "error: could not create block device: %d\n", err);
+        fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
     }
+
+    // using kiwibd?
+    #else
+    struct lfs3_kiwibd_cfg bdcfg = {
+        .read_sleep         = bench_read_sleep,
+        .prog_sleep         = bench_prog_sleep,
+        .erase_sleep        = bench_erase_sleep,
+        #define BENCH_BDCFG(k, v) \
+                .k = v,
+            #include "bench_defines.h"
+        #undef BENCH_CFG
+    };
+
+    int err = lfs3_kiwibd_createcfg(&cfg, bench_disk_path, &bdcfg);
+    if (err) {
+        fprintf(stderr, "error: could not create kiwibd: %d\n", err);
+        exit(-1);
+    }
+    #endif
 
     // run the bench
     bench_reset(&cfg);
@@ -1426,11 +1506,19 @@ void perm_run(
     printf("\n");
 
     // cleanup
+    #ifndef BENCH_KIWIBD
     err = lfs3_emubd_destroy(&cfg);
     if (err) {
-        fprintf(stderr, "error: could not destroy block device: %d\n", err);
+        fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
+    #else
+    err = lfs3_kiwibd_destroy(&cfg);
+    if (err) {
+        fprintf(stderr, "error: could not destroy kiwibd: %d\n", err);
+        exit(-1);
+    }
+    #endif
 }
 
 static void run(void) {

@@ -9,7 +9,6 @@
 #endif
 
 #include "runners/test_runner.h"
-#include "bd/lfs3_emubd.h"
 
 #include <getopt.h>
 #include <sys/types.h>
@@ -22,6 +21,21 @@
 #include <time.h>
 #include <execinfo.h>
 #include <signal.h>
+#include <stddef.h>
+
+
+// some common types
+#ifndef TEST_KIWIBD
+typedef lfs3_emubd_ns_t   test_ns_t;
+typedef lfs3_emubd_sns_t  test_sns_t;
+typedef lfs3_emubd_powercycles_t  test_powercycles_t;
+typedef lfs3_emubd_spowercycles_t test_spowercycles_t;
+#else
+typedef lfs3_kiwibd_ns_t  test_ns_t;
+typedef lfs3_kiwibd_sns_t test_sns_t;
+typedef void              test_powercycles_t;
+typedef void              test_spowercycles_t;
+#endif
 
 
 // some helpers
@@ -117,7 +131,7 @@ typedef struct test_powerloss {
             const struct test_powerloss *powerloss,
             const struct test_suite *suite,
             const struct test_case *case_);
-    const lfs3_emubd_powercycles_t *cycles;
+    const test_powercycles_t *cycles;
     size_t cycle_count;
 } test_powerloss_t;
 
@@ -447,9 +461,9 @@ FILE *test_trace_file = NULL;
 uint32_t test_trace_cycles = 0;
 uint64_t test_trace_time = 0;
 uint64_t test_trace_open_time = 0;
-lfs3_emubd_ns_t test_read_sleep = 0.0;
-lfs3_emubd_ns_t test_prog_sleep = 0.0;
-lfs3_emubd_ns_t test_erase_sleep = 0.0;
+test_ns_t test_read_sleep = 0.0;
+test_ns_t test_prog_sleep = 0.0;
+test_ns_t test_erase_sleep = 0.0;
 
 volatile size_t TEST_PLS = 0;
 
@@ -620,9 +634,11 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size) {
 static void perm_printid(
         const struct test_suite *suite,
         const struct test_case *case_,
-        const lfs3_emubd_powercycles_t *cycles,
+        const test_powercycles_t *cycles,
         size_t cycle_count) {
     (void)suite;
+    (void)cycles;
+    (void)cycle_count;
     // case[:permutation[:powercycles]]
     printf("%s:", case_->name);
     for (size_t d = 0; d < test_define_count; d++) {
@@ -633,12 +649,14 @@ static void perm_printid(
     }
 
     // only print power-cycles if any occured
+    #ifndef TEST_KIWIBD
     if (cycle_count) {
         printf(":");
         for (size_t i = 0; i < cycle_count; i++) {
             leb16_print(cycles[i]);
         }
     }
+    #endif
 }
 
 
@@ -701,10 +719,12 @@ static void run_powerloss_none(
         const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_);
+#ifndef TEST_KIWIBD
 static void run_powerloss_cycles(
         const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_);
+#endif
 
 // iterate through permutations in a test case
 static void case_forperm(
@@ -1304,20 +1324,33 @@ static void run_powerloss_none(
     (void)powerloss;
 
     // create block device and configuration
+    #ifndef TEST_KIWIBD
     lfs3_emubd_t bd;
+    #else
+    lfs3_kiwibd_t bd;
+    #endif
 
     struct lfs3_cfg cfg = {
         .context            = &bd,
+        #ifndef TEST_KIWIBD
         .read               = lfs3_emubd_read,
         .prog               = lfs3_emubd_prog,
         .erase              = lfs3_emubd_erase,
         .sync               = lfs3_emubd_sync,
+        #else
+        .read               = lfs3_kiwibd_read,
+        .prog               = lfs3_kiwibd_prog,
+        .erase              = lfs3_kiwibd_erase,
+        .sync               = lfs3_kiwibd_sync,
+        #endif
         #define TEST_CFG(k, v) \
                 .k = v,
             #include "test_defines.h"
         #undef TEST_CFG
     };
 
+    // using emubd?
+    #ifndef TEST_KIWIBD
     struct lfs3_emubd_cfg bdcfg = {
         .read_sleep         = test_read_sleep,
         .prog_sleep         = test_prog_sleep,
@@ -1330,9 +1363,28 @@ static void run_powerloss_none(
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
-        fprintf(stderr, "error: could not create block device: %d\n", err);
+        fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
     }
+
+    // using kiwibd?
+    #else
+    struct lfs3_kiwibd_cfg bdcfg = {
+        .read_sleep         = test_read_sleep,
+        .prog_sleep         = test_prog_sleep,
+        .erase_sleep        = test_erase_sleep,
+        #define TEST_BDCFG(k, v) \
+                .k = v,
+            #include "test_defines.h"
+        #undef TEST_CFG
+    };
+
+    int err = lfs3_kiwibd_createcfg(&cfg, test_disk_path, &bdcfg);
+    if (err) {
+        fprintf(stderr, "error: could not create kiwibd: %d\n", err);
+        exit(-1);
+    }
+    #endif
 
     // run the test
     printf("running ");
@@ -1349,18 +1401,29 @@ static void run_powerloss_none(
     printf("\n");
 
     // cleanup
+    #ifndef TEST_KIWIBD
     err = lfs3_emubd_destroy(&cfg);
     if (err) {
-        fprintf(stderr, "error: could not destroy block device: %d\n", err);
+        fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
+    #else
+    err = lfs3_kiwibd_destroy(&cfg);
+    if (err) {
+        fprintf(stderr, "error: could not destroy kiwibd: %d\n", err);
+        exit(-1);
+    }
+    #endif
 }
 
+#ifndef TEST_KIWIBD
 static void powerloss_longjmp(void *c) {
     jmp_buf *powerloss_jmp = c;
     longjmp(*powerloss_jmp, 1);
 }
+#endif
 
+#ifndef TEST_KIWIBD
 static void run_powerloss_linear(
         const test_powerloss_t *powerloss,
         const struct test_suite *suite,
@@ -1401,7 +1464,7 @@ static void run_powerloss_linear(
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
-        fprintf(stderr, "error: could not create block device: %d\n", err);
+        fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
     }
 
@@ -1438,11 +1501,13 @@ static void run_powerloss_linear(
     // cleanup
     err = lfs3_emubd_destroy(&cfg);
     if (err) {
-        fprintf(stderr, "error: could not destroy block device: %d\n", err);
+        fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
 }
+#endif
 
+#ifndef TEST_KIWIBD
 static void run_powerloss_log(
         const test_powerloss_t *powerloss,
         const struct test_suite *suite,
@@ -1483,7 +1548,7 @@ static void run_powerloss_log(
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
-        fprintf(stderr, "error: could not create block device: %d\n", err);
+        fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
     }
 
@@ -1520,11 +1585,13 @@ static void run_powerloss_log(
     // cleanup
     err = lfs3_emubd_destroy(&cfg);
     if (err) {
-        fprintf(stderr, "error: could not destroy block device: %d\n", err);
+        fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
 }
+#endif
 
+#ifndef TEST_KIWIBD
 static void run_powerloss_cycles(
         const test_powerloss_t *powerloss,
         const struct test_suite *suite,
@@ -1565,7 +1632,7 @@ static void run_powerloss_cycles(
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
-        fprintf(stderr, "error: could not create block device: %d\n", err);
+        fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
     }
 
@@ -1601,11 +1668,13 @@ static void run_powerloss_cycles(
     // cleanup
     err = lfs3_emubd_destroy(&cfg);
     if (err) {
-        fprintf(stderr, "error: could not destroy block device: %d\n", err);
+        fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
 }
+#endif
 
+#ifndef TEST_KIWIBD
 struct powerloss_exhaustive_state {
     struct lfs3_cfg *cfg;
 
@@ -1613,13 +1682,17 @@ struct powerloss_exhaustive_state {
     size_t branch_count;
     size_t branch_capacity;
 };
+#endif
 
+#ifndef TEST_KIWIBD
 struct powerloss_exhaustive_cycles {
-    lfs3_emubd_powercycles_t *cycles;
+    test_powercycles_t *cycles;
     size_t cycle_count;
     size_t cycle_capacity;
 };
+#endif
 
+#ifndef TEST_KIWIBD
 static void powerloss_exhaustive_branch(void *c) {
     struct powerloss_exhaustive_state *state = c;
     // append to branches
@@ -1636,14 +1709,16 @@ static void powerloss_exhaustive_branch(void *c) {
     // create copy-on-write copy
     int err = lfs3_emubd_cpy(state->cfg, branch);
     if (err) {
-        fprintf(stderr, "error: exhaustive: could not create bd copy\n");
+        fprintf(stderr, "error: exhaustive: could not create emubd copy\n");
         exit(-1);
     }
 
     // also trigger on next power cycle
     lfs3_emubd_setpowercycles(state->cfg, 1);
 }
+#endif
 
+#ifndef TEST_KIWIBD
 static void run_powerloss_exhaustive_layer(
         struct powerloss_exhaustive_cycles *cycles,
         const struct test_suite *suite,
@@ -1673,16 +1748,16 @@ static void run_powerloss_exhaustive_layer(
     // aggressively clean up memory here to try to keep our memory usage low
     int err = lfs3_emubd_destroy(cfg);
     if (err) {
-        fprintf(stderr, "error: could not destroy block device: %d\n", err);
+        fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
 
     // recurse into each branch
     for (size_t i = 0; i < state.branch_count; i++) {
         // first push and print the branch
-        lfs3_emubd_powercycles_t *cycle = mappend(
+        test_powercycles_t *cycle = mappend(
                 (void**)&cycles->cycles,
-                sizeof(lfs3_emubd_powercycles_t),
+                sizeof(test_powercycles_t),
                 &cycles->cycle_count,
                 &cycles->cycle_capacity);
         if (!cycle) {
@@ -1708,7 +1783,9 @@ static void run_powerloss_exhaustive_layer(
     // clean up memory
     free(state.branches);
 }
+#endif
 
+#ifndef TEST_KIWIBD
 static void run_powerloss_exhaustive(
         const test_powerloss_t *powerloss,
         const struct test_suite *suite,
@@ -1742,7 +1819,7 @@ static void run_powerloss_exhaustive(
 
     int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
     if (err) {
-        fprintf(stderr, "error: could not create block device: %d\n", err);
+        fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
     }
 
@@ -1761,33 +1838,44 @@ static void run_powerloss_exhaustive(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 }
+#endif
 
 
 const test_powerloss_t builtin_powerlosses[] = {
     {"none",       run_powerloss_none,       NULL, 0},
+    #ifndef TEST_KIWIBD
     {"log",        run_powerloss_log,        NULL, SIZE_MAX},
     {"linear",     run_powerloss_linear,     NULL, SIZE_MAX},
     {"exhaustive", run_powerloss_exhaustive, NULL, SIZE_MAX},
+    #endif
     {NULL, NULL, NULL, 0},
 };
 
 const char *const builtin_powerlosses_help[] = {
-    "Run with no power-losses.",
-    "Run with exponentially-decreasing power-losses.",
-    "Run with linearly-decreasing power-losses.",
-    "Run a all permutations of power-losses, this may take a while.",
-    "Run a all permutations of n power-losses.",
-    "Run a custom comma-separated set of power-losses.",
-    "Run a custom leb16-encoded set of power-losses.",
+    "Run with no powerlosses.",
+    #ifndef TEST_KIWIBD
+    "Run with exponentially-decreasing powerlosses.",
+    "Run with linearly-decreasing powerlosses.",
+    "Run all powerloss permutations, this may take a while.",
+    "Run all permutations of n powerlosses.",
+    "Run custom comma-separated set of powerlosses.",
+    "Run custom leb16-encoded set of powerlosses.",
+    #endif
 };
 
 // default to -Pnone,linear, which provides a good heuristic while still
 // running quickly
 const test_powerloss_t *test_powerlosses = (const test_powerloss_t[]){
     {"none",   run_powerloss_none,   NULL, 0},
+    #ifndef TEST_KIWIBD
     {"linear", run_powerloss_linear, NULL, SIZE_MAX},
+    #endif
 };
+#ifndef TEST_KIWIBD
 size_t test_powerloss_count = 2;
+#else
+size_t test_powerloss_count = 1;
+#endif
 
 static void list_powerlosses(void) {
     // at least size so that names fit
@@ -1810,9 +1898,11 @@ static void list_powerlosses(void) {
     }
 
     // a couple more options with special parsing
-    printf("%-*s %s\n", name_width, "1,2,3",   builtin_powerlosses_help[i+0]);
-    printf("%-*s %s\n", name_width, "{1,2,3}", builtin_powerlosses_help[i+1]);
-    printf("%-*s %s\n", name_width, ":1248g1", builtin_powerlosses_help[i+2]);
+    #ifndef TEST_KIWIBD
+    printf("%-*s %s\n", name_width, "1,2,3",   builtin_powerlosses_help[i++]);
+    printf("%-*s %s\n", name_width, "{1,2,3}", builtin_powerlosses_help[i++]);
+    printf("%-*s %s\n", name_width, ":1248g1", builtin_powerlosses_help[i++]);
+    #endif
 }
 
 
@@ -2263,17 +2353,18 @@ int main(int argc, char **argv) {
                 }
 
                 // comma-separated permutation
+                #ifndef TEST_KIWIBD
                 if (*optarg == '{') {
-                    lfs3_emubd_powercycles_t *cycles = NULL;
+                    test_powercycles_t *cycles = NULL;
                     size_t cycle_count = 0;
                     size_t cycle_capacity = 0;
 
                     char *s = optarg + 1;
                     while (true) {
                         parsed = NULL;
-                        *(lfs3_emubd_powercycles_t*)mappend(
+                        *(test_powercycles_t*)mappend(
                                 (void**)&cycles,
-                                sizeof(lfs3_emubd_powercycles_t),
+                                sizeof(test_powercycles_t),
                                 &cycle_count,
                                 &cycle_capacity)
                                 = strtoumax(s, &parsed, 0);
@@ -2298,8 +2389,10 @@ int main(int argc, char **argv) {
                     optarg = s;
                     goto powerloss_next;
                 }
+                #endif
 
                 // leb16-encoded permutation
+                #ifndef TEST_KIWIBD
                 if (*optarg == ':') {
                     // special case for linear power cycles
                     if (optarg[1] == 'x') {
@@ -2325,7 +2418,7 @@ int main(int argc, char **argv) {
 
                     // otherwise explicit power cycles
                     } else {
-                        lfs3_emubd_powercycles_t *cycles = NULL;
+                        test_powercycles_t *cycles = NULL;
                         size_t cycle_count = 0;
                         size_t cycle_capacity = 0;
 
@@ -2337,9 +2430,9 @@ int main(int argc, char **argv) {
                                 break;
                             }
 
-                            *(lfs3_emubd_powercycles_t*)mappend(
+                            *(test_powercycles_t*)mappend(
                                     (void**)&cycles,
-                                    sizeof(lfs3_emubd_powercycles_t),
+                                    sizeof(test_powercycles_t),
                                     &cycle_count,
                                     &cycle_capacity) = x;
                             s = parsed;
@@ -2354,8 +2447,10 @@ int main(int argc, char **argv) {
                         goto powerloss_next;
                     }
                 }
+                #endif
 
                 // exhaustive permutations
+                #ifndef TEST_KIWIBD
                 {
                     parsed = NULL;
                     size_t count = strtoumax(optarg, &parsed, 0);
@@ -2370,6 +2465,7 @@ int main(int argc, char **argv) {
                     optarg = (char*)parsed;
                     goto powerloss_next;
                 }
+                #endif
 
             powerloss_unknown:;
                 // unknown scenario?
@@ -2580,6 +2676,7 @@ getopt_done:;
             }
 
             // special case for linear power cycles
+            #ifndef TEST_KIWIBD
             if (cycles_ && *cycles_ == 'x') {
                 char *parsed = NULL;
                 size_t cycle_count = leb16_parse(cycles_+1, &parsed);
@@ -2618,14 +2715,14 @@ getopt_done:;
             // otherwise explicit power cycles
             } else if (cycles_) {
                 // parse power cycles
-                lfs3_emubd_powercycles_t *cycles = NULL;
+                test_powercycles_t *cycles = NULL;
                 size_t cycle_count = 0;
                 size_t cycle_capacity = 0;
                 while (*cycles_ != '\0') {
                     char *parsed = NULL;
-                    *(lfs3_emubd_powercycles_t*)mappend(
+                    *(test_powercycles_t*)mappend(
                             (void**)&cycles,
-                            sizeof(lfs3_emubd_powercycles_t),
+                            sizeof(test_powercycles_t),
                             &cycle_count,
                             &cycle_capacity)
                             = leb16_parse(cycles_, &parsed);
@@ -2644,6 +2741,7 @@ getopt_done:;
                         cycles,
                         cycle_count};
             }
+            #endif
         }
 
         // append to identifier list

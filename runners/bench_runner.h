@@ -8,6 +8,23 @@
 #define BENCH_RUNNER_H
 
 
+// default to using kiwibd for benches
+#if !defined(BENCH_EMUBD) && !defined(BENCH_KIWIBD)
+#define BENCH_KIWIBD
+#endif
+
+// ifdef macros for emubd vs kiwibd
+#ifdef BENCH_EMUBD
+#define BENCH_IFDEF_EMUBD(a, b) (a)
+#else
+#define BENCH_IFDEF_EMUBD(a, b) (b)
+#endif
+#ifdef BENCH_KIWIBD
+#define BENCH_IFDEF_KIWIBD(a, b) (a)
+#else
+#define BENCH_IFDEF_KIWIBD(a, b) (b)
+#endif
+
 // override LFS3_TRACE
 void bench_trace(const char *fmt, ...);
 
@@ -18,6 +35,7 @@ void bench_trace(const char *fmt, ...);
         __VA_ARGS__)
 #define LFS3_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 #define LFS3_EMUBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
+#define LFS3_KIWIBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 
 // BENCH_START/BENCH_STOP macros measure readed/progged/erased bytes
 // through emubd
@@ -36,8 +54,14 @@ void bench_fresult(const char *probe, uintmax_t n, double result);
 
 
 // note these are indirectly included in any generated files
+#ifndef BENCH_KIWIBD
 #include "bd/lfs3_emubd.h"
+#else
+#include "bd/lfs3_kiwibd.h"
+#endif
+
 #include <stdio.h>
+#include <stdint.h>
 
 // give source a chance to define feature macros
 #undef _FEATURES_H

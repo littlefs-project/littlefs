@@ -61,10 +61,12 @@
     BENCH_DEFINE(PROGGED_TIMING,        1484                                )
     BENCH_DEFINE(ERASED_TIMING,         0                                   )
     #endif
+    #ifndef BENCH_KIWIBD
     BENCH_DEFINE(ERASE_CYCLES,          0                                   )
     BENCH_DEFINE(BADBLOCK_BEHAVIOR,     LFS3_EMUBD_BADBLOCK_PROGERROR       )
     BENCH_DEFINE(POWERLOSS_BEHAVIOR,    LFS3_EMUBD_POWERLOSS_ATOMIC         )
-    BENCH_DEFINE(EMUBD_SEED,            0                                   )
+    BENCH_DEFINE(BD_SEED,               0                                   )
+    #endif
 #endif
 
 
@@ -107,9 +109,11 @@
     BENCH_BDCFG(readed_timing,          READED_TIMING                       )
     BENCH_BDCFG(progged_timing,         PROGGED_TIMING                      )
     BENCH_BDCFG(erased_timing,          ERASED_TIMING                       )
+    #ifndef BENCH_KIWIBD
     BENCH_BDCFG(erase_cycles,           ERASE_CYCLES                        )
     BENCH_BDCFG(badblock_behavior,      BADBLOCK_BEHAVIOR                   )
     BENCH_BDCFG(powerloss_behavior,     POWERLOSS_BEHAVIOR                  )
-    BENCH_BDCFG(seed,                   EMUBD_SEED                          )
+    BENCH_BDCFG(seed,                   BD_SEED                             )
+    #endif
 #endif
 

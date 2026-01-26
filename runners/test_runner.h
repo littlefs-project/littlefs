@@ -8,6 +8,23 @@
 #define TEST_RUNNER_H
 
 
+// default to using emubd for tests
+#if !defined(TEST_EMUBD) && !defined(TEST_KIWIBD)
+#define TEST_EMUBD
+#endif
+
+// ifdef macros for emubd vs kiwibd
+#ifdef TEST_EMUBD
+#define TEST_IFDEF_EMUBD(a, b) (a)
+#else
+#define TEST_IFDEF_EMUBD(a, b) (b)
+#endif
+#ifdef TEST_KIWIBD
+#define TEST_IFDEF_KIWIBD(a, b) (a)
+#else
+#define TEST_IFDEF_KIWIBD(a, b) (b)
+#endif
+
 // override LFS3_TRACE
 void test_trace(const char *fmt, ...);
 
@@ -18,11 +35,18 @@ void test_trace(const char *fmt, ...);
         __VA_ARGS__)
 #define LFS3_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 #define LFS3_EMUBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
+#define LFS3_KIWIBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 
 
 // note these are indirectly included in any generated files
+#ifndef TEST_KIWIBD
 #include "bd/lfs3_emubd.h"
+#else
+#include "bd/lfs3_kiwibd.h"
+#endif
+
 #include <stdio.h>
+#include <stdint.h>
 
 // give source a chance to define feature macros
 #undef _FEATURES_H
