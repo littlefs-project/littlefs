@@ -1315,7 +1315,7 @@ static void list_implicit_defines(void) {
 
 
 
-// scenarios to run tests under power-loss
+// scenarios to run tests under powerloss
 
 static void run_powerloss_none(
         const test_powerloss_t *powerloss,
@@ -1468,7 +1468,7 @@ static void run_powerloss_linear(
         exit(-1);
     }
 
-    // run the test, increasing power-cycles as power-loss events occur
+    // run the test, increasing power-cycles as powerloss events occur
     printf("running ");
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
@@ -1480,7 +1480,7 @@ static void run_powerloss_linear(
             break;
         }
 
-        // power-loss!
+        // powerloss!
         printf("powerloss ");
         perm_printid(suite, case_, NULL, 0);
         printf(":x");
@@ -1552,7 +1552,7 @@ static void run_powerloss_log(
         exit(-1);
     }
 
-    // run the test, increasing power-cycles as power-loss events occur
+    // run the test, increasing power-cycles as powerloss events occur
     printf("running ");
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
@@ -1564,7 +1564,7 @@ static void run_powerloss_log(
             break;
         }
 
-        // power-loss!
+        // powerloss!
         printf("powerloss ");
         perm_printid(suite, case_, NULL, 0);
         printf(":y");
@@ -1636,7 +1636,7 @@ static void run_powerloss_cycles(
         exit(-1);
     }
 
-    // run the test, increasing power-cycles as power-loss events occur
+    // run the test, increasing power-cycles as powerloss events occur
     printf("running ");
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
@@ -1648,7 +1648,7 @@ static void run_powerloss_cycles(
             break;
         }
 
-        // power-loss!
+        // powerloss!
         assert(TEST_PLS <= powerloss->cycle_count);
         printf("powerloss ");
         perm_printid(suite, case_, powerloss->cycles, TEST_PLS+1);
@@ -1823,7 +1823,7 @@ static void run_powerloss_exhaustive(
         exit(-1);
     }
 
-    // run the test, increasing power-cycles as power-loss events occur
+    // run the test, increasing power-cycles as powerloss events occur
     printf("running ");
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
@@ -2038,10 +2038,10 @@ const char *const help_text[] = {
     "List all defines in this test-runner.",
     "List explicit defines in this test-runner.",
     "List implicit defines in this test-runner.",
-    "List the available power-loss scenarios.",
+    "List the available powerloss scenarios.",
     "Override a test define.",
     "How deep to evaluate recursive defines before erroring.",
-    "Comma-separated list of power-loss scenarios to test.",
+    "Comma-separated list of powerloss scenarios to test.",
     "Comma-separated range of permutations to run.",
     "Ignore test filters.",
     "Direct block device operations to this file.",
@@ -2327,7 +2327,7 @@ int main(int argc, char **argv) {
             test_powerloss_count = 0;
             test_powerloss_capacity = 0;
 
-            // parse the comma separated list of power-loss scenarios
+            // parse the comma separated list of powerloss scenarios
             while (*optarg) {
                 // allocate space
                 test_powerloss_t *powerloss = mappend(
@@ -2336,10 +2336,10 @@ int main(int argc, char **argv) {
                         &test_powerloss_count,
                         &test_powerloss_capacity);
 
-                // parse the power-loss scenario
+                // parse the powerloss scenario
                 optarg += strspn(optarg, " ");
 
-                // named power-loss scenario
+                // named powerloss scenario
                 size_t len = strcspn(optarg, " ,");
                 for (size_t i = 0; builtin_powerlosses[i].name; i++) {
                     if (len == strlen(builtin_powerlosses[i].name)
@@ -2469,7 +2469,7 @@ int main(int argc, char **argv) {
 
             powerloss_unknown:;
                 // unknown scenario?
-                fprintf(stderr, "error: unknown power-loss scenario: %s\n",
+                fprintf(stderr, "error: unknown powerloss scenario: %s\n",
                         optarg);
                 exit(-1);
 

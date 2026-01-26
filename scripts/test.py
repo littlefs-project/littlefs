@@ -1677,7 +1677,7 @@ if __name__ == "__main__":
     test_parser.add_argument(
             '--list-powerlosses',
             action='store_true',
-            help="List the available power-loss scenarios.")
+            help="List the available powerloss scenarios.")
     test_parser.add_argument(
             '-D', '--define',
             action='append',
@@ -1687,7 +1687,7 @@ if __name__ == "__main__":
             help="How deep to evaluate recursive defines before erroring.")
     test_parser.add_argument(
             '-P', '--powerloss',
-            help="Comma-separated list of power-loss scenarios to test.")
+            help="Comma-separated list of powerloss scenarios to test.")
     test_parser.add_argument(
             '--force',
             action='store_true',

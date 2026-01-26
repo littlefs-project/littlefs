@@ -41,7 +41,7 @@ typedef enum lfs3_emubd_badblock_behavior {
     LFS3_EMUBD_BADBLOCK_MANUAL       = 7, // Bits require manual flipping
 } lfs3_emubd_badblock_behavior_t;
 
-// Mode determining how power-loss behaves during testing.
+// Mode determining how powerloss behaves during testing.
 typedef enum lfs3_emubd_powerloss_behavior {
     LFS3_EMUBD_POWERLOSS_ATOMIC      = 0, // Progs are atomic
     LFS3_EMUBD_POWERLOSS_SOMEBITS    = 1, // One bit is progged
@@ -117,19 +117,19 @@ struct lfs3_emubd_cfg {
     // The mode determining how bad-blocks fail
     lfs3_emubd_badblock_behavior_t badblock_behavior;
 
-    // Number of write operations (erase/prog) before triggering a power-loss.
-    // power_cycles=0 disables this. The exact behavior of power-loss is
+    // Number of write operations (erase/prog) before triggering a powerloss.
+    // power_cycles=0 disables this. The exact behavior of powerloss is
     // controlled by a combination of powerloss_behavior and powerloss_cb.
     lfs3_emubd_powercycles_t power_cycles;
 
-    // The mode determining how power-loss affects disk
+    // The mode determining how powerloss affects disk
     lfs3_emubd_powerloss_behavior_t powerloss_behavior;
 
-    // Function to call to emulate power-loss. The exact behavior of power-loss
+    // Function to call to emulate powerloss. The exact behavior of powerloss
     // is up to the runner to provide.
     void (*powerloss_cb)(void*);
 
-    // Data for power-loss callback
+    // Data for powerloss callback
     void *powerloss_data;
 
     // Seed for prng, which may be used for emulating failed progs. This does
@@ -255,7 +255,7 @@ int lfs3_emubd_mkbad(const struct lfs3_cfg *cfg, lfs3_block_t block);
 // Clear any simulated wear on a given block
 int lfs3_emubd_mkgood(const struct lfs3_cfg *cfg, lfs3_block_t block);
 
-// Get which bit failed, this changes on erase/power-loss unless manually set
+// Get which bit failed, this changes on erase/powerloss unless manually set
 lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block);
 

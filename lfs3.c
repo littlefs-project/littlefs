@@ -15968,7 +15968,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         // pseudo-randomly using our gcksum as a prng
         //
         // the purpose of this is to avoid bad wear patterns such as always 
-        // allocating blocks near the beginning of disk after a power-loss
+        // allocating blocks near the beginning of disk after a powerloss
         //
         lfs3->lookahead.window = lfs3->gcksum % lfs3->block_count;
     }
