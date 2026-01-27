@@ -945,7 +945,12 @@ def find_ids(runner, bench_ids=[], **args):
             expected_suite_perms,
             expected_case_perms,
             _,
-            _) = find_perms(runner, **args)
+            _) = find_perms(
+                runner,
+                # the runner can filter faster than we can, but not if
+                # we have any globs
+                bench_ids if not any('*' in id for id in bench_ids) else [],
+                **args)
 
     # no ids => all ids, before we evaluate globs
     if not bench_ids and args.get('by_cases'):
