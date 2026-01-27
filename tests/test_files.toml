@@ -2796,9 +2796,9 @@ code = '''
                         } 
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs3_size_t));
+                                (sim_size-1-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                (sim_size-k)*sizeof(uint32_t));
+                                (sim_size-1-k)*sizeof(uint32_t));
                         sim[k] = y;
                         sim_prngs[k] = wprng;
                     }
@@ -3010,9 +3010,9 @@ code = '''
                         } 
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs3_size_t));
+                                (sim_size-1-k)*sizeof(lfs3_size_t));
                         memmove(&sim_prngs[k+1], &sim_prngs[k],
-                                (sim_size-k)*sizeof(uint32_t));
+                                (sim_size-1-k)*sizeof(uint32_t));
                         sim[k] = y;
                         sim_prngs[k] = wprng;
                     }

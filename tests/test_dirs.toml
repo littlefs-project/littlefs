@@ -6717,7 +6717,7 @@ code = '''
                         } 
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs3_size_t));
+                                (sim_size-1-k)*sizeof(lfs3_size_t));
                         sim[k] = y;
                     }
                     break;
@@ -6883,7 +6883,7 @@ code = '''
                         } 
                         // then insert
                         memmove(&sim[k+1], &sim[k],
-                                (sim_size-k)*sizeof(lfs3_size_t));
+                                (sim_size-1-k)*sizeof(lfs3_size_t));
                         sim[k] = y;
                     }
                     break;

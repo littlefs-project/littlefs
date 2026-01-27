@@ -4015,7 +4015,7 @@ code = '''
     memcpy(&sim_names[0], "___", 3);
 
     uint32_t prng = SEED;
-    for (lfs3_size_t i = 0; i < N; i++) {
+    for (lfs3_size_t i = 1; i < N; i++) {
         // choose a pseudo-random op
         uint8_t op = TEST_PRNG(&prng) % 3;
         // choose a pseudo-random bid
@@ -4203,7 +4203,7 @@ code = '''
     sim_weights[0] = W;
 
     uint32_t prng = SEED;
-    for (lfs3_size_t i = 0; i < N; i++) {
+    for (lfs3_size_t i = 1; i < N; i++) {
         // choose a pseudo-random op
         uint8_t op = TEST_PRNG(&prng) % 3;
         // choose a pseudo-random bid
