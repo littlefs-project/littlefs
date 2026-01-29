@@ -60,10 +60,10 @@ int lfs_rambd_read(const struct lfs_config *cfg, lfs_block_t block,
     lfs_rambd_t *bd = cfg->context;
 
     // check if read is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
-    LFS_ASSERT(off  % bd->cfg->read_size == 0);
-    LFS_ASSERT(size % bd->cfg->read_size == 0);
-    LFS_ASSERT(off+size <= bd->cfg->erase_size);
+    LFS_DISK_ASSERT(block < bd->cfg->erase_count);
+    LFS_DISK_ASSERT(off  % bd->cfg->read_size == 0);
+    LFS_DISK_ASSERT(size % bd->cfg->read_size == 0);
+    LFS_DISK_ASSERT(off+size <= bd->cfg->erase_size);
 
     // read data
     memcpy(buffer, &bd->buffer[block*bd->cfg->erase_size + off], size);
@@ -80,10 +80,10 @@ int lfs_rambd_prog(const struct lfs_config *cfg, lfs_block_t block,
     lfs_rambd_t *bd = cfg->context;
 
     // check if write is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
-    LFS_ASSERT(off  % bd->cfg->prog_size == 0);
-    LFS_ASSERT(size % bd->cfg->prog_size == 0);
-    LFS_ASSERT(off+size <= bd->cfg->erase_size);
+    LFS_DISK_ASSERT(block < bd->cfg->erase_count);
+    LFS_DISK_ASSERT(off  % bd->cfg->prog_size == 0);
+    LFS_DISK_ASSERT(size % bd->cfg->prog_size == 0);
+    LFS_DISK_ASSERT(off+size <= bd->cfg->erase_size);
 
     // program data
     memcpy(&bd->buffer[block*bd->cfg->erase_size + off], buffer, size);
@@ -98,7 +98,7 @@ int lfs_rambd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     lfs_rambd_t *bd = cfg->context;
 
     // check if erase is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
+    LFS_DISK_ASSERT(block < bd->cfg->erase_count);
 
     // erase is a noop
     (void)block;

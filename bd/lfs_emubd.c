@@ -292,10 +292,10 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     lfs_emubd_t *bd = cfg->context;
 
     // check if read is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
-    LFS_ASSERT(off  % bd->cfg->read_size == 0);
-    LFS_ASSERT(size % bd->cfg->read_size == 0);
-    LFS_ASSERT(off+size <= bd->cfg->erase_size);
+    LFS_DISK_ASSERT(block < bd->cfg->erase_count);
+    LFS_DISK_ASSERT(off  % bd->cfg->read_size == 0);
+    LFS_DISK_ASSERT(size % bd->cfg->read_size == 0);
+    LFS_DISK_ASSERT(off+size <= bd->cfg->erase_size);
 
     // get the block
     const lfs_emubd_block_t *b = bd->blocks[block];
@@ -342,10 +342,10 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     lfs_emubd_t *bd = cfg->context;
 
     // check if write is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
-    LFS_ASSERT(off  % bd->cfg->prog_size == 0);
-    LFS_ASSERT(size % bd->cfg->prog_size == 0);
-    LFS_ASSERT(off+size <= bd->cfg->erase_size);
+    LFS_DISK_ASSERT(block < bd->cfg->erase_count);
+    LFS_DISK_ASSERT(off  % bd->cfg->prog_size == 0);
+    LFS_DISK_ASSERT(size % bd->cfg->prog_size == 0);
+    LFS_DISK_ASSERT(off+size <= bd->cfg->erase_size);
 
     // get the block
     lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);
@@ -372,7 +372,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     // were we erased properly?
     if (bd->cfg->erase_value != -1) {
         for (lfs_off_t i = 0; i < size; i++) {
-            LFS_ASSERT(b->data[off+i] == bd->cfg->erase_value);
+            LFS_DISK_ASSERT(b->data[off+i] == bd->cfg->erase_value);
         }
     }
 
@@ -434,7 +434,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     lfs_emubd_t *bd = cfg->context;
 
     // check if erase is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
+    LFS_DISK_ASSERT(block < bd->cfg->erase_count);
 
     // emulate out-of-order writes? save first write
     if (bd->cfg->powerloss_behavior == LFS_EMUBD_POWERLOSS_OOO
@@ -548,7 +548,7 @@ static int lfs_emubd_crc_(const struct lfs_config *cfg,
     lfs_emubd_t *bd = cfg->context;
 
     // check if crc is valid
-    LFS_ASSERT(block < cfg->block_count);
+    LFS_DISK_ASSERT(block < cfg->block_count);
 
     // crc the block
     uint32_t crc_ = 0xffffffff;
@@ -648,7 +648,7 @@ lfs_emubd_swear_t lfs_emubd_wear(const struct lfs_config *cfg,
     lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
+    LFS_DISK_ASSERT(block < bd->cfg->erase_count);
 
     // get the wear
     lfs_emubd_wear_t wear;
@@ -670,7 +670,7 @@ int lfs_emubd_setwear(const struct lfs_config *cfg,
     lfs_emubd_t *bd = cfg->context;
 
     // check if block is valid
-    LFS_ASSERT(block < bd->cfg->erase_count);
+    LFS_DISK_ASSERT(block < bd->cfg->erase_count);
 
     // set the wear
     lfs_emubd_block_t *b = lfs_emubd_mutblock(cfg, &bd->blocks[block]);

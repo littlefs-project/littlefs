@@ -93,7 +93,7 @@ static int lfs_bd_read(lfs_t *lfs,
             // bypass cache?
             diff = lfs_aligndown(diff, lfs->cfg->read_size);
             int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
-            LFS_ASSERT(err <= 0);
+            LFS_DISK_ASSERT(err <= 0);
             if (err) {
                 return err;
             }
@@ -105,7 +105,7 @@ static int lfs_bd_read(lfs_t *lfs,
         }
 
         // load to cache, first condition can no longer fail
-        LFS_ASSERT(!lfs->block_count || block < lfs->block_count);
+        LFS_DISK_ASSERT(!lfs->block_count || block < lfs->block_count);
         rcache->block = block;
         rcache->off = lfs_aligndown(off, lfs->cfg->read_size);
         rcache->size = lfs_min(
@@ -116,7 +116,7 @@ static int lfs_bd_read(lfs_t *lfs,
                 lfs->cfg->cache_size);
         int err = lfs->cfg->read(lfs->cfg, rcache->block,
                 rcache->off, rcache->buffer, rcache->size);
-        LFS_ASSERT(err <= 0);
+        LFS_DISK_ASSERT(err <= 0);
         if (err) {
             return err;
         }
@@ -177,11 +177,11 @@ static int lfs_bd_crc(lfs_t *lfs,
 static int lfs_bd_flush(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
     if (pcache->block != LFS_BLOCK_NULL && pcache->block != LFS_BLOCK_INLINE) {
-        LFS_ASSERT(pcache->block < lfs->block_count);
+        LFS_DISK_ASSERT(pcache->block < lfs->block_count);
         lfs_size_t diff = lfs_alignup(pcache->size, lfs->cfg->prog_size);
         int err = lfs->cfg->prog(lfs->cfg, pcache->block,
                 pcache->off, pcache->buffer, diff);
-        LFS_ASSERT(err <= 0);
+        LFS_DISK_ASSERT(err <= 0);
         if (err) {
             return err;
         }
@@ -219,7 +219,7 @@ static int lfs_bd_sync(lfs_t *lfs,
     }
 
     err = lfs->cfg->sync(lfs->cfg);
-    LFS_ASSERT(err <= 0);
+    LFS_DISK_ASSERT(err <= 0);
     return err;
 }
 #endif
@@ -230,8 +230,8 @@ static int lfs_bd_prog(lfs_t *lfs,
         lfs_block_t block, lfs_off_t off,
         const void *buffer, lfs_size_t size) {
     const uint8_t *data = buffer;
-    LFS_ASSERT(block == LFS_BLOCK_INLINE || block < lfs->block_count);
-    LFS_ASSERT(off + size <= lfs->cfg->block_size);
+    LFS_DISK_ASSERT(block == LFS_BLOCK_INLINE || block < lfs->block_count);
+    LFS_DISK_ASSERT(off + size <= lfs->cfg->block_size);
 
     while (size > 0) {
         if (block == pcache->block &&
@@ -260,7 +260,7 @@ static int lfs_bd_prog(lfs_t *lfs,
 
         // pcache must have been flushed, either by programming and
         // entire block or manually flushing the pcache
-        LFS_ASSERT(pcache->block == LFS_BLOCK_NULL);
+        LFS_DISK_ASSERT(pcache->block == LFS_BLOCK_NULL);
 
         // prepare pcache, first condition can no longer fail
         pcache->block = block;
@@ -274,9 +274,9 @@ static int lfs_bd_prog(lfs_t *lfs,
 
 #ifndef LFS_READONLY
 static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
-    LFS_ASSERT(block < lfs->block_count);
+    LFS_DISK_ASSERT(block < lfs->block_count);
     int err = lfs->cfg->erase(lfs->cfg, block);
-    LFS_ASSERT(err <= 0);
+    LFS_DISK_ASSERT(err <= 0);
     return err;
 }
 #endif
@@ -740,7 +740,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
         int err = lfs_bd_read(lfs,
                 NULL, &lfs->rcache, sizeof(ntag),
                 dir->pair[0], off, &ntag, sizeof(ntag));
-        LFS_ASSERT(err <= 0);
+        LFS_DISK_ASSERT(err <= 0);
         if (err) {
             return err;
         }
@@ -769,7 +769,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
             err = lfs_bd_read(lfs,
                     NULL, &lfs->rcache, diff,
                     dir->pair[0], off+sizeof(tag)+goff, gbuffer, diff);
-            LFS_ASSERT(err <= 0);
+            LFS_DISK_ASSERT(err <= 0);
             if (err) {
                 return err;
             }
@@ -959,7 +959,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
             }
 
             if (lfs_tag_id(tmask) != 0) {
-                LFS_ASSERT(sp < LFS_DIR_TRAVERSE_DEPTH);
+                LFS_DISK_ASSERT(sp < LFS_DIR_TRAVERSE_DEPTH);
                 // recurse, scan for duplicates, and update tag based on
                 // creates/deletes
                 stack[sp] = (struct lfs_dir_traverse){
@@ -2079,7 +2079,7 @@ static int lfs_dir_compact(lfs_t *lfs,
             }
 
             // successful compaction, swap dir pair to indicate most recent
-            LFS_ASSERT(commit.off % lfs->cfg->prog_size == 0);
+            LFS_DISK_ASSERT(commit.off % lfs->cfg->prog_size == 0);
             lfs_pair_swap(dir->pair);
             dir->count = end - begin;
             dir->off = commit.off;
@@ -2243,7 +2243,7 @@ static int lfs_dir_relocatingcommit(lfs_t *lfs, lfs_mdir_t *dir,
         if (lfs_tag_type3(attrs[i].tag) == LFS_TYPE_CREATE) {
             dir->count += 1;
         } else if (lfs_tag_type3(attrs[i].tag) == LFS_TYPE_DELETE) {
-            LFS_ASSERT(dir->count > 0);
+            LFS_DISK_ASSERT(dir->count > 0);
             dir->count -= 1;
             hasdelete = true;
         } else if (lfs_tag_type1(attrs[i].tag) == LFS_TYPE_TAIL) {
@@ -2256,7 +2256,7 @@ static int lfs_dir_relocatingcommit(lfs_t *lfs, lfs_mdir_t *dir,
 
     // should we actually drop the directory block?
     if (hasdelete && dir->count == 0) {
-        LFS_ASSERT(pdir);
+        LFS_DISK_ASSERT(pdir);
         int err = lfs_fs_pred(lfs, dir->pair, pdir);
         if (err && err != LFS_ERR_NOENT) {
             return err;
@@ -2330,7 +2330,7 @@ static int lfs_dir_relocatingcommit(lfs_t *lfs, lfs_mdir_t *dir,
         }
 
         // successful commit, update dir
-        LFS_ASSERT(commit.off % lfs->cfg->prog_size == 0);
+        LFS_DISK_ASSERT(commit.off % lfs->cfg->prog_size == 0);
         dir->off = commit.off;
         dir->etag = commit.ptag;
         // and update gstate
@@ -2551,7 +2551,7 @@ static int lfs_dir_orphaningcommit(lfs_t *lfs, lfs_mdir_t *dir,
         if (err && err != LFS_ERR_NOENT) {
             return err;
         }
-        LFS_ASSERT(!(hasparent && err == LFS_ERR_NOENT));
+        LFS_DISK_ASSERT(!(hasparent && err == LFS_ERR_NOENT));
 
         // if we can't find dir, it must be new
         if (err != LFS_ERR_NOENT) {
@@ -3074,7 +3074,7 @@ static int lfs_file_opencfg_(lfs_t *lfs, lfs_file_t *file,
         }
     }
 #else
-    LFS_ASSERT((flags & LFS_O_RDONLY) == LFS_O_RDONLY);
+    LFS_USER_ASSERT((flags & LFS_O_RDONLY) == LFS_O_RDONLY);
 #endif
 
     // setup simple file details
@@ -3552,7 +3552,7 @@ static lfs_ssize_t lfs_file_flushedread(lfs_t *lfs, lfs_file_t *file,
 
 static lfs_ssize_t lfs_file_read_(lfs_t *lfs, lfs_file_t *file,
         void *buffer, lfs_size_t size) {
-    LFS_ASSERT((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY);
+    LFS_USER_ASSERT((file->flags & LFS_O_RDONLY) == LFS_O_RDONLY);
 
 #ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
@@ -3655,7 +3655,7 @@ relocate:
 
 static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
         const void *buffer, lfs_size_t size) {
-    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+    LFS_USER_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
 
     if (file->flags & LFS_F_READING) {
         // drop any reads
@@ -3751,7 +3751,7 @@ static lfs_soff_t lfs_file_seek_(lfs_t *lfs, lfs_file_t *file,
 
 #ifndef LFS_READONLY
 static int lfs_file_truncate_(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
-    LFS_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
+    LFS_USER_ASSERT((file->flags & LFS_O_WRONLY) == LFS_O_WRONLY);
 
     if (size > LFS_FILE_MAX) {
         return LFS_ERR_INVAL;
@@ -3934,7 +3934,7 @@ static int lfs_remove_(lfs_t *lfs, const char *path) {
 
     lfs->mlist = dir.next;
     if (lfs_gstate_hasorphans(&lfs->gstate)) {
-        LFS_ASSERT(lfs_tag_type3(tag) == LFS_TYPE_DIR);
+        LFS_DISK_ASSERT(lfs_tag_type3(tag) == LFS_TYPE_DIR);
 
         // fix orphan
         err = lfs_fs_preporphans(lfs, -1);
@@ -4080,7 +4080,7 @@ static int lfs_rename_(lfs_t *lfs, const char *oldpath, const char *newpath) {
 
     lfs->mlist = prevdir.next;
     if (lfs_gstate_hasorphans(&lfs->gstate)) {
-        LFS_ASSERT(prevtag != LFS_ERR_NOENT
+        LFS_DISK_ASSERT(prevtag != LFS_ERR_NOENT
                 && lfs_tag_type3(prevtag) == LFS_TYPE_DIR);
 
         // fix orphan
@@ -4202,7 +4202,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 
 #ifdef LFS_MULTIVERSION
     // this driver only supports minor version < current minor version
-    LFS_ASSERT(!lfs->cfg->disk_version || (
+    LFS_USER_ASSERT(!lfs->cfg->disk_version || (
             (0xffff & (lfs->cfg->disk_version >> 16))
                     == LFS_DISK_VERSION_MAJOR
                 && (0xffff & (lfs->cfg->disk_version >> 0))
@@ -4213,33 +4213,33 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     //
     // note the most common reason for this failure is a before-c99 compiler,
     // which littlefs currently does not support
-    LFS_ASSERT((bool)0x80000000);
+    LFS_USER_ASSERT((bool)0x80000000);
 
     // check that the required io functions are provided
-    LFS_ASSERT(lfs->cfg->read != NULL);
+    LFS_USER_ASSERT(lfs->cfg->read != NULL);
 #ifndef LFS_READONLY
-    LFS_ASSERT(lfs->cfg->prog != NULL);
-    LFS_ASSERT(lfs->cfg->erase != NULL);
-    LFS_ASSERT(lfs->cfg->sync != NULL);
+    LFS_USER_ASSERT(lfs->cfg->prog != NULL);
+    LFS_USER_ASSERT(lfs->cfg->erase != NULL);
+    LFS_USER_ASSERT(lfs->cfg->sync != NULL);
 #endif
 
     // validate that the lfs-cfg sizes were initiated properly before
     // performing any arithmetic logics with them
-    LFS_ASSERT(lfs->cfg->read_size != 0);
-    LFS_ASSERT(lfs->cfg->prog_size != 0);
-    LFS_ASSERT(lfs->cfg->cache_size != 0);
+    LFS_USER_ASSERT(lfs->cfg->read_size != 0);
+    LFS_USER_ASSERT(lfs->cfg->prog_size != 0);
+    LFS_USER_ASSERT(lfs->cfg->cache_size != 0);
 
     // check that block size is a multiple of cache size is a multiple
     // of prog and read sizes
-    LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->read_size == 0);
-    LFS_ASSERT(lfs->cfg->cache_size % lfs->cfg->prog_size == 0);
-    LFS_ASSERT(lfs->cfg->block_size % lfs->cfg->cache_size == 0);
+    LFS_USER_ASSERT(lfs->cfg->cache_size % lfs->cfg->read_size == 0);
+    LFS_USER_ASSERT(lfs->cfg->cache_size % lfs->cfg->prog_size == 0);
+    LFS_USER_ASSERT(lfs->cfg->block_size % lfs->cfg->cache_size == 0);
 
     // check that the block size is large enough to fit all ctz pointers
-    LFS_ASSERT(lfs->cfg->block_size >= 128);
+    LFS_USER_ASSERT(lfs->cfg->block_size >= 128);
     // this is the exact calculation for all ctz pointers, if this fails
     // and the simpler assert above does not, math must be broken
-    LFS_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
+    LFS_USER_ASSERT(4*lfs_npw2(0xffffffff / (lfs->cfg->block_size-2*4))
             <= lfs->cfg->block_size);
 
     // block_cycles = 0 is no longer supported.
@@ -4248,24 +4248,24 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     // metadata logs as a part of wear leveling. Suggested values are in the
     // range of 100-1000, or set block_cycles to -1 to disable block-level
     // wear-leveling.
-    LFS_ASSERT(lfs->cfg->block_cycles != 0);
+    LFS_USER_ASSERT(lfs->cfg->block_cycles != 0);
 
     // check that compact_thresh makes sense
     //
     // metadata can't be compacted below block_size/2, and metadata can't
     // exceed a block_size
-    LFS_ASSERT(lfs->cfg->compact_thresh == 0
+    LFS_USER_ASSERT(lfs->cfg->compact_thresh == 0
             || lfs->cfg->compact_thresh >= lfs->cfg->block_size/2);
-    LFS_ASSERT(lfs->cfg->compact_thresh == (lfs_size_t)-1
+    LFS_USER_ASSERT(lfs->cfg->compact_thresh == (lfs_size_t)-1
             || lfs->cfg->compact_thresh <= lfs->cfg->block_size);
 
     // check that metadata_max is a multiple of read_size and prog_size,
     // and a factor of the block_size
-    LFS_ASSERT(!lfs->cfg->metadata_max
+    LFS_USER_ASSERT(!lfs->cfg->metadata_max
             || lfs->cfg->metadata_max % lfs->cfg->read_size == 0);
-    LFS_ASSERT(!lfs->cfg->metadata_max
+    LFS_USER_ASSERT(!lfs->cfg->metadata_max
             || lfs->cfg->metadata_max % lfs->cfg->prog_size == 0);
-    LFS_ASSERT(!lfs->cfg->metadata_max
+    LFS_USER_ASSERT(!lfs->cfg->metadata_max
             || lfs->cfg->block_size % lfs->cfg->metadata_max == 0);
 
     // setup read cache
@@ -4296,7 +4296,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // setup lookahead buffer, note mount finishes initializing this after
     // we establish a decent pseudo-random seed
-    LFS_ASSERT(lfs->cfg->lookahead_size > 0);
+    LFS_USER_ASSERT(lfs->cfg->lookahead_size > 0);
     if (lfs->cfg->lookahead_buffer) {
         lfs->lookahead.buffer = lfs->cfg->lookahead_buffer;
     } else {
@@ -4308,31 +4308,31 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // check that the size limits are sane
-    LFS_ASSERT(lfs->cfg->name_max <= LFS_NAME_MAX);
+    LFS_USER_ASSERT(lfs->cfg->name_max <= LFS_NAME_MAX);
     lfs->name_max = lfs->cfg->name_max;
     if (!lfs->name_max) {
         lfs->name_max = LFS_NAME_MAX;
     }
 
-    LFS_ASSERT(lfs->cfg->file_max <= LFS_FILE_MAX);
+    LFS_USER_ASSERT(lfs->cfg->file_max <= LFS_FILE_MAX);
     lfs->file_max = lfs->cfg->file_max;
     if (!lfs->file_max) {
         lfs->file_max = LFS_FILE_MAX;
     }
 
-    LFS_ASSERT(lfs->cfg->attr_max <= LFS_ATTR_MAX);
+    LFS_USER_ASSERT(lfs->cfg->attr_max <= LFS_ATTR_MAX);
     lfs->attr_max = lfs->cfg->attr_max;
     if (!lfs->attr_max) {
         lfs->attr_max = LFS_ATTR_MAX;
     }
 
-    LFS_ASSERT(lfs->cfg->metadata_max <= lfs->cfg->block_size);
+    LFS_USER_ASSERT(lfs->cfg->metadata_max <= lfs->cfg->block_size);
 
-    LFS_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
+    LFS_USER_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
             || lfs->cfg->inline_max <= lfs->cfg->cache_size);
-    LFS_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
+    LFS_USER_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
             || lfs->cfg->inline_max <= lfs->attr_max);
-    LFS_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
+    LFS_USER_ASSERT(lfs->cfg->inline_max == (lfs_size_t)-1
             || lfs->cfg->inline_max <= ((lfs->cfg->metadata_max)
                 ? lfs->cfg->metadata_max
                 : lfs->cfg->block_size)/8);
@@ -4396,7 +4396,7 @@ static int lfs_format_(lfs_t *lfs, const struct lfs_config *cfg) {
             return err;
         }
 
-        LFS_ASSERT(cfg->block_count != 0);
+        LFS_USER_ASSERT(cfg->block_count != 0);
 
         // create free lookahead
         memset(lfs->lookahead.buffer, 0, lfs->cfg->lookahead_size);
@@ -4892,8 +4892,8 @@ static void lfs_fs_prepsuperblock(lfs_t *lfs, bool needssuperblock) {
 
 #ifndef LFS_READONLY
 static int lfs_fs_preporphans(lfs_t *lfs, int8_t orphans) {
-    LFS_ASSERT(lfs_tag_size(lfs->gstate.tag) > 0x000 || orphans >= 0);
-    LFS_ASSERT(lfs_tag_size(lfs->gstate.tag) < 0x1ff || orphans <= 0);
+    LFS_DISK_ASSERT(lfs_tag_size(lfs->gstate.tag) > 0x000 || orphans >= 0);
+    LFS_DISK_ASSERT(lfs_tag_size(lfs->gstate.tag) < 0x1ff || orphans <= 0);
     lfs->gstate.tag += orphans;
     lfs->gstate.tag = ((lfs->gstate.tag & ~LFS_MKTAG(0x800, 0, 0)) |
             ((uint32_t)lfs_gstate_hasorphans(&lfs->gstate) << 31));
@@ -4965,7 +4965,7 @@ static int lfs_fs_demove(lfs_t *lfs) {
 
     // no other gstate is supported at this time, so if we found something else
     // something most likely went wrong in gstate calculation
-    LFS_ASSERT(lfs_tag_type3(lfs->gdisk.tag) == LFS_TYPE_DELETE);
+    LFS_DISK_ASSERT(lfs_tag_type3(lfs->gdisk.tag) == LFS_TYPE_DELETE);
 
     // fetch and delete the moved entry
     lfs_mdir_t movedir;
@@ -5260,7 +5260,7 @@ static int lfs_fs_grow_(lfs_t *lfs, lfs_size_t block_count) {
     
 #ifndef LFS_SHRINKNONRELOCATING
     // shrinking is not supported
-    LFS_ASSERT(block_count >= lfs->block_count);
+    LFS_USER_ASSERT(block_count >= lfs->block_count);
 #endif
 #ifdef LFS_SHRINKNONRELOCATING
     if (block_count < lfs->block_count) {
@@ -5727,7 +5727,7 @@ static int lfs_migrate_(lfs_t *lfs, const struct lfs_config *cfg) {
     struct lfs1 lfs1;
 
     // Indeterminate filesystem size not allowed for migration.
-    LFS_ASSERT(cfg->block_count != 0);
+    LFS_USER_ASSERT(cfg->block_count != 0);
 
     int err = lfs1_mount(lfs, &lfs1, cfg);
     if (err) {
@@ -6145,7 +6145,7 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file, const char *path, int flags) {
     }
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)",
             (void*)lfs, (void*)file, path, (unsigned)flags);
-    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_open_(lfs, file, path, flags);
 
@@ -6166,7 +6166,7 @@ int lfs_file_opencfg(lfs_t *lfs, lfs_file_t *file,
                  ".buffer=%p, .attrs=%p, .attr_count=%"PRIu32"})",
             (void*)lfs, (void*)file, path, (unsigned)flags,
             (void*)cfg, cfg->buffer, (void*)cfg->attrs, cfg->attr_count);
-    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_opencfg_(lfs, file, path, flags, cfg);
 
@@ -6181,7 +6181,7 @@ int lfs_file_close(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_close(%p, %p)", (void*)lfs, (void*)file);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_close_(lfs, file);
 
@@ -6197,7 +6197,7 @@ int lfs_file_sync(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_sync(%p, %p)", (void*)lfs, (void*)file);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_sync_(lfs, file);
 
@@ -6215,7 +6215,7 @@ lfs_ssize_t lfs_file_read(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_read(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_ssize_t res = lfs_file_read_(lfs, file, buffer, size);
 
@@ -6233,7 +6233,7 @@ lfs_ssize_t lfs_file_write(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_write(%p, %p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, buffer, size);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_ssize_t res = lfs_file_write_(lfs, file, buffer, size);
 
@@ -6251,7 +6251,7 @@ lfs_soff_t lfs_file_seek(lfs_t *lfs, lfs_file_t *file,
     }
     LFS_TRACE("lfs_file_seek(%p, %p, %"PRId32", %d)",
             (void*)lfs, (void*)file, off, whence);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_soff_t res = lfs_file_seek_(lfs, file, off, whence);
 
@@ -6268,7 +6268,7 @@ int lfs_file_truncate(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
     }
     LFS_TRACE("lfs_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs, (void*)file, size);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     err = lfs_file_truncate_(lfs, file, size);
 
@@ -6284,7 +6284,7 @@ lfs_soff_t lfs_file_tell(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_tell(%p, %p)", (void*)lfs, (void*)file);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_soff_t res = lfs_file_tell_(lfs, file);
 
@@ -6313,7 +6313,7 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
         return err;
     }
     LFS_TRACE("lfs_file_size(%p, %p)", (void*)lfs, (void*)file);
-    LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+    LFS_USER_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
 
     lfs_soff_t res = lfs_file_size_(lfs, file);
 
@@ -6344,7 +6344,7 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path) {
         return err;
     }
     LFS_TRACE("lfs_dir_open(%p, %p, \"%s\")", (void*)lfs, (void*)dir, path);
-    LFS_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)dir));
+    LFS_USER_ASSERT(!lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)dir));
 
     err = lfs_dir_open_(lfs, dir, path);
 

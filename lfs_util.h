@@ -117,6 +117,18 @@ extern "C"
 #endif
 #endif
 
+// User/API contract assertions (config, open flags, handle usage).
+// Default to LFS_ASSERT for backward compatibility.
+#ifndef LFS_USER_ASSERT
+#define LFS_USER_ASSERT(test) LFS_ASSERT(test)
+#endif
+
+// Disk/internal consistency assertions (block layer, tags, state, flash operations failures).
+// Default to LFS_ASSERT for backward compatibility.
+#ifndef LFS_DISK_ASSERT
+#define LFS_DISK_ASSERT(test) LFS_ASSERT(test)
+#endif
+
 
 // Builtin functions, these may be replaced by more efficient
 // toolchain-specific implementations. LFS_NO_INTRINSICS falls back to a more
