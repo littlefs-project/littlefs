@@ -8,6 +8,9 @@
 #ifndef LFS3_UTIL_H
 #define LFS3_UTIL_H
 
+#define LFS3_STRINGIFY_(x) #x
+#define LFS3_STRINGIFY(x) LFS3_STRINGIFY_(x)
+
 // Users can override lfs3_util.h with their own configuration by defining
 // LFS3_CFG as a header file to include (-DLFS3_CFG=my_cfg.h).
 //
@@ -15,9 +18,7 @@
 // provided by the config file. To start, I would suggest copying lfs3_util.h
 // and modifying as needed.
 #ifdef LFS3_CFG
-#define LFS3_STRINGIZE(x) LFS3_STRINGIZE2(x)
-#define LFS3_STRINGIZE2(x) #x
-#include LFS3_STRINGIZE(LFS3_CFG)
+#include LFS3_STRINGIFY(LFS3_CFG)
 #else
 
 
