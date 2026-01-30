@@ -538,7 +538,10 @@ class CsvExpr:
             return t
 
         def fold(self, types={}):
-            return self.a.fold(types)
+            f = self.a.fold(types)
+            if not all(f == v.fold(types) for v in it.islice(self, 1, None)):
+                raise CsvExpr.Error("mismatched folds? %r" % self)
+            return f
 
         def eval(self, fields={}, state=None):
             return self.a.eval(fields, state)
