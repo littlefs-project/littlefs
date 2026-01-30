@@ -789,47 +789,83 @@ class CsvExpr:
                 return CsvGStddev()([v.eval(fields, state) for v in self])
 
     # enumerate exprs
-    @func('enumerate', '')
+    @func('enumerate', '[*by]')
     class Enumerate(Expr):
-        """A number incremented each result"""
+        """A [per by] number incremented for each result"""
         def fields(self):
+            # don't typecheck by fields
             return set()
 
         def type(self, types={}):
+            # don't typecheck, but make sure we can read by fields
+            for v in self:
+                if not isinstance(v, CsvExpr.Field):
+                    raise CsvExpr.Error("complicated by field? %s" % v)
             return CsvInt
 
         def fold(self, types={}):
+            # don't typecheck by fields
             return CsvSum, None
 
         def eval(self, fields={}, state=None):
             if state is None:
                 return CsvInt(0)
-            # enumerate
-            v = state.get(('enumerate', id(self)))
-            if v is None:
-                v = 0
-            else:
-                v += 1
-            # keep track of unique enumerate state
-            state[('enumerate', id(self))] = v
-            return CsvInt(v)
 
-    @func('accumulate', 'a')
-    class Accumulate(Expr):
-        """A running sum across results"""
-        def eval(self, fields={}, state=None):
-            v = self.a.eval(fields, state)
-            if state is None:
-                return v
-            # accumulate
-            v_ = state.get(('accumulate', id(self)))
-            if v_ is None:
-                v_ = v
+            # enumerate
+            k = ['enumerate', id(self)]
+            for v in self:
+                if v.a not in fields:
+                    raise CsvExpr.Error("unknown field? %s" % v.a)
+                k.append(fields[v.a])
+            k = tuple(k)
+            x = state.get(k)
+            if x is None:
+                x = 0
             else:
-                v_ += v
+                x += 1
+            # keep track of unique enumerate state
+            state[k] = x
+            return CsvInt(x)
+
+    @func('accumulate', 'a[, *by]')
+    class Accumulate(Expr):
+        """A [per by] running sum across results"""
+        def fields(self):
+            # don't typecheck by fields
+            return self.a.fields()
+
+        def type(self, types={}):
+            # don't typecheck, but make sure we can read by fields
+            t = self.a.type(types)
+            for v in it.islice(self, 1, None):
+                if not isinstance(v, CsvExpr.Field):
+                    raise CsvExpr.Error("complicated by field? %s" % v)
+            return t
+
+        def fold(self, types={}):
+            # don't typecheck by fields
+            return self.a.fold(types)
+
+        def eval(self, fields={}, state=None):
+            y = self.a.eval(fields, state)
+            if state is None:
+                return y
+
+            # accumulate
+            k = ['accumulate', id(self)]
+            for v in it.islice(self, 1, None):
+                if v.a not in fields:
+                    raise CsvExpr.Error("unknown field? %s" % v.a)
+                k.append(fields[v.a])
+            k = tuple(k)
+            x = state.get(k)
+            if x is None:
+                x = y
+            else:
+                x += y
             # keep track of unique accumulate state
-            state[('accumulate', id(self))] = v_
-            return v_
+            state[k] = x
+            return x
 
     # functions
     @func('ratio', 'a')
