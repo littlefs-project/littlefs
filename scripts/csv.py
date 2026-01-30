@@ -2423,13 +2423,32 @@ def list_fields(csv_paths, **args):
         else:
             types__.append('?')
 
-    # find widths
-    w = [0]
+    # show the first couple values for each field
+    limit = 36
+    examples__ = []
     for k in fields_:
-        w[0] = max(w[0], len(k))
+        x = co.OrderedDict()
+        for r in results:
+            if len(x) >= limit:
+                break
+            if k in r and r[k].strip():
+                x[r[k].strip()] = True
+        x = ','.join(x.keys())
+        if len(x) > limit:
+            x = x[:limit] + '...'
+        examples__.append(x)
 
+    # find widths
+    w = [0, 0]
     for k, t in zip(fields_, types__):
-        print('%-*s  %s' % (w[0], k, t))
+        w[0] = max(w[0], len(k))
+        w[1] = max(w[1], len(t))
+
+    for k, t, x in zip(fields_, types__, examples__):
+        print('%-*s  %-*s  # %s' % (
+                w[0], k,
+                w[1], t,
+                x))
 
 def list_computed(fields_, results, Result, **args):
     # find best type for fields, note this matches compile behavior
