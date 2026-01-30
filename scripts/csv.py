@@ -554,7 +554,7 @@ class CsvExpr:
             return CsvInt
 
         def fold(self, types={}):
-            return CsvSum, CsvInt
+            return CsvSum, None
 
         def eval(self, fields={}, state=None):
             return self.a
@@ -567,7 +567,7 @@ class CsvExpr:
             return CsvFloat
 
         def fold(self, types={}):
-            return CsvSum, CsvFloat
+            return CsvSum, None
 
         def eval(self, fields={}, state=None):
             return self.a
@@ -585,7 +585,7 @@ class CsvExpr:
         def fold(self, types={}):
             if self.a not in types:
                 raise CsvExpr.Error("unfoldable field? %s" % self.a)
-            return CsvSum, types[self.a]
+            return CsvSum, None
 
         def eval(self, fields={}, state=None):
             if self.a not in fields:
@@ -646,7 +646,7 @@ class CsvExpr:
         """Find the sum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvSum, self.a.type(types)
+                return CsvSum, None
             else:
                 return self.a.fold(types)
 
@@ -661,7 +661,7 @@ class CsvExpr:
         """Find the product of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return Prod, self.a.type(types)
+                return Prod, None
             else:
                 return self.a.fold(types)
 
@@ -676,7 +676,7 @@ class CsvExpr:
         """Find the minimum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvMin, self.a.type(types)
+                return CsvMin, None
             else:
                 return self.a.fold(types)
 
@@ -691,7 +691,7 @@ class CsvExpr:
         """Find the maximum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvMax, self.a.type(types)
+                return CsvMax, None
             else:
                 return self.a.fold(types)
 
@@ -796,7 +796,7 @@ class CsvExpr:
             return CsvInt
 
         def fold(self, types={}):
-            return CsvSum, CsvInt
+            return CsvSum, None
 
         def eval(self, fields={}, state=None):
             if state is None:
@@ -1622,7 +1622,8 @@ def compile(fields_, results,
     folds___ = {k: (CsvSum, t) for k, v in types__.items()}
     for k, expr in exprs.items():
         folds___[k] = expr.fold(types__)
-    folds___ = {k: (f(), t) for k, (f, t) in folds___.items()}
+    # instantiate folds and resolve fold types
+    folds___ = {k: (f(), t or types___[k]) for k, (f, t) in folds___.items()}
 
     # create result class
     def __new__(cls, _state=None, **r):
