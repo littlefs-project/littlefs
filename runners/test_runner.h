@@ -7,6 +7,24 @@
 #ifndef TEST_RUNNER_H
 #define TEST_RUNNER_H
 
+#define TEST_STRINGIFY_(x) #x
+#define TEST_STRINGIFY(x) TEST_STRINGIFY_(x)
+
+// the default TEST_DEFINES path can be overridden to add shims for
+// other filesystems out-of-tree
+//
+// note this is an unusual header file! instead of being included once,
+// TEST_DEFINES is included several times with various "query macros"
+// defined before inclusion:
+//
+// - TEST_INCLUDE - common includes (optional)
+// - TEST_DEFINE(name, value) - name and default values for test defines
+// - TEST_CFG[+_CFG] - struct lfs3_cfg definition
+// - TEST_BDCFG[+_CFG] - struct lfs3_*bd_cfg definition
+//
+#ifndef TEST_DEFINES
+#define TEST_DEFINES runners/test_defines.h
+#endif
 
 // default to using emubd for tests
 #if !defined(TEST_EMUBD) && !defined(TEST_KIWIBD)
@@ -39,11 +57,16 @@ void test_trace(const char *fmt, ...);
 
 
 // note these are indirectly included in any generated files
+#define TEST_INCLUDE
+    #include TEST_STRINGIFY(TEST_DEFINES)
+#undef TEST_INCLUDE
+
 #ifndef TEST_KIWIBD
 #include "bd/lfs3_emubd.h"
 #else
 #include "bd/lfs3_kiwibd.h"
 #endif
+#include "lfs3_util.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -80,7 +103,7 @@ struct test_case {
     size_t permutations;
 
     bool (*if_)(void);
-    void (*run)(struct lfs3_cfg *cfg);
+    void (*run)(const struct lfs3_cfg *cfg);
 };
 
 struct test_suite {
@@ -136,18 +159,22 @@ size_t test_heap(void);
 size_t test_heap_current(void);
 void test_heap_pause(void);
 void test_heap_resume(void);
+void test_heap_inc(size_t size);
+void test_heap_dec(size_t size);
 
 #define TEST_HEAP() test_heap()
 #define TEST_HEAP_CURRENT() test_heap_current()
 #define TEST_HEAP_PAUSE() test_heap_pause()
 #define TEST_HEAP_RESUME() test_heap_resume()
+#define TEST_HEAP_INC(size) test_heap_inc(size)
+#define TEST_HEAP_DEC(size) test_heap_dec(size)
 #endif
 
 
 // declare implicit defines as global intmax_ts
 #define TEST_DEFINE(k, v) \
         extern intmax_t k;
-    #include "test_defines.h"
+    #include TEST_STRINGIFY(TEST_DEFINES)
 #undef TEST_DEFINE
 
 

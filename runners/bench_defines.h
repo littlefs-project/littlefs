@@ -25,10 +25,10 @@
     BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/8                        )
     BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
     BENCH_DEFINE(ERASE_VALUE,           0xff                                )
-    // the default timings here are based on NOR flash, specifically
-    // w25q64jv:
-    // 
-    // https://www.winbond.com/resource-files/W25Q256JV%20SPI%20RevQ%2002072025%20Plus.pdf
+    #ifndef BENCH_NAND
+    // default timings for NOR flash, based on w25q64jv:
+    // https://www.winbond.com/resource-files/
+    //         W25Q256JV%20SPI%20RevQ%2002072025%20Plus.pdf
     //
     // note one thing unique to NOR flash is the extreme erase cost
     //
@@ -43,23 +43,57 @@
     // progs=400000ns tPP=0.4 ms, page=256
     // erases=45000000ns tSE=45 ms, sector=4096
     // readed=40ns/B fR=50 MHz, quad read (20 ns * 8/4)
-    // progged=1484ns/B tPP=0.4 ms (((4096/256)*0.4 ms - 0.4 ms)/4096 + bus)
+    // progged=1484ns/B tPP=0.4 ms (((4096/256)*0.4ms - 0.4ms)/4096 + bus)
     // erased=0ns/B (no per-byte cost)
     //
     #ifdef BENCH_SIMPLE
     BENCH_DEFINE(READS_TIMING,          0                                   )
     BENCH_DEFINE(PROGS_TIMING,          0                                   )
-    BENCH_DEFINE(ERASES_TIMING,         0                                   )   
+    BENCH_DEFINE(ERASES_TIMING,         0                                   )
     BENCH_DEFINE(READED_TIMING,         40                                  )
     BENCH_DEFINE(PROGGED_TIMING,        1582                                )
     BENCH_DEFINE(ERASED_TIMING,         10986                               )
     #else
     BENCH_DEFINE(READS_TIMING,          0                                   )
     BENCH_DEFINE(PROGS_TIMING,          400000                              )
-    BENCH_DEFINE(ERASES_TIMING,         45000000                            )   
+    BENCH_DEFINE(ERASES_TIMING,         45000000                            )
     BENCH_DEFINE(READED_TIMING,         40                                  )
     BENCH_DEFINE(PROGGED_TIMING,        1484                                )
     BENCH_DEFINE(ERASED_TIMING,         0                                   )
+    #endif
+    #else
+    // default timings for NAND flash, based on w25n01gv:
+    // https://www.winbond.com/resource-files/W25N01GV%20Rev%20R%20070323.pdf
+    //
+    // FR=104 MHz, quad read/prog (9.6 ns * 8/4)
+    // => +~19 ns for bus
+    //
+    // readed=31ns/B tRD1=25 us, p=2048, s=512 (25 us / 2048 + bus)
+    // progged=141ns/B tPP=250 us, p=2048, s=512 (250 us / 2048 + bus)
+    // erased=15ns/B tBE=2 ms, block=131072 (2 ms / 131072)
+    //
+    // reads=25000ns tRD1=25 us, p=2048, s=512
+    // progs=250000ns tPP=250 us, p=2048, s=512
+    // erases=2000000ns tBE=2 ms, block=131072
+    // readed=31ns/B tRD1=25 us (((131072/2048)*25us - 25us)/131072 + bus)
+    // progged=139ns/B tPP=250 us (((131072/2048)*250us - 250us)/131072 + bus)
+    // erased=0ns/B (no per-byte cost)
+    //
+    #ifdef BENCH_SIMPLE
+    BENCH_DEFINE(READS_TIMING,          0                                   )
+    BENCH_DEFINE(PROGS_TIMING,          0                                   )
+    BENCH_DEFINE(ERASES_TIMING,         0                                   )
+    BENCH_DEFINE(READED_TIMING,         31                                  )
+    BENCH_DEFINE(PROGGED_TIMING,        141                                 )
+    BENCH_DEFINE(ERASED_TIMING,         15                                  )
+    #else
+    BENCH_DEFINE(READS_TIMING,          25000                               )
+    BENCH_DEFINE(PROGS_TIMING,          250000                              )
+    BENCH_DEFINE(ERASES_TIMING,         2000000                             )
+    BENCH_DEFINE(READED_TIMING,         31                                  )
+    BENCH_DEFINE(PROGGED_TIMING,        139                                 )
+    BENCH_DEFINE(ERASED_TIMING,         0                                   )
+    #endif
     #endif
     #ifndef BENCH_KIWIBD
     BENCH_DEFINE(ERASE_CYCLES,          0                                   )
@@ -70,50 +104,76 @@
 #endif
 
 
-// struct lfs3_cfg fields
+// struct lfs3_cfg definition
 #ifdef BENCH_CFG
-    BENCH_CFG(read_size,                READ_SIZE                           )
-    BENCH_CFG(prog_size,                PROG_SIZE                           )
-    BENCH_CFG(block_size,               BLOCK_SIZE                          )
-    BENCH_CFG(block_count,              BLOCK_COUNT                         )
-    BENCH_CFG(block_recycles,           BLOCK_RECYCLES                      )
-    BENCH_CFG(rcache_size,              RCACHE_SIZE                         )
-    BENCH_CFG(pcache_size,              PCACHE_SIZE                         )
-    BENCH_CFG(fcache_size,              FCACHE_SIZE                         )
-    BENCH_CFG(lookahead_size,           LOOKAHEAD_SIZE                      )
-    #ifdef LFS3_GBMAP
-    BENCH_CFG(gc_lookgbmap_thresh,      GC_LOOKGBMAP_THRESH                 )
-    BENCH_CFG(lookgbmap_thresh,         LOOKGBMAP_THRESH                    )
-    #endif
-    #ifdef LFS3_PREERASE
-    BENCH_CFG(gc_preerase_count,        GC_PREERASE_COUNT                   )
-    #endif
-    #ifdef LFS3_GC
-    BENCH_CFG(gc_flags,                 GC_FLAGS                            )
-    BENCH_CFG(gc_steps,                 GC_STEPS                            )
-    #endif
-    BENCH_CFG(gc_lookahead_thresh,      GC_LOOKAHEAD_THRESH                 )
-    BENCH_CFG(gc_compact_thresh,        GC_COMPACT_THRESH                   )
-    BENCH_CFG(shrub_size,               SHRUB_SIZE                          )
-    BENCH_CFG(fragment_size,            FRAGMENT_SIZE                       )
-    BENCH_CFG(crystal_thresh,           CRYSTAL_THRESH                      )
+    struct lfs3_cfg _cfg = {
+        #ifdef BENCH_CFG_CFG
+        BENCH_CFG_CFG
+        #endif
+        .read_size                      = READ_SIZE,
+        .prog_size                      = PROG_SIZE,
+        .block_size                     = BLOCK_SIZE,
+        .block_count                    = BLOCK_COUNT,
+        .block_recycles                 = BLOCK_RECYCLES,
+        .rcache_size                    = RCACHE_SIZE,
+        .pcache_size                    = PCACHE_SIZE,
+        .fcache_size                    = FCACHE_SIZE,
+        .lookahead_size                 = LOOKAHEAD_SIZE,
+        #ifdef LFS3_GBMAP
+        .gc_lookgbmap_thresh            = GC_LOOKGBMAP_THRESH,
+        .lookgbmap_thresh               = LOOKGBMAP_THRESH,
+        #endif
+        #ifdef LFS3_PREERASE
+        .gc_preerase_count              = GC_PREERASE_COUNT,
+        #endif
+        #ifdef LFS3_GC
+        .gc_flags                       = GC_FLAGS,
+        .gc_steps                       = GC_STEPS,
+        #endif
+        .gc_lookahead_thresh            = GC_LOOKAHEAD_THRESH,
+        .gc_compact_thresh              = GC_COMPACT_THRESH,
+        .shrub_size                     = SHRUB_SIZE,
+        .fragment_size                  = FRAGMENT_SIZE,
+        .crystal_thresh                 = CRYSTAL_THRESH,
+    };
+    struct lfs3_cfg *BENCH_CFG = &_cfg;
 #endif
 
 
-// struct lfs3_*bd_cfg fields
+// struct lfs3_*bd_cfg definition
 #ifdef BENCH_BDCFG
-    BENCH_BDCFG(erase_value,            ERASE_VALUE                         )
-    BENCH_BDCFG(reads_timing,           READS_TIMING                        )
-    BENCH_BDCFG(progs_timing,           PROGS_TIMING                        )
-    BENCH_BDCFG(erases_timing,          ERASES_TIMING                       )
-    BENCH_BDCFG(readed_timing,          READED_TIMING                       )
-    BENCH_BDCFG(progged_timing,         PROGGED_TIMING                      )
-    BENCH_BDCFG(erased_timing,          ERASED_TIMING                       )
     #ifndef BENCH_KIWIBD
-    BENCH_BDCFG(erase_cycles,           ERASE_CYCLES                        )
-    BENCH_BDCFG(badblock_behavior,      BADBLOCK_BEHAVIOR                   )
-    BENCH_BDCFG(powerloss_behavior,     POWERLOSS_BEHAVIOR                  )
-    BENCH_BDCFG(seed,                   BD_SEED                             )
+    struct lfs3_emubd_cfg _bdcfg = {
+        #ifdef BENCH_BDCFG_CFG
+        BENCH_BDCFG_CFG
+        #endif
+        .erase_value                    = ERASE_VALUE,
+        .reads_timing                   = READS_TIMING,
+        .progs_timing                   = PROGS_TIMING,
+        .erases_timing                  = ERASES_TIMING,
+        .readed_timing                  = READED_TIMING,
+        .progged_timing                 = PROGGED_TIMING,
+        .erased_timing                  = ERASED_TIMING,
+        .erase_cycles                   = ERASE_CYCLES,
+        .badblock_behavior              = BADBLOCK_BEHAVIOR,
+        .powerloss_behavior             = POWERLOSS_BEHAVIOR,
+        .seed                           = BD_SEED,
+    };
+    struct lfs3_emubd_cfg *BENCH_BDCFG = &_bdcfg;
+    #else
+    struct lfs3_kiwibd_cfg _bdcfg = {
+        #ifdef BENCH_BDCFG_CFG
+        BENCH_BDCFG_CFG
+        #endif
+        .erase_value                    = ERASE_VALUE,
+        .reads_timing                   = READS_TIMING,
+        .progs_timing                   = PROGS_TIMING,
+        .erases_timing                  = ERASES_TIMING,
+        .readed_timing                  = READED_TIMING,
+        .progged_timing                 = PROGGED_TIMING,
+        .erased_timing                  = ERASED_TIMING,
+    };
+    struct lfs3_kiwibd_cfg *BENCH_BDCFG = &_bdcfg;
     #endif
 #endif
 

@@ -20,7 +20,8 @@ TESTS ?= $(wildcard tests/*.toml)
 TEST_SRC ?= \
 		$(SRC) \
 		$(filter-out %.t.c %.b.c %.a.c,$(wildcard bd/*.c)) \
-		runners/test_runner.c
+		$(filter-out %.t.c %.b.c %.a.c,$(wildcard runners/test_*.c)) \
+		$(filter-out %.t.c %.b.c %.a.c,$(wildcard tests/*.c))
 TEST_RUNNER ?= $(BUILDDIR)/runners/test_runner
 TEST_C     := \
 		$(TESTS:%.toml=$(BUILDDIR)/%.t.c) \
@@ -39,7 +40,8 @@ BENCHES ?= $(wildcard benches/*.toml)
 BENCH_SRC ?= \
 		$(SRC) \
 		$(filter-out %.t.c %.b.c %.a.c,$(wildcard bd/*.c)) \
-		runners/bench_runner.c
+		$(filter-out %.t.c %.b.c %.a.c,$(wildcard runners/bench_*.c)) \
+		$(filter-out %.t.c %.b.c %.a.c,$(wildcard benches/*.c))
 BENCH_RUNNER ?= $(BUILDDIR)/runners/bench_runner
 BENCH_C     := \
 		$(BENCHES:%.toml=$(BUILDDIR)/%.b.c) \

@@ -137,12 +137,10 @@ int lfs3_kiwibd_sync(const struct lfs3_cfg *cfg);
 
 /// Additional kiwibd features ///
 
-// Get total simulated runtime
+// Get simulated runtime in nanoseconds
 lfs3_kiwibd_sns_t lfs3_kiwibd_simtime(const struct lfs3_cfg *cfg);
 
 // Reset simulation counters
-//
-// You probably shouldn't call this, instead diff before/after simtimes
 int lfs3_kiwibd_simreset(const struct lfs3_cfg *cfg);
 
 // Get total number of read transactions

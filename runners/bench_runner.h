@@ -7,6 +7,24 @@
 #ifndef BENCH_RUNNER_H
 #define BENCH_RUNNER_H
 
+#define BENCH_STRINGIFY_(x) #x
+#define BENCH_STRINGIFY(x) BENCH_STRINGIFY_(x)
+
+// the default BENCH_DEFINES path can be overridden to add shims for
+// other filesystems out-of-tree
+//
+// note this is an unusual header file! instead of being included once,
+// BENCH_DEFINES is included several times with various "query macros"
+// defined before inclusion:
+//
+// - BENCH_INCLUDE - common includes (optional)
+// - BENCH_DEFINE(name, value) - name and default values for bench defines
+// - BENCH_CFG[+_CFG] - struct lfs3_cfg definition
+// - BENCH_BDCFG[+_CFG] - struct lfs3_*bd_cfg definition
+//
+#ifndef BENCH_DEFINES
+#define BENCH_DEFINES runners/bench_defines.h
+#endif
 
 // default to using kiwibd for benches
 #if !defined(BENCH_EMUBD) && !defined(BENCH_KIWIBD)
@@ -37,28 +55,18 @@ void bench_trace(const char *fmt, ...);
 #define LFS3_EMUBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 #define LFS3_KIWIBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 
-// BENCH_START/BENCH_STOP macros measure readed/progged/erased bytes
-// through emubd
-void bench_start(const char *probe);
-void bench_stop(const char *probe, uintmax_t n);
-
-#define BENCH_START(probe) bench_start(probe)
-#define BENCH_STOP(probe, n) bench_stop(probe, n)
-
-// BENCH_RESULT/BENCH_FRESULT allow for explicit non-io measurements
-void bench_result(const char *probe, uintmax_t n, uintmax_t result);
-void bench_fresult(const char *probe, uintmax_t n, double result);
-
-#define BENCH_RESULT(probe, n, result) bench_result(probe, n, result)
-#define BENCH_FRESULT(probe, n, result) bench_fresult(probe, n, result)
-
 
 // note these are indirectly included in any generated files
+#define BENCH_INCLUDE
+    #include BENCH_STRINGIFY(BENCH_DEFINES)
+#undef BENCH_INCLUDE
+
 #ifndef BENCH_KIWIBD
 #include "bd/lfs3_emubd.h"
 #else
 #include "bd/lfs3_kiwibd.h"
 #endif
+#include "lfs3_util.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -93,7 +101,7 @@ struct bench_case {
     size_t permutations;
 
     bool (*if_)(void);
-    void (*run)(struct lfs3_cfg *cfg);
+    void (*run)(const struct lfs3_cfg *cfg);
 };
 
 struct bench_suite {
@@ -110,6 +118,22 @@ struct bench_suite {
 
 extern const struct bench_suite *const bench_suites[];
 extern const size_t bench_suite_count;
+
+
+// BENCH_START/BENCH_STOP macros measure readed/progged/erased bytes
+// through emubd
+void bench_start(const char *probe);
+void bench_stop(const char *probe, uintmax_t n);
+
+#define BENCH_START(probe) bench_start(probe)
+#define BENCH_STOP(probe, n) bench_stop(probe, n)
+
+// BENCH_RESULT/BENCH_FRESULT allow for explicit non-io measurements
+void bench_result(const char *probe, uintmax_t n, uintmax_t result);
+void bench_fresult(const char *probe, uintmax_t n, double result);
+
+#define BENCH_RESULT(probe, n, result) bench_result(probe, n, result)
+#define BENCH_FRESULT(probe, n, result) bench_fresult(probe, n, result)
 
 
 // deterministic prng for pseudo-randomness in benches
@@ -145,18 +169,22 @@ size_t bench_heap(void);
 size_t bench_heap_current(void);
 void bench_heap_pause(void);
 void bench_heap_resume(void);
+void bench_heap_inc(size_t size);
+void bench_heap_dec(size_t size);
 
 #define BENCH_HEAP() bench_heap()
 #define BENCH_HEAP_CURRENT() bench_heap_current()
 #define BENCH_HEAP_PAUSE() bench_heap_pause()
 #define BENCH_HEAP_RESUME() bench_heap_resume()
+#define BENCH_HEAP_INC(size) bench_heap_inc(size)
+#define BENCH_HEAP_DEC(size) bench_heap_dec(size)
 #endif
 
 
 // declare implicit defines as global intmax_ts
 #define BENCH_DEFINE(k, v) \
         extern intmax_t k;
-    #include "bench_defines.h"
+    #include BENCH_STRINGIFY(BENCH_DEFINES)
 #undef BENCH_DEFINE
 
 

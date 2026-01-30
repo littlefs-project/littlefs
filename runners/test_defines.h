@@ -34,44 +34,64 @@
 #endif
 
 
-// struct lfs3_cfg fields
+// struct lfs3_cfg definition
 #ifdef TEST_CFG
-    TEST_CFG(read_size,                 READ_SIZE                           )
-    TEST_CFG(prog_size,                 PROG_SIZE                           )
-    TEST_CFG(block_size,                BLOCK_SIZE                          )
-    TEST_CFG(block_count,               BLOCK_COUNT                         )
-    TEST_CFG(block_recycles,            BLOCK_RECYCLES                      )
-    TEST_CFG(rcache_size,               RCACHE_SIZE                         )
-    TEST_CFG(pcache_size,               PCACHE_SIZE                         )
-    TEST_CFG(fcache_size,               FCACHE_SIZE                         )
-    TEST_CFG(lookahead_size,            LOOKAHEAD_SIZE                      )
-    #ifdef LFS3_GBMAP
-    TEST_CFG(gc_lookgbmap_thresh,       GC_LOOKGBMAP_THRESH                 )
-    TEST_CFG(lookgbmap_thresh,          LOOKGBMAP_THRESH                    )
-    #endif
-    #ifdef LFS3_PREERASE
-    TEST_CFG(gc_preerase_count,         GC_PREERASE_COUNT                   )
-    #endif
-    #ifdef LFS3_GC
-    TEST_CFG(gc_flags,                  GC_FLAGS                            )
-    TEST_CFG(gc_steps,                  GC_STEPS                            )
-    #endif
-    TEST_CFG(gc_lookahead_thresh,       GC_LOOKAHEAD_THRESH                 )
-    TEST_CFG(gc_compact_thresh,         GC_COMPACT_THRESH                   )
-    TEST_CFG(shrub_size,                SHRUB_SIZE                          )
-    TEST_CFG(fragment_size,             FRAGMENT_SIZE                       )
-    TEST_CFG(crystal_thresh,            CRYSTAL_THRESH                      )
+    struct lfs3_cfg _cfg = {
+        #ifdef TEST_CFG_CFG
+        TEST_CFG_CFG
+        #endif
+        .read_size                      = READ_SIZE,
+        .prog_size                      = PROG_SIZE,
+        .block_size                     = BLOCK_SIZE,
+        .block_count                    = BLOCK_COUNT,
+        .block_recycles                 = BLOCK_RECYCLES,
+        .rcache_size                    = RCACHE_SIZE,
+        .pcache_size                    = PCACHE_SIZE,
+        .fcache_size                    = FCACHE_SIZE,
+        .lookahead_size                 = LOOKAHEAD_SIZE,
+        #ifdef LFS3_GBMAP
+        .gc_lookgbmap_thresh            = GC_LOOKGBMAP_THRESH,
+        .lookgbmap_thresh               = LOOKGBMAP_THRESH,
+        #endif
+        #ifdef LFS3_PREERASE
+        .gc_preerase_count              = GC_PREERASE_COUNT,
+        #endif
+        #ifdef LFS3_GC
+        .gc_flags                       = GC_FLAGS,
+        .gc_steps                       = GC_STEPS,
+        #endif
+        .gc_lookahead_thresh            = GC_LOOKAHEAD_THRESH,
+        .gc_compact_thresh              = GC_COMPACT_THRESH,
+        .shrub_size                     = SHRUB_SIZE,
+        .fragment_size                  = FRAGMENT_SIZE,
+        .crystal_thresh                 = CRYSTAL_THRESH,
+    };
+    struct lfs3_cfg *TEST_CFG = &_cfg;
 #endif
 
 
-// struct lfs3_*bd_cfg fields
+// struct lfs3_*bd_cfg definition
 #ifdef TEST_BDCFG
-    TEST_BDCFG(erase_value,             ERASE_VALUE                         )
     #ifndef TEST_KIWIBD
-    TEST_BDCFG(erase_cycles,            ERASE_CYCLES                        )
-    TEST_BDCFG(badblock_behavior,       BADBLOCK_BEHAVIOR                   )
-    TEST_BDCFG(powerloss_behavior,      POWERLOSS_BEHAVIOR                  )
-    TEST_BDCFG(seed,                    BD_SEED                             )
+    struct lfs3_emubd_cfg _bdcfg = {
+        #ifdef TEST_BDCFG_CFG
+        TEST_BDCFG_CFG
+        #endif
+        .erase_value                    = ERASE_VALUE,
+        .erase_cycles                   = ERASE_CYCLES,
+        .badblock_behavior              = BADBLOCK_BEHAVIOR,
+        .powerloss_behavior             = POWERLOSS_BEHAVIOR,
+        .seed                           = BD_SEED,
+    };
+    struct lfs3_emubd_cfg *TEST_BDCFG = &_bdcfg;
+    #else
+    struct lfs3_kiwibd_cfg _bdcfg = {
+        #ifdef TEST_BDCFG_CFG
+        TEST_BDCFG_CFG
+        #endif
+        .erase_value                    = ERASE_VALUE,
+    };
+    struct lfs3_kiwibd_cfg *TEST_BDCFG = &_bdcfg;
     #endif
 #endif
 

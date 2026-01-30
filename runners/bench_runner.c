@@ -137,7 +137,7 @@ typedef struct bench_id {
 // implicit defines declared here
 #define BENCH_DEFINE(k, v) \
         intmax_t k;
-    #include "bench_defines.h"
+    #include BENCH_STRINGIFY(BENCH_DEFINES)
 #undef BENCH_DEFINE
 
 #define BENCH_DEFINE(k, v) \
@@ -146,13 +146,13 @@ typedef struct bench_id {
             (void)i; \
             return v; \
         }
-    #include "bench_defines.h"
+    #include BENCH_STRINGIFY(BENCH_DEFINES)
 #undef BENCH_DEFINE
 
 const bench_define_t bench_implicit_defines[] = {
     #define BENCH_DEFINE(k, v) \
             {#k, &k, bench_define_##k, NULL, 1},
-        #include "bench_defines.h"
+        #include BENCH_STRINGIFY(BENCH_DEFINES)
     #undef BENCH_DEFINE
 };
 const size_t bench_implicit_define_count
@@ -731,7 +731,7 @@ void bench_heap_resume(void) {
 #endif
 
 #ifdef BENCH_YES_HEAP
-static void bench_heap_inc(size_t size) {
+void bench_heap_inc(size_t size) {
     if (bench_heap_entered & 1) {
         bench_heap_watermark += size;
         // keep track of the deepest heap
@@ -743,7 +743,7 @@ static void bench_heap_inc(size_t size) {
 #endif
 
 #ifdef BENCH_YES_HEAP
-static void bench_heap_dec(size_t size) {
+void bench_heap_dec(size_t size) {
     if (bench_heap_entered & 1) {
         assert(bench_heap_watermark >= size);
         bench_heap_watermark -= size;
@@ -842,12 +842,12 @@ typedef struct bench_record {
     bench_ns_t last_simtime;
 } bench_record_t;
 
-static struct lfs3_cfg *bench_cfg = NULL;
+static const struct lfs3_cfg *bench_cfg = NULL;
 static bench_record_t *bench_records;
 size_t bench_record_count;
 size_t bench_record_capacity;
 
-void bench_reset(struct lfs3_cfg *cfg) {
+void bench_reset(const struct lfs3_cfg *cfg) {
     bench_cfg = cfg;
     bench_record_count = 0;
 }
@@ -1807,49 +1807,36 @@ void perm_run(
     lfs3_kiwibd_t bd;
     #endif
 
-    struct lfs3_cfg cfg = {
-        .context            = &bd,
-        .read               = bench_bd_read,
-        .prog               = bench_bd_prog,
-        .erase              = bench_bd_erase,
-        .sync               = bench_bd_sync,
-        #define BENCH_CFG(k, v) \
-                .k = v,
-            #include "bench_defines.h"
-        #undef BENCH_CFG
-    };
+    #define BENCH_CFG CFG
+    #define BENCH_CFG_CFG \
+            .context        = &bd, \
+            .read           = bench_bd_read, \
+            .prog           = bench_bd_prog, \
+            .erase          = bench_bd_erase, \
+            .sync           = bench_bd_sync,
+        #include BENCH_STRINGIFY(BENCH_DEFINES)
+    #undef BENCH_CFG_CFG
+    #undef BENCH_CFG
 
-    // using emubd?
+    #define BENCH_BDCFG BDCFG
+    #define BENCH_BDCFG_CFG \
+            .read_sleep     = bench_read_sleep, \
+            .prog_sleep     = bench_prog_sleep, \
+            .erase_sleep    = bench_erase_sleep,
+        #include BENCH_STRINGIFY(BENCH_DEFINES)
+    #undef BENCH_BDCFG_CFG
+    #undef BENCH_BDCFG
+
+    // init emubd?
     #ifndef BENCH_KIWIBD
-    struct lfs3_emubd_cfg bdcfg = {
-        .read_sleep         = bench_read_sleep,
-        .prog_sleep         = bench_prog_sleep,
-        .erase_sleep        = bench_erase_sleep,
-        #define BENCH_BDCFG(k, v) \
-                .k = v,
-            #include "bench_defines.h"
-        #undef BENCH_CFG
-    };
-
-    int err = lfs3_emubd_createcfg(&cfg, bench_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(CFG, bench_disk_path, BDCFG);
     if (err) {
         fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
     }
-
-    // using kiwibd?
+    // init kiwibd?
     #else
-    struct lfs3_kiwibd_cfg bdcfg = {
-        .read_sleep         = bench_read_sleep,
-        .prog_sleep         = bench_prog_sleep,
-        .erase_sleep        = bench_erase_sleep,
-        #define BENCH_BDCFG(k, v) \
-                .k = v,
-            #include "bench_defines.h"
-        #undef BENCH_CFG
-    };
-
-    int err = lfs3_kiwibd_createcfg(&cfg, bench_disk_path, &bdcfg);
+    int err = lfs3_kiwibd_createcfg(CFG, bench_disk_path, BDCFG);
     if (err) {
         fprintf(stderr, "error: could not create kiwibd: %d\n", err);
         exit(-1);
@@ -1860,7 +1847,7 @@ void perm_run(
     printf("running ");
     perm_printid(suite, case_);
     printf("\n");
-    bench_reset(&cfg);
+    bench_reset(CFG);
     #ifdef BENCH_YES_STACK
     bench_stack_enter();
     #endif
@@ -1868,7 +1855,7 @@ void perm_run(
     bench_heap_enter();
     #endif
 
-    case_->run(&cfg);
+    case_->run(CFG);
 
     #ifdef BENCH_YES_HEAP
     bench_heap_exit();
@@ -1882,13 +1869,13 @@ void perm_run(
 
     // cleanup
     #ifndef BENCH_KIWIBD
-    err = lfs3_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(CFG);
     if (err) {
         fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
     #else
-    err = lfs3_kiwibd_destroy(&cfg);
+    err = lfs3_kiwibd_destroy(CFG);
     if (err) {
         fprintf(stderr, "error: could not destroy kiwibd: %d\n", err);
         exit(-1);

@@ -215,12 +215,10 @@ int lfs3_emubd_sync(const struct lfs3_cfg *cfg);
 
 /// Additional emubd features for testing ///
 
-// Get total simulated runtime
+// Get simulated runtime in nanoseconds
 lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg);
 
 // Reset simulation counters
-//
-// You probably shouldn't call this, instead diff before/after simtimes
 int lfs3_emubd_simreset(const struct lfs3_cfg *cfg);
 
 // Get total number of read transactions

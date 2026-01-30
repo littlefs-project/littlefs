@@ -148,7 +148,7 @@ typedef struct test_id {
 // implicit defines declared here
 #define TEST_DEFINE(k, v) \
         intmax_t k;
-    #include "test_defines.h"
+    #include TEST_STRINGIFY(TEST_DEFINES)
 #undef TEST_DEFINE
 
 #define TEST_DEFINE(k, v) \
@@ -157,13 +157,13 @@ typedef struct test_id {
             (void)i; \
             return v; \
         }
-    #include "test_defines.h"
+    #include TEST_STRINGIFY(TEST_DEFINES)
 #undef TEST_DEFINE
 
 const test_define_t test_implicit_defines[] = {
     #define TEST_DEFINE(k, v) \
             {#k, &k, test_define_##k, NULL, 1},
-        #include "test_defines.h"
+        #include TEST_STRINGIFY(TEST_DEFINES)
     #undef TEST_DEFINE
 };
 const size_t test_implicit_define_count
@@ -747,7 +747,7 @@ void test_heap_resume(void) {
 #endif
 
 #ifdef TEST_YES_HEAP
-static void test_heap_inc(size_t size) {
+void test_heap_inc(size_t size) {
     if (test_heap_entered & 1) {
         test_heap_watermark += size;
         // keep track of the deepest heap
@@ -759,7 +759,7 @@ static void test_heap_inc(size_t size) {
 #endif
 
 #ifdef TEST_YES_HEAP
-static void test_heap_dec(size_t size) {
+void test_heap_dec(size_t size) {
     if (test_heap_entered & 1) {
         assert(test_heap_watermark >= size);
         test_heap_watermark -= size;
@@ -1646,49 +1646,36 @@ static void run_powerloss_none(
     lfs3_kiwibd_t bd;
     #endif
 
-    struct lfs3_cfg cfg = {
-        .context            = &bd,
-        .read               = test_bd_read,
-        .prog               = test_bd_prog,
-        .erase              = test_bd_erase,
-        .sync               = test_bd_sync,
-        #define TEST_CFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_CFG
-    };
+    #define TEST_CFG CFG
+    #define TEST_CFG_CFG \
+            .context        = &bd, \
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_CFG_CFG
+    #undef TEST_CFG
 
-    // using emubd?
+    #define TEST_BDCFG BDCFG
+    #define TEST_BDCFG_CFG \
+            .read_sleep     = test_read_sleep, \
+            .prog_sleep     = test_prog_sleep, \
+            .erase_sleep    = test_erase_sleep,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_BDCFG_CFG
+    #undef TEST_BDCFG
+
+    // init emubd?
     #ifndef TEST_KIWIBD
-    struct lfs3_emubd_cfg bdcfg = {
-        .read_sleep         = test_read_sleep,
-        .prog_sleep         = test_prog_sleep,
-        .erase_sleep        = test_erase_sleep,
-        #define TEST_BDCFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_BDCFG
-    };
-
-    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(CFG, test_disk_path, BDCFG);
     if (err) {
         fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
     }
-
-    // using kiwibd?
+    // init kiwibd?
     #else
-    struct lfs3_kiwibd_cfg bdcfg = {
-        .read_sleep         = test_read_sleep,
-        .prog_sleep         = test_prog_sleep,
-        .erase_sleep        = test_erase_sleep,
-        #define TEST_BDCFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_CFG
-    };
-
-    int err = lfs3_kiwibd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_kiwibd_createcfg(CFG, test_disk_path, BDCFG);
     if (err) {
         fprintf(stderr, "error: could not create kiwibd: %d\n", err);
         exit(-1);
@@ -1706,7 +1693,7 @@ static void run_powerloss_none(
     test_heap_enter();
     #endif
 
-    case_->run(&cfg);
+    case_->run(CFG);
 
     #ifdef TEST_YES_HEAP
     test_heap_exit();
@@ -1720,13 +1707,13 @@ static void run_powerloss_none(
 
     // cleanup
     #ifndef TEST_KIWIBD
-    err = lfs3_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(CFG);
     if (err) {
         fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
     #else
-    err = lfs3_kiwibd_destroy(&cfg);
+    err = lfs3_kiwibd_destroy(CFG);
     if (err) {
         fprintf(stderr, "error: could not destroy kiwibd: %d\n", err);
         exit(-1);
@@ -1753,34 +1740,32 @@ static void run_powerloss_linear(
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs3_cfg cfg = {
-        .context            = &bd,
-        .read               = test_bd_read,
-        .prog               = test_bd_prog,
-        .erase              = test_bd_erase,
-        .sync               = test_bd_sync,
-        #define TEST_CFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_CFG
-    };
+    #define TEST_CFG CFG
+    #define TEST_CFG_CFG \
+            .context        = &bd, \
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_CFG_CFG
+    #undef TEST_CFG
 
-    struct lfs3_emubd_cfg bdcfg = {
-        .read_sleep         = test_read_sleep,
-        .prog_sleep         = test_prog_sleep,
-        .erase_sleep        = test_erase_sleep,
-        .power_cycles       = (TEST_PLS < powerloss->cycle_count)
-                ? TEST_PLS+1
-                : 0,
-        .powerloss_cb       = powerloss_longjmp,
-        .powerloss_data     = &powerloss_jmp,
-        #define TEST_BDCFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_BDCFG
-    };
+    #define TEST_BDCFG BDCFG
+    #define TEST_BDCFG_CFG \
+            .read_sleep     = test_read_sleep, \
+            .prog_sleep     = test_prog_sleep, \
+            .erase_sleep    = test_erase_sleep, \
+            .power_cycles   = (TEST_PLS < powerloss->cycle_count) \
+                                ? TEST_PLS+1 \
+                                : 0, \
+            .powerloss_cb   = powerloss_longjmp, \
+            .powerloss_data = &powerloss_jmp,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_BDCFG_CFG
+    #undef TEST_BDCFG
 
-    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(CFG, test_disk_path, BDCFG);
     if (err) {
         fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
@@ -1801,7 +1786,7 @@ static void run_powerloss_linear(
             #endif
 
             // run the test
-            case_->run(&cfg);
+            case_->run(CFG);
 
             #ifdef TEST_YES_HEAP
             test_heap_exit();
@@ -1821,7 +1806,7 @@ static void run_powerloss_linear(
 
         // increment pls
         TEST_PLS += 1;
-        lfs3_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+        lfs3_emubd_setpowercycles(CFG, (TEST_PLS < powerloss->cycle_count)
                 ? TEST_PLS+1
                 : 0);
     }
@@ -1831,7 +1816,7 @@ static void run_powerloss_linear(
     printf("\n");
 
     // cleanup
-    err = lfs3_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(CFG);
     if (err) {
         fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
@@ -1851,34 +1836,32 @@ static void run_powerloss_log(
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs3_cfg cfg = {
-        .context            = &bd,
-        .read               = test_bd_read,
-        .prog               = test_bd_prog,
-        .erase              = test_bd_erase,
-        .sync               = test_bd_sync,
-        #define TEST_CFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_CFG
-    };
+    #define TEST_CFG CFG
+    #define TEST_CFG_CFG \
+            .context        = &bd, \
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_CFG_CFG
+    #undef TEST_CFG
 
-    struct lfs3_emubd_cfg bdcfg = {
-        .read_sleep         = test_read_sleep,
-        .prog_sleep         = test_prog_sleep,
-        .erase_sleep        = test_erase_sleep,
-        .power_cycles       = (TEST_PLS < powerloss->cycle_count)
-                ? 1 << TEST_PLS
-                : 0,
-        .powerloss_cb       = powerloss_longjmp,
-        .powerloss_data     = &powerloss_jmp,
-        #define TEST_BDCFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_BDCFG
-    };
+    #define TEST_BDCFG BDCFG
+    #define TEST_BDCFG_CFG \
+            .read_sleep     = test_read_sleep, \
+            .prog_sleep     = test_prog_sleep, \
+            .erase_sleep    = test_erase_sleep, \
+            .power_cycles   = (TEST_PLS < powerloss->cycle_count) \
+                                ? 1 << TEST_PLS \
+                                : 0, \
+            .powerloss_cb   = powerloss_longjmp, \
+            .powerloss_data = &powerloss_jmp,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_BDCFG_CFG
+    #undef TEST_BDCFG
 
-    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(CFG, test_disk_path, BDCFG);
     if (err) {
         fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
@@ -1899,7 +1882,7 @@ static void run_powerloss_log(
             #endif
 
             // run the test
-            case_->run(&cfg);
+            case_->run(CFG);
 
             #ifdef TEST_YES_HEAP
             test_heap_exit();
@@ -1919,7 +1902,7 @@ static void run_powerloss_log(
 
         // increment pls
         TEST_PLS += 1;
-        lfs3_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+        lfs3_emubd_setpowercycles(CFG, (TEST_PLS < powerloss->cycle_count)
                 ? 1 << TEST_PLS
                 : 0);
     }
@@ -1929,7 +1912,7 @@ static void run_powerloss_log(
     printf("\n");
 
     // cleanup
-    err = lfs3_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(CFG);
     if (err) {
         fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
@@ -1949,34 +1932,32 @@ static void run_powerloss_cycles(
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
 
-    struct lfs3_cfg cfg = {
-        .context            = &bd,
-        .read               = test_bd_read,
-        .prog               = test_bd_prog,
-        .erase              = test_bd_erase,
-        .sync               = test_bd_sync,
-        #define TEST_CFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_CFG
-    };
+    #define TEST_CFG CFG
+    #define TEST_CFG_CFG \
+            .context        = &bd, \
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_CFG_CFG
+    #undef TEST_CFG
 
-    struct lfs3_emubd_cfg bdcfg = {
-        .read_sleep         = test_read_sleep,
-        .prog_sleep         = test_prog_sleep,
-        .erase_sleep        = test_erase_sleep,
-        .power_cycles       = (TEST_PLS < powerloss->cycle_count)
-                ? powerloss->cycles[TEST_PLS]
-                : 0,
-        .powerloss_cb       = powerloss_longjmp,
-        .powerloss_data     = &powerloss_jmp,
-        #define TEST_BDCFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_BDCFG
-    };
+    #define TEST_BDCFG BDCFG
+    #define TEST_BDCFG_CFG \
+            .read_sleep     = test_read_sleep, \
+            .prog_sleep     = test_prog_sleep, \
+            .erase_sleep    = test_erase_sleep, \
+            .power_cycles   = (TEST_PLS < powerloss->cycle_count) \
+                                ? powerloss->cycles[TEST_PLS] \
+                                : 0, \
+            .powerloss_cb   = powerloss_longjmp, \
+            .powerloss_data = &powerloss_jmp,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_BDCFG_CFG
+    #undef TEST_BDCFG
 
-    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(CFG, test_disk_path, BDCFG);
     if (err) {
         fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
@@ -1997,7 +1978,7 @@ static void run_powerloss_cycles(
             #endif
 
             // run the test
-            case_->run(&cfg);
+            case_->run(CFG);
 
             #ifdef TEST_YES_HEAP
             test_heap_exit();
@@ -2016,7 +1997,7 @@ static void run_powerloss_cycles(
 
         // increment pls
         TEST_PLS += 1;
-        lfs3_emubd_setpowercycles(&cfg, (TEST_PLS < powerloss->cycle_count)
+        lfs3_emubd_setpowercycles(CFG, (TEST_PLS < powerloss->cycle_count)
                 ? powerloss->cycles[TEST_PLS]
                 : 0);
     }
@@ -2026,7 +2007,7 @@ static void run_powerloss_cycles(
     printf("\n");
 
     // cleanup
-    err = lfs3_emubd_destroy(&cfg);
+    err = lfs3_emubd_destroy(CFG);
     if (err) {
         fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
@@ -2167,31 +2148,29 @@ static void run_powerloss_exhaustive(
     // create block device and configuration
     lfs3_emubd_t bd;
 
-    struct lfs3_cfg cfg = {
-        .context            = &bd,
-        .read               = test_bd_read,
-        .prog               = test_bd_prog,
-        .erase              = test_bd_erase,
-        .sync               = test_bd_sync,
-        #define TEST_CFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_CFG
-    };
+    #define TEST_CFG CFG
+    #define TEST_CFG_CFG \
+            .context        = &bd, \
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_CFG_CFG
+    #undef TEST_CFG
 
-    struct lfs3_emubd_cfg bdcfg = {
-        .read_sleep         = test_read_sleep,
-        .prog_sleep         = test_prog_sleep,
-        .erase_sleep        = test_erase_sleep,
-        .powerloss_cb       = powerloss_exhaustive_branch,
-        .powerloss_data     = NULL,
-        #define TEST_BDCFG(k, v) \
-                .k = v,
-            #include "test_defines.h"
-        #undef TEST_BDCFG
-    };
+    #define TEST_BDCFG BDCFG
+    #define TEST_BDCFG_CFG \
+            .read_sleep     = test_read_sleep, \
+            .prog_sleep     = test_prog_sleep, \
+            .erase_sleep    = test_erase_sleep, \
+            .powerloss_cb   = powerloss_exhaustive_branch, \
+            .powerloss_data = NULL,
+        #include TEST_STRINGIFY(TEST_DEFINES)
+    #undef TEST_BDCFG_CFG
+    #undef TEST_BDCFG
 
-    int err = lfs3_emubd_createcfg(&cfg, test_disk_path, &bdcfg);
+    int err = lfs3_emubd_createcfg(CFG, test_disk_path, BDCFG);
     if (err) {
         fprintf(stderr, "error: could not create emubd: %d\n", err);
         exit(-1);
@@ -2206,7 +2185,7 @@ static void run_powerloss_exhaustive(
     run_powerloss_exhaustive_layer(
             &(struct powerloss_exhaustive_cycles){NULL, 0, 0},
             suite, case_,
-            &cfg, &bdcfg, powerloss->cycle_count, 0);
+            CFG, BDCFG, powerloss->cycle_count, 0);
 
     printf("finished ");
     perm_printid(suite, case_, NULL, 0);
