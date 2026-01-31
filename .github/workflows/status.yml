@@ -13,12 +13,13 @@ jobs:
   status:
     runs-on: ubuntu-latest
     steps:
-      - uses: dawidd6/action-download-artifact@v2
+      - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          workflow: ${{github.event.workflow_run.name}}
-          run_id: ${{github.event.workflow_run.id}}
-          name: status
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          run-id: ${{github.event.workflow_run.id}}
+          pattern: '{status,status-*}'
+          merge-multiple: true
           path: status
       - name: update-status
         continue-on-error: true
@@ -67,12 +68,13 @@ jobs:
 
     steps:
       # generated comment?
-      - uses: dawidd6/action-download-artifact@v2
+      - uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          workflow: ${{github.event.workflow_run.name}}
-          run_id: ${{github.event.workflow_run.id}}
-          name: comment
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          run-id: ${{github.event.workflow_run.id}}
+          pattern: '{comment,comment-*}'
+          merge-multiple: true
           path: comment
       - name: update-comment
         continue-on-error: true

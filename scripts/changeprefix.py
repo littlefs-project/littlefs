@@ -73,7 +73,7 @@ def changefile(from_prefix, to_prefix, from_path, to_path, *,
         shutil.copystat(from_path, to_path)
 
     if to_path_temp:
-        os.rename(to_path, from_path)
+        shutil.move(to_path, from_path)
     elif from_path != '-':
         os.remove(from_path)
 

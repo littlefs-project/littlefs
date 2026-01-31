@@ -199,6 +199,47 @@ The tests assume a Linux environment and can be started with make:
 make test
 ```
 
+Tests are implemented in C in the .toml files found in the `tests` directory.
+When developing a feature or fixing a bug, it is frequently useful to run a
+single test case or suite of tests:
+
+``` bash
+./scripts/test.py -l runners/test_runner  # list available test suites
+./scripts/test.py -L runners/test_runner test_dirs  # list available test cases
+./scripts/test.py runners/test_runner test_dirs  # run a specific test suite
+```
+
+If an assert fails in a test, test.py will try to print information about the
+failure:
+
+``` bash
+tests/test_dirs.toml:1:failure: test_dirs_root:1g12gg2 (PROG_SIZE=16, ERASE_SIZE=512) failed
+tests/test_dirs.toml:5:assert: assert failed with 0, expected eq 42
+    lfs_mount(&lfs, cfg) => 42;
+```
+
+This includes the test id, which can be passed to test.py to run only that
+specific test permutation:
+
+``` bash
+./scripts/test.py runners/test_runner test_dirs_root:1g12gg2  # run a specific test permutation
+./scripts/test.py runners/test_runner test_dirs_root:1g12gg2 --gdb  # drop into gdb on failure
+```
+
+Some other flags that may be useful:
+
+```bash
+./scripts/test.py runners/test_runner -b -j  # run tests in parallel
+./scripts/test.py runners/test_runner -v -O-  # redirect stdout to stdout
+./scripts/test.py runners/test_runner -ddisk  # capture resulting disk image
+```
+
+See `-h/--help` for a full list of available flags:
+
+``` bash
+./scripts/test.py --help
+```
+
 ## License
 
 The littlefs is provided under the [BSD-3-Clause] license. See
@@ -226,7 +267,11 @@ License Identifiers that are here available: http://spdx.org/licenses/
   to create images of the filesystem on your PC. Check if littlefs will fit
   your needs, create images for a later download to the target memory or
   inspect the content of a binary image of the target memory.
-  
+
+- [littlefs-toy] - A command-line tool for creating and working with littlefs
+  images. Uses syntax similar to tar command for ease of use. Supports working
+  on littlefs images embedded inside another file (firmware image, etc).
+
 - [littlefs2-rust] - A Rust wrapper for littlefs. This project allows you
   to use littlefs in a Rust-friendly API, reaping the benefits of Rust's memory
   safety and other guarantees.
@@ -251,6 +296,12 @@ License Identifiers that are here available: http://spdx.org/licenses/
   filesystem over USB. Allows mounting littlefs on a host PC without additional
   drivers.
 
+- [ramcrc32bd] - An example block device using littlefs's 32-bit CRC for
+  error-correction.
+
+- [ramrsbd] - An example block device using Reed-Solomon codes for
+  error-correction.
+
 - [Mbed OS] - The easiest way to get started with littlefs is to jump into Mbed
   which already has block device drivers for most forms of embedded storage.
   littlefs is available in Mbed OS as the [LittleFileSystem] class.
@@ -274,6 +325,7 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [littlefs-js]: https://github.com/geky/littlefs-js
 [littlefs-js-demo]:http://littlefs.geky.net/demo.html
 [littlefs-python]: https://pypi.org/project/littlefs-python/
+[littlefs-toy]: https://github.com/tjko/littlefs-toy
 [littlefs2-rust]: https://crates.io/crates/littlefs2
 [nim-littlefs]: https://github.com/Graveflo/nim-littlefs
 [chamelon]: https://github.com/yomimono/chamelon
@@ -281,6 +333,8 @@ License Identifiers that are here available: http://spdx.org/licenses/
 [mklfs]: https://github.com/whitecatboard/Lua-RTOS-ESP32/tree/master/components/mklfs/src
 [mklittlefs]: https://github.com/earlephilhower/mklittlefs
 [pico-littlefs-usb]: https://github.com/oyama/pico-littlefs-usb
+[ramcrc32bd]: https://github.com/geky/ramcrc32bd
+[ramrsbd]: https://github.com/geky/ramrsbd
 [Mbed OS]: https://github.com/armmbed/mbed-os
 [LittleFileSystem]: https://os.mbed.com/docs/mbed-os/latest/apis/littlefilesystem.html
 [SPIFFS]: https://github.com/pellepl/spiffs

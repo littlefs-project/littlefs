@@ -21,7 +21,7 @@ jobs:
         arch: [x86_64, thumb, mips, powerpc]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -235,9 +235,9 @@ jobs:
 
       # create size statuses
       - name: upload-sizes
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: sizes
+          name: sizes-${{matrix.arch}}
           path: sizes
       - name: status-sizes
         run: |
@@ -273,16 +273,16 @@ jobs:
             }' | tee status/$(basename $f .csv).json
           done
       - name: upload-status-sizes
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: status
+          name: status-sizes-${{matrix.arch}}
           path: status
           retention-days: 1
 
       # create cov statuses
       - name: upload-cov
         if: ${{matrix.arch == 'x86_64'}}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: cov
           path: cov
@@ -317,11 +317,11 @@ jobs:
               target_step: env.STEP,
             }' | tee status/$(basename $f .csv)-$s.json
           done
-      - name: upload-status-sizes
+      - name: upload-status-cov
         if: ${{matrix.arch == 'x86_64'}}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: status
+          name: status-cov
           path: status
           retention-days: 1
 
@@ -336,7 +336,7 @@ jobs:
         pls: [1, 2]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -361,7 +361,7 @@ jobs:
   test-no-intrinsics:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -374,11 +374,50 @@ jobs:
         run: |
           CFLAGS="$CFLAGS -DLFS_NO_INTRINSICS" make test
 
+  test-shrink:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip
+          pip3 install toml
+          gcc --version
+          python3 --version
+      - name: test-no-intrinsics
+        run: |
+          CFLAGS="$CFLAGS -DLFS_SHRINKNONRELOCATING" make test
+
+  # run with all trace options enabled to at least make sure these
+  # all compile
+  test-yes-trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip
+          pip3 install toml
+          gcc --version
+          python3 --version
+      - name: test-yes-trace
+        run: |
+          CFLAGS="$CFLAGS \
+            -DLFS_YES_TRACE \
+            -DLFS_RAMBD_YES_TRACE \
+            -DLFS_FILEBD_YES_TRACE \
+            -DLFS_RAMBD_YES_TRACE" \
+            make test
+
   # run LFS_MULTIVERSION tests
   test-multiversion:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -395,7 +434,7 @@ jobs:
   test-lfs2_0:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -414,7 +453,7 @@ jobs:
   test-valgrind:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -431,12 +470,11 @@ jobs:
           TESTFLAGS="$TESTFLAGS --valgrind --context=1024 -Gdefault -Pnone" \
             make test
 
-  # test that compilation is warning free under clang
-  # run with Clang, mostly to check for Clang-specific warnings
+  # compile/run with Clang, mostly to check for Clang-specific warnings
   test-clang:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -446,12 +484,8 @@ jobs:
           python3 --version
       - name: test-clang
         run: |
-          # override CFLAGS since Clang does not support -fcallgraph-info
-          # and -ftrack-macro-expansions
-          make \
-            CC=clang \
-            CFLAGS="$CFLAGS -MMD -g3 -I. -std=c99 -Wall -Wextra -pedantic" \
-            test
+          CC=clang \
+            make test
 
   # run benchmarks
   #
@@ -459,7 +493,7 @@ jobs:
   bench:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -491,7 +525,7 @@ jobs:
 
       # create bench statuses
       - name: upload-bench
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: bench
           path: bench
@@ -525,9 +559,9 @@ jobs:
             }' | tee status/$(basename $f .csv)-$s.json
           done
       - name: upload-status-bench
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: status
+          name: status-bench
           path: status
           retention-days: 1
 
@@ -535,10 +569,10 @@ jobs:
   test-compat:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         if: ${{github.event_name == 'pull_request'}}
       # checkout the current pr target into lfsp
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         if: ${{github.event_name == 'pull_request'}}
         with:
           ref: ${{github.event.pull_request.base.ref}}
@@ -572,7 +606,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{!endsWith(github.ref, '-prefix')}}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -582,7 +616,7 @@ jobs:
           gcc --version
           python3 --version
           fusermount -V
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           repository: littlefs-project/littlefs-fuse
           ref: v2
@@ -622,7 +656,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{!endsWith(github.ref, '-prefix')}}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install
         run: |
           # need a few things
@@ -632,12 +666,12 @@ jobs:
           gcc --version
           python3 --version
           fusermount -V
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           repository: littlefs-project/littlefs-fuse
           ref: v2
           path: v2
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           repository: littlefs-project/littlefs-fuse
           ref: v1
@@ -694,7 +728,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, bench]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         if: ${{github.event_name == 'pull_request'}}
       - name: install
         if: ${{github.event_name == 'pull_request'}}
@@ -704,23 +738,26 @@ jobs:
           pip3 install toml
           gcc --version
           python3 --version
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
-          name: sizes
+          pattern: '{sizes,sizes-*}'
+          merge-multiple: true
           path: sizes
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
-          name: cov
+          pattern: '{cov,cov-*}'
+          merge-multiple: true
           path: cov
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         if: ${{github.event_name == 'pull_request'}}
         continue-on-error: true
         with:
-          name: bench
+          pattern: '{bench,bench-*}'
+          merge-multiple: true
           path: bench
 
       # try to find results from tests
@@ -862,7 +899,7 @@ jobs:
             body: $comment,
           }' | tee comment/comment.json
       - name: upload-comment
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: comment
           path: comment
