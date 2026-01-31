@@ -3873,38 +3873,40 @@ static lfs_soff_t lfs_file_size_(lfs_t *lfs, lfs_file_t *file) {
     return file->ctz.size;
 }
 
-
-static int lfs_file_enumattr_(lfs_t* lfs, lfs_file_t* file,
+static int lfs_enumattr_(lfs_t* lfs, const char* path,
         lfs_attr_callback_t callback, struct lfs_attr_enum_t* e)
 {
+    lfs_mdir_t cwd;
+    lfs_stag_t tag = lfs_dir_find(lfs, &cwd, &path, NULL);
+    if (tag < 0) {
+        return tag;
+    }
+
+    uint16_t id = lfs_tag_id(tag);
+    if (id == 0x3ff) {
+        // special case for root
+        id = 0;
+        int err = lfs_dir_fetch(lfs, &cwd, lfs->root);
+        if (err) {
+            return err;
+        }
+    }
+
     size_t count = 0;
 
     // Set of flags to avoid returning old versions of an attribute
     uint8_t found_attrs[256 / 8] = {0};
 
-    // Enumerate registered attributes first as they may have been updated
-    for(unsigned i = 0; i < file->cfg->attr_count; i++) {
-        struct lfs_attr* const attr = &file->cfg->attrs[i];
-        memcpy(e->buffer, attr->buffer, lfs_min(attr->size, e->bufsize));
-        ++count;
-        if(!callback(e, attr->type, attr->size)) {
-            return count;
-        }
-        uint8_t offset = attr->type / 8;
-        uint8_t mask = 1 << (attr->type % 8);
-        found_attrs[offset] |= mask;
-    }
-
     // Enumerate on-disk attributes
 
-    lfs_mdir_t* dir = &file->m;
+    lfs_mdir_t* dir = &cwd;
     lfs_off_t off = dir->off;
     lfs_tag_t ntag = dir->etag;
     lfs_stag_t gdiff = 0;
 
     lfs_tag_t gmask = LFS_MKTAG(LFS_TYPE_USERATTR, 0x3ff, 0);
     lfs_size_t gsize = lfs_min(e->bufsize, lfs->attr_max);
-    lfs_tag_t gtag = LFS_MKTAG(LFS_TYPE_USERATTR + 0, file->id, gsize);
+    lfs_tag_t gtag = LFS_MKTAG(LFS_TYPE_USERATTR + 0, id, gsize);
 
     if (lfs_gstate_hasmovehere(&lfs->gdisk, dir->pair) &&
             lfs_tag_id(gmask) != 0 &&
@@ -6434,19 +6436,19 @@ lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file) {
     return res;
 }
 
-int lfs_file_enumattr(lfs_t* lfs, lfs_file_t* file,
+int lfs_enumattr(lfs_t* lfs, const char* path,
         lfs_attr_callback_t callback, struct lfs_attr_enum_t* e)
 {
 	int err = LFS_LOCK(lfs->cfg);
 	if(err) {
 		return err;
 	}
-	LFS_TRACE("lfs_file_enumattr(%p, %p, %p)", (void*)lfs, (void*)file, (void*)e);
-	LFS_ASSERT(lfs_mlist_isopen(lfs->mlist, (struct lfs_mlist*)file));
+	LFS_TRACE("lfs_enumattr(%p, \"%s\", %p, %p)",
+            (void*)lfs, path, (void*)e);
 
-	err = lfs_file_enumattr_(lfs, file, callback, e);
+	err = lfs_enumattr_(lfs, path, callback, e);
 
-	LFS_TRACE("lfs_file_enumattr -> %d", err);
+	LFS_TRACE("lfs_enumattr -> %"PRId32, err);
 	LFS_UNLOCK(lfs->cfg);
 	return err;
 }

@@ -661,6 +661,13 @@ int lfs_file_rewind(lfs_t *lfs, lfs_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs_soff_t lfs_file_size(lfs_t *lfs, lfs_file_t *file);
 
+// Parameters used during attribute enumeration
+struct lfs_attr_enum_t {
+    void* param;
+    void* buffer;
+    size_t bufsize;
+};
+
 // Callback to receive details for each file attribute
 //
 // Return true to continue enumeration, false to stop
@@ -670,7 +677,7 @@ typedef bool (*lfs_attr_callback_t)
 // Enumerate file attributes
 //
 // Invokes a callback for each attribute found
-int lfs_file_enumattr(lfs_t *lfs, lfs_file_t* file,
+int lfs_enumattr(lfs_t *lfs, const char* path,
     lfs_attr_callback_t callback, struct lfs_attr_enum_t* e);
 
 /// Directory operations ///
