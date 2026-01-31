@@ -3964,7 +3964,9 @@ static int lfs_enumattr_(lfs_t* lfs, const char* path,
             return err;
         }
 
-        callback(e, attrnum, lfs_tag_size(tag));
+        if(!callback(e, attrnum, lfs_tag_size(tag))) {
+            break;
+        }
         ++count;
     }
 
