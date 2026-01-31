@@ -365,15 +365,6 @@ struct lfs_file_config {
     lfs_size_t attr_count;
 };
 
-// Configuration provided during lfs_dir_readcfg and lfs_statcfg
-struct lfs_stat_config {
-    // Optional list of custom attributes to read
-    struct lfs_attr *attrs;
-
-    // Number of custom attributes in the list
-    lfs_size_t attr_count;
-};
-
 /// internal littlefs data structures ///
 typedef struct lfs_cache {
     lfs_block_t block;
@@ -528,15 +519,15 @@ int lfs_rename(lfs_t *lfs, const char *oldpath, const char *newpath);
 #endif
 
 // Find info about a file or directory and read set of custom attributes
-int lfs_statcfg(lfs_t *lfs, const char *path, struct lfs_info *info,
-        const struct lfs_stat_config* config);
+int lfs_stata(lfs_t *lfs, const char *path, struct lfs_info *info,
+        struct lfs_attr *attrs, lfs_size_t attr_count);
 
 // Find info about a file or directory
 //
 // Fills out the info structure, based on the specified file or directory.
 // Returns a negative error code on failure.
 static inline int lfs_stat(lfs_t *lfs, const char *path, struct lfs_info *info) {
-    return lfs_statcfg(lfs, path, info, NULL);
+    return lfs_stata(lfs, path, info, NULL, 0);
 }
 
 // Get a custom attribute
@@ -704,8 +695,8 @@ int lfs_dir_open(lfs_t *lfs, lfs_dir_t *dir, const char *path);
 int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
 
 // Read directory entry plus attributes
-int lfs_dir_readcfg(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info,
-        const struct lfs_stat_config* config);
+int lfs_dir_reada(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info,
+        struct lfs_attr *attrs, lfs_size_t attr_count);
 
 // Read an entry in the directory
 //
@@ -713,7 +704,7 @@ int lfs_dir_readcfg(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info,
 // Returns a positive value on success, 0 at the end of directory,
 // or a negative error code on failure.
 static inline int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info) {
-    return lfs_dir_readcfg(lfs, dir, info, NULL);
+    return lfs_dir_reada(lfs, dir, info, NULL, 0);
 }
 
 // Change the position of the directory
