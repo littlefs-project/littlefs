@@ -28,7 +28,7 @@
     #ifndef BENCH_NAND
     // default timings for NOR flash, based on w25q64jv:
     // https://www.winbond.com/resource-files/
-    //         W25Q256JV%20SPI%20RevQ%2002072025%20Plus.pdf
+    //         W25Q64JV%20RevM%2012242024%20Plus.pdf
     //
     // note one thing unique to NOR flash is the extreme erase cost
     //
