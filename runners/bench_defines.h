@@ -35,16 +35,21 @@
     // FR=104 MHz, quad prog (9.6 ns * 8/4)
     // => +~19 ns for bus (not read!)
     //
+    // simple:
     // readed=40ns/B fR=50 MHz, quad read (20 ns * 8/4)
     // progged=1582ns/B tPP=0.4 ms, page=256 (0.4 ms / 256 + bus)
     // erased=10986ns/B tSE=45 ms, sector=4096 (45 ms / 4096)
     //
+    // less-simple:
     // reads=0ns (no transaction cost)
     // progs=400000ns tPP=0.4 ms, page=256
-    // erases=45000000ns tSE=45 ms, sector=4096
+    // erases=0ns (no transaction cost)
     // readed=40ns/B fR=50 MHz, quad read (20 ns * 8/4)
     // progged=1484ns/B tPP=0.4 ms (((4096/256)*0.4ms - 0.4ms)/4096 + bus)
-    // erased=0ns/B (no per-byte cost)
+    // erased=10986ns/B tSE=45 ms, sector=4096 (45 ms / 4096)
+    //
+    // note we always treat erases as per-byte to simplify benchmarking
+    // across different block sizes
     //
     #ifdef BENCH_SIMPLE
     BENCH_DEFINE(READS_TIMING,          0                                   )
@@ -56,10 +61,10 @@
     #else
     BENCH_DEFINE(READS_TIMING,          0                                   )
     BENCH_DEFINE(PROGS_TIMING,          400000                              )
-    BENCH_DEFINE(ERASES_TIMING,         45000000                            )
+    BENCH_DEFINE(ERASES_TIMING,         0                                   )
     BENCH_DEFINE(READED_TIMING,         40                                  )
     BENCH_DEFINE(PROGGED_TIMING,        1484                                )
-    BENCH_DEFINE(ERASED_TIMING,         0                                   )
+    BENCH_DEFINE(ERASED_TIMING,         10986                               )
     #endif
     #else
     // default timings for NAND flash, based on w25n01gv:
@@ -68,16 +73,21 @@
     // FR=104 MHz, quad read/prog (9.6 ns * 8/4)
     // => +~19 ns for bus
     //
+    // simple:
     // readed=31ns/B tRD1=25 us, p=2048, s=512 (25 us / 2048 + bus)
     // progged=141ns/B tPP=250 us, p=2048, s=512 (250 us / 2048 + bus)
     // erased=15ns/B tBE=2 ms, block=131072 (2 ms / 131072)
     //
+    // less-simple:
     // reads=25000ns tRD1=25 us, p=2048, s=512
     // progs=250000ns tPP=250 us, p=2048, s=512
-    // erases=2000000ns tBE=2 ms, block=131072
+    // erases=0ns (no transaction cost)
     // readed=31ns/B tRD1=25 us (((131072/2048)*25us - 25us)/131072 + bus)
     // progged=139ns/B tPP=250 us (((131072/2048)*250us - 250us)/131072 + bus)
-    // erased=0ns/B (no per-byte cost)
+    // erased=15ns/B tBE=2 ms, block=131072 (2 ms / 131072)
+    //
+    // note we always treat erases as per-byte to simplify benchmarking
+    // across different block sizes
     //
     #ifdef BENCH_SIMPLE
     BENCH_DEFINE(READS_TIMING,          0                                   )
@@ -89,10 +99,10 @@
     #else
     BENCH_DEFINE(READS_TIMING,          25000                               )
     BENCH_DEFINE(PROGS_TIMING,          250000                              )
-    BENCH_DEFINE(ERASES_TIMING,         2000000                             )
+    BENCH_DEFINE(ERASES_TIMING,         0                                   )
     BENCH_DEFINE(READED_TIMING,         31                                  )
     BENCH_DEFINE(PROGGED_TIMING,        139                                 )
-    BENCH_DEFINE(ERASED_TIMING,         0                                   )
+    BENCH_DEFINE(ERASED_TIMING,         15                                  )
     #endif
     #endif
     #ifndef BENCH_KIWIBD
