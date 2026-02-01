@@ -4,9 +4,17 @@
 // preconfigured defines that control how benches run
 #ifdef BENCH_DEFINE
     //          name                    value (overridable)
+    #ifndef BENCH_NAND
+    // NOR flash geometry
     BENCH_DEFINE(READ_SIZE,             1                                   )
     BENCH_DEFINE(PROG_SIZE,             1                                   )
     BENCH_DEFINE(BLOCK_SIZE,            4096                                )
+    #else
+    // NAND flash geometry
+    BENCH_DEFINE(READ_SIZE,             1                                   )
+    BENCH_DEFINE(PROG_SIZE,             512                                 )
+    BENCH_DEFINE(BLOCK_SIZE,            131072                              )
+    #endif
     BENCH_DEFINE(BLOCK_COUNT,           DISK_SIZE/BLOCK_SIZE                )
     BENCH_DEFINE(DISK_SIZE,             1024*1024                           )
     BENCH_DEFINE(BLOCK_RECYCLES,        -1                                  )
@@ -26,7 +34,9 @@
     BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
     BENCH_DEFINE(ERASE_VALUE,           0xff                                )
     #ifndef BENCH_NAND
-    // default timings for NOR flash, based on w25q64jv:
+    // NOR flash timings
+    //
+    // based on w25q64jv:
     // https://www.winbond.com/resource-files/
     //         W25Q64JV%20RevM%2012242024%20Plus.pdf
     //
@@ -67,7 +77,9 @@
     BENCH_DEFINE(ERASED_TIMING,         10986                               )
     #endif
     #else
-    // default timings for NAND flash, based on w25n01gv:
+    // NAND flash timings
+    //
+    // based on w25n01gv:
     // https://www.winbond.com/resource-files/W25N01GV%20Rev%20R%20070323.pdf
     //
     // FR=104 MHz, quad read/prog (9.6 ns * 8/4)
