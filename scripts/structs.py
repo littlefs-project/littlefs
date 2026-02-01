@@ -801,11 +801,17 @@ def table(Result, results, diff_results=None, *,
                     for k in by): r
                 for r in diff_results or []}
 
-    # lost results? this only happens if we didn't fold by the same
-    # by field, which is an error and risks confusing results
-    assert len(table) == len(results)
-    if diff_results is not None:
-        assert len(diff_table) == len(diff_results)
+    # lost results? note this can happen if a by field references the
+    # same field as a field field, and the field field changes during
+    # folding
+    #
+    # it's not an _error_, but can lead to really confusing results, so
+    # at least warn
+    if (len(table) != len(results)
+            or (diff_results is not None
+                and len(diff_table) != len(diff_results))):
+        print("warning: by fields are unstable",
+                file=sys.stderr)
 
     # find compare entry if there is one
     if compare:
