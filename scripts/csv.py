@@ -812,12 +812,8 @@ class CsvExpr:
                 return CsvInt(0)
 
             # enumerate
-            k = ['enumerate', id(self)]
-            for v in self:
-                if v.a not in fields:
-                    raise CsvExpr.Error("unknown field? %s" % v.a)
-                k.append(fields[v.a])
-            k = tuple(k)
+            k = ('enumerate', id(self)) + tuple(
+                    fields.get(v.a) for v in self)
             x = state.get(k)
             if x is None:
                 x = 0
@@ -852,12 +848,8 @@ class CsvExpr:
                 return y
 
             # accumulate
-            k = ['accumulate', id(self)]
-            for v in it.islice(self, 1, None):
-                if v.a not in fields:
-                    raise CsvExpr.Error("unknown field? %s" % v.a)
-                k.append(fields[v.a])
-            k = tuple(k)
+            k = ('accumulate', id(self)) + tuple(
+                    fields.get(v.a) for v in it.islice(self, 1, None))
             x = state.get(k)
             if x is None:
                 x = y
