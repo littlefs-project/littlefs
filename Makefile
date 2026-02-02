@@ -540,6 +540,16 @@ testmarks-diff: $(TEST_CSV)
 		-fruntime=test_runtime \
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs3.test.csv)
 
+## Show which tests took the most time
+.PHONY: testmarks-bottlenecks
+testmarks-bottlenecks: SUMMARYFLAGS+=-Sruntime
+testmarks-bottlenecks: $(TEST_CSV)
+	$(strip ./scripts/csv.py $^ \
+		-bcase \
+		-fpassed=test_passed \
+		-fruntime=test_runtime \
+		$(SUMMARYFLAGS))
+
 ## Build the bench-runner
 .PHONY: bench-runner build-benches
 bench-runner build-benches: CFLAGS+=$(BENCH_CFLAGS)
@@ -587,10 +597,22 @@ benchmarks-csv: $(BUILDDIR)/lfs3.bench.csv
 .PHONY: benchmarks-diff
 benchmarks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-bcase='%(case)s+%(m)s' \
-		-fsimtime='float(bench_simtime)/1.0e9' \
-		-fsimthroughput='float(n)/max(float(bench_simtime)/1.0e9,1.0e-9)' \
+		-bprobe='%(case)s+%(probe)s' \
+		-fthroughput='avg( \
+			float(delta(n, case, probe)) \
+				/ max(float(bench_simtime)/1.0e9, 1.0e-9))' \
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs3.bench.csv)
+
+## Show which tests took the most time
+.PHONY: benchmarks-bottlenecks
+benchmarks-bottlenecks: SUMMARYFLAGS+=-Sruntime
+benchmarks-bottlenecks: $(BENCH_CSV)
+	$(strip ./scripts/csv.py $^ \
+		-bcase='%(case)s+%(probe)s' \
+		-fn='delta(n, case, probe)' \
+		-ft='float(bench_simtime)/1.0e9' \
+		-fruntime='delta(bench_runtime, case, probe)' \
+		$(SUMMARYFLAGS))
 
 
 
