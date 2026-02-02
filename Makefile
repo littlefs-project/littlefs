@@ -368,7 +368,7 @@ structs-csv: $(BUILDDIR)/lfs3.structs.csv
 structs-diff: $(OBJ)
 	./scripts/structs.py $^ $(STRUCTSFLAGS) -d $(BUILDDIR)/lfs3.structs.csv
 
-## Find the line/branch coverage after a test run
+## Find line/branch coverage after a test run with COVGEN
 .PHONY: cov
 cov: COVFLAGS+=-s
 cov: $(GCDA)
@@ -387,7 +387,7 @@ cov-diff: $(GCDA)
 		$(patsubst %,-F%,$(SRC)) \
 		$(COVFLAGS) -d $(BUILDDIR)/lfs3.cov.csv)
 
-## Find the perf results after bench run with PERFGEN
+## Find perf results after bench run with PERFGEN
 .PHONY: perf
 perf: PERFFLAGS+=-S
 perf: $(BENCH_PERF)
@@ -406,7 +406,7 @@ perf-diff: $(BENCH_PERF)
 		$(patsubst %,-F%,$(SRC)) \
 		$(PERFFLAGS) -d $(BUILDDIR)/lfs3.perf.csv)
 
-## Find the perfbd results after a bench run
+## Find perfbd results after a bench run with PERFBDGEN
 .PHONY: perfbd
 perfbd: PERFBDFLAGS+=-S
 perfbd: $(BENCH_TRACE)
@@ -527,7 +527,7 @@ testmarks: $(TEST_CSV)
 		-fruntime=test_runtime \
 		$(SUMMARYFLAGS))
 
-## Save the test results
+## Save the test results with TESTMARKS
 .PHONY: testmarks-csv
 testmarks-csv: $(BUILDDIR)/lfs3.test.csv
 
