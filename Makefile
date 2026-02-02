@@ -519,7 +519,7 @@ test-list list-tests: test-runner
 
 ## Summarize the test results
 .PHONY: testmarks
-testmarks: SUMMARYFLAGS+=-spassed -Sruntime
+testmarks: SUMMARYFLAGS+=-Si='min(enumerate())'
 testmarks: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-bsuite \
@@ -568,11 +568,15 @@ bench-list list-benches: bench-runner
 
 ## Summarize the bench results
 .PHONY: benchmarks
+benchmarks: SUMMARYFLAGS+=-Si='min(enumerate())'
 benchmarks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-bcase='%(case)s+%(m)s' \
-		-fsimtime='float(bench_simtime)/1.0e9' \
-		-fsimthroughput='float(n)/max(float(bench_simtime)/1.0e9,1.0e-9)' \
+		-bprobe='%(case)s+%(probe)s' \
+		-fn='delta(n, case, probe)' \
+		-ft='float(bench_simtime)/1.0e9' \
+		-fthroughput='avg( \
+			float(delta(n, case, probe)) \
+				/ max(float(bench_simtime)/1.0e9, 1.0e-9))' \
 		$(SUMMARYFLAGS))
 
 ## Save the bench results
