@@ -1138,6 +1138,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         last_defines = None # fetched on demand
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
+        last_time = time.time()
         try:
             while True:
                 # parse a line for state changes
@@ -1168,6 +1169,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         last_defines = None
                         last_stdout.clear()
                         last_assert = None
+                        last_time = time.time()
                     elif op == 'finished':
                         # force a failure
                         if args.get('fail'):
@@ -1227,7 +1229,9 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     'bench_readed': readed_,
                                     'bench_progged': progged_,
                                     'bench_erased': erased_,
-                                    'bench_simtime': simtime_})
+                                    'bench_simtime': simtime_,
+                                    'bench_runtime': '%.6f' % (
+                                        time.time() - last_time)})
                         # keep track of total for summary
                         readed += readed_
                         progged += progged_
@@ -1413,7 +1417,8 @@ def run(runner, bench_ids=[], **args):
                     'bench_readed',
                     'bench_progged',
                     'bench_erased',
-                    'bench_simtime'])
+                    'bench_simtime',
+                    'bench_runtime'])
 
     # measure runtime
     start = time.time()
