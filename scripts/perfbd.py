@@ -972,30 +972,13 @@ def table(Result, results, diff_results=None, *,
     types = Result._types
 
     # organize by name
-    table = {
-            ','.join(str(getattr(r, k)
-                        if getattr(r, k) is not None
-                        else '')
-                    for k in by): r
-                for r in results}
-    diff_table = {
-            ','.join(str(getattr(r, k)
-                        if getattr(r, k) is not None
-                        else '')
-                    for k in by): r
-                for r in diff_results or []}
-
-    # lost results? note this can happen if a by field references the
-    # same field as a field field, and the field field changes during
-    # folding
-    #
-    # it's not an _error_, but can lead to really confusing results, so
-    # at least warn
-    if (len(table) != len(results)
-            or (diff_results is not None
-                and len(diff_table) != len(diff_results))):
-        print("warning: by fields are unstable",
-                file=sys.stderr)
+    def table_name(r):
+        return ','.join(str(getattr(r, k)
+                    if getattr(r, k) is not None
+                    else '')
+                for k in by)
+    table = {table_name(r): r for r in results}
+    diff_table = {table_name(r): r for r in diff_results or []}
 
     # find compare entry if there is one
     if compare:
@@ -1037,9 +1020,9 @@ def table(Result, results, diff_results=None, *,
     del diff_table
 
     # entry helper
-    def table_entry(name, r, diff_r=None):
+    def table_entry(n, r, diff_r=None):
         # prepend name
-        entry = [name]
+        entry = [n]
 
         # normal entry?
         if ((compare is None or r == compare_r)
@@ -1114,30 +1097,26 @@ def table(Result, results, diff_results=None, *,
             depth_,
             prefixes=('', '', '', '')):
         # build the children table at each layer
-        table_ = {
-                ','.join(str(getattr(r, k)
-                            if getattr(r, k) is not None
-                            else '')
-                        for k in by): r
-                    for r in results_}
-        diff_table_ = {
-                ','.join(str(getattr(r, k)
-                            if getattr(r, k) is not None
-                            else '')
-                        for k in by): r
-                    for r in diff_results_ or []}
-        names_ = [n
-                for n in table_.keys() | diff_table_.keys()
+        table_ = {table_name(r): r for r in results_}
+        diff_table_ = {table_name(r): r for r in diff_results_ or []}
+        # this gets a bit tricky, we want to merge both result and diff
+        # result names, while preserving duplicates in the result list
+        results__ = [(n, r)
+                for n, r in it.chain(
+                    ((table_name(r), r) for r in results_),
+                    ((table_name(r), None)
+                        for r in diff_results_ or []
+                        if table_name(r) not in table_))
                 if diff_results is None
                     or all_
                     or any(
                         types[k].ratio(
-                                getattr(table_.get(n), k, None),
+                                getattr(r, k, None),
                                 getattr(diff_table_.get(n), k, None))
                             for k in fields)]
 
         # sort again, now with diff info, note that python's sort is stable
-        names_.sort(key=lambda n: (
+        results__.sort(key=lambda nr: (lambda n, r: (
                 # sort by explicit sort fields
                 next(
                     tuple((Rev
@@ -1148,35 +1127,34 @@ def table(Result, results, diff_results=None, *,
                                         else ()
                                     for k_ in ([k] if k else Result._sort)))
                             for k, reverse in (sort or []))
-                        for r_ in [table_.get(n), diff_table_.get(n)]
+                        for r_ in [r, diff_table_.get(n)]
                         if r_ is not None),
                 # sort by ratio if diffing
                 Rev(tuple(types[k].ratio(
-                            getattr(table_.get(n), k, None),
+                            getattr(r, k, None),
                             getattr(diff_table_.get(n), k, None))
                         for k in fields))
                     if diff_results is not None
                     else (),
                 # move compare entry to the top, note this can be
                 # overridden by explicitly sorting by fields
-                (table_.get(n) != compare_r,
+                (r != compare_r,
                         # sort by ratio if comparing
                         Rev(tuple(
                             types[k].ratio(
-                                    getattr(table_.get(n), k, None),
+                                    getattr(r, k, None),
                                     getattr(compare_r, k, None))
                                 for k in fields)))
                     if compare
                     else (),
                 # sort by result
-                (table_[n],) if n in table_ else (),
+                (r,) if r is not None else (),
                 # and finally by name (diffs may be missing results)
-                n))
+                n))(*nr))
 
-        for i, name in enumerate(names_):
+        for i, (n, r) in enumerate(results__):
             # find comparable results
-            r = table_.get(name)
-            diff_r = diff_table_.get(name)
+            diff_r = diff_table_.get(n)
 
             # figure out a good label
             if labels is not None:
@@ -1188,26 +1166,28 @@ def table(Result, results, diff_results=None, *,
                             for r_ in [r, diff_r]
                             if r_ is not None)
             else:
-                label = name
+                label = n
 
             # build line
             line = table_entry(label, r, diff_r)
 
             # add prefixes
             line = [x if isinstance(x, tuple) else (x, []) for x in line]
-            line[0] = (prefixes[0+(i==len(names_)-1)] + line[0][0], line[0][1])
+            line[0] = (
+                    prefixes[0+(i==len(results__)-1)] + line[0][0],
+                    line[0][1])
             lines.append(line)
 
             # recurse?
-            if name in table_ and depth_ > 1:
+            if r is not None and depth_ > 1:
                 table_recurse(
                         getattr(r, Result._children),
                         getattr(diff_r, Result._children, None),
                         depth_-1,
-                        (prefixes[2+(i==len(names_)-1)] + "|-> ",
-                         prefixes[2+(i==len(names_)-1)] + "'-> ",
-                         prefixes[2+(i==len(names_)-1)] + "|   ",
-                         prefixes[2+(i==len(names_)-1)] + "    "))
+                        (prefixes[2+(i==len(results__)-1)] + "|-> ",
+                         prefixes[2+(i==len(results__)-1)] + "'-> ",
+                         prefixes[2+(i==len(results__)-1)] + "|   ",
+                         prefixes[2+(i==len(results__)-1)] + "    "))
 
     # build entries
     if not summary:
