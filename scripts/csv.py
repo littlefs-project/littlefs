@@ -816,12 +816,12 @@ class CsvExpr:
                     fields.get(v.a) for v in self)
             x = state.get(k)
             if x is None:
-                x = 0
+                z = 0
             else:
-                x += 1
+                z = x + 1
             # keep track of unique enumerate state
-            state[k] = x
-            return CsvInt(x)
+            state[k] = z
+            return CsvInt(z)
 
     @func('accumulate', 'a[, *by]')
     class Accumulate(Expr):
@@ -852,12 +852,48 @@ class CsvExpr:
                     fields.get(v.a) for v in it.islice(self, 1, None))
             x = state.get(k)
             if x is None:
-                x = y
+                z = y
             else:
-                x += y
+                z = x + y
             # keep track of unique accumulate state
-            state[k] = x
-            return x
+            state[k] = z
+            return z
+
+    @func('delta', 'a[, *by]')
+    class Delta(Expr):
+        """A [per by] difference between subsequent results"""
+        def fields(self):
+            # don't typecheck by fields
+            return self.a.fields()
+
+        def type(self, types={}):
+            # don't typecheck, but make sure we can read by fields
+            t = self.a.type(types)
+            for v in it.islice(self, 1, None):
+                if not isinstance(v, CsvExpr.Field):
+                    raise CsvExpr.Error("complicated by field? %s" % v)
+            return t
+
+        def fold(self, types={}):
+            # don't typecheck by fields
+            return self.a.fold(types)
+
+        def eval(self, fields={}, state=None):
+            y = self.a.eval(fields, state)
+            if state is None:
+                return y
+
+            # compute delta
+            k = ('delta', id(self)) + tuple(
+                    fields.get(v.a) for v in it.islice(self, 1, None))
+            x = state.get(k)
+            if x is None:
+                z = y
+            else:
+                z = y - x
+            # keep track of unique delta state
+            state[k] = y
+            return z
 
     # functions
     @func('ratio', 'a')
