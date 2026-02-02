@@ -1,0 +1,122 @@
+# Low-level rbyd benchmarks
+
+# set block_size to the full size of disk so we can test arbitrarily
+# large rbyd trees, we don't really care about block sizes at this
+# abstraction level
+#
+defines.BLOCK_SIZE = 'DISK_SIZE'
+defines.BLOCK_COUNT = 1
+
+[cases.bench_rbyd]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = 2
+defines.N = 1024
+defines.STEP = 1
+defines.SEED = 42
+defines.SIZE = 4
+# set of probes to measure
+# 0x01 => create
+# 0x02 => delete
+# 0x04 => fetch
+# 0x08 => lookup
+# 0x10 => usage
+defines.MASK = 0x1f
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_init(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    for (lfs3_size_t n = 0; n < N; n += STEP) {
+        lfs3_rbyd_t rbyd = {
+            .blocks[0] = 0,
+            .eoff = 0,
+            .cksum = 0,
+            .trunk = 0,
+            .weight = 0,
+        };
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+
+        // create N attrs
+        //
+        // note we need to take care to generate indexes within a valid
+        // range as the rbyd grows
+        uint32_t prng = SEED;
+        for (lfs3_size_t i = 0; i < n; i++) {
+            // create an attr
+            lfs3_off_t i_
+                    = (ORDER == 0) ? rbyd.weight
+                    : (ORDER == 1) ? 0
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
+            uint8_t wbuf[SIZE];
+            memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
+            lfs3_rbyd_commit(&lfs3, &rbyd, i_, LFS3_RATTRS(
+                    LFS3_RATTR(3, LFS3_TAG_DATA, +1, LFS3_FROM_DATA),
+                    LFS3_RATTR_ARG(SIZE),
+                    LFS3_RATTR_ARG(wbuf),
+                    LFS3_RATTR_NULL)) => 0;
+        }
+
+        // create an attr
+        if (MASK & 0x01) {
+            BENCH_START("create");
+            lfs3_off_t i_
+                    = (ORDER == 0) ? rbyd.weight
+                    : (ORDER == 1) ? 0
+                    : BENCH_PRNG(&prng) % (rbyd.weight+1);
+            lfs3_off_t n_ = rbyd.weight;
+            uint8_t wbuf[SIZE];
+            memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
+            lfs3_rbyd_commit(&lfs3, &rbyd, i_, LFS3_RATTRS(
+                    LFS3_RATTR(3, LFS3_TAG_DATA, +1, LFS3_FROM_DATA),
+                    LFS3_RATTR_ARG(SIZE),
+                    LFS3_RATTR_ARG(wbuf),
+                    LFS3_RATTR_NULL)) => 0;
+            assert(rbyd.weight == n_+1);
+            BENCH_STOP("create", n+STEP);
+        }
+
+        // delete an attr
+        if (MASK & 0x02) {
+            BENCH_START("delete");
+            if (n > 0) {
+                lfs3_off_t i_ = BENCH_PRNG(&prng) % rbyd.weight;
+                lfs3_off_t n_ = rbyd.weight;
+                lfs3_rbyd_commit(&lfs3, &rbyd, i_, LFS3_RATTRS(
+                        LFS3_RATTR(1, LFS3_tag_RM, -1),
+                        LFS3_RATTR_NULL)) => 0;
+                assert(rbyd.weight == n_-1);
+            }
+            BENCH_STOP("delete", n+STEP);
+        }
+
+        // fetch the rbyd
+        if (MASK & 0x04) {
+            BENCH_START("fetch");
+            lfs3_rbyd_t rbyd_;
+            lfs3_rbyd_fetch(&lfs3, &rbyd_, rbyd.blocks[0], 0) => 0;
+            assert(rbyd_.weight == rbyd.weight);
+            BENCH_STOP("fetch", n+STEP);
+        }
+
+        // lookup an attr
+        if (MASK & 0x08) {
+            BENCH_START("lookup");
+            lfs3_off_t i_ = BENCH_PRNG(&prng) % rbyd.weight;
+            lfs3_data_t data_;
+            lfs3_stag_t tag_ = lfs3_rbyd_lookup(&lfs3, &rbyd,
+                    i_, LFS3_TAG_DATA,
+                    &data_);
+            assert(tag_ == LFS3_TAG_DATA);
+            assert(lfs3_data_size(&data_) == SIZE);
+            BENCH_STOP("lookup", n+STEP);
+        }
+
+        // measure the disk usage
+        if (MASK & 0x10) {
+            BENCH_RESULT("usage", n+STEP, lfs3_rbyd_eoff(&rbyd));
+        }
+    }
+'''
+
