@@ -6,6 +6,8 @@ TARGET ?= $(BUILDDIR)/lfs3
 else
 TARGET ?= $(BUILDDIR)/liblfs3.a
 endif
+# process substitution my beloved
+SHELL := /bin/bash
 
 
 # find source files
@@ -311,7 +313,6 @@ ctx-diff: $(CI)
 ## Find function sizes
 .PHONY: funcs
 funcs: SUMMARYFLAGS+=-S
-funcs: SHELL=/bin/bash
 funcs: $(OBJ) $(CI)
 	$(strip ./scripts/csv.py \
 		<(./scripts/code.py $(OBJ) $(CODEFLAGS) -o-) \
@@ -332,7 +333,6 @@ funcs-csv: \
 
 ## Compare function sizes
 .PHONY: funcs-diff
-funcs-diff: SHELL=/bin/bash
 funcs-diff: $(OBJ) $(CI)
 	$(strip ./scripts/csv.py \
 		<(./scripts/code.py $(OBJ) $(CODEFLAGS) -o-) \
@@ -426,7 +426,6 @@ perfbd-diff: $(BENCH_TRACE)
 
 ## Find a summary of compile-time sizes
 .PHONY: summary sizes
-summary sizes: SHELL=/bin/bash
 summary sizes: $(OBJ) $(CI)
 	$(strip ./scripts/csv.py \
 		<(./scripts/code.py $(OBJ) $(CODEFLAGS) -o-) \
@@ -450,7 +449,6 @@ summary-csv sizes-csv: \
 
 ## Compare compile-time sizes
 .PHONY: summary-diff sizes-diff
-summary-diff sizes-diff: SHELL=/bin/bash
 summary-diff sizes-diff: $(OBJ) $(CI)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py \
@@ -580,7 +578,6 @@ bench-list list-benches: bench-runner
 ## Summarize the bench results
 .PHONY: benchmarks
 benchmarks: SUMMARYFLAGS+=-Si
-benchmarks: SHELL=/bin/bash
 benchmarks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
@@ -601,7 +598,6 @@ benchmarks-csv: $(BUILDDIR)/lfs3.bench.csv
 
 ## Compare bench results against a previous run
 .PHONY: benchmarks-diff
-benchmarks-diff: SHELL=/bin/bash
 benchmarks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
@@ -623,7 +619,6 @@ benchmarks-diff: $(BENCH_CSV)
 ## Show which tests took the most time
 .PHONY: benchmarks-bottlenecks
 benchmarks-bottlenecks: SUMMARYFLAGS+=-Sruntime
-benchmarks-bottlenecks: SHELL=/bin/bash
 benchmarks-bottlenecks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
