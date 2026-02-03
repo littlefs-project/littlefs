@@ -584,7 +584,7 @@ benchmarks: $(BENCH_CSV)
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
-			-ft='float(bench_simtime)/1.0e9' \
+			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-bprobe \
 		-fn \
@@ -604,13 +604,13 @@ benchmarks-diff: $(BENCH_CSV)
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
-			-ft='float(bench_simtime)/1.0e9' \
+			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-d <(./scripts/csv.py $(BUILDDIR)/lfs3.bench.csv \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
-			-ft='float(bench_simtime)/1.0e9' \
+			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-bprobe \
 		-fthroughput='avg(float(n) / max(t, 1.0e-9))' \
@@ -625,7 +625,7 @@ benchmarks-bottlenecks: $(BENCH_CSV)
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
-			-ft='float(bench_simtime)/1.0e9' \
+			-ft='max(float(bench_simtime)/1.0e9)' \
 			-fruntime='max(bench_runtime)' \
 			-o-) \
 		-bprobe \

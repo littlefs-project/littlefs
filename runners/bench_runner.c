@@ -833,6 +833,13 @@ void *__wrap_realloc(void *p, size_t size) {
 // bench recording state
 typedef struct bench_record {
     const char *probe;
+    bench_io_t cumul_reads;
+    bench_io_t cumul_progs;
+    bench_io_t cumul_erases;
+    bench_io_t cumul_readed;
+    bench_io_t cumul_progged;
+    bench_io_t cumul_erased;
+    bench_ns_t cumul_simtime;
     bench_io_t last_reads;
     bench_io_t last_progs;
     bench_io_t last_erases;
@@ -894,19 +901,37 @@ void bench_start(const char *probe) {
     bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
     #endif
 
-    // allocate a new record
-    bench_record_t *record = mappend(
-            (void**)&bench_records,
-            sizeof(bench_record_t),
-            &bench_record_count,
-            &bench_record_capacity);
-    record->probe = probe;
-    record->last_reads = reads;
-    record->last_progs = progs;
-    record->last_erases = erases;
-    record->last_readed = readed;
+    // find our record
+    bench_record_t *record = NULL;
+    for (size_t i = 0; i < bench_record_count; i++) {
+        if (strcmp(bench_records[i].probe, probe) == 0) {
+            record = &bench_records[i];
+            break;
+        }
+    }
+
+    // allocate a new record?
+    if (!record) {
+        record = mappend(
+                (void**)&bench_records,
+                sizeof(bench_record_t),
+                &bench_record_count,
+                &bench_record_capacity);
+        record->probe = probe;
+        record->cumul_reads   = 0;
+        record->cumul_progs   = 0;
+        record->cumul_erases  = 0;
+        record->cumul_readed  = 0;
+        record->cumul_progged = 0;
+        record->cumul_erased  = 0;
+        record->cumul_simtime = 0;
+    }
+    record->last_reads   = reads;
+    record->last_progs   = progs;
+    record->last_erases  = erases;
+    record->last_readed  = readed;
     record->last_progged = progged;
-    record->last_erased = erased;
+    record->last_erased  = erased;
     record->last_simtime = simtime;
 
     #ifdef BENCH_YES_HEAP
@@ -960,51 +985,59 @@ void bench_stop(const char *probe, uintmax_t n) {
     #endif
 
     // find our record
+    bench_record_t *record = NULL;
     for (size_t i = 0; i < bench_record_count; i++) {
         if (strcmp(bench_records[i].probe, probe) == 0) {
-            // print results
-            if (simtime >= 0) {
-                printf("benched %s %jd "
-                            "%"PRIu64" %"PRIu64" %"PRIu64" "
-                            "%"PRIu64" %"PRIu64" %"PRIu64" "
-                            "%"PRIu64"\n",
-                        probe,
-                        n,
-                        reads   - bench_records[i].last_reads,
-                        progs   - bench_records[i].last_progs,
-                        erases  - bench_records[i].last_erases,
-                        readed  - bench_records[i].last_readed,
-                        progged - bench_records[i].last_progged,
-                        erased  - bench_records[i].last_erased,
-                        simtime - bench_records[i].last_simtime);
-            } else {
-                printf("benched %s %jd "
-                            "%"PRIu64" %"PRIu64" %"PRIu64" "
-                            "%"PRIu64" %"PRIu64" %"PRIu64"\n",
-                        probe,
-                        n,
-                        reads   - bench_records[i].last_reads,
-                        progs   - bench_records[i].last_progs,
-                        erases  - bench_records[i].last_erases,
-                        readed  - bench_records[i].last_readed,
-                        progged - bench_records[i].last_progged,
-                        erased  - bench_records[i].last_erased);
-            }
-
-            // remove our record
-            memmove(&bench_records[i],
-                    &bench_records[i+1],
-                    bench_record_count-(i+1));
-            bench_record_count -= 1;
-            goto done;
+            record = &bench_records[i];
+            break;
         }
     }
 
     // not found?
-    fprintf(stderr, "error: bench stopped before it was started (%s)\n",
-            probe);
-    assert(false);
-    exit(-1);
+    if (!record) {
+        fprintf(stderr, "error: probe stopped before it was started (%s)\n",
+                probe);
+        assert(false);
+        exit(-1);
+    }
+
+    // add to cumulative measurements
+    record->cumul_reads   += reads   - record->last_reads;
+    record->cumul_progs   += progs   - record->last_progs;
+    record->cumul_erases  += erases  - record->last_erases;
+    record->cumul_readed  += readed  - record->last_readed;
+    record->cumul_progged += progged - record->last_progged;
+    record->cumul_erased  += erased  - record->last_erased;
+    record->cumul_simtime += simtime - record->last_simtime;
+
+    // print probe sample
+    if (simtime >= 0) {
+        printf("benched %s %jd "
+                    "%"PRIu64" %"PRIu64" %"PRIu64" "
+                    "%"PRIu64" %"PRIu64" %"PRIu64" "
+                    "%"PRIu64"\n",
+                probe,
+                n,
+                record->cumul_reads,
+                record->cumul_progs,
+                record->cumul_erases,
+                record->cumul_readed,
+                record->cumul_progged,
+                record->cumul_erased,
+                record->cumul_simtime);
+    } else {
+        printf("benched %s %jd "
+                    "%"PRIu64" %"PRIu64" %"PRIu64" "
+                    "%"PRIu64" %"PRIu64" %"PRIu64"\n",
+                probe,
+                n,
+                record->cumul_reads,
+                record->cumul_progs,
+                record->cumul_erases,
+                record->cumul_readed,
+                record->cumul_progged,
+                record->cumul_erased);
+    }
 
 done:;
     #ifdef BENCH_YES_HEAP
