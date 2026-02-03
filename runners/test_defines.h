@@ -4,19 +4,13 @@
 // preconfigured defines that control how tests run
 #ifdef TEST_DEFINE
     //          name                    value (overridable)
-    #ifndef TEST_NAND
-    // NOR flash geometry
-    TEST_DEFINE(READ_SIZE,             1                                    )
-    TEST_DEFINE(PROG_SIZE,             1                                    )
-    TEST_DEFINE(BLOCK_SIZE,            4096                                 )
-    #else
-    // NAND flash geometry
-    TEST_DEFINE(READ_SIZE,             1                                    )
-    TEST_DEFINE(PROG_SIZE,             512                                  )
-    TEST_DEFINE(BLOCK_SIZE,            131072                               )
-    #endif
-    TEST_DEFINE(BLOCK_COUNT,            DISK_SIZE/BLOCK_SIZE                )
     TEST_DEFINE(DISK_SIZE,              1024*1024                           )
+    TEST_DEFINE(DISK_GEOMETRY,          0                                   )
+    TEST_DEFINE(READ_SIZE,              1                                   )
+    TEST_DEFINE(PROG_SIZE,              1                                   )
+    TEST_DEFINE(ERASE_SIZE,             4096                                )
+    TEST_DEFINE(BLOCK_SIZE,             LFS3_MAX(ERASE_SIZE, 512)           )
+    TEST_DEFINE(BLOCK_COUNT,            DISK_SIZE/LFS3_MAX(BLOCK_SIZE, 1)   )
     TEST_DEFINE(BLOCK_RECYCLES,         -1                                  )
     TEST_DEFINE(RCACHE_SIZE,            LFS3_MAX(16, READ_SIZE)             )
     TEST_DEFINE(PCACHE_SIZE,            LFS3_MAX(16, PROG_SIZE)             )
