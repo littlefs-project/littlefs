@@ -124,6 +124,9 @@ BENCH_CFLAGS += -Wl,--wrap=malloc
 BENCH_CFLAGS += -Wl,--wrap=free
 BENCH_CFLAGS += -Wl,--wrap=realloc
 endif
+ifdef BENCH_PERBYTE
+BENCH_CFLAGS += -DBENCH_PERBYTE
+endif
 
 ifdef VERBOSE
 CODEFLAGS    += -v
@@ -191,6 +194,14 @@ endif
 ifneq ($(PERF),perf)
 TESTFLAGS  += --perf-path="$(PERF)"
 BENCHFLAGS += --perf-path="$(PERF)"
+endif
+
+# alternative bench geometries (defaults to NOR flash)
+ifdef BENCH_NOR
+BENCHFLAGS += -DDISK_GEOMETRY=0
+endif
+ifdef BENCH_NAND
+BENCHFLAGS += -DDISK_GEOMETRY=1
 endif
 
 # this is a bit of a hack, but we want to make sure the BUILDDIR
