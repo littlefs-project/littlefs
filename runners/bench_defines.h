@@ -20,7 +20,7 @@
     BENCH_DEFINE(ERASE_SIZE,            DISK_MAP(ERASE_SIZE)                )
     BENCH_DEFINE(BLOCK_SIZE,            LFS3_MAX(ERASE_SIZE, 512)           )
     BENCH_DEFINE(BLOCK_COUNT,           DISK_SIZE/LFS3_MAX(BLOCK_SIZE, 1)   )
-    BENCH_DEFINE(BLOCK_RECYCLES,        -1                                  )
+    BENCH_DEFINE(BLOCK_RECYCLES,        100                                 )
     BENCH_DEFINE(RCACHE_SIZE,           LFS3_MAX(16, READ_SIZE)             )
     BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)             )
     BENCH_DEFINE(FCACHE_SIZE,           16                                  )
