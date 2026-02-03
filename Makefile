@@ -525,9 +525,9 @@ test-list list-tests: test-runner
 	./scripts/test.py -R$(TEST_RUNNER) $(TESTFLAGS) -l
 
 ## Summarize the test results
-.PHONY: testmarks
-testmarks: SUMMARYFLAGS+=-Si
-testmarks: $(TEST_CSV)
+.PHONY: test-marks
+test-marks: SUMMARYFLAGS+=-Si
+test-marks: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-bsuite \
 		-Fi='min(enumerate())' \
@@ -536,12 +536,12 @@ testmarks: $(TEST_CSV)
 		$(SUMMARYFLAGS))
 
 ## Save the test results with TESTMARKS
-.PHONY: testmarks-csv
-testmarks-csv: $(BUILDDIR)/lfs3.test.csv
+.PHONY: test-marks-csv
+test-marks-csv: $(BUILDDIR)/lfs3.test.csv
 
 ## Compare test results against a previous run
-.PHONY: testmarks-diff
-testmarks-diff: $(TEST_CSV)
+.PHONY: test-marks-diff
+test-marks-diff: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-bsuite \
 		-Fi='min(enumerate())' \
@@ -550,9 +550,9 @@ testmarks-diff: $(TEST_CSV)
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs3.test.csv)
 
 ## Show which tests took the most time
-.PHONY: testmarks-bottlenecks
-testmarks-bottlenecks: SUMMARYFLAGS+=-Sruntime
-testmarks-bottlenecks: $(TEST_CSV)
+.PHONY: test-bottlenecks
+test-bottlenecks: SUMMARYFLAGS+=-Sruntime
+test-bottlenecks: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-bcase \
 		-Fi='min(enumerate())' \
@@ -587,9 +587,9 @@ bench-list list-benches: bench-runner
 	./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) -l
 
 ## Summarize the bench results
-.PHONY: benchmarks
-benchmarks: SUMMARYFLAGS+=-Si
-benchmarks: $(BENCH_CSV)
+.PHONY: bench-marks
+bench-marks: SUMMARYFLAGS+=-Si
+bench-marks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-bprobe='%(case)s+%(probe)s' \
@@ -604,12 +604,12 @@ benchmarks: $(BENCH_CSV)
 		$(SUMMARYFLAGS))
 
 ## Save the bench results
-.PHONY: benchmarks-csv
-benchmarks-csv: $(BUILDDIR)/lfs3.bench.csv
+.PHONY: bench-marks-csv
+bench-marks-csv: $(BUILDDIR)/lfs3.bench.csv
 
 ## Compare bench results against a previous run
-.PHONY: benchmarks-diff
-benchmarks-diff: $(BENCH_CSV)
+.PHONY: bench-marks-diff
+bench-marks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-bprobe='%(case)s+%(probe)s' \
@@ -628,9 +628,9 @@ benchmarks-diff: $(BENCH_CSV)
 		$(SUMMARYFLAGS))
 
 ## Show which tests took the most time
-.PHONY: benchmarks-bottlenecks
-benchmarks-bottlenecks: SUMMARYFLAGS+=-Sruntime
-benchmarks-bottlenecks: $(BENCH_CSV)
+.PHONY: bench-bottlenecks
+bench-bottlenecks: SUMMARYFLAGS+=-Sruntime
+bench-bottlenecks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-bprobe='%(case)s+%(probe)s' \
