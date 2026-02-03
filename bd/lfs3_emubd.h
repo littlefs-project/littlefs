@@ -74,28 +74,46 @@ struct lfs3_emubd_cfg {
     // does _not_ rely on this!).
     int32_t erase_value;
 
-    // Simulated read transaction timing in nanoseconds, this is added
-    // to simtime each read call, ignoring the requested size
-    lfs3_emubd_ns_t reads_timing;
+    // Simulated read width, this is only used for simulated read timing
+    // and emulates the physical read hardware on the device. Defaults
+    // to 1 byte.
+    lfs3_size_t read_width;
 
-    // Simulated prog transaction timing in nanoseconds, this is added
-    // to simtime each prog call, ignoring the requested size
-    lfs3_emubd_ns_t progs_timing;
+    // Simulated prog width, this is only used for simulated prog timing
+    // and emulates the physical prog hardware on the device. Defaults
+    // to 1 byte.
+    lfs3_size_t prog_width;
 
-    // Simulated erase transaction timing in nanoseconds, this is added
-    // to simtime each erase call, ignoring the requested size
-    lfs3_emubd_ns_t erases_timing;
+    // Simulated erase width, this is only used for simulated erase timing
+    // and emulates physical erase hardware on the device. Defaults to 1
+    // byte.
+    lfs3_size_t erase_width;
 
-    // Simulated read byte timing in nanoseconds, this is scaled by the
-    // requested size and added to simtime each read call.
+    // Simulated per-byte read timing in nanoseconds, this is added to
+    // simtime each read call after aligning up to the necessary number
+    // of read_widths to emulate the read operation.
+    lfs3_emubd_ns_t read_timing;
+
+    // Simulated per-byte prog timing in nanoseconds, this is added to
+    // simtime each prog call after aligning up to the necessary number
+    // of prog_widths to emulate the prog operation.
+    lfs3_emubd_ns_t prog_timing;
+
+    // Simulated per-byte erase timing in nanoseconds, this is added to
+    // simtime each erase call after aligning up to the necessary number
+    // of erase_widths to emulate the erase operation.
+    lfs3_emubd_ns_t erase_timing;
+
+    // Simulated per-byte read timing in nanoseconds, this ignores
+    // read_width and can be used to simulate relevant bus overhead.
     lfs3_emubd_ns_t readed_timing;
 
-    // Simulated prog byte timing in nanoseconds, this is scaled by the
-    // requested size and added to simtime each prog call.
+    // Simulated per-byte prog timing in nanoseconds, this ignores
+    // prog_width and can be used to simulate relevant bus overhead.
     lfs3_emubd_ns_t progged_timing;
 
-    // Simulated erase byte timing in nanoseconds, this is scaled by the
-    // requested size and added to simtime each erase call.
+    // Simulated per-byte erase timing in nanoseconds, this ignores
+    // erase_width and can be used to simulate relevant bus overhead.
     lfs3_emubd_ns_t erased_timing;
 
     // Artificial read transaction delay in nanoseconds, there is no

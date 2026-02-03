@@ -437,7 +437,9 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     }   
 
     // track reads
-    bd->reads += 1;
+    bd->reads += (lfs3_alignup(off + size, lfs3_max(bd->cfg->read_width, 1))
+                - lfs3_aligndown(off, lfs3_max(bd->cfg->read_width, 1)))
+            / lfs3_max(bd->cfg->read_width, 1);
     bd->readed += size;
     if (bd->cfg->read_sleep) {
         int err = nanosleep(&(struct timespec){
@@ -749,7 +751,9 @@ progged:;
     }
 
     // track progs
-    bd->progs += 1;
+    bd->progs += (lfs3_alignup(off + size, lfs3_max(bd->cfg->prog_width, 1))
+                - lfs3_aligndown(off, lfs3_max(bd->cfg->prog_width, 1)))
+            / lfs3_max(bd->cfg->prog_width, 1);
     bd->progged += size;
     if (bd->cfg->prog_sleep) {
         int err = nanosleep(&(struct timespec){
@@ -1045,7 +1049,9 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
 
 erased:;
     // track erases
-    bd->erases += 1;
+    bd->erases += lfs3_alignup(cfg->block_size,
+                lfs3_max(bd->cfg->erase_width, 1))
+            / lfs3_max(bd->cfg->erase_width, 1);
     bd->erased += cfg->block_size;
     if (bd->cfg->erase_sleep) {
         int err = nanosleep(&(struct timespec){
@@ -1087,9 +1093,9 @@ lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg) {
     lfs3_emubd_t *bd = cfg->context;
 
     // error if all possible timings are zero
-    if (bd->cfg->reads_timing == 0
-            && bd->cfg->progs_timing == 0
-            && bd->cfg->erases_timing == 0
+    if (bd->cfg->read_timing == 0
+            && bd->cfg->prog_timing == 0
+            && bd->cfg->erase_timing == 0
             && bd->cfg->readed_timing == 0
             && bd->cfg->progged_timing == 0
             && bd->cfg->erased_timing == 0) {
@@ -1098,9 +1104,9 @@ lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg) {
     }
 
     lfs3_emubd_ns_t ns
-            = (bd->cfg->reads_timing * bd->reads)
-            + (bd->cfg->progs_timing * bd->progs)
-            + (bd->cfg->erases_timing * bd->erases)
+            = (bd->cfg->read_timing * bd->reads*bd->cfg->read_width)
+            + (bd->cfg->prog_timing * bd->progs*bd->cfg->prog_width)
+            + (bd->cfg->erase_timing * bd->erases*bd->cfg->erase_width)
             + (bd->cfg->readed_timing * bd->readed)
             + (bd->cfg->progged_timing * bd->progged)
             + (bd->cfg->erased_timing * bd->erased);

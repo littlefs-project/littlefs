@@ -51,30 +51,33 @@
     // erased=10986ns/B tSE=45 ms, sector=4096 (45 ms / 4096)
     //
     // less-simple:
-    // reads=0ns (no transaction cost)
-    // progs=400000ns tPP=0.4 ms, page=256
-    // erases=0ns (no transaction cost)
+    // read=0ns/B (no transaction cost)
+    // prog=1563ns/B tPP=0.4 ms, page=256 (0.4 ms / 256)
+    // erase=10986ns/B tSE=45 ms, sector=4096 (45 ms / 4096)
     // readed=40ns/B fR=50 MHz, quad read (20 ns * 8/4)
-    // progged=1484ns/B tPP=0.4 ms (((4096/256)*0.4ms - 0.4ms)/4096 + bus)
-    // erased=10986ns/B tSE=45 ms, sector=4096 (45 ms / 4096)
-    //
-    // note we always treat erases as per-byte to simplify benchmarking
-    // across different block sizes
+    // progged=19ns/B (bus)
+    // erased=0ns/B (no bus cost)
     //
     #ifdef BENCH_SIMPLE
-    BENCH_DEFINE(READS_TIMING,          0                                   )
-    BENCH_DEFINE(PROGS_TIMING,          0                                   )
-    BENCH_DEFINE(ERASES_TIMING,         0                                   )
+    BENCH_DEFINE(READ_WIDTH,            0                                   )
+    BENCH_DEFINE(PROG_WIDTH,            0                                   )
+    BENCH_DEFINE(ERASE_WIDTH,           0                                   )
+    BENCH_DEFINE(READ_TIMING,           0                                   )
+    BENCH_DEFINE(PROG_TIMING,           0                                   )
+    BENCH_DEFINE(ERASE_TIMING,          0                                   )
     BENCH_DEFINE(READED_TIMING,         40                                  )
     BENCH_DEFINE(PROGGED_TIMING,        1582                                )
     BENCH_DEFINE(ERASED_TIMING,         10986                               )
     #else
-    BENCH_DEFINE(READS_TIMING,          0                                   )
-    BENCH_DEFINE(PROGS_TIMING,          400000                              )
-    BENCH_DEFINE(ERASES_TIMING,         0                                   )
+    BENCH_DEFINE(READ_WIDTH,            0                                   )
+    BENCH_DEFINE(PROG_WIDTH,            256                                 )
+    BENCH_DEFINE(ERASE_WIDTH,           BLOCK_SIZE                          )
+    BENCH_DEFINE(READ_TIMING,           0                                   )
+    BENCH_DEFINE(PROG_TIMING,           1563                                )
+    BENCH_DEFINE(ERASE_TIMING,          10986                               )
     BENCH_DEFINE(READED_TIMING,         40                                  )
-    BENCH_DEFINE(PROGGED_TIMING,        1484                                )
-    BENCH_DEFINE(ERASED_TIMING,         10986                               )
+    BENCH_DEFINE(PROGGED_TIMING,        19                                  )
+    BENCH_DEFINE(ERASED_TIMING,         0                                   )
     #endif
     #else
     // NAND flash timings
@@ -91,30 +94,33 @@
     // erased=15ns/B tBE=2 ms, block=131072 (2 ms / 131072)
     //
     // less-simple:
-    // reads=25000ns tRD1=25 us, p=2048, s=512
-    // progs=250000ns tPP=250 us, p=2048, s=512
-    // erases=0ns (no transaction cost)
-    // readed=31ns/B tRD1=25 us (((131072/2048)*25us - 25us)/131072 + bus)
-    // progged=139ns/B tPP=250 us (((131072/2048)*250us - 250us)/131072 + bus)
-    // erased=15ns/B tBE=2 ms, block=131072 (2 ms / 131072)
-    //
-    // note we always treat erases as per-byte to simplify benchmarking
-    // across different block sizes
+    // read=12ns/B tRD1=25 us, p=2048, s=512 (25 us / 2048)
+    // prog=122ns/B tPP=250 us, p=2048, s=512 (250 us / 2048)
+    // erase=15ns/B tBE=2 ms, block=131072 (2 ms / 131072)
+    // readed=19ns/B (bus)
+    // progged=19ns/B (bus)
+    // erased=0ns/B (no bus cost)
     //
     #ifdef BENCH_SIMPLE
-    BENCH_DEFINE(READS_TIMING,          0                                   )
-    BENCH_DEFINE(PROGS_TIMING,          0                                   )
-    BENCH_DEFINE(ERASES_TIMING,         0                                   )
+    BENCH_DEFINE(READ_WIDTH,            0                                   )
+    BENCH_DEFINE(PROG_WIDTH,            0                                   )
+    BENCH_DEFINE(ERASE_WIDTH,           0                                   )
+    BENCH_DEFINE(READ_TIMING,           0                                   )
+    BENCH_DEFINE(PROG_TIMING,           0                                   )
+    BENCH_DEFINE(ERASE_TIMING,          0                                   )
     BENCH_DEFINE(READED_TIMING,         31                                  )
     BENCH_DEFINE(PROGGED_TIMING,        141                                 )
     BENCH_DEFINE(ERASED_TIMING,         15                                  )
     #else
-    BENCH_DEFINE(READS_TIMING,          25000                               )
-    BENCH_DEFINE(PROGS_TIMING,          250000                              )
-    BENCH_DEFINE(ERASES_TIMING,         0                                   )
-    BENCH_DEFINE(READED_TIMING,         31                                  )
-    BENCH_DEFINE(PROGGED_TIMING,        139                                 )
-    BENCH_DEFINE(ERASED_TIMING,         15                                  )
+    BENCH_DEFINE(READ_WIDTH,            2048                                )
+    BENCH_DEFINE(PROG_WIDTH,            2048                                )
+    BENCH_DEFINE(ERASE_WIDTH,           BLOCK_SIZE                          )
+    BENCH_DEFINE(READ_TIMING,           12                                  )
+    BENCH_DEFINE(PROG_TIMING,           122                                 )
+    BENCH_DEFINE(ERASE_TIMING,          15                                  )
+    BENCH_DEFINE(READED_TIMING,         19                                  )
+    BENCH_DEFINE(PROGGED_TIMING,        19                                  )
+    BENCH_DEFINE(ERASED_TIMING,         0                                   )
     #endif
     #endif
     #ifndef BENCH_KIWIBD
@@ -170,9 +176,12 @@
         BENCH_BDCFG_CFG
         #endif
         .erase_value                    = ERASE_VALUE,
-        .reads_timing                   = READS_TIMING,
-        .progs_timing                   = PROGS_TIMING,
-        .erases_timing                  = ERASES_TIMING,
+        .read_width                     = READ_WIDTH,
+        .prog_width                     = PROG_WIDTH,
+        .erase_width                    = ERASE_WIDTH,
+        .read_timing                    = READ_TIMING,
+        .prog_timing                    = PROG_TIMING,
+        .erase_timing                   = ERASE_TIMING,
         .readed_timing                  = READED_TIMING,
         .progged_timing                 = PROGGED_TIMING,
         .erased_timing                  = ERASED_TIMING,
@@ -188,9 +197,12 @@
         BENCH_BDCFG_CFG
         #endif
         .erase_value                    = ERASE_VALUE,
-        .reads_timing                   = READS_TIMING,
-        .progs_timing                   = PROGS_TIMING,
-        .erases_timing                  = ERASES_TIMING,
+        .read_width                     = READ_WIDTH,
+        .prog_width                     = PROG_WIDTH,
+        .erase_width                    = ERASE_WIDTH,
+        .read_timing                    = READ_TIMING,
+        .prog_timing                    = PROG_TIMING,
+        .erase_timing                   = ERASE_TIMING,
         .readed_timing                  = READED_TIMING,
         .progged_timing                 = PROGGED_TIMING,
         .erased_timing                  = ERASED_TIMING,
