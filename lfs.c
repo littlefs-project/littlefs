@@ -177,7 +177,11 @@ static int lfs_bd_flush(lfs_t *lfs,
         lfs_cache_t *pcache, lfs_cache_t *rcache, bool validate) {
     if (pcache->block != LFS_BLOCK_NULL && pcache->block != LFS_BLOCK_INLINE) {
         LFS_ASSERT(pcache->block < lfs->block_count);
+#ifdef LFS_USE_FLEXIBLE_PROG_SIZE
+        lfs_size_t diff = pcache->size;
+#else
         lfs_size_t diff = lfs_alignup(pcache->size, lfs->cfg->prog_size);
+#endif
         int err = lfs->cfg->prog(lfs->cfg, pcache->block,
                 pcache->off, pcache->buffer, diff);
         LFS_ASSERT(err <= 0);
@@ -233,12 +237,17 @@ static int lfs_bd_prog(lfs_t *lfs,
     LFS_ASSERT(off + size <= lfs->cfg->block_size);
 
     while (size > 0) {
+#ifdef LFS_USE_FLEXIBLE_PROG_SIZE
+        lfs_size_t cache_size = lfs_aligndown(pcache->off + lfs->cfg->cache_size, lfs->cfg->cache_size) - pcache->off;
+#else
+        lfs_size_t cache_size = lfs->cfg->cache_size;
+#endif
         if (block == pcache->block &&
                 off >= pcache->off &&
-                off < pcache->off + lfs->cfg->cache_size) {
+                off < pcache->off + cache_size) {
             // already fits in pcache?
             lfs_size_t diff = lfs_min(size,
-                    lfs->cfg->cache_size - (off-pcache->off));
+                    cache_size - (off-pcache->off));
             memcpy(&pcache->buffer[off-pcache->off], data, diff);
 
             data += diff;
@@ -246,7 +255,7 @@ static int lfs_bd_prog(lfs_t *lfs,
             size -= diff;
 
             pcache->size = lfs_max(pcache->size, off - pcache->off);
-            if (pcache->size == lfs->cfg->cache_size) {
+            if (pcache->size == cache_size) {
                 // eagerly flush out pcache if we fill up
                 int err = lfs_bd_flush(lfs, pcache, rcache, validate);
                 if (err) {
@@ -263,7 +272,11 @@ static int lfs_bd_prog(lfs_t *lfs,
 
         // prepare pcache, first condition can no longer fail
         pcache->block = block;
+#ifdef LFS_USE_FLEXIBLE_PROG_SIZE
+        pcache->off = off;
+#else
         pcache->off = lfs_aligndown(off, lfs->cfg->prog_size);
+#endif
         pcache->size = 0;
     }
 
@@ -3585,11 +3598,14 @@ static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
         if (!(file->flags & LFS_F_WRITING) ||
                 file->off == lfs->cfg->block_size) {
             if (!(file->flags & LFS_F_INLINE)) {
+
+                bool extend_ctz = true;
+                lfs_off_t off;
                 if (!(file->flags & LFS_F_WRITING) && file->pos > 0) {
                     // find out which block we're extending from
                     int err = lfs_ctz_find(lfs, NULL, &file->cache,
                             file->ctz.head, file->ctz.size,
-                            file->pos-1, &file->block, &(lfs_off_t){0});
+                            file->pos-1, &file->block, &off);
                     if (err) {
                         file->flags |= LFS_F_ERRED;
                         return err;
@@ -3597,16 +3613,26 @@ static lfs_ssize_t lfs_file_flushedwrite(lfs_t *lfs, lfs_file_t *file,
 
                     // mark cache as dirty since we may have read data into it
                     lfs_cache_zero(lfs, &file->cache);
+
+#ifdef LFS_USE_FLEXIBLE_PROG_SIZE
+                    // extend CTZ
+                    extend_ctz = (file->off == lfs->cfg->block_size) || (file->pos < file->ctz.size);
+#endif
                 }
 
-                // extend file with new blocks
-                lfs_alloc_ckpoint(lfs);
-                int err = lfs_ctz_extend(lfs, &file->cache, &lfs->rcache,
-                        file->block, file->pos,
-                        &file->block, &file->off);
-                if (err) {
-                    file->flags |= LFS_F_ERRED;
-                    return err;
+                if (extend_ctz) {
+                    // extend file with new blocks
+                    lfs_alloc_ckpoint(lfs);
+                    int err = lfs_ctz_extend(lfs, &file->cache, &lfs->rcache,
+                            file->block, file->pos,
+                            &file->block, &file->off);
+                    if (err) {
+                        file->flags |= LFS_F_ERRED;
+                        return err;
+                    }
+                }
+                else {
+                    file->off = off + 1;
                 }
             } else {
                 file->block = LFS_BLOCK_INLINE;
