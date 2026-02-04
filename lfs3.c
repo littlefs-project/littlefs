@@ -14767,9 +14767,10 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
             size_ - lfs3_min(file->leaf.pos, size_));
     file->leaf.pos = lfs3_min(file->leaf.pos, size_);
     // mark as crystallized if this truncates our erased-state
-    if (lfs3_bptr_off(&file->leaf.bptr)
-                + lfs3_bptr_size(&file->leaf.bptr)
-            < lfs3_bptr_cksize(&file->leaf.bptr)) {
+    if (lfs3_bptr_isbptr(&file->leaf.bptr)
+            && lfs3_bptr_off(&file->leaf.bptr)
+                    + lfs3_bptr_size(&file->leaf.bptr)
+                < lfs3_bptr_cksize(&file->leaf.bptr)) {
         lfs3_bptr_claim(&file->leaf.bptr);
         file->b.h.flags &= ~LFS3_o_UNCRYST;
     }
