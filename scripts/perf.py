@@ -61,9 +61,7 @@ class CsvInt(co.namedtuple('CsvInt', 'a')):
                     a = -mt.inf
                 else:
                     raise
-        if not (isinstance(a, int) or mt.isinf(a)):
-            a = int(a)
-        return super().__new__(cls, a)
+        return super().__new__(cls, float(a) if mt.isinf(a) else int(a))
 
     def __repr__(self):
         return '%s(%r)' % (self.__class__.__name__, self.a)
