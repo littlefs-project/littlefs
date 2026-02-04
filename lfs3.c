@@ -13987,7 +13987,7 @@ fragment:;
     // until after the commit, so we can't track it in our leaf
     // quite yet
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
-            || (pos < file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr)
+            || (pos < file->leaf.pos + file->leaf.weight
                 && pos + size > file->leaf.pos)) {
         lfs3_file_discardleaf(file);
     }
