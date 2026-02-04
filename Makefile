@@ -627,7 +627,7 @@ bench-marks-diff: $(BENCH_CSV)
 		-fthroughput='avg(float(n) / max(t, 1.0e-9))' \
 		$(SUMMARYFLAGS))
 
-## Show which tests took the most time
+## Show which benches took the most time
 .PHONY: bench-bottlenecks
 bench-bottlenecks: SUMMARYFLAGS+=-Sruntime
 bench-bottlenecks: $(BENCH_CSV)
@@ -644,6 +644,34 @@ bench-bottlenecks: $(BENCH_CSV)
 		-ft \
 		-fruntime \
 		$(SUMMARYFLAGS))
+
+## Show the amount readed/progged/erased
+.PHONY: bench-ops
+bench-ops: SUMMARYFLAGS+=-Si
+bench-ops: $(BENCH_CSV)
+	$(strip ./scripts/csv.py $^ \
+		-bprobe='%(case)s+%(probe)s' \
+		-Fi='min(enumerate())' \
+		-freads='bench_reads' \
+		-fprogs='bench_progs' \
+		-ferases='bench_erases' \
+		-freaded='bench_readed' \
+		-fprogged='bench_progged' \
+		-ferased='bench_erased' \
+		$(SUMMARYFLAGS))
+
+## Show average readed/progged/erased per width
+.PHONY: bench-bus
+bench-bus: SUMMARYFLAGS+=-Si
+bench-bus: $(BENCH_CSV)
+	$(strip ./scripts/csv.py $^ \
+		-bprobe='%(case)s+%(probe)s' \
+		-Fi='min(enumerate())' \
+		-freaded='avg(float(bench_readed)/float(bench_reads))' \
+		-fprogged='avg(float(bench_progged)/float(bench_progs))' \
+		-ferased='avg(float(bench_erased)/float(bench_erases))' \
+		$(SUMMARYFLAGS))
+
 
 
 
