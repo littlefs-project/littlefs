@@ -13,7 +13,7 @@
 // preconfigured defines that control how benches run
 #ifdef BENCH_DEFINE
     //           name                   value (overridable)
-    BENCH_DEFINE(DISK_SIZE,             1024*1024                           )
+    BENCH_DEFINE(DISK_SIZE,             128*1024*1024                       )
     BENCH_DEFINE(DISK_GEOMETRY,         0                                   )
     BENCH_DEFINE(READ_SIZE,             DISK_MAP(READ_SIZE)                 )
     BENCH_DEFINE(PROG_SIZE,             DISK_MAP(PROG_SIZE)                 )
@@ -35,7 +35,9 @@
     BENCH_DEFINE(FRAGMENT_SIZE,         LFS3_MIN(BLOCK_SIZE/8, 512)         )
     BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/8                        )
     BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
-    BENCH_DEFINE(ERASE_VALUE,           0xff                                )
+    // don't bother simulating erases, this may be less realistic, but
+    // it's certainly faster!
+    BENCH_DEFINE(ERASE_VALUE,           -1                                  )
     BENCH_DEFINE(READ_WIDTH,            DISK_MAP(READ_WIDTH)                )
     BENCH_DEFINE(PROG_WIDTH,            DISK_MAP(PROG_WIDTH)                )
     BENCH_DEFINE(ERASE_WIDTH,           DISK_MAP(ERASE_WIDTH)               )

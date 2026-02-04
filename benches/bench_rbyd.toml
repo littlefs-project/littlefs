@@ -7,6 +7,9 @@
 defines.BLOCK_SIZE = 'DISK_SIZE'
 defines.BLOCK_COUNT = 1
 
+# don't bother simulating erases, this gets expensive with big disks
+defines.ERASE_VALUE = -1
+
 [cases.bench_rbyd]
 # 0 = in-order
 # 1 = reversed-order
