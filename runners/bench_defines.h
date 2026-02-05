@@ -15,6 +15,10 @@
     //           name                   value (overridable)
     BENCH_DEFINE(DISK_SIZE,             128*1024*1024                       )
     BENCH_DEFINE(DISK_GEOMETRY,         0                                   )
+    // simulation mode
+    // 0 => full bus+buffer sim
+    // 1 => simple per-byte sim
+    BENCH_DEFINE(DISK_SIM,              0                                   )
     BENCH_DEFINE(READ_SIZE,             DISK_MAP(READ_SIZE)                 )
     BENCH_DEFINE(PROG_SIZE,             DISK_MAP(PROG_SIZE)                 )
     BENCH_DEFINE(ERASE_SIZE,            DISK_MAP(ERASE_SIZE)                )
@@ -75,27 +79,15 @@
     BENCH_DEFINE(NOR_READ_SIZE,         1                                   )
     BENCH_DEFINE(NOR_PROG_SIZE,         1                                   )
     BENCH_DEFINE(NOR_ERASE_SIZE,        4096                                )
-    #ifdef BENCH_PERBYTE
-    BENCH_DEFINE(NOR_READ_WIDTH,        0                                   )
-    BENCH_DEFINE(NOR_PROG_WIDTH,        0                                   )
-    BENCH_DEFINE(NOR_ERASE_WIDTH,       0                                   )
-    BENCH_DEFINE(NOR_READ_TIMING,       0                                   )
-    BENCH_DEFINE(NOR_PROG_TIMING,       0                                   )
-    BENCH_DEFINE(NOR_ERASE_TIMING,      0                                   )
-    BENCH_DEFINE(NOR_READED_TIMING,     40                                  )
-    BENCH_DEFINE(NOR_PROGGED_TIMING,    1582                                )
-    BENCH_DEFINE(NOR_ERASED_TIMING,     10986                               )
-    #else
-    BENCH_DEFINE(NOR_READ_WIDTH,        0                                   )
+    BENCH_DEFINE(NOR_READ_WIDTH,        1                                   )
     BENCH_DEFINE(NOR_PROG_WIDTH,        LFS3_MIN(256, BLOCK_SIZE)           )
     BENCH_DEFINE(NOR_ERASE_WIDTH,       BLOCK_SIZE                          )
-    BENCH_DEFINE(NOR_READ_TIMING,       0                                   )
-    BENCH_DEFINE(NOR_PROG_TIMING,       1563                                )
-    BENCH_DEFINE(NOR_ERASE_TIMING,      10986                               )
-    BENCH_DEFINE(NOR_READED_TIMING,     40                                  )
-    BENCH_DEFINE(NOR_PROGGED_TIMING,    19                                  )
-    BENCH_DEFINE(NOR_ERASED_TIMING,     0                                   )
-    #endif
+    BENCH_DEFINE(NOR_READ_TIMING,       (DISK_SIM == 0) ? 0     : 0         )
+    BENCH_DEFINE(NOR_PROG_TIMING,       (DISK_SIM == 0) ? 1563  : 0         )
+    BENCH_DEFINE(NOR_ERASE_TIMING,      (DISK_SIM == 0) ? 10986 : 0         )
+    BENCH_DEFINE(NOR_READED_TIMING,     (DISK_SIM == 0) ? 40    : 40        )
+    BENCH_DEFINE(NOR_PROGGED_TIMING,    (DISK_SIM == 0) ? 19    : 1582      )
+    BENCH_DEFINE(NOR_ERASED_TIMING,     (DISK_SIM == 0) ? 0     : 10986     )
 
     // NAND flash (DISK_GEOMETRY=1)
     //
@@ -121,27 +113,15 @@
     BENCH_DEFINE(NAND_READ_SIZE,        1                                   )
     BENCH_DEFINE(NAND_PROG_SIZE,        512                                 )
     BENCH_DEFINE(NAND_ERASE_SIZE,       131072                              )
-    #ifdef BENCH_PERBYTE
-    BENCH_DEFINE(NAND_READ_WIDTH,       0                                   )
-    BENCH_DEFINE(NAND_PROG_WIDTH,       0                                   )
-    BENCH_DEFINE(NAND_ERASE_WIDTH,      0                                   )
-    BENCH_DEFINE(NAND_READ_TIMING,      0                                   )
-    BENCH_DEFINE(NAND_PROG_TIMING,      0                                   )
-    BENCH_DEFINE(NAND_ERASE_TIMING,     0                                   )
-    BENCH_DEFINE(NAND_READED_TIMING,    31                                  )
-    BENCH_DEFINE(NAND_PROGGED_TIMING,   141                                 )
-    BENCH_DEFINE(NAND_ERASED_TIMING,    15                                  )
-    #else
     BENCH_DEFINE(NAND_READ_WIDTH,       LFS3_MIN(2048, BLOCK_SIZE)          )
     BENCH_DEFINE(NAND_PROG_WIDTH,       LFS3_MIN(2048, BLOCK_SIZE)          )
     BENCH_DEFINE(NAND_ERASE_WIDTH,      BLOCK_SIZE                          )
-    BENCH_DEFINE(NAND_READ_TIMING,      12                                  )
-    BENCH_DEFINE(NAND_PROG_TIMING,      122                                 )
-    BENCH_DEFINE(NAND_ERASE_TIMING,     15                                  )
-    BENCH_DEFINE(NAND_READED_TIMING,    19                                  )
-    BENCH_DEFINE(NAND_PROGGED_TIMING,   19                                  )
-    BENCH_DEFINE(NAND_ERASED_TIMING,    0                                   )
-    #endif
+    BENCH_DEFINE(NAND_READ_TIMING,      (DISK_SIM == 0) ? 12  : 0           )
+    BENCH_DEFINE(NAND_PROG_TIMING,      (DISK_SIM == 0) ? 122 : 0           )
+    BENCH_DEFINE(NAND_ERASE_TIMING,     (DISK_SIM == 0) ? 15  : 0           )
+    BENCH_DEFINE(NAND_READED_TIMING,    (DISK_SIM == 0) ? 19  : 31          )
+    BENCH_DEFINE(NAND_PROGGED_TIMING,   (DISK_SIM == 0) ? 19  : 141         )
+    BENCH_DEFINE(NAND_ERASED_TIMING,    (DISK_SIM == 0) ? 0   : 15          )
 #endif
 
 
