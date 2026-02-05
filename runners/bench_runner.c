@@ -439,7 +439,9 @@ size_t bench_id_count = 1;
 size_t bench_step_start = 0;
 size_t bench_step_stop = -1;
 size_t bench_step_step = 1;
+size_t bench_step = 0; // incremented every permutation
 bool bench_force = false;
+bench_flags_t bench_mask = 0;
 
 const char *bench_disk_path = NULL;
 const char *bench_trace_path = NULL;
@@ -1234,8 +1236,23 @@ void perm_count(
     struct perm_count_state *state = data;
     (void)suite;
 
+    // masked? consider this lower-level than filtering
+    if (case_->flags & bench_mask) {
+        return;
+    }
+
+    // skip this step?
+    if (!(bench_step >= bench_step_start
+            && bench_step < bench_step_stop
+            && (bench_step-bench_step_start) % bench_step_step == 0)) {
+        bench_step += 1;
+        return;
+    }
+    bench_step += 1;
+
     state->total += 1;
 
+    // filter? this includes ifdef (run=NULL) and if checks
     if (!case_->run || !(bench_force || !case_->if_ || case_->if_())) {
         return;
     }
@@ -1807,14 +1824,17 @@ int bench_bd_sync(const struct lfs3_cfg *cfg) {
 
 
 
-// global bench step count
-size_t bench_step = 0;
-
+// main permutation runner
 void perm_run(
         void *data,
         const struct bench_suite *suite,
         const struct bench_case *case_) {
     (void)data;
+
+    // masked? consider this lower-level than filtering
+    if (case_->flags & bench_mask) {
+        return;
+    }
 
     // skip this step?
     if (!(bench_step >= bench_step_start
@@ -1825,7 +1845,7 @@ void perm_run(
     }
     bench_step += 1;
 
-    // filter?
+    // filter? this includes ifdef (run=NULL) and if checks
     if (!case_->run || !(bench_force || !case_->if_ || case_->if_())) {
         printf("skipped ");
         perm_printid(suite, case_);
@@ -1962,14 +1982,15 @@ enum opt_flags {
     OPT_DEFINE_DEPTH             = 6,
     OPT_STEP                     = 's',
     OPT_FORCE                    = 7,
+    OPT_NO_INTERNAL              = 8,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 8,
-    OPT_TRACE_PERIOD             = 9,
-    OPT_TRACE_FREQ               = 10,
-    OPT_READ_SLEEP               = 11,
-    OPT_PROG_SLEEP               = 12,
-    OPT_ERASE_SLEEP              = 13,
+    OPT_TRACE_BACKTRACE          = 9,
+    OPT_TRACE_PERIOD             = 10,
+    OPT_TRACE_FREQ               = 11,
+    OPT_READ_SLEEP               = 12,
+    OPT_PROG_SLEEP               = 13,
+    OPT_ERASE_SLEEP              = 14,
 };
 
 const char *short_opts = "hYlLD:s:d:t:";
@@ -1990,6 +2011,7 @@ const struct option long_opts[] = {
     {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
     {"step",             required_argument, NULL, OPT_STEP},
     {"force",            no_argument,       NULL, OPT_FORCE},
+    {"no-internal",      no_argument,       NULL, OPT_NO_INTERNAL},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
@@ -2015,6 +2037,7 @@ const char *const help_text[] = {
     "How deep to evaluate recursive defines before erroring.",
     "Comma-separated range of permutations to run.",
     "Ignore bench filters.",
+    "Don't run internal benches.",
     "Direct block device operations to this file.",
     "Direct trace output to this file.",
     "Include a backtrace with every trace statement.",
@@ -2339,6 +2362,10 @@ int main(int argc, char **argv) {
 
         case OPT_FORCE:;
             bench_force = true;
+            break;
+
+        case OPT_NO_INTERNAL:;
+            bench_mask |= BENCH_INTERNAL;
             break;
 
         case OPT_DISK:;

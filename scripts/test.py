@@ -317,6 +317,10 @@ class TestSuite:
                 # skipping internal tests?
                 if args.get('no_internal') and case.internal:
                     continue
+                if args.get('no_reentrant') and case.reentrant:
+                    continue
+                if args.get('no_fuzz') and case.fuzz:
+                    continue
 
                 self.cases.append(case)
 
@@ -819,6 +823,12 @@ def find_runner(runner, id=None, main=True, **args):
         cmd.append('-P%s' % args['powerloss'])
     if args.get('force'):
         cmd.append('--force')
+    if args.get('no_internal'):
+        cmd.append('--no-internal')
+    if args.get('no_reentrant'):
+        cmd.append('--no-reentrant')
+    if args.get('no_fuzz'):
+        cmd.append('--no-fuzz')
 
     # only one thread should write to disk/trace, otherwise the output
     # ends up clobbered and useless
@@ -1728,6 +1738,18 @@ if __name__ == "__main__":
             action='store_true',
             help="Ignore test filters.")
     test_parser.add_argument(
+            '--no-internal',
+            action='store_true',
+            help="Don't run internal tests.")
+    test_parser.add_argument(
+            '--no-reentrant',
+            action='store_true',
+            help="Don't run reentrant tests.")
+    test_parser.add_argument(
+            '--no-fuzz',
+            action='store_true',
+            help="Don't run fuzz tests.")
+    test_parser.add_argument(
             '-d', '--disk',
             help="Direct block device operations to this file.")
     test_parser.add_argument(
@@ -1901,6 +1923,14 @@ if __name__ == "__main__":
             '--no-internal',
             action='store_true',
             help="Don't build internal tests.")
+    comp_parser.add_argument(
+            '--no-reentrant',
+            action='store_true',
+            help="Don't build reentrant tests.")
+    comp_parser.add_argument(
+            '--no-fuzz',
+            action='store_true',
+            help="Don't build fuzz tests.")
 
     # do the thing
     args = parser.parse_intermixed_args()

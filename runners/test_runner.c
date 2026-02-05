@@ -450,7 +450,9 @@ size_t test_id_count = 1;
 size_t test_step_start = 0;
 size_t test_step_stop = -1;
 size_t test_step_step = 1;
+size_t test_step = 0; // incremented every permutation
 bool test_force = false;
+test_flags_t test_mask = 0;
 
 const char *test_disk_path = NULL;
 const char *test_trace_path = NULL;
@@ -465,7 +467,7 @@ test_ns_t test_read_sleep = 0.0;
 test_ns_t test_prog_sleep = 0.0;
 test_ns_t test_erase_sleep = 0.0;
 
-volatile size_t TEST_PLS = 0;
+volatile size_t TEST_PLS = 0; // incremented every powerloss
 
 extern const test_powerloss_t *test_powerlosses;
 extern size_t test_powerloss_count;
@@ -1041,10 +1043,25 @@ void perm_count(
     struct perm_count_state *state = data;
     (void)suite;
 
+    // masked? consider this lower-level than filtering
+    if (case_->flags & test_mask) {
+        return;
+    }
+
+    // skip this step?
+    if (!(test_step >= test_step_start
+            && test_step < test_step_stop
+            && (test_step-test_step_start) % test_step_step == 0)) {
+        test_step += 1;
+        return;
+    }
+    test_step += 1;
+
     state->total += 1;
 
     // set pls to 1 if running under powerloss so it useful for if predicates
     TEST_PLS = (powerloss->run != run_powerloss_none);
+    // filter? this includes ifdef (run=NULL) and if checks
     if (!case_->run || !(test_force || !case_->if_ || case_->if_())) {
         return;
     }
@@ -2259,15 +2276,19 @@ static void list_powerlosses(void) {
 }
 
 
-// global test step count
-size_t test_step = 0;
 
+// main permutation runner
 void perm_run(
         void *data,
         const struct test_suite *suite,
         const struct test_case *case_,
         const test_powerloss_t *powerloss) {
     (void)data;
+
+    // masked? consider this lower-level than filtering
+    if (case_->flags & test_mask) {
+        return;
+    }
 
     // skip this step?
     if (!(test_step >= test_step_start
@@ -2280,7 +2301,7 @@ void perm_run(
 
     // set pls to 1 if running under powerloss so it useful for if predicates
     TEST_PLS = (powerloss->run != run_powerloss_none);
-    // filter?
+    // filter? this includes ifdef (run=NULL) and if checks
     if (!case_->run || !(test_force || !case_->if_ || case_->if_())) {
         printf("skipped ");
         perm_printid(suite, case_, NULL, 0);
@@ -2340,14 +2361,17 @@ enum opt_flags {
     OPT_POWERLOSS                = 'P',
     OPT_STEP                     = 's',
     OPT_FORCE                    = 8,
+    OPT_NO_INTERNAL              = 9,
+    OPT_NO_REENTRANT             = 10,
+    OPT_NO_FUZZ                  = 11,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 9,
-    OPT_TRACE_PERIOD             = 10,
-    OPT_TRACE_FREQ               = 11,
-    OPT_READ_SLEEP               = 12,
-    OPT_PROG_SLEEP               = 13,
-    OPT_ERASE_SLEEP              = 14,
+    OPT_TRACE_BACKTRACE          = 12,
+    OPT_TRACE_PERIOD             = 13,
+    OPT_TRACE_FREQ               = 14,
+    OPT_READ_SLEEP               = 15,
+    OPT_PROG_SLEEP               = 16,
+    OPT_ERASE_SLEEP              = 17,
 };
 
 const char *short_opts = "hYlLD:P:s:d:t:";
@@ -2370,6 +2394,9 @@ const struct option long_opts[] = {
     {"powerloss",        required_argument, NULL, OPT_POWERLOSS},
     {"step",             required_argument, NULL, OPT_STEP},
     {"force",            no_argument,       NULL, OPT_FORCE},
+    {"no-internal",      no_argument,       NULL, OPT_NO_INTERNAL},
+    {"no-reentrant",     no_argument,       NULL, OPT_NO_REENTRANT},
+    {"no-fuzz",          no_argument,       NULL, OPT_NO_FUZZ},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
@@ -2397,6 +2424,9 @@ const char *const help_text[] = {
     "Comma-separated list of powerloss scenarios to test.",
     "Comma-separated range of permutations to run.",
     "Ignore test filters.",
+    "Don't run internal tests.",
+    "Don't run reentrant tests.",
+    "Don't run fuzz tests.",
     "Direct block device operations to this file.",
     "Direct trace output to this file.",
     "Include a backtrace with every trace statement.",
@@ -2892,6 +2922,18 @@ int main(int argc, char **argv) {
 
         case OPT_FORCE:;
             test_force = true;
+            break;
+
+        case OPT_NO_INTERNAL:;
+            test_mask |= TEST_INTERNAL;
+            break;
+
+        case OPT_NO_REENTRANT:;
+            test_mask |= TEST_REENTRANT;
+            break;
+
+        case OPT_NO_FUZZ:;
+            test_mask |= TEST_FUZZ;
             break;
 
         case OPT_DISK:;

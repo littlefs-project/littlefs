@@ -301,7 +301,7 @@ class BenchSuite:
                             **config_},
                         args)
 
-                # skipping internal tests?
+                # skipping internal benches?
                 if args.get('no_internal') and case.internal:
                     continue
 
@@ -796,6 +796,8 @@ def find_runner(runner, id=None, main=True, **args):
         cmd.append('--define-depth=%s' % args['define_depth'])
     if args.get('force'):
         cmd.append('--force')
+    if args.get('no_internal'):
+        cmd.append('--no-internal')
 
     # only one thread should write to disk/trace, otherwise the output
     # ends up clobbered and useless
@@ -1709,6 +1711,10 @@ if __name__ == "__main__":
             action='store_true',
             help="Ignore bench filters.")
     bench_parser.add_argument(
+            '--no-internal',
+            action='store_true',
+            help="Don't run internal benches.")
+    bench_parser.add_argument(
             '-d', '--disk',
             help="Direct block device operations to this file.")
     bench_parser.add_argument(
@@ -1869,7 +1875,7 @@ if __name__ == "__main__":
     comp_parser.add_argument(
             '--no-internal',
             action='store_true',
-            help="Don't build internal tests.")
+            help="Don't build internal benches.")
 
     # do the thing
     args = parser.parse_intermixed_args()
