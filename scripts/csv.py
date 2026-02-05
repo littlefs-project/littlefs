@@ -357,10 +357,11 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
     def __mod__(self, other):
         return self.__class__(self.a % other.a, self.b % other.b)
 
+    def __hash__(self):
+        return super().__hash__()
+
     def __eq__(self, other):
-        self_a, self_b = self if self.b.a else (CsvInt(1), CsvInt(1))
-        other_a, other_b = other if other.b.a else (CsvInt(1), CsvInt(1))
-        return self_a * other_b == other_a * self_b
+        return super().__eq__(other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
