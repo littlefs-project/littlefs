@@ -83,33 +83,52 @@ class TestCase:
         self.path = config.pop('path')
         self.suite = config.pop('suite')
         self.lineno = config.pop('lineno', None)
-        self.if_ = config.pop('if', [])
-        if not isinstance(self.if_, list):
+        self.if_ = config.pop('if', None)
+        if self.if_ is None:
+            self.if_ = []
+        elif not isinstance(self.if_, list):
             self.if_ = [self.if_]
-        self.ifdef = config.pop('ifdef', [])
-        if not isinstance(self.ifdef, list):
+        self.ifdef = config.pop('ifdef', None)
+        if self.ifdef is None:
+            self.ifdef = []
+        elif not isinstance(self.ifdef, list):
             self.ifdef = [self.ifdef]
-        self.ifndef = config.pop('ifndef', [])
-        if not isinstance(self.ifndef, list):
+        self.ifndef = config.pop('ifndef', None)
+        if self.ifndef is None:
+            self.ifndef = []
+        elif not isinstance(self.ifndef, list):
             self.ifndef = [self.ifndef]
         self.code = config.pop('code')
         self.code_lineno = config.pop('code_lineno', None)
         self.in_ = config.pop('in',
                 config.pop('suite_in', None))
-        self.fuzz_ = config.pop('fuzz',
-                config.pop('suite_fuzz', None))
 
-        self.internal = bool(self.in_)
+        self.internal = config.pop('internal',
+                config.pop('suite_internal', None))
+        if self.internal is None:
+            self.internal = False
         self.reentrant = config.pop('reentrant',
-                config.pop('suite_reentrant', False))
-        self.fuzz = bool(self.fuzz_)
+                config.pop('suite_reentrant', None))
+        if self.reentrant is None:
+            self.reentrant = False
+        self.fuzz = config.pop('fuzz',
+                config.pop('suite_fuzz', None))
+        if self.fuzz is None:
+            self.fuzz = False
+
+        # in implies internal
+        self.internal |= bool(self.in_)
 
         # defines can be a dict or a list or dicts
-        suite_defines = config.pop('suite_defines', {})
-        if not isinstance(suite_defines, list):
+        suite_defines = config.pop('suite_defines', None)
+        if suite_defines is None:
+            suite_defines = [{}]
+        elif not isinstance(suite_defines, list):
             suite_defines = [suite_defines]
-        defines = config.pop('defines', {})
-        if not isinstance(defines, list):
+        defines = config.pop('defines', None)
+        if defines is None:
+            defines = [{}]
+        elif not isinstance(defines, list):
             defines = [defines]
 
         def csplit(v):
@@ -231,7 +250,9 @@ class TestSuite:
             # sort in case toml parsing did not retain order
             case_linenos.sort()
 
-            cases = config.pop('cases', {})
+            cases = config.pop('cases', None)
+            if cases is None:
+                cases = {}
             for (lineno, name), (nlineno, _) in it.zip_longest(
                     case_linenos, case_linenos[1:],
                     fillvalue=(float('inf'), None)):
@@ -242,15 +263,21 @@ class TestSuite:
                 cases[name]['lineno'] = lineno
                 cases[name]['code_lineno'] = code_lineno
 
-            self.if_ = config.pop('if', [])
-            if not isinstance(self.if_, list):
+            self.if_ = config.pop('if', None)
+            if self.if_ is None:
+                self.if_ = []
+            elif not isinstance(self.if_, list):
                 self.if_ = [self.if_]
 
-            self.ifdef = config.pop('ifdef', [])
-            if not isinstance(self.ifdef, list):
+            self.ifdef = config.pop('ifdef', None)
+            if self.ifdef is None:
+                self.ifdef = []
+            elif not isinstance(self.ifdef, list):
                 self.ifdef = [self.ifdef]
-            self.ifndef = config.pop('ifndef', [])
-            if not isinstance(self.ifndef, list):
+            self.ifndef = config.pop('ifndef', None)
+            if self.ifndef is None:
+                self.ifndef = []
+            elif not isinstance(self.ifndef, list):
                 self.ifndef = [self.ifndef]
 
             self.code = config.pop('code', None)
@@ -259,33 +286,36 @@ class TestSuite:
                         if not case_linenos or l < case_linenos[0][0]),
                     default=None)
             self.in_ = config.pop('in', None)
-            self.fuzz_ = config.pop('fuzz', None)
 
-            self.after = config.pop('after', [])
-            if not isinstance(self.after, list):
+            self.after = config.pop('after', None)
+            if self.after is None:
+                self.after = []
+            elif not isinstance(self.after, list):
                 self.after = [self.after]
 
             # a couple of these we just forward to all cases
-            defines = config.pop('defines', {})
-            reentrant = config.pop('reentrant', False)
+            defines = config.pop('defines', None)
+            internal = config.pop('internal', None)
+            reentrant = config.pop('reentrant', None)
+            fuzz = config.pop('fuzz', None)
 
             self.cases = []
             for name, config_ in cases.items():
                 case = TestCase(
-                        config={
-                            'name': name,
+                        {   'name': name,
                             'path': path + (':%d' % config_['lineno']
                                 if 'lineno' in config_ else ''),
                             'suite': self.name,
                             'suite_defines': defines,
                             'suite_in': self.in_,
+                            'suite_internal': internal,
                             'suite_reentrant': reentrant,
-                            'suite_fuzz': self.fuzz_,
+                            'suite_fuzz': fuzz,
                             **config_},
-                        args=args)
+                        args)
 
                 # skipping internal tests?
-                if args.get('no_internal') and case.in_ is not None:
+                if args.get('no_internal') and case.internal:
                     continue
 
                 self.cases.append(case)
