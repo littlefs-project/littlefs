@@ -592,6 +592,7 @@ bench-marks: SUMMARYFLAGS+=-Si
 bench-marks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
+			-Dprobe=create,delete,fetch,lookup,write \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
@@ -612,12 +613,14 @@ bench-marks-csv: $(BUILDDIR)/lfs3.bench.csv
 bench-marks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
+			-Dprobe=create,delete,fetch,lookup,write \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-d <(./scripts/csv.py $(BUILDDIR)/lfs3.bench.csv \
+			-Dprobe=create,delete,fetch,lookup,write \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
@@ -633,6 +636,7 @@ bench-bottlenecks: SUMMARYFLAGS+=-Sruntime
 bench-bottlenecks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
+			-Dprobe=create,delete,fetch,lookup,write \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
@@ -650,6 +654,7 @@ bench-bottlenecks: $(BENCH_CSV)
 bench-ops: SUMMARYFLAGS+=-Si
 bench-ops: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
+		-Dprobe=create,delete,fetch,lookup,write \
 		-bprobe='%(case)s+%(probe)s' \
 		-Fi='min(enumerate())' \
 		-freads='bench_reads' \
@@ -665,6 +670,7 @@ bench-ops: $(BENCH_CSV)
 bench-widths: SUMMARYFLAGS+=-Si
 bench-widths: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
+		-Dprobe=create,delete,fetch,lookup,write \
 		-bprobe='%(case)s+%(probe)s' \
 		-Fi='min(enumerate())' \
 		-freaded="avg(ffrac( \
@@ -685,6 +691,35 @@ bench-widths: $(BENCH_CSV)
 				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
 						--list-implicit-defines \
 					| sed -n 's/^ERASE_WIDTH=\(.*\)/\1/p'))))" \
+		$(SUMMARYFLAGS))
+
+## Show heap/stack/disk usage
+.PHONY: bench-usage
+bench-usage: SUMMARYFLAGS+=-Si
+bench-usage: $(BENCH_CSV)
+	$(strip ./scripts/csv.py \
+		<(./scripts/csv.py $^ \
+			-Dprobe=stack \
+			-bcase \
+			-Fi='min(enumerate())' \
+			-fstack='max(bench_simtime)' \
+			-o-) \
+		<(./scripts/csv.py $^ \
+			-Dprobe=heap \
+			-bcase \
+			-Fi='min(enumerate())' \
+			-fheap='max(bench_simtime)' \
+			-o-) \
+		<(./scripts/csv.py $^ \
+			-Dprobe=usage \
+			-bcase \
+			-Fi='min(enumerate())' \
+			-fdisk='max(bench_simtime)' \
+			-o-) \
+		-bcase \
+		-fstack \
+		-fheap \
+		-fdisk \
 		$(SUMMARYFLAGS))
 
 

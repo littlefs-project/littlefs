@@ -82,6 +82,14 @@ code = '''
     // report the amount we managed to write
     BENCH_STOP("write", written);
 
+    // report the total stack/heap usage after the benchmark
+    #ifdef BENCH_YES_STACK
+    BENCH_RESULT("stack", written, BENCH_STACK());
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_RESULT("heap", written, BENCH_HEAP());
+    #endif
+
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -128,6 +136,14 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
     // report the amount we managed to write
     BENCH_STOP("write", written);
+
+    // report the total stack/heap usage after the benchmark
+    #ifdef BENCH_YES_STACK
+    BENCH_RESULT("stack", written, BENCH_STACK());
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_RESULT("heap", written, BENCH_HEAP());
+    #endif
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -196,6 +212,14 @@ code = '''
     // report the amount we managed to write
     BENCH_STOP("write", written);
 
+    // report the total stack/heap usage after the benchmark
+    #ifdef BENCH_YES_STACK
+    BENCH_RESULT("stack", written, BENCH_STACK());
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_RESULT("heap", written, BENCH_HEAP());
+    #endif
+
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -252,6 +276,14 @@ code = '''
     }
     // report the amount we managed to write
     BENCH_STOP("write", written);
+
+    // report the total stack/heap usage after the benchmark
+    #ifdef BENCH_YES_STACK
+    BENCH_RESULT("stack", written, BENCH_STACK());
+    #endif
+    #ifdef BENCH_YES_HEAP
+    BENCH_RESULT("heap", written, BENCH_HEAP());
+    #endif
 
     lfs3_unmount(&lfs3) => 0;
 '''
