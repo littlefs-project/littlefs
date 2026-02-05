@@ -90,6 +90,12 @@ code = '''
     BENCH_RESULT("heap", written, BENCH_HEAP());
     #endif
 
+    // find the total disk usage after the benchmark
+    //
+    // note this is garbage because of the above truncates!
+    uintmax_t usage = bench_helpers_usage(&lfs3);
+    BENCH_RESULT("usage", written, usage);
+
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -144,6 +150,10 @@ code = '''
     #ifdef BENCH_YES_HEAP
     BENCH_RESULT("heap", written, BENCH_HEAP());
     #endif
+
+    // find the total disk usage after the benchmark
+    uintmax_t usage = bench_helpers_usage(&lfs3);
+    BENCH_RESULT("usage", written, usage);
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -220,6 +230,10 @@ code = '''
     BENCH_RESULT("heap", written, BENCH_HEAP());
     #endif
 
+    // find the total disk usage after the benchmark
+    uintmax_t usage = bench_helpers_usage(&lfs3);
+    BENCH_RESULT("usage", written, usage);
+
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -284,6 +298,10 @@ code = '''
     #ifdef BENCH_YES_HEAP
     BENCH_RESULT("heap", written, BENCH_HEAP());
     #endif
+
+    // find the total disk usage after the benchmark
+    uintmax_t usage = bench_helpers_usage(&lfs3);
+    BENCH_RESULT("usage", written, usage);
 
     lfs3_unmount(&lfs3) => 0;
 '''
