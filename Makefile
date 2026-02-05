@@ -661,15 +661,30 @@ bench-ops: $(BENCH_CSV)
 		$(SUMMARYFLAGS))
 
 ## Show average readed/progged/erased per width
-.PHONY: bench-bus
-bench-bus: SUMMARYFLAGS+=-Si
-bench-bus: $(BENCH_CSV)
+.PHONY: bench-widths
+bench-widths: SUMMARYFLAGS+=-Si
+bench-widths: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-bprobe='%(case)s+%(probe)s' \
 		-Fi='min(enumerate())' \
-		-freaded='avg(float(bench_readed)/float(bench_reads))' \
-		-fprogged='avg(float(bench_progged)/float(bench_progs))' \
-		-ferased='avg(float(bench_erased)/float(bench_erases))' \
+		-freaded="avg(ffrac( \
+			float(bench_readed)/float(bench_reads), \
+			max(1, $$( \
+				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
+						--list-implicit-defines \
+					| sed -n 's/^READ_WIDTH=\(.*\)/\1/p'))))" \
+		-fprogged="avg(ffrac( \
+			float(bench_progged)/float(bench_progs), \
+			max(1, $$( \
+				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
+						--list-implicit-defines \
+					| sed -n 's/^PROG_WIDTH=\(.*\)/\1/p'))))" \
+		-ferased="avg(ffrac( \
+			float(bench_erased)/float(bench_erases), \
+			max(1, $$( \
+				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
+						--list-implicit-defines \
+					| sed -n 's/^ERASE_WIDTH=\(.*\)/\1/p'))))" \
 		$(SUMMARYFLAGS))
 
 

@@ -42,7 +42,7 @@ class CsvInt(co.namedtuple('CsvInt', 'a')):
     def __new__(cls, a=0):
         if isinstance(a, CsvInt):
             return a
-        if isinstance(a, str):
+        elif isinstance(a, str):
             try:
                 a = int(a, 0)
             except ValueError:
@@ -150,9 +150,11 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
     def __new__(cls, a=0, b=None):
         if isinstance(a, CsvFrac) and b is None:
             return a
-        if isinstance(a, str) and b is None:
+        elif hasattr(a, '__frac__') and b is None:
+            a, b = a.__frac__()
+        elif isinstance(a, str) and b is None:
             a, b = a.split('/', 1)
-        if b is None:
+        elif b is None:
             b = a
         return super().__new__(cls, CsvInt(a), CsvInt(b))
 
@@ -173,6 +175,9 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
 
     def __float__(self):
         return float(self.a)
+
+    def __frac__(self):
+        return self.a, self.b
 
     none = '%11s' % '-'
     def table(self):

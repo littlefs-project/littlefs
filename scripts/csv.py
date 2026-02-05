@@ -65,7 +65,7 @@ class CsvInt(co.namedtuple('CsvInt', 'a')):
     def __new__(cls, a=0):
         if isinstance(a, CsvInt):
             return a
-        if isinstance(a, str):
+        elif isinstance(a, str):
             try:
                 a = int(a, 0)
             except ValueError:
@@ -173,7 +173,7 @@ class CsvFloat(co.namedtuple('CsvFloat', 'a')):
     def __new__(cls, a=0.0):
         if isinstance(a, CsvFloat):
             return a
-        if isinstance(a, str):
+        elif isinstance(a, str):
             try:
                 a = float(a)
             except ValueError:
@@ -280,9 +280,11 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
     def __new__(cls, a=0, b=None):
         if isinstance(a, CsvFrac) and b is None:
             return a
-        if isinstance(a, str) and b is None:
+        elif hasattr(a, '__frac__') and b is None:
+            a, b = a.__frac__()
+        elif isinstance(a, str) and b is None:
             a, b = a.split('/', 1)
-        if b is None:
+        elif b is None:
             b = a
         return super().__new__(cls, CsvInt(a), CsvInt(b))
 
@@ -303,6 +305,9 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
 
     def __float__(self):
         return float(self.a)
+
+    def __frac__(self):
+        return self.a, self.b
 
     none = '%11s' % '-'
     def table(self):
@@ -380,40 +385,182 @@ class CsvFrac(co.namedtuple('CsvFrac', 'a,b')):
     def __ge__(self, other):
         return not self.__lt__(other)
 
+# fractional float fields, a/b
+class CsvFfrac(co.namedtuple('CsvFfrac', 'a,b')):
+    __slots__ = ()
+    def __new__(cls, a=0, b=None):
+        if isinstance(a, CsvFfrac) and b is None:
+            return a
+        elif hasattr(a, '__frac__') and b is None:
+            a, b = a.__frac__()
+        elif isinstance(a, str) and b is None:
+            a, b = a.split('/', 1)
+        elif b is None:
+            b = a
+        return super().__new__(cls, CsvFloat(a), CsvFloat(b))
+
+    def __repr__(self):
+        return '%s(%r, %r)' % (self.__class__.__name__, self.a.a, self.b.a)
+
+    def __str__(self):
+        return '%s/%s' % (self.a, self.b)
+
+    def __csv__(self):
+        return '%s/%s' % (self.a.__csv__(), self.b.__csv__())
+
+    def __bool__(self):
+        return bool(self.a)
+
+    def __int__(self):
+        return int(self.a)
+
+    def __float__(self):
+        return float(self.a)
+
+    def __frac__(self):
+        return self.a, self.b
+
+    none = '%11s' % '-'
+    def table(self):
+        return '%11s' % (self,)
+
+    def notes(self):
+        if self.b.a == 0 and self.a.a == 0:
+            t = 1.0
+        elif self.b.a == 0:
+            t = mt.copysign(mt.inf, self.a.a)
+        else:
+            t = self.a.a / self.b.a
+        return ['∞%' if t == +mt.inf
+                else '-∞%' if t == -mt.inf
+                else '%.1f%%' % (100*t)]
+
+    def diff(self, other):
+        new_a, new_b = self if self else (CsvFloat(0), CsvFloat(0))
+        old_a, old_b = other if other else (CsvFloat(0), CsvFloat(0))
+        return '%11s' % ('%s/%s' % (
+                new_a.diff(old_a).strip(),
+                new_b.diff(old_b).strip()))
+
+    def ratio(self, other):
+        new_a, new_b = self if self else (CsvFloat(0), CsvFloat(0))
+        old_a, old_b = other if other else (CsvFloat(0), CsvFloat(0))
+        new = new_a.a/new_b.a if new_b.a else 1.0
+        old = old_a.a/old_b.a if old_b.a else 1.0
+        return new - old
+
+    def __pos__(self):
+        return self.__class__(+self.a, +self.b)
+
+    def __neg__(self):
+        return self.__class__(-self.a, -self.b)
+
+    def __abs__(self):
+        return self.__class__(abs(self.a), abs(self.b))
+
+    def __add__(self, other):
+        return self.__class__(self.a + other.a, self.b + other.b)
+
+    def __sub__(self, other):
+        return self.__class__(self.a - other.a, self.b - other.b)
+
+    def __mul__(self, other):
+        return self.__class__(self.a * other.a, self.b * other.b)
+
+    def __truediv__(self, other):
+        return self.__class__(self.a / other.a, self.b / other.b)
+
+    def __mod__(self, other):
+        return self.__class__(self.a % other.a, self.b % other.b)
+
+    def __hash__(self):
+        return super().__hash__()
+
+    def __eq__(self, other):
+        return super().__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        self_a, self_b = self if self.b.a else (CsvFloat(1), CsvFloat(1))
+        other_a, other_b = other if other.b.a else (CsvFloat(1), CsvFloat(1))
+        return self_a * other_b < other_a * self_b
+
+    def __gt__(self, other):
+        return self.__class__.__lt__(other, self)
+
+    def __le__(self, other):
+        return not self.__gt__(other)
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
 
 # various fold operations
-class CsvSum:
+class CsvFold:
+    def type(self, type):
+        return type
+
+    def __call__(self, xs):
+        assert False
+
+class CsvSum(CsvFold):
     def __call__(self, xs):
         return sum(xs[1:], start=xs[0])
 
-class CsvProd:
+class CsvProd(CsvFold):
     def __call__(self, xs):
         return mt.prod(xs[1:], start=xs[0])
 
-class CsvMin:
+class CsvMin(CsvFold):
     def __call__(self, xs):
         return min(xs)
 
-class CsvMax:
+class CsvMax(CsvFold):
     def __call__(self, xs):
         return max(xs)
 
-class CsvAvg:
+class CsvAvg(CsvFold):
+    def type(self, t):
+        return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
+
     def __call__(self, xs):
+        if hasattr(xs[0], '__frac__'):
+            return CsvFfrac(self([x.a for x in xs]), self([x.b for x in xs]))
+
         return CsvFloat(sum(float(x) for x in xs) / len(xs))
 
-class CsvStddev:
+class CsvStddev(CsvFold):
+    def type(self, t):
+        return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
+
     def __call__(self, xs):
+        if hasattr(xs[0], '__frac__'):
+            return CsvFfrac(self([x.a for x in xs]), self([x.b for x in xs]))
+
         avg = sum(float(x) for x in xs) / len(xs)
         return CsvFloat(mt.sqrt(
                 sum((float(x) - avg)**2 for x in xs) / len(xs)))
 
-class CsvGMean:
+class CsvGMean(CsvFold):
+    def type(self, t):
+        return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
+
     def __call__(self, xs):
+        if hasattr(xs[0], '__frac__'):
+            return CsvFfrac(self([x.a for x in xs]), self([x.b for x in xs]))
+
         return CsvFloat(mt.prod(float(x) for x in xs)**(1/len(xs)))
 
-class CsvGStddev:
+class CsvGStddev(CsvFold):
+    def type(self, t):
+        return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
+
     def __call__(self, xs):
+        if hasattr(xs[0], '__frac__'):
+            return CsvFfrac(self([x.a for x in xs]), self([x.b for x in xs]))
+
         gmean = mt.prod(float(x) for x in xs)**(1/len(xs))
         return CsvFloat(
                 mt.exp(mt.sqrt(
@@ -554,7 +701,7 @@ class CsvExpr:
             return CsvInt
 
         def fold(self, types={}):
-            return CsvSum, None
+            return CsvSum
 
         def eval(self, fields={}, state=None):
             return self.a
@@ -567,7 +714,7 @@ class CsvExpr:
             return CsvFloat
 
         def fold(self, types={}):
-            return CsvSum, None
+            return CsvSum
 
         def eval(self, fields={}, state=None):
             return self.a
@@ -585,7 +732,7 @@ class CsvExpr:
         def fold(self, types={}):
             if self.a not in types:
                 raise CsvExpr.Error("unfoldable field? %s" % self.a)
-            return CsvSum, None
+            return CsvSum
 
         def eval(self, fields={}, state=None):
             if self.a not in fields:
@@ -611,6 +758,7 @@ class CsvExpr:
     class Int(Expr):
         """Convert to an integer"""
         def type(self, types={}):
+            super().type(types)
             return CsvInt
 
         def eval(self, fields={}, state=None):
@@ -620,6 +768,7 @@ class CsvExpr:
     class Float(Expr):
         """Convert to a float"""
         def type(self, types={}):
+            super().type(types)
             return CsvFloat
 
         def eval(self, fields={}, state=None):
@@ -629,6 +778,9 @@ class CsvExpr:
     class Frac(Expr):
         """Convert to a fraction"""
         def type(self, types={}):
+            self.a.type(types)
+            if len(self) > 1:
+                self.b.type(types)
             return CsvFrac
 
         def eval(self, fields={}, state=None):
@@ -640,13 +792,31 @@ class CsvExpr:
                         self.a.eval(fields, state),
                         self.b.eval(fields, state))
 
+    @func('ffrac', 'a[, b]')
+    class Ffrac(Expr):
+        """Convert to a float fraction"""
+        def type(self, types={}):
+            self.a.type(types)
+            if len(self) > 1:
+                self.b.type(types)
+            return CsvFfrac
+
+        def eval(self, fields={}, state=None):
+            if len(self) == 1:
+                return CsvFfrac(
+                        self.a.eval(fields, state))
+            else:
+                return CsvFfrac(
+                        self.a.eval(fields, state),
+                        self.b.eval(fields, state))
+
     # fold exprs
     @func('sum', 'a[, ...]')
     class Sum(Expr):
         """Find the sum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvSum, None
+                return CsvSum
             else:
                 return self.a.fold(types)
 
@@ -661,7 +831,7 @@ class CsvExpr:
         """Find the product of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return Prod, None
+                return Prod
             else:
                 return self.a.fold(types)
 
@@ -676,7 +846,7 @@ class CsvExpr:
         """Find the minimum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvMin, None
+                return CsvMin
             else:
                 return self.a.fold(types)
 
@@ -691,7 +861,7 @@ class CsvExpr:
         """Find the maximum of this column or fields"""
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvMax, None
+                return CsvMax
             else:
                 return self.a.fold(types)
 
@@ -705,14 +875,15 @@ class CsvExpr:
     class Avg(Expr):
         """Find the average of this column or fields"""
         def type(self, types={}):
+            t = super().type(types)
             if len(self) == 1:
-                return self.a.type(types)
+                return t
             else:
-                return CsvFloat
+                return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvAvg, CsvFloat
+                return CsvAvg
             else:
                 return self.a.fold(types)
 
@@ -726,14 +897,15 @@ class CsvExpr:
     class Stddev(Expr):
         """Find the standard deviation of this column or fields"""
         def type(self, types={}):
+            t = super().type(types)
             if len(self) == 1:
-                return self.a.type(types)
+                return t
             else:
-                return CsvFloat
+                return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvStddev, CsvFloat
+                return CsvStddev
             else:
                 return self.a.fold(types)
 
@@ -747,14 +919,15 @@ class CsvExpr:
     class GMean(Expr):
         """Find the geometric mean of this column or fields"""
         def type(self, types={}):
+            t = super().type(types)
             if len(self) == 1:
-                return self.a.type(types)
+                return t
             else:
-                return CsvFloat
+                return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvGMean, CsvFloat
+                return CsvGMean
             else:
                 return self.a.fold(types)
 
@@ -768,14 +941,15 @@ class CsvExpr:
     class GStddev(Expr):
         """Find the geometric stddev of this column or fields"""
         def type(self, types={}):
+            t = super().type(types)
             if len(self) == 1:
-                return self.a.type(types)
+                return t
             else:
-                return CsvFloat
+                return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def fold(self, types={}):
             if len(self) == 1:
-                return CsvGStddev, CsvFloat
+                return CsvGStddev
             else:
                 return self.a.fold(types)
 
@@ -802,7 +976,7 @@ class CsvExpr:
 
         def fold(self, types={}):
             # don't typecheck by fields
-            return CsvSum, None
+            return CsvSum
 
         def eval(self, fields={}, state=None):
             if state is None:
@@ -897,13 +1071,16 @@ class CsvExpr:
     class Ratio(Expr):
         """Ratio of a fraction as a float"""
         def type(self, types={}):
+            super().type(types)
             return CsvFloat
 
         def eval(self, fields={}, state=None):
-            v = CsvFrac(self.a.eval(fields, state))
-            if not float(v.b) and not float(v.a):
+            v = self.a.eval(fields, state)
+            if not hasattr(v, '__frac__'):
+                return CsvFloat(1) # emulates cast + eval
+            elif not v.b and not v.a:
                 return CsvFloat(1)
-            elif not float(v.b):
+            elif not v.b:
                 return CsvFloat(mt.copysign(mt.inf, float(v.a)))
             else:
                 return CsvFloat(float(v.a) / float(v.b))
@@ -912,10 +1089,15 @@ class CsvExpr:
     class Total(Expr):
         """Total part of a fraction"""
         def type(self, types={}):
-            return CsvInt
+            t = super().type(types)
+            return CsvFloat if t in {CsvFloat, CsvFfrac} else CsvInt
 
         def eval(self, fields={}, state=None):
-            return CsvFrac(self.a.eval(fields, state)).b
+            v = self.a.eval(fields, state)
+            if not hasattr(v, '__frac__'):
+                return v # emulates cast + eval
+            else:
+                return v.b
 
     @func('abs', 'a')
     class Abs(Expr):
@@ -927,63 +1109,107 @@ class CsvExpr:
     class Ceil(Expr):
         """Round up to nearest integer"""
         def type(self, types={}):
-            return CsvFloat
+            t = super().type(types)
+            return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def eval(self, fields={}, state=None):
-            return CsvFloat(mt.ceil(float(self.a.eval(fields, state))))
+            v = self.a.eval(fields, state)
+            if hasattr(v, '__frac__'):
+                return CsvFfrac(mt.ceil(float(v.a)), mt.ceil(float(v.b)))
+            else:
+                return CsvFloat(mt.ceil(float(v)))
 
     @func('floor', 'a')
     class Floor(Expr):
         """Round down to nearest integer"""
         def type(self, types={}):
-            return CsvFloat
+            t = super().type(types)
+            return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def eval(self, fields={}, state=None):
-            return CsvFloat(mt.floor(float(self.a.eval(fields, state))))
+            v = self.a.eval(fields, state)
+            if hasattr(v, '__frac__'):
+                return CsvFfrac(mt.floor(float(v.a)), mt.floor(float(v.b)))
+            else:
+                return CsvFloat(mt.floor(float(v)))
 
     @func('log', 'a[, b]')
     class Log(Expr):
         """Log of a with base e, or log of a with base b"""
         def type(self, types={}):
-            return CsvFloat
+            t  = self.a.type(types)
+            if len(self) > 1:
+                self.b.type(types)
+            return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def eval(self, fields={}, state=None):
+            v = self.a.eval(fields, state)
             if len(self) == 1:
-                return CsvFloat(mt.log(
-                        float(self.a.eval(fields, state))))
+                if hasattr(v, '__frac__'):
+                    return CsvFfrac(
+                            mt.log(float(v.a)),
+                            mt.log(float(v.b)))
+                else:
+                    return CsvFloat(
+                            mt.log(float(v)))
             else:
-                return CsvFloat(mt.log(
-                        float(self.a.eval(fields, state)),
-                        float(self.b.eval(fields, state))))
+                e = float(self.b.eval(fields, state))
+                if hasattr(v, '__frac__'):
+                    return CsvFfrac(
+                            mt.log(float(v.a), e),
+                            mt.log(float(v.b), e))
+                else:
+                    return CsvFloat(
+                            mt.log(float(v), e))
 
     @func('pow', 'a[, b]')
     class Pow(Expr):
         """e to the power of a, or a to the power of b"""
         def type(self, types={}):
-            return CsvFloat
+            t  = self.a.type(types)
+            if len(self) > 1:
+                self.b.type(types)
+            return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def eval(self, fields={}, state=None):
+            v = self.a.eval(fields, state)
             if len(self) == 1:
-                return CsvFloat(mt.exp(
-                        float(self.a.eval(fields, state))))
+                if hasattr(v, '__frac__'):
+                    return CsvFfrac(
+                            mt.exp(float(v.a)),
+                            mt.exp(float(v.b)))
+                else:
+                    return CsvFloat(
+                            mt.exp(float(v)))
             else:
-                return CsvFloat(mt.pow(
-                        float(self.a.eval(fields, state)),
-                        float(self.b.eval(fields, state))))
+                e = float(self.b.eval(fields, state))
+                if hasattr(v, '__frac__'):
+                    return CsvFfrac(
+                            mt.pow(float(v.a), e),
+                            mt.pow(float(v.b), e))
+                else:
+                    return CsvFloat(
+                            mt.pow(float(v), e))
 
     @func('sqrt', 'a')
     class Sqrt(Expr):
         """Square root"""
         def type(self, types={}):
-            return CsvFloat
+            t = super().type(types)
+            return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
         def eval(self, fields={}, state=None):
-            return CsvFloat(mt.sqrt(float(self.a.eval(fields, state))))
+            v = self.a.eval(fields, state)
+            if hasattr(v, '__frac__'):
+                return CsvFfrac(mt.sqrt(float(v.a)), mt.sqrt(float(v.b)))
+            else:
+                return CsvFloat(mt.sqrt(float(v)))
 
     @func('isint', 'a')
     class IsInt(Expr):
         """1 if a is an integer, otherwise 0"""
         def type(self, types={}):
+            super().type(types)
             return CsvInt
 
         def eval(self, fields={}, state=None):
@@ -996,6 +1222,7 @@ class CsvExpr:
     class IsFloat(Expr):
         """1 if a is a float, otherwise 0"""
         def type(self, types={}):
+            super().type(types)
             return CsvInt
 
         def eval(self, fields={}, state=None):
@@ -1008,6 +1235,7 @@ class CsvExpr:
     class IsFrac(Expr):
         """1 if a is a fraction, otherwise 0"""
         def type(self, types={}):
+            super().type(types)
             return CsvInt
 
         def eval(self, fields={}, state=None):
@@ -1016,10 +1244,24 @@ class CsvExpr:
             else:
                 return CsvInt(0)
 
+    @func('isffrac', 'a')
+    class IsFfrac(Expr):
+        """1 if a is a fraction, otherwise 0"""
+        def type(self, types={}):
+            super().type(types)
+            return CsvInt
+
+        def eval(self, fields={}, state=None):
+            if isinstance(self.a.eval(fields, state), CsvFfrac):
+                return CsvInt(1)
+            else:
+                return CsvInt(0)
+
     @func('isinf', 'a')
     class IsInf(Expr):
         """1 if a is infinite, otherwise 0"""
         def type(self, types={}):
+            super().type(types)
             return CsvInt
 
         def eval(self, fields={}, state=None):
@@ -1032,6 +1274,7 @@ class CsvExpr:
     class IsNan(Expr):
         """1 if a is a NAN, otherwise 0"""
         def type(self, types={}):
+            super().type(types)
             return CsvInt
 
         def eval(self, fields={}, state=None):
@@ -1070,6 +1313,7 @@ class CsvExpr:
     class NotNot(Expr):
         """1 if a is zero, otherwise 0"""
         def type(self, types={}):
+            super().type(types)
             return CsvInt
 
         def eval(self, fields={}, state=None):
@@ -1128,6 +1372,10 @@ class CsvExpr:
     @bop('==', 4)
     class Eq(Expr):
         """1 if a equals b, otherwise 0"""
+        def type(self, types={}):
+            super().type(types)
+            return CsvInt
+
         def eval(self, fields={}, state=None):
             if self.a.eval(fields, state) == self.b.eval(fields, state):
                 return CsvInt(1)
@@ -1137,6 +1385,10 @@ class CsvExpr:
     @bop('!=', 4)
     class Ne(Expr):
         """1 if a does not equal b, otherwise 0"""
+        def type(self, types={}):
+            super().type(types)
+            return CsvInt
+
         def eval(self, fields={}, state=None):
             if self.a.eval(fields, state) != self.b.eval(fields, state):
                 return CsvInt(1)
@@ -1146,6 +1398,10 @@ class CsvExpr:
     @bop('<', 4)
     class Lt(Expr):
         """1 if a is less than b"""
+        def type(self, types={}):
+            super().type(types)
+            return CsvInt
+
         def eval(self, fields={}, state=None):
             if self.a.eval(fields, state) < self.b.eval(fields, state):
                 return CsvInt(1)
@@ -1155,6 +1411,10 @@ class CsvExpr:
     @bop('<=', 4)
     class Le(Expr):
         """1 if a is less than or equal to b"""
+        def type(self, types={}):
+            super().type(types)
+            return CsvInt
+
         def eval(self, fields={}, state=None):
             if self.a.eval(fields, state) <= self.b.eval(fields, state):
                 return CsvInt(1)
@@ -1164,6 +1424,10 @@ class CsvExpr:
     @bop('>', 4)
     class Gt(Expr):
         """1 if a is greater than b"""
+        def type(self, types={}):
+            super().type(types)
+            return CsvInt
+
         def eval(self, fields={}, state=None):
             if self.a.eval(fields, state) > self.b.eval(fields, state):
                 return CsvInt(1)
@@ -1173,6 +1437,10 @@ class CsvExpr:
     @bop('>=', 4)
     class Ge(Expr):
         """1 if a is greater than or equal to b"""
+        def type(self, types={}):
+            super().type(types)
+            return CsvInt
+
         def eval(self, fields={}, state=None):
             if self.a.eval(fields, state) >= self.b.eval(fields, state):
                 return CsvInt(1)
@@ -1661,7 +1929,7 @@ def compile(fields_, results,
                     file=sys.stderr)
             sys.exit(2)
 
-        for t in [CsvInt, CsvFloat, CsvFrac]:
+        for t in [CsvInt, CsvFloat, CsvFrac, CsvFfrac]:
             for r in results:
                 if k in r and r[k].strip():
                     try:
@@ -1683,11 +1951,12 @@ def compile(fields_, results,
         types___[k] = expr.type(types__)
 
     # foldcheck field exprs
-    folds___ = {k: (CsvSum, t) for k, v in types__.items()}
+    folds___ = {k: CsvSum for k, v in types__.items()}
     for k, expr in exprs.items():
         folds___[k] = expr.fold(types__)
     # instantiate folds and resolve fold types
-    folds___ = {k: (f(), t or types___[k]) for k, (f, t) in folds___.items()}
+    folds___ = {k: f() for k, f in folds___.items()}
+    folds___ = {k: (f, f.type(types___[k])) for k, f in folds___.items()}
 
     # create result class
     def __new__(cls, _state=None, **r):
@@ -2410,7 +2679,7 @@ def list_fields(csv_paths, **args):
     types_ = {}
     for k in fields_:
         try:
-            for t in [CsvInt, CsvFloat, CsvFrac]:
+            for t in [CsvInt, CsvFloat, CsvFrac, CsvFfrac]:
                 for r in results:
                     if k in r and r[k].strip():
                         try:
@@ -2466,7 +2735,7 @@ def list_computed(fields_, results, Result, **args):
     types_ = {}
     for k in fields_:
         try:
-            for t in [CsvInt, CsvFloat, CsvFrac]:
+            for t in [CsvInt, CsvFloat, CsvFrac, CsvFfrac]:
                 for r in results:
                     if k in r and r[k].strip():
                         try:

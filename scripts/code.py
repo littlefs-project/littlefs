@@ -40,7 +40,7 @@ class CsvInt(co.namedtuple('CsvInt', 'a')):
     def __new__(cls, a=0):
         if isinstance(a, CsvInt):
             return a
-        if isinstance(a, str):
+        elif isinstance(a, str):
             try:
                 a = int(a, 0)
             except ValueError:
