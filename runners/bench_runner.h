@@ -44,16 +44,18 @@
 #endif
 
 // override LFS3_TRACE
+#ifndef LFS3_NO_TRACE
 void bench_trace(const char *fmt, ...);
-
 #define LFS3_TRACE_(fmt, ...) \
-    bench_trace("%s:%d:trace: " fmt "%s\n", \
-        __FILE__, \
-        __LINE__, \
-        __VA_ARGS__)
+    bench_trace("%s:%d:trace: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
 #define LFS3_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 #define LFS3_EMUBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 #define LFS3_KIWIBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
+#else
+#define LFS3_TRACE(...)
+#define LFS3_EMUBD_TRACE(...)
+#define LFS3_KIWIBD_TRACE(...)
+#endif
 
 
 // note these are indirectly included in any generated files

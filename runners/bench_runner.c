@@ -466,12 +466,15 @@ void *bench_trace_backtrace_buffer[
 
 // trace printing
 void bench_trace(const char *fmt, ...) {
+    BENCH_STACK_PAUSE();
+    BENCH_HEAP_PAUSE();
+
     if (bench_trace_path) {
         // sample at a specific period?
         if (bench_trace_period) {
             if (bench_trace_cycles % bench_trace_period != 0) {
                 bench_trace_cycles += 1;
-                return;
+                goto done;
             }
             bench_trace_cycles += 1;
         }
@@ -483,7 +486,7 @@ void bench_trace(const char *fmt, ...) {
             uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
                     + (uint64_t)t.tv_nsec;
             if (now - bench_trace_time < (1000*1000*1000) / bench_trace_freq) {
-                return;
+                goto done;
             }
             bench_trace_time = now;
         }
@@ -497,7 +500,7 @@ void bench_trace(const char *fmt, ...) {
             uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
                     + (uint64_t)t.tv_nsec;
             if (now - bench_trace_open_time < 100*1000*1000) {
-                return;
+                goto done;
             }
             bench_trace_open_time = now;
 
@@ -506,7 +509,7 @@ void bench_trace(const char *fmt, ...) {
             if (strcmp(bench_trace_path, "-") == 0) {
                 fd = dup(1);
                 if (fd < 0) {
-                    return;
+                    goto done;
                 }
             } else {
                 fd = open(
@@ -514,7 +517,7 @@ void bench_trace(const char *fmt, ...) {
                         O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
                         0666);
                 if (fd < 0) {
-                    return;
+                    goto done;
                 }
                 int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
                 assert(!err);
@@ -536,7 +539,7 @@ void bench_trace(const char *fmt, ...) {
         if (res < 0) {
             fclose(bench_trace_file);
             bench_trace_file = NULL;
-            return;
+            goto done;
         }
 
         if (bench_trace_backtrace) {
@@ -551,7 +554,7 @@ void bench_trace(const char *fmt, ...) {
                 if (res < 0) {
                     fclose(bench_trace_file);
                     bench_trace_file = NULL;
-                    return;
+                    goto done;
                 }
             }
         }
@@ -559,6 +562,10 @@ void bench_trace(const char *fmt, ...) {
         // flush immediately
         fflush(bench_trace_file);
     }
+
+done:;
+    BENCH_HEAP_RESUME();
+    BENCH_STACK_RESUME();
 }
 
 
@@ -618,6 +625,7 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
 
 // stack hooks
 #ifdef BENCH_STACK
+uint32_t bench_stack_entered = 0;
 uint8_t *bench_stack_entrance = NULL;
 size_t bench_stack_watermark = 0;
 #endif
@@ -626,6 +634,7 @@ size_t bench_stack_watermark = 0;
 #ifdef BENCH_STACK
 __attribute__((noinline))
 void bench_stack_enter(void) {
+    bench_stack_entered = 1;
     bench_stack_entrance = __builtin_frame_address(0);
     bench_stack_watermark = 0;
 }
@@ -633,7 +642,7 @@ void bench_stack_enter(void) {
 
 #ifdef BENCH_STACK
 void bench_stack_exit(void) {
-    // do nothing
+    bench_stack_entered = 0;
 }
 #endif
 
@@ -641,23 +650,28 @@ void bench_stack_exit(void) {
 #ifdef BENCH_STACK
 __attribute__((noinline))
 void bench_stack_pause(void) {
-    uint8_t *current = __builtin_frame_address(0);
+    if (bench_stack_entered & 1) {
+        uint8_t *current = __builtin_frame_address(0);
 
-    // keep track of the deepest stack
-    ssize_t depth = current - bench_stack_entrance;
-    if (depth < 0) {
-        depth = -depth;
+        // keep track of the deepest stack
+        ssize_t depth = current - bench_stack_entrance;
+        if (depth < 0) {
+            depth = -depth;
+        }
+
+        if ((size_t)depth > bench_stack_watermark) {
+            bench_stack_watermark = depth;
+        }
     }
 
-    if ((size_t)depth > bench_stack_watermark) {
-        bench_stack_watermark = depth;
-    }
+    // haha, a little 32-bit stack
+    bench_stack_entered <<= 1;
 }
 #endif
 
 #ifdef BENCH_STACK
 void bench_stack_resume(void) {
-    // do nothing
+    bench_stack_entered >>= 1;
 }
 #endif
 
@@ -801,6 +815,48 @@ void *__wrap_realloc(void *p, size_t size) {
     BENCH_HEAP_INC(size);
     *p_ = size;
     return p_ + 1;
+}
+#endif
+
+
+// rather than intercepting all of littlefs's log functions, just
+// intercept all calls to printf at link-time
+//
+// note this is not a perfect solution as the call itself needs stack,
+// which may already be allocated in the parent frame, and some of
+// littlefs's debug statements get loooooong
+//
+// disabling logging at compile time may give you more accurate results
+#if defined(BENCH_STACK) || defined(BENCH_HEAP)
+extern int __real_vprintf(const char *fmt, va_list args);
+
+int __wrap_printf(const char *fmt, ...) {
+    BENCH_STACK_PAUSE();
+    BENCH_HEAP_PAUSE();
+
+    va_list args;
+    va_start(args, fmt);
+    int n = __real_vprintf(fmt, args);
+    va_end(args);
+
+    BENCH_HEAP_RESUME();
+    BENCH_STACK_RESUME();
+    return n;
+}
+#endif
+
+#if defined(BENCH_STACK) || defined(BENCH_HEAP)
+extern int __real_vprintf(const char *fmt, va_list args);
+
+int __wrap_vprintf(const char *fmt, va_list args) {
+    BENCH_STACK_PAUSE();
+    BENCH_HEAP_PAUSE();
+
+    int n = __real_vprintf(fmt, args);
+
+    BENCH_HEAP_RESUME();
+    BENCH_STACK_RESUME();
+    return n;
 }
 #endif
 

@@ -105,24 +105,32 @@ TEST_CFLAGS += -Wno-unused-function
 TEST_CFLAGS += -Wno-format-overflow
 ifdef STACK
 TEST_CFLAGS += -DTEST_STACK
+TEST_CFLAGS += -Wl,--wrap=printf
+TEST_CFLAGS += -Wl,--wrap=vprintf
 endif
 ifdef HEAP
 TEST_CFLAGS += -DTEST_HEAP
 TEST_CFLAGS += -Wl,--wrap=malloc
 TEST_CFLAGS += -Wl,--wrap=free
 TEST_CFLAGS += -Wl,--wrap=realloc
+TEST_CFLAGS += -Wl,--wrap=printf
+TEST_CFLAGS += -Wl,--wrap=vprintf
 endif
 
 BENCH_CFLAGS += -Wno-unused-function
 BENCH_CFLAGS += -Wno-format-overflow
 ifndef NO_STACK
 BENCH_CFLAGS += -DBENCH_STACK
+BENCH_CFLAGS += -Wl,--wrap=printf
+BENCH_CFLAGS += -Wl,--wrap=vprintf
 endif
 ifndef NO_HEAP
 BENCH_CFLAGS += -DBENCH_HEAP
 BENCH_CFLAGS += -Wl,--wrap=malloc
 BENCH_CFLAGS += -Wl,--wrap=free
 BENCH_CFLAGS += -Wl,--wrap=realloc
+BENCH_CFLAGS += -Wl,--wrap=printf
+BENCH_CFLAGS += -Wl,--wrap=vprintf
 endif
 
 ifdef VERBOSE

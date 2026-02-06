@@ -483,12 +483,15 @@ void *test_trace_backtrace_buffer[
 
 // trace printing
 void test_trace(const char *fmt, ...) {
+    TEST_STACK_PAUSE();
+    TEST_HEAP_PAUSE();
+
     if (test_trace_path) {
         // sample at a specific period?
         if (test_trace_period) {
             if (test_trace_cycles % test_trace_period != 0) {
                 test_trace_cycles += 1;
-                return;
+                goto done;
             }
             test_trace_cycles += 1;
         }
@@ -500,7 +503,7 @@ void test_trace(const char *fmt, ...) {
             uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
                     + (uint64_t)t.tv_nsec;
             if (now - test_trace_time < (1000*1000*1000) / test_trace_freq) {
-                return;
+                goto done;
             }
             test_trace_time = now;
         }
@@ -514,7 +517,7 @@ void test_trace(const char *fmt, ...) {
             uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
                     + (uint64_t)t.tv_nsec;
             if (now - test_trace_open_time < 100*1000*1000) {
-                return;
+                goto done;
             }
             test_trace_open_time = now;
 
@@ -523,7 +526,7 @@ void test_trace(const char *fmt, ...) {
             if (strcmp(test_trace_path, "-") == 0) {
                 fd = dup(1);
                 if (fd < 0) {
-                    return;
+                    goto done;
                 }
             } else {
                 fd = open(
@@ -531,7 +534,7 @@ void test_trace(const char *fmt, ...) {
                         O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
                         0666);
                 if (fd < 0) {
-                    return;
+                    goto done;
                 }
                 int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
                 assert(!err);
@@ -553,7 +556,7 @@ void test_trace(const char *fmt, ...) {
         if (res < 0) {
             fclose(test_trace_file);
             test_trace_file = NULL;
-            return;
+            goto done;
         }
 
         if (test_trace_backtrace) {
@@ -568,7 +571,7 @@ void test_trace(const char *fmt, ...) {
                 if (res < 0) {
                     fclose(test_trace_file);
                     test_trace_file = NULL;
-                    return;
+                    goto done;
                 }
             }
         }
@@ -576,6 +579,10 @@ void test_trace(const char *fmt, ...) {
         // flush immediately
         fflush(test_trace_file);
     }
+
+done:;
+    TEST_HEAP_RESUME();
+    TEST_STACK_RESUME();
 }
 
 // test prng
@@ -634,6 +641,7 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size) {
 
 // stack hooks
 #ifdef TEST_STACK
+uint32_t test_stack_entered = 0;
 uint8_t *test_stack_entrance = NULL;
 size_t test_stack_watermark = 0;
 #endif
@@ -642,6 +650,7 @@ size_t test_stack_watermark = 0;
 #ifdef TEST_STACK
 __attribute__((noinline))
 void test_stack_enter(void) {
+    test_stack_entered = 1;
     test_stack_entrance = __builtin_frame_address(0);
     test_stack_watermark = 0;
 }
@@ -649,7 +658,7 @@ void test_stack_enter(void) {
 
 #ifdef TEST_STACK
 void test_stack_exit(void) {
-    // do nothing
+    test_stack_entered = 0;
 }
 #endif
 
@@ -657,23 +666,28 @@ void test_stack_exit(void) {
 #ifdef TEST_STACK
 __attribute__((noinline))
 void test_stack_pause(void) {
-    uint8_t *current = __builtin_frame_address(0);
+    if (test_stack_entered & 1) {
+        uint8_t *current = __builtin_frame_address(0);
 
-    // keep track of the deepest stack
-    ssize_t depth = current - test_stack_entrance;
-    if (depth < 0) {
-        depth = -depth;
+        // keep track of the deepest stack
+        ssize_t depth = current - test_stack_entrance;
+        if (depth < 0) {
+            depth = -depth;
+        }
+
+        if ((size_t)depth > test_stack_watermark) {
+            test_stack_watermark = depth;
+        }
     }
 
-    if ((size_t)depth > test_stack_watermark) {
-        test_stack_watermark = depth;
-    }
+    // haha, a little 32-bit stack
+    test_stack_entered <<= 1;
 }
 #endif
 
 #ifdef TEST_STACK
 void test_stack_resume(void) {
-    // do nothing
+    test_stack_entered >>= 1;
 }
 #endif
 
@@ -817,6 +831,48 @@ void *__wrap_realloc(void *p, size_t size) {
     TEST_HEAP_INC(size);
     *p_ = size;
     return p_ + 1;
+}
+#endif
+
+
+// rather than intercepting all of littlefs's log functions, just
+// intercept all calls to printf at link-time
+//
+// note this is not a perfect solution as the call itself needs stack,
+// which may already be allocated in the parent frame, and some of
+// littlefs's debug statements get loooooong
+//
+// disabling logging at compile time may give you more accurate results
+#if defined(TEST_STACK) || defined(TEST_HEAP)
+extern int __real_vprintf(const char *fmt, va_list args);
+
+int __wrap_printf(const char *fmt, ...) {
+    TEST_STACK_PAUSE();
+    TEST_HEAP_PAUSE();
+
+    va_list args;
+    va_start(args, fmt);
+    int n = __real_vprintf(fmt, args);
+    va_end(args);
+
+    TEST_HEAP_RESUME();
+    TEST_STACK_RESUME();
+    return n;
+}
+#endif
+
+#if defined(TEST_STACK) || defined(TEST_HEAP)
+extern int __real_vprintf(const char *fmt, va_list args);
+
+int __wrap_vprintf(const char *fmt, va_list args) {
+    TEST_STACK_PAUSE();
+    TEST_HEAP_PAUSE();
+
+    int n = __real_vprintf(fmt, args);
+
+    TEST_HEAP_RESUME();
+    TEST_STACK_RESUME();
+    return n;
 }
 #endif
 
