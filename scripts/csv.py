@@ -2742,7 +2742,7 @@ def list_fields(csv_paths, **args):
                 w[1], t,
                 x))
 
-def list_computed(fields_, results, Result, **args):
+def list_eval(fields_, results, Result, **args):
     # find best type for fields, note this matches compile behavior
     types_ = {}
     for k in fields_:
@@ -3071,9 +3071,9 @@ def main(csv_paths, *,
             hot=hot,
             notes=notes)
 
-    # list computed?
-    if args.get('list_computed'):
-        return list_computed(fields_, results, Result, **args)
+    # list eval?
+    if args.get('list_eval'):
+        return list_eval(fields_, results, Result, **args)
 
     # homogenize
     results = homogenize(Result, results,
@@ -3174,7 +3174,7 @@ if __name__ == "__main__":
             action='store_true',
             help="List fields and inferred types before processing.")
     parser.add_argument(
-            '-L', '--list-computed',
+            '-L', '--list-eval',
             action='store_true',
             help="List computed fields and expression dependencies.")
     parser.add_argument(
