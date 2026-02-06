@@ -83,11 +83,11 @@ code = '''
     BENCH_STOP("write", written);
 
     // report the total stack/heap usage after the benchmark
-    #ifdef BENCH_YES_STACK
-    BENCH_RESULT("stack", written, BENCH_STACK());
+    #ifdef BENCH_STACK
+    BENCH_RESULT("stack", written, BENCH_STACK_WATERMARK());
     #endif
-    #ifdef BENCH_YES_HEAP
-    BENCH_RESULT("heap", written, BENCH_HEAP());
+    #ifdef BENCH_HEAP
+    BENCH_RESULT("heap", written, BENCH_HEAP_WATERMARK());
     #endif
 
     // find the total disk usage after the benchmark
@@ -144,11 +144,11 @@ code = '''
     BENCH_STOP("write", written);
 
     // report the total stack/heap usage after the benchmark
-    #ifdef BENCH_YES_STACK
-    BENCH_RESULT("stack", written, BENCH_STACK());
+    #ifdef BENCH_STACK
+    BENCH_RESULT("stack", written, BENCH_STACK_WATERMARK());
     #endif
-    #ifdef BENCH_YES_HEAP
-    BENCH_RESULT("heap", written, BENCH_HEAP());
+    #ifdef BENCH_HEAP
+    BENCH_RESULT("heap", written, BENCH_HEAP_WATERMARK());
     #endif
 
     // find the total disk usage after the benchmark
@@ -223,11 +223,11 @@ code = '''
     BENCH_STOP("write", written);
 
     // report the total stack/heap usage after the benchmark
-    #ifdef BENCH_YES_STACK
-    BENCH_RESULT("stack", written, BENCH_STACK());
+    #ifdef BENCH_STACK
+    BENCH_RESULT("stack", written, BENCH_STACK_WATERMARK());
     #endif
-    #ifdef BENCH_YES_HEAP
-    BENCH_RESULT("heap", written, BENCH_HEAP());
+    #ifdef BENCH_HEAP
+    BENCH_RESULT("heap", written, BENCH_HEAP_WATERMARK());
     #endif
 
     // find the total disk usage after the benchmark
@@ -292,11 +292,11 @@ code = '''
     BENCH_STOP("write", written);
 
     // report the total stack/heap usage after the benchmark
-    #ifdef BENCH_YES_STACK
-    BENCH_RESULT("stack", written, BENCH_STACK());
+    #ifdef BENCH_STACK
+    BENCH_RESULT("stack", written, BENCH_STACK_WATERMARK());
     #endif
-    #ifdef BENCH_YES_HEAP
-    BENCH_RESULT("heap", written, BENCH_HEAP());
+    #ifdef BENCH_HEAP
+    BENCH_RESULT("heap", written, BENCH_HEAP_WATERMARK());
     #endif
 
     // find the total disk usage after the benchmark

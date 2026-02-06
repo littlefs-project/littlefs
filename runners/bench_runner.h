@@ -148,36 +148,44 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 #define BENCH_FACTORIAL(x) bench_factorial(x)
 #define BENCH_PERMUTATION(i, buffer, size) bench_permutation(i, buffer, size)
 
-#ifdef BENCH_YES_STACK
+#ifdef BENCH_STACK
 // get the maximum/current stack usage for this run
-size_t bench_stack(void);
-__attribute__((noinline))
-size_t bench_stack_current(void);
-__attribute__((noinline))
-void bench_stack_pause(void);
+extern size_t bench_stack_watermark;
+__attribute__((noinline)) size_t bench_stack_current(void);
+__attribute__((noinline)) void bench_stack_pause(void);
 void bench_stack_resume(void);
 
-#define BENCH_STACK() bench_stack()
+#define BENCH_STACK_WATERMARK() bench_stack_watermark
 #define BENCH_STACK_CURRENT() bench_stack_current()
 #define BENCH_STACK_PAUSE() bench_stack_pause()
 #define BENCH_STACK_RESUME() bench_stack_resume()
+#else
+// stubs if not measuring stack
+#define BENCH_STACK_PAUSE()
+#define BENCH_STACK_RESUME()
 #endif
 
-#ifdef BENCH_YES_HEAP
+#ifdef BENCH_HEAP
 // get the maximum/current heap usage for this run
-size_t bench_heap(void);
-size_t bench_heap_current(void);
+extern size_t bench_heap_watermark;
+extern size_t bench_heap_current;
 void bench_heap_pause(void);
 void bench_heap_resume(void);
 void bench_heap_inc(size_t size);
 void bench_heap_dec(size_t size);
 
-#define BENCH_HEAP() bench_heap()
-#define BENCH_HEAP_CURRENT() bench_heap_current()
+#define BENCH_HEAP_WATERMARK() bench_heap_watermark
+#define BENCH_HEAP_CURRENT() bench_heap_current
 #define BENCH_HEAP_PAUSE() bench_heap_pause()
 #define BENCH_HEAP_RESUME() bench_heap_resume()
 #define BENCH_HEAP_INC(size) bench_heap_inc(size)
 #define BENCH_HEAP_DEC(size) bench_heap_dec(size)
+#else
+// stubs if not measuring heap
+#define BENCH_HEAP_PAUSE()
+#define BENCH_HEAP_RESUME()
+#define BENCH_HEAP_INC(size)
+#define BENCH_HEAP_DEC(size)
 #endif
 
 
