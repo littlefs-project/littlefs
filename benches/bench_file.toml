@@ -1,0 +1,102 @@
+# Simple file benchmark
+after = ['bench_rbyd', 'bench_btree']
+
+# helper for measuring disk usage
+code = '''
+    #include "benches/bench_helpers.h"
+'''
+
+
+[cases.bench_file]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+# 3 = random-unaligned-order
+defines.ORDER = 3
+defines.SIZE = '1024*1024' # 1 MiB
+defines.CHUNK = 64
+defines.FLUSH = true # note if you don't flush, reads may end up writing
+defines.SYNC = false
+defines.STEP = 1
+defines.SEED = 42
+# set of probes to measure
+# 0x1 => write
+# 0x2 => read
+# 0x4 => usage
+defines.MASK = 0x7
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint32_t prng = SEED;
+
+    // open our file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "bench_file",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    for (lfs3_size_t i = 0; i < (SIZE+(CHUNK-1))/CHUNK; i++) {
+        lfs3_off_t i_
+                = (ORDER == 0)
+                    ? i*CHUNK
+                : (ORDER == 1)
+                    ? (((SIZE+(CHUNK-1))/CHUNK)-1-i)*CHUNK
+                : (ORDER == 2)
+                    ? (BENCH_PRNG(&prng) % ((SIZE+(CHUNK-1))/CHUNK)) * CHUNK
+                    : BENCH_PRNG(&prng) % (lfs3_max(SIZE, CHUNK) - (CHUNK-1));
+        // measure a write
+        if ((MASK & 0x1) && (i+1) % STEP == 0) {
+            BENCH_START("write");
+        }
+        // seek to where we want to write
+        lfs3_file_seek(&lfs3, &file, i_, LFS3_SEEK_SET) => i_;
+
+        // write
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (BENCH_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+
+        // flush?
+        if (FLUSH) {
+            lfs3_file_flush(&lfs3, &file) => 0;
+        }
+        // sync?
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+        if ((MASK & 0x1) && (i+1) % STEP == 0) {
+            BENCH_STOP("write", i*CHUNK+CHUNK);
+        }
+
+        // measure a random chunk-sized read
+        if ((MASK & 0x2) && (i+1) % STEP == 0) {
+            BENCH_START("read");
+            // align to chunk?
+            lfs3_off_t i__ = (ORDER <= 2)
+                    ? (BENCH_PRNG(&prng)
+                            % ((lfs3_file_size(&lfs3, &file)+(CHUNK-1))/CHUNK))
+                        * CHUNK
+                    : BENCH_PRNG(&prng)
+                        % (lfs3_file_size(&lfs3, &file) - (CHUNK-1));
+
+            // seek to where we want to read
+            lfs3_file_seek(&lfs3, &file, i__, LFS3_SEEK_SET) => i__;
+
+            // read
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+
+            BENCH_STOP("read", i*CHUNK+CHUNK);
+        }
+
+        // measure disk usage
+        if ((MASK & 0x4) && (i+1) % STEP == 0) {
+            uintmax_t usage = bench_helpers_usage(&lfs3);
+            BENCH_RESULT("usage", i*CHUNK+CHUNK, usage);
+        }
+    }
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''

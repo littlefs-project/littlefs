@@ -1,0 +1,93 @@
+# Simple (root) directory benchmark
+after = ['bench_rbyd', 'bench_btree', 'bench_file']
+
+# helper for measuring disk usage
+code = '''
+    #include "benches/bench_helpers.h"
+'''
+
+
+[cases.bench_dir]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = 2
+defines.N = 1024
+defines.SIZE = 64
+defines.STEP = 1
+defines.SEED = 42
+# set of probes to measure
+# 0x1 => write
+# 0x2 => stat
+# 0x4 => read
+# 0x8 => usage
+defines.MASK = 0xf
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    uint32_t prng = SEED;
+
+    for (lfs3_off_t i = 0; i < N; i++) {
+        lfs3_off_t i_
+                = (ORDER == 0) ? i
+                : (ORDER == 1) ? N-1-i
+                : BENCH_PRNG(&prng) % N;
+        // measure file creation
+        if ((MASK & 0x1) && (i+1) % STEP == 0) {
+            BENCH_START("write");
+        }
+        char name[256];
+        sprintf(name, "bench_%08x", i_);
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+        uint8_t wbuf[SIZE];
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (BENCH_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
+        if ((MASK & 0x1) && (i+1) % STEP == 0) {
+            BENCH_STOP("write", i*SIZE+SIZE);
+        }
+
+        // choose a random file to stat
+        if ((MASK & 0x2) && (i+1) % STEP == 0) {
+            BENCH_START("stat");
+            lfs3_off_t i__ = BENCH_PRNG(&prng) % N;
+            sprintf(name, "bench_%08x", i__);
+            struct lfs3_info info;
+            int err = lfs3_stat(&lfs3, name, &info);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err != LFS3_ERR_NOENT) {
+                assert(info.type == LFS3_TYPE_REG);
+                assert(info.size == SIZE);
+            }
+            BENCH_STOP("stat", i*SIZE+SIZE);
+        }
+
+        // choose a random file to read
+        if ((MASK & 0x4) && (i+1) % STEP == 0) {
+            BENCH_START("read");
+            lfs3_off_t i__ = BENCH_PRNG(&prng) % N;
+            sprintf(name, "bench_%08x", i__);
+            int err = lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err != LFS3_ERR_NOENT) {
+                uint8_t rbuf[SIZE];
+                lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+                lfs3_file_close(&lfs3, &file) => 0;
+            }
+            BENCH_STOP("read", i*SIZE+SIZE);
+        }
+
+        // measure disk usage
+        if ((MASK & 0x8) && (i+1) % STEP == 0) {
+            uintmax_t usage = bench_helpers_usage(&lfs3);
+            BENCH_RESULT("usage", i*SIZE+SIZE, usage);
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''

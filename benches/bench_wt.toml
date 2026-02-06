@@ -1,4 +1,5 @@
 # High-level write-throughput benchmarks
+after = ['bench_file', 'bench_dir']
 
 # these are common and can be overridden suite-wide
 #
@@ -9,10 +10,6 @@ defines.SIZE = '1024*1024' # 1 MiB
 defines.CHUNK = 64
 defines.SEED = 42
 
-# note FILE_SIZE is bench_*_many specific
-defines.FILE_SIZE = 'CHUNK'
-defines.FILE_COUNT = '(SIZE+(FILE_SIZE-1)) / lfs3_max(FILE_SIZE, 1)'
-
 # simulated time, in nanoseconds, to run the bench
 defines.SIM_TIME = '60ULL*60ULL*1000ULL*1000ULL*1000ULL' # 1 hour
 # simulation size in bytes
@@ -21,14 +18,11 @@ defines.SIM_SIZE = 0
 # set this to true to skip bench warmup
 defines.SKIP_WARMUP = false
 
-# don't fruncate, this is logging specific
-defines.NO_FRUNCATE = 0
-
-
 # include common bench helpers
 code = '''
-#include "benches/bench_helpers.h"
+    #include "benches/bench_helpers.h"
 '''
+
 
 # sequential write throughput
 [cases.bench_wt_seq]
@@ -164,6 +158,7 @@ code = '''
 # 1. fruncate/rotations instead of rewind+truncate
 # 2. sync called on every write
 [cases.bench_wt_logging]
+defines.NO_FRUNCATE = false
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -239,6 +234,8 @@ code = '''
 
 # many small file write throughput
 [cases.bench_wt_many]
+defines.FILE_SIZE = 'CHUNK'
+defines.FILE_COUNT = '(SIZE+(FILE_SIZE-1)) / lfs3_max(FILE_SIZE, 1)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;

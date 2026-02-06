@@ -1,0 +1,283 @@
+# Low-level B-tree benchmarks
+after = ['bench_rbyd']
+
+# limit to littlefs3 without a gbmap
+ifndef = 'LFS3_GBMAP'
+
+# maximize lookahead buffer, we don't actually gc so we only get one pass
+# of the disk for these tests
+defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
+
+
+[cases.bench_btree_ids]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = 2
+defines.N = 8192
+defines.SIZE = 4
+defines.STEP = 1
+defines.SEED = 42
+# set of probes to measure
+# 0x1 => commit
+# 0x2 => lookup
+# 0x8 => usage
+defines.MASK = 0xb
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_init(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    // create free lookahead
+    memset(lfs3.lookahead.buffer, 0, CFG->lookahead_size);
+    lfs3.lookahead.window = 2;
+    lfs3.lookahead.off = 0;
+    lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
+            CFG->block_count-2);
+    lfs3_alloc_ckpoint(&lfs3);
+
+    // commit initial commit just to avoid first erase messing with
+    // amortized results
+    lfs3_btree_t btree;
+    lfs3_btree_init(&btree);
+    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR(1, LFS3_TAG_DATA, +1),
+            LFS3_RATTR(1, LFS3_TAG_DATA, -1),
+            LFS3_RATTR_NULL)) => 0;
+
+    // fill btree with N elements
+    uint32_t prng = SEED;
+    for (lfs3_bid_t i = 0; i < N; i++) {
+        lfs3_bid_t i_
+                = (ORDER == 0) ? i
+                : (ORDER == 1) ? 0
+                : BENCH_PRNG(&prng) % (btree.r.weight+1);
+        // measure commits
+        if ((MASK & 0x1) && (i+1) % STEP == 0) {
+            BENCH_START("commit");
+        }
+        uint8_t wbuf[SIZE];
+        memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
+        lfs3_btree_commit(&lfs3, &btree, i_, LFS3_RATTRS(
+                LFS3_RATTR(3, LFS3_TAG_DATA, +1, LFS3_FROM_DATA),
+                LFS3_RATTR_ARG(SIZE),
+                LFS3_RATTR_ARG(wbuf),
+                LFS3_RATTR_NULL)) => 0;
+        if ((MASK & 0x1) && (i+1) % STEP == 0) {
+            BENCH_STOP("commit", i+1);
+        }
+
+        // measure lookups
+        if ((MASK & 0x2) && (i+1) % STEP == 0) {
+            BENCH_START("lookup");
+            lfs3_bid_t i_ = BENCH_PRNG(&prng) % btree.r.weight;
+            lfs3_data_t data_;
+            lfs3_stag_t tag_ = lfs3_btree_lookup(&lfs3, &btree,
+                    i_, LFS3_TAG_DATA,
+                    &data_);
+            assert(tag_ == LFS3_TAG_DATA);
+            assert(lfs3_data_size(&data_) == SIZE);
+            BENCH_STOP("lookup", i+1);
+        }
+
+        // measure disk usage
+        if ((MASK & 0x8) && (i+1) % STEP == 0) {
+            lfs3_off_t count = 0;
+
+            lfs3_btrv_t btrv;
+            lfs3_btrv_init(&btrv);
+            while (true) {
+                lfs3_sbid_t bid_;
+                lfs3_bid_t weight_;
+                lfs3_data_t data_;
+                lfs3_stag_t tag_ = lfs3_btree_traverse(&lfs3, &btree,
+                        &btrv,
+                        &bid_, &weight_, &data_);
+                assert(tag_ >= 0 || tag_ == LFS3_ERR_NOENT);
+                if (tag_ == LFS3_ERR_NOENT) {
+                    break;
+                }
+
+                if (tag_ == LFS3_TAG_BRANCH) {
+                    count += 1;
+                }
+            }
+
+            BENCH_RESULT("usage", i+1,
+                    (uintmax_t)count * CFG->block_size);
+        }
+    }
+'''
+
+
+[cases.bench_btree_names]
+# 0 = in-order
+# 1 = reversed-order
+# 2 = random-order
+defines.ORDER = 2
+defines.N = 8192
+defines.SIZE = 4
+defines.STEP = 1
+defines.SEED = 42
+# set of probes to measure
+# 0x1 => commit
+# 0x2 => lookup
+# 0x4 => namelookup
+# 0x8 => usage
+defines.MASK = 0xf
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_init(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    // create free lookahead
+    memset(lfs3.lookahead.buffer, 0, CFG->lookahead_size);
+    lfs3.lookahead.window = 2;
+    lfs3.lookahead.off = 0;
+    lfs3.lookahead.known = lfs3_min(8*CFG->lookahead_size,
+            CFG->block_count-2);
+    lfs3_alloc_ckpoint(&lfs3);
+
+    // commit initial commit just to avoid first erase messing with
+    // amortized results
+    lfs3_btree_t btree;
+    lfs3_btree_init(&btree);
+    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR(1, LFS3_TAG_DATA, +1),
+            LFS3_RATTR(1, LFS3_TAG_DATA, -1),
+            LFS3_RATTR_NULL)) => 0;
+
+    // fill btree with N elements
+    uint32_t prng = SEED;
+    for (lfs3_bid_t i = 0; i < N; i++) {
+        lfs3_bid_t i_
+                = (ORDER == 0) ? i
+                : (ORDER == 1) ? N-1-i
+                : BENCH_PRNG(&prng) % N;
+        // measure commits
+        if ((MASK & 0x1) && (i+1) % STEP == 0) {
+            BENCH_START("commit");
+        }
+        char name[256];
+        sprintf(name, "e%05d", i_);
+        uint8_t wbuf[SIZE];
+        memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
+        // we need to map names to bids before we can commit, so include
+        // this in our commit cost
+        lfs3_bid_t bid;
+        lfs3_tag_t tag;
+        lfs3_bid_t weight;
+        lfs3_data_t data;
+        lfs3_scmp_t cmp = lfs3_btree_namelookup(&lfs3, &btree,
+                0, name, strlen(name),
+                &bid, &tag, &weight, &data);
+        assert(cmp >= 0 || cmp == LFS3_ERR_NOENT);
+        // empty btree?
+        if (cmp == LFS3_ERR_NOENT) {
+            lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+                    LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+                    LFS3_RATTR_ARG(0),
+                    LFS3_RATTR_ARG(name),
+                    LFS3_RATTR(3, LFS3_TAG_DATA, 0, LFS3_FROM_DATA),
+                    LFS3_RATTR_ARG(SIZE),
+                    LFS3_RATTR_ARG(wbuf),
+                    LFS3_RATTR_NULL)) => 0;
+        // insert before?
+        } else if (cmp > LFS3_CMP_EQ) {
+            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+                    LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+                    LFS3_RATTR_ARG(0),
+                    LFS3_RATTR_ARG(name),
+                    LFS3_RATTR(3, LFS3_TAG_DATA, 0, LFS3_FROM_DATA),
+                    LFS3_RATTR_ARG(SIZE),
+                    LFS3_RATTR_ARG(wbuf),
+                    LFS3_RATTR_NULL)) => 0;
+        // insert after?
+        } else if (cmp < LFS3_CMP_EQ) {
+            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+                    // yes, we need this noop, triggers an insert after
+                    LFS3_RATTR(1, LFS3_RATTR_NULL, 0),
+                    LFS3_RATTR(3, LFS3_TAG_REG, +1, LFS3_FROM_NAME),
+                    LFS3_RATTR_ARG(0),
+                    LFS3_RATTR_ARG(name),
+                    LFS3_RATTR(3, LFS3_TAG_DATA, 0, LFS3_FROM_DATA),
+                    LFS3_RATTR_ARG(SIZE),
+                    LFS3_RATTR_ARG(wbuf),
+                    LFS3_RATTR_NULL)) => 0;
+        // replace?
+        } else {
+            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+                    LFS3_RATTR(3, LFS3_TAG_DATA, 0, LFS3_FROM_DATA),
+                    LFS3_RATTR_ARG(SIZE),
+                    LFS3_RATTR_ARG(wbuf),
+                    LFS3_RATTR_NULL)) => 0;
+        }
+        if ((MASK & 0x1) && (i+1) % STEP == 0) {
+            BENCH_STOP("commit", i+1);
+        }
+
+        // measure namelookups
+        if ((MASK & 0x4) && (i+1) % STEP == 0) {
+            BENCH_START("namelookup");
+            lfs3_bid_t i_ = BENCH_PRNG(&prng) % N;
+            char name[256];
+            sprintf(name, "e%05d", i_);
+            lfs3_bid_t bid_;
+            lfs3_tag_t tag_;
+            lfs3_bid_t weight_;
+            lfs3_data_t data_;
+            lfs3_scmp_t cmp_ = lfs3_btree_namelookup(&lfs3, &btree,
+                    0, name, strlen(name),
+                    &bid_, &tag_, &weight_, &data_);
+            assert(cmp_ >= 0);
+            if (cmp_ == LFS3_CMP_EQ) {
+                assert(tag_ == LFS3_TAG_REG);
+                assert(weight_ == 1);
+                assert(lfs3_data_size(&data_) == 1+strlen(name));
+            }
+            BENCH_STOP("namelookup", i+1);
+        }
+
+        // measure lookups
+        if ((MASK & 0x2) && (i+1) % STEP == 0) {
+            BENCH_START("lookup");
+            lfs3_bid_t i_ = BENCH_PRNG(&prng) % btree.r.weight;
+            lfs3_data_t data_;
+            lfs3_stag_t tag_ = lfs3_btree_lookup(&lfs3, &btree,
+                    i_, LFS3_TAG_DATA,
+                    &data_);
+            assert(tag_ == LFS3_TAG_DATA
+                    || tag_ == LFS3_ERR_NOENT);
+            if (tag_ != LFS3_ERR_NOENT) {
+                assert(tag_ == LFS3_TAG_DATA);
+                assert(lfs3_data_size(&data_) == SIZE);
+            }
+            BENCH_STOP("lookup", i+1);
+        }
+
+        // measure disk usage
+        if ((MASK & 0x8) && (i+1) % STEP == 0) {
+            lfs3_off_t count = 0;
+
+            lfs3_btrv_t btrv;
+            lfs3_btrv_init(&btrv);
+            while (true) {
+                lfs3_sbid_t bid_;
+                lfs3_bid_t weight_;
+                lfs3_data_t data_;
+                lfs3_stag_t tag_ = lfs3_btree_traverse(&lfs3, &btree,
+                        &btrv,
+                        &bid_, &weight_, &data_);
+                assert(tag_ >= 0 || tag_ == LFS3_ERR_NOENT);
+                if (tag_ == LFS3_ERR_NOENT) {
+                    break;
+                }
+
+                if (tag_ == LFS3_TAG_BRANCH) {
+                    count += 1;
+                }
+            }
+
+            BENCH_RESULT("usage", i+1,
+                    (uintmax_t)count * CFG->block_size);
+        }
+    }
+'''
