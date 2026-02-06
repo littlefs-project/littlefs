@@ -1099,6 +1099,18 @@ class CsvExpr:
             else:
                 return v.b
 
+    @func('saturate', 'a')
+    class Saturate(Expr):
+        """Limit to total part of a fraction"""
+        def eval(self, fields={}, state=None):
+            v = self.a.eval(fields, state)
+            if not hasattr(v, '__frac__'):
+                return v
+            elif isinstance(v, CsvFrac):
+                return CsvFrac(min(max(v.a, CsvInt(0)), v.b), v.b)
+            elif isinstance(v, CsvFfrac):
+                return CsvFfrac(min(max(v.a, CsvFloat(0)), v.b), v.b)
+
     @func('abs', 'a')
     class Abs(Expr):
         """Absolute value"""

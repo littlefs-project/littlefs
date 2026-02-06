@@ -693,24 +693,24 @@ bench-widths: $(BENCH_CSV)
 			write,stat,read \
 		-bprobe='%(case)s+%(probe)s' \
 		-Fi='min(enumerate())' \
-		-freaded="avg(ffrac( \
+		-freaded="avg(saturate(ffrac( \
 			float(bench_readed)/float(bench_reads), \
 			max(1, $$( \
 				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
 						--list-implicit-defines \
-					| sed -n 's/^READ_WIDTH=\(.*\)/\1/p'))))" \
-		-fprogged="avg(ffrac( \
+					| sed -n 's/^READ_WIDTH=\(.*\)/\1/p')))))" \
+		-fprogged="avg(saturate(ffrac( \
 			float(bench_progged)/float(bench_progs), \
 			max(1, $$( \
 				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
 						--list-implicit-defines \
-					| sed -n 's/^PROG_WIDTH=\(.*\)/\1/p'))))" \
-		-ferased="avg(ffrac( \
+					| sed -n 's/^PROG_WIDTH=\(.*\)/\1/p')))))" \
+		-ferased="avg(saturate(ffrac( \
 			float(bench_erased)/float(bench_erases), \
 			max(1, $$( \
 				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
 						--list-implicit-defines \
-					| sed -n 's/^ERASE_WIDTH=\(.*\)/\1/p'))))" \
+					| sed -n 's/^ERASE_WIDTH=\(.*\)/\1/p')))))" \
 		$(SUMMARYFLAGS))
 
 ## Show heap/stack/disk usage
