@@ -1198,7 +1198,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Only show the total.")
     parser.add_argument(
-            '--total',
+            '-t', '--total',
             action='store_true',
             help="Equivalent to --summary + --no-header + --small-total. "
                 "Useful for scripting.")
