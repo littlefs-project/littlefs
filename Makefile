@@ -492,7 +492,7 @@ summary-diff sizes-diff: $(OBJ) $(CI)
 			-fstack='max(stack_limit)' \
 			-fctx='max(ctx_size)' \
 			-o-) \
-		-bbuild -cBEFORE -Q $(SUMMARYFLAGS))
+		-bbuild -CBEFORE -Q $(SUMMARYFLAGS))
 
 
 ## Generate a codemap svg

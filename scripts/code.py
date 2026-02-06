@@ -1150,7 +1150,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Only show percentage change, not a full diff.")
     parser.add_argument(
-            '-c', '--compare',
+            '-C', '--compare',
             type=lambda x: tuple(v.strip() for v in x.split(',')),
             help="Compare results to the row matching this by pattern.")
     parser.add_argument(
