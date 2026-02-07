@@ -609,6 +609,7 @@ bench-marks: $(BENCH_CSV)
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-bprobe \
+		-Hprobe=bench+probe \
 		-fn \
 		-ft \
 		-fthroughput='avg(float(n) / max(t, 1.0e-9))' \
@@ -641,6 +642,7 @@ bench-marks-diff: $(BENCH_CSV)
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-bprobe \
+		-Hprobe=bench+probe \
 		-fthroughput='avg(float(n) / max(t, 1.0e-9))' \
 		$(SUMMARYFLAGS))
 
@@ -660,6 +662,7 @@ bench-bottlenecks: $(BENCH_CSV)
 			-fruntime='max(bench_runtime)' \
 			-o-) \
 		-bprobe \
+		-Hprobe=bench+probe \
 		-fn \
 		-ft \
 		-fruntime \
@@ -674,6 +677,7 @@ bench-ops: $(BENCH_CSV)
 			commit,namelookup,$\
 			write,stat,read \
 		-bprobe='%(case)s+%(probe)s' \
+		-Hprobe=bench+probe \
 		-Fi='min(enumerate())' \
 		-freads='bench_reads' \
 		-fprogs='bench_progs' \
@@ -692,6 +696,7 @@ bench-widths: $(BENCH_CSV)
 			commit,namelookup,$\
 			write,stat,read \
 		-bprobe='%(case)s+%(probe)s' \
+		-Hprobe=bench+probe \
 		-Fi='min(enumerate())' \
 		-freaded="avg(saturate(ffrac( \
 			float(bench_readed)/float(bench_reads), \

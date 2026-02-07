@@ -1776,6 +1776,15 @@ def punescape(s, attrs=None):
 
     return re.sub(pattern, unescape, s)
 
+class PunescapeGetattr:
+    def __init__(self, r):
+        self.r = r
+    def __getitem__(self, k):
+        try:
+            return getattr(self.r, k)
+        except AttributeError:
+            raise KeyError(k)
+
 def punescape_help():
     print('mods:')
     print('  %-21s %s' % ('%%', 'A literal % character'))
@@ -1916,7 +1925,7 @@ def compile(fields_, results,
     for k, reverse in it.chain(sort or [], hot or []):
         # this defaults to typechecking sort/hot fields, which is
         # probably safer, if you really want to sort by strings you
-        # can use --by + --label to create hidden by fields
+        # can use -B/--hidden-by to create hidden by fields
         if k and k not in by and k not in fields:
             fields.append(k)
     # make sure all expr targets are in fields so they get typechecked
@@ -2229,13 +2238,15 @@ def hotify(Result, results, *,
 def table(Result, results, diff_results=None, *,
         by=None,
         fields=None,
+        hidden=None,
         sort=None,
-        labels=None,
         depth=1,
         hot=None,
         percent=False,
         all=False,
         compare=None,
+        hlabel=None,
+        tlabel=None,
         no_header=False,
         small_header=False,
         no_total=False,
@@ -2292,7 +2303,8 @@ def table(Result, results, diff_results=None, *,
     # header
     if not no_header:
         header = ['%s%s' % (
-                    ','.join(labels if labels is not None else by),
+                    ','.join((hlabel(k) if hlabel is not None else k)
+                        for k in by if hidden is None or k not in hidden),
                     ' (%d added, %d removed)' % (
                             sum(1 for n in table if n not in diff_table),
                             sum(1 for n in diff_table if n not in table))
@@ -2300,14 +2312,14 @@ def table(Result, results, diff_results=None, *,
                 if not small_header else '']
         if diff_results is None or percent:
             for k in fields:
-                header.append(k)
+                header.append(hlabel(k) if hlabel is not None else k)
         else:
             for k in fields:
-                header.append('o'+k)
+                header.append('o'+(hlabel(k) if hlabel is not None else k))
             for k in fields:
-                header.append('n'+k)
+                header.append('n'+(hlabel(k) if hlabel is not None else k))
             for k in fields:
-                header.append('d'+k)
+                header.append('d'+(hlabel(k) if hlabel is not None else k))
         lines.append(header)
 
     # delete these to try to catch typos below, we need to rebuild
@@ -2452,20 +2464,20 @@ def table(Result, results, diff_results=None, *,
             # find comparable results
             diff_r = diff_table_.get(n)
 
-            # figure out a good label
-            if labels is not None:
-                label = next(
+            # figure out a good name
+            if hidden is not None:
+                name = next(
                         ','.join(str(getattr(r_, k)
                                     if getattr(r_, k) is not None
                                     else '')
-                                for k in labels)
+                                for k in by if k not in hidden)
                             for r_ in [r, diff_r]
                             if r_ is not None)
             else:
-                label = n
+                name = n
 
             # build line
-            line = table_entry(label, r, diff_r)
+            line = table_entry(name, r, diff_r)
 
             # add prefixes
             line = [x if isinstance(x, tuple) else (x, []) for x in line]
@@ -2497,7 +2509,9 @@ def table(Result, results, diff_results=None, *,
         else:
             diff_r = next(iter(fold(Result, diff_results, by=[])), Result())
         lines.append(table_entry(
-                'TOTAL' if not small_total else '',
+                '' if small_total
+                    else tlabel(r) if tlabel is not None
+                    else 'TOTAL',
                 r, diff_r))
 
     # homogenize
@@ -2911,6 +2925,8 @@ def main(csv_paths, *,
         children=None,
         hot=None,
         notes=None,
+        hlabels=None,
+        tlabel=None,
         **args):
     # show mod help text?
     if args.get('help_mods'):
@@ -3000,14 +3016,13 @@ def main(csv_paths, *,
                 ((k, v) for (k, v), reverse in (hot or [])))
             if v is not None]
 
-    # figure out labels/by/fields
-    labels__ = None
+    # figure out by/hidden/fields
     by__ = []
+    hidden__ = None
     fields__ = []
-    if by is not None and any(not hidden for (k, v), hidden in by):
-        labels__ = [k for (k, v), hidden in by if not hidden]
     if by is not None:
         by__ = [k for (k, v), hidden in by]
+        hidden__ = {k for (k, v), hidden in by if hidden}
     if fields is not None:
         fields__ = [k for (k, v), hidden in fields
                 if not hidden
@@ -3047,8 +3062,8 @@ def main(csv_paths, *,
                     and not any(k == k_
                         for _, expr in exprs
                         for k_ in expr.fields()))
-    labels = labels__
     by = by__
+    hidden = hidden__
     fields = fields__
 
     # filter exprs from sort/hot
@@ -3145,9 +3160,15 @@ def main(csv_paths, *,
         table(Result, results, diff_results,
                 by=by,
                 fields=fields,
+                hidden=hidden,
                 sort=sort,
-                labels=labels,
                 depth=depth,
+                hlabel=(lambda hlabels_: (lambda k:
+                            punescape(hlabels_[k]) if k in hlabels_ else k)
+                        )(dict(hlabels))
+                    if hlabels else None,
+                tlabel=(lambda r: punescape(tlabel, PunescapeGetattr(r)))
+                    if tlabel else None,
                 **args)
 
 
@@ -3374,6 +3395,20 @@ if __name__ == "__main__":
             const='notes',
             action='append',
             help="Field to use for notes. Defaults to 'notes'.")
+    parser.add_argument(
+            '-H', '--hlabel',
+            dest='hlabels',
+            action='append',
+            type=lambda x: (
+                lambda k, v: (
+                    k.strip(),
+                    v.strip())
+                )(*x.split('=', 1)),
+            help="Change the default header label for a given field. "
+                "Accepts %% modifiers.")
+    parser.add_argument(
+            '--tlabel',
+            help="Change the default TOTAL label. Accepts %% modifiers.")
     parser.add_argument(
             '--no-header',
             action='store_true',

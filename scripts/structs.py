@@ -747,13 +747,15 @@ def hotify(Result, results, *,
 def table(Result, results, diff_results=None, *,
         by=None,
         fields=None,
+        hidden=None,
         sort=None,
-        labels=None,
         depth=1,
         hot=None,
         percent=False,
         all=False,
         compare=None,
+        hlabel=None,
+        tlabel=None,
         no_header=False,
         small_header=False,
         no_total=False,
@@ -810,7 +812,8 @@ def table(Result, results, diff_results=None, *,
     # header
     if not no_header:
         header = ['%s%s' % (
-                    ','.join(labels if labels is not None else by),
+                    ','.join((hlabel(k) if hlabel is not None else k)
+                        for k in by if hidden is None or k not in hidden),
                     ' (%d added, %d removed)' % (
                             sum(1 for n in table if n not in diff_table),
                             sum(1 for n in diff_table if n not in table))
@@ -818,14 +821,14 @@ def table(Result, results, diff_results=None, *,
                 if not small_header else '']
         if diff_results is None or percent:
             for k in fields:
-                header.append(k)
+                header.append(hlabel(k) if hlabel is not None else k)
         else:
             for k in fields:
-                header.append('o'+k)
+                header.append('o'+(hlabel(k) if hlabel is not None else k))
             for k in fields:
-                header.append('n'+k)
+                header.append('n'+(hlabel(k) if hlabel is not None else k))
             for k in fields:
-                header.append('d'+k)
+                header.append('d'+(hlabel(k) if hlabel is not None else k))
         lines.append(header)
 
     # delete these to try to catch typos below, we need to rebuild
@@ -970,20 +973,20 @@ def table(Result, results, diff_results=None, *,
             # find comparable results
             diff_r = diff_table_.get(n)
 
-            # figure out a good label
-            if labels is not None:
-                label = next(
+            # figure out a good name
+            if hidden is not None:
+                name = next(
                         ','.join(str(getattr(r_, k)
                                     if getattr(r_, k) is not None
                                     else '')
-                                for k in labels)
+                                for k in by if k not in hidden)
                             for r_ in [r, diff_r]
                             if r_ is not None)
             else:
-                label = n
+                name = n
 
             # build line
-            line = table_entry(label, r, diff_r)
+            line = table_entry(name, r, diff_r)
 
             # add prefixes
             line = [x if isinstance(x, tuple) else (x, []) for x in line]
@@ -1015,7 +1018,9 @@ def table(Result, results, diff_results=None, *,
         else:
             diff_r = next(iter(fold(Result, diff_results, by=[])), Result())
         lines.append(table_entry(
-                'TOTAL' if not small_total else '',
+                '' if small_total
+                    else tlabel(r) if tlabel is not None
+                    else 'TOTAL',
                 r, diff_r))
 
     # homogenize
@@ -1196,13 +1201,13 @@ def main(obj_paths, *,
         hot=None,
         **args):
     # figure out what fields we're interested in
-    labels = None
+    hidden = None
     if by is None:
         if args.get('output') or args.get('output_json'):
             by = StructResult._by
         elif depth is not None or hot is not None:
             by = ['z', 'i', 'struct']
-            labels = ['struct']
+            hidden = {'z', 'i'}
         else:
             by = ['struct']
 
@@ -1292,8 +1297,8 @@ def main(obj_paths, *,
         table(StructResult, results, diff_results,
                 by=by,
                 fields=fields,
+                hidden=hidden,
                 sort=sort,
-                labels=labels,
                 depth=depth,
                 **args)
 
