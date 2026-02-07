@@ -2069,6 +2069,7 @@ def compile(fields_, results,
 
 def homogenize(Result, results, *,
         defines=[],
+        undefines=[],
         depth=1,
         depth_=0,
         **_):
@@ -2086,6 +2087,10 @@ def homogenize(Result, results, *,
         if not all(any(fnmatch.fnmatchcase(str(r.get(k, '')), v)
                     for v in vs)
                 for k, vs in defines):
+            continue
+        if any(any(fnmatch.fnmatchcase(str(r.get(k, '')), v)
+                    for v in vs)
+                for k, vs in undefines):
             continue
 
         # append a result
@@ -2125,6 +2130,7 @@ class Rev(co.namedtuple('Rev', 'a')):
 def fold(Result, results, *,
         by=None,
         defines=[],
+        undefines=[],
         sort=None,
         depth=1,
         **_):
@@ -2136,20 +2142,27 @@ def fold(Result, results, *,
     if by is None:
         by = Result._by
 
-    for k in it.chain(by or [], (k for k, _ in defines)):
+    for k in it.chain(by or [],
+            (k for k, _ in defines),
+            (k for k, _ in undefines)):
         if k not in Result._by and k not in Result._fields:
             print("error: could not find field %r?" % k,
                     file=sys.stderr)
             sys.exit(-1)
 
     # filter by matching defines
-    if defines:
+    if defines or undefines:
         results_ = []
         for r in results:
-            if all(any(fnmatch.fnmatchcase(str(getattr(r, k, '')), v)
+            if not all(any(fnmatch.fnmatchcase(str(getattr(r, k, '')), v)
                         for v in vs)
                     for k, vs in defines):
-                results_.append(r)
+                continue
+            if any(any(fnmatch.fnmatchcase(str(getattr(r, k, '')), v)
+                        for v in vs)
+                    for k, vs in undefines):
+                continue
+            results_.append(r)
         results = results_
 
     # organize results into conflicts
@@ -2920,6 +2933,7 @@ def main(csv_paths, *,
         by=None,
         fields=None,
         defines=[],
+        undefines=[],
         sort=None,
         depth=None,
         children=None,
@@ -3039,6 +3053,7 @@ def main(csv_paths, *,
                 if not any(k == k_ for (k_, _), _ in (by or []))
                     and not any(k == k_ for (k_, _), _ in (fields or []))
                     and not any(k == k_ for k_, _ in defines)
+                    and not any(k == k_ for k_, _ in undefines)
                     and not any(k == k_ for (k_, _), _ in (sort or []))
                     and not any(k == k_ for (k_, _), _ in (hot or []))
                     and k != z
@@ -3054,6 +3069,7 @@ def main(csv_paths, *,
                 if not any(k == k_ for (k_, _), _ in (by or []))
                     and not any(k == k_ for (k_, _), _ in (fields or []))
                     and not any(k == k_ for k_, _ in defines)
+                    and not any(k == k_ for k_, _ in undefines)
                     and not any(k == k_ for (k_, _), _ in (sort or []))
                     and not any(k == k_ for (k_, _), _ in (hot or []))
                     and k != z
@@ -3093,6 +3109,7 @@ def main(csv_paths, *,
     # homogenize
     results = homogenize(Result, results,
             defines=defines,
+            undefines=undefines,
             depth=depth)
 
     # fold
@@ -3128,6 +3145,7 @@ def main(csv_paths, *,
         # homogenize
         diff_results = homogenize(Result, diff_results,
                 defines=defines,
+                undefines=undefines,
                 depth=depth)
 
         # fold
@@ -3318,6 +3336,17 @@ if __name__ == "__main__":
                     {v.strip() for v in vs.split(',')})
                 )(*x.split('=', 1)),
             help="Only include results where this field is this value. May "
+                "include comma-separated options and globs.")
+    parser.add_argument(
+            '-U', '--undefine',
+            dest='undefines',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            help="Don't include results where this field is this value. May "
                 "include comma-separated options and globs.")
     class AppendSort(argparse.Action):
         def __call__(self, parser, namespace, value, option):

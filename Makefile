@@ -600,9 +600,7 @@ bench-marks: SUMMARYFLAGS+=-Si
 bench-marks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Dprobe=append,remove,create,delete,fetch,lookup,$\
-				commit,namelookup,$\
-				write,stat,read \
+			-Uprobe=stack,heap,usage \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
@@ -624,18 +622,14 @@ bench-marks-csv: $(BUILDDIR)/lfs3.bench.csv
 bench-marks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Dprobe=append,remove,create,delete,fetch,lookup,$\
-				commit,namelookup,$\
-				write,stat,read \
+			-Uprobe=stack,heap,usage \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-d <(./scripts/csv.py $(BUILDDIR)/lfs3.bench.csv \
-			-Dprobe=append,remove,create,delete,fetch,lookup,$\
-				commit,namelookup,$\
-				write,stat,read \
+			-Uprobe=stack,heap,usage \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
@@ -652,9 +646,7 @@ bench-bottlenecks: SUMMARYFLAGS+=-Sruntime
 bench-bottlenecks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Dprobe=append,remove,create,delete,fetch,lookup,$\
-				commit,namelookup,$\
-				write,stat,read \
+			-Uprobe=stack,heap,usage \
 			-bprobe='%(case)s+%(probe)s' \
 			-Fi='min(enumerate())' \
 			-fn='max(n)' \
@@ -673,9 +665,7 @@ bench-bottlenecks: $(BENCH_CSV)
 bench-ops: SUMMARYFLAGS+=-Si
 bench-ops: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-Dprobe=append,remove,create,delete,fetch,lookup,$\
-			commit,namelookup,$\
-			write,stat,read \
+		-Uprobe=stack,heap,usage \
 		-bprobe='%(case)s+%(probe)s' \
 		-Hprobe=bench+probe \
 		-Fi='min(enumerate())' \
@@ -692,9 +682,7 @@ bench-ops: $(BENCH_CSV)
 bench-widths: SUMMARYFLAGS+=-Si
 bench-widths: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-Dprobe=append,remove,create,delete,fetch,lookup,$\
-			commit,namelookup,$\
-			write,stat,read \
+		-Uprobe=stack,heap,usage \
 		-bprobe='%(case)s+%(probe)s' \
 		-Hprobe=bench+probe \
 		-Fi='min(enumerate())' \

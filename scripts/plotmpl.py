@@ -240,7 +240,9 @@ class Rev(co.namedtuple('Rev', 'a')):
     def __ge__(self, other):
         return self.a <= other.a
 
-def collect(csv_paths, defines=[]):
+def collect(csv_paths, *,
+        defines=[],
+        undefines=[]):
     # collect results from CSV files
     fields = []
     results = []
@@ -257,22 +259,34 @@ def collect(csv_paths, defines=[]):
                                 for v in vs)
                             for k, vs in defines):
                         continue
+                    if any(any(fnmatch.fnmatchcase(r.get(k, ''), v)
+                                for v in vs)
+                            for k, vs in undefines):
+                        continue
 
                     results.append(r)
+
         except FileNotFoundError:
             pass
 
     return fields, results
 
-def fold(results, by=None, x=None, y=None, defines=[]):
+def fold(results, by=None, x=None, y=None, *,
+        defines=[],
+        undefines=[]):
     # filter by matching defines
-    if defines:
+    if defines or undefines:
         results_ = []
         for r in results:
-            if all(any(fnmatch.fnmatchcase(r.get(k, ''), v)
+            if not all(any(fnmatch.fnmatchcase(r.get(k, ''), v)
                         for v in vs)
                     for k, vs in defines):
-                results_.append(r)
+                continue
+            if any(any(fnmatch.fnmatchcase(r.get(k, ''), v)
+                        for v in vs)
+                    for k, vs in undefines):
+                continue
+            results_.append(r)
         results = results_
 
     if by:
@@ -826,7 +840,8 @@ def main(csv_paths, output, *,
         by=None,
         x=None,
         y=None,
-        define=[],
+        defines=[],
+        undefines=[],
         sort=None,
         labels=[],
         colors=[],
@@ -978,10 +993,17 @@ def main(csv_paths, output, *,
     all_x = (x or []) + subplots_get('x', **subplot, subplots=subplots)
     all_y = (y or []) + subplots_get('y', **subplot, subplots=subplots)
     all_defines = co.defaultdict(lambda: set())
-    for k, vs in it.chain(define or [],
-            subplots_get('define', **subplot, subplots=subplots)):
+    for k, vs in it.chain(
+            defines,
+            subplots_get('defines', **subplot, subplots=subplots)):
         all_defines[k] |= vs
     all_defines = sorted(all_defines.items())
+    all_undefines = co.defaultdict(lambda: set())
+    for k, vs in it.chain(
+            undefines,
+            subplots_get('undefines', **subplot, subplots=subplots)):
+        all_undefines[k] |= vs
+    all_undefines = sorted(all_undefines.items())
 
     if not all_by and not all_y:
         print("error: needs --by or -y to figure out fields",
@@ -989,13 +1011,16 @@ def main(csv_paths, output, *,
         sys.exit(-1)
 
     # first collect results from CSV files
-    fields_, results = collect(csv_paths)
+    fields_, results = collect(csv_paths,
+            defines=defines,
+            undefines=undefines)
 
     # if y not specified, guess it's anything not in by/defines/x
     if not all_y:
         all_y = [k for k in fields_
                 if k not in all_by
-                    and not any(k == k_ for k_, _ in all_defines)]
+                    and not any(k == k_ for k_, _ in all_defines)
+                    and not any(k == k_ for k_, _ in all_undefines)]
 
     # then extract the requested datasets
     #
@@ -1065,7 +1090,8 @@ def main(csv_paths, output, *,
         # allow subplot params to override global params
         x_ = set((x or []) + s.args.get('x', []))
         y_ = set((y or []) + s.args.get('y', []))
-        define_ = define + s.args.get('define', [])
+        defines_ = defines + s.args.get('defines', [])
+        undefines_ = undefines + s.args.get('undefines', [])
         xlim_ = s.args.get('xlim', xlim)
         ylim_ = s.args.get('ylim', ylim)
         xlim_stddev_ = s.args.get('xlim_stddev', xlim_stddev)
@@ -1105,7 +1131,9 @@ def main(csv_paths, output, *,
         # data can be constrained by subplot-specific defines,
         # so re-extract for each plot
         subdatasets, subdataattrs = fold(
-                results, all_by, all_x, all_y, define_)
+                results, all_by, all_x, all_y,
+                defines=defines_,
+                undefines=undefines_)
 
         # order by labels
         subdatasets = co.OrderedDict(sorted(
@@ -1447,13 +1475,25 @@ if __name__ == "__main__":
             help="Field to use for the y-axis.")
     parser.add_argument(
             '-D', '--define',
+            dest='defines',
+            action='append',
             type=lambda x: (
                 lambda k, vs: (
                     k.strip(),
                     {v.strip() for v in vs.split(',')})
                 )(*x.split('=', 1)),
-            action='append',
             help="Only include results where this field is this value. May "
+                "include comma-separated options and globs.")
+    parser.add_argument(
+            '-U', '--undefine',
+            dest='undefines',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            help="Don't include results where this field is this value. May "
                 "include comma-separated options and globs.")
     class AppendSort(argparse.Action):
         def __call__(self, parser, namespace, value, option):

@@ -123,7 +123,9 @@ def dat(x, *args):
         else:
             raise
 
-def collect(csv_paths, defines=[]):
+def collect(csv_paths, *,
+        defines=[],
+        undefines=[]):
     # collect results from CSV files
     fields = []
     results = []
@@ -140,22 +142,34 @@ def collect(csv_paths, defines=[]):
                                 for v in vs)
                             for k, vs in defines):
                         continue
+                    if any(any(fnmatch.fnmatchcase(r.get(k, ''), v)
+                                for v in vs)
+                            for k, vs in undefines):
+                        continue
 
                     results.append(r)
+
         except FileNotFoundError:
             pass
 
     return fields, results
 
-def fold(results, by=None, fields=None, defines=[]):
+def fold(results, by=None, fields=None, *,
+        defines=[],
+        undefines=[]):
     # filter by matching defines
-    if defines:
+    if defines or undefines:
         results_ = []
         for r in results:
-            if all(any(fnmatch.fnmatchcase(r.get(k, ''), v)
+            if not all(any(fnmatch.fnmatchcase(r.get(k, ''), v)
                         for v in vs)
                     for k, vs in defines):
-                results_.append(r)
+                continue
+            if any(any(fnmatch.fnmatchcase(r.get(k, ''), v)
+                        for v in vs)
+                    for k, vs in defines):
+                continue
+            results_.append(r)
         results = results_
 
     if by:
@@ -708,6 +722,7 @@ def main(csv_paths, output, *,
         by=None,
         fields=None,
         defines=[],
+        undefines=[],
         labels=[],
         colors=[],
         width=None,
@@ -761,7 +776,9 @@ def main(csv_paths, output, *,
         height_ = HEIGHT
 
     # first collect results from CSV files
-    fields_, results = collect(csv_paths, defines)
+    fields_, results = collect(csv_paths,
+            defines=defines,
+            undefines=undefines)
 
     if not by and not fields:
         print("error: needs --by or --fields to figure out fields",
@@ -772,16 +789,20 @@ def main(csv_paths, output, *,
     if not by:
         by = [k for k in fields_
                 if k not in (fields or [])
-                    and not any(k == k_ for k_, _ in defines)]
+                    and not any(k == k_ for k_, _ in defines)
+                    and not any(k == k_ for k_, _ in undefines)]
 
     # if fields not specified, guess it's anything not in by/labels/defines
     if not fields:
         fields = [k for k in fields_
                 if k not in (by or [])
-                    and not any(k == k_ for k_, _ in defines)]
+                    and not any(k == k_ for k_, _ in defines)
+                    and not any(k == k_ for k_, _ in undefines)]
 
     # then extract the requested dataset
-    datasets, dataattrs = fold(results, by, fields, defines)
+    datasets, dataattrs = fold(results, by, fields,
+            defines=defines,
+            undefines=undefines)
 
     # build tile heirarchy
     children = []
@@ -1116,6 +1137,17 @@ if __name__ == "__main__":
                     {v.strip() for v in vs.split(',')})
                 )(*x.split('=', 1)),
             help="Only include results where this field is this value. May "
+                "include comma-separated options and globs.")
+    parser.add_argument(
+            '-U', '--undefine',
+            dest='undefines',
+            action='append',
+            type=lambda x: (
+                lambda k, vs: (
+                    k.strip(),
+                    {v.strip() for v in vs.split(',')})
+                )(*x.split('=', 1)),
+            help="Don't include results where this field is this value. May "
                 "include comma-separated options and globs.")
     parser.add_argument(
             '-L', '--add-label',
