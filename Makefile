@@ -103,21 +103,6 @@ CFLAGS += $(foreach d,$(filter LFS3_%,$(.VARIABLES)),-D$d=$($d))
 
 TEST_CFLAGS += -Wno-unused-function
 TEST_CFLAGS += -Wno-format-overflow
-ifdef STACK
-TEST_CFLAGS += -DTEST_STACK
-TEST_CFLAGS += -Wl,--wrap=printf
-TEST_CFLAGS += -Wl,--wrap=vprintf
-endif
-ifdef HEAP
-TEST_CFLAGS += -DTEST_HEAP
-TEST_CFLAGS += -Wl,--wrap=malloc
-TEST_CFLAGS += -Wl,--wrap=free
-TEST_CFLAGS += -Wl,--wrap=realloc
-ifndef STACK
-TEST_CFLAGS += -Wl,--wrap=printf
-TEST_CFLAGS += -Wl,--wrap=vprintf
-endif
-endif
 
 BENCH_CFLAGS += -Wno-unused-function
 BENCH_CFLAGS += -Wno-format-overflow
