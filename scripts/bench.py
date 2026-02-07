@@ -106,6 +106,10 @@ class BenchCase:
                 config.pop('suite_internal', None))
         if self.internal is None:
             self.internal = False
+        self.litmus = config.pop('litmus',
+                config.pop('suite_litmus', None))
+        if self.litmus is None:
+            self.litmus = False
 
         # in implies internal
         self.internal |= bool(self.in_)
@@ -287,6 +291,7 @@ class BenchSuite:
             # a couple of these we just forward to all cases
             defines = config.pop('defines', None)
             internal = config.pop('internal', None)
+            litmus = config.pop('litmus', None)
 
             self.cases = []
             for name, config_ in cases.items():
@@ -298,11 +303,14 @@ class BenchSuite:
                             'suite_defines': defines,
                             'suite_in': self.in_,
                             'suite_internal': internal,
+                            'suite_litmus': litmus,
                             **config_},
                         args)
 
                 # skipping internal benches?
                 if args.get('no_internal') and case.internal:
+                    continue
+                if args.get('no_litmus') and case.litmus:
                     continue
 
                 self.cases.append(case)
@@ -316,6 +324,7 @@ class BenchSuite:
 
             # combine other per-case things
             self.internal = any(case.internal for case in self.cases)
+            self.litmus = any(case.litmus for case in self.cases)
 
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
@@ -596,7 +605,8 @@ def compile(bench_paths, **args):
                 f.writeln(4*' '+'.path = "%s",' % suite.path)
                 f.writeln(4*' '+'.flags = %s,' % (
                         ' | '.join(filter(None, [
-                                'BENCH_INTERNAL' if suite.internal else None]))
+                                'BENCH_INTERNAL' if suite.internal else None,
+                                'BENCH_LITMUS' if suite.litmus else None]))
                             or 0))
                 for ifdef in suite.ifdef:
                     f.writeln(4*' '+'#if (%s)' % re.sub(
@@ -628,6 +638,8 @@ def compile(bench_paths, **args):
                         f.writeln(12*' '+'.flags = %s,' % (
                                 ' | '.join(filter(None, [
                                         'BENCH_INTERNAL' if case.internal
+                                            else None,
+                                        'BENCH_LITMUS' if case.litmus
                                             else None]))
                                     or 0))
                         for ifdef in it.chain(suite.ifdef, case.ifdef):
@@ -798,6 +810,8 @@ def find_runner(runner, id=None, main=True, **args):
         cmd.append('--force')
     if args.get('no_internal'):
         cmd.append('--no-internal')
+    if args.get('no_litmus'):
+        cmd.append('--no-litmus')
 
     # only one thread should write to disk/trace, otherwise the output
     # ends up clobbered and useless
@@ -1715,6 +1729,10 @@ if __name__ == "__main__":
             action='store_true',
             help="Don't run internal benches.")
     bench_parser.add_argument(
+            '--no-litmus',
+            action='store_true',
+            help="Don't run litmus benches.")
+    bench_parser.add_argument(
             '-d', '--disk',
             help="Direct block device operations to this file.")
     bench_parser.add_argument(
@@ -1876,6 +1894,10 @@ if __name__ == "__main__":
             '--no-internal',
             action='store_true',
             help="Don't build internal benches.")
+    comp_parser.add_argument(
+            '--no-litmus',
+            action='store_true',
+            help="Don't build litmus benches.")
 
     # do the thing
     args = parser.parse_intermixed_args()

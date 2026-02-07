@@ -23,6 +23,8 @@ defines.SEED = 42
 # 0x2 => lookup
 # 0x8 => usage
 defines.MASK = 0xb
+# not the most rigorous
+litmus = true
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -124,6 +126,8 @@ defines.SEED = 42
 # 0x4 => namelookup
 # 0x8 => usage
 defines.MASK = 0xf
+# not the most rigorous
+litmus = true
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;

@@ -24,6 +24,8 @@ defines.SEED = 42
 # 0x2 => read
 # 0x4 => usage
 defines.MASK = 0x7
+# not the most rigorous
+litmus = true
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;

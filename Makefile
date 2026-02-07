@@ -201,6 +201,11 @@ TESTFLAGS  += --perf-path="$(PERF)"
 BENCHFLAGS += --perf-path="$(PERF)"
 endif
 
+# default to not running litmus benches
+ifndef BENCH_ALL
+BENCHFLAGS += --no-litmus
+endif
+
 # alternative bench geometries (defaults to NOR flash)
 ifdef BENCH_NOR
 BENCHFLAGS += -DDISK_GEOMETRY=0

@@ -83,6 +83,7 @@ struct lfs3_cfg;
 
 enum bench_flags {
     BENCH_INTERNAL  = 0x1,
+    BENCH_LITMUS    = 0x2,
 };
 typedef uint8_t bench_flags_t;
 

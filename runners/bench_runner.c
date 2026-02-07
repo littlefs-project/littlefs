@@ -1306,9 +1306,10 @@ static void summary(void) {
     char perm_buf[64];
     sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
     char flag_buf[64];
-    sprintf(flag_buf, "%s%s",
-            (flags & BENCH_INTERNAL)  ? "i" : "",
-            (!flags)                  ? "-" : "");
+    sprintf(flag_buf, "%s%s%s",
+            (flags & BENCH_INTERNAL) ? "i" : "",
+            (flags & BENCH_LITMUS)   ? "l" : "",
+            (!flags)                 ? "-" : "");
     printf("%-23s  %7s %7zu %7zu %15s\n",
             "TOTAL",
             flag_buf,
@@ -1363,10 +1364,12 @@ static void list_suites(void) {
 
             char perm_buf[64];
             sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
+            bench_flags_t flags = bench_suites[i]->flags;
             char flag_buf[64];
-            sprintf(flag_buf, "%s%s",
-                    (bench_suites[i]->flags & BENCH_INTERNAL)  ? "i" : "",
-                    (!bench_suites[i]->flags)                  ? "-" : "");
+            sprintf(flag_buf, "%s%s%s",
+                    (flags & BENCH_INTERNAL) ? "i" : "",
+                    (flags & BENCH_LITMUS)   ? "l" : "",
+                    (!flags)                 ? "-" : "");
             printf("%-*s  %7s %7zu %15s\n",
                     name_width,
                     bench_suites[i]->name,
@@ -1415,12 +1418,12 @@ static void list_cases(void) {
 
                 char perm_buf[64];
                 sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
+                bench_flags_t flags = bench_suites[i]->cases[j].flags;
                 char flag_buf[64];
-                sprintf(flag_buf, "%s%s",
-                        (bench_suites[i]->cases[j].flags & BENCH_INTERNAL)
-                            ? "i" : "",
-                        (!bench_suites[i]->cases[j].flags)
-                            ? "-" : "");
+                sprintf(flag_buf, "%s%s%s",
+                        (flags & BENCH_INTERNAL) ? "i" : "",
+                        (flags & BENCH_LITMUS)   ? "l" : "",
+                        (!flags)                 ? "-" : "");
                 printf("%-*s  %7s %15s\n",
                         name_width,
                         bench_suites[i]->cases[j].name,
@@ -1948,14 +1951,15 @@ enum opt_flags {
     OPT_STEP                     = 's',
     OPT_FORCE                    = 7,
     OPT_NO_INTERNAL              = 8,
+    OPT_NO_LITMUS                = 9,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 9,
-    OPT_TRACE_PERIOD             = 10,
-    OPT_TRACE_FREQ               = 11,
-    OPT_READ_SLEEP               = 12,
-    OPT_PROG_SLEEP               = 13,
-    OPT_ERASE_SLEEP              = 14,
+    OPT_TRACE_BACKTRACE          = 10,
+    OPT_TRACE_PERIOD             = 11,
+    OPT_TRACE_FREQ               = 12,
+    OPT_READ_SLEEP               = 13,
+    OPT_PROG_SLEEP               = 14,
+    OPT_ERASE_SLEEP              = 15,
 };
 
 const char *short_opts = "hYlLD:s:d:t:";
@@ -1977,6 +1981,7 @@ const struct option long_opts[] = {
     {"step",             required_argument, NULL, OPT_STEP},
     {"force",            no_argument,       NULL, OPT_FORCE},
     {"no-internal",      no_argument,       NULL, OPT_NO_INTERNAL},
+    {"no-litmus",        no_argument,       NULL, OPT_NO_LITMUS},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
@@ -2003,6 +2008,7 @@ const char *const help_text[] = {
     "Comma-separated range of permutations to run.",
     "Ignore bench filters.",
     "Don't run internal benches.",
+    "Don't run litmus benches.",
     "Direct block device operations to this file.",
     "Direct trace output to this file.",
     "Include a backtrace with every trace statement.",
@@ -2331,6 +2337,10 @@ int main(int argc, char **argv) {
 
         case OPT_NO_INTERNAL:;
             bench_mask |= BENCH_INTERNAL;
+            break;
+
+        case OPT_NO_LITMUS:;
+            bench_mask |= BENCH_LITMUS;
             break;
 
         case OPT_DISK:;

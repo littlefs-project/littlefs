@@ -1206,12 +1206,13 @@ static void list_suites(void) {
 
             char perm_buf[64];
             sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
+            test_flags_t flags = test_suites[i]->flags;
             char flag_buf[64];
             sprintf(flag_buf, "%s%s%s%s",
-                    (test_suites[i]->flags & TEST_INTERNAL)  ? "i" : "",
-                    (test_suites[i]->flags & TEST_REENTRANT) ? "r" : "",
-                    (test_suites[i]->flags & TEST_FUZZ)      ? "f" : "",
-                    (!test_suites[i]->flags)                 ? "-" : "");
+                    (flags & TEST_INTERNAL)  ? "i" : "",
+                    (flags & TEST_REENTRANT) ? "r" : "",
+                    (flags & TEST_FUZZ)      ? "f" : "",
+                    (!flags)                 ? "-" : "");
             printf("%-*s  %7s %7zu %15s\n",
                     name_width,
                     test_suites[i]->name,
@@ -1260,16 +1261,13 @@ static void list_cases(void) {
 
                 char perm_buf[64];
                 sprintf(perm_buf, "%zu/%zu", perms.filtered, perms.total);
+                test_flags_t flags = test_suites[i]->cases[j].flags;
                 char flag_buf[64];
                 sprintf(flag_buf, "%s%s%s%s",
-                        (test_suites[i]->cases[j].flags & TEST_INTERNAL)
-                            ? "i" : "",
-                        (test_suites[i]->cases[j].flags & TEST_REENTRANT)
-                            ? "r" : "",
-                        (test_suites[i]->cases[j].flags & TEST_FUZZ)
-                            ? "f" : "",
-                        (!test_suites[i]->cases[j].flags)
-                            ? "-" : "");
+                        (flags & TEST_INTERNAL)  ? "i" : "",
+                        (flags & TEST_REENTRANT) ? "r" : "",
+                        (flags & TEST_FUZZ)      ? "f" : "",
+                        (!flags)                 ? "-" : "");
                 printf("%-*s  %7s %15s\n",
                         name_width,
                         test_suites[i]->cases[j].name,
