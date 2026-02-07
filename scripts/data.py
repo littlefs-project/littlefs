@@ -1150,9 +1150,13 @@ if __name__ == "__main__":
     parser.add_argument(
             '-d', '--diff',
             help="Specify CSV/JSON file to diff against.")
+    # need a special Action here because this % causes problems
+    class StoreTruePercent(argparse._StoreTrueAction):
+        def format_usage(self):
+            return '-%%'
     parser.add_argument(
-            '-p', '--percent',
-            action='store_true',
+            '-%', '--percent',
+            action=StoreTruePercent,
             help="Only show percentage change, not a full diff.")
     parser.add_argument(
             '-C', '--compare',
