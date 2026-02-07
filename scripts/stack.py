@@ -894,7 +894,7 @@ def table(Result, results, diff_results=None, *,
     for line in lines:
         for i, x in enumerate(line):
             widths[i] = max(widths[i], ((len(x[0])+1+4-1)//4)*4-1)
-            if i != len(line)-1:
+            if x[1] and i != len(line)-1:
                 nwidths[i] = max(nwidths[i], 1+sum(2+len(n) for n in x[1]))
     if not any(line[0][0] for line in lines):
         widths[0] = 0
