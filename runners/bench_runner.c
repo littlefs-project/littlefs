@@ -1552,9 +1552,9 @@ static void list_suite_paths(void) {
                         || strcmp(bench_ids[t].name,
                             bench_suites[i]->cases[j].name) == 0)) {
                     continue;
-
-                    cases += 1;
                 }
+
+                cases += 1;
             }
 
             // no benches found?
@@ -1819,6 +1819,165 @@ static void list_implicit_defines(void) {
     free(defines.defines);
 }
 
+static void list_probes(void) {
+    // find relevant probes
+    const char **probes = NULL;
+    size_t probe_count = 0;
+    size_t probe_capacity = 0;
+    for (size_t t = 0; t < bench_id_count; t++) {
+        for (size_t i = 0; i < bench_suite_count; i++) {
+            for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
+                // does neither suite nor case name match?
+                if (bench_ids[t].name && !(
+                        strcmp(bench_ids[t].name,
+                            bench_suites[i]->name) == 0
+                        || strcmp(bench_ids[t].name,
+                            bench_suites[i]->cases[j].name) == 0)) {
+                    continue;
+                }
+
+                // add unseen probes
+                for (size_t p = 0;
+                        p < bench_suites[i]->cases[j].probe_count;
+                        p++) {
+                    for (size_t q = 0; q < probe_count; q++) {
+                        if (strcmp(probes[q],
+                                bench_suites[i]->cases[j].probes[p]) == 0) {
+                            goto next;
+                        }
+                    }
+
+                    const char **probe = mappend(
+                            (void**)&probes,
+                            sizeof(const char*),
+                            &probe_count,
+                            &probe_capacity);
+                    *probe = bench_suites[i]->cases[j].probes[p];
+                }
+
+            next:;
+            }
+        }
+    }
+
+    for (size_t p = 0; p < probe_count; p++) {
+        printf("%s\n", probes[p]);
+    }
+
+    free(probes);
+}
+
+static void list_suite_probes(void) {
+    // at least size so that names fit
+    unsigned name_width = 23;
+    for (size_t i = 0; i < bench_suite_count; i++) {
+        size_t len = strlen(bench_suites[i]->name);
+        if (len > name_width) {
+            name_width = len;
+        }
+    }
+    name_width = 4*((name_width+1+4-1)/4)-1;
+
+    printf("%-*s  %s\n", name_width, "suite", "probes");
+    // find relevant probes
+    for (size_t t = 0; t < bench_id_count; t++) {
+        for (size_t i = 0; i < bench_suite_count; i++) {
+            const char **probes = NULL;
+            size_t probe_count = 0;
+            size_t probe_capacity = 0;
+
+            for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
+                // does neither suite nor case name match?
+                if (bench_ids[t].name && !(
+                        strcmp(bench_ids[t].name,
+                            bench_suites[i]->name) == 0
+                        || strcmp(bench_ids[t].name,
+                            bench_suites[i]->cases[j].name) == 0)) {
+                    continue;
+                }
+
+                // add unseen probes
+                for (size_t p = 0;
+                        p < bench_suites[i]->cases[j].probe_count;
+                        p++) {
+                    for (size_t q = 0; q < probe_count; q++) {
+                        if (strcmp(probes[q],
+                                bench_suites[i]->cases[j].probes[p]) == 0) {
+                            goto next;
+                        }
+                    }
+
+                    const char **probe = mappend(
+                            (void**)&probes,
+                            sizeof(const char*),
+                            &probe_count,
+                            &probe_capacity);
+                    *probe = bench_suites[i]->cases[j].probes[p];
+                }
+
+            next:;
+            }
+
+            printf("%-*s  ",
+                    name_width,
+                    bench_suites[i]->name);
+            for (size_t p = 0; p < probe_count; p++) {
+                printf("%s", probes[p]);
+                if (p != probe_count-1) {
+                    printf(",");
+                }
+            }
+            printf("\n");
+
+            free(probes);
+        }
+    }
+}
+
+static void list_case_probes(void) {
+    // at least size so that names fit
+    unsigned name_width = 23;
+    for (size_t i = 0; i < bench_suite_count; i++) {
+        for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
+            size_t len = strlen(bench_suites[i]->cases[j].name);
+            if (len > name_width) {
+                name_width = len;
+            }
+        }
+    }
+    name_width = 4*((name_width+1+4-1)/4)-1;
+
+    printf("%-*s  %s\n", name_width, "case", "probes");
+    // find relevant probes
+    for (size_t t = 0; t < bench_id_count; t++) {
+        for (size_t i = 0; i < bench_suite_count; i++) {
+            for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
+                // does neither suite nor case name match?
+                if (bench_ids[t].name && !(
+                        strcmp(bench_ids[t].name,
+                            bench_suites[i]->name) == 0
+                        || strcmp(bench_ids[t].name,
+                            bench_suites[i]->cases[j].name) == 0)) {
+                    continue;
+                }
+
+                printf("%-*s  ",
+                        name_width,
+                        bench_suites[i]->cases[j].name);
+                for (size_t p = 0;
+                        p < bench_suites[i]->cases[j].probe_count;
+                        p++) {
+                    printf("%s", bench_suites[i]->cases[j].probes[p]);
+                    if (p != bench_suites[i]->cases[j].probe_count-1) {
+                        printf(",");
+                    }
+                }
+                printf("\n");
+            }
+        }
+    }
+}
+
 
 
 // bench bd wrappers for heap/stack tracking
@@ -2041,20 +2200,23 @@ enum opt_flags {
     OPT_LIST_DEFINES             = 3,
     OPT_LIST_PERMUTATION_DEFINES = 4,
     OPT_LIST_IMPLICIT_DEFINES    = 5,
+    OPT_LIST_PROBES              = 6,
+    OPT_LIST_SUITE_PROBES        = 7,
+    OPT_LIST_CASE_PROBES         = 8,
     OPT_DEFINE                   = 'D',
-    OPT_DEFINE_DEPTH             = 6,
-    OPT_STEP                     = 7,
-    OPT_FORCE                    = 8,
-    OPT_NO_INTERNAL              = 9,
-    OPT_NO_LITMUS                = 10,
+    OPT_DEFINE_DEPTH             = 9,
+    OPT_STEP                     = 10,
+    OPT_FORCE                    = 11,
+    OPT_NO_INTERNAL              = 12,
+    OPT_NO_LITMUS                = 13,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 11,
-    OPT_TRACE_STEP               = 12,
-    OPT_TRACE_RUNFREQ            = 13,
-    OPT_READ_SLEEP               = 14,
-    OPT_PROG_SLEEP               = 15,
-    OPT_ERASE_SLEEP              = 16,
+    OPT_TRACE_BACKTRACE          = 14,
+    OPT_TRACE_STEP               = 15,
+    OPT_TRACE_RUNFREQ            = 16,
+    OPT_READ_SLEEP               = 17,
+    OPT_PROG_SLEEP               = 18,
+    OPT_ERASE_SLEEP              = 19,
 };
 
 const char *short_opts = "hYlLD:d:t:";
@@ -2071,6 +2233,10 @@ const struct option long_opts[] = {
                          no_argument,       NULL, OPT_LIST_PERMUTATION_DEFINES},
     {"list-implicit-defines",
                          no_argument,       NULL, OPT_LIST_IMPLICIT_DEFINES},
+    {"list-probes",      no_argument,       NULL, OPT_LIST_PROBES},
+    {"list-suite-probes",
+                         no_argument,       NULL, OPT_LIST_SUITE_PROBES},
+    {"list-case-probes", no_argument,       NULL, OPT_LIST_CASE_PROBES},
     {"define",           required_argument, NULL, OPT_DEFINE},
     {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
     {"step",             required_argument, NULL, OPT_STEP},
@@ -2098,6 +2264,9 @@ const char *const help_text[] = {
     "List all defines in this bench-runner.",
     "List explicit defines in this bench-runner.",
     "List implicit defines in this bench-runner.",
+    "List estimated probes.",
+    "List estimated probes for each bench suite.",
+    "List estimated probes for each bench case.",
     "Override a bench define.",
     "How deep to evaluate recursive defines before erroring.",
     "Comma-separated range of permutations to run.",
@@ -2211,6 +2380,18 @@ int main(int argc, char **argv) {
 
         case OPT_LIST_IMPLICIT_DEFINES:;
             op = list_implicit_defines;
+            break;
+
+        case OPT_LIST_PROBES:;
+            op = list_probes;
+            break;
+
+        case OPT_LIST_SUITE_PROBES:;
+            op = list_suite_probes;
+            break;
+
+        case OPT_LIST_CASE_PROBES:;
+            op = list_case_probes;
             break;
 
         // configuration

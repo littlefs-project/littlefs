@@ -177,6 +177,12 @@ class BenchCase:
         self.defines = defines__
         self.permutations = permutations__
 
+        # we have the source code, so try to guess what probes are in
+        # use, note this is only informative
+        self.probes = list(co.OrderedDict.fromkeys(re.findall(
+                'BENCH_(?:STOP|F?RESULT)\( *"((?:\\.|[^"])*)"',
+                self.code)).keys())
+
         for k in config.keys():
             print('%swarning:%s in %s, found unused key %r' % (
                         '\x1b[1;33m' if args['color'] else '',
@@ -674,6 +680,16 @@ def compile(bench_paths, **args):
                             f.writeln(12*' '+'},')
                             f.writeln(12*' '+'.permutations = %d,' % (
                                     len(case.permutations)))
+                        # list case probes
+                        if case.probes:
+                            f.writeln(12*' '+'.probes'
+                                    ' = (const char*[%d]){' % (
+                                        len(case.probes)))
+                            for p in case.probes:
+                                f.writeln(16*' '+'"%s",' % p)
+                            f.writeln(12*' '+'},')
+                            f.writeln(12*' '+'.probe_count = %d,' % (
+                                    len(case.probes)))
                         if suite.if_ or case.if_:
                             f.writeln(12*' '+'.if_ = __bench__%s__if,' % (
                                     case.name))
@@ -1065,6 +1081,12 @@ def list_(runner, bench_ids=[], **args):
                                      cmd.append('--list-permutation-defines')
     if args.get('list_implicit_defines'):
                                      cmd.append('--list-implicit-defines')
+    if args.get('list_probes'):
+                                     cmd.append('--list-probes')
+    if args.get('list_suite_probes'):
+                                     cmd.append('--list-suite-probes')
+    if args.get('list_case_probes'):
+                                     cmd.append('--list-case-probes')
 
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
@@ -1640,7 +1662,10 @@ def main(**args):
             or args.get('list_case_paths')
             or args.get('list_defines')
             or args.get('list_permutation_defines')
-            or args.get('list_implicit_defines')):
+            or args.get('list_implicit_defines')
+            or args.get('list_probes')
+            or args.get('list_suite_probes')
+            or args.get('list_case_probes')):
         return list_(**args)
     else:
         return run(**args)
@@ -1714,6 +1739,18 @@ if __name__ == "__main__":
             '--list-implicit-defines',
             action='store_true',
             help="List implicit defines in this bench-runner.")
+    bench_parser.add_argument(
+            '--list-probes',
+            action='store_true',
+            help="List estimated probes.")
+    bench_parser.add_argument(
+            '--list-suite-probes',
+            action='store_true',
+            help="List estimated probes for each bench suite.")
+    bench_parser.add_argument(
+            '--list-case-probes',
+            action='store_true',
+            help="List estimated probes for each bench case.")
     bench_parser.add_argument(
             '-D', '--define',
             action='append',

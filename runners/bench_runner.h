@@ -116,6 +116,9 @@ struct bench_case {
     const bench_define_t *defines;
     size_t permutations;
 
+    const char **probes;
+    size_t probe_count;
+
     bool (*if_)(void);
     void (*run)(const struct lfs3_cfg *cfg);
 };
