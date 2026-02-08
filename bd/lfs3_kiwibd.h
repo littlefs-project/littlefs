@@ -107,6 +107,8 @@ typedef struct lfs3_kiwibd {
         uint8_t *mem;
     } u;
 
+    // sim state
+    uint32_t paused;
     // amount read/progged/erased
     lfs3_kiwibd_io_t reads;
     lfs3_kiwibd_io_t progs;
@@ -160,6 +162,12 @@ lfs3_kiwibd_sns_t lfs3_kiwibd_simtime(const struct lfs3_cfg *cfg);
 
 // Reset simulation counters
 int lfs3_kiwibd_simreset(const struct lfs3_cfg *cfg);
+
+// Pause simulation counters
+int lfs3_kiwibd_simpause(const struct lfs3_cfg *cfg);
+
+// Resume simulation counters
+int lfs3_kiwibd_simresume(const struct lfs3_cfg *cfg);
 
 // Get total number of read transactions
 lfs3_kiwibd_sio_t lfs3_kiwibd_reads(const struct lfs3_cfg *cfg);

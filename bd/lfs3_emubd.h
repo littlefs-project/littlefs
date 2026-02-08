@@ -179,13 +179,17 @@ typedef struct lfs3_emubd {
     // array of copy-on-write blocks
     lfs3_emubd_block_t **blocks;
 
-    // some other test state
+    // sim state
+    uint32_t paused;
+    // amount read/progged/erased
     lfs3_emubd_io_t reads;
     lfs3_emubd_io_t progs;
     lfs3_emubd_io_t erases;
     lfs3_emubd_io_t readed;
     lfs3_emubd_io_t progged;
     lfs3_emubd_io_t erased;
+
+    // some other test state
     uint32_t prng;
     lfs3_emubd_powercycles_t power_cycles;
     lfs3_emubd_block_t **ooo_before;
@@ -238,6 +242,12 @@ lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg);
 
 // Reset simulation counters
 int lfs3_emubd_simreset(const struct lfs3_cfg *cfg);
+
+// Pause simulation counters
+int lfs3_emubd_simpause(const struct lfs3_cfg *cfg);
+
+// Resume simulation counters
+int lfs3_emubd_simresume(const struct lfs3_cfg *cfg);
 
 // Get total number of read transactions
 lfs3_emubd_sio_t lfs3_emubd_reads(const struct lfs3_cfg *cfg);

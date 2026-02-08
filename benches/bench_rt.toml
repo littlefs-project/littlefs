@@ -31,16 +31,18 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
+        BENCH_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             LFS3_ERROR("Bench warmup failed: %d", err);
             return;
         }
+        BENCH_RESUME();
     }
     uint32_t prng = SEED;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // create a file to read
     lfs3_file_t file;
@@ -54,14 +56,14 @@ code = '''
         lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
 
         // taking too long?
-        if (SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME) {
+        if (SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME) {
             return;
         }
     }
     lfs3_file_close(&lfs3, &file) => 0;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // open the file
     BENCH_START("read");
@@ -69,7 +71,7 @@ code = '''
     lfs3_off_t size = 0;
     uint64_t readed = 0;
     while (!(SIM_SIZE && readed >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME)) {
+            && !(SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME)) {
         // read from the file
         uint8_t rbuf[CHUNK];
         lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
@@ -97,15 +99,17 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
+        BENCH_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             return;
         }
+        BENCH_RESUME();
     }
     uint32_t prng = SEED;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // create a file to read
     lfs3_file_t file;
@@ -119,21 +123,21 @@ code = '''
         lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
 
         // taking too long?
-        if (SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME) {
+        if (SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME) {
             return;
         }
     }
     lfs3_file_close(&lfs3, &file) => 0;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // open the file
     BENCH_START("read");
     lfs3_file_open(&lfs3, &file, "bench_random", LFS3_O_RDONLY) => 0;
     uint64_t readed = 0;
     while (!(SIM_SIZE && readed >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME)) {
+            && !(SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME)) {
         // seek to a random location
         lfs3_off_t pos = BENCH_PRNG(&prng) % SIZE;
         lfs3_file_seek(&lfs3, &file, pos, LFS3_SEEK_SET) => pos;
@@ -161,15 +165,17 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
+        BENCH_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             return;
         }
+        BENCH_RESUME();
     }
     uint32_t prng = SEED;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // create files to read
     for (lfs3_size_t i = 0; i < (SIZE+(CHUNK-1))/CHUNK; i++) {
@@ -185,7 +191,7 @@ code = '''
             lfs3_file_write(&lfs3, &file, wbuf, d) => d;
 
             // taking too long?
-            if (SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME) {
+            if (SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME) {
                 return;
             }
         }
@@ -193,13 +199,13 @@ code = '''
     }
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // open the files
     BENCH_START("read");
     uint64_t readed = 0;
     while (!(SIM_SIZE && readed >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME)) {
+            && !(SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME)) {
         // choose a random filename
         lfs3_off_t pos = BENCH_PRNG(&prng) % ((SIZE+(CHUNK-1))/CHUNK);
         char name[256];
@@ -218,7 +224,7 @@ code = '''
             readed += d;
 
             // taking too long?
-            if (SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME) {
+            if (SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME) {
                 break;
             }
         }

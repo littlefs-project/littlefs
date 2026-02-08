@@ -78,6 +78,19 @@ void bench_trace(const char *fmt, ...);
 #undef _STDIO_H
 
 
+// some common types
+#ifndef BENCH_KIWIBD
+typedef lfs3_emubd_io_t   bench_io_t;
+typedef lfs3_emubd_sio_t  bench_sio_t;
+typedef lfs3_emubd_ns_t   bench_ns_t;
+typedef lfs3_emubd_sns_t  bench_sns_t;
+#else
+typedef lfs3_kiwibd_io_t  bench_io_t;
+typedef lfs3_kiwibd_sio_t bench_sio_t;
+typedef lfs3_kiwibd_ns_t  bench_ns_t;
+typedef lfs3_kiwibd_sns_t bench_sns_t;
+#endif
+
 // generated bench configurations
 struct lfs3_cfg;
 
@@ -138,6 +151,24 @@ void bench_fresult(const char *probe, uintmax_t n, double result);
 #define BENCH_RESULT(probe, n, result) bench_result(probe, n, result)
 #define BENCH_FRESULT(probe, n, result) bench_fresult(probe, n, result)
 
+// extra hooks to get the current simtime, pause readed/progged/erased
+// counters, etc
+bench_ns_t bench_simtime(void);
+void bench_simreset(void);
+void bench_simpause(void);
+void bench_simresume(void);
+void bench_reset(void);
+void bench_pause(void);
+void bench_resume(void);
+
+#define BENCH_SIMTIME() bench_simtime()
+#define BENCH_SIMRESET() bench_simreset()
+#define BENCH_SIMPAUSE() bench_simpause()
+#define BENCH_SIMRESUME() bench_simresume()
+#define BENCH_RESET() bench_reset()
+#define BENCH_PAUSE() bench_pause()
+#define BENCH_RESUME() bench_resume()
+
 
 // deterministic prng for pseudo-randomness in benches
 uint32_t bench_prng(uint32_t *state);
@@ -155,15 +186,18 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 // get the maximum/current stack usage for this run
 extern size_t bench_stack_watermark;
 __attribute__((noinline)) size_t bench_stack_current(void);
+void bench_stack_reset(void);
 __attribute__((noinline)) void bench_stack_pause(void);
 void bench_stack_resume(void);
 
 #define BENCH_STACK_WATERMARK() bench_stack_watermark
 #define BENCH_STACK_CURRENT() bench_stack_current()
+#define BENCH_STACK_RESET() bench_stack_reset()
 #define BENCH_STACK_PAUSE() bench_stack_pause()
 #define BENCH_STACK_RESUME() bench_stack_resume()
 #else
 // stubs if not measuring stack
+#define BENCH_STACK_RESET()
 #define BENCH_STACK_PAUSE()
 #define BENCH_STACK_RESUME()
 #endif
@@ -179,12 +213,14 @@ void bench_heap_dec(size_t size);
 
 #define BENCH_HEAP_WATERMARK() bench_heap_watermark
 #define BENCH_HEAP_CURRENT() bench_heap_current
+#define BENCH_HEAP_RESET() bench_heap_reset()
 #define BENCH_HEAP_PAUSE() bench_heap_pause()
 #define BENCH_HEAP_RESUME() bench_heap_resume()
 #define BENCH_HEAP_INC(size) bench_heap_inc(size)
 #define BENCH_HEAP_DEC(size) bench_heap_dec(size)
 #else
 // stubs if not measuring heap
+#define BENCH_HEAP_RESET()
 #define BENCH_HEAP_PAUSE()
 #define BENCH_HEAP_RESUME()
 #define BENCH_HEAP_INC(size)

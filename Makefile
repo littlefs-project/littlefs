@@ -701,9 +701,9 @@ bench-widths: $(BENCH_CSV)
 		$(SUMMARYFLAGS))
 
 ## Show heap/stack/disk usage
-.PHONY: bench-usage
-bench-usage: SUMMARYFLAGS+=-Si
-bench-usage: $(BENCH_CSV)
+.PHONY: bench-ram bench-usage
+bench-ram bench-usage: SUMMARYFLAGS+=-Si
+bench-ram bench-usage: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-Dprobe=stack \

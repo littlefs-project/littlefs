@@ -24,20 +24,6 @@
 #include <stddef.h>
 
 
-// some common types
-#ifndef TEST_KIWIBD
-typedef lfs3_emubd_ns_t   test_ns_t;
-typedef lfs3_emubd_sns_t  test_sns_t;
-typedef lfs3_emubd_powercycles_t  test_powercycles_t;
-typedef lfs3_emubd_spowercycles_t test_spowercycles_t;
-#else
-typedef lfs3_kiwibd_ns_t  test_ns_t;
-typedef lfs3_kiwibd_sns_t test_sns_t;
-typedef void              test_powercycles_t;
-typedef void              test_spowercycles_t;
-#endif
-
-
 // some helpers
 
 // append to an array with amortized doubling

@@ -117,6 +117,7 @@ int lfs3_kiwibd_createcfg(const struct lfs3_cfg *cfg, const char *path,
     bd->cfg = bdcfg;
 
     // setup some initial state
+    bd->paused = false;
     bd->reads = 0;
     bd->progs = 0;
     bd->erases = 0;
@@ -279,10 +280,14 @@ int lfs3_kiwibd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     }
 
     // track reads
-    bd->reads += (lfs3_alignup(off + size, lfs3_max(bd->cfg->read_width, 1))
-                - lfs3_aligndown(off, lfs3_max(bd->cfg->read_width, 1)))
-            / lfs3_max(bd->cfg->read_width, 1);
-    bd->readed += size;
+    if (!bd->paused) {
+        bd->reads += (lfs3_alignup(off + size,
+                        lfs3_max(bd->cfg->read_width, 1))
+                    - lfs3_aligndown(off,
+                        lfs3_max(bd->cfg->read_width, 1)))
+                / lfs3_max(bd->cfg->read_width, 1);
+        bd->readed += size;
+    }
     if (bd->cfg->read_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->read_sleep/1000000000,
@@ -410,10 +415,14 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
     }
 
     // track progs
-    bd->progs += (lfs3_alignup(off + size, lfs3_max(bd->cfg->prog_width, 1))
-                - lfs3_aligndown(off, lfs3_max(bd->cfg->prog_width, 1)))
-            / lfs3_max(bd->cfg->prog_width, 1);
-    bd->progged += size;
+    if (!bd->paused) {
+        bd->progs += (lfs3_alignup(off + size,
+                        lfs3_max(bd->cfg->prog_width, 1))
+                    - lfs3_aligndown(off,
+                        lfs3_max(bd->cfg->prog_width, 1)))
+                / lfs3_max(bd->cfg->prog_width, 1);
+        bd->progged += size;
+    }
     if (bd->cfg->prog_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->prog_sleep/1000000000,
@@ -474,10 +483,12 @@ int lfs3_kiwibd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
 
 erased:;
     // track erases
-    bd->erases += lfs3_alignup(cfg->block_size,
-                lfs3_max(bd->cfg->erase_width, 1))
-            / lfs3_max(bd->cfg->erase_width, 1);
-    bd->erased += cfg->block_size;
+    if (!bd->paused) {
+        bd->erases += lfs3_alignup(cfg->block_size,
+                    lfs3_max(bd->cfg->erase_width, 1))
+                / lfs3_max(bd->cfg->erase_width, 1);
+        bd->erased += cfg->block_size;
+    }
     if (bd->cfg->erase_sleep) {
         int err = nanosleep(&(struct timespec){
                 .tv_sec=bd->cfg->erase_sleep/1000000000,
@@ -550,6 +561,23 @@ int lfs3_kiwibd_simreset(const struct lfs3_cfg *cfg) {
     bd->progged = 0;
     bd->erased = 0;
     LFS3_KIWIBD_TRACE("lfs3_kiwibd_simreset -> %d", 0);
+    return 0;
+}
+
+int lfs3_kiwibd_simpause(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_simpause(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+    bd->paused += 1;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_simpause -> %d", 0);
+    return 0;
+}
+
+int lfs3_kiwibd_simresume(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_simresume(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+    LFS3_ASSERT(bd->paused);
+    bd->paused -= 1;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_simresume -> %d", 0);
     return 0;
 }
 

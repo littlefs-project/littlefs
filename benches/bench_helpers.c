@@ -10,9 +10,6 @@
 // this writes a 1 block file 2*block_count times to get it into a good
 // state for benchmarking
 int bench_helpers_warmup(lfs3_t *lfs3) {
-    BENCH_STACK_PAUSE();
-    BENCH_HEAP_PAUSE();
-
     uint8_t *wbuf = malloc(BLOCK_SIZE);
     memset(wbuf, '1', BLOCK_SIZE);
 
@@ -29,18 +26,12 @@ int bench_helpers_warmup(lfs3_t *lfs3) {
     lfs3_remove(lfs3, "warmup") => 0;
 
     free(wbuf);
-
-    BENCH_HEAP_RESUME();
-    BENCH_STACK_RESUME();
     return 0;
 }
 
 
 // find tight disk usage
 uintmax_t bench_helpers_usage(lfs3_t *lfs3) {
-    BENCH_STACK_PAUSE();
-    BENCH_HEAP_PAUSE();
-
     // measure disk usage
     //
     // littlefs can be a dag, so build a bitmap to find the exact
@@ -70,9 +61,6 @@ uintmax_t bench_helpers_usage(lfs3_t *lfs3) {
     }
 
     free(usage_bmap);
-
-    BENCH_HEAP_RESUME();
-    BENCH_STACK_RESUME();
     return (uintmax_t)usage * (uintmax_t)BLOCK_SIZE;
 }
 

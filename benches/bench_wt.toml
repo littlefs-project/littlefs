@@ -31,16 +31,18 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
+        BENCH_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             LFS3_ERROR("Bench warmup failed: %d", err);
             return;
         }
+        BENCH_RESUME();
     }
     uint32_t prng = SEED;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // open a file
     BENCH_START("write");
@@ -52,7 +54,7 @@ code = '''
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME)) {
+            && !(SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME)) {
         // arguably we should just rewind and continue writing to the
         // front of the file when we hit the end, but this overly
         // penalizes littlefs2, so instead we truncate
@@ -100,15 +102,17 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
+        BENCH_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             return;
         }
+        BENCH_RESUME();
     }
     uint32_t prng = SEED;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // open a file
     BENCH_START("write");
@@ -118,7 +122,7 @@ code = '''
     lfs3_off_t size = 0;
     uint64_t written = 0;
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME)) {
+            && !(SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME)) {
         // seek to a random location
         lfs3_off_t pos = BENCH_PRNG(&prng) % SIZE;
         lfs3_file_seek(&lfs3, &file, pos, LFS3_SEEK_SET) => pos;
@@ -164,15 +168,17 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
+        BENCH_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             return;
         }
+        BENCH_RESUME();
     }
     uint32_t prng = SEED;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // open a file
     BENCH_START("write");
@@ -183,7 +189,7 @@ code = '''
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME)) {
+            && !(SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME)) {
         // append to log
         uint8_t wbuf[CHUNK];
         for (lfs3_size_t j = 0; j < CHUNK; j++) {
@@ -241,15 +247,17 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
+        BENCH_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             return;
         }
+        BENCH_RESUME();
     }
     uint32_t prng = SEED;
 
     // reset our timer
-    lfs3_kiwibd_simreset(CFG);
+    BENCH_SIMRESET();
 
     // open a file
     BENCH_START("write");
@@ -257,7 +265,7 @@ code = '''
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME)) {
+            && !(SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME)) {
         // choose a random filename
         lfs3_off_t pos = BENCH_PRNG(&prng) % FILE_COUNT;
         char name[256];
@@ -279,7 +287,7 @@ code = '''
             written += d;
 
             // taking too long?
-            if (SIM_TIME && lfs3_kiwibd_simtime(CFG) >= SIM_TIME) {
+            if (SIM_TIME && BENCH_SIMTIME() >= (bench_ns_t)SIM_TIME) {
                 break;
             }
         }

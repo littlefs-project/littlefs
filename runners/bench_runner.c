@@ -24,20 +24,6 @@
 #include <stddef.h>
 
 
-// some common types
-#ifndef BENCH_KIWIBD
-typedef lfs3_emubd_io_t   bench_io_t;
-typedef lfs3_emubd_sio_t  bench_sio_t;
-typedef lfs3_emubd_ns_t   bench_ns_t;
-typedef lfs3_emubd_sns_t  bench_sns_t;
-#else
-typedef lfs3_kiwibd_io_t  bench_io_t;
-typedef lfs3_kiwibd_sio_t bench_sio_t;
-typedef lfs3_kiwibd_ns_t  bench_ns_t;
-typedef lfs3_kiwibd_sns_t bench_sns_t;
-#endif
-
-
 // some helpers
 
 // append to an array with amortized doubling
@@ -625,7 +611,8 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size) {
 
 // stack hooks
 #ifdef BENCH_STACK
-uint32_t bench_stack_entered = 0;
+uint32_t bench_stack_entered = false;
+uint32_t bench_stack_paused = false;
 uint8_t *bench_stack_entrance = NULL;
 size_t bench_stack_watermark = 0;
 #endif
@@ -634,7 +621,8 @@ size_t bench_stack_watermark = 0;
 #ifdef BENCH_STACK
 __attribute__((noinline))
 void bench_stack_enter(void) {
-    bench_stack_entered = 1;
+    bench_stack_entered = true;
+    bench_stack_paused = false;
     bench_stack_entrance = __builtin_frame_address(0);
     bench_stack_watermark = 0;
 }
@@ -642,7 +630,14 @@ void bench_stack_enter(void) {
 
 #ifdef BENCH_STACK
 void bench_stack_exit(void) {
-    bench_stack_entered = 0;
+    assert(bench_stack_entered);
+    bench_stack_entered = false;
+}
+#endif
+
+#ifdef BENCH_STACK
+void bench_stack_reset(void) {
+    bench_stack_watermark = 0;
 }
 #endif
 
@@ -650,7 +645,7 @@ void bench_stack_exit(void) {
 #ifdef BENCH_STACK
 __attribute__((noinline))
 void bench_stack_pause(void) {
-    if (bench_stack_entered & 1) {
+    if (bench_stack_entered && !bench_stack_paused) {
         uint8_t *current = __builtin_frame_address(0);
 
         // keep track of the deepest stack
@@ -664,14 +659,14 @@ void bench_stack_pause(void) {
         }
     }
 
-    // haha, a little 32-bit stack
-    bench_stack_entered <<= 1;
+    bench_stack_paused += 1;
 }
 #endif
 
 #ifdef BENCH_STACK
 void bench_stack_resume(void) {
-    bench_stack_entered >>= 1;
+    assert(bench_stack_paused);
+    bench_stack_paused -= 1;
 }
 #endif
 
@@ -695,7 +690,8 @@ size_t bench_stack_current(void) {
 
 // heap hooks
 #ifdef BENCH_HEAP
-uint32_t bench_heap_entered = 0;
+uint32_t bench_heap_entered = false;
+uint32_t bench_heap_paused = false;
 size_t bench_heap_current = 0;
 size_t bench_heap_watermark = 0;
 #endif
@@ -703,7 +699,8 @@ size_t bench_heap_watermark = 0;
 // call me when entering/exiting a bench!
 #ifdef BENCH_HEAP
 void bench_heap_enter(void) {
-    bench_heap_entered = 1;
+    bench_heap_entered = true;
+    bench_heap_paused = false;
     bench_heap_current = 0;
     bench_heap_watermark = 0;
 }
@@ -711,31 +708,34 @@ void bench_heap_enter(void) {
 
 #ifdef BENCH_HEAP
 void bench_heap_exit(void) {
-    bench_heap_entered = 0;
-    if (bench_heap_watermark != 0) {
-        fprintf(stderr, "warning: memory leak detected (%zd > 0)\n",
-                bench_heap_watermark);
-    }
+    assert(bench_heap_entered);
+    bench_heap_entered = false;
+}
+#endif
+
+#ifdef BENCH_HEAP
+void bench_heap_reset(void) {
+    bench_heap_watermark = 0;
 }
 #endif
 
 // call me when entering/exiting a bd op!
 #ifdef BENCH_HEAP
 void bench_heap_pause(void) {
-    // haha, a little 32-bit stack
-    bench_heap_entered <<= 1;
+    bench_heap_paused += 1;
 }
 #endif
 
 #ifdef BENCH_HEAP
 void bench_heap_resume(void) {
-    bench_heap_entered >>= 1;
+    assert(bench_heap_paused);
+    bench_heap_paused -= 1;
 }
 #endif
 
 #ifdef BENCH_HEAP
 void bench_heap_inc(size_t size) {
-    if (bench_heap_entered & 1) {
+    if (bench_heap_entered && !bench_heap_paused) {
         bench_heap_current += size;
         // keep track of the deepest heap
         if (bench_heap_current > bench_heap_watermark) {
@@ -747,9 +747,8 @@ void bench_heap_inc(size_t size) {
 
 #ifdef BENCH_HEAP
 void bench_heap_dec(size_t size) {
-    if (bench_heap_entered & 1) {
-        assert(bench_heap_current >= size);
-        bench_heap_current -= size;
+    if (bench_heap_entered && !bench_heap_paused) {
+        bench_heap_current -= lfs3_min(size, bench_heap_current);
     }
 }
 #endif
@@ -885,9 +884,14 @@ static bench_record_t *bench_records;
 size_t bench_record_count;
 size_t bench_record_capacity;
 
-void bench_reset(const struct lfs3_cfg *cfg) {
+void bench_init(const struct lfs3_cfg *cfg) {
     bench_cfg = cfg;
     bench_record_count = 0;
+}
+
+void bench_deinit(const struct lfs3_cfg *cfg) {
+    (void)cfg;
+    // do nothing
 }
 
 void bench_start(const char *probe) {
@@ -1090,6 +1094,95 @@ void bench_fresult(const char *probe, uintmax_t n, double result) {
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
 }
+
+bench_ns_t bench_simtime(void) {
+    // get the current simtime
+    assert(bench_cfg);
+    #ifndef BENCH_KIWIBD
+    // note this can error if no timings provided
+    bench_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
+    assert(simtime >= 0);
+    #else
+    // note this can error if no timings provided
+    bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
+    assert(simtime >= 0);
+    #endif
+    return simtime;
+}
+
+void bench_simreset(void) {
+    // reset bd
+    #ifndef BENCH_KIWIBD
+    int err = lfs3_emubd_simreset(bench_cfg);
+    assert(!err);
+    #else
+    int err = lfs3_kiwibd_simreset(bench_cfg);
+    assert(!err);
+    #endif
+}
+
+void bench_simpause(void) {
+    // pause bd simulation
+    #ifndef BENCH_KIWIBD
+    int err = lfs3_emubd_simpause(bench_cfg);
+    assert(!err);
+    #else
+    int err = lfs3_kiwibd_simpause(bench_cfg);
+    assert(!err);
+    #endif
+}
+
+void bench_simresume(void) {
+    // resume bd simulation
+    #ifndef BENCH_KIWIBD
+    int err = lfs3_emubd_simresume(bench_cfg);
+    assert(!err);
+    #else
+    int err = lfs3_kiwibd_simresume(bench_cfg);
+    assert(!err);
+    #endif
+}
+
+void bench_reset(void) {
+    // reset bd
+    bench_simreset();
+
+    // reset stack/heap measurements
+    #ifdef BENCH_HEAP
+    bench_heap_reset();
+    #endif
+    #ifdef BENCH_STACK
+    bench_stack_reset();
+    #endif
+}
+
+void bench_pause(void) {
+    // pause stack/heap measurements
+    #ifdef BENCH_STACK
+    bench_stack_pause();
+    #endif
+    #ifdef BENCH_HEAP
+    bench_heap_pause();
+    #endif
+
+    // pause bd simulation
+    bench_simpause();
+}
+
+void bench_resume(void) {
+    // resume bd simulation
+    bench_simresume();
+
+    // resume stack/heap measurements
+    #ifdef BENCH_HEAP
+    bench_heap_resume();
+    #endif
+    #ifdef BENCH_STACK
+    bench_stack_resume();
+    #endif
+}
+
+
 
 
 // encode our permutation into a reusable id
@@ -1868,22 +1961,23 @@ void perm_run(
     printf("running ");
     perm_printid(suite, case_);
     printf("\n");
-    bench_reset(CFG);
-    #ifdef BENCH_STACK
-    bench_stack_enter();
-    #endif
+    bench_init(CFG);
     #ifdef BENCH_HEAP
     bench_heap_enter();
+    #endif
+    #ifdef BENCH_STACK
+    bench_stack_enter();
     #endif
 
     case_->run(CFG);
 
-    #ifdef BENCH_HEAP
-    bench_heap_exit();
-    #endif
     #ifdef BENCH_STACK
     bench_stack_exit();
     #endif
+    #ifdef BENCH_HEAP
+    bench_heap_exit();
+    #endif
+    bench_deinit(CFG);
     printf("finished ");
     perm_printid(suite, case_);
     printf("\n");
