@@ -805,11 +805,11 @@ def find_runner(runner, id=None, main=True, **args):
     # run under perf?
     if args.get('perf'):
         cmd[:0] = args['perf_script'] + list(filter(None, [
-                '--record',
-                '--perf-freq=%s' % args['perf_freq']
-                    if args.get('perf_freq') else None,
-                '--perf-period=%s' % args['perf_period']
-                    if args.get('perf_period') else None,
+                '-e',
+                '--perf-step=%s' % args['perf_step']
+                    if args.get('perf_step') else None,
+                '--perf-runfreq=%s' % args['perf_runfreq']
+                    if args.get('perf_runfreq') else None,
                 '--perf-events=%s' % args['perf_events']
                     if args.get('perf_events') else None,
                 '--perf-path=%s' % args['perf_path']
@@ -839,10 +839,10 @@ def find_runner(runner, id=None, main=True, **args):
             cmd.append('-t%s' % args['trace'])
         if args.get('trace_backtrace'):
             cmd.append('--trace-backtrace')
-        if args.get('trace_period'):
-            cmd.append('--trace-period=%s' % args['trace_period'])
-        if args.get('trace_freq'):
-            cmd.append('--trace-freq=%s' % args['trace_freq'])
+        if args.get('trace_step'):
+            cmd.append('--trace-step=%s' % args['trace_step'])
+        if args.get('trace_runfreq'):
+            cmd.append('--trace-runfreq=%s' % args['trace_runfreq'])
         if args.get('read_sleep'):
             cmd.append('--read-sleep=%s' % args['read_sleep'])
         if args.get('prog_sleep'):
@@ -1269,9 +1269,9 @@ def run_stage(name, runner, test_ids, stdout_, trace_, output_, **args):
         while start < total_perms:
             runner_ = find_runner(runner, main=main, **args)
             if args.get('isolate') or args.get('valgrind'):
-                runner_.append('-s%s,%s,%s' % (start, start+step, step))
+                runner_.append('--step=%s,%s,%s' % (start, start+step, step))
             elif start != 0 or step != 1:
-                runner_.append('-s%s,,%s' % (start, step))
+                runner_.append('--step=%s,,%s' % (start, step))
 
             runner_.extend(test_ids)
 
@@ -1655,6 +1655,7 @@ def main(**args):
 if __name__ == "__main__":
     import argparse
     import sys
+    import re
     argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
     argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
@@ -1760,10 +1761,10 @@ if __name__ == "__main__":
             action='store_true',
             help="Include a backtrace with every trace statement.")
     test_parser.add_argument(
-            '--trace-period',
-            help="Sample trace output at this period in cycles.")
+            '--trace-step',
+            help="Sample trace output every n steps.")
     test_parser.add_argument(
-            '--trace-freq',
+            '--trace-runfreq',
             help="Sample trace output at this frequency in hz.")
     test_parser.add_argument(
             '-O', '--stdout',
@@ -1876,13 +1877,13 @@ if __name__ == "__main__":
             help="Run under Linux's perf to sample performance counters, "
                 "writing samples to this file.")
     test_parser.add_argument(
-            '--perf-freq',
+            '--perf-step',
+            help="perf sampling step. This is passed directly to the perf "
+                "script.")
+    test_parser.add_argument(
+            '--perf-runfreq',
             help="perf sampling frequency. This is passed directly to the "
                 "perf script.")
-    test_parser.add_argument(
-            '--perf-period',
-            help="perf sampling period. This is passed directly to the perf "
-                "script.")
     test_parser.add_argument(
             '--perf-events',
             help="perf events to record. This is passed directly to the perf "
@@ -1909,31 +1910,34 @@ if __name__ == "__main__":
             '-c', '--compile',
             action='store_true',
             help="Compile a test suite or source file.")
-    comp_parser.add_argument(
-            '-o', '--output',
-            help="Output file.")
-    comp_parser.add_argument(
-            '-s', '--source',
-            help="Source file to compile, possibly injecting internal tests.")
-    comp_parser.add_argument(
-            '--include',
-            help="Inject these header files into every compiled test file. "
-                "Defaults to %r." % HEADER_PATHS)
-    comp_parser.add_argument(
-            '--no-internal',
-            action='store_true',
-            help="Don't build internal tests.")
-    comp_parser.add_argument(
-            '--no-reentrant',
-            action='store_true',
-            help="Don't build reentrant tests.")
-    comp_parser.add_argument(
-            '--no-fuzz',
-            action='store_true',
-            help="Don't build fuzz tests.")
+    if any(re.fullmatch('-[^-]*[hc].*|--help|--compile', a) for a in sys.argv):
+        comp_parser.add_argument(
+                '-o', '--output',
+                help="Output file.")
+        comp_parser.add_argument(
+                '-s', '--source',
+                help="Source file to compile, possibly injecting internal "
+                    "tests.")
+        comp_parser.add_argument(
+                '-i', '--include',
+                help="Inject these header files into every compiled test "
+                    "file. Defaults to %r." % HEADER_PATHS)
+        comp_parser.add_argument(
+                '--no-internal',
+                action='store_true',
+                help="Don't build internal tests.")
+        comp_parser.add_argument(
+                '--no-reentrant',
+                action='store_true',
+                help="Don't build reentrant tests.")
+        comp_parser.add_argument(
+                '--no-fuzz',
+                action='store_true',
+                help="Don't build fuzz tests.")
 
     # do the thing
     args = parser.parse_intermixed_args()
+    # test_paths/test_ids overlap, so need to do some munging
     args.test_paths = args.test_ids
     sys.exit(main(**{k: v
             for k, v in vars(args).items()

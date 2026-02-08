@@ -3,7 +3,7 @@
 # Script to aggregate and report Linux perf results.
 #
 # Example:
-# ./scripts/perf.py --record -obench.perf ./runners/bench_runner
+# ./scripts/perf.py -e -obench.perf ./runners/bench_runner
 # ./scripts/perf.py bench.perf -j -Flfs.c -Flfs_util.c -Scycles
 #
 # Copyright (c) 2022, The littlefs authors.
@@ -39,7 +39,7 @@ import zipfile
 
 PERF_PATH = ['perf']
 PERF_EVENTS = 'cycles,branch-misses,branches,cache-misses,cache-references'
-PERF_FREQ = 100
+PERF_RUNFREQ = 100
 OBJDUMP_PATH = ['objdump']
 THRESHOLD = (0.5, 0.85)
 
@@ -202,8 +202,8 @@ def openio(path, mode='r', buffering=-1):
 # run perf as a subprocess, storing measurements into a zip file
 def record(command, *,
         output=None,
-        perf_freq=PERF_FREQ,
-        perf_period=None,
+        perf_step=None,
+        perf_runfreq=PERF_RUNFREQ,
         perf_events=PERF_EVENTS,
         perf_path=PERF_PATH,
         **args):
@@ -213,11 +213,11 @@ def record(command, *,
         # figure out our perf invocation
         perf = perf_path + list(filter(None, [
                 'record',
-                '-F%s' % perf_freq
-                    if perf_freq is not None
-                    and perf_period is None else None,
-                '-c%s' % perf_period
-                    if perf_period is not None else None,
+                '-c%s' % perf_step
+                    if perf_step is not None else None,
+                '-F%s' % perf_runfreq
+                    if perf_runfreq is not None
+                    and perf_step is None else None,
                 '-B',
                 '-g',
                 '--all-user',
@@ -1660,11 +1660,12 @@ def main(**args):
 if __name__ == "__main__":
     import argparse
     import sys
+    import re
 
     # bit of a hack, but parse_intermixed_args and REMAINDER are
     # incompatible, so we need to figure out what we want before running
     # argparse
-    if '--record' in sys.argv:
+    if any(re.fullmatch('-[^-]*[e].*|--record', a) for a in sys.argv):
         nargs = argparse.REMAINDER
     else:
         nargs = '*'
@@ -1900,29 +1901,30 @@ if __name__ == "__main__":
             nargs=nargs,
             help="Command to run.")
     record_parser.add_argument(
-            '--record',
+            '-e', '--record',
             action='store_true',
             help="Run a command and aggregate perf measurements.")
-    record_parser.add_argument(
-            '-o', '--output',
-            help="Output file. Uses flock to synchronize. This is stored as a "
-                "zip-file of multiple perf results.")
-    record_parser.add_argument(
-            '--perf-freq',
-            help="perf sampling frequency. This is passed directly to perf. "
-                "Defaults to %r." % PERF_FREQ)
-    record_parser.add_argument(
-            '--perf-period',
-            help="perf sampling period. This is passed directly to perf.")
-    record_parser.add_argument(
-            '--perf-events',
-            help="perf events to record. This is passed directly to perf. "
-                "Defaults to %r." % PERF_EVENTS)
-    record_parser.add_argument(
-            '--perf-path',
-            type=lambda x: x.split(),
-            help="Path to the perf executable, may include flags. "
-                "Defaults to %r." % PERF_PATH)
+    if any(re.fullmatch('-[^-]*[he].*|--help|--record', a) for a in sys.argv):
+        record_parser.add_argument(
+                '-o', '--output',
+                help="Output file. Uses flock to synchronize. This is stored "
+                    "as a zip-file of multiple perf results.")
+        record_parser.add_argument(
+                '--perf-step',
+                help="perf sampling step. This is passed directly to perf.")
+        record_parser.add_argument(
+                '--perf-runfreq',
+                help="perf sampling frequency. This is passed directly to "
+                    "perf. Defaults to %r." % PERF_RUNFREQ)
+        record_parser.add_argument(
+                '--perf-events',
+                help="perf events to record. This is passed directly to "
+                    "perf. Defaults to %r." % PERF_EVENTS)
+        record_parser.add_argument(
+                '--perf-path',
+                type=lambda x: x.split(),
+                help="Path to the perf executable, may include flags. "
+                    "Defaults to %r." % PERF_PATH)
 
     # avoid intermixed/REMAINDER conflict, see above
     if nargs == argparse.REMAINDER:
@@ -1930,7 +1932,7 @@ if __name__ == "__main__":
     else:
         args = parser.parse_intermixed_args()
 
-    # perf_paths/command overlap, so need to do some munging here
+    # perf_paths/command overlap, so need to do some munging
     args.command = args.perf_paths
     if args.record:
         if not args.command:

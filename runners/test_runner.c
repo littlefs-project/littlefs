@@ -443,8 +443,8 @@ test_flags_t test_mask = 0;
 const char *test_disk_path = NULL;
 const char *test_trace_path = NULL;
 bool test_trace_backtrace = false;
-uint32_t test_trace_period = 0;
-uint32_t test_trace_freq = 0;
+uint32_t test_trace_step = 0;
+uint32_t test_trace_runfreq = 0;
 FILE *test_trace_file = NULL;
 uint32_t test_trace_cycles = 0;
 uint64_t test_trace_time = 0;
@@ -470,9 +470,9 @@ void *test_trace_backtrace_buffer[
 // trace printing
 void test_trace(const char *fmt, ...) {
     if (test_trace_path) {
-        // sample at a specific period?
-        if (test_trace_period) {
-            if (test_trace_cycles % test_trace_period != 0) {
+        // sample at a specific step?
+        if (test_trace_step) {
+            if (test_trace_cycles % test_trace_step != 0) {
                 test_trace_cycles += 1;
                 goto done;
             }
@@ -480,12 +480,13 @@ void test_trace(const char *fmt, ...) {
         }
 
         // sample at a specific frequency?
-        if (test_trace_freq) {
+        if (test_trace_runfreq) {
             struct timespec t;
             clock_gettime(CLOCK_MONOTONIC, &t);
             uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
                     + (uint64_t)t.tv_nsec;
-            if (now - test_trace_time < (1000*1000*1000) / test_trace_freq) {
+            if (now - test_trace_time
+                    < (1000*1000*1000) / test_trace_runfreq) {
                 goto done;
             }
             test_trace_time = now;
@@ -1980,22 +1981,22 @@ enum opt_flags {
     OPT_DEFINE                   = 'D',
     OPT_DEFINE_DEPTH             = 7,
     OPT_POWERLOSS                = 'P',
-    OPT_STEP                     = 's',
-    OPT_FORCE                    = 8,
-    OPT_NO_INTERNAL              = 9,
-    OPT_NO_REENTRANT             = 10,
-    OPT_NO_FUZZ                  = 11,
+    OPT_STEP                     = 8,
+    OPT_FORCE                    = 9,
+    OPT_NO_INTERNAL              = 10,
+    OPT_NO_REENTRANT             = 11,
+    OPT_NO_FUZZ                  = 12,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 12,
-    OPT_TRACE_PERIOD             = 13,
-    OPT_TRACE_FREQ               = 14,
-    OPT_READ_SLEEP               = 15,
-    OPT_PROG_SLEEP               = 16,
-    OPT_ERASE_SLEEP              = 17,
+    OPT_TRACE_BACKTRACE          = 13,
+    OPT_TRACE_STEP               = 14,
+    OPT_TRACE_RUNFREQ            = 15,
+    OPT_READ_SLEEP               = 16,
+    OPT_PROG_SLEEP               = 17,
+    OPT_ERASE_SLEEP              = 18,
 };
 
-const char *short_opts = "hYlLD:P:s:d:t:";
+const char *short_opts = "hYlLD:P:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -2021,8 +2022,8 @@ const struct option long_opts[] = {
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
-    {"trace-period",     required_argument, NULL, OPT_TRACE_PERIOD},
-    {"trace-freq",       required_argument, NULL, OPT_TRACE_FREQ},
+    {"trace-step",       required_argument, NULL, OPT_TRACE_STEP},
+    {"trace-runfreq",    required_argument, NULL, OPT_TRACE_RUNFREQ},
     {"read-sleep",       required_argument, NULL, OPT_READ_SLEEP},
     {"prog-sleep",       required_argument, NULL, OPT_PROG_SLEEP},
     {"erase-sleep",      required_argument, NULL, OPT_ERASE_SLEEP},
@@ -2051,7 +2052,7 @@ const char *const help_text[] = {
     "Direct block device operations to this file.",
     "Direct trace output to this file.",
     "Include a backtrace with every trace statement.",
-    "Sample trace output at this period in cycles.",
+    "Sample trace output every n steps.",
     "Sample trace output at this frequency in hz.",
     "Artificial read delay in seconds.",
     "Artificial prog delay in seconds.",
@@ -2569,21 +2570,21 @@ int main(int argc, char **argv) {
             test_trace_backtrace = true;
             break;
 
-        case OPT_TRACE_PERIOD:;
+        case OPT_TRACE_STEP:;
             parsed = NULL;
-            test_trace_period = strtoumax(optarg, &parsed, 0);
+            test_trace_step = strtoumax(optarg, &parsed, 0);
             if (parsed == optarg) {
-                fprintf(stderr, "error: invalid trace-period: %s\n",
+                fprintf(stderr, "error: invalid trace-step: %s\n",
                         optarg);
                 exit(-1);
             }
             break;
 
-        case OPT_TRACE_FREQ:;
+        case OPT_TRACE_RUNFREQ:;
             parsed = NULL;
-            test_trace_freq = strtoumax(optarg, &parsed, 0);
+            test_trace_runfreq = strtoumax(optarg, &parsed, 0);
             if (parsed == optarg) {
-                fprintf(stderr, "error: invalid trace-freq: %s\n", optarg);
+                fprintf(stderr, "error: invalid trace-runfreq: %s\n", optarg);
                 exit(-1);
             }
             break;
