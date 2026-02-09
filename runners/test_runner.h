@@ -153,6 +153,13 @@ void test_permutation(size_t i, uint32_t *buffer, size_t size);
 #define TEST_FACTORIAL(x) test_factorial(x)
 #define TEST_PERMUTATION(i, buffer, size) test_permutation(i, buffer, size)
 
+// option to pause trace output
+void test_trace_pause(void);
+void test_trace_resume(void);
+
+#define TEST_TRACE_PAUSE() test_trace_pause()
+#define TEST_TRACE_RESUME() test_trace_resume()
+
 
 // declare implicit defines as global intmax_ts
 #define TEST_DEFINE(k, v) \

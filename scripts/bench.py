@@ -822,6 +822,15 @@ def find_runner(runner, id=None, main=True, **args):
     # other context
     if args.get('define_depth'):
         cmd.append('--define-depth=%s' % args['define_depth'])
+    if args.get('probe'):
+        for probe in args['probe']:
+            cmd.append('-S%s' % probe)
+    if args.get('probe_step'):
+        cmd.append('-x%s' % args['probe_step'])
+    if args.get('probe_runfreq'):
+        cmd.append('--probe-runfreq=%s' % args['probe_runfreq'])
+    if args.get('probe_simfreq'):
+        cmd.append('-X%s' % args['probe_simfreq'])
     if args.get('force'):
         cmd.append('--force')
     if args.get('no_internal'):
@@ -1203,7 +1212,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         last_defines = None # fetched on demand
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
-        last_time = time.time()
+        last_runtime = time.time()
         try:
             while True:
                 # parse a line for state changes
@@ -1234,7 +1243,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         last_defines = None
                         last_stdout.clear()
                         last_assert = None
-                        last_time = time.time()
+                        last_runtime = time.time()
                     elif op == 'finished':
                         # force a failure
                         if args.get('fail'):
@@ -1296,7 +1305,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     'bench_erased': erased_,
                                     'bench_simtime': simtime_,
                                     'bench_runtime': '%.6f' % (
-                                        time.time() - last_time)})
+                                        time.time() - last_runtime)})
                         # keep track of total for summary
                         readed += readed_
                         progged += progged_
@@ -1759,6 +1768,19 @@ if __name__ == "__main__":
             '--define-depth',
             help="How deep to evaluate recursive defines before erroring.")
     bench_parser.add_argument(
+            '-S', '--probe',
+            action='append',
+            help="Specify a probe to sample.")
+    bench_parser.add_argument(
+            '-x', '--probe-step',
+            help="Sample probes every n steps.")
+    bench_parser.add_argument(
+            '--probe-runfreq',
+            help="Sample probes at this frequency in hz.")
+    bench_parser.add_argument(
+            '-X', '--probe-simfreq',
+            help="Sample probes at this frequency in simulated hz.")
+    bench_parser.add_argument(
             '--force',
             action='store_true',
             help="Ignore bench filters.")
@@ -1786,6 +1808,9 @@ if __name__ == "__main__":
     bench_parser.add_argument(
             '--trace-runfreq',
             help="Sample trace output at this frequency in hz.")
+    bench_parser.add_argument(
+            '--trace-simfreq',
+            help="Sample trace output at this frequency in simulated hz.")
     bench_parser.add_argument(
             '-O', '--stdout',
             help="Direct stdout to this file. Note stderr is already merged "

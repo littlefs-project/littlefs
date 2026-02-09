@@ -156,7 +156,7 @@ void bench_fresult(const char *probe, uintmax_t n, double result);
 
 // extra hooks to get the current simtime, pause readed/progged/erased
 // counters, etc
-bench_ns_t bench_simtime(void);
+bench_sns_t bench_simtime(void);
 void bench_simreset(void);
 void bench_simpause(void);
 void bench_simresume(void);
@@ -184,6 +184,13 @@ void bench_permutation(size_t i, uint32_t *buffer, size_t size);
 
 #define BENCH_FACTORIAL(x) bench_factorial(x)
 #define BENCH_PERMUTATION(i, buffer, size) bench_permutation(i, buffer, size)
+
+// option to pause trace output
+void bench_trace_pause(void);
+void bench_trace_resume(void);
+
+#define BENCH_TRACE_PAUSE() bench_trace_pause()
+#define BENCH_TRACE_RESUME() bench_trace_resume()
 
 #ifdef BENCH_STACK
 // get the maximum/current stack usage for this run

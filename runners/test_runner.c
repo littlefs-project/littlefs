@@ -176,6 +176,7 @@ ssize_t *test_suite_define_map = NULL;
 
 test_define_t *test_override_defines = NULL;
 size_t test_override_define_count = 0;
+size_t test_override_define_capacity = 0;
 
 size_t test_define_depth = 1000;
 
@@ -432,23 +433,25 @@ const test_id_t *test_ids = (const test_id_t[]) {
     {NULL, NULL, 0, {NULL, NULL, NULL, 0}},
 };
 size_t test_id_count = 1;
+size_t test_id_capacity = 0;
 
 size_t test_step_start = 0;
 size_t test_step_stop = -1;
 size_t test_step_step = 1;
-size_t test_step = 0; // incremented every permutation
+size_t test_steps = 0; // incremented every permutation
 bool test_force = false;
 test_flags_t test_mask = 0;
 
 const char *test_disk_path = NULL;
 const char *test_trace_path = NULL;
 bool test_trace_backtrace = false;
-uint32_t test_trace_step = 0;
-uint32_t test_trace_runfreq = 0;
+size_t test_trace_step = 0;
+double test_trace_runfreq = 0;
+uint32_t test_trace_paused = false;
 FILE *test_trace_file = NULL;
-uint32_t test_trace_cycles = 0;
-uint64_t test_trace_time = 0;
-uint64_t test_trace_open_time = 0;
+size_t test_trace_steps = 0;
+test_ns_t test_trace_runtime = 0;
+test_ns_t test_trace_open_runtime = 0;
 test_ns_t test_read_sleep = 0.0;
 test_ns_t test_prog_sleep = 0.0;
 test_ns_t test_erase_sleep = 0.0;
@@ -469,103 +472,122 @@ void *test_trace_backtrace_buffer[
 
 // trace printing
 void test_trace(const char *fmt, ...) {
-    if (test_trace_path) {
-        // sample at a specific step?
-        if (test_trace_step) {
-            if (test_trace_cycles % test_trace_step != 0) {
-                test_trace_cycles += 1;
-                goto done;
-            }
-            test_trace_cycles += 1;
-        }
-
-        // sample at a specific frequency?
-        if (test_trace_runfreq) {
-            struct timespec t;
-            clock_gettime(CLOCK_MONOTONIC, &t);
-            uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
-                    + (uint64_t)t.tv_nsec;
-            if (now - test_trace_time
-                    < (1000*1000*1000) / test_trace_runfreq) {
-                goto done;
-            }
-            test_trace_time = now;
-        }
-
-        if (!test_trace_file) {
-            // Tracing output is heavy and trying to open every trace
-            // call is slow, so we only try to open the trace file every
-            // so often. Note this doesn't affect successfully opened files
-            struct timespec t;
-            clock_gettime(CLOCK_MONOTONIC, &t);
-            uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
-                    + (uint64_t)t.tv_nsec;
-            if (now - test_trace_open_time < 100*1000*1000) {
-                goto done;
-            }
-            test_trace_open_time = now;
-
-            // try to open the trace file
-            int fd;
-            if (strcmp(test_trace_path, "-") == 0) {
-                fd = dup(1);
-                if (fd < 0) {
-                    goto done;
-                }
-            } else {
-                fd = open(
-                        test_trace_path,
-                        O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
-                        0666);
-                if (fd < 0) {
-                    goto done;
-                }
-                int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
-                assert(!err);
-            }
-
-            FILE *f = fdopen(fd, "a");
-            assert(f);
-            int err = setvbuf(f, NULL, _IOFBF,
-                    TEST_TRACE_BACKTRACE_BUFFER_SIZE);
-            assert(!err);
-            test_trace_file = f;
-        }
-
-        // print trace
-        va_list va;
-        va_start(va, fmt);
-        int res = vfprintf(test_trace_file, fmt, va);
-        va_end(va);
-        if (res < 0) {
-            fclose(test_trace_file);
-            test_trace_file = NULL;
-            goto done;
-        }
-
-        if (test_trace_backtrace) {
-            // print backtrace
-            size_t count = backtrace(
-                    test_trace_backtrace_buffer,
-                    TEST_TRACE_BACKTRACE_BUFFER_SIZE);
-            // note we skip our own stack frame
-            for (size_t i = 1; i < count; i++) {
-                res = fprintf(test_trace_file, "\tat %p\n",
-                        test_trace_backtrace_buffer[i]);
-                if (res < 0) {
-                    fclose(test_trace_file);
-                    test_trace_file = NULL;
-                    goto done;
-                }
-            }
-        }
-
-        // flush immediately
-        fflush(test_trace_file);
+    if (!test_trace_path || test_trace_paused) {
+        goto done;
     }
+
+    // prevent accidental recursion
+    TEST_TRACE_PAUSE();
+
+    // sample at a specific step?
+    if (test_trace_step) {
+        if (test_trace_steps % test_trace_step != 0) {
+            test_trace_steps += 1;
+            goto done_;
+        }
+        test_trace_steps += 1;
+    }
+
+    // sample at a specific frequency?
+    if (test_trace_runfreq) {
+        struct timespec t;
+        clock_gettime(CLOCK_MONOTONIC, &t);
+        test_ns_t now = (test_ns_t)t.tv_sec*1000*1000*1000
+                + (test_ns_t)t.tv_nsec;
+        if (now - test_trace_runtime
+                < (test_ns_t)((1000.0*1000.0*1000.0)
+                    / test_trace_runfreq)) {
+            goto done_;
+        }
+        test_trace_runtime = now;
+    }
+
+    if (!test_trace_file) {
+        // Tracing output is heavy and trying to open every trace
+        // call is slow, so we only try to open the trace file every
+        // so often. Note this doesn't affect successfully opened files
+        struct timespec t;
+        clock_gettime(CLOCK_MONOTONIC, &t);
+        test_ns_t now = (test_ns_t)t.tv_sec*1000*1000*1000
+                + (test_ns_t)t.tv_nsec;
+        if (now - test_trace_open_runtime < 100*1000*1000) {
+            goto done_;
+        }
+        test_trace_open_runtime = now;
+
+        // try to open the trace file
+        int fd;
+        if (strcmp(test_trace_path, "-") == 0) {
+            fd = dup(1);
+            if (fd < 0) {
+                goto done_;
+            }
+        } else {
+            fd = open(
+                    test_trace_path,
+                    O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
+                    0666);
+            if (fd < 0) {
+                goto done_;
+            }
+            int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
+            assert(!err);
+        }
+
+        FILE *f = fdopen(fd, "a");
+        assert(f);
+        int err = setvbuf(f, NULL, _IOFBF,
+                TEST_TRACE_BACKTRACE_BUFFER_SIZE);
+        assert(!err);
+        test_trace_file = f;
+    }
+
+    // print trace
+    va_list va;
+    va_start(va, fmt);
+    int res = vfprintf(test_trace_file, fmt, va);
+    va_end(va);
+    if (res < 0) {
+        fclose(test_trace_file);
+        test_trace_file = NULL;
+        goto done_;
+    }
+
+    if (test_trace_backtrace) {
+        // print backtrace
+        size_t count = backtrace(
+                test_trace_backtrace_buffer,
+                TEST_TRACE_BACKTRACE_BUFFER_SIZE);
+        // note we skip our own stack frame
+        for (size_t i = 1; i < count; i++) {
+            res = fprintf(test_trace_file, "\tat %p\n",
+                    test_trace_backtrace_buffer[i]);
+            if (res < 0) {
+                fclose(test_trace_file);
+                test_trace_file = NULL;
+                goto done_;
+            }
+        }
+    }
+
+    // flush immediately
+    fflush(test_trace_file);
+
+done_:;
+    TEST_TRACE_RESUME();
 
 done:;
 }
+
+void test_trace_pause(void) {
+    test_trace_paused += 1;
+}
+
+void test_trace_resume(void) {
+    assert(test_trace_paused);
+    test_trace_paused -= 1;
+}
+
 
 // test prng
 uint32_t test_prng(uint32_t *state) {
@@ -822,13 +844,13 @@ void perm_count(
     }
 
     // skip this step?
-    if (!(test_step >= test_step_start
-            && test_step < test_step_stop
-            && (test_step-test_step_start) % test_step_step == 0)) {
-        test_step += 1;
+    if (!(test_steps >= test_step_start
+            && test_steps < test_step_stop
+            && (test_steps-test_step_start) % test_step_step == 0)) {
+        test_steps += 1;
         return;
     }
-    test_step += 1;
+    test_steps += 1;
 
     state->total += 1;
 
@@ -1868,6 +1890,7 @@ size_t test_powerloss_count = 2;
 #else
 size_t test_powerloss_count = 1;
 #endif
+size_t test_powerloss_capacity = 0;
 
 static void list_powerlosses(void) {
     // at least size so that names fit
@@ -1913,13 +1936,13 @@ void perm_run(
     }
 
     // skip this step?
-    if (!(test_step >= test_step_start
-            && test_step < test_step_stop
-            && (test_step-test_step_start) % test_step_step == 0)) {
-        test_step += 1;
+    if (!(test_steps >= test_step_start
+            && test_steps < test_step_stop
+            && (test_steps-test_step_start) % test_step_step == 0)) {
+        test_steps += 1;
         return;
     }
-    test_step += 1;
+    test_steps += 1;
 
     // set pls to 1 if running under powerloss so it useful for if predicates
     TEST_PLS = (powerloss->run != run_powerloss_none);
@@ -2061,10 +2084,6 @@ const char *const help_text[] = {
 
 int main(int argc, char **argv) {
     void (*op)(void) = run;
-
-    size_t test_override_define_capacity = 0;
-    size_t test_powerloss_capacity = 0;
-    size_t test_id_capacity = 0;
 
     // parse options
     while (true) {
@@ -2582,7 +2601,7 @@ int main(int argc, char **argv) {
 
         case OPT_TRACE_RUNFREQ:;
             parsed = NULL;
-            test_trace_runfreq = strtoumax(optarg, &parsed, 0);
+            test_trace_runfreq = strtod(optarg, &parsed);
             if (parsed == optarg) {
                 fprintf(stderr, "error: invalid trace-runfreq: %s\n", optarg);
                 exit(-1);

@@ -165,6 +165,7 @@ ssize_t *bench_suite_define_map = NULL;
 
 bench_define_t *bench_override_defines = NULL;
 size_t bench_override_define_count = 0;
+size_t bench_override_define_capacity = 0;
 
 size_t bench_define_depth = 1000;
 
@@ -421,23 +422,27 @@ const bench_id_t *bench_ids = (const bench_id_t[]) {
     {NULL, NULL, 0},
 };
 size_t bench_id_count = 1;
+size_t bench_id_capacity = 0;
 
 size_t bench_step_start = 0;
 size_t bench_step_stop = -1;
 size_t bench_step_step = 1;
-size_t bench_step = 0; // incremented every permutation
+size_t bench_steps = 0; // incremented every permutation
 bool bench_force = false;
 bench_flags_t bench_mask = 0;
 
 const char *bench_disk_path = NULL;
 const char *bench_trace_path = NULL;
 bool bench_trace_backtrace = false;
-uint32_t bench_trace_step = 0;
-uint32_t bench_trace_runfreq = 0;
+size_t bench_trace_step = 0;
+double bench_trace_runfreq = 0.0;
+double bench_trace_simfreq = 0.0;
+uint32_t bench_trace_paused = false;
 FILE *bench_trace_file = NULL;
-uint32_t bench_trace_cycles = 0;
-uint64_t bench_trace_time = 0;
-uint64_t bench_trace_open_time = 0;
+size_t bench_trace_steps = 0;
+bench_ns_t bench_trace_runtime = 0;
+bench_ns_t bench_trace_simtime = 0;
+bench_ns_t bench_trace_open_runtime = 0;
 bench_ns_t bench_read_sleep = 0.0;
 bench_ns_t bench_prog_sleep = 0.0;
 bench_ns_t bench_erase_sleep = 0.0;
@@ -455,104 +460,138 @@ void bench_trace(const char *fmt, ...) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();
 
-    if (bench_trace_path) {
-        // sample at a specific step?
-        if (bench_trace_step) {
-            if (bench_trace_cycles % bench_trace_step != 0) {
-                bench_trace_cycles += 1;
-                goto done;
-            }
-            bench_trace_cycles += 1;
-        }
-
-        // sample at a specific frequency?
-        if (bench_trace_runfreq) {
-            struct timespec t;
-            clock_gettime(CLOCK_MONOTONIC, &t);
-            uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
-                    + (uint64_t)t.tv_nsec;
-            if (now - bench_trace_time
-                    < (1000*1000*1000) / bench_trace_runfreq) {
-                goto done;
-            }
-            bench_trace_time = now;
-        }
-
-        if (!bench_trace_file) {
-            // Tracing output is heavy and trying to open every trace
-            // call is slow, so we only try to open the trace file every
-            // so often. Note this doesn't affect successfully opened files
-            struct timespec t;
-            clock_gettime(CLOCK_MONOTONIC, &t);
-            uint64_t now = (uint64_t)t.tv_sec*1000*1000*1000
-                    + (uint64_t)t.tv_nsec;
-            if (now - bench_trace_open_time < 100*1000*1000) {
-                goto done;
-            }
-            bench_trace_open_time = now;
-
-            // try to open the trace file
-            int fd;
-            if (strcmp(bench_trace_path, "-") == 0) {
-                fd = dup(1);
-                if (fd < 0) {
-                    goto done;
-                }
-            } else {
-                fd = open(
-                        bench_trace_path,
-                        O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
-                        0666);
-                if (fd < 0) {
-                    goto done;
-                }
-                int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
-                assert(!err);
-            }
-
-            FILE *f = fdopen(fd, "a");
-            assert(f);
-            int err = setvbuf(f, NULL, _IOFBF,
-                    BENCH_TRACE_BACKTRACE_BUFFER_SIZE);
-            assert(!err);
-            bench_trace_file = f;
-        }
-
-        // print trace
-        va_list va;
-        va_start(va, fmt);
-        int res = vfprintf(bench_trace_file, fmt, va);
-        va_end(va);
-        if (res < 0) {
-            fclose(bench_trace_file);
-            bench_trace_file = NULL;
-            goto done;
-        }
-
-        if (bench_trace_backtrace) {
-            // print backtrace
-            size_t count = backtrace(
-                    bench_trace_backtrace_buffer,
-                    BENCH_TRACE_BACKTRACE_BUFFER_SIZE);
-            // note we skip our own stack frame
-            for (size_t i = 1; i < count; i++) {
-                res = fprintf(bench_trace_file, "\tat %p\n",
-                        bench_trace_backtrace_buffer[i]);
-                if (res < 0) {
-                    fclose(bench_trace_file);
-                    bench_trace_file = NULL;
-                    goto done;
-                }
-            }
-        }
-
-        // flush immediately
-        fflush(bench_trace_file);
+    if (!bench_trace_path || bench_trace_paused) {
+        goto done;
     }
+
+    // prevent accidental recursion
+    BENCH_TRACE_PAUSE();
+
+    // sample at a specific step?
+    if (bench_trace_step) {
+        if (bench_trace_steps % bench_trace_step != 0) {
+            bench_trace_steps += 1;
+            goto done_;
+        }
+        bench_trace_steps += 1;
+    }
+
+    // sample at a specific frequency?
+    if (bench_trace_runfreq) {
+        struct timespec t;
+        clock_gettime(CLOCK_MONOTONIC, &t);
+        bench_ns_t now = (bench_ns_t)t.tv_sec*1000*1000*1000
+                + (bench_ns_t)t.tv_nsec;
+        if (now - bench_trace_runtime
+                < (bench_ns_t)((1000.0*1000.0*1000.0)
+                    / bench_trace_runfreq)) {
+            goto done_;
+        }
+        bench_trace_runtime = now;
+    }
+
+    // sample at a specific simulated frequency?
+    if (bench_trace_simfreq) {
+        bench_sns_t now = BENCH_SIMTIME();
+        if (now < 0) {
+            // I guess we shouldn't print anything until bench has
+            // started
+            goto done_;
+        }
+        if (now - bench_trace_simtime
+                < (bench_ns_t)((1000.0*1000.0*1000.0)
+                    / bench_trace_simfreq)) {
+            goto done_;
+        }
+        bench_trace_simtime = now;
+    }
+
+    if (!bench_trace_file) {
+        // Tracing output is heavy and trying to open every trace
+        // call is slow, so we only try to open the trace file every
+        // so often. Note this doesn't affect successfully opened files
+        struct timespec t;
+        clock_gettime(CLOCK_MONOTONIC, &t);
+        bench_ns_t now = (bench_ns_t)t.tv_sec*1000*1000*1000
+                + (bench_ns_t)t.tv_nsec;
+        if (now - bench_trace_open_runtime < 100*1000*1000) {
+            goto done_;
+        }
+        bench_trace_open_runtime = now;
+
+        // try to open the trace file
+        int fd;
+        if (strcmp(bench_trace_path, "-") == 0) {
+            fd = dup(1);
+            if (fd < 0) {
+                goto done_;
+            }
+        } else {
+            fd = open(
+                    bench_trace_path,
+                    O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
+                    0666);
+            if (fd < 0) {
+                goto done_;
+            }
+            int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
+            assert(!err);
+        }
+
+        FILE *f = fdopen(fd, "a");
+        assert(f);
+        int err = setvbuf(f, NULL, _IOFBF,
+                BENCH_TRACE_BACKTRACE_BUFFER_SIZE);
+        assert(!err);
+        bench_trace_file = f;
+    }
+
+    // print trace
+    va_list va;
+    va_start(va, fmt);
+    int res = vfprintf(bench_trace_file, fmt, va);
+    va_end(va);
+    if (res < 0) {
+        fclose(bench_trace_file);
+        bench_trace_file = NULL;
+        goto done_;
+    }
+
+    if (bench_trace_backtrace) {
+        // print backtrace
+        size_t count = backtrace(
+                bench_trace_backtrace_buffer,
+                BENCH_TRACE_BACKTRACE_BUFFER_SIZE);
+        // note we skip our own stack frame
+        for (size_t i = 1; i < count; i++) {
+            res = fprintf(bench_trace_file, "\tat %p\n",
+                    bench_trace_backtrace_buffer[i]);
+            if (res < 0) {
+                fclose(bench_trace_file);
+                bench_trace_file = NULL;
+                goto done_;
+            }
+        }
+    }
+
+    // flush immediately
+    fflush(bench_trace_file);
+
+done_:;
+    BENCH_TRACE_RESUME();
 
 done:;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
+}
+
+void bench_trace_pause(void) {
+    bench_trace_paused += 1;
+}
+
+void bench_trace_resume(void) {
+    assert(bench_trace_paused);
+    bench_trace_paused -= 1;
 }
 
 
@@ -861,78 +900,84 @@ int __wrap_vprintf(const char *fmt, va_list args) {
 #endif
 
 
-// bench recording state
+
+// bench probe/recording state
+typedef struct bench_probe {
+    const char *probe;
+    size_t step;
+    double runfreq;
+    double simfreq;
+} bench_probe_t;
+
+#define BENCH_RECORD_IGNORED 0x01
+#define BENCH_RECORD_STARTED 0x02
+#define BENCH_RECORD_DIRTY   0x04
+#define BENCH_RECORD_RESULT  0x10
+#define BENCH_RECORD_FRESULT 0x20
+#define BENCH_RECORD_SIMTIME 0x40
+
 typedef struct bench_record {
     const char *probe;
-    bench_io_t cumul_reads;
+    uint32_t flags;
+    size_t step;
+    double runfreq;
+    double simfreq;
+    size_t steps;
+    bench_ns_t runtime; // time of last print
+    bench_ns_t simtime;
+
+    uintmax_t n;
+    uintmax_t result;
+    double fresult;
+    bench_io_t cumul_reads; // cumulative results
     bench_io_t cumul_progs;
     bench_io_t cumul_erases;
     bench_io_t cumul_readed;
     bench_io_t cumul_progged;
     bench_io_t cumul_erased;
     bench_ns_t cumul_simtime;
-    bench_io_t last_reads;
-    bench_io_t last_progs;
-    bench_io_t last_erases;
-    bench_io_t last_readed;
-    bench_io_t last_progged;
-    bench_io_t last_erased;
-    bench_ns_t last_simtime;
+    bench_io_t start_reads; // start of probe
+    bench_io_t start_progs;
+    bench_io_t start_erases;
+    bench_io_t start_readed;
+    bench_io_t start_progged;
+    bench_io_t start_erased;
+    bench_ns_t start_simtime;
 } bench_record_t;
 
-static const struct lfs3_cfg *bench_cfg = NULL;
-static bench_record_t *bench_records;
-size_t bench_record_count;
-size_t bench_record_capacity;
+bench_probe_t *bench_probes = NULL;
+size_t bench_probe_count = 0;
+size_t bench_probe_capacity = 0;
+size_t bench_probe_step = 0;
+double bench_probe_runfreq = 0.0;
+double bench_probe_simfreq = 0.0;
+
+const struct lfs3_cfg *bench_cfg = NULL;
+bench_record_t *bench_records = NULL;
+size_t bench_record_count = 0;
+size_t bench_record_capacity = 0;
 
 void bench_init(const struct lfs3_cfg *cfg) {
     bench_cfg = cfg;
     bench_record_count = 0;
 }
 
+// needed in bench_deinit
+void bench_print(bench_record_t *record);
+
 void bench_deinit(const struct lfs3_cfg *cfg) {
     (void)cfg;
-    // do nothing
+    bench_cfg = NULL;
+
+    // print any dirty probes at least once at the end of the bench
+    for (size_t i = 0; i < bench_record_count; i++) {
+        if (bench_records[i].flags & BENCH_RECORD_DIRTY) {
+            bench_print(&bench_records[i]);
+        }
+    }
 }
 
-void bench_start(const char *probe) {
-    BENCH_STACK_PAUSE();
-    BENCH_HEAP_PAUSE();
-
-    // measure current read/prog/erase
-    assert(bench_cfg);
-    #ifndef BENCH_KIWIBD
-    bench_sio_t reads = lfs3_emubd_reads(bench_cfg);
-    assert(reads >= 0);
-    bench_sio_t progs = lfs3_emubd_progs(bench_cfg);
-    assert(progs >= 0);
-    bench_sio_t erases = lfs3_emubd_erases(bench_cfg);
-    assert(erases >= 0);
-    bench_sio_t readed = lfs3_emubd_readed(bench_cfg);
-    assert(readed >= 0);
-    bench_sio_t progged = lfs3_emubd_progged(bench_cfg);
-    assert(progged >= 0);
-    bench_sio_t erased = lfs3_emubd_erased(bench_cfg);
-    assert(erased >= 0);
-    // note this can error if no timings provided
-    bench_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
-    #else
-    bench_sio_t reads = lfs3_kiwibd_reads(bench_cfg);
-    assert(reads >= 0);
-    bench_sio_t progs = lfs3_kiwibd_progs(bench_cfg);
-    assert(progs >= 0);
-    bench_sio_t erases = lfs3_kiwibd_erases(bench_cfg);
-    assert(erases >= 0);
-    bench_sio_t readed = lfs3_kiwibd_readed(bench_cfg);
-    assert(readed >= 0);
-    bench_sio_t progged = lfs3_kiwibd_progged(bench_cfg);
-    assert(progged >= 0);
-    bench_sio_t erased = lfs3_kiwibd_erased(bench_cfg);
-    assert(erased >= 0);
-    // note this can error if no timings provided
-    bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
-    #endif
-
+bench_record_t *bench_find(const char *probe) {
     // find our record
     bench_record_t *record = NULL;
     for (size_t i = 0; i < bench_record_count; i++) {
@@ -950,6 +995,16 @@ void bench_start(const char *probe) {
                 &bench_record_count,
                 &bench_record_capacity);
         record->probe = probe;
+        record->flags = 0;
+        record->step = 0;
+        record->runfreq = 0.0;
+        record->simfreq = 0.0;
+        record->steps = 0;
+        record->runtime = 0;
+        record->simtime = 0;
+        record->n = 0;
+        record->result = 0;
+        record->fresult = 0.0;
         record->cumul_reads   = 0;
         record->cumul_progs   = 0;
         record->cumul_erases  = 0;
@@ -957,25 +1012,143 @@ void bench_start(const char *probe) {
         record->cumul_progged = 0;
         record->cumul_erased  = 0;
         record->cumul_simtime = 0;
-    }
-    record->last_reads   = reads;
-    record->last_progs   = progs;
-    record->last_erases  = erases;
-    record->last_readed  = readed;
-    record->last_progged = progged;
-    record->last_erased  = erased;
-    record->last_simtime = simtime;
 
-    BENCH_HEAP_RESUME();
-    BENCH_STACK_RESUME();
+        if (bench_probe_count) {
+            // find probe descriptor, if there is one
+            bench_probe_t *probe_ = NULL;
+            for (size_t i = 0; i < bench_probe_count; i++) {
+                if (strcmp(bench_probes[i].probe, probe) == 0) {
+                    probe_ = &bench_probes[i];
+                    break;
+                }
+            }
+
+            // no matching probe descriptor?
+            if (!probe_) {
+                record->flags |= BENCH_RECORD_IGNORED;
+            } else {
+                record->step = probe_->step;
+                record->runfreq = probe_->runfreq;
+                record->simfreq = probe_->simfreq;
+            }
+        }
+
+        // fallback to default step/runfreq/simfreq
+        if (!record->step && !record->runfreq && !record->simfreq) {
+            record->step = bench_probe_step;
+            record->runfreq = bench_probe_runfreq;
+            record->simfreq = bench_probe_simfreq;
+        }
+    }
+
+    return record;
 }
 
-void bench_stop(const char *probe, uintmax_t n) {
+void bench_print(bench_record_t *record) {
+    if (record->flags & BENCH_RECORD_RESULT) {
+        printf("benched %s %jd %"PRIu64"\n",
+                record->probe,
+                record->n,
+                record->result);
+    } else if (record->flags & BENCH_RECORD_FRESULT) {
+        printf("benched %s %jd %.6f\n",
+                record->probe,
+                record->n,
+                record->fresult);
+    } else if (record->flags & BENCH_RECORD_SIMTIME) {
+        printf("benched %s %jd "
+                    "%"PRIu64" %"PRIu64" %"PRIu64" "
+                    "%"PRIu64" %"PRIu64" %"PRIu64" "
+                    "%"PRIu64"\n",
+                record->probe,
+                record->n,
+                record->cumul_reads,
+                record->cumul_progs,
+                record->cumul_erases,
+                record->cumul_readed,
+                record->cumul_progged,
+                record->cumul_erased,
+                record->cumul_simtime);
+    } else {
+        printf("benched %s %jd "
+                    "%"PRIu64" %"PRIu64" %"PRIu64" "
+                    "%"PRIu64" %"PRIu64" %"PRIu64"\n",
+                record->probe,
+                record->n,
+                record->cumul_reads,
+                record->cumul_progs,
+                record->cumul_erases,
+                record->cumul_readed,
+                record->cumul_progged,
+                record->cumul_erased);
+    }
+
+    record->flags &= ~BENCH_RECORD_DIRTY;
+}
+
+void bench_sample(bench_record_t *record) {
+    // if no sample method is set, default to only printing at the end
+    // of the bench
+    if (!record->step && !record->runfreq && !record->simfreq) {
+        return;
+    }
+
+    // sample at a specific step?
+    if (record->step) {
+        if (record->steps % record->step != 0) {
+            record->steps += 1;
+            return;
+        }
+        record->steps += 1;
+    }
+
+    // sample at a specific frequency?
+    if (record->runfreq) {
+        struct timespec t;
+        clock_gettime(CLOCK_MONOTONIC, &t);
+        bench_ns_t now = (bench_ns_t)t.tv_sec*1000*1000*1000
+                + (bench_ns_t)t.tv_nsec;
+        if (now - record->runtime
+                < (bench_ns_t)((1000.0*1000.0*1000.0)
+                    / record->runfreq)) {
+            return;
+        }
+        record->runtime = now;
+    }
+
+    // sample at a specific simulated frequency?
+    if (record->simfreq) {
+        bench_sns_t now = BENCH_SIMTIME();
+        if (now - record->simtime
+                < (bench_ns_t)((1000.0*1000.0*1000.0)
+                    / record->simfreq)) {
+            return;
+        }
+        record->simtime = now;
+    }
+
+    bench_print(record);
+}
+
+void bench_start(const char *probe) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();
 
-    // measure current read/prog/erase
-    assert(bench_cfg);
+    // find our record
+    bench_record_t *record = bench_find(probe);
+    if (record->flags & BENCH_RECORD_IGNORED) {
+        goto done;
+    }
+
+    if (record->flags & BENCH_RECORD_STARTED) {
+        fprintf(stderr, "error: probe double started before it was "
+                    "stopped (%s)\n",
+                probe);
+        assert(false);
+        exit(-1);
+    }
+
+    // find current read/prog/erase
     #ifndef BENCH_KIWIBD
     bench_sio_t reads = lfs3_emubd_reads(bench_cfg);
     assert(reads >= 0);
@@ -1008,60 +1181,94 @@ void bench_stop(const char *probe, uintmax_t n) {
     bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
     #endif
 
+    record->flags |= BENCH_RECORD_STARTED;
+
+    record->start_reads   = reads;
+    record->start_progs   = progs;
+    record->start_erases  = erases;
+    record->start_readed  = readed;
+    record->start_progged = progged;
+    record->start_erased  = erased;
+    record->start_simtime = simtime;
+
+done:;
+    BENCH_HEAP_RESUME();
+    BENCH_STACK_RESUME();
+}
+
+void bench_stop(const char *probe, uintmax_t n) {
+    BENCH_STACK_PAUSE();
+    BENCH_HEAP_PAUSE();
+
     // find our record
-    bench_record_t *record = NULL;
-    for (size_t i = 0; i < bench_record_count; i++) {
-        if (strcmp(bench_records[i].probe, probe) == 0) {
-            record = &bench_records[i];
-            break;
-        }
+    bench_record_t *record = bench_find(probe);
+    if (record->flags & BENCH_RECORD_IGNORED) {
+        goto done;
     }
 
-    // not found?
-    if (!record) {
+    if (!(record->flags & BENCH_RECORD_STARTED)) {
         fprintf(stderr, "error: probe stopped before it was started (%s)\n",
                 probe);
         assert(false);
         exit(-1);
     }
 
-    // add to cumulative measurements
-    record->cumul_reads   += reads   - record->last_reads;
-    record->cumul_progs   += progs   - record->last_progs;
-    record->cumul_erases  += erases  - record->last_erases;
-    record->cumul_readed  += readed  - record->last_readed;
-    record->cumul_progged += progged - record->last_progged;
-    record->cumul_erased  += erased  - record->last_erased;
-    record->cumul_simtime += simtime - record->last_simtime;
+    // find current read/prog/erase
+    #ifndef BENCH_KIWIBD
+    bench_sio_t reads = lfs3_emubd_reads(bench_cfg);
+    assert(reads >= 0);
+    bench_sio_t progs = lfs3_emubd_progs(bench_cfg);
+    assert(progs >= 0);
+    bench_sio_t erases = lfs3_emubd_erases(bench_cfg);
+    assert(erases >= 0);
+    bench_sio_t readed = lfs3_emubd_readed(bench_cfg);
+    assert(readed >= 0);
+    bench_sio_t progged = lfs3_emubd_progged(bench_cfg);
+    assert(progged >= 0);
+    bench_sio_t erased = lfs3_emubd_erased(bench_cfg);
+    assert(erased >= 0);
+    // note this can error if no timings provided
+    bench_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
+    #else
+    bench_sio_t reads = lfs3_kiwibd_reads(bench_cfg);
+    assert(reads >= 0);
+    bench_sio_t progs = lfs3_kiwibd_progs(bench_cfg);
+    assert(progs >= 0);
+    bench_sio_t erases = lfs3_kiwibd_erases(bench_cfg);
+    assert(erases >= 0);
+    bench_sio_t readed = lfs3_kiwibd_readed(bench_cfg);
+    assert(readed >= 0);
+    bench_sio_t progged = lfs3_kiwibd_progged(bench_cfg);
+    assert(progged >= 0);
+    bench_sio_t erased = lfs3_kiwibd_erased(bench_cfg);
+    assert(erased >= 0);
+    // note this can error if no timings provided
+    bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
+    #endif
 
-    // print probe sample
+    // mark as dirty
+    record->flags |= BENCH_RECORD_DIRTY;
+    record->flags &= ~BENCH_RECORD_RESULT;
+    record->flags &= ~BENCH_RECORD_FRESULT;
     if (simtime >= 0) {
-        printf("benched %s %jd "
-                    "%"PRIu64" %"PRIu64" %"PRIu64" "
-                    "%"PRIu64" %"PRIu64" %"PRIu64" "
-                    "%"PRIu64"\n",
-                probe,
-                n,
-                record->cumul_reads,
-                record->cumul_progs,
-                record->cumul_erases,
-                record->cumul_readed,
-                record->cumul_progged,
-                record->cumul_erased,
-                record->cumul_simtime);
-    } else {
-        printf("benched %s %jd "
-                    "%"PRIu64" %"PRIu64" %"PRIu64" "
-                    "%"PRIu64" %"PRIu64" %"PRIu64"\n",
-                probe,
-                n,
-                record->cumul_reads,
-                record->cumul_progs,
-                record->cumul_erases,
-                record->cumul_readed,
-                record->cumul_progged,
-                record->cumul_erased);
+        record->flags |= BENCH_RECORD_SIMTIME;
     }
+
+    // update n
+    record->n = n;
+    // add to cumulative measurements
+    record->cumul_reads   += reads   - record->start_reads;
+    record->cumul_progs   += progs   - record->start_progs;
+    record->cumul_erases  += erases  - record->start_erases;
+    record->cumul_readed  += readed  - record->start_readed;
+    record->cumul_progged += progged - record->start_progged;
+    record->cumul_erased  += erased  - record->start_erased;
+    record->cumul_simtime += simtime - record->start_simtime;
+
+    // report probe sample
+    bench_sample(record);
+
+    record->flags &= ~BENCH_RECORD_STARTED;
 
 done:;
     BENCH_HEAP_RESUME();
@@ -1072,12 +1279,26 @@ void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();
 
-    // we just print these directly
-    printf("benched %s %jd %"PRIu64"\n",
-            probe,
-            n,
-            result);
+    // find our record
+    bench_record_t *record = bench_find(probe);
+    if (record->flags & BENCH_RECORD_IGNORED) {
+        goto done;
+    }
 
+    // mark as dirty
+    record->flags |= BENCH_RECORD_DIRTY;
+    record->flags |= BENCH_RECORD_RESULT;
+    record->flags &= ~BENCH_RECORD_FRESULT;
+
+    // update n
+    record->n = n;
+    // update result
+    record->result = result;
+
+    // report probe sample
+    bench_sample(record);
+
+done:;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
 }
@@ -1086,27 +1307,44 @@ void bench_fresult(const char *probe, uintmax_t n, double result) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();
 
-    // we just print these directly
-    printf("benched %s %jd %.6f\n",
-            probe,
-            n,
-            result);
+    // find our record
+    bench_record_t *record = bench_find(probe);
+    if (record->flags & BENCH_RECORD_IGNORED) {
+        goto done;
+    }
 
+    // mark as dirty
+    record->flags |= BENCH_RECORD_DIRTY;
+    record->flags &= ~BENCH_RECORD_RESULT;
+    record->flags |= BENCH_RECORD_FRESULT;
+
+    // update n
+    record->n = n;
+    // update result
+    record->fresult = result;
+
+    // report probe sample
+    bench_sample(record);
+
+done:;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
 }
 
-bench_ns_t bench_simtime(void) {
+
+bench_sns_t bench_simtime(void) {
+    // bench not started?
+    if (!bench_cfg) {
+        return LFS3_ERR_INVAL;
+    }
+
     // get the current simtime
-    assert(bench_cfg);
     #ifndef BENCH_KIWIBD
     // note this can error if no timings provided
     bench_sns_t simtime = lfs3_emubd_simtime(bench_cfg);
-    assert(simtime >= 0);
     #else
     // note this can error if no timings provided
     bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
-    assert(simtime >= 0);
     #endif
     return simtime;
 }
@@ -1333,13 +1571,13 @@ void perm_count(
     }
 
     // skip this step?
-    if (!(bench_step >= bench_step_start
-            && bench_step < bench_step_stop
-            && (bench_step-bench_step_start) % bench_step_step == 0)) {
-        bench_step += 1;
+    if (!(bench_steps >= bench_step_start
+            && bench_steps < bench_step_stop
+            && (bench_steps-bench_step_start) % bench_step_step == 0)) {
+        bench_steps += 1;
         return;
     }
-    bench_step += 1;
+    bench_steps += 1;
 
     state->total += 1;
 
@@ -2058,13 +2296,13 @@ void perm_run(
     }
 
     // skip this step?
-    if (!(bench_step >= bench_step_start
-            && bench_step < bench_step_stop
-            && (bench_step-bench_step_start) % bench_step_step == 0)) {
-        bench_step += 1;
+    if (!(bench_steps >= bench_step_start
+            && bench_steps < bench_step_stop
+            && (bench_steps-bench_step_start) % bench_step_step == 0)) {
+        bench_steps += 1;
         return;
     }
-    bench_step += 1;
+    bench_steps += 1;
 
     // filter? this includes ifdef (run=NULL) and if checks
     if (!case_->run || !(bench_force || !case_->if_ || case_->if_())) {
@@ -2205,21 +2443,26 @@ enum opt_flags {
     OPT_LIST_CASE_PROBES         = 8,
     OPT_DEFINE                   = 'D',
     OPT_DEFINE_DEPTH             = 9,
-    OPT_STEP                     = 10,
-    OPT_FORCE                    = 11,
-    OPT_NO_INTERNAL              = 12,
-    OPT_NO_LITMUS                = 13,
+    OPT_PROBE                    = 'S',
+    OPT_PROBE_STEP               = 'x',
+    OPT_PROBE_RUNFREQ            = 10,
+    OPT_PROBE_SIMFREQ            = 'X',
+    OPT_STEP                     = 11,
+    OPT_FORCE                    = 12,
+    OPT_NO_INTERNAL              = 13,
+    OPT_NO_LITMUS                = 14,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 14,
-    OPT_TRACE_STEP               = 15,
-    OPT_TRACE_RUNFREQ            = 16,
-    OPT_READ_SLEEP               = 17,
-    OPT_PROG_SLEEP               = 18,
-    OPT_ERASE_SLEEP              = 19,
+    OPT_TRACE_BACKTRACE          = 15,
+    OPT_TRACE_STEP               = 16,
+    OPT_TRACE_RUNFREQ            = 17,
+    OPT_TRACE_SIMFREQ            = 18,
+    OPT_READ_SLEEP               = 19,
+    OPT_PROG_SLEEP               = 20,
+    OPT_ERASE_SLEEP              = 21,
 };
 
-const char *short_opts = "hYlLD:d:t:";
+const char *short_opts = "hYlLD:S:x:X:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -2239,6 +2482,10 @@ const struct option long_opts[] = {
     {"list-case-probes", no_argument,       NULL, OPT_LIST_CASE_PROBES},
     {"define",           required_argument, NULL, OPT_DEFINE},
     {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
+    {"probe",            required_argument, NULL, OPT_PROBE},
+    {"probe-step",       required_argument, NULL, OPT_PROBE_STEP},
+    {"probe-runfreq",    required_argument, NULL, OPT_PROBE_RUNFREQ},
+    {"probe-simfreq",    required_argument, NULL, OPT_PROBE_SIMFREQ},
     {"step",             required_argument, NULL, OPT_STEP},
     {"force",            no_argument,       NULL, OPT_FORCE},
     {"no-internal",      no_argument,       NULL, OPT_NO_INTERNAL},
@@ -2248,6 +2495,7 @@ const struct option long_opts[] = {
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
     {"trace-step",       required_argument, NULL, OPT_TRACE_STEP},
     {"trace-runfreq",    required_argument, NULL, OPT_TRACE_RUNFREQ},
+    {"trace-simfreq",    required_argument, NULL, OPT_TRACE_SIMFREQ},
     {"read-sleep",       required_argument, NULL, OPT_READ_SLEEP},
     {"prog-sleep",       required_argument, NULL, OPT_PROG_SLEEP},
     {"erase-sleep",      required_argument, NULL, OPT_ERASE_SLEEP},
@@ -2269,6 +2517,10 @@ const char *const help_text[] = {
     "List estimated probes for each bench case.",
     "Override a bench define.",
     "How deep to evaluate recursive defines before erroring.",
+    "Specify a probe to sample.",
+    "Sample probes every n steps.",
+    "Sample probes at this frequency in hz.",
+    "Sample probes at this frequency in simulated hz.",
     "Comma-separated range of permutations to run.",
     "Ignore bench filters.",
     "Don't run internal benches.",
@@ -2278,6 +2530,7 @@ const char *const help_text[] = {
     "Include a backtrace with every trace statement.",
     "Sample trace output every n steps.",
     "Sample trace output at this frequency in hz.",
+    "Sample trace output at this frequency in simulated hz.",
     "Artificial read delay in seconds.",
     "Artificial prog delay in seconds.",
     "Artificial erase delay in seconds.",
@@ -2285,9 +2538,6 @@ const char *const help_text[] = {
 
 int main(int argc, char **argv) {
     void (*op)(void) = run;
-
-    size_t bench_override_define_capacity = 0;
-    size_t bench_id_capacity = 0;
 
     // parse options
     while (true) {
@@ -2554,6 +2804,82 @@ int main(int argc, char **argv) {
             }
             break;
 
+        case OPT_PROBE:;
+            // allocate space
+            bench_probe_t *probe = mappend(
+                    (void**)&bench_probes,
+                    sizeof(bench_probe_t),
+                    &bench_probe_count,
+                    &bench_probe_capacity);
+
+            // parse into string key/intmax_t value, cannibalizing the
+            // arg in the process
+            probe->probe = optarg;
+            sep = strchr(optarg, '=');
+            if (sep) {
+                *sep = '\0';
+            }
+            probe->step = 0;
+            probe->runfreq = 0.0;
+            probe->simfreq = 0.0;
+
+            if (sep) {
+                optarg = sep+1;
+
+                // parse sample rate
+                if (strstr(optarg, "rhz")) {
+                    parsed = NULL;
+                    probe->runfreq = strtod(optarg, &parsed);
+                    if (parsed == optarg) {
+                        goto invalid_probe;
+                    }
+                } else if (strstr(optarg, "shz")) {
+                    parsed = NULL;
+                    probe->simfreq = strtod(optarg, &parsed);
+                    if (parsed == optarg) {
+                        goto invalid_probe;
+                    }
+                } else {
+                    parsed = NULL;
+                    probe->step = strtoumax(optarg, &parsed, 0);
+                    if (parsed == optarg) {
+                        goto invalid_probe;
+                    }
+                }
+            }
+            break;
+
+        invalid_probe:;
+            fprintf(stderr, "error: invalid probe: %s\n", optarg);
+            exit(-1);
+
+        case OPT_PROBE_STEP:;
+            parsed = NULL;
+            bench_probe_step = strtoumax(optarg, &parsed, 0);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid probe-step: %s\n", optarg);
+                exit(-1);
+            }
+            break;
+
+        case OPT_PROBE_RUNFREQ:;
+            parsed = NULL;
+            bench_probe_runfreq = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid probe-runfreq: %s\n", optarg);
+                exit(-1);
+            }
+            break;
+
+        case OPT_PROBE_SIMFREQ:;
+            parsed = NULL;
+            bench_probe_simfreq = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid probe-simfreq: %s\n", optarg);
+                exit(-1);
+            }
+            break;
+
         case OPT_STEP:;
             parsed = NULL;
             bench_step_start = strtoumax(optarg, &parsed, 0);
@@ -2642,9 +2968,18 @@ int main(int argc, char **argv) {
 
         case OPT_TRACE_RUNFREQ:;
             parsed = NULL;
-            bench_trace_runfreq = strtoumax(optarg, &parsed, 0);
+            bench_trace_runfreq = strtod(optarg, &parsed);
             if (parsed == optarg) {
                 fprintf(stderr, "error: invalid trace-runfreq: %s\n", optarg);
+                exit(-1);
+            }
+            break;
+
+        case OPT_TRACE_SIMFREQ:;
+            parsed = NULL;
+            bench_trace_simfreq = strtod(optarg, &parsed);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid trace-simfreq: %s\n", optarg);
                 exit(-1);
             }
             break;
@@ -2670,12 +3005,14 @@ int main(int argc, char **argv) {
             break;
 
         case OPT_ERASE_SLEEP:;
+            printf("hmm [%s]\n", optarg);
             parsed = NULL;
             double erase_sleep = strtod(optarg, &parsed);
             if (parsed == optarg) {
                 fprintf(stderr, "error: invalid erase-sleep: %s\n", optarg);
                 exit(-1);
             }
+            printf("huh [%s]\n", parsed);
             bench_erase_sleep = erase_sleep*1.0e9;
             break;
 
