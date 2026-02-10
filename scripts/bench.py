@@ -1213,6 +1213,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         last_stdout = co.deque(maxlen=args.get('context', 5) + 1)
         last_assert = None
         last_runtime = time.time()
+        last_probes = {}
         try:
             while True:
                 # parse a line for state changes
@@ -1244,6 +1245,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         last_stdout.clear()
                         last_assert = None
                         last_runtime = time.time()
+                        last_probes.clear()
                     elif op == 'finished':
                         # force a failure
                         if args.get('fail'):
@@ -1255,6 +1257,13 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                         passed_suite_perms[suite] += 1
                         passed_case_perms[case] += 1
                         passed_perms += 1
+                        # update totals for summary
+                        readed += sum(readed
+                            for readed, _, _ in last_probes.values())
+                        progged += sum(progged
+                            for _, progged, _ in last_probes.values())
+                        erased += sum(erased
+                            for _, _, erased in last_probes.values())
                     elif op == 'skipped':
                         locals.seen_perms += 1
                     elif op == 'assert':
@@ -1306,10 +1315,8 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                                     'bench_simtime': simtime_,
                                     'bench_runtime': '%.6f' % (
                                         time.time() - last_runtime)})
-                        # keep track of total for summary
-                        readed += readed_
-                        progged += progged_
-                        erased += erased_
+                        # keep track of totals for summary
+                        last_probes[probe_] = (readed_, progged_, erased_)
         except KeyboardInterrupt:
             proc.kill()
             raise BenchFailure(last_id, 0, list(last_stdout))
