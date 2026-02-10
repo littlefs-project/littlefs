@@ -945,6 +945,11 @@ typedef struct bench_record {
     bench_ns_t start_simtime;
 } bench_record_t;
 
+typedef struct bench_cache {
+    const char *probe;
+    size_t i;
+} bench_cache_t;
+
 bench_probe_t *bench_probes = NULL;
 size_t bench_probe_count = 0;
 size_t bench_probe_capacity = 0;
@@ -957,9 +962,13 @@ bench_record_t *bench_records = NULL;
 size_t bench_record_count = 0;
 size_t bench_record_capacity = 0;
 
+#define BENCH_CACHE_COUNT 64
+bench_cache_t bench_cache[BENCH_CACHE_COUNT];
+
 void bench_init(const struct lfs3_cfg *cfg) {
     bench_cfg = cfg;
     bench_record_count = 0;
+    memset(bench_cache, 0, sizeof(bench_cache));
 }
 
 // needed in bench_deinit
@@ -978,6 +987,12 @@ void bench_deinit(const struct lfs3_cfg *cfg) {
 }
 
 bench_record_t *bench_find(const char *probe) {
+    // cached?
+    bench_cache_t *cache = &bench_cache[(size_t)probe % BENCH_CACHE_COUNT];
+    if (cache->probe == probe) {
+        return &bench_records[cache->i];
+    }
+
     // find our record
     bench_record_t *record = NULL;
     for (size_t i = 0; i < bench_record_count; i++) {
@@ -1041,6 +1056,9 @@ bench_record_t *bench_find(const char *probe) {
         }
     }
 
+    // add to cache
+    cache->probe = probe;
+    cache->i = record - bench_records;
     return record;
 }
 
