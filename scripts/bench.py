@@ -1147,7 +1147,8 @@ class BenchFailure(Exception):
         self.assert_ = assert_
 
 
-def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
+def run_stage(offset, name, runner, bench_ids,
+        stdout_, trace_, output_, **args):
     # get expected suite/case/perm counts
     (case_suites,
             expected_suite_perms,
@@ -1301,6 +1302,9 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                             # write measurements immediately, this allows
                             # analysis of partial results
                             output_.writerow({
+                                    'i': offset
+                                        + locals.start
+                                        + locals.seen_perms*locals.step,
                                     'suite': last_suite,
                                     'case': last_case,
                                     **last_defines,
@@ -1338,14 +1342,16 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
         nonlocal killed
         nonlocal locals
 
-        start = start or 0
-        step = step or 1
-        while start < total_perms:
+        locals.start = start or 0
+        locals.step = step or 1
+        while locals.start < total_perms:
             runner_ = find_runner(runner, main=main, **args)
             if args.get('isolate') or args.get('valgrind'):
-                runner_.append('--step=%s,%s,%s' % (start, start+step, step))
-            elif start != 0 or step != 1:
-                runner_.append('--step=%s,,%s' % (start, step))
+                runner_.append('--step=%s,%s,%s' % (
+                        locals.start, locals.start+locals.step, locals.step))
+            elif locals.start != 0 or locals.step != 1:
+                runner_.append('--step=%s,,%s' % (
+                        locals.start, locals.step))
 
             runner_.extend(bench_ids)
 
@@ -1354,7 +1360,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                 locals.seen_perms = 0
                 run_runner(runner_)
                 assert locals.seen_perms > 0
-                start += locals.seen_perms*step
+                locals.start += locals.seen_perms*locals.step
 
             except BenchFailure as failure:
                 # race condition for multiple failures?
@@ -1371,7 +1377,7 @@ def run_stage(name, runner, bench_ids, stdout_, trace_, output_, **args):
                 if args.get('keep_going') and not killed:
                     # resume after failed bench
                     assert locals.seen_perms > 0
-                    start += locals.seen_perms*step
+                    locals.start += locals.seen_perms*locals.step
                     continue
                 else:
                     # stop other benches
@@ -1489,9 +1495,10 @@ def run(runner, bench_ids=[], **args):
     output = None
     if args.get('output'):
         output = BenchOutput(args['output'],
-                ['suite', 'case'],
+                ['i', 'suite', 'case'],
                 # defines go here
-                ['probe', 'n',
+                ['probe',
+                    'n',
                     'bench_reads',
                     'bench_progs',
                     'bench_erases',
@@ -1522,6 +1529,7 @@ def run(runner, bench_ids=[], **args):
                 erased_,
                 failures_,
                 killed) = run_stage(
+                    expected,
                     by or 'benches',
                     runner,
                     [by] if by is not None else [],

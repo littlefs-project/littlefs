@@ -531,8 +531,8 @@ test-list list-tests: test-runner
 test-marks: SUMMARYFLAGS+=-Si
 test-marks: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
+		-Fi='min(i)' \
 		-bsuite \
-		-Fi='min(enumerate())' \
 		-fpassed=test_passed \
 		-fruntime=test_runtime \
 		$(SUMMARYFLAGS))
@@ -545,8 +545,8 @@ test-marks-csv: $(BUILDDIR)/lfs3.test.csv
 .PHONY: test-marks-diff
 test-marks-diff: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
+		-Fi='min(i)' \
 		-bsuite \
-		-Fi='min(enumerate())' \
 		-fpassed=test_passed \
 		-fruntime=test_runtime \
 		$(SUMMARYFLAGS) -d $(BUILDDIR)/lfs3.test.csv)
@@ -556,8 +556,8 @@ test-marks-diff: $(TEST_CSV)
 test-bottlenecks: SUMMARYFLAGS+=-Sruntime
 test-bottlenecks: $(TEST_CSV)
 	$(strip ./scripts/csv.py $^ \
+		-Fi='min(i)' \
 		-bcase \
-		-Fi='min(enumerate())' \
 		-fpassed=test_passed \
 		-fruntime=test_runtime \
 		$(SUMMARYFLAGS))
@@ -595,8 +595,8 @@ bench-marks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-Uprobe=stack,heap,usage \
+			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
-			-Fi='min(enumerate())' \
 			-fn='max(n)' \
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
@@ -617,15 +617,15 @@ bench-marks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-Uprobe=stack,heap,usage \
+			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
-			-Fi='min(enumerate())' \
 			-fn='max(n)' \
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-d <(./scripts/csv.py $(BUILDDIR)/lfs3.bench.csv \
 			-Uprobe=stack,heap,usage \
+			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
-			-Fi='min(enumerate())' \
 			-fn='max(n)' \
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
@@ -641,8 +641,8 @@ bench-bottlenecks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-Uprobe=stack,heap,usage \
+			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
-			-Fi='min(enumerate())' \
 			-fn='max(n)' \
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-fruntime='max(bench_runtime)' \
@@ -660,9 +660,9 @@ bench-ops: SUMMARYFLAGS+=-Si
 bench-ops: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-Uprobe=stack,heap,usage \
+		-Fi='min(i)' \
 		-bprobe='%(case)s+%(probe)s' \
 		-Hprobe=bench+probe \
-		-Fi='min(enumerate())' \
 		-freads='bench_reads' \
 		-fprogs='bench_progs' \
 		-ferases='bench_erases' \
@@ -677,9 +677,9 @@ bench-widths: SUMMARYFLAGS+=-Si
 bench-widths: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
 		-Uprobe=stack,heap,usage \
+		-Fi='min(i)' \
 		-bprobe='%(case)s+%(probe)s' \
 		-Hprobe=bench+probe \
-		-Fi='min(enumerate())' \
 		-freaded="avg(saturate(ffrac( \
 			float(bench_readed)/float(bench_reads), \
 			max(1, $$( \
@@ -707,20 +707,20 @@ bench-ram bench-usage: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-Dprobe=stack \
+			-Fi='min(i)' \
 			-bcase \
-			-Fi='min(enumerate())' \
 			-fstack='max(bench_simtime)' \
 			-o-) \
 		<(./scripts/csv.py $^ \
 			-Dprobe=heap \
+			-Fi='min(i)' \
 			-bcase \
-			-Fi='min(enumerate())' \
 			-fheap='max(bench_simtime)' \
 			-o-) \
 		<(./scripts/csv.py $^ \
 			-Dprobe=usage \
+			-Fi='min(i)' \
 			-bcase \
-			-Fi='min(enumerate())' \
 			-fdisk='max(bench_simtime)' \
 			-o-) \
 		-bcase \
