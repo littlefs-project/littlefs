@@ -820,7 +820,8 @@ def find_runner(runner, id=None, main=True, **args):
     if args.get('define_depth'):
         cmd.append('--define-depth=%s' % args['define_depth'])
     if args.get('powerloss'):
-        cmd.append('-P%s' % args['powerloss'])
+        for powerloss in args['powerloss']:
+            cmd.append('-P%s' % powerloss)
     if args.get('force'):
         cmd.append('--force')
     if args.get('no_internal'):
@@ -1733,7 +1734,8 @@ if __name__ == "__main__":
             help="How deep to evaluate recursive defines before erroring.")
     test_parser.add_argument(
             '-P', '--powerloss',
-            help="Comma-separated list of powerloss scenarios to test.")
+            action='append',
+            help="Specify a powerloss scenario to test.")
     test_parser.add_argument(
             '--force',
             action='store_true',

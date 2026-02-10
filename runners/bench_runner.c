@@ -52,9 +52,9 @@ void *mappend(void **p,
 }
 
 // a quick self-terminating text-safe varint scheme
-static void leb16_print(uintmax_t x) {
+static void leb16_print(intmax_t x) {
     // allow 'w' to indicate negative numbers
-    if ((intmax_t)x < 0) {
+    if (x < 0) {
         printf("w");
         x = -x;
     }
@@ -69,7 +69,7 @@ static void leb16_print(uintmax_t x) {
     }
 }
 
-static uintmax_t leb16_parse(const char *s, char **tail) {
+static intmax_t leb16_parse(const char *s, char **tail) {
     bool neg = false;
     uintmax_t x = 0;
     if (tail) {
@@ -392,13 +392,13 @@ intmax_t bench_override_cb(void *data, size_t i) {
         if (v->step) {
             size_t range_count;
             if (v->step > 0) {
-                range_count = (v->stop-1 - v->start) / v->step + 1;
+                range_count = (v->stop-1 - v->start) / +v->step + 1;
             } else {
                 range_count = (v->start-1 - v->stop) / -v->step + 1;
             }
 
             if (i < range_count) {
-                return i*v->step + v->start;
+                return v->start + i*v->step;
             }
             i -= range_count;
         // value?
@@ -903,7 +903,7 @@ int __wrap_vprintf(const char *fmt, va_list args) {
 
 // bench probe/recording state
 typedef struct bench_probe {
-    const char *probe;
+    const char *name;
     size_t step;
     double runfreq;
     double simfreq;
@@ -1017,7 +1017,7 @@ bench_record_t *bench_find(const char *probe) {
             // find probe descriptor, if there is one
             bench_probe_t *probe_ = NULL;
             for (size_t i = 0; i < bench_probe_count; i++) {
-                if (strcmp(bench_probes[i].probe, probe) == 0) {
+                if (strcmp(bench_probes[i].name, probe) == 0) {
                     probe_ = &bench_probes[i];
                     break;
                 }
@@ -2711,7 +2711,7 @@ int main(int argc, char **argv) {
                             if (*optarg == ',') {
                                 optarg += 1;
                                 step = strtoumax(optarg, &parsed, 0);
-                                // allow empty string for stop=1
+                                // allow empty string for step=1
                                 if (parsed == optarg) {
                                     step = 1;
                                 }
@@ -2814,7 +2814,7 @@ int main(int argc, char **argv) {
 
             // parse into string key/intmax_t value, cannibalizing the
             // arg in the process
-            probe->probe = optarg;
+            probe->name = optarg;
             sep = strchr(optarg, '=');
             if (sep) {
                 *sep = '\0';

@@ -139,7 +139,7 @@ extern const size_t test_suite_count;
 
 // this variable tracks the number of powerlosses triggered during the
 // current test permutation, this is useful for both tests and debugging
-extern volatile size_t TEST_PLS;
+extern volatile test_powercycles_t TEST_PLS;
 
 // deterministic prng for pseudo-randomness in tests
 uint32_t test_prng(uint32_t *state);
