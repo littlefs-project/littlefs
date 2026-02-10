@@ -31,13 +31,15 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
-        BENCH_PAUSE();
+        BENCH_STACK_PAUSE();
+        BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             LFS3_ERROR("Bench warmup failed: %d", err);
             return;
         }
-        BENCH_RESUME();
+        BENCH_HEAP_RESUME();
+        BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
 
@@ -47,14 +49,16 @@ code = '''
     // open a file
     BENCH_START("write");
     lfs3_file_t file;
-    lfs3_file_open(&lfs3, &file, "bench_linear",
+    lfs3_file_open(&lfs3, &file, "bench_seq",
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_off_t size = 0;
     uint64_t written = 0;
+    BENCH_STOP("write", written);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
             && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
+        BENCH_START("write");
         // arguably we should just rewind and continue writing to the
         // front of the file when we hit the end, but this overly
         // penalizes littlefs2, so instead we truncate
@@ -73,7 +77,9 @@ code = '''
 
         size += CHUNK;
         written += CHUNK;
+        BENCH_STOP("write", written);
     }
+    BENCH_START("write");
     lfs3_file_close(&lfs3, &file) => 0;
     // report the amount we managed to write
     BENCH_STOP("write", written);
@@ -102,12 +108,14 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
-        BENCH_PAUSE();
+        BENCH_STACK_PAUSE();
+        BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             return;
         }
-        BENCH_RESUME();
+        BENCH_HEAP_RESUME();
+        BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
 
@@ -121,8 +129,12 @@ code = '''
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_off_t size = 0;
     uint64_t written = 0;
+    BENCH_STOP("write", written);
+    // ok, one of these needs to be non-zero
+    LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
             && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
+        BENCH_START("write");
         // seek to a random location
         lfs3_off_t pos = BENCH_PRNG(&prng) % SIZE;
         lfs3_file_seek(&lfs3, &file, pos, LFS3_SEEK_SET) => pos;
@@ -136,7 +148,9 @@ code = '''
 
         size = lfs3_max(size, pos + CHUNK);
         written += CHUNK;
+        BENCH_STOP("write", written);
     }
+    BENCH_START("write");
     lfs3_file_close(&lfs3, &file) => 0;
     // report the amount we managed to write
     BENCH_STOP("write", written);
@@ -168,12 +182,14 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
-        BENCH_PAUSE();
+        BENCH_STACK_PAUSE();
+        BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             return;
         }
-        BENCH_RESUME();
+        BENCH_HEAP_RESUME();
+        BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
 
@@ -186,10 +202,12 @@ code = '''
     lfs3_file_open(&lfs3, &file, "bench_log",
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_APPEND) => 0;
     uint64_t written = 0;
+    BENCH_STOP("write", written);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
             && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
+        BENCH_START("write");
         // append to log
         uint8_t wbuf[CHUNK];
         for (lfs3_size_t j = 0; j < CHUNK; j++) {
@@ -218,7 +236,9 @@ code = '''
         }
 
         written += CHUNK;
+        BENCH_STOP("write", written);
     }
+    BENCH_START("write");
     lfs3_file_close(&lfs3, &file) => 0;
     // report the amount we managed to write
     BENCH_STOP("write", written);
@@ -247,25 +267,28 @@ code = '''
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     if (!SKIP_WARMUP) {
-        BENCH_PAUSE();
+        BENCH_STACK_PAUSE();
+        BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             return;
         }
-        BENCH_RESUME();
+        BENCH_HEAP_RESUME();
+        BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
 
     // reset our timer
     BENCH_SIMRESET();
 
-    // open a file
     BENCH_START("write");
     uint64_t written = 0;
+    BENCH_STOP("write", written);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
             && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
+        BENCH_START("write");
         // choose a random filename
         lfs3_off_t pos = BENCH_PRNG(&prng) % FILE_COUNT;
         char name[256];
@@ -292,7 +315,9 @@ code = '''
             }
         }
         lfs3_file_close(&lfs3, &file) => 0;
+        BENCH_STOP("write", written);
     }
+    BENCH_START("write");
     // report the amount we managed to write
     BENCH_STOP("write", written);
 
