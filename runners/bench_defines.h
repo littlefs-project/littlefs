@@ -2,12 +2,17 @@
 
 
 #ifdef BENCH_INCLUDE
+    #ifndef BENCH_DEFINES_H
+    #define BENCH_DEFINES_H
+
     // DISK_GEOMETRY controls which simulation we use
     // 0 => NOR flash (the default)
     // 1 => NAND flash
     #define DISK_MAP(define) \
             ((DISK_GEOMETRY == 0) ? NOR_##define \
                                   : NAND_##define)
+
+    #endif
 #endif
 
 // preconfigured defines that control how benches run
