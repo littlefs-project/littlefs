@@ -1913,6 +1913,14 @@ static void list_defines_add(
     define_->value_capacity = 1;
 }
 
+static void list_defines_cleanup(
+        struct list_defines_defines *defines) {
+    for (size_t i = 0; i < defines->define_count; i++) {
+        free(defines->defines[i].values);
+    }
+    free(defines->defines);
+}
+
 void perm_list_defines(
         void *data,
         const struct bench_suite *suite,
@@ -1984,10 +1992,7 @@ static void list_defines(void) {
         printf("\n");
     }
 
-    for (size_t i = 0; i < defines.define_count; i++) {
-        free(defines.defines[i].values);
-    }
-    free(defines.defines);
+    list_defines_cleanup(&defines);
 }
 
 static void list_permutation_defines(void) {
@@ -2029,10 +2034,7 @@ static void list_permutation_defines(void) {
         printf("\n");
     }
 
-    for (size_t i = 0; i < defines.define_count; i++) {
-        free(defines.defines[i].values);
-    }
-    free(defines.defines);
+    list_defines_cleanup(&defines);
 }
 
 static void list_implicit_defines(void) {
@@ -2069,10 +2071,7 @@ static void list_implicit_defines(void) {
         printf("\n");
     }
 
-    for (size_t i = 0; i < defines.define_count; i++) {
-        free(defines.defines[i].values);
-    }
-    free(defines.defines);
+    list_defines_cleanup(&defines);
 }
 
 static void list_probes(void) {
@@ -2232,6 +2231,165 @@ static void list_case_probes(void) {
             }
         }
     }
+}
+
+static const char *query_define_query = NULL;
+
+void perm_query_define(
+        void *data,
+        const struct bench_suite *suite,
+        const struct bench_case *case_) {
+    struct list_defines_defines *defines = data;
+    (void)suite;
+    (void)case_;
+
+    // collect defines
+    for (size_t d = 0; d < bench_define_count; d++) {
+        if (bench_define_isdefined(bench_defines[d])
+                && strcmp(bench_defines[d]->name, query_define_query) == 0) {
+            list_defines_add(defines, bench_defines[d]);
+        }
+    }
+}
+
+void perm_query_permutation_define(
+        void *data,
+        const struct bench_suite *suite,
+        const struct bench_case *case_) {
+    struct list_defines_defines *defines = data;
+    (void)suite;
+    (void)case_;
+
+    // collect permutation_defines
+    for (size_t d = 0; d < bench_define_count; d++) {
+        if (bench_define_ispermutation(bench_defines[d])
+                && strcmp(bench_defines[d]->name, query_define_query) == 0) {
+            list_defines_add(defines, bench_defines[d]);
+        }
+    }
+}
+
+static void query_define(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
+
+    // add defines
+    for (size_t t = 0; t < bench_id_count; t++) {
+        for (size_t i = 0; i < bench_suite_count; i++) {
+            bench_define_suite(&bench_ids[t], bench_suites[i]);
+
+            for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
+                // does neither suite nor case name match?
+                if (bench_ids[t].name && !(
+                        strcmp(bench_ids[t].name,
+                            bench_suites[i]->name) == 0
+                        || strcmp(bench_ids[t].name,
+                            bench_suites[i]->cases[j].name) == 0)) {
+                    continue;
+                }
+
+                case_forperm(
+                        &bench_ids[t],
+                        bench_suites[i],
+                        &bench_suites[i]->cases[j],
+                        perm_query_define,
+                        &defines);
+            }
+        }
+    }
+
+    // none found?
+    if (defines.define_count == 0) {
+        exit(1);
+    }
+
+    // print what was found
+    assert(defines.define_count == 1);
+    for (size_t j = 0; j < defines.defines[0].value_count; j++) {
+        printf("%jd\n", defines.defines[0].values[j]);
+    }
+
+    list_defines_cleanup(&defines);
+}
+
+static void query_permutation_define(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
+
+    // add permutation defines
+    for (size_t t = 0; t < bench_id_count; t++) {
+        for (size_t i = 0; i < bench_suite_count; i++) {
+            bench_define_suite(&bench_ids[t], bench_suites[i]);
+
+            for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
+                // does neither suite nor case name match?
+                if (bench_ids[t].name && !(
+                        strcmp(bench_ids[t].name,
+                            bench_suites[i]->name) == 0
+                        || strcmp(bench_ids[t].name,
+                            bench_suites[i]->cases[j].name) == 0)) {
+                    continue;
+                }
+
+                case_forperm(
+                        &bench_ids[t],
+                        bench_suites[i],
+                        &bench_suites[i]->cases[j],
+                        perm_query_permutation_define,
+                        &defines);
+            }
+        }
+    }
+
+    // none found?
+    if (defines.define_count == 0) {
+        exit(1);
+    }
+
+    // print what was found
+    assert(defines.define_count == 1);
+    for (size_t j = 0; j < defines.defines[0].value_count; j++) {
+        printf("%jd\n", defines.defines[0].values[j]);
+    }
+
+    list_defines_cleanup(&defines);
+}
+
+static void query_implicit_define(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
+
+    // yes we do need to define a suite/case, these do a bit of bookeeping
+    // around mapping defines
+    bench_define_suite(NULL,
+            &(const struct bench_suite){0});
+    bench_define_case(NULL,
+            &(const struct bench_suite){0},
+            &(const struct bench_case){0},
+            0);
+
+    size_t permutations = bench_define_permutations();
+    for (size_t p = 0; p < permutations; p++) {
+        // define permutation permutation
+        bench_define_permutation(p);
+
+        // add implicit defines
+        for (size_t d = 0; d < bench_define_count; d++) {
+            if (strcmp(bench_defines[d]->name, query_define_query) == 0) {
+                list_defines_add(&defines, bench_defines[d]);
+            }
+        }
+    }
+
+    // none found?
+    if (defines.define_count == 0) {
+        exit(1);
+    }
+
+    // print what was found
+    assert(defines.define_count == 1);
+    for (size_t j = 0; j < defines.defines[0].value_count; j++) {
+        printf("%jd\n", defines.defines[0].values[j]);
+    }
+
+    list_defines_cleanup(&defines);
 }
 
 
@@ -2459,28 +2617,31 @@ enum opt_flags {
     OPT_LIST_PROBES              = 6,
     OPT_LIST_SUITE_PROBES        = 7,
     OPT_LIST_CASE_PROBES         = 8,
+    OPT_QUERY_DEFINE             = 'Q',
+    OPT_QUERY_PERMUTATION_DEFINE = 9,
+    OPT_QUERY_IMPLICIT_DEFINE    = 10,
     OPT_DEFINE                   = 'D',
-    OPT_DEFINE_DEPTH             = 9,
+    OPT_DEFINE_DEPTH             = 11,
     OPT_PROBE                    = 'S',
     OPT_PROBE_STEP               = 'x',
-    OPT_PROBE_RUNFREQ            = 10,
+    OPT_PROBE_RUNFREQ            = 12,
     OPT_PROBE_SIMFREQ            = 'X',
-    OPT_STEP                     = 11,
-    OPT_FORCE                    = 12,
-    OPT_NO_INTERNAL              = 13,
-    OPT_NO_LITMUS                = 14,
+    OPT_STEP                     = 13,
+    OPT_FORCE                    = 14,
+    OPT_NO_INTERNAL              = 15,
+    OPT_NO_LITMUS                = 16,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 15,
-    OPT_TRACE_STEP               = 16,
-    OPT_TRACE_RUNFREQ            = 17,
-    OPT_TRACE_SIMFREQ            = 18,
-    OPT_READ_SLEEP               = 19,
-    OPT_PROG_SLEEP               = 20,
-    OPT_ERASE_SLEEP              = 21,
+    OPT_TRACE_BACKTRACE          = 17,
+    OPT_TRACE_STEP               = 18,
+    OPT_TRACE_RUNFREQ            = 19,
+    OPT_TRACE_SIMFREQ            = 20,
+    OPT_READ_SLEEP               = 21,
+    OPT_PROG_SLEEP               = 22,
+    OPT_ERASE_SLEEP              = 23,
 };
 
-const char *short_opts = "hYlLD:S:x:X:d:t:";
+const char *short_opts = "hYlLQ:D:S:x:X:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -2498,6 +2659,11 @@ const struct option long_opts[] = {
     {"list-suite-probes",
                          no_argument,       NULL, OPT_LIST_SUITE_PROBES},
     {"list-case-probes", no_argument,       NULL, OPT_LIST_CASE_PROBES},
+    {"query-define",     required_argument, NULL, OPT_QUERY_DEFINE},
+    {"query-permutation-define",
+                         required_argument, NULL, OPT_QUERY_PERMUTATION_DEFINE},
+    {"query-implicit-define",
+                         required_argument, NULL, OPT_QUERY_IMPLICIT_DEFINE},
     {"define",           required_argument, NULL, OPT_DEFINE},
     {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
     {"probe",            required_argument, NULL, OPT_PROBE},
@@ -2533,6 +2699,9 @@ const char *const help_text[] = {
     "List estimated probes.",
     "List estimated probes for each bench suite.",
     "List estimated probes for each bench case.",
+    "Query a bench define.",
+    "Query a permutation bench define.",
+    "Query an implicit bench define.",
     "Override a bench define.",
     "How deep to evaluate recursive defines before erroring.",
     "Specify a probe to sample.",
@@ -2660,6 +2829,21 @@ int main(int argc, char **argv) {
 
         case OPT_LIST_CASE_PROBES:;
             op = list_case_probes;
+            break;
+
+        case OPT_QUERY_DEFINE:;
+            op = query_define;
+            query_define_query = optarg;
+            break;
+
+        case OPT_QUERY_PERMUTATION_DEFINE:;
+            op = query_permutation_define;
+            query_define_query = optarg;
+            break;
+
+        case OPT_QUERY_IMPLICIT_DEFINE:;
+            op = query_implicit_define;
+            query_define_query = optarg;
             break;
 
         // configuration

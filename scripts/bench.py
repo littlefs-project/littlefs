@@ -1096,6 +1096,13 @@ def list_(runner, bench_ids=[], **args):
                                      cmd.append('--list-suite-probes')
     if args.get('list_case_probes'):
                                      cmd.append('--list-case-probes')
+    if args.get('query_define'):     cmd.append('-Q%s' % args['query_define'])
+    if args.get('query_permutation_define'):
+                                     cmd.append('--query-permutation-define=%s'
+                                         % args['query_permutation_define'])
+    if args.get('query_implicit_define'):
+                                     cmd.append('--query-implicit-define=%s'
+                                         % args['query_implicit_define'])
 
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
@@ -1689,7 +1696,10 @@ def main(**args):
             or args.get('list_implicit_defines')
             or args.get('list_probes')
             or args.get('list_suite_probes')
-            or args.get('list_case_probes')):
+            or args.get('list_case_probes')
+            or args.get('query_define')
+            or args.get('query_permutation_define')
+            or args.get('query_implicit_define')):
         return list_(**args)
     else:
         return run(**args)
@@ -1775,6 +1785,15 @@ if __name__ == "__main__":
             '--list-case-probes',
             action='store_true',
             help="List estimated probes for each bench case.")
+    bench_parser.add_argument(
+            '-Q', '--query-define',
+            help="Query a bench define.")
+    bench_parser.add_argument(
+            '--query-permutation-define',
+            help="Query a permutation bench define.")
+    bench_parser.add_argument(
+            '--query-implicit-define',
+            help="Query an implicit bench define.")
     bench_parser.add_argument(
             '-D', '--define',
             action='append',

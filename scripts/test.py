@@ -1084,6 +1084,13 @@ def list_(runner, test_ids=[], **args):
     if args.get('list_implicit_defines'):
                                      cmd.append('--list-implicit-defines')
     if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
+    if args.get('query_define'):     cmd.append('-Q%s' % args['query_define'])
+    if args.get('query_permutation_define'):
+                                     cmd.append('--query-permutation-define=%s'
+                                         % args['query_permutation_define'])
+    if args.get('query_implicit_define'):
+                                     cmd.append('--query-implicit-define=%s'
+                                         % args['query_implicit_define'])
 
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
@@ -1654,7 +1661,10 @@ def main(**args):
             or args.get('list_defines')
             or args.get('list_permutation_defines')
             or args.get('list_implicit_defines')
-            or args.get('list_powerlosses')):
+            or args.get('list_powerlosses')
+            or args.get('query_define')
+            or args.get('query_permutation_define')
+            or args.get('query_implicit_define')):
         return list_(**args)
     else:
         return run(**args)
@@ -1732,6 +1742,15 @@ if __name__ == "__main__":
             '--list-powerlosses',
             action='store_true',
             help="List the available powerloss scenarios.")
+    test_parser.add_argument(
+            '-Q', '--query-define',
+            help="Query a test define.")
+    test_parser.add_argument(
+            '--query-permutation-define',
+            help="Query a permutation test define.")
+    test_parser.add_argument(
+            '--query-implicit-define',
+            help="Query an implicit test define.")
     test_parser.add_argument(
             '-D', '--define',
             action='append',

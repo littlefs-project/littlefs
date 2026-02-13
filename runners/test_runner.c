@@ -1185,6 +1185,14 @@ static void list_defines_add(
     define_->value_capacity = 1;
 }
 
+static void list_defines_cleanup(
+        struct list_defines_defines *defines) {
+    for (size_t i = 0; i < defines->define_count; i++) {
+        free(defines->defines[i].values);
+    }
+    free(defines->defines);
+}
+
 void perm_list_defines(
         void *data,
         const struct test_suite *suite,
@@ -1260,10 +1268,7 @@ static void list_defines(void) {
         printf("\n");
     }
 
-    for (size_t i = 0; i < defines.define_count; i++) {
-        free(defines.defines[i].values);
-    }
-    free(defines.defines);
+    list_defines_cleanup(&defines);
 }
 
 static void list_permutation_defines(void) {
@@ -1305,10 +1310,7 @@ static void list_permutation_defines(void) {
         printf("\n");
     }
 
-    for (size_t i = 0; i < defines.define_count; i++) {
-        free(defines.defines[i].values);
-    }
-    free(defines.defines);
+    list_defines_cleanup(&defines);
 }
 
 static void list_implicit_defines(void) {
@@ -1345,10 +1347,170 @@ static void list_implicit_defines(void) {
         printf("\n");
     }
 
-    for (size_t i = 0; i < defines.define_count; i++) {
-        free(defines.defines[i].values);
+    list_defines_cleanup(&defines);
+}
+
+static const char *query_define_query = NULL;
+
+void perm_query_define(
+        void *data,
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        const test_powerloss_t *powerloss) {
+    struct list_defines_defines *defines = data;
+    (void)suite;
+    (void)case_;
+    (void)powerloss;
+
+    // collect defines
+    for (size_t d = 0; d < test_define_count; d++) {
+        if (test_define_isdefined(test_defines[d])
+                && strcmp(test_defines[d]->name, query_define_query) == 0) {
+            list_defines_add(defines, test_defines[d]);
+        }
     }
-    free(defines.defines);
+}
+
+void perm_query_permutation_define(
+        void *data,
+        const struct test_suite *suite,
+        const struct test_case *case_,
+        const test_powerloss_t *powerloss) {
+    struct list_defines_defines *defines = data;
+    (void)suite;
+    (void)case_;
+    (void)powerloss;
+
+    // collect permutation_defines
+    for (size_t d = 0; d < test_define_count; d++) {
+        if (test_define_ispermutation(test_defines[d])
+                && strcmp(test_defines[d]->name, query_define_query) == 0) {
+            list_defines_add(defines, test_defines[d]);
+        }
+    }
+}
+
+static void query_define(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
+
+    // add defines
+    for (size_t t = 0; t < test_id_count; t++) {
+        for (size_t i = 0; i < test_suite_count; i++) {
+            test_define_suite(&test_ids[t], test_suites[i]);
+
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i]->name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i]->cases[j].name) == 0)) {
+                    continue;
+                }
+
+                case_forperm(
+                        &test_ids[t],
+                        test_suites[i],
+                        &test_suites[i]->cases[j],
+                        perm_query_define,
+                        &defines);
+            }
+        }
+    }
+
+    // none found?
+    if (defines.define_count == 0) {
+        exit(1);
+    }
+
+    // print what was found
+    assert(defines.define_count == 1);
+    for (size_t j = 0; j < defines.defines[0].value_count; j++) {
+        printf("%jd\n", defines.defines[0].values[j]);
+    }
+
+    list_defines_cleanup(&defines);
+}
+
+static void query_permutation_define(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
+
+    // add permutation defines
+    for (size_t t = 0; t < test_id_count; t++) {
+        for (size_t i = 0; i < test_suite_count; i++) {
+            test_define_suite(&test_ids[t], test_suites[i]);
+
+            for (size_t j = 0; j < test_suites[i]->case_count; j++) {
+                // does neither suite nor case name match?
+                if (test_ids[t].name && !(
+                        strcmp(test_ids[t].name,
+                            test_suites[i]->name) == 0
+                        || strcmp(test_ids[t].name,
+                            test_suites[i]->cases[j].name) == 0)) {
+                    continue;
+                }
+
+                case_forperm(
+                        &test_ids[t],
+                        test_suites[i],
+                        &test_suites[i]->cases[j],
+                        perm_query_permutation_define,
+                        &defines);
+            }
+        }
+    }
+
+    // none found?
+    if (defines.define_count == 0) {
+        exit(1);
+    }
+
+    // print what was found
+    assert(defines.define_count == 1);
+    for (size_t j = 0; j < defines.defines[0].value_count; j++) {
+        printf("%jd\n", defines.defines[0].values[j]);
+    }
+
+    list_defines_cleanup(&defines);
+}
+
+static void query_implicit_define(void) {
+    struct list_defines_defines defines = {NULL, 0, 0};
+
+    // yes we do need to define a suite/case, these do a bit of bookeeping
+    // around mapping defines
+    test_define_suite(NULL,
+            &(const struct test_suite){0});
+    test_define_case(NULL,
+            &(const struct test_suite){0},
+            &(const struct test_case){0},
+            0);
+
+    size_t permutations = test_define_permutations();
+    for (size_t p = 0; p < permutations; p++) {
+        // define permutation permutation
+        test_define_permutation(p);
+
+        // add implicit defines
+        for (size_t d = 0; d < test_define_count; d++) {
+            if (strcmp(test_defines[d]->name, query_define_query) == 0) {
+                list_defines_add(&defines, test_defines[d]);
+            }
+        }
+    }
+
+    // none found?
+    if (defines.define_count == 0) {
+        exit(1);
+    }
+
+    // print what was found
+    assert(defines.define_count == 1);
+    for (size_t j = 0; j < defines.defines[0].value_count; j++) {
+        printf("%jd\n", defines.defines[0].values[j]);
+    }
+
+    list_defines_cleanup(&defines);
 }
 
 
@@ -2058,25 +2220,28 @@ enum opt_flags {
     OPT_LIST_PERMUTATION_DEFINES = 4,
     OPT_LIST_IMPLICIT_DEFINES    = 5,
     OPT_LIST_POWERLOSSES         = 6,
+    OPT_QUERY_DEFINE             = 'Q',
+    OPT_QUERY_PERMUTATION_DEFINE = 7,
+    OPT_QUERY_IMPLICIT_DEFINE    = 8,
     OPT_DEFINE                   = 'D',
-    OPT_DEFINE_DEPTH             = 7,
+    OPT_DEFINE_DEPTH             = 9,
     OPT_POWERLOSS                = 'P',
-    OPT_STEP                     = 8,
-    OPT_FORCE                    = 9,
-    OPT_NO_INTERNAL              = 10,
-    OPT_NO_REENTRANT             = 11,
-    OPT_NO_FUZZ                  = 12,
+    OPT_STEP                     = 10,
+    OPT_FORCE                    = 11,
+    OPT_NO_INTERNAL              = 12,
+    OPT_NO_REENTRANT             = 13,
+    OPT_NO_FUZZ                  = 14,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 13,
-    OPT_TRACE_STEP               = 14,
-    OPT_TRACE_RUNFREQ            = 15,
-    OPT_READ_SLEEP               = 16,
-    OPT_PROG_SLEEP               = 17,
-    OPT_ERASE_SLEEP              = 18,
+    OPT_TRACE_BACKTRACE          = 15,
+    OPT_TRACE_STEP               = 16,
+    OPT_TRACE_RUNFREQ            = 17,
+    OPT_READ_SLEEP               = 18,
+    OPT_PROG_SLEEP               = 19,
+    OPT_ERASE_SLEEP              = 20,
 };
 
-const char *short_opts = "hYlLD:P:d:t:";
+const char *short_opts = "hYlLQ:D:P:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
@@ -2091,6 +2256,11 @@ const struct option long_opts[] = {
     {"list-implicit-defines",
                          no_argument,       NULL, OPT_LIST_IMPLICIT_DEFINES},
     {"list-powerlosses", no_argument,       NULL, OPT_LIST_POWERLOSSES},
+    {"query-define",     required_argument, NULL, OPT_QUERY_DEFINE},
+    {"query-permutation-define",
+                         required_argument, NULL, OPT_QUERY_PERMUTATION_DEFINE},
+    {"query-implicit-define",
+                         required_argument, NULL, OPT_QUERY_IMPLICIT_DEFINE},
     {"define",           required_argument, NULL, OPT_DEFINE},
     {"define-depth",     required_argument, NULL, OPT_DEFINE_DEPTH},
     {"powerloss",        required_argument, NULL, OPT_POWERLOSS},
@@ -2121,6 +2291,9 @@ const char *const help_text[] = {
     "List explicit defines in this test-runner.",
     "List implicit defines in this test-runner.",
     "List the available powerloss scenarios.",
+    "Query a test define.",
+    "Query a permutation test define.",
+    "Query an implicit test define.",
     "Override a test define.",
     "How deep to evaluate recursive defines before erroring.",
     "Specify a powerloss scenario to test.",
@@ -2237,6 +2410,21 @@ int main(int argc, char **argv) {
 
         case OPT_LIST_POWERLOSSES:;
             op = list_powerlosses;
+            break;
+
+        case OPT_QUERY_DEFINE:;
+            op = query_define;
+            query_define_query = optarg;
+            break;
+
+        case OPT_QUERY_PERMUTATION_DEFINE:;
+            op = query_permutation_define;
+            query_define_query = optarg;
+            break;
+
+        case OPT_QUERY_IMPLICIT_DEFINE:;
+            op = query_implicit_define;
+            query_define_query = optarg;
             break;
 
         // configuration
