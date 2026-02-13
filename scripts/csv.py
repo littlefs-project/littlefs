@@ -673,9 +673,9 @@ class CsvExpr:
             return sum(1 for _ in self)
 
         def __repr__(self):
-            return '%s%s(%s)' % (
+            return '%s(%s%s)' % (
                     self.__class__.__name__,
-                    '[%s]' % (','.join(repr(k) for k in self.by))
+                    '%s;' % (','.join(repr(k) for k in self.by))
                         if self.by else '',
                     ','.join(repr(v) for v in self))
 
@@ -755,7 +755,6 @@ class CsvExpr:
                 by, args = None, by
             def func(f):
                 f._func = name
-                f._fby = by
                 f._fargs = args
                 funcs[f._func] = f
                 return f
@@ -972,7 +971,7 @@ class CsvExpr:
                 return CsvGStddev()([v.eval(fields, state) for v in self])
 
     # enumerate exprs
-    @func('enumerate', 'by', '')
+    @func('enumerate', '[by;]')
     class Enumerate(Expr):
         """A [per by] number incremented for each result"""
         def fields(self):
@@ -1000,7 +999,7 @@ class CsvExpr:
             state[k] = z
             return CsvInt(z)
 
-    @func('accumulate', 'by', 'a')
+    @func('accumulate', '[by;] a')
     class Accumulate(Expr):
         """A [per by] running sum across results"""
         def eval(self, fields={}, state=None):
@@ -1020,7 +1019,7 @@ class CsvExpr:
             state[k] = z
             return z
 
-    @func('delta', 'by', 'a')
+    @func('delta', '[by;] a')
     class Delta(Expr):
         """A [per by] difference between subsequent results"""
         def eval(self, fields={}, state=None):
@@ -1505,11 +1504,8 @@ class CsvExpr:
         print('funcs:')
         for func in cls.funcs.keys():
             print('  %-21s %s' % (
-                    '%s%s(%s)' % (
+                    '%s(%s)' % (
                         func,
-                        '[%s]' % CsvExpr.funcs[func]._fby
-                            if CsvExpr.funcs[func]._fby
-                            else '',
                         CsvExpr.funcs[func]._fargs),
                     CsvExpr.funcs[func].__doc__))
 
@@ -1539,29 +1535,11 @@ class CsvExpr:
             elif p.match('[_a-zA-Z][_a-zA-Z0-9]*'):
                 a = p.chomp()
 
-                by = None
-                if p.match('\['):
-                    p.chomp()
-                    if a not in CsvExpr.funcs:
-                        raise CsvExpr.Error("unknown function? %s" % a)
-                    by = []
-                    while True:
-                        if not p.match('\]'):
-                            b = p_expr(p)
-                            by.append(b)
-                            if p.match(','):
-                                p.chomp()
-                                continue
-                        if not p.match('\]'):
-                            raise CsvExpr.Error("mismatched squares? %s" % p)
-                        p.chomp()
-                        break
-
-                args = None
                 if p.match('\('):
                     p.chomp()
                     if a not in CsvExpr.funcs:
                         raise CsvExpr.Error("unknown function? %s" % a)
+                    by = None
                     args = []
                     while True:
                         if not p.match('\)'):
@@ -1570,15 +1548,15 @@ class CsvExpr:
                             if p.match(','):
                                 p.chomp()
                                 continue
+                            elif p.match(';'):
+                                by, args = args, []
+                                p.chomp()
+                                continue
                         if not p.match('\)'):
                             raise CsvExpr.Error("mismatched parens? %s" % p)
                         p.chomp()
+                        a = CsvExpr.funcs[a](*args, by=by)
                         break
-
-                if args is not None:
-                    a = CsvExpr.funcs[a](*args, by=by)
-                elif by is not None:
-                    raise CsvExpr.Error("expected parens? %s" % p)
                 else:
                     a = CsvExpr.Field(a)
 
