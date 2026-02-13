@@ -620,26 +620,14 @@ def table(Result, results, diff_results=None, *,
         small_header=False,
         no_total=False,
         small_total=False,
-        small_table=False,
         summary=False,
-        total=False,
         **_):
     import builtins
     all_, all = all, builtins.all
 
-    # small_table implies small_header + no_total or small_total
-    if small_table:
-        small_header = True
-        small_total = True
-        no_total = no_total or (not summary and not total)
     # summary implies small_header
     if summary:
         small_header = True
-    # total implies summary + no_header + small_total
-    if total:
-        summary = True
-        no_header = True
-        small_total = True
 
     if by is None:
         by = Result._by
@@ -1226,6 +1214,20 @@ if __name__ == "__main__":
             action='append',
             choices=StackResult._fields,
             help="Show this field.")
+    class AppendQuery(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.fields is None:
+                namespace.fields = []
+            namespace.fields.append(value)
+            namespace.summary = True
+            namespace.no_header = True
+            namespace.small_total = True
+    parser.add_argument(
+            '-Q', '--query',
+            action=AppendQuery,
+            choices=StackResult._fields,
+            help="Like -f/--field, but also implies --total. Useful for "
+                "scripting.")
     parser.add_argument(
             '-D', '--define',
             dest='defines',
@@ -1302,17 +1304,26 @@ if __name__ == "__main__":
             '--small-total',
             action='store_true',
             help="Don't show TOTAL name.")
+    class StoreSmallTable(argparse._StoreTrueAction):
+        def __call__(self, parser, namespace, value, option):
+            namespace.small_header = True
+            namespace.no_total = True
     parser.add_argument(
-            '-Q', '--small-table',
-            action='store_true',
-            help="Equivalent to --small-header + --no-total or --small-total.")
+            '--small-table',
+            action=StoreSmallTable,
+            help="Equivalent to --small-header + --no-total.")
     parser.add_argument(
             '-Y', '--summary',
             action='store_true',
             help="Only show the total.")
+    class StoreTotal(argparse._StoreTrueAction):
+        def __call__(self, parser, namespace, value, option):
+            namespace.summary = True
+            namespace.no_header = True
+            namespace.small_total = True
     parser.add_argument(
-            '-t', '--total',
-            action='store_true',
+            '--total',
+            action=StoreTotal,
             help="Equivalent to --summary + --no-header + --small-total. "
                 "Useful for scripting.")
     parser.add_argument(
