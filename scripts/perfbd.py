@@ -1644,10 +1644,14 @@ def main(**args):
 if __name__ == "__main__":
     import argparse
     import sys
+    import re
+    argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
+    argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
             description="Aggregate and report call-stack propagated "
                 "block-device operations from trace output.",
-            allow_abbrev=False)
+            allow_abbrev=False,
+            conflict_handler='ignore')
     class AppendPath(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if getattr(namespace, 'paths', None) is None:
@@ -1887,22 +1891,30 @@ if __name__ == "__main__":
             help="Show lines with erases above this threshold as a percent "
                 "of all lines. Defaults to "
                 "%s." % ','.join(str(t) for t in THRESHOLD))
-    parser.add_argument(
-            '-C', '--context',
-            type=lambda x: int(x, 0),
-            default=3,
-            help="Show n additional lines of context. Defaults to 3.")
-    parser.add_argument(
-            '-W', '--width',
-            type=lambda x: int(x, 0),
-            default=80,
-            help="Assume source is styled with this many columns. Defaults "
-                "to 80.")
-    parser.add_argument(
-            '--color',
-            choices=['never', 'always', 'auto'],
-            default='auto',
-            help="When to use terminal colors. Defaults to 'auto'.")
+    if any(re.fullmatch(
+            '-[^-]*[hAT].*'
+                '|--help'
+                '|--annotate'
+                '|--threshold'
+                '|--read-threshold'
+                '|--prog-threshold'
+                '|--erase-threshold', a) for a in sys.argv):
+        parser.add_argument(
+                '-C', '--context',
+                type=lambda x: int(x, 0),
+                default=3,
+                help="Show n additional lines of context. Defaults to 3.")
+        parser.add_argument(
+                '-W', '--width',
+                type=lambda x: int(x, 0),
+                default=80,
+                help="Assume source is styled with this many columns. "
+                    "Defaults to 80.")
+        parser.add_argument(
+                '--color',
+                choices=['never', 'always', 'auto'],
+                default='auto',
+                help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
             '-j', '--jobs',
             nargs='?',

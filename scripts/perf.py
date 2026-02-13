@@ -1871,22 +1871,27 @@ if __name__ == "__main__":
             help="Show lines with samples above this threshold as a percent "
                 "of all lines. Defaults to "
                 "%s." % ','.join(str(t) for t in THRESHOLD))
-    parser.add_argument(
-            '-C', '--context',
-            type=lambda x: int(x, 0),
-            default=3,
-            help="Show n additional lines of context. Defaults to 3.")
-    parser.add_argument(
-            '-W', '--width',
-            type=lambda x: int(x, 0),
-            default=80,
-            help="Assume source is styled with this many columns. Defaults "
-                "to 80.")
-    parser.add_argument(
-            '--color',
-            choices=['never', 'always', 'auto'],
-            default='auto',
-            help="When to use terminal colors. Defaults to 'auto'.")
+    if any(re.fullmatch(
+            '-[^-]*[hAT].*'
+                '|--help'
+                '|--annotate'
+                '|--threshold', a) for a in sys.argv):
+        parser.add_argument(
+                '-C', '--context',
+                type=lambda x: int(x, 0),
+                default=3,
+                help="Show n additional lines of context. Defaults to 3.")
+        parser.add_argument(
+                '-W', '--width',
+                type=lambda x: int(x, 0),
+                default=80,
+                help="Assume source is styled with this many columns. "
+                    "Defaults to 80.")
+        parser.add_argument(
+                '--color',
+                choices=['never', 'always', 'auto'],
+                default='auto',
+                help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
             '-j', '--jobs',
             nargs='?',

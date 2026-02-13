@@ -1100,9 +1100,13 @@ def main(gcda_paths, *,
 if __name__ == "__main__":
     import argparse
     import sys
+    import re
+    argparse.ArgumentParser._handle_conflict_ignore = lambda *_: None
+    argparse._ArgumentGroup._handle_conflict_ignore = lambda *_: None
     parser = argparse.ArgumentParser(
             description="Find coverage info after running tests.",
-            allow_abbrev=False)
+            allow_abbrev=False,
+            conflict_handler='ignore')
     parser.add_argument(
             'gcda_paths',
             nargs='*',
@@ -1274,22 +1278,28 @@ if __name__ == "__main__":
             '-B', '--branches',
             action='store_true',
             help="Show uncovered branches.")
-    parser.add_argument(
-            '-C', '--context',
-            type=lambda x: int(x, 0),
-            default=3,
-            help="Show n additional lines of context. Defaults to 3.")
-    parser.add_argument(
-            '-W', '--width',
-            type=lambda x: int(x, 0),
-            default=80,
-            help="Assume source is styled with this many columns. Defaults "
-                "to 80.")
-    parser.add_argument(
-            '--color',
-            choices=['never', 'always', 'auto'],
-            default='auto',
-            help="When to use terminal colors. Defaults to 'auto'.")
+    if any(re.fullmatch(
+            '-[^-]*[hALB].*'
+                '|--help'
+                '|--annotate'
+                '|--lines'
+                '|--branches', a) for a in sys.argv):
+        parser.add_argument(
+                '-C', '--context',
+                type=lambda x: int(x, 0),
+                default=3,
+                help="Show n additional lines of context. Defaults to 3.")
+        parser.add_argument(
+                '-W', '--width',
+                type=lambda x: int(x, 0),
+                default=80,
+                help="Assume source is styled with this many columns. "
+                    "Defaults to 80.")
+        parser.add_argument(
+                '--color',
+                choices=['never', 'always', 'auto'],
+                default='auto',
+                help="When to use terminal colors. Defaults to 'auto'.")
     parser.add_argument(
             '-e', '--error-on-lines',
             action='store_true',
