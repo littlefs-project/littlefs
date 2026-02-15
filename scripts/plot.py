@@ -2135,14 +2135,16 @@ if __name__ == "__main__":
             nargs='?',
             type=lambda x: int(x, 0),
             const=0,
-            help="Width in columns. <=0 uses the terminal width. Defaults "
+            help="Width in columns. <=0 uses the terminal width. In subplots "
+                "this instead expresses a ratio of the current grid. Defaults "
                 "to min(terminal, 80).")
     parser.add_argument(
             '-H', '--height',
             nargs='?',
             type=lambda x: int(x, 0),
             const=..., # handles shell prompt spacing, which is a bit subtle
-            help="Height in rows. <=0 uses the terminal height. Defaults "
+            help="Height in rows. <=0 uses the terminal height. In subplots "
+                "this instead expresses a ratio of the current grid. Defaults "
                 "to 17.")
     parser.add_argument(
             '-X', '--xlim',

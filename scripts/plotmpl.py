@@ -850,6 +850,10 @@ def main(csv_paths, output, *,
         points_and_lines=False,
         width=WIDTH,
         height=HEIGHT,
+        wpad=None,
+        hpad=None,
+        wspace=None,
+        hspace=None,
         xlim=(None,None),
         ylim=(None,None),
         xlim_stddev=(None,None),
@@ -1064,6 +1068,11 @@ def main(csv_paths, output, *,
             layout='constrained',
             # we need a linewidth to keep xkcd mode happy
             linewidth=8 if xkcd else 0)
+    fig.get_layout_engine().set(
+            w_pad=wpad/72 if wpad is not None else None,
+            h_pad=hpad/72 if hpad is not None else None,
+            wspace=wspace if wspace is not None else 0,
+            hspace=hspace if hspace is not None else 0)
 
     gs = fig.add_gridspec(
             grid.height
@@ -1560,11 +1569,33 @@ if __name__ == "__main__":
     parser.add_argument(
             '-W', '--width',
             type=lambda x: int(x, 0),
-            help="Width in pixels. Defaults to %r." % WIDTH)
+            help="Width in pixels. In subplots this instead expresses a "
+                "ratio of the current grid. Defaults to %r." % WIDTH)
     parser.add_argument(
             '-H', '--height',
             type=lambda x: int(x, 0),
-            help="Height in pixels. Defaults to %r." % HEIGHT)
+            help="Height in pixels. In subplots this instead expresses a "
+                "ratio of the current grid. Defaults to %r." % HEIGHT)
+    parser.add_argument(
+            '--wpad',
+            type=float,
+            help="Width padding in pt. Defaults to %r." % (
+                72*plt.rcParams["figure.constrained_layout.w_pad"])),
+    parser.add_argument(
+            '--hpad',
+            type=float,
+            help="Height padding in pt. Defaults to %r." % (
+                72*plt.rcParams["figure.constrained_layout.h_pad"])),
+    parser.add_argument(
+            '--wspace',
+            type=float,
+            help="Width spacing between plots as a ratio of the grid. "
+                "Defaults to %r." % 0)
+    parser.add_argument(
+            '--hspace',
+            type=float,
+            help="Height spacing between plots as a ratio of the grid. "
+                "Defaults to %r." % 0)
     parser.add_argument(
             '-X', '--xlim',
             type=lambda x: tuple(
