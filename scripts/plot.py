@@ -1811,7 +1811,8 @@ def main_(ring, csv_paths, *,
                         for line in ylabel_)
                 if ylabel_ else '')
 
-        for x_ in range(grid.width):
+        x_ = 0
+        while x_ < grid.width:
             # figure out the grid x/y position
             subrow = row
             y_ = len(heights)-1
@@ -1821,6 +1822,7 @@ def main_(ring, csv_paths, *,
 
             s = grid[x_, y_]
             subrow = row - sum(heights[s.y+s.yspan:])
+            x_ += s.xspan
 
             # header
             if subrow < s.ymargin[-1]:
