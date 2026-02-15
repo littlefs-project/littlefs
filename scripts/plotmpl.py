@@ -820,14 +820,20 @@ class Grid:
             **args):
         grid = cls(Subplot(**args))
 
+        wcount = 1
+        hcount = 1
         for dir, subargs in subplots:
             subgrid = cls.fromargs(
                     width=subargs.pop('width',
-                        0.5 if dir in ['right', 'left'] else width),
+                        width/(wcount+1) if dir in ['right', 'left']
+                            else width),
                     height=subargs.pop('height',
-                        0.5 if dir in ['above', 'below'] else height),
+                        height/(hcount+1) if dir in ['above', 'below']
+                            else height),
                     **subargs)
             grid.merge(subgrid, dir)
+            wcount += 1 if dir in ['right', 'left'] else 0
+            hcount += 1 if dir in ['above', 'below'] else 0
 
         grid.scale(width, height)
         return grid
