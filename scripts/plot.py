@@ -1332,7 +1332,7 @@ def main_(ring, csv_paths, *,
 
     # subplot can also contribute to subplots, resolve this here or things
     # become a mess...
-    subplots += subplot.pop('subplots', [])
+    subplots = subplot.pop('subplots', []) + subplots
 
     # allow any subplots to contribute to by/x/y
     def subplots_get(k, *, subplots=[], **args):
