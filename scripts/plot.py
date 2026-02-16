@@ -1531,7 +1531,10 @@ def main_(ring, csv_paths, *,
                         if name in datalabels_
                         else ','.join(name))
 
-            if label:
+            # append and merge identical labels
+            if not label:
+                continue
+            if (label, datacolors_[name]) not in legend_:
                 legend_.append((label, datacolors_[name]))
                 legend_width = max(legend_width, len(label)+1)
 

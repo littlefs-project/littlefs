@@ -1334,14 +1334,26 @@ def main(csv_paths, output, *,
             legend[l] = h
     # sort in dataset order
     legend_ = []
+    legend__ = set()
     for i, name in enumerate(datasets_.keys()):
+        if name in datalabels_ and not datalabels_[name]:
+            continue
+
         name_ = ','.join(name)
-        if name_ in legend:
-            if name in datalabels_:
-                if datalabels_[name]:
-                    legend_.append((datalabels_[name], legend[name_]))
-            else:
-                legend_.append((name_, legend[name_]))
+        if name_ not in legend:
+            continue
+
+        if name in datalabels_:
+            label = datalabels_[name]
+        else:
+            label = name_
+
+        # append and merge identical labels
+        if not label:
+            continue
+        if (label, datacolors_[name], dataformats_[name]) not in legend__:
+            legend_.append((label, legend[name_]))
+            legend__.add((label, datacolors_[name], dataformats_[name]))
     legend = legend_
 
     if legend_right:
