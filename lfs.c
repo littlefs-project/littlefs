@@ -4374,11 +4374,11 @@ static int lfs_deinit(lfs_t *lfs) {
     if (!lfs->cfg->read_buffer) {
         lfs_free(lfs->rcache.buffer);
     }
-
+#ifndef LFS_READONLY
     if (!lfs->cfg->prog_buffer) {
         lfs_free(lfs->pcache.buffer);
     }
-
+#endif	//ndef LFS_READONLY
     if (!lfs->cfg->lookahead_buffer) {
         lfs_free(lfs->lookahead.buffer);
     }
