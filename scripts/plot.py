@@ -646,10 +646,10 @@ def punescape(s, attrs=None, start=None, end=None, submatch=None):
                 '|' 'u....'
                 '|' 'U........'
                 '|' '\((?P<field>[^)]*)\)'
-                    '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])'
+                    '(?P<format>[<^>+\- #0-9\.]*[siIdboxXfFeEgG])'
                 '|' '\{'
                 '|' '\}'
-                    '(?P<subformat>[+\- #0-9\.]*[siIdboxXfFeEgG])' ')')
+                    '(?P<subformat>[<^>+\- #0-9\.]*[siIdboxXfFeEgG])' ')')
 
     def format(f, v):
         if f[-1] in 'dboxX':
@@ -665,10 +665,14 @@ def punescape(s, attrs=None, start=None, end=None, submatch=None):
                 f = f.replace('i', 's').replace('I', 's')
                 if '+' in f and not v.startswith('-'):
                     v = '+'+v
-                f = f.replace('+', '').replace('-', '')
+                f = f.replace('+', '')
         else:
-            f = ('<' if '-' in f else '>') + f.replace('-', '')
             v = str(v)
+
+        if '-' in f:
+            f = '<' + f.replace('-', '')
+        elif not any(d in f for d in '<^>'):
+            f = '>' + f
         # note we need Python's new format syntax for binary
         return ('{:%s}' % f).format(v)
 
@@ -735,10 +739,10 @@ def psplit(s, start=None, end=None, submatch=None):
                 '|' 'u....'
                 '|' 'U........'
                 '|' '\((?P<field>[^)]*)\)'
-                    '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])'
+                    '(?P<format>[<^>+\- #0-9\.]*[siIdboxXfFeEgG])'
                 '|' '\{'
                 '|' '\}'
-                    '(?P<subformat>[+\- #0-9\.]*[siIdboxXfFeEgG])' ')')
+                    '(?P<subformat>[<^>+\- #0-9\.]*[siIdboxXfFeEgG])' ')')
 
     s_ = []
     i = start or 0
