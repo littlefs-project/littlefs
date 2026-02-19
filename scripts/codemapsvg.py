@@ -336,19 +336,45 @@ def si2(x):
 # attrs can override __getitem__ for lazy attr generation
 def punescape(s, attrs=None):
     pattern = re.compile(
-        '%[%n]'
-            '|' '%x..'
-            '|' '%u....'
-            '|' '%U........'
-            '|' '%\((?P<field>[^)]*)\)'
-                '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])')
+        '%' '(?P<rep>[0-9]*)' '(?P<pun>'
+            '[%ns]'
+                '|' 'x..'
+                '|' 'u....'
+                '|' 'U........'
+                '|' '\((?P<field>[^)]*)\)'
+                    '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])'
+                '|' '\{(?P<substring>(?:[^%]|%[^}])*)%\}'
+                    '(?P<subformat>[+\- #0-9\.]*[siIdboxXfFeEgG])' ')')
+
+    def format(f, v):
+        if f[-1] in 'dboxX':
+            if isinstance(v, str):
+                v = dat(v, 0)
+            v = int(v)
+        elif f[-1] in 'iIfFeEgG':
+            if isinstance(v, str):
+                v = dat(v, 0)
+            v = float(v)
+            if f[-1] in 'iI':
+                v = (si if 'i' in f[-1] else si2)(v)
+                f = f.replace('i', 's').replace('I', 's')
+                if '+' in f and not v.startswith('-'):
+                    v = '+'+v
+                f = f.replace('+', '').replace('-', '')
+        else:
+            f = ('<' if '-' in f else '>') + f.replace('-', '')
+            v = str(v)
+        # note we need Python's new format syntax for binary
+        return ('{:%s}' % f).format(v)
+
     def unescape(m):
-        if m.group()[1] == '%': return '%'
-        elif m.group()[1] == 'n': return '\n'
-        elif m.group()[1] == 'x': return chr(int(m.group()[2:], 16))
-        elif m.group()[1] == 'u': return chr(int(m.group()[2:], 16))
-        elif m.group()[1] == 'U': return chr(int(m.group()[2:], 16))
-        elif m.group()[1] == '(':
+        if m.group('pun')[0] == '%':    s = '%'
+        elif m.group('pun')[0] == 'n':  s = '\n'
+        elif m.group('pun')[0] == 's':  s = ' '
+        elif m.group('pun')[0] == 'x':  s = chr(int(m.group('pun')[1:], 16))
+        elif m.group('pun')[0] == 'u':  s = chr(int(m.group('pun')[1:], 16))
+        elif m.group('pun')[0] == 'U':  s = chr(int(m.group('pun')[1:], 16))
+        elif m.group('pun')[0] == '(':
             if attrs is not None:
                 try:
                     v = attrs[m.group('field')]
@@ -356,27 +382,17 @@ def punescape(s, attrs=None):
                     return m.group()
             else:
                 return m.group()
-            f = m.group('format')
-            if f[-1] in 'dboxX':
-                if isinstance(v, str):
-                    v = dat(v, 0)
-                v = int(v)
-            elif f[-1] in 'iIfFeEgG':
-                if isinstance(v, str):
-                    v = dat(v, 0)
-                v = float(v)
-                if f[-1] in 'iI':
-                    v = (si if 'i' in f[-1] else si2)(v)
-                    f = f.replace('i', 's').replace('I', 's')
-                    if '+' in f and not v.startswith('-'):
-                        v = '+'+v
-                    f = f.replace('+', '').replace('-', '')
-            else:
-                f = ('<' if '-' in f else '>') + f.replace('-', '')
-                v = str(v)
-            # note we need Python's new format syntax for binary
-            return ('{:%s}' % f).format(v)
-        else: assert False
+            s = format(m.group('format'), v)
+        elif m.group('pun')[0] == '{':
+            v = punescape(m.group('substring'), attrs)
+            s = format(m.group('subformat'), v)
+        else:
+            return m.group()
+
+        if m.group('rep'):
+            s = int(m.group('rep'), 10) * s
+
+        return s
 
     return re.sub(pattern, unescape, s)
 
