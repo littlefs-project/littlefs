@@ -4205,7 +4205,7 @@ def si2(x):
 # parse %-escaped strings
 #
 # attrs can override __getitem__ for lazy attr generation
-def punescape(s, attrs=None):
+def punescape(s, attrs=None, start=None, end=None, submatch=None):
     pattern = re.compile(
         '%' '(?P<rep>[0-9]*)' '(?P<pun>'
             '[%ns]'
@@ -4214,7 +4214,8 @@ def punescape(s, attrs=None):
                 '|' 'U........'
                 '|' '\((?P<field>[^)]*)\)'
                     '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])'
-                '|' '\{(?P<substring>(?:[^%]|%[^}])*)%\}'
+                '|' '\{'
+                '|' '\}'
                     '(?P<subformat>[+\- #0-9\.]*[siIdboxXfFeEgG])' ')')
 
     def format(f, v):
@@ -4238,37 +4239,62 @@ def punescape(s, attrs=None):
         # note we need Python's new format syntax for binary
         return ('{:%s}' % f).format(v)
 
-    def unescape(m):
-        if m.group('pun')[0] == '%':    s = '%'
-        elif m.group('pun')[0] == 'n':  s = '\n'
-        elif m.group('pun')[0] == 's':  s = ' '
-        elif m.group('pun')[0] == 'x':  s = chr(int(m.group('pun')[1:], 16))
-        elif m.group('pun')[0] == 'u':  s = chr(int(m.group('pun')[1:], 16))
-        elif m.group('pun')[0] == 'U':  s = chr(int(m.group('pun')[1:], 16))
-        elif m.group('pun')[0] == '(':
-            if attrs is not None:
-                try:
-                    v = attrs[m.group('field')]
-                except KeyError:
-                    return m.group()
+    s_ = []
+    i = start or 0
+    while i < (end if end is not None else len(s)):
+        m = pattern.match(s, i)
+        if m:
+            m_ = m.group('pun')[0]
+            i_ = m.end()
+            if m_ == '%':   v_ = '%'
+            elif m_ == 'n': v_ = '\n'
+            elif m_ == 's': v_ = ' '
+            elif m_ == 'x': v_ = chr(int(m.group('pun')[1:], 16))
+            elif m_ == 'u': v_ = chr(int(m.group('pun')[1:], 16))
+            elif m_ == 'U': v_ = chr(int(m.group('pun')[1:], 16))
+            elif m_ == '(':
+                if attrs is not None:
+                    try:
+                        v = attrs[m.group('field')]
+                    except KeyError:
+                        s_.append(m.group())
+                        i = i_
+                        continue
+                else:
+                    s_.append(m.group())
+                    i = i_
+                    continue
+                v_ = format(m.group('format'), v)
+            elif m_ == '{':
+                m__ = []
+                v = punescape(s, attrs, m.end(), None, m__)
+                if m__:
+                    v_ = format(m__[0].group('subformat'), v)
+                    i_ = m__[0].end()
+                else:
+                    v_ = str(v)
+                    i_ = end if end is not None else len(s)
+            elif m_ == '}':
+                if submatch is not None:
+                    submatch.append(m)
+                break
             else:
-                return m.group()
-            s = format(m.group('format'), v)
-        elif m.group('pun')[0] == '{':
-            v = punescape(m.group('substring'), attrs)
-            s = format(m.group('subformat'), v)
+                s_.append(m.group())
+                i = i_
+                continue
+
+            if m.group('rep'):
+                v_ = int(m.group('rep'), 10) * v_
+            s_.append(v_)
+            i = i_
         else:
-            return m.group()
+            s_.append(s[i])
+            i += 1
 
-        if m.group('rep'):
-            s = int(m.group('rep'), 10) * s
-
-        return s
-
-    return re.sub(pattern, unescape, s)
+    return ''.join(s_)
 
 # split %-escaped strings into chars
-def psplit(s):
+def psplit(s, start=None, end=None, submatch=None):
     pattern = re.compile(
         '%' '(?P<rep>[0-9]*)' '(?P<pun>'
             '[%ns]'
@@ -4277,10 +4303,39 @@ def psplit(s):
                 '|' 'U........'
                 '|' '\((?P<field>[^)]*)\)'
                     '(?P<format>[+\- #0-9\.]*[siIdboxXfFeEgG])'
-                '|' '\{(?P<substring>(?:[^%]|%[^}])*)%\}'
+                '|' '\{'
+                '|' '\}'
                     '(?P<subformat>[+\- #0-9\.]*[siIdboxXfFeEgG])' ')')
 
-    return [m.group() for m in re.finditer(pattern.pattern + '|.', s)]
+    s_ = []
+    i = start or 0
+    while i < (end if end is not None else len(s)):
+        m = pattern.match(s, i)
+        if m:
+            m_ = m.group('pun')[0]
+            i_ = m.end()
+            if m_ == '{':
+                m__ = []
+                v = psplit(s, m.end(), None, m__)
+                if m__:
+                    s_.append(m.group() + ''.join(v))
+                    i = m__[0].end()
+                else:
+                    s_.append(m.group() + ''.join(v))
+                    i = end if end is not None else len(s)
+                continue
+            elif m_ == '}':
+                if submatch is not None:
+                    submatch.append(m)
+                break
+
+            s_.append(m.group())
+            i = i_
+        else:
+            s_.append(s[i])
+            i += 1
+
+    return s_
 
 
 # a little ascii renderer
