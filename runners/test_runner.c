@@ -2084,9 +2084,9 @@ const test_powerloss_t test_builtin_powerlosses[] = {
     {"log",             run_powerloss_log,          NULL, 0},
     {"permute(n)",      run_powerloss_exhaustive,   NULL, 1},
     {"exhaustive",      run_powerloss_exhaustive,   NULL, 0},
-    {"list(1,2,3)",     run_powerloss_list,         NULL, SIZE_MAX},
     {"range(a,b,s)",    run_powerloss_linear,       NULL, 3},
     {"logrange(a,b,s)", run_powerloss_log,          NULL, 3},
+    {"[1,2,3]",         NULL,                       NULL, SIZE_MAX},
     {":1248g1",         NULL,                       NULL, SIZE_MAX},
     #endif
     {NULL, NULL, NULL, 0},
@@ -2099,10 +2099,10 @@ const char *const test_builtin_powerlosses_help[] = {
     "Run with exponentially-decreasing powerlosses.",
     "Run all permutations of n powerlosses.",
     "Run all powerloss permutations, this may take a while.",
+    "Run a range of powerlosses.",
+    "Run a range of 2^n powerlosses.",
     "Run explicit list of powerlosses.",
-    "Run explicit range of powerlosses.",
-    "Run explicit range of 2^n powerlosses.",
-    "Run custom leb16-encoded set of powerlosses.",
+    "Run leb16-encoded list of powerlosses.",
     #endif
 };
 
@@ -2634,6 +2634,50 @@ int main(int argc, char **argv) {
                             &cycle_capacity) = x;
                     optarg = parsed;
                 }
+
+                powerloss->cycles = cycles;
+                powerloss->cycle_count = cycle_count;
+                break;
+            }
+            #endif
+
+            // list of power cycles?
+            #ifndef TEST_KIWIBD
+            if (*optarg == '[') {
+                optarg += 1;
+                powerloss->name = "list";
+                powerloss->run = run_powerloss_list;
+                powerloss->cycles = NULL;
+                powerloss->cycle_count = 0;
+
+                // parse comma-separated power cycles
+                test_spowercycles_t *cycles = NULL;
+                size_t cycle_count = 0;
+                size_t cycle_capacity = 0;
+
+                while (true) {
+                    parsed = NULL;
+                    *(test_spowercycles_t*)mappend(
+                            (void**)&cycles,
+                            sizeof(test_spowercycles_t),
+                            &cycle_count,
+                            &cycle_capacity)
+                            = strtoumax(optarg, &parsed, 0);
+                    if (parsed == optarg) {
+                        goto invalid_powerloss;
+                    }
+                    optarg = parsed + strspn(parsed, " ");
+
+                    if (*optarg != ',') {
+                        break;
+                    }
+                    optarg += 1;
+                }
+
+                if (*optarg != ']') {
+                    goto invalid_powerloss;
+                }
+                optarg += 1;
 
                 powerloss->cycles = cycles;
                 powerloss->cycle_count = cycle_count;
