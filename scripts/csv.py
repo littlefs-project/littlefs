@@ -1892,9 +1892,6 @@ def collect_csv(csv_paths, *,
                                 for k, v in r.items()
                                 if k != notes
                                     and v.strip()}
-                        # special handling for notes field
-                        if notes is not None and notes in r:
-                            r_[notes] = set(r[notes].split(','))
                         results.append(r_)
 
                 # read json?
@@ -2338,7 +2335,7 @@ def table(Result, results, diff_results=None, *,
     # header
     if not no_header:
         header = ['%s%s' % (
-                    ','.join((hlabel(k) if hlabel is not None else k)
+                    ','.join((hlabel('',k) if hlabel is not None else k)
                         for k in by if hidden is None or k not in hidden),
                     ' (%d added, %d removed)' % (
                             sum(1 for n in table if n not in diff_table),
@@ -2350,18 +2347,18 @@ def table(Result, results, diff_results=None, *,
                 if not small_header else '']
         if diff_results is None or percent_diff:
             for k in fields:
-                header.append(hlabel(k) if hlabel is not None else k)
+                header.append(hlabel('',k) if hlabel is not None else k)
         elif small_diff:
             for k in fields:
-                header.append('o'+(hlabel(k) if hlabel is not None else k))
-                header.append('n'+(hlabel(k) if hlabel is not None else k))
+                header.append((hlabel('o',k) if hlabel is not None else 'o'+k))
+                header.append((hlabel('n',k) if hlabel is not None else 'n'+k))
         else:
             for k in fields:
-                header.append('o'+(hlabel(k) if hlabel is not None else k))
+                header.append((hlabel('o',k) if hlabel is not None else 'o'+k))
             for k in fields:
-                header.append('n'+(hlabel(k) if hlabel is not None else k))
+                header.append((hlabel('n',k) if hlabel is not None else 'n'+k))
             for k in fields:
-                header.append('d'+(hlabel(k) if hlabel is not None else k))
+                header.append((hlabel('d',k) if hlabel is not None else 'd'+k))
         lines.append(header)
 
     # delete these to try to catch typos below, we need to rebuild
@@ -3227,8 +3224,10 @@ def main(csv_paths, *,
                 hidden=hidden,
                 sort=sort,
                 depth=depth,
-                hlabel=(lambda hlabels_: (lambda k:
-                            punescape(hlabels_[k]) if k in hlabels_ else k)
+                hlabel=(lambda hlabels_: (lambda p,k:
+                            punescape(hlabels_[p+k]) if p+k in hlabels_
+                                else p+punescape(hlabels_[k]) if k in hlabels_
+                                else p+k)
                         )(dict(hlabels))
                     if hlabels else None,
                 tlabel=(lambda r: punescape(tlabel, PunescapeGetattr(r)))

@@ -661,7 +661,7 @@ def table(Result, results, diff_results=None, *,
     # header
     if not no_header:
         header = ['%s%s' % (
-                    ','.join((hlabel(k) if hlabel is not None else k)
+                    ','.join((hlabel('',k) if hlabel is not None else k)
                         for k in by if hidden is None or k not in hidden),
                     ' (%d added, %d removed)' % (
                             sum(1 for n in table if n not in diff_table),
@@ -673,18 +673,18 @@ def table(Result, results, diff_results=None, *,
                 if not small_header else '']
         if diff_results is None or percent_diff:
             for k in fields:
-                header.append(hlabel(k) if hlabel is not None else k)
+                header.append(hlabel('',k) if hlabel is not None else k)
         elif small_diff:
             for k in fields:
-                header.append('o'+(hlabel(k) if hlabel is not None else k))
-                header.append('n'+(hlabel(k) if hlabel is not None else k))
+                header.append((hlabel('o',k) if hlabel is not None else 'o'+k))
+                header.append((hlabel('n',k) if hlabel is not None else 'n'+k))
         else:
             for k in fields:
-                header.append('o'+(hlabel(k) if hlabel is not None else k))
+                header.append((hlabel('o',k) if hlabel is not None else 'o'+k))
             for k in fields:
-                header.append('n'+(hlabel(k) if hlabel is not None else k))
+                header.append((hlabel('n',k) if hlabel is not None else 'n'+k))
             for k in fields:
-                header.append('d'+(hlabel(k) if hlabel is not None else k))
+                header.append((hlabel('d',k) if hlabel is not None else 'd'+k))
         lines.append(header)
 
     # delete these to try to catch typos below, we need to rebuild
