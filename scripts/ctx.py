@@ -870,7 +870,8 @@ def table(Result, results, diff_results=None, *,
         sort=None,
         depth=1,
         hot=None,
-        percent=False,
+        small_diff=False,
+        percent_diff=False,
         all=False,
         compare=None,
         hlabel=None,
@@ -924,11 +925,18 @@ def table(Result, results, diff_results=None, *,
                     ' (%d added, %d removed)' % (
                             sum(1 for n in table if n not in diff_table),
                             sum(1 for n in diff_table if n not in table))
-                        if diff_results is not None and not percent else '')
+                        if diff_results is not None
+                            and not percent_diff
+                            and not small_diff
+                            else '')
                 if not small_header else '']
-        if diff_results is None or percent:
+        if diff_results is None or percent_diff:
             for k in fields:
                 header.append(hlabel(k) if hlabel is not None else k)
+        elif small_diff:
+            for k in fields:
+                header.append('o'+(hlabel(k) if hlabel is not None else k))
+                header.append('n'+(hlabel(k) if hlabel is not None else k))
         else:
             for k in fields:
                 header.append('o'+(hlabel(k) if hlabel is not None else k))
@@ -970,8 +978,8 @@ def table(Result, results, diff_results=None, *,
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(compare_r, k, None)))))
-        # percent entry?
-        elif percent:
+        # percent diff entry?
+        elif percent_diff:
             for k in fields:
                 entry.append(
                         (getattr(r, k).table()
@@ -980,6 +988,23 @@ def table(Result, results, diff_results=None, *,
                             (lambda t: ['+∞%'] if t == +mt.inf
                                     else ['-∞%'] if t == -mt.inf
                                     else ['%+.1f%%' % (100*t)])(
+                                types[k].ratio(
+                                    getattr(r, k, None),
+                                    getattr(diff_r, k, None)))))
+        # small diff entry?
+        elif small_diff:
+            for k in fields:
+                entry.append(getattr(diff_r, k).table()
+                        if getattr(diff_r, k, None) is not None
+                        else types[k].none)
+                entry.append(
+                        (getattr(r, k).table()
+                                if getattr(r, k, None) is not None
+                                else types[k].none,
+                            (lambda t: ['+∞%'] if t == +mt.inf
+                                    else ['-∞%'] if t == -mt.inf
+                                    else ['%+.1f%%' % (100*t)] if t
+                                    else [])(
                                 types[k].ratio(
                                     getattr(r, k, None),
                                     getattr(diff_r, k, None)))))
@@ -1444,22 +1469,26 @@ if __name__ == "__main__":
     parser.add_argument(
             '-d', '--diff',
             help="Specify CSV/JSON file to diff against.")
+    parser.add_argument(
+            '--small-diff',
+            action='store_true',
+            help="Don't show diff delta.")
     # need a special Action here because this % causes problems
-    class StoreTruePercent(argparse._StoreTrueAction):
+    class StoreTruePercentDiff(argparse._StoreTrueAction):
         def format_usage(self):
             return '-%%'
     parser.add_argument(
-            '-%', '--percent',
-            action=StoreTruePercent,
+            '-%', '--percent-diff',
+            action=StoreTruePercentDiff,
             help="Only show percentage change, not a full diff.")
-    parser.add_argument(
-            '-C', '--compare',
-            type=lambda x: tuple(v.strip() for v in x.split(',')),
-            help="Compare results to the row matching this by pattern.")
     parser.add_argument(
             '-a', '--all',
             action='store_true',
             help="Show all, not just the ones that changed.")
+    parser.add_argument(
+            '-C', '--compare',
+            type=lambda x: tuple(v.strip() for v in x.split(',')),
+            help="Compare results to the row matching this by pattern.")
     parser.add_argument(
             '-b', '--by',
             action='append',
