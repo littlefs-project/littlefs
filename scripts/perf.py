@@ -1295,10 +1295,10 @@ def read_csv(path, Result, *,
 
     with openio(path, 'r') as f:
         # csv or json? assume json starts with [
-        is_json = (f.buffer.peek(1)[:1] == b'[')
+        json = (f.buffer.peek(1)[:1] == b'[')
 
         # read csv?
-        if not is_json:
+        if not json:
             results = []
             reader = csv.DictReader(f, restval='')
             for r in reader:
@@ -1313,7 +1313,13 @@ def read_csv(path, Result, *,
                                         and r[k].strip()}
                                 | {k: r[prefix+k] for k in fields
                                     if prefix+k in r
-                                        and r[prefix+k].strip()})))
+                                        and r[prefix+k].strip()}
+                                | ({Result._notes: set(n.strip()
+                                        for n in r[Result._notes].split(',')
+                                        if n.strip())}
+                                    if hasattr(Result, '_notes')
+                                        and Result._notes in r
+                                    else {}))))
                 except TypeError:
                     pass
             return results
@@ -1379,7 +1385,9 @@ def write_csv(path, Result, results, *,
             writer = csv.DictWriter(f, list(
                     co.OrderedDict.fromkeys(it.chain(
                         by,
-                        (prefix+k for k in fields))).keys()))
+                        (prefix+k for k in fields),
+                        [Result._notes] if hasattr(Result, '_notes')
+                            else [])).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
@@ -1389,7 +1397,12 @@ def write_csv(path, Result, results, *,
                                 if getattr(r, k) is not None}
                             | {prefix+k: getattr(r, k).__csv__()
                                 for k in fields
-                                if getattr(r, k) is not None})
+                                if getattr(r, k) is not None}
+                            | ({Result._notes: ','.join(
+                                    getattr(r, Result._notes))}
+                                if hasattr(Result, '_notes')
+                                    and getattr(r, Result._notes)
+                                else {}))
 
         # write json?
         else:

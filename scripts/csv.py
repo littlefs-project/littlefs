@@ -1894,7 +1894,9 @@ def collect_csv(csv_paths, *,
                                     and v.strip()}
                         # special handling for notes field
                         if notes is not None and notes in r:
-                            r_[notes] = set(r[notes].split(','))
+                            r_[notes] = set(n.strip()
+                                    for n in r[notes].split(',')
+                                    if n.strip())
                         results.append(r_)
 
                 # read json?
@@ -2632,7 +2634,13 @@ def read_csv(path, Result, *,
                                         and r[k].strip()}
                                 | {k: r[prefix+k] for k in fields
                                     if prefix+k in r
-                                        and r[prefix+k].strip()})))
+                                        and r[prefix+k].strip()}
+                                | ({Result._notes: set(n.strip()
+                                        for n in r[Result._notes].split(',')
+                                        if n.strip())}
+                                    if hasattr(Result, '_notes')
+                                        and Result._notes in r
+                                    else {}))))
                 except TypeError:
                     pass
             return results
@@ -2698,7 +2706,9 @@ def write_csv(path, Result, results, *,
             writer = csv.DictWriter(f, list(
                     co.OrderedDict.fromkeys(it.chain(
                         by,
-                        (prefix+k for k in fields))).keys()))
+                        (prefix+k for k in fields),
+                        [Result._notes] if hasattr(Result, '_notes')
+                            else [])).keys()))
             writer.writeheader()
             for r in results:
                 # note this allows by/fields to overlap
@@ -2708,7 +2718,12 @@ def write_csv(path, Result, results, *,
                                 if getattr(r, k) is not None}
                             | {prefix+k: getattr(r, k).__csv__()
                                 for k in fields
-                                if getattr(r, k) is not None})
+                                if getattr(r, k) is not None}
+                            | ({Result._notes: ','.join(
+                                    getattr(r, Result._notes))}
+                                if hasattr(Result, '_notes')
+                                    and getattr(r, Result._notes)
+                                else {}))
 
         # write json?
         else:
