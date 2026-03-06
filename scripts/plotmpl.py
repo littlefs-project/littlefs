@@ -894,6 +894,7 @@ def main(csv_paths, output, *,
         y=None,
         defines=[],
         undefines=[],
+        ignores=[],
         sort=None,
         labels=[],
         colors=[],
@@ -1153,6 +1154,7 @@ def main(csv_paths, output, *,
         y_ = set((y or []) + s.args.get('y', []))
         defines_ = defines + s.args.get('defines', [])
         undefines_ = undefines + s.args.get('undefines', [])
+        ignores_ = ignores + s.args.get('ignores', [])
         xlim_ = s.args.get('xlim', xlim)
         ylim_ = s.args.get('ylim', ylim)
         xlim_stddev_ = s.args.get('xlim_stddev', xlim_stddev)
@@ -1233,11 +1235,17 @@ def main(csv_paths, output, *,
             ax.yaxis.set_minor_locator(mpl.ticker.NullLocator())
         # axes limits
         x__ = (lambda: it.chain([0], (x
-                for dataset in subdatasets.values()
+                for name, dataset in subdatasets.items()
+                if not any(all(fnmatch.fnmatchcase(k, g)
+                        for k, g in zip(name, ignore))
+                    for ignore in ignores_)
                 for x, y in dataset
                 if y is not None)))
         y__ = (lambda: it.chain([0], (y
-                for dataset in subdatasets.values()
+                for name, dataset in subdatasets.items()
+                if not any(all(fnmatch.fnmatchcase(k, g)
+                        for k, g in zip(name, ignore))
+                    for ignore in ignores_)
                 for _, y in dataset
                 if y is not None)))
         ax.set_xlim(
@@ -1568,6 +1576,13 @@ if __name__ == "__main__":
                 )(*x.split('=', 1)),
             help="Don't include results where this field is this value. May "
                 "include comma-separated options and globs.")
+    parser.add_argument(
+            '-I', '--ignore',
+            dest='ignores',
+            action='append',
+            type=lambda x: tuple(k.strip() for k in x.split(',')),
+            help="Ignore this group during xlim/ylim calculations, where a "
+                "group is the comma-separated 'by' fields.")
     class AppendSort(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.sort is None:
