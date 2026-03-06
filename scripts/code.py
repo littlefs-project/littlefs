@@ -650,8 +650,7 @@ def table(Result, results, diff_results=None, *,
         compare_ = min(
             (n for n in table.keys()
                 if all(fnmatch.fnmatchcase(k, c)
-                    for k, c in it.zip_longest(n.split(','), compare,
-                        fillvalue=''))),
+                    for k, c in zip(n.split(','), compare))),
             default=compare)
         compare_r = table.get(compare_)
 
