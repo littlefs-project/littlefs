@@ -7221,22 +7221,36 @@ static inline bool lfs3_t_isckdata(uint32_t flags) {
 
 // internal traversal flags
 #ifndef LFS3_RDONLY
-static inline bool lfs3_t_ismkconsistent(uint32_t flags) {
-    return flags & LFS3_t_MKCONSISTENT;
+static inline bool lfs3_t_isstepmkconsistent(uint32_t flags) {
+    return flags & LFS3_t_STEPMKCONSISTENT;
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static inline bool lfs3_t_islookahead(uint32_t flags) {
-    return flags & LFS3_t_LOOKAHEAD;
+static inline bool lfs3_t_issteplookahead(uint32_t flags) {
+    return flags & LFS3_t_STEPLOOKAHEAD;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
+static inline bool lfs3_t_issteppreerase(uint32_t flags) {
+    return flags & LFS3_t_STEPPREERASE;
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static inline bool lfs3_t_compact(uint32_t flags) {
-    return flags & LFS3_t_COMPACT;
+static inline bool lfs3_t_isstepcompact(uint32_t flags) {
+    return flags & LFS3_t_STEPCOMPACT;
 }
 #endif
+
+static inline bool lfs3_t_isstepckmeta(uint32_t flags) {
+    return flags & LFS3_t_STEPCKMETA;
+}
+
+static inline bool lfs3_t_isstepckdata(uint32_t flags) {
+    return flags & LFS3_t_STEPCKDATA;
+}
 
 static inline uint8_t lfs3_t_btype(uint32_t flags) {
     return (flags >> 16) & 0xf;
@@ -10216,7 +10230,7 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     if (mgc->t.h.mdir.mid == LFS3_MID_MROOTANCHOR) {
         #ifndef LFS3_RDONLY
         // setup lookahead stuff
-        if (lfs3_t_islookahead(mgc->t.h.flags)
+        if (lfs3_t_issteplookahead(mgc->t.h.flags)
                 && !lfs3_t_ismtreeonly(mgc->t.h.flags)
                 && !lfs3_t_isckpointed(mgc->t.h.flags)) {
             // create a new gbmap snapshot?
@@ -10290,7 +10304,7 @@ again:;
 
     #ifndef LFS3_RDONLY
     // mark in-use blocks?
-    if (lfs3_t_islookahead(mgc->t.h.flags)
+    if (lfs3_t_issteplookahead(mgc->t.h.flags)
             && !lfs3_t_ismtreeonly(mgc->t.h.flags)
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         // mark in-use blocks in gbmap?
@@ -10310,7 +10324,7 @@ again:;
     }
 
     // mkconsistencing mdirs?
-    if (lfs3_t_ismkconsistent(mgc->t.h.flags)
+    if (lfs3_t_isstepmkconsistent(mgc->t.h.flags)
             && lfs3_gc_ismkconsistent(lfs3->flags)
             && tag == LFS3_TAG_MDIR) {
         // grm queue should be flushed before calling lfs3_mtree_gc
@@ -10339,7 +10353,7 @@ again:;
     }
 
     // compacting mdirs?
-    if (lfs3_t_compact(mgc->t.h.flags)
+    if (lfs3_t_isstepcompact(mgc->t.h.flags)
             && tag == LFS3_TAG_MDIR
             // exceed compaction threshold?
             && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr_->d.u.buffer)->r)
@@ -10373,7 +10387,7 @@ again:;
 eot:;
     #ifndef LFS3_RDONLY
     // was lookahead scan successful?
-    if (lfs3_t_islookahead(mgc->t.h.flags)
+    if (lfs3_t_issteplookahead(mgc->t.h.flags)
             && !lfs3_t_ismtreeonly(mgc->t.h.flags)
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         // was gbmap scan successful?
@@ -10393,14 +10407,14 @@ eot:;
     }
 
     // was mkconsistent successful?
-    if (lfs3_t_ismkconsistent(mgc->t.h.flags)
+    if (lfs3_t_isstepmkconsistent(mgc->t.h.flags)
             && !lfs3_t_isdirty(mgc->t.h.flags)) {
         lfs3->flags &= ~LFS3_I_MKCONSISTENT;
     }
 
     // was compaction successful? note we may need multiple passes if
     // we want to be sure everything is compacted
-    if (lfs3_t_compact(mgc->t.h.flags)
+    if (lfs3_t_isstepcompact(mgc->t.h.flags)
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         lfs3->flags &= ~LFS3_I_COMPACT;
     }
@@ -10459,9 +10473,9 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
             // prioritize lookahead/gbmap before any work that may need
             // to allocate
             #ifndef LFS3_RDONLY
-            if (lfs3_t_islookahead(t)) {
-                t &= ~LFS3_t_MKCONSISTENT
-                        & ~LFS3_t_COMPACT;
+            if (lfs3_t_issteplookahead(t)) {
+                t &= ~LFS3_t_STEPMKCONSISTENT
+                        & ~LFS3_t_STEPCOMPACT;
             }
             #endif
 
@@ -10471,45 +10485,44 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
             // changing mid-traversal, lfs3->flags can be updated by
             // other operations
             mgc->t.h.flags &= t | ~(
-                    LFS3_IFDEF_RDONLY(0, LFS3_t_MKCONSISTENT)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_t_LOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_t_COMPACT)
-                        | LFS3_t_CKMETA
-                        | LFS3_t_CKDATA);
+                    LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                        | LFS3_t_STEPCKMETA
+                        | LFS3_t_STEPCKDATA);
 
             // will this traversal still make progress? no? start a new
             // traversal
             if (!(mgc->t.h.flags
-                    & (LFS3_IFDEF_RDONLY(0, LFS3_t_MKCONSISTENT)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_t_LOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_t_COMPACT)
-                        | LFS3_t_CKMETA
-                        | LFS3_t_CKDATA)
+                    & (LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                        | LFS3_t_STEPCKMETA
+                        | LFS3_t_STEPCKDATA)
                     // don't bother with lookahead/gbmap if we've
                     // ckpointed
                     & ~LFS3_IFDEF_RDONLY(
                         0,
                         (lfs3_t_isckpointed(mgc->t.h.flags))
-                            ? LFS3_t_LOOKAHEAD
+                            ? LFS3_t_STEPLOOKAHEAD
                             : 0))) {
                 lfs3_mgc_init(mgc,
-                        (mgc->t.h.flags & ~(
-                                LFS3_T_MTREEONLY
-                                    | LFS3_t_DIRTY
-                                    | LFS3_t_CKPOINTED
-                                    | LFS3_IFDEF_RDONLY(0, LFS3_t_MKCONSISTENT)
-                                    | LFS3_IFDEF_RDONLY(0, LFS3_t_LOOKAHEAD)
-                                    | LFS3_IFDEF_RDONLY(0, LFS3_t_COMPACT)
-                                    | LFS3_t_CKMETA
-                                    | LFS3_t_CKDATA))
-                            | t);
+                        t | (mgc->t.h.flags & ~(
+                            LFS3_T_MTREEONLY
+                                | LFS3_t_DIRTY
+                                | LFS3_t_CKPOINTED
+                                | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
+                                | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
+                                | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                                | LFS3_t_STEPCKMETA
+                                | LFS3_t_STEPCKDATA)));
             }
 
             // do we really need a full traversal?
             if (!(mgc->t.h.flags & (
-                    LFS3_IFDEF_RDONLY(0, LFS3_t_LOOKAHEAD)
-                        | LFS3_t_CKMETA
-                        | LFS3_t_CKDATA))) {
+                    LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
+                        | LFS3_t_STEPCKMETA
+                        | LFS3_t_STEPCKDATA))) {
                 mgc->t.h.flags |= LFS3_T_MTREEONLY;
             }
 
@@ -10520,22 +10533,22 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
             if (tag < 0 && tag != LFS3_ERR_NOENT) {
                 // reset traversal if we run into any errors
                 mgc->t.h.flags &= ~(
-                        LFS3_IFDEF_RDONLY(0, LFS3_t_MKCONSISTENT)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_t_LOOKAHEAD)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_t_COMPACT)
-                            | LFS3_t_CKMETA
-                            | LFS3_t_CKDATA);
+                        LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                            | LFS3_t_STEPCKMETA
+                            | LFS3_t_STEPCKDATA);
                 return tag;
             }
 
             // end of traversal?
             if (tag == LFS3_ERR_NOENT) {
                 mgc->t.h.flags &= ~(
-                        LFS3_IFDEF_RDONLY(0, LFS3_t_MKCONSISTENT)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_t_LOOKAHEAD)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_t_COMPACT)
-                            | LFS3_t_CKMETA
-                            | LFS3_t_CKDATA);
+                        LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                            | LFS3_t_STEPCKMETA
+                            | LFS3_t_STEPCKDATA);
             }
 
         // if we have no pending traversal work, can we preerase blocks?
@@ -11357,7 +11370,7 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
         // in-use in the next lookahead window
         //
         lfs3_mtrv_t mtrv;
-        lfs3_mtrv_init(&mtrv, LFS3_T_RDONLY | LFS3_t_LOOKAHEAD);
+        lfs3_mtrv_init(&mtrv, LFS3_T_RDONLY | LFS3_t_STEPLOOKAHEAD);
         while (true) {
             lfs3_bptr_t bptr;
             lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
@@ -16786,14 +16799,14 @@ failed:;
 
 #ifndef LFS3_RDONLY
 static int lfs3_fs_fixorphans(lfs3_t *lfs3) {
-    // LFS3_GC_MKCONSISTENT really just removes orphans
+    // LFS3_t_STEPMKCONSISTENT really just removes orphans
     //
     // note we don't need to track this handle because we're only
     // mkconsistencing, most other operations need to be tracked to
     // catch dirty/ckpointed bits
     lfs3_mgc_t mgc;
     lfs3_mgc_init(&mgc,
-            LFS3_GC_WRONLY | LFS3_T_MTREEONLY | LFS3_t_MKCONSISTENT);
+            LFS3_GC_WRONLY | LFS3_T_MTREEONLY | LFS3_t_STEPMKCONSISTENT);
     while (true) {
         lfs3_bptr_t bptr;
         lfs3_stag_t tag = lfs3_mtree_gc(lfs3, &mgc,

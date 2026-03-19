@@ -361,22 +361,25 @@ enum lfs3_btype {
 
 // internally used flags, don't use these
 #ifndef LFS3_RDONLY
-#define LFS3_t_MKCONSISTENT \
+#define LFS3_t_STEPMKCONSISTENT \
                         0x00000100  // Make the filesystem consistent
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_t_LOOKAHEAD \
+#define LFS3_t_STEPLOOKAHEAD \
                         0x00000200  // Repopulate lookahead/gbmap
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-#define LFS3_t_PREERASE \
+#define LFS3_t_STEPPREERASE \
                         0x00000400  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_t_COMPACT  0x00000800  // Compact metadata logs
+#define LFS3_t_STEPCOMPACT \
+                        0x00000800  // Compact metadata logs
 #endif
-#define LFS3_t_CKMETA   0x00001000  // Check metadata checksums
-#define LFS3_t_CKDATA   0x00002000  // Check metadata + data checksums
+#define LFS3_t_STEPCKMETA \
+                        0x00001000  // Check metadata checksums
+#define LFS3_t_STEPCKDATA \
+                        0x00002000  // Check metadata + data checksums
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
 #define LFS3_t_BTYPE    0x000f0000  // The current block type
 #define LFS3_t_ZOMBIE   0x08000000  // File has been removed

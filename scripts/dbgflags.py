@@ -144,12 +144,13 @@ T_CKMETA        = 0x00100000  # --  Check metadata checksums
 T_CKDATA        = 0x00200000  # --  Check metadata + data checksums
 T_CK            = 0x00300000  # a-  Alias for all check work
 
-t_MKCONSISTENT  = 0x00000100  # i-  Make the filesystem consistent
-t_LOOKAHEAD     = 0x00000200  # i-  Repopulate lookahead buffer
-t_PREERASE      = 0x00000400  # i-  Try to pre-erase free blocks
-t_COMPACT       = 0x00000800  # i-  Compact metadata logs
-t_CKMETA        = 0x00001000  # i-  Check metadata checksums
-t_CKDATA        = 0x00002000  # i-  Check metadata + data checksums
+t_STEPMKCONSISTENT \
+                = 0x00000100  # i-  Make the filesystem consistent
+t_STEPLOOKAHEAD = 0x00000200  # i-  Repopulate lookahead buffer
+t_STEPPREERASE  = 0x00000400  # i-  Try to pre-erase free blocks
+t_STEPCOMPACT   = 0x00000800  # i-  Compact metadata logs
+t_STEPCKMETA    = 0x00001000  # i-  Check metadata checksums
+t_STEPCKDATA    = 0x00002000  # i-  Check metadata + data checksums
 t_TYPE          = 0xf0000000  # im  The traversal's type
 t_REG           = 0x10000000  # i^  Type = regular-file
 t_DIR           = 0x20000000  # i^  Type = directory
