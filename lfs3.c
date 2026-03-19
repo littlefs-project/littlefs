@@ -7239,8 +7239,8 @@ static inline bool lfs3_t_issteppreerase(uint32_t flags) {
 #endif
 
 #ifndef LFS3_RDONLY
-static inline bool lfs3_t_isstepcompact(uint32_t flags) {
-    return flags & LFS3_t_STEPCOMPACT;
+static inline bool lfs3_t_isstepcompactmeta(uint32_t flags) {
+    return flags & LFS3_t_STEPCOMPACTMETA;
 }
 #endif
 
@@ -7298,8 +7298,8 @@ static inline bool lfs3_gc_ispreerase(uint32_t flags) {
 #endif
 
 #ifndef LFS3_RDONLY
-static inline bool lfs3_gc_iscompact(uint32_t flags) {
-    return flags & LFS3_GC_COMPACT;
+static inline bool lfs3_gc_iscompactmeta(uint32_t flags) {
+    return flags & LFS3_GC_COMPACTMETA;
 }
 #endif
 
@@ -9477,7 +9477,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // we may have touched any number of mdirs, so assume uncompacted
     // until lfs3_fs_gc can prove otherwise
-    lfs3->flags |= LFS3_I_COMPACT;
+    lfs3->flags |= LFS3_I_COMPACTMETA;
 
     #ifdef LFS3_DBGMDIRCOMMITS
     LFS3_DEBUG("Committed mdir %"PRId32" "
@@ -10353,12 +10353,12 @@ again:;
     }
 
     // compacting mdirs?
-    if (lfs3_t_isstepcompact(mgc->t.h.flags)
+    if (lfs3_t_isstepcompactmeta(mgc->t.h.flags)
             && tag == LFS3_TAG_MDIR
             // exceed compaction threshold?
             && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr_->d.u.buffer)->r)
-                > ((lfs3->cfg->gc_compact_thresh)
-                    ? lfs3->cfg->gc_compact_thresh
+                > ((lfs3->cfg->gc_compactmeta_thresh)
+                    ? lfs3->cfg->gc_compactmeta_thresh
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         LFS3_INFO("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
@@ -10367,8 +10367,8 @@ again:;
                 mdir->r.blocks[0],
                 mdir->r.blocks[1],
                 lfs3_rbyd_eoff(&mdir->r),
-                (lfs3->cfg->gc_compact_thresh)
-                    ? lfs3->cfg->gc_compact_thresh
+                (lfs3->cfg->gc_compactmeta_thresh)
+                    ? lfs3->cfg->gc_compactmeta_thresh
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
         // compact the mdir
         uint32_t dirty = mgc->t.h.flags;
@@ -10414,9 +10414,9 @@ eot:;
 
     // was compaction successful? note we may need multiple passes if
     // we want to be sure everything is compacted
-    if (lfs3_t_isstepcompact(mgc->t.h.flags)
+    if (lfs3_t_isstepcompactmeta(mgc->t.h.flags)
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
-        lfs3->flags &= ~LFS3_I_COMPACT;
+        lfs3->flags &= ~LFS3_I_COMPACTMETA;
     }
     #endif
 
@@ -10443,7 +10443,7 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
         uint32_t t = (mgc->t.h.flags & lfs3->flags & (
                     LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                         | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                         | LFS3_GC_CKMETA
                         | LFS3_GC_CKDATA))
                 // this weird shift is to let us mask out any
@@ -10475,7 +10475,7 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
             #ifndef LFS3_RDONLY
             if (lfs3_t_issteplookahead(t)) {
                 t &= ~LFS3_t_STEPMKCONSISTENT
-                        & ~LFS3_t_STEPCOMPACT;
+                        & ~LFS3_t_STEPCOMPACTMETA;
             }
             #endif
 
@@ -10487,7 +10487,7 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
             mgc->t.h.flags &= t | ~(
                     LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
                         | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACTMETA)
                         | LFS3_t_STEPCKMETA
                         | LFS3_t_STEPCKDATA);
 
@@ -10496,7 +10496,7 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
             if (!(mgc->t.h.flags
                     & (LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
                         | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACTMETA)
                         | LFS3_t_STEPCKMETA
                         | LFS3_t_STEPCKDATA)
                     // don't bother with lookahead/gbmap if we've
@@ -10513,7 +10513,7 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
                                 | LFS3_t_CKPOINTED
                                 | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
                                 | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
-                                | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                                | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACTMETA)
                                 | LFS3_t_STEPCKMETA
                                 | LFS3_t_STEPCKDATA)));
             }
@@ -10535,7 +10535,7 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
                 mgc->t.h.flags &= ~(
                         LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
                             | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACTMETA)
                             | LFS3_t_STEPCKMETA
                             | LFS3_t_STEPCKDATA);
                 return tag;
@@ -10546,7 +10546,7 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
                 mgc->t.h.flags &= ~(
                         LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
                             | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACT)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACTMETA)
                             | LFS3_t_STEPCKMETA
                             | LFS3_t_STEPCKDATA);
             }
@@ -15332,18 +15332,18 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
 
-    // check that gc_compact_thresh makes sense
+    // check that gc_compactmeta_thresh makes sense
     //
     // metadata can't be compacted below block_size/2, and metadata can't
     // exceed a block
-    LFS3_ASSERT(lfs3->cfg->gc_compact_thresh == 0
-            || lfs3->cfg->gc_compact_thresh >= lfs3->cfg->block_size/2);
-    LFS3_ASSERT(lfs3->cfg->gc_compact_thresh == (lfs3_size_t)-1
-            || lfs3->cfg->gc_compact_thresh <= lfs3->cfg->block_size);
+    LFS3_ASSERT(lfs3->cfg->gc_compactmeta_thresh == 0
+            || lfs3->cfg->gc_compactmeta_thresh >= lfs3->cfg->block_size/2);
+    LFS3_ASSERT(lfs3->cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
+            || lfs3->cfg->gc_compactmeta_thresh <= lfs3->cfg->block_size);
     #endif
 
     #ifndef LFS3_RDONLY
@@ -15363,7 +15363,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
             // default to assuming we need compaction somewhere, worst
             // case this just makes lfs3_fs_gc read more than is
             // strictly needed
-            | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
+            | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
             // default to needing a ckmeta/ckdata scan
             | LFS3_I_CKMETA
             | LFS3_I_CKDATA;
@@ -16230,7 +16230,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA)
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA)) == 0);
     // these flags require a writable filesystem
@@ -16240,7 +16240,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_ispreerase(flags));
     #endif
-    LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_iscompact(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_iscompactmeta(flags));
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
@@ -16276,7 +16276,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) {
         err = lfs3_fs_ck(lfs3, flags & (
@@ -16284,7 +16284,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                    | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                     | LFS3_GC_CKMETA
                     | LFS3_GC_CKDATA));
         if (err) {
@@ -16529,7 +16529,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_F_LOOKAHEAD
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0))
-                | LFS3_F_COMPACT
+                | LFS3_F_COMPACTMETA
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA)) == 0);
     // we can't use preerased blocks without revperturb, so this is
@@ -16576,7 +16576,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) {
         err = lfs3_fs_ck(lfs3, flags & (
@@ -16584,7 +16584,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                    | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                     | LFS3_GC_CKMETA
                     | LFS3_GC_CKDATA));
         if (err) {
@@ -16620,7 +16620,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, 0)
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
-                    | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
                     | LFS3_I_CKMETA
                     | LFS3_I_CKDATA
                     | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)))
@@ -16873,7 +16873,7 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
                 | LFS3_IFDEF_RDONLY(0, LFS3_CK_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_CK_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_CK_COMPACT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_CK_COMPACTMETA)
                 | LFS3_CK_CKMETA
                 | LFS3_CK_CKDATA)) == 0);
     // these flags require a writable filesystem
@@ -16887,7 +16887,7 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
             || !lfs3_gc_ispreerase(flags));
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_iscompact(flags));
+            || !lfs3_gc_iscompactmeta(flags));
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
@@ -16927,7 +16927,7 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
     // these flags require a writable filesystem
@@ -16940,7 +16940,7 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
             || !lfs3_gc_ispreerase(lfs3->cfg->gc_flags));
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_iscompact(lfs3->cfg->gc_flags));
+            || !lfs3_gc_iscompactmeta(lfs3->cfg->gc_flags));
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
@@ -16966,7 +16966,7 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
 
@@ -17317,7 +17317,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA)) == 0);
     // these flags require a writable filesystem
@@ -17331,7 +17331,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
             || !lfs3_gc_ispreerase(flags));
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_iscompact(flags));
+            || !lfs3_gc_iscompactmeta(flags));
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake

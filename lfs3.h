@@ -217,7 +217,8 @@ enum lfs3_type {
 #define LFS3_F_PREERASE 0x00040000  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_F_COMPACT  0x00080000  // Compact metadata logs
+#define LFS3_F_COMPACTMETA \
+                        0x00080000  // Compact metadata logs
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_F_CKMETA   0x00100000  // Check metadata checksums
@@ -234,7 +235,7 @@ enum lfs3_type {
         LFS3_IFDEF_RDONLY(0, LFS3_F_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_F_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_F_COMPACT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_F_COMPACTMETA) \
             | LFS3_F_CKMETA \
             | LFS3_F_CKDATA)
 
@@ -280,7 +281,8 @@ enum lfs3_type {
 #define LFS3_M_PREERASE 0x00040000  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_M_COMPACT  0x00080000  // Compact metadata logs
+#define LFS3_M_COMPACTMETA \
+                        0x00080000  // Compact metadata logs
 #endif
 #define LFS3_M_CKMETA   0x00100000  // Check metadata checksums
 #define LFS3_M_CKDATA   0x00200000  // Check metadata + data checksums
@@ -293,7 +295,7 @@ enum lfs3_type {
         LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA) \
             | LFS3_M_CKMETA \
             | LFS3_M_CKDATA)
 
@@ -338,7 +340,8 @@ enum lfs3_type {
 #define LFS3_I_PREERASE 0x00040000  // Blocks can be pre-erased
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_I_COMPACT  0x00080000  // Filesystem may have uncompacted metadata
+#define LFS3_I_COMPACTMETA \
+                        0x00080000  // Filesystem may have uncompacted metadata
 #endif
 #define LFS3_I_CKMETA   0x00100000  // Metadata checksums not checked recently
 #define LFS3_I_CKDATA   0x00200000  // Data checksums not checked recently
@@ -373,7 +376,7 @@ enum lfs3_btype {
                         0x00000400  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_t_STEPCOMPACT \
+#define LFS3_t_STEPCOMPACTMETA \
                         0x00000800  // Compact metadata logs
 #endif
 #define LFS3_t_STEPCKMETA \
@@ -405,7 +408,8 @@ enum lfs3_btype {
                         0x00040000  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_CK_COMPACT 0x00080000  // Compact metadata logs
+#define LFS3_CK_COMPACTMETA \
+                        0x00080000  // Compact metadata logs
 #endif
 #define LFS3_CK_CKMETA  0x00100000  // Check metadata checksums
 #define LFS3_CK_CKDATA  0x00200000  // Check metadata + data checksums
@@ -418,7 +422,7 @@ enum lfs3_btype {
         LFS3_IFDEF_RDONLY(0, LFS3_CK_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_CK_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_CK_PREERASE, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_CK_COMPACT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_CK_COMPACTMETA) \
             | LFS3_CK_CKMETA \
             | LFS3_CK_CKDATA)
 
@@ -441,7 +445,8 @@ enum lfs3_btype {
                         0x00040000  // Try to pre-erase free blocks
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_GC_COMPACT 0x00080000  // Compact metadata logs
+#define LFS3_GC_COMPACTMETA \
+                        0x00080000  // Compact metadata logs
 #endif
 #define LFS3_GC_CKMETA  0x00100000  // Check metadata checksums
 #define LFS3_GC_CKDATA  0x00200000  // Check metadata + data checksums
@@ -454,7 +459,7 @@ enum lfs3_btype {
         LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACT) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA) \
             | LFS3_GC_CKMETA \
             | LFS3_GC_CKDATA)
 
@@ -630,7 +635,7 @@ struct lfs3_cfg {
     //
     // Set to -1 to disable metadata compaction during gc.
     #ifndef LFS3_RDONLY
-    lfs3_size_t gc_compact_thresh;
+    lfs3_size_t gc_compactmeta_thresh;
     #endif
 
     // Optional statically allocated rcache buffer. Must be rcache_size. By

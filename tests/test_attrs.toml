@@ -910,11 +910,11 @@ code = '''
 defines.FILETYPE = [0, 1, 2, 3]
 defines.M = 40
 defines.SIZE = 4
-defines.COMPACT = [false, true]
-defines.GC_FLAGS = 'LFS3_GC_COMPACT'
+defines.COMPACTMETA = [false, true]
+defines.GC_FLAGS = 'LFS3_GC_COMPACTMETA'
 defines.GC_STEPS = -1
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
-if = 'LFS3_IFDEF_GC(true, !COMPACT)'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+if = 'LFS3_IFDEF_GC(true, !COMPACTMETA)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -958,7 +958,7 @@ code = '''
 
     // try compacting?
     #ifdef LFS3_GC
-    if (COMPACT) {
+    if (COMPACTMETA) {
         lfs3_fs_gc(&lfs3) => 0;
     }
     #endif
@@ -1004,11 +1004,11 @@ defines.FILETYPE = [0, 1, 2]
 defines.N = 64
 defines.M = 4
 defines.SIZE = 4
-defines.COMPACT = [false, true]
-defines.GC_FLAGS = 'LFS3_GC_COMPACT'
+defines.COMPACTMETA = [false, true]
+defines.GC_FLAGS = 'LFS3_GC_COMPACTMETA'
 defines.GC_STEPS = -1
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
-if = 'LFS3_IFDEF_GC(true, !COMPACT)'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+if = 'LFS3_IFDEF_GC(true, !COMPACTMETA)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -1055,7 +1055,7 @@ code = '''
 
     // try compacting?
     #ifdef LFS3_GC
-    if (COMPACT) {
+    if (COMPACTMETA) {
         lfs3_fs_gc(&lfs3) => 0;
     }
     #endif
@@ -5041,11 +5041,11 @@ code = '''
 defines.N = 64
 defines.M = 4
 defines.SIZE = 4
-defines.COMPACT = [false, true]
-defines.GC_FLAGS = 'LFS3_GC_COMPACT'
+defines.COMPACTMETA = [false, true]
+defines.GC_FLAGS = 'LFS3_GC_COMPACTMETA'
 defines.GC_STEPS = -1
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
-if = 'LFS3_IFDEF_GC(true, !COMPACT)'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+if = 'LFS3_IFDEF_GC(true, !COMPACTMETA)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -5083,7 +5083,7 @@ code = '''
 
     // try compacting?
     #ifdef LFS3_GC
-    if (COMPACT) {
+    if (COMPACTMETA) {
         lfs3_fs_gc(&lfs3) => 0;
     }
     #endif

@@ -26,7 +26,7 @@ if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
 [cases.test_gc_t_simple]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -43,7 +43,7 @@ code = '''
             LFS3_GC_WRONLY
                 | ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-                | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+                | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
     for (lfs3_block_t i = 0;; i++) {
@@ -65,7 +65,7 @@ code = '''
 [cases.test_gc_t_idempotent]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 code = '''
@@ -82,7 +82,7 @@ code = '''
             LFS3_GC_WRONLY
                 | ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-                | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+                | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
     for (lfs3_block_t i = 0;; i++) {
@@ -947,7 +947,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -965,7 +965,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -982,7 +982,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -991,7 +991,7 @@ code = '''
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
             LFS3_GC_WRONLY
-                | LFS3_GC_COMPACT
+                | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1008,7 +1008,7 @@ code = '''
     lfs3_gc_close(&lfs3, &gc) => 0;
 
     // mdir should have been compacted
-    assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1048,7 +1048,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # force early relocations, but keep at least 1 to prevent mroot anchor
 # from extendeding during compaction
 defines.BLOCK_RECYCLES = 1
@@ -1085,7 +1085,7 @@ code = '''
         lfs3_mdir_t mrootanchor;
         lfs3_mdir_fetch(&lfs3, &mrootanchor,
                 -1, LFS3_MPTR_MROOTANCHOR()) => 0;
-        if (lfs3_rbyd_eoff(&mrootanchor.r) > GC_COMPACT_THRESH) {
+        if (lfs3_rbyd_eoff(&mrootanchor.r) > GC_COMPACTMETA_THRESH) {
             break;
         }
 
@@ -1105,7 +1105,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -1114,7 +1114,7 @@ code = '''
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
             LFS3_GC_WRONLY
-                | LFS3_GC_COMPACT
+                | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1134,7 +1134,7 @@ code = '''
     lfs3_mdir_t mrootanchor;
     lfs3_mdir_fetch(&lfs3, &mrootanchor,
             -1, LFS3_MPTR_MROOTANCHOR()) => 0;
-    assert(lfs3_rbyd_eoff(&mrootanchor.r) <= GC_COMPACT_THRESH);
+    assert(lfs3_rbyd_eoff(&mrootanchor.r) <= GC_COMPACTMETA_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1174,7 +1174,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
@@ -1210,7 +1210,7 @@ code = '''
         lfs3_mdir_t mrootanchor;
         lfs3_mdir_fetch(&lfs3, &mrootanchor,
                 -1, LFS3_MPTR_MROOTANCHOR()) => 0;
-        if (lfs3_rbyd_eoff(&mrootanchor.r) > GC_COMPACT_THRESH) {
+        if (lfs3_rbyd_eoff(&mrootanchor.r) > GC_COMPACTMETA_THRESH) {
             break;
         }
 
@@ -1230,7 +1230,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -1239,7 +1239,7 @@ code = '''
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
             LFS3_GC_WRONLY
-                | LFS3_GC_COMPACT
+                | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1259,7 +1259,7 @@ code = '''
     lfs3_mdir_t mrootanchor;
     lfs3_mdir_fetch(&lfs3, &mrootanchor,
             -1, LFS3_MPTR_MROOTANCHOR()) => 0;
-    assert(lfs3_rbyd_eoff(&mrootanchor.r) <= GC_COMPACT_THRESH);
+    assert(lfs3_rbyd_eoff(&mrootanchor.r) <= GC_COMPACTMETA_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1299,7 +1299,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
@@ -1320,7 +1320,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -1337,7 +1337,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -1346,7 +1346,7 @@ code = '''
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
             LFS3_GC_WRONLY
-                | LFS3_GC_COMPACT
+                | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1363,7 +1363,7 @@ code = '''
     lfs3_gc_close(&lfs3, &gc) => 0;
 
     // mdir should have been compacted
-    assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1403,7 +1403,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -1446,7 +1446,7 @@ code = '''
                 &file1.b.h.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
-        if ((file1.b.h.mdir.r.eoff & 0x7fffffff) > GC_COMPACT_THRESH
+        if ((file1.b.h.mdir.r.eoff & 0x7fffffff) > GC_COMPACTMETA_THRESH
                 && estimate > BLOCK_SIZE/2) {
             break;
         }
@@ -1468,7 +1468,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -1477,7 +1477,7 @@ code = '''
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
             LFS3_GC_WRONLY
-                | LFS3_GC_COMPACT
+                | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1494,8 +1494,8 @@ code = '''
     lfs3_gc_close(&lfs3, &gc) => 0;
 
     // mdirs should have been compacted
-    assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+    assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1542,7 +1542,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.COMPACTSET = 'range(0x8)'
 code = '''
     lfs3_t lfs3;
@@ -1612,7 +1612,7 @@ code = '''
     // write to each file until mdir >gc_compact_thresh full
     if (COMPACTSET & 0x1) {
         // hack, don't use the internals like this
-        while ((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
             lfs3_file_rewind(&lfs3, &file1) => 0;
             for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -1624,7 +1624,7 @@ code = '''
 
     if (COMPACTSET & 0x2) {
         // hack, don't use the internals like this
-        while ((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
             lfs3_file_rewind(&lfs3, &file2) => 0;
             for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -1636,7 +1636,7 @@ code = '''
 
     if (COMPACTSET & 0x4) {
         // hack, don't use the internals like this
-        while ((file3.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+        while ((file3.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
             lfs3_file_rewind(&lfs3, &file3) => 0;
             for (lfs3_size_t j = 0; j < SIZE; j++) {
                 wbuf3[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -1654,7 +1654,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -1663,7 +1663,7 @@ code = '''
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
             LFS3_GC_WRONLY
-                | LFS3_GC_COMPACT
+                | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1680,9 +1680,9 @@ code = '''
     lfs3_gc_close(&lfs3, &gc) => 0;
 
     // mdirs should have been compacted
-    assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+    assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+    assert((file3.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -1736,7 +1736,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -1824,7 +1824,7 @@ code = '''
                 &file2.b.h.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
-        if ((file2.b.h.mdir.r.eoff & 0x7fffffff) > GC_COMPACT_THRESH
+        if ((file2.b.h.mdir.r.eoff & 0x7fffffff) > GC_COMPACTMETA_THRESH
                 && estimate > BLOCK_SIZE/2) {
             break;
         }
@@ -1846,7 +1846,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -1855,7 +1855,7 @@ code = '''
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
             LFS3_GC_WRONLY
-                | LFS3_GC_COMPACT
+                | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1872,10 +1872,10 @@ code = '''
     lfs3_gc_close(&lfs3, &gc) => 0;
 
     // mdirs should have been compacted
-    assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file3.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file4.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+    assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+    assert((file3.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+    assert((file4.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2003,7 +2003,7 @@ code = '''
                 | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!GBMAP || ORPHANS >= 100) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -2047,7 +2047,7 @@ code = '''
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -2127,7 +2127,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -2192,7 +2192,7 @@ code = '''
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | (((!CKMETA && !CKDATA) || GBMAP || ORPHANS > 0)
                     ? LFS3_I_CKMETA
@@ -2302,7 +2302,7 @@ code = '''
                 | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -2344,7 +2344,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -2450,7 +2450,7 @@ code = '''
                 | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -2492,7 +2492,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -2599,7 +2599,7 @@ code = '''
                 | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -2641,7 +2641,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -2748,7 +2748,7 @@ code = '''
                 | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -2790,7 +2790,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -2832,7 +2832,7 @@ defines.SIZE = 'FCACHE_SIZE/2'
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -2888,7 +2888,7 @@ code = '''
     // write to our mdirs until >gc_compact_thresh full
     //
     // hack, don't use the internals like this
-    while ((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file1) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -2897,7 +2897,7 @@ code = '''
         lfs3_file_sync(&lfs3, &file1) => 0;
     }
 
-    while ((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file2) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -2917,7 +2917,7 @@ code = '''
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -2927,7 +2927,7 @@ code = '''
     lfs3_gc_open(&lfs3, &gc,
             LFS3_GC_WRONLY
                 | LFS3_GC_MKCONSISTENT
-                | LFS3_GC_COMPACT
+                | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -2954,8 +2954,8 @@ code = '''
     assert(file2.b.h.mdir.r.weight <= 3);
 
     // mdirs should have been compacted
-    assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+    assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // we should be marked as consistent and compacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3007,7 +3007,7 @@ defines.SIZE = 'FCACHE_SIZE/2'
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3042,7 +3042,7 @@ code = '''
     // write to our mdirs until >gc_compact_thresh full
     //
     // hack, don't use the internals like this
-    while ((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file1) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -3051,7 +3051,7 @@ code = '''
         lfs3_file_sync(&lfs3, &file1) => 0;
     }
 
-    while ((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file2) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -3068,7 +3068,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -3123,8 +3123,8 @@ code = '''
     }
 
     //// mdirs should have been compacted
-    //assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
-    //assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    //assert((file1.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+    //assert((file2.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // if we introduced actual orphans, we _must_ be marked as inconsistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3137,7 +3137,7 @@ code = '''
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | (((!CKMETA && !CKDATA) || GBMAP || ORPHANS > 0)
                     ? LFS3_I_CKMETA
                     : 0)
@@ -4088,14 +4088,14 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_COMPACT
+    LFS3_GC_COMPACTMETA
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -4122,7 +4122,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -4134,7 +4134,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_COMPACT);
+    assert(fsinfo.flags & LFS3_I_COMPACTMETA);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -4144,13 +4144,13 @@ code = '''
         lfs3_fs_gc(&lfs3) => 0;
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_COMPACT)) {
+        if (!(fsinfo.flags & LFS3_I_COMPACTMETA)) {
             break;
         }
     }
 
     // mdir should have been compacted
-    assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH);
+    assert((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -4178,13 +4178,13 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_COMPACT
+    LFS3_GC_COMPACTMETA
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -4214,7 +4214,7 @@ code = '''
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
-    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACT_THRESH) {
+    while ((file.b.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
         lfs3_file_rewind(&lfs3, &file) => 0;
         for (lfs3_size_t j = 0; j < SIZE; j++) {
             wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
@@ -4226,21 +4226,21 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_COMPACT);
-    assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACT));
+    assert(fsinfo.flags & LFS3_I_COMPACTMETA);
+    assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA));
 
     // run GC one traversal + until compacting
     while (true) {
         lfs3_fs_gc(&lfs3) => 0;
 
-        if (!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACT)) {
+        if (!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA)) {
             break;
         }
     }
     while (true) {
         lfs3_fs_gc(&lfs3) => 0;
 
-        if (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACT) {
+        if (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA) {
             break;
         }
     }
@@ -4254,13 +4254,13 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // run GC until our traversal is done (twice for compact)
-    while (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACT) {
+    while (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA) {
         lfs3_fs_gc(&lfs3) => 0;
     }
 
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_COMPACT);
+    assert(fsinfo.flags & LFS3_I_COMPACTMETA);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -4286,13 +4286,13 @@ code = '''
 # test that mkconsistent can make progress in isolation
 [cases.test_gc_mkconsistent_progress]
 defines.LOOKAHEAD = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_MKCONSISTENT
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -4500,13 +4500,13 @@ code = '''
 # test that mkconsistent dirtying still works with the GC API
 [cases.test_gc_mkconsistent_mutation]
 defines.LOOKAHEAD = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     LFS3_GC_MKCONSISTENT
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -5401,14 +5401,14 @@ defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -5491,7 +5491,7 @@ code = '''
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -5530,7 +5530,7 @@ code = '''
                         | ((PREERASE)
                             ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
                             : 0)
-                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
@@ -5550,8 +5550,8 @@ code = '''
             }
             #endif
 
-            if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACT) => 0;
+            if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
+                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
@@ -5595,7 +5595,7 @@ code = '''
                 | LFS3_IFDEF_PREERASE(
                     (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
                     0)
-                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
+                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -5614,14 +5614,14 @@ defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -5704,7 +5704,7 @@ code = '''
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -5743,7 +5743,7 @@ code = '''
                         | ((PREERASE)
                             ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
                             : 0)
-                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
@@ -5763,8 +5763,8 @@ code = '''
             }
             #endif
 
-            if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACT) => 0;
+            if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
+                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
@@ -5808,7 +5808,7 @@ code = '''
                 | LFS3_IFDEF_PREERASE(
                     (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
                     0)
-                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
+                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -5832,7 +5832,7 @@ code = '''
                 | LFS3_IFDEF_PREERASE(
                     (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
                     0)
-                | LFS3_I_COMPACT
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta, but uncking ckdata does
                 // _not_ imply uncking ckmeta
                 | ((!(CKDATA && !CKMETA)) ? LFS3_I_CKMETA : 0)
@@ -5873,7 +5873,7 @@ code = '''
                         | ((PREERASE)
                             ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
                             : 0)
-                        | ((COMPACT) ? LFS3_I_COMPACT : 0)
+                        | ((COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                         | ((CKMETA) ? LFS3_I_CKMETA : 0)
                         | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
@@ -5893,8 +5893,8 @@ code = '''
             }
             #endif
 
-            if (COMPACT && (fsinfo.flags & LFS3_I_COMPACT)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACT) => 0;
+            if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
+                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
@@ -5938,7 +5938,7 @@ code = '''
                 | LFS3_IFDEF_PREERASE(
                     (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
                     0)
-                | ((!COMPACT) ? LFS3_I_COMPACT : 0)
+                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
@@ -5954,20 +5954,20 @@ defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -6042,20 +6042,20 @@ defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -6133,21 +6133,21 @@ code = '''
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 # DON'T test with GC_STEPS=-1, it may never terminate!
 defines.GC_STEPS = [1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.SIZE = 'BLOCK_SIZE'
 if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
@@ -6254,7 +6254,7 @@ code = '''
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
@@ -6262,13 +6262,13 @@ defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
@@ -6377,7 +6377,7 @@ code = '''
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
@@ -6385,13 +6385,13 @@ defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
@@ -6571,7 +6571,7 @@ code = '''
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
@@ -6579,13 +6579,13 @@ defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -6688,7 +6688,7 @@ code = '''
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
@@ -6696,13 +6696,13 @@ defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -6944,7 +6944,7 @@ code = '''
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
@@ -6952,13 +6952,13 @@ defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 defines.OPS = 20
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -7118,7 +7118,7 @@ code = '''
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
@@ -7126,13 +7126,13 @@ defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # you probably need to flush if you expect errors
 defines.FLUSH = false
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -7584,20 +7584,20 @@ code = '''
 [cases.test_gc_spam_uzd_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
-defines.COMPACT = [false, true]
+defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((COMPACT) ? LFS3_GC_COMPACT : 0)
+        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
-defines.GC_COMPACT_THRESH = 'BLOCK_SIZE/2'
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # you probably need to flush if you expect errors
 defines.FLUSH = false
 defines.N = [1, 2, 4, 8, 16, 32, 64]

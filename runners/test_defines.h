@@ -21,7 +21,7 @@
     TEST_DEFINE(GC_LOOKAHEAD_THRESH,    -1                                  )
     TEST_DEFINE(GC_LOOKGBMAP_THRESH,    -1                                  )
     TEST_DEFINE(GC_PREERASE_COUNT,      -1                                  )
-    TEST_DEFINE(GC_COMPACT_THRESH,      0                                   )
+    TEST_DEFINE(GC_COMPACTMETA_THRESH,  0                                   )
     TEST_DEFINE(SHRUB_SIZE,             BLOCK_SIZE/4                        )
     TEST_DEFINE(FRAGMENT_SIZE,          LFS3_MIN(BLOCK_SIZE/16, 512)        )
     TEST_DEFINE(CRYSTAL_THRESH,         BLOCK_SIZE/16                       )
@@ -63,7 +63,7 @@
         .gc_steps                       = GC_STEPS,
         #endif
         .gc_lookahead_thresh            = GC_LOOKAHEAD_THRESH,
-        .gc_compact_thresh              = GC_COMPACT_THRESH,
+        .gc_compactmeta_thresh          = GC_COMPACTMETA_THRESH,
         .shrub_size                     = SHRUB_SIZE,
         .fragment_size                  = FRAGMENT_SIZE,
         .crystal_thresh                 = CRYSTAL_THRESH,
