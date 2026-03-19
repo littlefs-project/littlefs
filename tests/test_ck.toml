@@ -306,9 +306,9 @@ code = '''
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                int err = lfs3_gc_write(&lfs3, &gc, 1);
-                assert(!err || err == LFS3_ERR_CORRUPT);
-                if (err == LFS3_ERR_CORRUPT) {
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+                assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
+                if (steps == LFS3_ERR_CORRUPT) {
                     break;
                 }
             }
@@ -461,9 +461,9 @@ code = '''
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                int err = lfs3_gc_write(&lfs3, &gc, 1);
-                assert(!err || err == LFS3_ERR_CORRUPT);
-                if (err == LFS3_ERR_CORRUPT) {
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+                assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
+                if (steps == LFS3_ERR_CORRUPT) {
                     break;
                 }
             }
@@ -638,14 +638,12 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    int err = lfs3_gc_write(&lfs3, &gc, 1);
-                    assert(!err
-                            || err == LFS3_ERR_NOENT
-                            || err == LFS3_ERR_CORRUPT);
-                    if (err == LFS3_ERR_NOENT) {
+                    lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+                    assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
+                    if (steps == 0) {
                         break;
                     }
-                    if (err == LFS3_ERR_CORRUPT) {
+                    if (steps == LFS3_ERR_CORRUPT) {
                         lfs3_gc_close(&lfs3, &gc) => 0;
                         goto detected;
                     }
@@ -918,14 +916,12 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    int err = lfs3_gc_write(&lfs3, &gc, 1);
-                    assert(!err
-                            || err == LFS3_ERR_NOENT
-                            || err == LFS3_ERR_CORRUPT);
-                    if (err == LFS3_ERR_NOENT) {
+                    lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+                    assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
+                    if (steps == 0) {
                         break;
                     }
-                    if (err == LFS3_ERR_CORRUPT) {
+                    if (steps == LFS3_ERR_CORRUPT) {
                         lfs3_gc_close(&lfs3, &gc) => 0;
                         goto detected;
                     }

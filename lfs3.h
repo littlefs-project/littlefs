@@ -1777,9 +1777,9 @@ int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc);
 // of work to make progress, and steps=-1 will not return until all
 // pending janitorial work has been completed.
 //
-// Returns 0 on success, LFS3_ERR_NOENT if no work is available, or a
-// negative error code on failure.
-int lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_soff_t steps);
+// Returns the number of steps progressed on success, 0 if no work is
+// available, or a negative error code on failure.
+lfs3_soff_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_soff_t steps);
 
 
 /// Filesystem-level filesystem operations

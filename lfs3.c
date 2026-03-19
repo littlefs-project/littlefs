@@ -10436,9 +10436,10 @@ static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 //
 // this code looks much worse than it actually is! most of these massive
 // macro messes compile into small constants
-static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
-    lfs3_off_t steps_ = lfs3_max((lfs3_off_t)steps, 1);
-    while (steps_ > 0) {
+static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
+        lfs3_soff_t steps) {
+    lfs3_off_t i = 0;
+    for (; steps < 0 || i < lfs3_max(steps, 1); i++) {
         // do we have any pending traversal work?
         uint32_t t = (mgc->t.h.flags & lfs3->flags & (
                     LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
@@ -10593,16 +10594,11 @@ static int lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc, lfs3_soff_t steps) {
 
         // nothing to do at all? guess we're done
         } else {
-            return LFS3_ERR_NOENT;
-        }
-
-        // decrement steps
-        if ((lfs3_soff_t)steps_ > 0) {
-            steps_ -= 1;
+            break;
         }
     }
 
-    return 0;
+    return i;
 }
 
 
@@ -16904,11 +16900,10 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     lfs3_mgc_t mgc;
     lfs3_mgc_init(&mgc, flags);
     lfs3_handle_open(lfs3, &mgc.t.h);
-    int err = lfs3_mgc_gc(lfs3, &mgc, -1);
-    if (err != LFS3_ERR_NOENT) {
-        LFS3_ASSERT(err != 0);
+    lfs3_soff_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
+    if (steps < 0) {
         lfs3_handle_close(lfs3, &mgc.t.h);
-        return err;
+        return steps;
     }
     lfs3_handle_close(lfs3, &mgc.t.h);
 
@@ -16949,9 +16944,9 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
     #endif
 
     // run gc a configurable number of steps
-    int err = lfs3_mgc_gc(lfs3, &lfs3->gc, lfs3->cfg->gc_steps);
-    if (err && err != LFS3_ERR_NOENT) {
-        return err;
+    lfs3_soff_t steps = lfs3_mgc_gc(lfs3, &lfs3->gc, lfs3->cfg->gc_steps);
+    if (steps < 0) {
+        return steps;
     }
 
     return 0;
@@ -17356,7 +17351,7 @@ int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc) {
     return 0;
 }
 
-int lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_soff_t steps) {
+lfs3_soff_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_soff_t steps) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &gc->gc.t.h));
 
     // filesystem modified? excl? terminate early
