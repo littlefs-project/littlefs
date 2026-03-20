@@ -12815,7 +12815,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_rattr_t *rname);
 #endif
 
-int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs3_file_cfg *cfg) {
     #ifndef LFS3_RDONLY
@@ -15234,7 +15234,7 @@ lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
     // we just use the file API here, but with no cache so all reads
     // bypass the cache
     lfs3_file_t file;
-    int err = lfs3_file_opencfg(lfs3, &file, path, LFS3_O_RDONLY,
+    int err = lfs3_file_opencfg_(lfs3, &file, path, LFS3_O_RDONLY,
             &lfs3_file_kvcfg);
     if (err) {
         return err;
@@ -15254,7 +15254,7 @@ lfs3_ssize_t lfs3_size(lfs3_t *lfs3, const char *path) {
     // we just use the file API here, but with no cache so all reads
     // bypass the cache
     lfs3_file_t file;
-    int err = lfs3_file_opencfg(lfs3, &file, path, LFS3_O_RDONLY,
+    int err = lfs3_file_opencfg_(lfs3, &file, path, LFS3_O_RDONLY,
             &lfs3_file_kvcfg);
     if (err) {
         return err;
