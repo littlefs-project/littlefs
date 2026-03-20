@@ -334,22 +334,25 @@ enum lfs3_type {
                         0x00008000  // Mounted with LFS3_M_CKDATACKSUMS
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_I_MKCONSISTENT \
+#define LFS3_I_NEEDSMKCONSISTENT \
                         0x00010000  // Filesystem needs mkconsistent to write
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_I_LOOKAHEAD \
+#define LFS3_I_NEEDSLOOKAHEAD \
                         0x00020000  // Lookahead/gbmap is not full
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-#define LFS3_I_PREERASE 0x00040000  // Blocks can be pre-erased
+#define LFS3_I_NEEDSPREERASE \
+                        0x00040000  // Blocks can be pre-erased
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_I_COMPACTMETA \
+#define LFS3_I_NEEDSCOMPACTMETA \
                         0x00080000  // Filesystem may have uncompacted metadata
 #endif
-#define LFS3_I_CKMETA   0x00100000  // Metadata checksums not checked recently
-#define LFS3_I_CKDATA   0x00200000  // Data checksums not checked recently
+#define LFS3_I_NEEDSCKMETA \
+                        0x00100000  // Metadata checksums not checked recently
+#define LFS3_I_NEEDSCKDATA \
+                        0x00200000  // Data checksums not checked recently
 
 // Block types
 enum lfs3_btype {
@@ -1858,8 +1861,8 @@ int lfs3_fs_gc(lfs3_t *lfs3);
 // forcing the work to be redone.
 //
 // This is most useful for triggering new ckmeta/ckdata scans with
-// LFS3_I_CANCKMETA and LFS3_I_CANCKDATA. Otherwise littlefs will perform
-// only one scan after mount.
+// LFS3_I_NEEDSCKMETA and LFS3_I_NEEDSCKDATA. Otherwise littlefs will
+// perform only one scan after mount.
 //
 // Returns a negative error code on failure.
 int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags);

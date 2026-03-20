@@ -7391,6 +7391,39 @@ static inline bool lfs3_f_isgbmap(uint32_t flags) {
 }
 #endif
 
+// info flags
+#ifndef LFS3_RDONLY
+static inline bool lfs3_i_needsmkconsistent(uint32_t flags) {
+    return flags & LFS3_I_NEEDSMKCONSISTENT;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static inline bool lfs3_i_needslookahead(uint32_t flags) {
+    return flags & LFS3_I_NEEDSLOOKAHEAD;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
+static inline bool lfs3_i_needspreerase(uint32_t flags) {
+    return flags & LFS3_I_NEEDSPREERASE;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static inline bool lfs3_i_needscompactmeta(uint32_t flags) {
+    return flags & LFS3_I_NEEDSCOMPACTMETA;
+}
+#endif
+
+static inline bool lfs3_i_needsckmeta(uint32_t flags) {
+    return flags & LFS3_I_NEEDSCKMETA;
+}
+
+static inline bool lfs3_i_needsckdata(uint32_t flags) {
+    return flags & LFS3_I_NEEDSCKDATA;
+}
+
 
 
 /// Handles - opened mdir things ///
@@ -9477,7 +9510,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // we may have touched any number of mdirs, so assume uncompacted
     // until lfs3_fs_gc can prove otherwise
-    lfs3->flags |= LFS3_I_COMPACTMETA;
+    lfs3->flags |= LFS3_I_NEEDSCOMPACTMETA;
 
     #ifdef LFS3_DBGMDIRCOMMITS
     LFS3_DEBUG("Committed mdir %"PRId32" "
@@ -10196,12 +10229,12 @@ eot:;
                 || lfs3_t_isckdata(mtrv->h.flags))
             && !lfs3_t_ismtreeonly(mtrv->h.flags)
             && !lfs3_t_isckpointed(mtrv->h.flags)) {
-        lfs3->flags &= ~LFS3_I_CKMETA;
+        lfs3->flags &= ~LFS3_I_NEEDSCKMETA;
     }
     if (lfs3_t_isckdata(mtrv->h.flags)
             && !lfs3_t_ismtreeonly(mtrv->h.flags)
             && !lfs3_t_isckpointed(mtrv->h.flags)) {
-        lfs3->flags &= ~LFS3_I_CKDATA;
+        lfs3->flags &= ~LFS3_I_NEEDSCKDATA;
     }
 
     return LFS3_ERR_NOENT;
@@ -10325,7 +10358,7 @@ again:;
 
     // mkconsistencing mdirs?
     if (lfs3_t_isstepmkconsistent(mgc->t.h.flags)
-            && lfs3_gc_ismkconsistent(lfs3->flags)
+            && lfs3_i_needsmkconsistent(lfs3->flags)
             && tag == LFS3_TAG_MDIR) {
         // grm queue should be flushed before calling lfs3_mtree_gc
         LFS3_ASSERT(lfs3_grm_count(lfs3) == 0);
@@ -10409,14 +10442,14 @@ eot:;
     // was mkconsistent successful?
     if (lfs3_t_isstepmkconsistent(mgc->t.h.flags)
             && !lfs3_t_isdirty(mgc->t.h.flags)) {
-        lfs3->flags &= ~LFS3_I_MKCONSISTENT;
+        lfs3->flags &= ~LFS3_I_NEEDSMKCONSISTENT;
     }
 
     // was compaction successful? note we may need multiple passes if
     // we want to be sure everything is compacted
     if (lfs3_t_isstepcompactmeta(mgc->t.h.flags)
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
-        lfs3->flags &= ~LFS3_I_COMPACTMETA;
+        lfs3->flags &= ~LFS3_I_NEEDSCOMPACTMETA;
     }
     #endif
 
@@ -10456,7 +10489,7 @@ static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // that
         if (LFS3_IFDEF_RDONLY(
                 false,
-                lfs3_gc_ismkconsistent(mgc->t.h.flags)
+                lfs3_i_needsmkconsistent(mgc->t.h.flags)
                     && lfs3_grm_count(lfs3) > 0)) {
             #ifndef LFS3_RDONLY
             // fix pending grms
@@ -11158,7 +11191,7 @@ static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known) {
             !(lfs3_f_isgbmap(lfs3->flags)
                 && lfs3_alloc_canlookgbmap(lfs3)),
             true)) {
-        lfs3->flags &= ~LFS3_I_LOOKAHEAD;
+        lfs3->flags &= ~LFS3_I_NEEDSLOOKAHEAD;
     }
 }
 #endif
@@ -11184,7 +11217,7 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
     }
 
     // signal that gbmap is full
-    lfs3->flags &= ~LFS3_I_LOOKAHEAD;
+    lfs3->flags &= ~LFS3_I_NEEDSLOOKAHEAD;
     return 0;
 }
 #endif
@@ -11231,7 +11264,7 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     // signal that lookahead/gbmap is no longer full
     if (lfs3_alloc_canlookahead(lfs3)
             || LFS3_IFDEF_GBMAP(lfs3_alloc_canlookgbmap(lfs3), false)) {
-        lfs3->flags |= LFS3_I_LOOKAHEAD;
+        lfs3->flags |= LFS3_I_NEEDSLOOKAHEAD;
     }
 }
 #endif
@@ -13055,7 +13088,7 @@ static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
 
         // fallback to just marking the filesystem as inconsistent
         } else {
-            lfs3->flags |= LFS3_I_MKCONSISTENT;
+            lfs3->flags |= LFS3_I_NEEDSMKCONSISTENT;
         }
     }
     #endif
@@ -15353,16 +15386,16 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     // setup flags
     lfs3->flags = flags
             // assume we contain orphans until proven otherwise
-            | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+            | LFS3_IFDEF_RDONLY(0, LFS3_I_NEEDSMKCONSISTENT)
             // default to lookaheadable
-            | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
+            | LFS3_IFDEF_RDONLY(0, LFS3_I_NEEDSLOOKAHEAD)
             // default to assuming we need compaction somewhere, worst
             // case this just makes lfs3_fs_gc read more than is
             // strictly needed
-            | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
+            | LFS3_IFDEF_RDONLY(0, LFS3_I_NEEDSCOMPACTMETA)
             // default to needing a ckmeta/ckdata scan
-            | LFS3_I_CKMETA
-            | LFS3_I_CKDATA;
+            | LFS3_I_NEEDSCKMETA
+            | LFS3_I_NEEDSCKDATA;
 
     // copy block_count so we can mutate it
     lfs3->block_count = lfs3->cfg->block_count;
@@ -16159,10 +16192,10 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
         // repopulatable if known window <= gc_lookgbmap_thresh,
         // unfortunately the way the gbmap feeds itself this rarely
         // includes the entire disk
-        lfs3->flags = (lfs3->flags & ~LFS3_I_LOOKAHEAD)
+        lfs3->flags = (lfs3->flags & ~LFS3_I_NEEDSLOOKAHEAD)
                 | ((lfs3_alloc_canlookahead(lfs3)
                         || lfs3_alloc_canlookgbmap(lfs3))
-                    ? LFS3_I_LOOKAHEAD
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0);
         #endif
 
@@ -16614,26 +16647,26 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, 0)
                     | LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, 0)
-                    | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
-                    | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
-                    | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
-                    | LFS3_I_CKMETA
-                    | LFS3_I_CKDATA
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_NEEDSMKCONSISTENT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_NEEDSLOOKAHEAD)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_I_NEEDSCOMPACTMETA)
+                    | LFS3_I_NEEDSCKMETA
+                    | LFS3_I_NEEDSCKDATA
                     | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)))
-            // LFS3_I_MKCONSISTENT is a bit of a special case,
+            // LFS3_I_NEEDSMKCONSISTENT is a bit of a special case,
             // internally it strictly indicates untracked orphans, but
             // externally it also includes any pending grms
             | LFS3_IFDEF_RDONLY(0,
                 (lfs3_grm_count(lfs3) > 0)
-                    ? LFS3_I_MKCONSISTENT
+                    ? LFS3_I_NEEDSMKCONSISTENT
                     : 0)
-            // LFS3_I_PREERASE we're just lazy about, since it depends
-            // on both gc_preerase_count and preerase vs free known
-            // windows
+            // LFS3_I_NEEDSPREERASE we're just lazy about, since it
+            // depends on both gc_preerase_count and preerase vs free
+            // known windows
             | LFS3_IFDEF_RDONLY(0,
                 LFS3_IFDEF_PREERASE(
                     (lfs3_alloc_canpreerase(lfs3))
-                        ? LFS3_I_PREERASE
+                        ? LFS3_I_NEEDSPREERASE
                         : 0, 0));
 
     // return filesystem config, this may come from disk
@@ -16838,7 +16871,7 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     // this must happen after fixgrm, since removing orphaned
     // stickynotes risks outdating the grm
     //
-    if (lfs3_gc_ismkconsistent(lfs3->flags)) {
+    if (lfs3_i_needsmkconsistent(lfs3->flags)) {
         int err = lfs3_fs_fixorphans(lfs3);
         if (err) {
             return err;
@@ -16895,7 +16928,7 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     // set needs-ck flags, this has the side-effect of signaling ck work
     // is incomplete if we encounter an error, which is probably a good
     // thing
-    lfs3->flags |= flags & (LFS3_I_CKMETA | LFS3_I_CKDATA);
+    lfs3->flags |= flags & (LFS3_I_NEEDSCKMETA | LFS3_I_NEEDSCKDATA);
 
     lfs3_mgc_t mgc;
     lfs3_mgc_init(&mgc, flags);

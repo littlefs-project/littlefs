@@ -128,12 +128,15 @@ I_CKFETCHES     = 0x00002000  # --  Mounted with LFS3_M_CKFETCHES
 I_CKMETAPARITY  = 0x00004000  # --  Mounted with LFS3_M_CKMETAPARITY
 I_CKDATACKSUMS  = 0x00008000  # --  Mounted with LFS3_M_CKDATACKSUMS
 
-I_MKCONSISTENT  = 0x00010000  # --  Filesystem needs mkconsistent to write
-I_LOOKAHEAD     = 0x00020000  # --  Lookahead buffer is not full
-I_PREERASE      = 0x00040000  # --  Blocks can be pre-erased
-I_COMPACTMETA   = 0x00080000  # --  Filesystem may have uncompacted metadata
-I_CKMETA        = 0x00100000  # --  Metadata checksums not checked recently
-I_CKDATA        = 0x00200000  # --  Data checksums not checked recently
+I_NEEDSMKCONSISTENT \
+                = 0x00010000  # --  Filesystem needs mkconsistent to write
+I_NEEDSLOOKAHEAD \
+                = 0x00020000  # --  Lookahead buffer is not full
+I_NEEDSPREERASE = 0x00040000  # --  Blocks can be pre-erased
+I_NEEDSCOMPACTMETA \
+                = 0x00080000  # --  Filesystem may have uncompacted metadata
+I_NEEDSCKMETA   = 0x00100000  # --  Metadata checksums not checked recently
+I_NEEDSCKDATA   = 0x00200000  # --  Data checksums not checked recently
 
 # Traversal flags
 T_MODE          =          3  # -m  The traversal's access mode

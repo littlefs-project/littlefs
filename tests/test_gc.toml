@@ -980,11 +980,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -1015,11 +1015,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the file
@@ -1103,11 +1103,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -1141,11 +1141,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the file
@@ -1228,11 +1228,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -1266,11 +1266,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the file
@@ -1335,11 +1335,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -1370,11 +1370,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the file
@@ -1466,11 +1466,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -1502,11 +1502,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -1652,11 +1652,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -1689,11 +1689,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -1844,11 +1844,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -1882,11 +1882,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -2000,12 +2000,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!GBMAP || ORPHANS >= 100) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((ORPHANS > 0) ? LFS3_I_NEEDSMKCONSISTENT : 0)
+                | ((!GBMAP || ORPHANS >= 100) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing with mkconsistent
@@ -2031,7 +2031,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
@@ -2044,13 +2044,13 @@ code = '''
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
-                    ? LFS3_I_LOOKAHEAD
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -2125,11 +2125,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing with mkconsistent
@@ -2178,7 +2178,7 @@ code = '''
     }
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
-        assert(lfs3.flags & LFS3_I_MKCONSISTENT);
+        assert(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT);
     }
 
     // if we introduced actual orphans, we _must_ be marked as inconsistent
@@ -2186,19 +2186,19 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_NEEDSMKCONSISTENT : 0)
                 | (((!LOOKAHEAD || ORPHANS > 0)
                         && (!GBMAP || ORPHANS >= 100))
-                    ? LFS3_I_LOOKAHEAD
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
                 // note ckdata implies ckmeta
                 | (((!CKMETA && !CKDATA) || GBMAP || ORPHANS > 0)
-                    ? LFS3_I_CKMETA
+                    ? LFS3_I_NEEDSCKMETA
                     : 0)
                 | ((!CKDATA || GBMAP || ORPHANS > 0)
-                    ? LFS3_I_CKDATA
+                    ? LFS3_I_NEEDSCKDATA
                     : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
@@ -2299,12 +2299,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((ORPHANS > 0) ? LFS3_I_NEEDSMKCONSISTENT : 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing with mkconsistent
@@ -2330,7 +2330,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
@@ -2342,12 +2342,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -2447,12 +2447,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((ORPHANS > 0) ? LFS3_I_NEEDSMKCONSISTENT : 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing with mkconsistent
@@ -2478,7 +2478,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
@@ -2490,12 +2490,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -2596,12 +2596,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((ORPHANS > 0) ? LFS3_I_NEEDSMKCONSISTENT : 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing with mkconsistent
@@ -2627,7 +2627,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
@@ -2639,12 +2639,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -2745,12 +2745,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((ORPHANS > 0) ? LFS3_I_NEEDSMKCONSISTENT : 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing with mkconsistent
@@ -2776,7 +2776,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
@@ -2788,12 +2788,12 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -2912,14 +2912,14 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
+                | ((ORPHANS > 0) ? LFS3_I_NEEDSMKCONSISTENT : 0)
                 | ((!GBMAP || ORPHANS >= 100)
-                    ? LFS3_I_LOOKAHEAD
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing with mkconsistent
@@ -2946,7 +2946,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.r.weight <= (2 << lfs3.mbits));
@@ -2963,12 +2963,12 @@ code = '''
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
-                    ? LFS3_I_LOOKAHEAD
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the files
@@ -3066,11 +3066,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing with mkconsistent
@@ -3119,7 +3119,7 @@ code = '''
     }
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
-        assert(lfs3.flags & LFS3_I_MKCONSISTENT);
+        assert(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT);
     }
 
     //// mdirs should have been compacted
@@ -3131,18 +3131,18 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_NEEDSMKCONSISTENT : 0)
                 | (((!LOOKAHEAD || ORPHANS > 0)
                         && (!GBMAP || ORPHANS >= 100))
-                    ? LFS3_I_LOOKAHEAD
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
                 | (((!CKMETA && !CKDATA) || GBMAP || ORPHANS > 0)
-                    ? LFS3_I_CKMETA
+                    ? LFS3_I_NEEDSCKMETA
                     : 0)
                 | ((!CKDATA || GBMAP || ORPHANS > 0)
-                    ? LFS3_I_CKDATA
+                    ? LFS3_I_NEEDSCKDATA
                     : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
@@ -3219,7 +3219,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -3229,7 +3229,7 @@ code = '''
         lfs3_fs_gc(&lfs3) => 0;
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
             break;
         }
     }
@@ -3289,7 +3289,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD);
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD));
 
     // run GC one step
@@ -3312,7 +3312,7 @@ code = '''
 
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD);
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -3371,7 +3371,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
             break;
         }
     }
@@ -3398,7 +3398,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (fsinfo.flags & LFS3_I_LOOKAHEAD) {
+        if (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD) {
             // check that we actually relaxed repopulations
             if ((lfs3_size_t)GC_LOOKAHEAD_THRESH
                     < (lfs3_size_t)(8*LOOKAHEAD_SIZE-1)) {
@@ -3419,7 +3419,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
             break;
         }
     }
@@ -3473,7 +3473,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -3483,7 +3483,7 @@ code = '''
         lfs3_fs_gc(&lfs3) => 0;
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
             break;
         }
     }
@@ -3541,7 +3541,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD);
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD));
 
     // run GC one step
@@ -3564,7 +3564,7 @@ code = '''
 
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD);
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -3622,7 +3622,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
             break;
         }
     }
@@ -3649,7 +3649,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (fsinfo.flags & LFS3_I_LOOKAHEAD) {
+        if (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD) {
             // check that we actually relaxed repopulations
             if ((lfs3_size_t)GC_LOOKGBMAP_THRESH
                     < BLOCK_COUNT-1) {
@@ -3670,7 +3670,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
             break;
         }
     }
@@ -3738,7 +3738,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_PREERASE);
+    assert(fsinfo.flags & LFS3_I_NEEDSPREERASE);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -3748,7 +3748,7 @@ code = '''
         lfs3_fs_gc(&lfs3) => 0;
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_PREERASE)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
             break;
         }
     }
@@ -3779,8 +3779,8 @@ code = '''
         // any block allocation
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert((fsinfo.flags & LFS3_I_PREERASE)
-                || (fsinfo.flags & LFS3_I_LOOKAHEAD));
+        assert((fsinfo.flags & LFS3_I_NEEDSPREERASE)
+                || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD));
     }
 
     // how much did we erase? we may need to erase more than expected
@@ -3871,7 +3871,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_PREERASE)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
             break;
         }
     }
@@ -3902,8 +3902,8 @@ code = '''
         // any block allocation
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        assert((fsinfo.flags & LFS3_I_PREERASE)
-                || (fsinfo.flags & LFS3_I_LOOKAHEAD));
+        assert((fsinfo.flags & LFS3_I_NEEDSPREERASE)
+                || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD));
     }
 
     // how much did we erase? we may need to erase more than expected
@@ -3986,7 +3986,7 @@ code = '''
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-            if (!(fsinfo.flags & LFS3_I_PREERASE)) {
+            if (!(fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
                 break;
             }
         }
@@ -4012,8 +4012,8 @@ code = '''
             // any block allocation
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-            assert((fsinfo.flags & LFS3_I_PREERASE)
-                    || (fsinfo.flags & LFS3_I_LOOKAHEAD));
+            assert((fsinfo.flags & LFS3_I_NEEDSPREERASE)
+                    || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD));
         }
 
         // check the file contents
@@ -4134,7 +4134,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_COMPACTMETA);
+    assert(fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -4144,7 +4144,7 @@ code = '''
         lfs3_fs_gc(&lfs3) => 0;
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_COMPACTMETA)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA)) {
             break;
         }
     }
@@ -4226,7 +4226,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_COMPACTMETA);
+    assert(fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA);
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA));
 
     // run GC one traversal + until compacting
@@ -4260,7 +4260,7 @@ code = '''
 
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_COMPACTMETA);
+    assert(fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -4357,7 +4357,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
+    assert(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -4367,7 +4367,7 @@ code = '''
         lfs3_fs_gc(&lfs3) => 0;
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_MKCONSISTENT)) {
+        if (!(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT)) {
             break;
         }
     }
@@ -4461,14 +4461,14 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
+    assert(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT);
 
     // call lfs3_fs_mkconsistent
     lfs3_fs_mkconsistent(&lfs3) => 0;
 
     // we should have made progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS3_I_MKCONSISTENT));
+    assert(!(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -4591,7 +4591,7 @@ code = '''
     // we should now have dirty state
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
+    assert(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT);
 
     // run GC until our traversal is done
     while (lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT) {
@@ -4600,7 +4600,7 @@ code = '''
 
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
+    assert(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT);
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5092,7 +5092,7 @@ code = '''
             while (true) {
                 struct lfs3_fsinfo fsinfo;
                 lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-                if (!(fsinfo.flags & LFS3_I_CKMETA)) {
+                if (!(fsinfo.flags & LFS3_I_NEEDSCKMETA)) {
                     break;
                 }
 
@@ -5132,7 +5132,7 @@ code = '''
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS3_I_CKMETA));
+            assert(!(fsinfo.flags & LFS3_I_NEEDSCKMETA));
 
         // remount with LFS3_M_CKMETA
         } else if (AFTER == 5) {
@@ -5141,7 +5141,7 @@ code = '''
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS3_I_CKMETA));
+            assert(!(fsinfo.flags & LFS3_I_NEEDSCKMETA));
 
         } else {
             assert(false);
@@ -5187,7 +5187,7 @@ code = '''
 
     clobbered:;
         // clear relevant ck flags
-        lfs3_fs_unck(&lfs3, LFS3_I_CKMETA) => 0;
+        lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKMETA) => 0;
 
         // running lfs3_fs_gc should eventually find the clobbered block
         for (lfs3_block_t i = 0;; i++) {
@@ -5272,7 +5272,7 @@ code = '''
             while (true) {
                 struct lfs3_fsinfo fsinfo;
                 lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-                if (!(fsinfo.flags & LFS3_I_CKDATA)) {
+                if (!(fsinfo.flags & LFS3_I_NEEDSCKDATA)) {
                     break;
                 }
 
@@ -5312,7 +5312,7 @@ code = '''
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS3_I_CKDATA));
+            assert(!(fsinfo.flags & LFS3_I_NEEDSCKDATA));
 
         // remount with LFS3_M_CKDATA
         } else if (AFTER == 5) {
@@ -5321,7 +5321,7 @@ code = '''
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-            assert(!(fsinfo.flags & LFS3_I_CKDATA));
+            assert(!(fsinfo.flags & LFS3_I_NEEDSCKDATA));
 
         } else {
             assert(false);
@@ -5368,7 +5368,7 @@ code = '''
 
     clobbered:;
         // clear relevant ck flags
-        lfs3_fs_unck(&lfs3, LFS3_I_CKDATA) => 0;
+        lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKDATA) => 0;
 
         // running lfs3_fs_gc should eventually find the clobbered block
         //
@@ -5486,14 +5486,14 @@ code = '''
                     (PREERASE) ? LFS3_I_REVPERTURB : 0,
                     0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+                | LFS3_I_NEEDSMKCONSISTENT
+                | ((!GBMAP || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD))
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // run gc
@@ -5525,40 +5525,40 @@ code = '''
             // it may take multiple traversals to do all pending work
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                    ((MKCONSISTENT) ? LFS3_I_NEEDSMKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                         | ((PREERASE)
-                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_NEEDSPREERASE, -1)
                             : 0)
-                        | ((COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
-                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
+                        | ((COMPACTMETA) ? LFS3_I_NEEDSCOMPACTMETA : 0)
+                        | ((CKMETA) ? LFS3_I_NEEDSCKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_NEEDSCKDATA : 0)))) {
                 break;
             }
 
-            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_MKCONSISTENT)) {
+            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT)) {
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
             }
 
             #ifdef LFS3_PREERASE
-            if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
+            if (PREERASE && (fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
             }
             #endif
 
-            if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
+            if (COMPACTMETA && (fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
             }
 
-            if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
+            if (CKMETA && (fsinfo.flags & LFS3_I_NEEDSCKMETA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
-            if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
+            if (CKDATA && (fsinfo.flags & LFS3_I_NEEDSCKDATA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
         }
@@ -5587,18 +5587,18 @@ code = '''
                     (PREERASE) ? LFS3_I_REVPERTURB : 0,
                     0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                | ((!MKCONSISTENT) ? LFS3_I_NEEDSMKCONSISTENT : 0)
                 | ((!LOOKAHEAD
-                        && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
-                    ? LFS3_I_LOOKAHEAD
+                        && (!GBMAP || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)))
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE(
-                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    (GBMAP && !PREERASE) ? LFS3_I_NEEDSPREERASE : 0,
                     0)
-                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
+                | ((!COMPACTMETA) ? LFS3_I_NEEDSCOMPACTMETA : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
@@ -5699,14 +5699,14 @@ code = '''
                     (PREERASE) ? LFS3_I_REVPERTURB : 0,
                     0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+                | LFS3_I_NEEDSMKCONSISTENT
+                | ((!GBMAP || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD))
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // run gc
@@ -5738,40 +5738,40 @@ code = '''
             // it may take multiple traversals to do all pending work
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                    ((MKCONSISTENT) ? LFS3_I_NEEDSMKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                         | ((PREERASE)
-                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_NEEDSPREERASE, -1)
                             : 0)
-                        | ((COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
-                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
+                        | ((COMPACTMETA) ? LFS3_I_NEEDSCOMPACTMETA : 0)
+                        | ((CKMETA) ? LFS3_I_NEEDSCKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_NEEDSCKDATA : 0)))) {
                 break;
             }
 
-            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_MKCONSISTENT)) {
+            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT)) {
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
             }
 
             #ifdef LFS3_PREERASE
-            if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
+            if (PREERASE && (fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
             }
             #endif
 
-            if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
+            if (COMPACTMETA && (fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
             }
 
-            if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
+            if (CKMETA && (fsinfo.flags & LFS3_I_NEEDSCKMETA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
-            if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
+            if (CKDATA && (fsinfo.flags & LFS3_I_NEEDSCKDATA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
         }
@@ -5800,18 +5800,18 @@ code = '''
                     (PREERASE) ? LFS3_I_REVPERTURB : 0,
                     0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                | ((!MKCONSISTENT) ? LFS3_I_NEEDSMKCONSISTENT : 0)
                 | ((!LOOKAHEAD
-                        && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
-                    ? LFS3_I_LOOKAHEAD
+                        && (!GBMAP || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)))
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE(
-                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    (GBMAP && !PREERASE) ? LFS3_I_NEEDSPREERASE : 0,
                     0)
-                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
+                | ((!COMPACTMETA) ? LFS3_I_NEEDSCOMPACTMETA : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // test that we can reset flags with lfs3_fs_unck
@@ -5825,18 +5825,18 @@ code = '''
                     (PREERASE) ? LFS3_I_REVPERTURB : 0,
                     0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+                | LFS3_I_NEEDSMKCONSISTENT
+                | ((!GBMAP || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD))
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE(
-                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    (GBMAP && !PREERASE) ? LFS3_I_NEEDSPREERASE : 0,
                     0)
-                | LFS3_I_COMPACTMETA
+                | LFS3_I_NEEDSCOMPACTMETA
                 // note ckdata implies ckmeta, but uncking ckdata does
                 // _not_ imply uncking ckmeta
-                | ((!(CKDATA && !CKMETA)) ? LFS3_I_CKMETA : 0)
-                | LFS3_I_CKDATA
+                | ((!(CKDATA && !CKMETA)) ? LFS3_I_NEEDSCKMETA : 0)
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // run gc
@@ -5868,40 +5868,40 @@ code = '''
             // it may take multiple traversals to do all pending work
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                    ((MKCONSISTENT) ? LFS3_I_NEEDSMKCONSISTENT : 0)
+                        | ((LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                         | ((PREERASE)
-                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
+                            ? LFS3_IFDEF_PREERASE(LFS3_I_NEEDSPREERASE, -1)
                             : 0)
-                        | ((COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
-                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
+                        | ((COMPACTMETA) ? LFS3_I_NEEDSCOMPACTMETA : 0)
+                        | ((CKMETA) ? LFS3_I_NEEDSCKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_NEEDSCKDATA : 0)))) {
                 break;
             }
 
-            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_MKCONSISTENT)) {
+            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT)) {
                 lfs3_fs_mkconsistent(&lfs3) => 0;
             }
 
-            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
             }
 
             #ifdef LFS3_PREERASE
-            if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
+            if (PREERASE && (fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
             }
             #endif
 
-            if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
+            if (COMPACTMETA && (fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
             }
 
-            if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
+            if (CKMETA && (fsinfo.flags & LFS3_I_NEEDSCKMETA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
-            if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
+            if (CKDATA && (fsinfo.flags & LFS3_I_NEEDSCKDATA)) {
                 lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
         }
@@ -5930,18 +5930,18 @@ code = '''
                     (PREERASE) ? LFS3_I_REVPERTURB : 0,
                     0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                | ((!MKCONSISTENT) ? LFS3_I_NEEDSMKCONSISTENT : 0)
                 | ((!LOOKAHEAD
-                        && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
-                    ? LFS3_I_LOOKAHEAD
+                        && (!GBMAP || (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)))
+                    ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE(
-                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    (GBMAP && !PREERASE) ? LFS3_I_NEEDSPREERASE : 0,
                     0)
-                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
+                | ((!COMPACTMETA) ? LFS3_I_NEEDSCOMPACTMETA : 0)
                 // note ckdata implies ckmeta
-                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
-                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
@@ -6306,7 +6306,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKMETA | LFS3_I_NEEDSCKDATA) => 0;
         }
     }
 
@@ -6512,7 +6512,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKMETA | LFS3_I_NEEDSCKDATA) => 0;
         }
     }
 
@@ -6643,7 +6643,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKMETA | LFS3_I_NEEDSCKDATA) => 0;
         }
     }
 
@@ -6870,7 +6870,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKMETA | LFS3_I_NEEDSCKDATA) => 0;
         }
     }
 
@@ -7060,7 +7060,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKMETA | LFS3_I_NEEDSCKDATA) => 0;
         }
     }
 
@@ -7486,7 +7486,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKMETA | LFS3_I_NEEDSCKDATA) => 0;
         }
     }
 
@@ -8017,7 +8017,7 @@ code = '''
 
         // unck to keep things interesting?
         if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+            lfs3_fs_unck(&lfs3, LFS3_I_NEEDSCKMETA | LFS3_I_NEEDSCKDATA) => 0;
         }
     }
 
