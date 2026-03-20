@@ -7159,11 +7159,6 @@ static inline void lfs3_o_settype(uint32_t *flags, uint8_t type) {
     *flags = (*flags & ~LFS3_o_TYPE) | lfs3_o_typeflags(type);
 }
 
-// TODO drop for lfs3_o_type(flags) == LFS3_TYPE_REG?
-static inline bool lfs3_o_isbshrub(uint32_t flags) {
-    return lfs3_o_type(flags) == LFS3_TYPE_REG;
-}
-
 static inline bool lfs3_o_iszombie(uint32_t flags) {
     return flags & LFS3_o_ZOMBIE;
 }
