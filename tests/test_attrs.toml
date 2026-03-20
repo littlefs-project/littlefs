@@ -959,7 +959,8 @@ code = '''
     // try compacting?
     #ifdef LFS3_GC
     if (COMPACTMETA) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
     #endif
 
@@ -1056,7 +1057,8 @@ code = '''
     // try compacting?
     #ifdef LFS3_GC
     if (COMPACTMETA) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
     #endif
 
@@ -5084,7 +5086,8 @@ code = '''
     // try compacting?
     #ifdef LFS3_GC
     if (COMPACTMETA) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
     #endif
 

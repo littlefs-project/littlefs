@@ -1850,9 +1850,10 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags);
 // Calling this function is not required, but may allow the offloading of
 // expensive janitorial work to a less time-critical code path.
 //
-// Returns a negative error code on failure.
+// Returns the number of steps progressed on success, 0 if no work is
+// available, or a negative error code on failure.
 #ifdef LFS3_GC
-int lfs3_fs_gc(lfs3_t *lfs3);
+lfs3_soff_t lfs3_fs_gc(lfs3_t *lfs3);
 #endif
 
 // Mark janitorial work as incomplete

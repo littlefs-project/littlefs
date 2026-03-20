@@ -3226,7 +3226,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
@@ -3293,7 +3294,8 @@ code = '''
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD));
 
     // run GC one step
-    lfs3_fs_gc(&lfs3) => 0;
+    lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
     assert(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD);
 
     // mutate the filesystem
@@ -3307,7 +3309,8 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
 
     // we should _not_ make progress
@@ -3367,7 +3370,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3415,7 +3419,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3480,7 +3485,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
@@ -3545,7 +3551,8 @@ code = '''
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD));
 
     // run GC one step
-    lfs3_fs_gc(&lfs3) => 0;
+    lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
     assert(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD);
 
     // mutate the filesystem
@@ -3559,7 +3566,8 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
 
     // we should _not_ make progress
@@ -3618,7 +3626,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3666,7 +3675,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3745,7 +3755,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
@@ -3867,7 +3878,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3982,7 +3994,8 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            lfs3_fs_gc(&lfs3) => 0;
+            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            assert(steps >= 0);
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4141,7 +4154,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA)) {
@@ -4231,14 +4245,16 @@ code = '''
 
     // run GC one traversal + until compacting
     while (true) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         if (!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA)) {
             break;
         }
     }
     while (true) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         if (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA) {
             break;
@@ -4255,7 +4271,8 @@ code = '''
 
     // run GC until our traversal is done (twice for compact)
     while (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
 
     // we should _not_ make progress
@@ -4364,7 +4381,8 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         if (!(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT)) {
@@ -4567,7 +4585,8 @@ code = '''
     // run GC until mkconsistencing
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT));
     while (true) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         if (lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT) {
             break;
@@ -4595,7 +4614,8 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT) {
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
 
     // we should _not_ make progress
@@ -4723,10 +4743,10 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfs3_fs_gc(&lfs3);
-            assert(!err || err == LFS3_ERR_CORRUPT);
+            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
             // found it
-            if (err == LFS3_ERR_CORRUPT) {
+            if (steps == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
@@ -4829,10 +4849,10 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfs3_fs_gc(&lfs3);
-            assert(!err || err == LFS3_ERR_CORRUPT);
+            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
             // found it
-            if (err == LFS3_ERR_CORRUPT) {
+            if (steps == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
@@ -5085,7 +5105,8 @@ code = '''
 
         // run lfs3_fs_gc once
         if (AFTER == 0) {
-            lfs3_fs_gc(&lfs3) => 0;
+            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            assert(steps >= 0);
 
         // run lfs3_fs_gc to completion
         } else if (AFTER == 1) {
@@ -5096,7 +5117,8 @@ code = '''
                     break;
                 }
 
-                lfs3_fs_gc(&lfs3) => 0;
+                lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0);
             }
 
         // run lfs3_trv_t
@@ -5194,10 +5216,10 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfs3_fs_gc(&lfs3);
-            assert(!err || err == LFS3_ERR_CORRUPT);
+            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
             // found it
-            if (err == LFS3_ERR_CORRUPT) {
+            if (steps == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
@@ -5265,7 +5287,8 @@ code = '''
 
         // run lfs3_fs_gc once
         if (AFTER == 0) {
-            lfs3_fs_gc(&lfs3) => 0;
+            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            assert(steps >= 0);
 
         // run lfs3_fs_gc to completion
         } else if (AFTER == 1) {
@@ -5276,7 +5299,8 @@ code = '''
                     break;
                 }
 
-                lfs3_fs_gc(&lfs3) => 0;
+                lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0);
             }
 
         // run lfs3_trv_t
@@ -5377,10 +5401,10 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            int err = lfs3_fs_gc(&lfs3);
-            assert(!err || err == LFS3_ERR_CORRUPT);
+            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
             // found it
-            if (err == LFS3_ERR_CORRUPT) {
+            if (steps == LFS3_ERR_CORRUPT) {
                 break;
             }
         }
@@ -5499,7 +5523,8 @@ code = '''
     // run gc
     if (AFTER == 0) {
         #ifdef LFS3_GC
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
         #else
         assert(false);
         #endif
@@ -5712,7 +5737,8 @@ code = '''
     // run gc
     if (AFTER == 0) {
         #ifdef LFS3_GC
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
         #else
         assert(false);
         #endif
@@ -5842,7 +5868,8 @@ code = '''
     // run gc
     if (AFTER == 0) {
         #ifdef LFS3_GC
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
         #else
         assert(false);
         #endif
@@ -6023,7 +6050,8 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
 
     // check the file contents
@@ -6115,7 +6143,8 @@ code = '''
         lfs3_fs_unck(&lfs3, flags) => 0;
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
     }
 
     // check the file contents
@@ -6202,9 +6231,9 @@ code = '''
         }
 
         // gc!
-        err = lfs3_fs_gc(&lfs3);
-        assert(!err || err == LFS3_ERR_NOSPC);
-        if (err == LFS3_ERR_NOSPC) {
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
+        if (steps == LFS3_ERR_NOSPC) {
             break;
         }
     }
@@ -6302,7 +6331,8 @@ code = '''
         assert(!err || (TEST_PLS && err == LFS3_ERR_EXIST));
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         // unck to keep things interesting?
         if (UNCK) {
@@ -6508,7 +6538,8 @@ code = '''
         }
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         // unck to keep things interesting?
         if (UNCK) {
@@ -6639,7 +6670,8 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         // unck to keep things interesting?
         if (UNCK) {
@@ -6866,7 +6898,8 @@ code = '''
         }
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         // unck to keep things interesting?
         if (UNCK) {
@@ -7056,7 +7089,8 @@ code = '''
         }
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         // unck to keep things interesting?
         if (UNCK) {
@@ -7482,7 +7516,8 @@ code = '''
         }
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         // unck to keep things interesting?
         if (UNCK) {
@@ -8013,7 +8048,8 @@ code = '''
         }
 
         // gc!
-        lfs3_fs_gc(&lfs3) => 0;
+        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
 
         // unck to keep things interesting?
         if (UNCK) {

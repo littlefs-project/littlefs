@@ -16947,7 +16947,7 @@ int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
 //
 // perform any pending janitorial work
 #ifdef LFS3_GC
-int lfs3_fs_gc(lfs3_t *lfs3) {
+lfs3_soff_t lfs3_fs_gc(lfs3_t *lfs3) {
     // TODO should we actually assert on these in lfs3_init?
     // unknown gc flags?
     LFS3_ASSERT((lfs3->cfg->gc_flags & ~(
@@ -16977,12 +16977,7 @@ int lfs3_fs_gc(lfs3_t *lfs3) {
     #endif
 
     // run gc a configurable number of steps
-    lfs3_soff_t steps = lfs3_mgc_gc(lfs3, &lfs3->gc, lfs3->cfg->gc_steps);
-    if (steps < 0) {
-        return steps;
-    }
-
-    return 0;
+    return lfs3_mgc_gc(lfs3, &lfs3->gc, lfs3->cfg->gc_steps);
 }
 #endif
 

@@ -596,9 +596,9 @@ code = '''
             // find clobbered blocks with lfs3_fs_gc
             } else if (METHOD == 1) {
                 #ifdef LFS3_GC
-                int err = lfs3_fs_gc(&lfs3);
-                assert(!err || err == LFS3_ERR_CORRUPT);
-                if (err == LFS3_ERR_CORRUPT) {
+                lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
+                if (steps == LFS3_ERR_CORRUPT) {
                     goto detected;
                 }
                 #else
@@ -874,9 +874,9 @@ code = '''
             // find clobbered blocks with lfs3_fs_gc
             } else if (METHOD == 1) {
                 #ifdef LFS3_GC
-                int err = lfs3_fs_gc(&lfs3);
-                assert(!err || err == LFS3_ERR_CORRUPT);
-                if (err == LFS3_ERR_CORRUPT) {
+                lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
+                if (steps == LFS3_ERR_CORRUPT) {
                     goto detected;
                 }
                 #else
