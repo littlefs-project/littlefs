@@ -30,7 +30,6 @@ O_MODE          =          3  # -m  The file's access mode
 O_RDONLY        =          0  # -^  Open a file as read only
 O_WRONLY        =          1  # -^  Open a file as write only
 O_RDWR          =          2  # -^  Open a file as read and write
-o_WRSET         =          3  # i^  Open a file as an atomic write
 O_CREAT         = 0x00000004  # --  Create a file if it does not exist
 O_EXCL          = 0x00000008  # --  Fail if a file already exists
 O_TRUNC         = 0x00000010  # --  Truncate the existing file to zero size
@@ -43,6 +42,7 @@ O_CKMETA        = 0x00100000  # --  Check metadata checksums
 O_CKDATA        = 0x00200000  # --  Check metadata + data checksums
 O_CK            = 0x00300000  # a-  Alias for all check work
 
+o_SET           = 0x00008000  # i-  Atomically write file
 o_TYPE          = 0xf0000000  # im  The file's type
 o_REG           = 0x10000000  # i^  Type = regular-file
 o_DIR           = 0x20000000  # i^  Type = directory

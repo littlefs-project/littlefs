@@ -145,7 +145,7 @@ enum lfs3_type {
 #define LFS3_O_CKDATA   0x00200000  // Check metadata + data checksums
 
 // internally used flags, don't use these
-#define LFS3_o_WRSET             3  // Open a file as an atomic write
+#define LFS3_o_SET      0x00008000  // Atomically write file
 #define LFS3_o_TYPE     0xf0000000  // The file's type
 #define LFS3_o_ZOMBIE   0x08000000  // File has been removed
 #define LFS3_o_NEEDSCREAT \

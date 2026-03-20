@@ -7147,6 +7147,10 @@ static inline bool lfs3_o_isdesync(uint32_t flags) {
 }
 
 // internal open flags
+static inline bool lfs3_o_isset(uint32_t flags) {
+    return flags & LFS3_o_SET;
+}
+
 static inline uint8_t lfs3_o_type(uint32_t flags) {
     return flags >> 28;
 }
@@ -12832,9 +12836,9 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
 
     // allocate cache if necessary
     //
-    // wrset is a special lfs3_set specific mode that passes data via
-    // the file cache, so make sure not to clobber it
-    if (lfs3_o_mode(file->b.h.flags) == LFS3_o_WRSET) {
+    // though note lfs3_set passes data via the file cache, so make sure
+    // not to clobber it if LFS3_o_SET is set
+    if (lfs3_o_isset(file->b.h.flags)) {
         file->b.h.flags |= LFS3_o_NEEDSFLUSH;
         file->cache.buffer = file->cfg->fcache_buffer;
         file->cache.pos = 0;
@@ -12928,9 +12932,9 @@ int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     // need to create an entry?
     #ifndef LFS3_RDONLY
     if (tag == LFS3_ERR_NOENT) {
-        // small file wrset? can we atomically commit everything in one
+        // small file set? can we atomically commit everything in one
         // commit? currently this is only possible via lfs3_set
-        if (lfs3_o_mode(file->b.h.flags) == LFS3_o_WRSET
+        if (lfs3_o_isset(file->b.h.flags)
                 && file->cache.size <= lfs3->cfg->shrub_size
                 && file->cache.size <= lfs3->cfg->fragment_size
                 && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
@@ -13043,6 +13047,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     return lfs3_file_opencfg_(lfs3, file, path, flags,
             cfg);
 }
+
 
 // default file config
 static const struct lfs3_file_cfg lfs3_file_defaultcfg = {0};
@@ -15268,8 +15273,8 @@ lfs3_ssize_t lfs3_size(lfs3_t *lfs3, const char *path) {
 #ifndef LFS3_RDONLY
 int lfs3_set(lfs3_t *lfs3, const char *path,
         const void *buffer, lfs3_size_t size) {
-    // LFS3_o_WRSET is a special mode specifically to make lfs3_set work
-    // atomically when possible
+    // LFS3_o_SET is a special flag specifically to make lfs3_set atomic
+    // when possible
     //
     // - if we need to reserve the mid _and_ we're small, everything is
     //   committed/broadcasted in lfs3_file_opencfg
@@ -15284,7 +15289,7 @@ int lfs3_set(lfs3_t *lfs3, const char *path,
     };
     lfs3_file_t file;
     int err = lfs3_file_opencfg_(lfs3, &file, path,
-            LFS3_o_WRSET | LFS3_O_CREAT | LFS3_O_TRUNC,
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC | LFS3_o_SET,
             &cfg);
     if (err) {
         return err;
