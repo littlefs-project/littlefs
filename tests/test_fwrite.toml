@@ -5504,7 +5504,7 @@ code = '''
 
         pos = pos - (weight/2) + 1;
     }
-    file.b.h.flags |= LFS3_o_UNSYNC;
+    file.b.h.flags |= LFS3_o_NEEDSSYNC;
     lfs3_file_close(&lfs3, &file) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
@@ -5615,7 +5615,7 @@ code = '''
 
         pos = pos - (weight/2) + 1;
     }
-    file.b.h.flags |= LFS3_o_UNSYNC;
+    file.b.h.flags |= LFS3_o_NEEDSSYNC;
     lfs3_file_close(&lfs3, &file) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
