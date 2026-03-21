@@ -10470,8 +10470,10 @@ static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 // macro messes compile into small constants
 static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_soff_t steps) {
+    // i here is best effort, we may make multiple passes, so we
+    // saturate to avoid any overflow issues
     lfs3_off_t i = 0;
-    for (; steps < 0 || i < lfs3_max(steps, 1); i++) {
+    for (; steps < 0 || i < lfs3_max(steps, 1); i = lfs3_smax(i, i+1)) {
         // do we have any pending traversal work?
         uint32_t t = (mgc->t.h.flags & lfs3->flags & (
                     LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
