@@ -5555,8 +5555,7 @@ static inline uint32_t lfs3_rev_btree(lfs3_t *lfs3);
 // This is because our btrees contain vestigial names, i.e. our inner
 // nodes may contain names no longer in the tree. This simplifies
 // lfs3_btree_commit_, but means insert-before-bid+1 is _not_ the same
-// as insert-after-bid when named btrees are involved. If you try this
-// it _will not_ work and if try to make it work you _will_ cry:
+// as insert-after-bid when named btrees are involved:
 //
 //     .-----f-----.    insert-after-d     .-------f-----.
 //   .-b--.     .--j-.        =>         .-b---.      .--j-.
