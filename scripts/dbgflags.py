@@ -17,7 +17,6 @@ PREFIX_F       = ['+f', '+format']      # Filter by LFS3_F_* flags
 PREFIX_M       = ['+m', '+mount']       # Filter by LFS3_M_* flags
 PREFIX_I       = ['+i', '+info']        # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']         # Filter by LFS3_T_* flags
-PREFIX_CK      = ['+ck']                # Filter by LFS3_CK_* flags
 PREFIX_GC      = ['+gc']                # Filter by LFS3_GC_* flags
 PREFIX_ALLOC   = ['+alloc']             # Filter by LFS3_ALLOC_* flags
 PREFIX_RCOMPAT = ['+rc', '+rcompat']    # Filter by LFS3_RCOMPAT_* flags
@@ -172,16 +171,6 @@ t_ZOMBIE        = 0x08000000  # i-  File has been removed
 t_CKPOINTED     = 0x04000000  # i-  Filesystem ckpointed during traversal
 t_DIRTY         = 0x02000000  # i-  Filesystem ckpointed outside traversal
 t_STALE         = 0x01000000  # i-  Block queue probably out-of-date
-
-# File/filesystem check flags
-CK_MKCONSISTENT = 0x00010000  # --  Make the filesystem consistent
-CK_LOOKAHEAD    = 0x00020000  # --  Repopulate lookahead buffer
-CK_PREERASE     = 0x00040000  # --  Try to pre-erase free blocks
-CK_COMPACTMETA  = 0x00080000  # --  Compact metadata logs
-CK_CKMETA       = 0x00100000  # --  Check metadata checksums
-CK_CKDATA       = 0x00200000  # --  Check metadata + data checksums
-CK_CK           = 0x00300000  # a-  Alias for all check work
-CK_GC           = 0x003f0000  # a-  Alias for all gc work
 
 # GC flags
 GC_MODE         =          3  # -m  The gc's access mode

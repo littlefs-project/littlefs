@@ -4862,7 +4862,7 @@ code = '''
 done:;
 '''
 
-# test that our explicit functions (lfs3_fs_ck) work as well,
+# test that our explicit functions (lfs3_fs_ckmeta) work as well,
 # these call the same logic internally
 [cases.test_gc_ckmeta_explicit]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -4946,8 +4946,8 @@ code = '''
         }
 
     clobbered:;
-        // lfs3_fs_ckshould find the clobbered block
-        lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => LFS3_ERR_CORRUPT;
+        // lfs3_fs_ckmeta should find the clobbered block
+        lfs3_fs_ckmeta(&lfs3) => LFS3_ERR_CORRUPT;
 
         lfs3_unmount(&lfs3) => 0;
     }
@@ -5037,8 +5037,8 @@ code = '''
         }
 
     clobbered:;
-        // lfs3_fs_ckshould find the clobbered block
-        lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => LFS3_ERR_CORRUPT;
+        // lfs3_fs_ckdata should find the clobbered block
+        lfs3_fs_ckdata(&lfs3) => LFS3_ERR_CORRUPT;
 
         lfs3_unmount(&lfs3) => 0;
     }
@@ -5052,7 +5052,7 @@ done:;
 # AFTER=1 => after running lfs3_fs_gc to completion
 # AFTER=2 => after running lfs3_trv_t
 # AFTER=3 => after running lfs3_gc_t
-# AFTER=4 => after lfs3_fs_ck
+# AFTER=4 => after lfs3_fs_ckmeta
 # AFTER=5 => after remounting with LFS3_M_CKMETA
 defines.AFTER = [0, 1, 2, 3, 4, 5]
 defines.GC_FLAGS = 'LFS3_GC_CKMETA'
@@ -5148,9 +5148,9 @@ code = '''
             }
             lfs3_gc_close(&lfs3, &gc) => 0;
 
-        // run lfs3_fs_ck
+        // run lfs3_fs_ckmeta
         } else if (AFTER == 4) {
-            lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
+            lfs3_fs_ckmeta(&lfs3) => 0;
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5234,7 +5234,7 @@ done:;
 # AFTER=1 => after running lfs3_fs_gc to completion
 # AFTER=2 => after running lfs3_trv_t
 # AFTER=3 => after running lfs3_gc_t
-# AFTER=4 => after lfs3_fs_ck
+# AFTER=4 => after lfs3_fs_ckdata
 # AFTER=5 => after remounting with LFS3_M_CKDATA
 defines.AFTER = [0, 1, 2, 3, 4, 5]
 defines.GC_FLAGS = 'LFS3_GC_CKDATA'
@@ -5330,9 +5330,9 @@ code = '''
             }
             lfs3_gc_close(&lfs3, &gc) => 0;
 
-        // run lfs3_fs_ck
+        // run lfs3_fs_ckdata
         } else if (AFTER == 4) {
-            lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
+            lfs3_fs_ckdata(&lfs3) => 0;
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5566,25 +5566,40 @@ code = '''
             }
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
 
             #ifdef LFS3_PREERASE
             if (PREERASE && (fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
             #endif
 
             if (COMPACTMETA && (fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_NEEDSCKMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
+                lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_NEEDSCKDATA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
+                lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
 
@@ -5780,25 +5795,40 @@ code = '''
             }
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
 
             #ifdef LFS3_PREERASE
             if (PREERASE && (fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
             #endif
 
             if (COMPACTMETA && (fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_NEEDSCKMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
+                lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_NEEDSCKDATA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
+                lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
 
@@ -5911,25 +5941,40 @@ code = '''
             }
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_LOOKAHEAD) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
 
             #ifdef LFS3_PREERASE
             if (PREERASE && (fsinfo.flags & LFS3_I_NEEDSPREERASE)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_PREERASE) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
             #endif
 
             if (COMPACTMETA && (fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_COMPACTMETA) => 0;
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc,
+                        LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_NEEDSCKMETA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
+                lfs3_fs_ckmeta(&lfs3) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_NEEDSCKDATA)) {
-                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
+                lfs3_fs_ckdata(&lfs3) => 0;
             }
         }
 
