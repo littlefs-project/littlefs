@@ -1078,10 +1078,6 @@ static inline bool lfs3_tag_perturb(lfs3_tag_t tag) {
     return tag & LFS3_TAG_PERTURB;
 }
 
-static inline bool lfs3_tag_isinternal(lfs3_tag_t tag) {
-    return tag && lfs3_tag_suptype(tag) == LFS3_tag_INTERNAL;
-}
-
 static inline bool lfs3_tag_isrm(lfs3_tag_t tag) {
     return tag & LFS3_tag_RM;
 }
@@ -1998,7 +1994,7 @@ static inline lfs3_tag_t lfs3_rattr_tag_(lfs3_rattr_t rattr) {
 
 #ifndef LFS3_RDONLY
 static inline bool lfs3_rattr_isinternal_(lfs3_rattr_t rattr) {
-    return lfs3_tag_isinternal(lfs3_rattr_tag_(rattr));
+    return lfs3_rattr_tag_(rattr) == LFS3_TAG_INTERNAL;
 }
 #endif
 
@@ -3322,7 +3318,7 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag, lfs3_rid_t weight, lfs3_size_t size) {
     // tag must not be internal at this point
-    LFS3_ASSERT(!lfs3_tag_isinternal(tag));
+    LFS3_ASSERT(lfs3_tag_suptype(tag) != LFS3_TAG_INTERNAL);
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(tag & 0x80));
 
@@ -3376,7 +3372,7 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag, lfs3_srid_t weight,
         lfs3_from_t from, lfs3_count_t count, const lfs3_rattr_t *args) {
     // tag must not be internal at this point
-    LFS3_ASSERT(!lfs3_tag_isinternal(tag));
+    LFS3_ASSERT(lfs3_tag_suptype(tag) != LFS3_TAG_INTERNAL);
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(tag & 0x80));
 

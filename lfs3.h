@@ -793,58 +793,60 @@ struct lfs3_file_cfg {
 
 // On-disk metadata tags
 enum lfs3_tag {
-    // the null tag is reserved
+    // null tag reserved for null tag things
     LFS3_TAG_NULL           = 0x0000,
+    // internal tag reserved for in-device use
+    LFS3_TAG_INTERNAL       = 0x0100,
 
     // config tags
-    LFS3_TAG_CONFIG         = 0x0100,
-    LFS3_TAG_MAGIC          = 0x0131,
-    LFS3_TAG_VERSION        = 0x0134,
-    LFS3_TAG_RCOMPAT        = 0x0135,
-    LFS3_TAG_WCOMPAT        = 0x0136,
-    LFS3_TAG_OCOMPAT        = 0x0137,
-    LFS3_TAG_GEOMETRY       = 0x0138,
-    LFS3_TAG_NAMELIMIT      = 0x0139,
-    LFS3_TAG_FILELIMIT      = 0x013a,
+    LFS3_TAG_CONFIG         = 0x0200,
+    LFS3_TAG_MAGIC          = 0x0231,
+    LFS3_TAG_VERSION        = 0x0234,
+    LFS3_TAG_RCOMPAT        = 0x0235,
+    LFS3_TAG_WCOMPAT        = 0x0236,
+    LFS3_TAG_OCOMPAT        = 0x0237,
+    LFS3_TAG_GEOMETRY       = 0x0238,
+    LFS3_TAG_NAMELIMIT      = 0x0239,
+    LFS3_TAG_FILELIMIT      = 0x023a,
     // in-device only, to help find unknown config tags
-    LFS3_tag_UNKNOWNCONFIG  = 0x013b,
+    LFS3_tag_UNKNOWNCONFIG  = 0x023b,
 
     // global-state tags
-    LFS3_TAG_GDELTA         = 0x0200,
-    LFS3_TAG_GRMDELTA       = 0x0230,
-    LFS3_TAG_GBMAPDELTA     = 0x0234,
+    LFS3_TAG_GDELTA         = 0x0300,
+    LFS3_TAG_GRMDELTA       = 0x0330,
+    LFS3_TAG_GBMAPDELTA     = 0x0334,
 
     // name tags
-    LFS3_TAG_NAME           = 0x0300,
-    LFS3_TAG_BNAME          = 0x0300,
-    LFS3_TAG_REG            = 0x0301,
-    LFS3_TAG_DIR            = 0x0302,
-    LFS3_TAG_STICKYNOTE     = 0x0303,
-    LFS3_TAG_BOOKMARK       = 0x0304,
+    LFS3_TAG_NAME           = 0x0400,
+    LFS3_TAG_BNAME          = 0x0400,
+    LFS3_TAG_REG            = 0x0401,
+    LFS3_TAG_DIR            = 0x0402,
+    LFS3_TAG_STICKYNOTE     = 0x0403,
+    LFS3_TAG_BOOKMARK       = 0x0404,
     // in-device only name tags, these should never get written to disk
-    LFS3_tag_ORPHAN         = 0x0305,
-    LFS3_tag_TRV            = 0x0306,
-    LFS3_tag_GC             = 0x0307,
-    LFS3_tag_UNKNOWN        = 0x0308,
+    LFS3_tag_ORPHAN         = 0x0405,
+    LFS3_tag_TRV            = 0x0406,
+    LFS3_tag_GC             = 0x0407,
+    LFS3_tag_UNKNOWN        = 0x0408,
     // non-file name tags
-    LFS3_TAG_MNAME          = 0x0330,
+    LFS3_TAG_MNAME          = 0x0430,
 
     // struct tags
-    LFS3_TAG_STRUCT         = 0x0400,
-    LFS3_TAG_BRANCH         = 0x0400,
-    LFS3_TAG_DATA           = 0x0404,
-    LFS3_TAG_BLOCK          = 0x0408,
-    LFS3_TAG_DID            = 0x0420,
-    LFS3_TAG_BSHRUB         = 0x0428,
-    LFS3_TAG_BTREE          = 0x042c,
-    LFS3_TAG_MROOT          = 0x0431,
-    LFS3_TAG_MDIR           = 0x0435,
-    LFS3_TAG_MTREE          = 0x043c,
-    LFS3_TAG_BMRANGE        = 0x0440,
-    LFS3_TAG_BMFREE         = 0x0440,
-    LFS3_TAG_BMINUSE        = 0x0441,
-    LFS3_TAG_BMERASED       = 0x0442,
-    LFS3_TAG_BMBAD          = 0x0443,
+    LFS3_TAG_STRUCT         = 0x0500,
+    LFS3_TAG_BRANCH         = 0x0500,
+    LFS3_TAG_DATA           = 0x0504,
+    LFS3_TAG_BLOCK          = 0x0508,
+    LFS3_TAG_DID            = 0x0520,
+    LFS3_TAG_BSHRUB         = 0x0528,
+    LFS3_TAG_BTREE          = 0x052c,
+    LFS3_TAG_MROOT          = 0x0531,
+    LFS3_TAG_MDIR           = 0x0535,
+    LFS3_TAG_MTREE          = 0x053c,
+    LFS3_TAG_BMRANGE        = 0x0540,
+    LFS3_TAG_BMFREE         = 0x0540,
+    LFS3_TAG_BMINUSE        = 0x0541,
+    LFS3_TAG_BMERASED       = 0x0542,
+    LFS3_TAG_BMBAD          = 0x0543,
 
     // user/sys attributes
     LFS3_TAG_ATTR           = 0x0600,
@@ -870,12 +872,11 @@ enum lfs3_tag {
     LFS3_TAG_GCKSUMDELTA    = 0x3300,
 
     // in-device only tags, these should never get written to disk
-    LFS3_tag_INTERNAL       = 0x0000,
-    LFS3_tag_RATTRS         = 0x0001,
-    LFS3_tag_SHRUBCOMMIT    = 0x0002,
-    LFS3_tag_GRMPUSH        = 0x0003,
-    LFS3_tag_MOVE           = 0x0004,
-    LFS3_tag_ATTRS          = 0x0005,
+    LFS3_tag_RATTRS         = 0x0100,
+    LFS3_tag_SHRUBCOMMIT    = 0x0101,
+    LFS3_tag_GRMPUSH        = 0x0102,
+    LFS3_tag_MOVE           = 0x0103,
+    LFS3_tag_ATTRS          = 0x0104,
 
     // some in-device only tag modifiers
     LFS3_tag_RM             = 0x8000,
