@@ -45,10 +45,10 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+        lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_ATTR(i), 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
 
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -92,10 +92,10 @@ code = '''
         // force mroot to compact
         lfs3.mroot.r.eoff = -1;
 
-        lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+        lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_ATTR(i), 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
 
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -136,10 +136,10 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
 
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+        lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         lfs3_data_t data;
 
         uint8_t buffer[4];
@@ -188,27 +188,27 @@ code = '''
     // create a 2 large rattrs that needs to be uninlined
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     memset(buffer, 'b', SIZE);
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined
     assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
@@ -281,29 +281,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -380,29 +380,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -413,19 +413,19 @@ code = '''
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mdir to compact
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("e"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
@@ -533,12 +533,12 @@ code = '''
             lfs3.mroot.r.eoff = -1;
             mdir.r.eoff = -1;
         }
-        lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+        lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
                 LFS3_RATTR_ARG(0),
                 LFS3_RATTR_ARG(name+1),
                 LFS3_RATTR_ARG(3),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         lfs3_data_t data;
 
         uint8_t buffer[256];
@@ -640,12 +640,12 @@ code = '''
             lfs3.mroot.r.eoff = -1;
             mdir.r.eoff = -1;
         }
-        lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+        lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
                 LFS3_RATTR_ARG(0),
                 LFS3_RATTR_ARG(name+1),
                 LFS3_RATTR_ARG(3),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         lfs3_data_t data;
 
         // double check
@@ -732,29 +732,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -765,9 +765,9 @@ code = '''
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_TAG_REG;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped
@@ -831,29 +831,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -866,9 +866,9 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped
@@ -932,21 +932,21 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // remove an entry, forcing the mdir to be dropped
@@ -956,9 +956,9 @@ code = '''
     // force mdir to compact while we're removing
     lfs3.mroot.r.eoff = -1;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // assert split/drop worked out
@@ -1012,29 +1012,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -1045,11 +1045,11 @@ code = '''
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // remove an entry, forcing the mdir to be dropped
@@ -1058,9 +1058,9 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 1);
 
     // assert split/drop worked out
@@ -1138,29 +1138,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -1171,11 +1171,11 @@ code = '''
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // remove an entry, forcing the mdir to be dropped
@@ -1184,9 +1184,9 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 1);
 
     // assert split/drop worked out
@@ -1291,12 +1291,12 @@ code = '''
                 lfs3.mroot.r.eoff = -1;
                 mdir.r.eoff = -1;
             }
-            lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(0),
                     LFS3_RATTR_ARG(name+1),
                     LFS3_RATTR_ARG(3),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
             lfs3_data_t data;
 
             // double check
@@ -1324,9 +1324,9 @@ code = '''
                 lfs3.mroot.r.eoff = -1;
                 mdir.r.eoff = -1;
             }
-            lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_RM, -1, 0),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
         }
     }
 
@@ -1404,27 +1404,27 @@ code = '''
     // create a 2 large rattrs that needs to be uninlined
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     memset(buffer, 'b', SIZE);
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined
     assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
@@ -1435,15 +1435,15 @@ code = '''
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("d"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("e"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1544,29 +1544,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -1579,15 +1579,15 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("d"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("e"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1692,29 +1692,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -1727,15 +1727,15 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("d"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("e"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -1840,25 +1840,25 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mroot to compact twice, this should extend the mroot
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -1928,25 +1928,25 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mroot to compact twice, this should extend the mroot
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -1954,25 +1954,25 @@ code = '''
     // twice, forcing a second mroot extension
     old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("d"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("e"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("f"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("g"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -2079,40 +2079,40 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mroot to compact twice, this should extend the mroot
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
     // force mroot to compact twice again, this should relocate the mroot
     old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("d"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("e"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -2199,29 +2199,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -2237,15 +2237,15 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("d"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("e"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
     // assert mroot relocated
@@ -2352,29 +2352,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -2385,11 +2385,11 @@ code = '''
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // setup mroot to compact and relocate on next commit
@@ -2398,15 +2398,15 @@ code = '''
     // force mdir to compact twice, this should relocate
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("e"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("f"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
     // assert mroot relocated
@@ -2523,29 +2523,29 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -2561,15 +2561,15 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     // force mdir to compact twice, this should relocate
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("d"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // force mdir to compact while we're removing
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 0);
     // assert mroot relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
@@ -2632,34 +2632,35 @@ code = '''
     // force mroot to compact once, so the second compact below will
     // trigger a relocation
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3_data_t data;
 
     // create a 2 large rattrs that needs to be uninlined
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     memset(buffer, 'b', SIZE);
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // force mroot to compact, this should both uninline and relocate
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert mroot relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -2731,7 +2732,8 @@ code = '''
     // force mroot to compact once, so the second compact below will
     // trigger a relocation
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3_data_t data;
 
     // create 2 large entries that needs to be uninlined and split
@@ -2741,30 +2743,30 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact, this should both split and relocate
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert mroot relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -2872,12 +2874,12 @@ code = '''
                 lfs3.mroot.r.eoff = -1;
                 mdir.r.eoff = -1;
             }
-            lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(0),
                     LFS3_RATTR_ARG(name+1),
                     LFS3_RATTR_ARG(3),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
             lfs3_data_t data;
 
             // double check
@@ -2906,12 +2908,12 @@ code = '''
             }
             // we can't really change metadata names, but commits still
             // trigger writes to the mdir
-            lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_REG, 0, 3, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(0),
                     LFS3_RATTR_ARG(name+1),
                     LFS3_RATTR_ARG(3),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
             lfs3_data_t data;
 
             // double check
@@ -2939,9 +2941,9 @@ code = '''
                 lfs3.mroot.r.eoff = -1;
                 mdir.r.eoff = -1;
             }
-            lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+            lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_RM, -1, 0),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
         }
     }
 
@@ -3014,24 +3016,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "c", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("c"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3039,12 +3041,12 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("b"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
     lfs3_data_t data;
 
@@ -3086,24 +3088,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("b"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3111,9 +3113,9 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &mdir, NULL) => LFS3_TAG_REG;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // assert neighbor was removed
@@ -3145,24 +3147,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("b"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3170,9 +3172,9 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &mdir, NULL) => LFS3_TAG_REG;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // assert neighbor was removed
@@ -3206,24 +3208,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("d"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3234,26 +3236,27 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 5);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -3293,24 +3296,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "e", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("e"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3321,41 +3324,43 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 5);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     // force mdir to compact
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
@@ -3395,33 +3400,35 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "b", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("b"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
     // force mroot to compact twice, this should extend the mroot
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -3461,24 +3468,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("d"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3489,26 +3496,27 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 5);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -3521,19 +3529,19 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, 0, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG((const char*)buffer+1),
             LFS3_RATTR_ARG(SIZE-1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, 0, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG((const char*)buffer+1),
             LFS3_RATTR_ARG(SIZE-1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -3572,24 +3580,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "d", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("d"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3600,26 +3608,27 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 5);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -3632,19 +3641,19 @@ code = '''
             &mdir, NULL) => LFS3_TAG_REG;
     lfs3_mdir_t old_mdir = mdir;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, 0, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG((const char*)buffer+1),
             LFS3_RATTR_ARG(SIZE-1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, 0, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG((const char*)buffer+1),
             LFS3_RATTR_ARG(SIZE-1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
 
@@ -3681,24 +3690,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "f", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("f"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3709,41 +3718,43 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     memset(buffer+1, 'e', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 5);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     // force mdir to compact
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
@@ -3754,16 +3765,17 @@ code = '''
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mdir to compact
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.r.weight == (4 << lfs3.mbits));
@@ -3803,24 +3815,24 @@ code = '''
     lfs3_handle_t left = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &left.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &left.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &left.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(left.mdir.r.weight == 2);
     lfs3_handle_open(&lfs3, &left);
 
     lfs3_handle_t right = {.flags=0};
     lfs3_mtree_namelookup(&lfs3, 0, "e", 1,
             &right.mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &right.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &right.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("e"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(right.mdir.r.weight == 3);
     lfs3_handle_open(&lfs3, &right);
 
@@ -3831,41 +3843,43 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     memset(buffer+1, 'd', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 5);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // now add another large entry to an mdir, forcing a split
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 4);
 
     // force mdir to compact
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
@@ -3873,9 +3887,9 @@ code = '''
     assert(lfs3.mroot.r.weight == 0);
 
     // now remove the middle entry, forcing a drop
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped correctly
@@ -3919,12 +3933,12 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // test that we can traverse the tree, keeping track of all blocks we see
@@ -4029,24 +4043,25 @@ code = '''
     // create a 2 large rattrs that needs to be uninlined
     uint8_t buffer[SIZE];
     memset(buffer, 'a', SIZE);
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     memset(buffer, 'b', SIZE);
     lfs3_mdir_t mdir;
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined
     assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
@@ -4177,26 +4192,27 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -4331,26 +4347,27 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     memset(buffer+1, 'b', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 3);
 
     // force mroot to compact
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
@@ -4361,16 +4378,17 @@ code = '''
     memset(buffer+1, 'c', SIZE-1);
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mdir to compact
     mdir.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
@@ -4515,20 +4533,22 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_ARG(1),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mroot to compact twice, this should extend the mroot
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -4647,12 +4667,12 @@ code = '''
             lfs3.mroot.r.eoff = -1;
             mdir.r.eoff = -1;
         }
-        lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+        lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
                 LFS3_RATTR_ARG(0),
                 LFS3_RATTR_ARG(name+1),
                 LFS3_RATTR_ARG(3),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         lfs3_data_t data;
 
         uint8_t buffer[256];
@@ -4819,12 +4839,12 @@ code = '''
             lfs3.mroot.r.eoff = -1;
             mdir.r.eoff = -1;
         }
-        lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+        lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_REG, +1, 3, LFS3_FROM_NAME),
                 LFS3_RATTR_ARG(0),
                 LFS3_RATTR_ARG(name+1),
                 LFS3_RATTR_ARG(3),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         lfs3_data_t data;
 
         // double check
@@ -4967,10 +4987,10 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_MROOT, 0, 1, LFS3_FROM_MPTR),
             LFS3_RATTR_ARG(LFS3_MPTR_MROOTANCHOR()),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // technically, cycle detection only needs to work when we're validating
     lfs3_mtrv_t mtrv;
@@ -5295,19 +5315,21 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mroot to compact twice, this should extend the mroot
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -5356,19 +5378,21 @@ code = '''
     lfs3_mdir_t mdir;
     lfs3_mtree_namelookup(&lfs3, 0, (const char*)buffer+1, SIZE-1,
             &mdir, NULL) => LFS3_ERR_NOENT;
-    lfs3_mdir_commit(&lfs3, &mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buffer),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(mdir.r.weight == 2);
 
     // force mroot to compact twice, this should extend the mroot
     lfs3_mdir_t old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
@@ -5376,13 +5400,17 @@ code = '''
     // twice, forcing a second mroot extension
     old_mroot = lfs3.mroot;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     lfs3.mroot.r.eoff = -1;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(LFS3_RATTR_NULL)) => 0;
+    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
+            LFS3_RATTR_NULL}) => 0;
     // assert we relocated
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 

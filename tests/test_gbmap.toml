@@ -23,10 +23,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
     lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
@@ -86,10 +86,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
     lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
@@ -153,10 +153,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
     lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
@@ -221,10 +221,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set some blocks as in-use, avoid any weird merges for now
     lfs3_gbmap_set(&lfs3, &gbmap, 6, LFS3_TAG_BMINUSE, NULL) => 0;
@@ -290,10 +290,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // test that setting the first and last blocks don't break anything
     //
@@ -342,10 +342,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // create a simulation to compare against
     lfs3_tag_t *sim = malloc(BLOCK_COUNT*sizeof(lfs3_tag_t));
@@ -410,10 +410,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set some blocks as erased with ecksums, avoid any weird merges
     // for now
@@ -483,10 +483,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set some blocks as erased with ecksums, avoid any weird merges
     // for now
@@ -561,10 +561,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set some blocks as erased with ecksums, avoid any weird merges
     // for now
@@ -639,10 +639,10 @@ code = '''
     // create an initial gbmap
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set some blocks as erased with ecksums, avoid any weird merges
     // for now
@@ -744,11 +744,11 @@ code = '''
     lfs3_ecksum_t ecksum = {.cksize=CFG->prog_size, .cksum=0x00000000};
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
-    lfs3_gbmap_commit(&lfs3, &gbmap, 0, LFS3_RATTRS(
+    lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_BMERASED, -2, 1, LFS3_FROM_ECKSUM),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
             LFS3_RATTR_ARG(&ecksum),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // create a simulation to compare against
     lfs3_tag_t *sim = malloc(BLOCK_COUNT*sizeof(uint32_t));

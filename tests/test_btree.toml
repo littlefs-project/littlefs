@@ -57,10 +57,10 @@ code = '''
     // create a single-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -103,14 +103,14 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -158,14 +158,14 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -214,18 +214,18 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 2, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 2, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -280,18 +280,18 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -351,10 +351,10 @@ code = '''
     lfs3_btree_init(&btree);
     lfs3_size_t n = 0;
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -403,10 +403,10 @@ code = '''
     lfs3_btree_init(&btree);
     lfs3_size_t n = 0;
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+((N-1-i) % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -470,10 +470,10 @@ code = '''
         lfs3_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -541,11 +541,11 @@ code = '''
     lfs3_btree_init(&btree);
     lfs3_size_t n = 0;
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i*W, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i*W, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_WEIGHT(+W),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -635,11 +635,11 @@ code = '''
         }
 
         // add to btree
-        lfs3_btree_commit(&lfs3, &btree, weighted_bid, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, weighted_bid, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_WEIGHT(+weight),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -749,16 +749,16 @@ code = '''
     // create a single-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // update the tree
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                 LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("A"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -799,25 +799,25 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // update the tree
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                 LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("A"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                 LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("B"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -865,34 +865,34 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 2, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 2, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // update the tree
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                 LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("A"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                 LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("B"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 2, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 2, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                 LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("C"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -949,18 +949,18 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     // update the tree
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                     LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'A'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
@@ -1009,10 +1009,10 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
 
     // set up a simulation to compare against
@@ -1030,11 +1030,11 @@ code = '''
         lfs3_size_t bid = TEST_PRNG(&prng) % N;
 
         // update btree
-        lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                     LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'A'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
 
         // update sim
         sim[bid] = 'A'+(i % 26);
@@ -1098,19 +1098,19 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i*W, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i*W, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_WEIGHT(+W),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     // update the tree
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i*W+W-1, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i*W+W-1, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                     LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'A'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
@@ -1175,11 +1175,11 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i*W, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i*W, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_WEIGHT(+W),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
 
     // set up a simulation to compare against
@@ -1208,13 +1208,13 @@ code = '''
 
         // update btree
         lfs3_btree_commit(&lfs3, &btree,
-                weighted_bid+sim_weights[bid]-1, LFS3_RATTRS(
+                weighted_bid+sim_weights[bid]-1, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                         LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'A'+(i % 26)}),
                     LFS3_RATTR(LFS3_tag_GROW, -2, 0),
                     LFS3_RATTR_WEIGHT(+weight-sim_weights[bid]),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
         // update sim
         sim[bid] = 'A'+(i % 26);
@@ -1321,14 +1321,14 @@ code = '''
     // create a single-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // pop!
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -1346,10 +1346,10 @@ code = '''
             &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("A"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -1384,18 +1384,18 @@ code = '''
     // create a single-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // pop!
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -1420,10 +1420,10 @@ code = '''
             &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("B"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -1465,18 +1465,18 @@ code = '''
     // create a single-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // pop!
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -1501,10 +1501,10 @@ code = '''
             &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("A"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -1546,22 +1546,22 @@ code = '''
     // create a single-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 2, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 2, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("c"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // pop!
-    lfs3_btree_commit(&lfs3, &btree, 2, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 2, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -1593,10 +1593,10 @@ code = '''
             &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // try to putting it back to see if things still work
-    lfs3_btree_commit(&lfs3, &btree, 2, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 2, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("C"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -1649,16 +1649,16 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     // drain the tree
     for (lfs3_size_t i = 0; i < N-REMAINING; i++) {
-        lfs3_btree_commit(&lfs3, &btree, N-1-i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, N-1-i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
 
     printf("btree: w%d 0x%x.%x\n",
@@ -1688,10 +1688,10 @@ code = '''
             &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // try recovering
-    lfs3_btree_commit(&lfs3, &btree, REMAINING, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, REMAINING, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("R"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     for (lfs3_size_t i = 0; i < REMAINING; i++) {
         tag_ = lfs3_btree_lookupnext(&lfs3, &btree, i,
@@ -1733,16 +1733,16 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     // drain the tree
     for (lfs3_size_t i = 0; i < N-REMAINING; i++) {
-        lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
@@ -1772,10 +1772,10 @@ code = '''
             &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // try recovering
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("R"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     tag_ = lfs3_btree_lookupnext(&lfs3, &btree, 0,
             &bid_, &weight_, &data_);
@@ -1820,10 +1820,10 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
 
     // set up a simulation to compare against
@@ -1842,9 +1842,9 @@ code = '''
         lfs3_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // remove from btree
-        lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
 
         // remove from sim
         memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -1911,18 +1911,18 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i*W, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i*W, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_WEIGHT(+W),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     // drain the tree
     for (lfs3_size_t i = 0; i < N-REMAINING; i++) {
-        lfs3_btree_commit(&lfs3, &btree, (N-1-i)*W+W-1, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, (N-1-i)*W+W-1, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_tag_RM, -2, 0),
                 LFS3_RATTR_WEIGHT(-W),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
@@ -1951,11 +1951,11 @@ code = '''
             &bid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
     // try recovering
-    lfs3_btree_commit(&lfs3, &btree, REMAINING*W, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, REMAINING*W, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG("R"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     for (lfs3_size_t i = 0; i < REMAINING; i++) {
         tag_ = lfs3_btree_lookupnext(&lfs3, &btree, i*W+W-1,
@@ -2045,11 +2045,11 @@ code = '''
             weighted_bid += sim_weights[j];
         }
 
-        lfs3_btree_commit(&lfs3, &btree, weighted_bid, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, weighted_bid, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_WEIGHT(+weight),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
 
         sim[i] = 'a'+(i % 26);
         sim_weights[i] = weight;
@@ -2068,10 +2068,10 @@ code = '''
 
         // remove from btree
         lfs3_btree_commit(&lfs3, &btree,
-                weighted_bid+sim_weights[bid]-1, LFS3_RATTRS(
+                weighted_bid+sim_weights[bid]-1, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_RM, -2, 0),
                     LFS3_RATTR_WEIGHT(-sim_weights[bid]),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
         // remove from sim
         memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -2178,18 +2178,18 @@ code = '''
     // create a tree with N elements
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG(&(uint8_t){'a'+(0 % 26)}),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3_size_t n = 1;
     for (lfs3_size_t i = 1; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i-1, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i-1, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+((i-1) % 26)}),
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+((i-0) % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -2238,10 +2238,10 @@ code = '''
     // create a btree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set up a simulation to compare against
     //
@@ -2258,12 +2258,12 @@ code = '''
         lfs3_size_t bid = TEST_PRNG(&prng) % sim_size;
 
         // split btree
-        lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'A'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
 
         // split sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -2330,20 +2330,20 @@ code = '''
     // create a tree with N elements
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG(&(uint8_t){'a'+(0 % 26)}),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3_size_t n = 1;
     for (lfs3_size_t i = 1; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, (i-1)*W+W-1, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, (i-1)*W+W-1, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+((i-1) % 26)}),
                 LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_WEIGHT(+W),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+((i-0) % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -2393,11 +2393,11 @@ code = '''
     // create a btree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set up a simulation to compare against
     //
@@ -2427,7 +2427,7 @@ code = '''
 
         // split btree
         lfs3_btree_commit(&lfs3, &btree,
-                weighted_bid+sim_weights[bid]-1, LFS3_RATTRS(
+                weighted_bid+sim_weights[bid]-1, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_GROW, -2, 0),
                     LFS3_RATTR_WEIGHT(+weight1-sim_weights[bid]),
                     LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
@@ -2435,7 +2435,7 @@ code = '''
                     LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_WEIGHT(+weight2),
                     LFS3_RATTR_ARG(&(uint8_t){'A'+(i % 26)}),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -2580,37 +2580,37 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf1),
             LFS3_RATTR_ARG(SIZE),
             LFS3_RATTR(LFS3_TAG_DATA, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // force compaction
     lfs3_btree_claim(&btree);
     memset(buf2, 'b', SIZE);
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(btree.r.weight == 2);
 
     // now remove one entry, since this brings the rbyd down to zero,
     // this should force one of the blocks to drop
-    lfs3_btree_commit(&lfs3, &btree, SIBLING, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, SIBLING, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
@@ -2658,30 +2658,30 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf1),
             LFS3_RATTR_ARG(SIZE),
             LFS3_RATTR(LFS3_TAG_DATA, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // force compaction
     lfs3_btree_claim(&btree);
     memset(buf2, 'b', SIZE);
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(btree.r.weight == 2);
 
     // now remove one entry, since this brings the rbyd down this zero,
@@ -2689,9 +2689,9 @@ code = '''
     //
     // do this while forcing a compaction
     lfs3_btree_claim(&btree);
-    lfs3_btree_commit(&lfs3, &btree, SIBLING, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, SIBLING, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
@@ -2739,22 +2739,22 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf1),
             LFS3_RATTR_ARG(SIZE),
             LFS3_RATTR(LFS3_TAG_DATA, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // force compaction, causing a split, but while we're splitting,
     // also remove an entry, bringing the split rbyd down to zero mid split
@@ -2762,9 +2762,9 @@ code = '''
     // messy, isn't it? this is why we need an explicit test
     //
     lfs3_btree_claim(&btree);
-    lfs3_btree_commit(&lfs3, &btree, SIBLING, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, SIBLING, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
@@ -2812,50 +2812,50 @@ code = '''
     // force it to split
 
     // the extra push here avoids trying to inline the big entry
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     uint8_t buf1[SIZE];
     memset(buf1, 'a', SIZE);
     uint8_t buf2[SIZE];
     memset(buf2, 'b', SIZE);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf1),
             LFS3_RATTR_ARG(SIZE),
             LFS3_RATTR(LFS3_TAG_DATA, +1, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     // force compaction
     lfs3_btree_claim(&btree);
     memset(buf2, 'b', SIZE);
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     assert(btree.r.weight == 2);
 
     // now make both entries small so they should be merged if either compacts
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                 LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("a"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                 LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("b"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // force compaction, while removing one entry, this drops the rbyd
     // down to zero while also triggering a merge
     lfs3_btree_claim(&btree);
-    lfs3_btree_commit(&lfs3, &btree, SIBLING, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, SIBLING, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
@@ -2919,10 +2919,10 @@ code = '''
 
         if (op == 0 || bid == sim_size) {
             // push to btree
-            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
             // push to sim
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -2931,20 +2931,20 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                         LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
             // update sim
             sim[bid] = 'a'+(i % 26);
 
         } else {
             // pop from btree
-            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_RM, -1, 0),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -3039,11 +3039,12 @@ code = '''
 
         if (op == 0 || bid == sim_size) {
             // push to btree
-            lfs3_btree_commit(&lfs3, &btree, weighted_bid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
-                    LFS3_RATTR_WEIGHT(+weight),
-                    LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                    LFS3_RATTR_NULL)) => 0;
+            lfs3_btree_commit(&lfs3, &btree,
+                    weighted_bid, (const lfs3_rattr_t[]){
+                        LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
+                        LFS3_RATTR_WEIGHT(+weight),
+                        LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
+                        LFS3_RATTR_NULL}) => 0;
 
             // push to sim
             memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -3056,13 +3057,13 @@ code = '''
         } else if (op == 1) {
             // update btree
             lfs3_btree_commit(&lfs3, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFS3_RATTRS(
+                    weighted_bid+sim_weights[bid]-1, (const lfs3_rattr_t[]){
                         LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                             LFS3_FROM_LBUF, 1),
                         LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                         LFS3_RATTR(LFS3_tag_GROW, -2, 0),
                         LFS3_RATTR_WEIGHT(+weight-sim_weights[bid]),
-                        LFS3_RATTR_NULL)) => 0;
+                        LFS3_RATTR_NULL}) => 0;
 
             // update sim
             sim[bid] = 'a'+(i % 26);
@@ -3071,10 +3072,10 @@ code = '''
         } else {
             // remove from btree
             lfs3_btree_commit(&lfs3, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFS3_RATTRS(
+                    weighted_bid+sim_weights[bid]-1, (const lfs3_rattr_t[]){
                         LFS3_RATTR(LFS3_tag_RM, -2, 0),
                         LFS3_RATTR_WEIGHT(-sim_weights[bid]),
-                        LFS3_RATTR_NULL)) => 0;
+                        LFS3_RATTR_NULL}) => 0;
 
             // remove from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -3213,13 +3214,13 @@ code = '''
     // create a single-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aaa"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("0"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -3274,14 +3275,14 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aaa"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("0"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("0"),
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
@@ -3289,7 +3290,7 @@ code = '''
             LFS3_RATTR_ARG("aab"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("1"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -3355,14 +3356,14 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aaa"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("0"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("0"),
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
@@ -3370,8 +3371,8 @@ code = '''
             LFS3_RATTR_ARG("aab"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("1"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 1, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("1"),
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
@@ -3379,7 +3380,7 @@ code = '''
             LFS3_RATTR_ARG("aac"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("2"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -3456,14 +3457,14 @@ code = '''
     // create a two-entry tree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("aaa"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("0"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("1"),
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
@@ -3471,8 +3472,8 @@ code = '''
             LFS3_RATTR_ARG("aac"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("2"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("0"),
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
@@ -3480,7 +3481,7 @@ code = '''
             LFS3_RATTR_ARG("aab"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("1"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
             btree.r.weight,
             btree.r.blocks[0],
@@ -3561,19 +3562,19 @@ code = '''
     char name[4] = {
         'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26), '\0',
     };
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG(name),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG(&(uint8_t){'0'+(0 % 10)}),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3_size_t n = 1;
     for (lfs3_size_t i = 1; i < N; i++) {
         char name[4] = {
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26), '\0',
         };
-        lfs3_btree_commit(&lfs3, &btree, i-1, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i-1, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+((i-1) % 10)}),
                 LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
@@ -3581,7 +3582,7 @@ code = '''
                 LFS3_RATTR_ARG(name),
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+((i-0) % 10)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -3634,13 +3635,13 @@ code = '''
     // create a btree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("___"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set up a simulation to compare against
     //
@@ -3673,7 +3674,7 @@ code = '''
         }
 
         // split btree
-        lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
                 LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
@@ -3681,7 +3682,7 @@ code = '''
                 LFS3_RATTR_ARG(name),
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
 
         // split sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -3756,20 +3757,20 @@ code = '''
     char name[4] = {
         'a'+((0/26/26) % 26), 'a'+((0/26) % 26), 'a'+(0 % 26), '\0',
     };
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, -2, 2, LFS3_FROM_NAME),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG(name),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG(&(uint8_t){'0'+(0 % 10)}),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
     lfs3_size_t n = 1;
     for (lfs3_size_t i = 1; i < N; i++) {
         char name[4] = {
             'a'+((i/26/26) % 26), 'a'+((i/26) % 26), 'a'+(i % 26), '\0',
         };
-        lfs3_btree_commit(&lfs3, &btree, (i-1)*W+W-1, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, (i-1)*W+W-1, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+((i-1) % 10)}),
                 LFS3_RATTR(LFS3_TAG_REG, -2, 2, LFS3_FROM_NAME),
@@ -3778,7 +3779,7 @@ code = '''
                 LFS3_RATTR_ARG(name),
                 LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'0'+((i-0) % 10)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -3832,14 +3833,14 @@ code = '''
     // create a btree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, -2, 2, LFS3_FROM_NAME),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("___"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set up a simulation to compare against
     //
@@ -3885,7 +3886,7 @@ code = '''
 
         // split btree
         lfs3_btree_commit(&lfs3, &btree,
-                weighted_bid+sim_weights[bid]-1, LFS3_RATTRS(
+                weighted_bid+sim_weights[bid]-1, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_GROW, -2, 0),
                     LFS3_RATTR_WEIGHT(+weight1-sim_weights[bid]),
                     LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
@@ -3896,7 +3897,7 @@ code = '''
                     LFS3_RATTR_ARG(name),
                     LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
         // split sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);
@@ -3994,13 +3995,13 @@ code = '''
     // create a btree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("___"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set up a simulation to compare against
     //
@@ -4067,23 +4068,25 @@ code = '''
             assert(cmp >= 0);
             assert(cmp != LFS3_CMP_EQ);
             if (cmp > LFS3_CMP_EQ) {
-                lfs3_btree_commit(&lfs3, &btree, split_bid, LFS3_RATTRS(
-                        LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
-                        LFS3_RATTR_ARG(0),
-                        LFS3_RATTR_ARG(name),
-                        LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
-                        LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                        LFS3_RATTR_NULL)) => 0;
+                lfs3_btree_commit(&lfs3, &btree,
+                        split_bid, (const lfs3_rattr_t[]){
+                            LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
+                            LFS3_RATTR_ARG(0),
+                            LFS3_RATTR_ARG(name),
+                            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
+                            LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
+                            LFS3_RATTR_NULL}) => 0;
             } else {
-                lfs3_btree_commit(&lfs3, &btree, split_bid, LFS3_RATTRS(
-                        // yes, we need this noop, see above
-                        LFS3_RATTR(LFS3_RATTR_NULL, 0, 0),
-                        LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
-                        LFS3_RATTR_ARG(0),
-                        LFS3_RATTR_ARG(name),
-                        LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
-                        LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                        LFS3_RATTR_NULL)) => 0;
+                lfs3_btree_commit(&lfs3, &btree,
+                        split_bid, (const lfs3_rattr_t[]){
+                            // yes, we need this noop, see above
+                            LFS3_RATTR(LFS3_RATTR_NULL, 0, 0),
+                            LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
+                            LFS3_RATTR_ARG(0),
+                            LFS3_RATTR_ARG(name),
+                            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
+                            LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
+                            LFS3_RATTR_NULL}) => 0;
             }
 
             // split sim
@@ -4095,20 +4098,20 @@ code = '''
 
         } else if (op == 1) {
             // update btree
-            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                         LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
             // update sim
             sim[bid] = '0'+(i % 10);
 
         } else {
             // pop from btree
-            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_RM, -1, 0),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -4177,14 +4180,14 @@ code = '''
     // create a btree
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_REG, -2, 2, LFS3_FROM_NAME),
             LFS3_RATTR_WEIGHT(+W),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG("___"),
             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("_"),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // set up a simulation to compare against
     //
@@ -4265,25 +4268,26 @@ code = '''
             assert(cmp != LFS3_CMP_EQ);
             if (cmp > LFS3_CMP_EQ) {
                 lfs3_btree_commit(&lfs3, &btree,
-                        split_bid-(split_weight-1), LFS3_RATTRS(
+                        split_bid-(split_weight-1), (const lfs3_rattr_t[]){
                             LFS3_RATTR(LFS3_TAG_REG, -2, 2, LFS3_FROM_NAME),
                             LFS3_RATTR_WEIGHT(+weight),
                             LFS3_RATTR_ARG(0),
                             LFS3_RATTR_ARG(name),
                             LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
                             LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                            LFS3_RATTR_NULL)) => 0;
+                            LFS3_RATTR_NULL}) => 0;
             } else {
-                lfs3_btree_commit(&lfs3, &btree, split_bid, LFS3_RATTRS(
-                        // yes, we need this noop, see above
-                        LFS3_RATTR(LFS3_RATTR_NULL, 0, 0),
-                        LFS3_RATTR(LFS3_TAG_REG, -2, 2, LFS3_FROM_NAME),
-                        LFS3_RATTR_WEIGHT(+weight),
-                        LFS3_RATTR_ARG(0),
-                        LFS3_RATTR_ARG(name),
-                        LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
-                        LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
-                        LFS3_RATTR_NULL)) => 0;
+                lfs3_btree_commit(&lfs3, &btree,
+                        split_bid, (const lfs3_rattr_t[]){
+                            // yes, we need this noop, see above
+                            LFS3_RATTR(LFS3_RATTR_NULL, 0, 0),
+                            LFS3_RATTR(LFS3_TAG_REG, -2, 2, LFS3_FROM_NAME),
+                            LFS3_RATTR_WEIGHT(+weight),
+                            LFS3_RATTR_ARG(0),
+                            LFS3_RATTR_ARG(name),
+                            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 1),
+                            LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
+                            LFS3_RATTR_NULL}) => 0;
             }
 
             // split sim
@@ -4299,13 +4303,13 @@ code = '''
         } else if (op == 1) {
             // update btree
             lfs3_btree_commit(&lfs3, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFS3_RATTRS(
+                    weighted_bid+sim_weights[bid]-1, (const lfs3_rattr_t[]){
                         LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_DATA, 0, 1,
                             LFS3_FROM_LBUF, 1),
                         LFS3_RATTR_ARG(&(uint8_t){'0'+(i % 10)}),
                         LFS3_RATTR(LFS3_tag_GROW, -2, 0),
                         LFS3_RATTR_WEIGHT(+weight-sim_weights[bid]),
-                        LFS3_RATTR_NULL)) => 0;
+                        LFS3_RATTR_NULL}) => 0;
 
             // update sim
             sim[bid] = '0'+(i % 10);
@@ -4314,10 +4318,10 @@ code = '''
         } else {
             // pop from btree
             lfs3_btree_commit(&lfs3, &btree,
-                    weighted_bid+sim_weights[bid]-1, LFS3_RATTRS(
+                    weighted_bid+sim_weights[bid]-1, (const lfs3_rattr_t[]){
                         LFS3_RATTR(LFS3_tag_RM, -2, 0),
                         LFS3_RATTR_WEIGHT(-sim_weights[bid]),
-                        LFS3_RATTR_NULL)) => 0;
+                        LFS3_RATTR_NULL}) => 0;
 
             // pop from sim
             memmove(&sim[bid], &sim[bid+1], sim_size-(bid+1));
@@ -4413,10 +4417,10 @@ code = '''
     lfs3_btree_init(&btree);
     lfs3_size_t n = 0;
     for (lfs3_size_t i = 0; i < N; i++) {
-        lfs3_btree_commit(&lfs3, &btree, i, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
@@ -4556,10 +4560,10 @@ code = '''
         lfs3_size_t bid = TEST_PRNG(&prng) % (sim_size+1);
 
         // add to btree
-        lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
 
         // add to sim
         memmove(&sim[bid+1], &sim[bid], sim_size-bid);

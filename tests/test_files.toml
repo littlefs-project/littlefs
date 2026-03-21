@@ -977,9 +977,9 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // delete any bshrub/btree
-    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM | LFS3_tag_MASK8 | LFS3_TAG_STRUCT, 0, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     lfs3_file_close(&lfs3, &file) => 0;
 
@@ -1093,28 +1093,28 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // create an empty bshrub
-    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_SHRUBCOMMIT, 0, 3),
             LFS3_RATTR_ARG(&file.b),
             LFS3_RATTR_ARG(0),
-            LFS3_RATTR_ARG(LFS3_RATTRS(
+            LFS3_RATTR_ARG(((const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG("?"),
-                LFS3_RATTR_NULL)),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
+                LFS3_RATTR_NULL})),
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_SHRUBCOMMIT, 0, 3),
             LFS3_RATTR_ARG(&file.b),
             LFS3_RATTR_ARG(0),
-            LFS3_RATTR_ARG(LFS3_RATTRS(
+            LFS3_RATTR_ARG(((const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
-                LFS3_RATTR_NULL)),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
+                LFS3_RATTR_NULL})),
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_BSHRUB, 0, 1,
                 LFS3_FROM_SHRUB),
             LFS3_RATTR_ARG(&file.b.b_),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     lfs3_file_close(&lfs3, &file) => 0;
 
@@ -1230,17 +1230,17 @@ code = '''
     // create an empty btree
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_rbyd_alloc(&lfs3, &file.b.b.r) => 0;
-    lfs3_rbyd_commit(&lfs3, &file.b.b.r, 0, LFS3_RATTRS(
+    lfs3_rbyd_commit(&lfs3, &file.b.b.r, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("?"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_rbyd_commit(&lfs3, &file.b.b.r, 0, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_rbyd_commit(&lfs3, &file.b.b.r, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, LFS3_RATTRS(
+            LFS3_RATTR_NULL}) => 0;
+    lfs3_mdir_commit(&lfs3, &file.b.h.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_BTREE, 0, 1,
                 LFS3_FROM_BTREE),
-            LFS3_RATTR_ARG(&file.b.b))) => 0;
+            LFS3_RATTR_ARG(&file.b.b)}) => 0;
 
     lfs3_file_close(&lfs3, &file) => 0;
 

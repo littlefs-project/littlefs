@@ -41,10 +41,10 @@ code = '''
     // amortized results
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 0),
             LFS3_RATTR(LFS3_TAG_DATA, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // fill btree with N elements
     uint32_t prng = SEED;
@@ -59,11 +59,11 @@ code = '''
         }
         uint8_t wbuf[SIZE];
         memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
-        lfs3_btree_commit(&lfs3, &btree, i_, LFS3_RATTRS(
+        lfs3_btree_commit(&lfs3, &btree, i_, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_DATA, +1, 2, LFS3_FROM_BUF),
                 LFS3_RATTR_ARG(wbuf),
                 LFS3_RATTR_ARG(SIZE),
-                LFS3_RATTR_NULL)) => 0;
+                LFS3_RATTR_NULL}) => 0;
         if ((MASK & 0x1) && (i+1) % STEP == 0) {
             BENCH_STOP("commit", i+1);
         }
@@ -144,10 +144,10 @@ code = '''
     // amortized results
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
-    lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+    lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 0),
             LFS3_RATTR(LFS3_TAG_DATA, -1, 0),
-            LFS3_RATTR_NULL)) => 0;
+            LFS3_RATTR_NULL}) => 0;
 
     // fill btree with N elements
     uint32_t prng = SEED;
@@ -176,27 +176,27 @@ code = '''
         assert(cmp >= 0 || cmp == LFS3_ERR_NOENT);
         // empty btree?
         if (cmp == LFS3_ERR_NOENT) {
-            lfs3_btree_commit(&lfs3, &btree, 0, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(0),
                     LFS3_RATTR_ARG(name),
                     LFS3_RATTR(LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
                     LFS3_RATTR_ARG(wbuf),
                     LFS3_RATTR_ARG(SIZE),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
         // insert before?
         } else if (cmp > LFS3_CMP_EQ) {
-            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(0),
                     LFS3_RATTR_ARG(name),
                     LFS3_RATTR(LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
                     LFS3_RATTR_ARG(wbuf),
                     LFS3_RATTR_ARG(SIZE),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
         // insert after?
         } else if (cmp < LFS3_CMP_EQ) {
-            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                     // yes, we need this noop, triggers an insert after
                     LFS3_RATTR(LFS3_RATTR_NULL, 0, 0),
                     LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
@@ -205,14 +205,14 @@ code = '''
                     LFS3_RATTR(LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
                     LFS3_RATTR_ARG(wbuf),
                     LFS3_RATTR_ARG(SIZE),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
         // replace?
         } else {
-            lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
+            lfs3_btree_commit(&lfs3, &btree, bid, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_DATA, 0, 2, LFS3_FROM_BUF),
                     LFS3_RATTR_ARG(wbuf),
                     LFS3_RATTR_ARG(SIZE),
-                    LFS3_RATTR_NULL)) => 0;
+                    LFS3_RATTR_NULL}) => 0;
         }
         if ((MASK & 0x1) && (i+1) % STEP == 0) {
             BENCH_STOP("commit", i+1);
