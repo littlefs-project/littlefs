@@ -1859,16 +1859,16 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count);
 
 // Enable the global on-disk block-map
 //
-// Returns a negative error code on failure. Does nothing if a gbmap
-// already exists.
+// Returns 0 on success, LFS3_ERR_EXIST a gbmap already exists, or a
+// negative error code on failure.
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3);
 #endif
 
 // Disable the global on-disk block-map
 //
-// Returns a negative error code on failure. Does nothing if no gbmap
-// is found.
+// Returns 0 on success, LFS3_ERR_NOENT if no gbmap is found, or a
+// negative error code on failure.
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3);
 #endif
