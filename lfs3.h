@@ -1410,6 +1410,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
 // Unmounts a littlefs
 //
 // Does nothing besides releasing any allocated resources.
+//
 // Returns a negative error code on failure.
 int lfs3_unmount(lfs3_t *lfs3);
 
@@ -1439,6 +1440,7 @@ int lfs3_set(lfs3_t *lfs3, const char *path,
 // Removes a file or directory
 //
 // If removing a directory, the directory must be empty.
+//
 // Returns a negative error code on failure.
 #ifndef LFS3_RDONLY
 int lfs3_remove(lfs3_t *lfs3, const char *path);
@@ -1457,6 +1459,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path);
 // Find info about a file or directory
 //
 // Fills out the info structure, based on the specified file or directory.
+//
 // Returns a negative error code on failure.
 int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info);
 
@@ -1574,6 +1577,7 @@ int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file);
 // Read data from file
 //
 // Takes a buffer and size indicating where to store the read data.
+//
 // Returns the number of bytes read, or a negative error code on failure.
 lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         void *buffer, lfs3_size_t size);
@@ -1592,6 +1596,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
 // Change the position of the file
 //
 // The change in position is determined by the offset and whence flag.
+//
 // Returns the new position of the file, or a negative error code on failure.
 lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_soff_t off, uint32_t whence);
@@ -1619,18 +1624,21 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size);
 // Return the position of the file
 //
 // Equivalent to lfs3_file_seek(lfs3, file, 0, LFS3_SEEK_CUR)
+//
 // Returns the position of the file, or a negative error code on failure.
 lfs3_soff_t lfs3_file_tell(lfs3_t *lfs3, lfs3_file_t *file);
 
 // Change the position of the file to the beginning of the file
 //
 // Equivalent to lfs3_file_seek(lfs3, file, 0, LFS3_SEEK_SET)
+//
 // Returns a negative error code on failure.
 int lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file);
 
 // Return the size of the file
 //
 // Similar to lfs3_file_seek(lfs3, file, 0, LFS3_SEEK_END)
+//
 // Returns the size of the file, or a negative error code on failure.
 lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file);
 
@@ -1659,18 +1667,21 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path);
 // Open a directory
 //
 // Once open a directory can be used with read to iterate over files.
+//
 // Returns a negative error code on failure.
 int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path);
 
 // Close a directory
 //
 // Releases any allocated resources.
+//
 // Returns a negative error code on failure.
 int lfs3_dir_close(lfs3_t *lfs3, lfs3_dir_t *dir);
 
 // Read an entry in the directory
 //
 // Fills out the info structure, based on the specified file or directory.
+//
 // Returns 0 on success, LFS3_ERR_NOENT at the end of directory, or a
 // negative error code on failure.
 int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info);
@@ -1710,6 +1721,7 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags);
 // Close a traversal
 //
 // Releases any allocated resources.
+//
 // Returns a negative error code on failure.
 int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv);
 
@@ -1745,6 +1757,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags);
 // Close a gc
 //
 // Releases any allocated resources.
+//
 // Returns a negative error code on failure.
 int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc);
 
@@ -1769,6 +1782,7 @@ lfs3_soff_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_soff_t steps);
 // Find on-disk info about the filesystem
 //
 // Fills out the fsinfo structure based on the filesystem found on-disk.
+//
 // Returns a negative error code on failure.
 int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo);
 
