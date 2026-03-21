@@ -885,7 +885,7 @@ code = '''
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_MAGIC, 0, 1, LFS3_FROM_BUF, 8),
+            LFS3_RATTR(LFS3_TAG_MAGIC, 0, 1, LFS3_FROM_LBUF, 8),
             LFS3_RATTR_ARG("lottlefs"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -912,7 +912,7 @@ code = '''
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_VERSION, 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_VERSION, 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG(((const uint8_t[2]){
                 LFS3_DISK_VERSION_MAJOR+1,
                 0})),
@@ -941,7 +941,7 @@ code = '''
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_VERSION, 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_VERSION, 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG(((const uint8_t[2]){
                 LFS3_DISK_VERSION_MAJOR,
                 LFS3_DISK_VERSION_MINOR+1})),
@@ -1133,9 +1133,9 @@ code = '''
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 2, LFS3_FROM_DATA),
-            LFS3_RATTR_ARG(sizeof(rcompat_buf)),
+            LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(rcompat_buf),
+            LFS3_RATTR_ARG(sizeof(rcompat_buf)),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1170,9 +1170,9 @@ code = '''
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 2, LFS3_FROM_DATA),
-            LFS3_RATTR_ARG(sizeof(wcompat_buf)),
+            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(wcompat_buf),
+            LFS3_RATTR_ARG(sizeof(wcompat_buf)),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1206,9 +1206,9 @@ code = '''
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_OCOMPAT, 0, 2, LFS3_FROM_DATA),
-            LFS3_RATTR_ARG(sizeof(ocompat_buf)),
+            LFS3_RATTR(LFS3_TAG_OCOMPAT, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(ocompat_buf),
+            LFS3_RATTR_ARG(sizeof(ocompat_buf)),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1241,9 +1241,9 @@ code = '''
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 2, LFS3_FROM_DATA),
-            LFS3_RATTR_ARG(sizeof(rcompat_buf)),
+            LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(rcompat_buf),
+            LFS3_RATTR_ARG(sizeof(rcompat_buf)),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1278,9 +1278,9 @@ code = '''
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 2, LFS3_FROM_DATA),
-            LFS3_RATTR_ARG(sizeof(wcompat_buf)),
+            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(wcompat_buf),
+            LFS3_RATTR_ARG(sizeof(wcompat_buf)),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1311,9 +1311,9 @@ code = '''
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_OCOMPAT, 0, 2, LFS3_FROM_DATA),
-            LFS3_RATTR_ARG(sizeof(ocompat_buf)),
+            LFS3_RATTR(LFS3_TAG_OCOMPAT, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(ocompat_buf),
+            LFS3_RATTR_ARG(sizeof(ocompat_buf)),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1441,9 +1441,9 @@ code = '''
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_FILELIMIT, 0, 2, LFS3_FROM_DATA),
-            LFS3_RATTR_ARG(d),
+            LFS3_RATTR(LFS3_TAG_FILELIMIT, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG(filelimit_buf),
+            LFS3_RATTR_ARG(d),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1466,9 +1466,9 @@ code = '''
     // create an unknown config
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_CONFIG + 0x42, 0, 2, LFS3_FROM_DATA),
-            LFS3_RATTR_ARG(strlen("oh no!")),
+            LFS3_RATTR(LFS3_TAG_CONFIG + 0x42, 0, 2, LFS3_FROM_BUF),
             LFS3_RATTR_ARG("oh no!"),
+            LFS3_RATTR_ARG(strlen("oh no!")),
             LFS3_RATTR_NULL)) => 0;
     lfs3_unmount(&lfs3) => 0;
 

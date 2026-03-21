@@ -32,7 +32,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -41,9 +41,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -68,7 +68,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -77,11 +77,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -106,7 +106,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -115,7 +115,7 @@ code = '''
 
     // commit with the second attribute
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
@@ -143,7 +143,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -168,9 +168,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -205,9 +205,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -261,7 +261,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -286,11 +286,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -325,11 +325,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -382,7 +382,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -405,9 +405,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -434,9 +434,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
@@ -480,7 +480,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -503,11 +503,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -534,11 +534,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
@@ -586,9 +586,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -611,9 +611,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -655,11 +655,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -682,11 +682,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -730,11 +730,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -764,11 +764,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -817,13 +817,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -853,13 +853,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -889,13 +889,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -925,13 +925,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -982,13 +982,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1025,13 +1025,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1068,13 +1068,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1111,13 +1111,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1173,13 +1173,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1216,13 +1216,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1259,13 +1259,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1302,13 +1302,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1366,15 +1366,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1413,15 +1413,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1458,15 +1458,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1503,15 +1503,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1571,15 +1571,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1625,15 +1625,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1677,15 +1677,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1729,15 +1729,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1802,17 +1802,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1858,17 +1858,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1914,17 +1914,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -1991,17 +1991,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xff\xff\xff\xff"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -2052,17 +2052,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xff\xff\xff\xff"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -2113,17 +2113,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xff\xff\xff\xff"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -2210,7 +2210,7 @@ code = '''
         lfs3_rattr_t *r = rattrs;
         for (unsigned j = 0; j < N; j++) {
             *r++ = LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                    LFS3_FROM_BUF, 4);
+                    LFS3_FROM_LBUF, 4);
             *r++ = LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa");
         }
         *r++ = LFS3_RATTR_NULL;
@@ -2304,7 +2304,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                        LFS3_FROM_BUF, 4),
+                        LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -2364,9 +2364,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -2401,9 +2401,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -2459,11 +2459,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -2498,11 +2498,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -2580,7 +2580,7 @@ code = '''
         lfs3_rattr_t *r = rattrs;
         for (unsigned j = 0; j < N; j++) {
             *r++ = LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                    LFS3_FROM_BUF, 4);
+                    LFS3_FROM_LBUF, 4);
             *r++ = LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa");
         }
         *r++ = LFS3_RATTR_NULL;
@@ -2656,7 +2656,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                        LFS3_FROM_BUF, 4),
+                        LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -2713,7 +2713,7 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_ATTR(j+1), 0, 1, LFS3_FROM_BUF, 4),
+                LFS3_RATTR(LFS3_TAG_ATTR(j+1), 0, 1, LFS3_FROM_LBUF, 4),
                 LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
                 LFS3_RATTR_NULL)) => 0;
     }
@@ -2756,7 +2756,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                        LFS3_FROM_BUF, 6),
+                        LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa\xaa\xaa"),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -2835,7 +2835,7 @@ code = '''
                 : (ORDER == 1) ? (((lfs3_size_t)-1) - i)
                 : TEST_PRNG(&prng);
         int err = lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_ATTR(x & 0x7f), 0, 1, LFS3_FROM_BUF, 4),
+                LFS3_RATTR(LFS3_TAG_ATTR(x & 0x7f), 0, 1, LFS3_FROM_LBUF, 4),
                 LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
                 LFS3_RATTR_NULL));
         if (err == LFS3_ERR_RANGE) {
@@ -2887,7 +2887,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
                 LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
@@ -2909,9 +2909,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
@@ -2949,9 +2949,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
@@ -3035,7 +3035,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                        LFS3_FROM_BUF, 4),
+                        LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -3086,7 +3086,7 @@ code = '''
             // try appending the tag back to make sure things still work
             printf("--- append: %d ---\n", j);
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(j+1), 0, 1, LFS3_FROM_BUF, 6),
+                    LFS3_RATTR(LFS3_TAG_ATTR(j+1), 0, 1, LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa\xaa\xaa"),
                     LFS3_RATTR_NULL)) => 0;
 
@@ -3183,7 +3183,7 @@ code = '''
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                        LFS3_FROM_BUF, 4),
+                        LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -3261,9 +3261,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL)) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
@@ -3416,15 +3416,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // remove several attributes
@@ -3663,7 +3663,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
@@ -3685,9 +3685,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
@@ -3710,9 +3710,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
@@ -3768,7 +3768,7 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_ATTR(j+1), 0, 1, LFS3_FROM_BUF, 4),
+                LFS3_RATTR(LFS3_TAG_ATTR(j+1), 0, 1, LFS3_FROM_LBUF, 4),
                 LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
                 LFS3_RATTR_NULL)) => 0;
     }
@@ -3823,7 +3823,7 @@ code = '''
 
         // try resuming from all tags being removed
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 6),
+                LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 6),
                 LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa\xaa\xaa"),
                 LFS3_RATTR_NULL)) => 0;
 
@@ -3923,7 +3923,7 @@ code = '''
             sim[rattr] = 'a'+(i % 26);
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(rattr), 0, 1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_ATTR(rattr), 0, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                     LFS3_RATTR_NULL)) => 0;
         } else {
@@ -4006,7 +4006,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4027,9 +4027,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4058,11 +4058,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4117,7 +4117,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4138,11 +4138,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4171,11 +4171,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4204,15 +4204,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4249,15 +4249,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4294,15 +4294,15 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4403,7 +4403,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -4465,9 +4465,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 00000000, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4541,11 +4541,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4596,11 +4596,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4714,7 +4714,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -4788,7 +4788,7 @@ code = '''
         x = x % (rbyd.weight+1);
 
         int err = lfs3_rbyd_commit(&lfs3, &rbyd, x, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                 LFS3_RATTR_ARG(names[x % 6]),
                 LFS3_RATTR_NULL));
         if (err == LFS3_ERR_RANGE) {
@@ -4837,9 +4837,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
                 LFS3_RATTR_NULL)) => 0;
 
@@ -4868,13 +4868,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -4919,17 +4919,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5037,11 +5037,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5070,19 +5070,19 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5127,19 +5127,19 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5184,27 +5184,27 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5294,27 +5294,27 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5375,27 +5375,27 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5521,13 +5521,13 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                         LFS3_RATTR_ARG(names[perm[j] % 6]),
                         LFS3_RATTR_NULL)) => 0;
             }
@@ -5597,13 +5597,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5713,19 +5713,19 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5812,19 +5812,19 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -5975,13 +5975,13 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                         LFS3_RATTR_ARG(names[perm[j] % 6]),
                         LFS3_RATTR_NULL)) => 0;
             }
@@ -6067,13 +6067,13 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                 LFS3_RATTR_ARG(names[j % 6]),
                 LFS3_RATTR_NULL)) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -6117,7 +6117,7 @@ code = '''
         for (unsigned j = 0; j < N*M; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, perm[j]/M, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]%M+1), 0, 1,
-                        LFS3_FROM_BUF, 3),
+                        LFS3_FROM_LBUF, 3),
                     LFS3_RATTR_ARG(names[(perm[j]/M) % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -6236,13 +6236,13 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                         LFS3_RATTR_ARG(names[perm[j] % 6]),
                         LFS3_RATTR_NULL)) => 0;
             }
@@ -6310,7 +6310,7 @@ code = '''
             // try append the tag back to make sure things still work
             printf("--- append: rid%jd, %jd ---\n", j/M, (j%M)+1);
             lfs3_rbyd_commit(&lfs3, &rbyd, j/M, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR((j%M)+1), 0, 1, LFS3_FROM_BUF, 3),
+                    LFS3_RATTR(LFS3_TAG_ATTR((j%M)+1), 0, 1, LFS3_FROM_LBUF, 3),
                     LFS3_RATTR_ARG(names[(j/M)%6]),
                     LFS3_RATTR_NULL)) => 0;
 
@@ -6417,13 +6417,13 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                 LFS3_RATTR_ARG(names[j % 6]),
                 LFS3_RATTR_NULL)) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -6560,10 +6560,10 @@ code = '''
         // it should fail atomically
         lfs3_rattr_t rattrs[2+2*M+1];
         lfs3_rattr_t *r = rattrs;
-        *r++ = LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4);
+        *r++ = LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4);
         *r++ = LFS3_RATTR_ARG(names[x % 6]);
         for (unsigned u = 0; u < M; u++) {
-            *r++ = LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2);
+            *r++ = LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2);
             *r++ = LFS3_RATTR_ARG(names[x % 6]);
         }
         *r++ = LFS3_RATTR_NULL;
@@ -6671,12 +6671,12 @@ code = '''
             // note the data size differences here
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                        LFS3_FROM_BUF, 1),
+                        LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -6820,17 +6820,17 @@ code = '''
             // note the data size differences here
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
-                        LFS3_FROM_BUF, 1),
+                        LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
             for (unsigned u = 0; u < M; u++) {
                 lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                         LFS3_RATTR_ARG(names[perm[j] % 6]),
                         LFS3_RATTR_NULL)) => 0;
             }
@@ -6949,9 +6949,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
@@ -6979,9 +6979,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -7009,11 +7009,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
@@ -7047,11 +7047,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -7085,11 +7085,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
@@ -7141,13 +7141,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
@@ -7187,13 +7187,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -7233,17 +7233,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
@@ -7299,17 +7299,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -7365,17 +7365,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
@@ -7459,44 +7459,44 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -7631,7 +7631,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -7798,43 +7798,43 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // this gets a bit messy as we try to make the rbyd take the right shape
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -7953,7 +7953,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -8104,65 +8104,65 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // this gets a bit messy as we try to make the rbyd take the right shape
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -8329,7 +8329,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -8531,54 +8531,54 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // this gets a bit messy as we try to make the rbyd take the right shape
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -8737,7 +8737,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -8931,54 +8931,54 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // this gets a bit messy as we try to make the rbyd take the right shape
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -9137,7 +9137,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -9331,56 +9331,56 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // this gets a bit messy as we try to make the rbyd take the right shape
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -9523,7 +9523,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -9701,56 +9701,56 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // this gets a bit messy as we try to make the rbyd take the right shape
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -9893,7 +9893,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -10073,88 +10073,88 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // this gets a bit messy as we try to make the rbyd take the right shape
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(11), 0, 1, LFS3_FROM_BUF, 2),
-            LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
-            LFS3_RATTR_ARG("\xcc\xcc"),
-            // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
-            LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
-            LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR_NULL)) => 0;
-    lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(12), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(11), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
+            LFS3_RATTR_ARG("\xcc\xcc"),
+            // propagate yellow
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
+            LFS3_RATTR_ARG("\xcc\xcc"),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
+            LFS3_RATTR_ARG("\xcc\xcc"),
+            LFS3_RATTR_NULL)) => 0;
+    lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
+            LFS3_RATTR(LFS3_TAG_ATTR(12), 0, 1, LFS3_FROM_LBUF, 2),
+            LFS3_RATTR_ARG("\xaa\xaa"),
+            LFS3_RATTR_NULL)) => 0;
+    lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(13), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(13), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(14), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(14), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -10353,7 +10353,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -10589,84 +10589,84 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(6), +1, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(6), +1, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(7), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(8), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(9), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow to the root
-            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(10), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     // this gets a bit messy as we try to make the rbyd take the right shape
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(11), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(11), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(12), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(12), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(13), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(13), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(14), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(14), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(14), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(14), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(14), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(14), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(5), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             // propagate yellow
-            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -10865,7 +10865,7 @@ code = '''
 
     // try to recreate
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -11137,7 +11137,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -11185,7 +11185,7 @@ code = '''
             // try recreating the rid to make sure things still work
             printf("--- create: %d ---\n", j);
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 6),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
             assert(rbyd.weight == N);
@@ -11303,13 +11303,13 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                         LFS3_RATTR_ARG(names[perm[j] % 6]),
                         LFS3_RATTR_NULL)) => 0;
             }
@@ -11371,12 +11371,12 @@ code = '''
             // try recreating the rid to make sure things still work
             printf("--- create: %d ---\n", j);
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 6),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
             for (unsigned u = 0; u < M; u++) {
                 lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 3),
+                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 3),
                         LFS3_RATTR_ARG(names[j % 6]),
                         LFS3_RATTR_NULL)) => 0;
             }
@@ -11507,7 +11507,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -11639,13 +11639,13 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
             // note uattrs have a smaller size to help debugging
             for (unsigned u = 0; u < M; u++) {
                 lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                        LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                         LFS3_RATTR_ARG(names[perm[j] % 6]),
                         LFS3_RATTR_NULL)) => 0;
             }
@@ -11747,7 +11747,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -11767,9 +11767,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
@@ -11790,9 +11790,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -11815,11 +11815,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
@@ -11841,11 +11841,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -11889,9 +11889,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -11911,13 +11911,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
@@ -11938,13 +11938,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -11967,17 +11967,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 2, LFS3_RATTRS(
@@ -11999,17 +11999,17 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
@@ -12075,7 +12075,7 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                 LFS3_RATTR_ARG(names[j % 6]),
                 LFS3_RATTR_NULL)) => 0;
     }
@@ -12140,7 +12140,7 @@ code = '''
 
         // try resuming from all tags being removed
         lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 6),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 6),
                 LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa\xaa\xaa"),
                 LFS3_RATTR_NULL)) => 0;
         assert(rbyd.weight == 1);
@@ -12223,13 +12223,13 @@ code = '''
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                 LFS3_RATTR_ARG(names[j % 6]),
                 LFS3_RATTR_NULL)) => 0;
         // note uattrs have a smaller size to help debugging
         for (unsigned u = 0; u < M; u++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, j, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -12295,12 +12295,12 @@ code = '''
 
         // try resuming from all tags being removed
         lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 6),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 6),
                 LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa\xaa\xaa"),
                 LFS3_RATTR_NULL)) => 0;
         for (unsigned u = 0; u < M; u++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_BUF, 3),
+                    LFS3_RATTR(LFS3_TAG_ATTR(u+1), 0, 1, LFS3_FROM_LBUF, 3),
                     LFS3_RATTR_ARG("\xaa\xaa\xaa"),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -12415,7 +12415,7 @@ code = '''
             count += 1;
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                     LFS3_RATTR_NULL)) => 0;
         } else {
@@ -12491,7 +12491,7 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -12512,7 +12512,7 @@ code = '''
 
     // make id2 with weight w2
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_WEIGHT(+2),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
@@ -12546,7 +12546,7 @@ code = '''
 
     // make id5 with weight w3
     lfs3_rbyd_commit(&lfs3, &rbyd, 3, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_WEIGHT(+3),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
@@ -12592,7 +12592,7 @@ code = '''
 
     // make id9 with weight w4
     lfs3_rbyd_commit(&lfs3, &rbyd, 6, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_WEIGHT(+4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL)) => 0;
@@ -12650,7 +12650,7 @@ code = '''
 
     // make id14 with weight w5
     lfs3_rbyd_commit(&lfs3, &rbyd, 10, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_WEIGHT(+5),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
@@ -12742,22 +12742,22 @@ code = '''
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, LFS3_RATTRS(
             // make id0 with weight w1
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             // make id2 with weight w2
-            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_WEIGHT(+2),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             // make id5 with weight w3
-            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_WEIGHT(+3),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             // make id9 with weight w4
-            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_WEIGHT(+4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             // make id14 with weight w5
-            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_WEIGHT(+5),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
@@ -12899,7 +12899,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -12991,7 +12991,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -13044,13 +13044,13 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 9),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 9),
             LFS3_RATTR_ARG("unrelated"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -13107,12 +13107,12 @@ code = '''
 
     // make id2 with weight w2
     lfs3_rbyd_commit(&lfs3, &rbyd, 1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR(LFS3_tag_GROW, +1, 0),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -13205,13 +13205,13 @@ code = '''
 
     // make id5 with weight w3
     lfs3_rbyd_commit(&lfs3, &rbyd, 3, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR(LFS3_tag_GROW, -2, 0),
             LFS3_RATTR_WEIGHT(+2),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -13340,13 +13340,13 @@ code = '''
 
     // make id9 with weight w4
     lfs3_rbyd_commit(&lfs3, &rbyd, 6, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xdd\xdd"),
             LFS3_RATTR(LFS3_tag_GROW, -2, 0),
             LFS3_RATTR_WEIGHT(+3),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xdd\xdd"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -13511,13 +13511,13 @@ code = '''
 
     // make id14 with weight w5
     lfs3_rbyd_commit(&lfs3, &rbyd, 10, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR(LFS3_tag_GROW, -2, 0),
             LFS3_RATTR_WEIGHT(+4),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -13739,49 +13739,49 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 9),
+            LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 9),
             LFS3_RATTR_ARG("unrelated"),
             // make id0 with weight w1
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xaa\xaa"),
             // make id2 with weight w2
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             LFS3_RATTR(LFS3_tag_GROW, +1, 0),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xbb\xbb"),
             // make id5 with weight w3
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             LFS3_RATTR(LFS3_tag_GROW, -2, 0),
             LFS3_RATTR_WEIGHT(+2),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xcc\xcc"),
             // make id9 with weight w4
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xdd\xdd"),
             LFS3_RATTR(LFS3_tag_GROW, -2, 0),
             LFS3_RATTR_WEIGHT(+3),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xdd\xdd"),
             // make id14 with weight w5
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR(LFS3_tag_GROW, -2, 0),
             LFS3_RATTR_WEIGHT(+4),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
             LFS3_RATTR_ARG("\xee\xee"),
             LFS3_RATTR_NULL)) => 0;
 
@@ -14045,7 +14045,7 @@ code = '''
         rbyd = init_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 9),
+                LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 9),
                 LFS3_RATTR_ARG("unrelated"),
                 LFS3_RATTR_NULL)) => 0;
 
@@ -14059,13 +14059,13 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
-                    LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_tag_GROW, -2, 0),
                     LFS3_RATTR_WEIGHT(+W-1),
-                    LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -14165,7 +14165,7 @@ code = '''
         rbyd = init_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_BUF, 9),
+                LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 9),
                 LFS3_RATTR_ARG("unrelated"),
                 LFS3_RATTR_NULL)) => 0;
 
@@ -14179,13 +14179,13 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
-                    LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_tag_GROW, -2, 0),
                     LFS3_RATTR_WEIGHT(+W-1),
-                    LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -14304,7 +14304,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -14443,7 +14443,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -14471,7 +14471,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_tag_GROW | LFS3_TAG_DATA, -2, 1,
-                        LFS3_FROM_BUF, 6),
+                        LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_WEIGHT(+D),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -14596,7 +14596,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(2), -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_ATTR(2), -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -14624,7 +14624,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_tag_GROW | LFS3_TAG_ATTR(1), -2, 1,
-                        LFS3_FROM_BUF, 6),
+                        LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_WEIGHT(+D),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -14760,7 +14760,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -14899,7 +14899,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -14927,7 +14927,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_tag_GROW | LFS3_TAG_DATA, -2, 1,
-                        LFS3_FROM_BUF, 6),
+                        LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_WEIGHT(-D),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -15052,7 +15052,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(2), -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_ATTR(2), -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -15080,7 +15080,7 @@ code = '''
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_tag_GROW | LFS3_TAG_ATTR(1), -2, 1,
-                        LFS3_FROM_BUF, 6),
+                        LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_WEIGHT(-D),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -15215,7 +15215,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -15282,7 +15282,7 @@ code = '''
             // try recreating the rid to make sure things still work
             printf("--- create: %d ---\n", j);
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 6),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -15391,7 +15391,7 @@ code = '''
             }
 
             lfs3_rbyd_commit(&lfs3, &rbyd, rid*W, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_WEIGHT(+W),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
@@ -15419,7 +15419,7 @@ code = '''
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
             assert(rbyd.weight == N*W);
@@ -15483,7 +15483,7 @@ code = '''
             // and try putting the rattr back just for good measure
             printf("--- appending: %d ---\n", j);
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 2),
+                    LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
             assert(rbyd.weight == N*W);
@@ -15600,7 +15600,7 @@ code = '''
             count += 1;
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                     LFS3_RATTR_NULL)) => 0;
         } else if (op == 1) {
@@ -15616,7 +15616,7 @@ code = '''
             sim[rid*(M+1) + u+1] = 'a'+(i % 26);
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_ATTR(u), 0, 1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_ATTR(u), 0, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                     LFS3_RATTR_NULL)) => 0;
 
@@ -15776,7 +15776,7 @@ code = '''
             count += 1;
             // update our rbyd
             lfs3_rbyd_commit(&lfs3, &rbyd, weighted_rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_WEIGHT(+weight),
                     LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                     LFS3_RATTR_NULL)) => 0;
@@ -15950,10 +15950,10 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -16040,10 +16040,10 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -16187,10 +16187,10 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -16220,7 +16220,7 @@ code = '''
                     LFS3_RATTR(
                         LFS3_tag_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
                         0, 1,
-                        LFS3_FROM_BUF, 3),
+                        LFS3_FROM_LBUF, 3),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
 
@@ -16336,12 +16336,12 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR(0x7f & (perm[j] + SHIFT)), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
-                    LFS3_RATTR(LFS3_TAG_ATTR(0x80), 0, 1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_ATTR(0x80), 0, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -16428,12 +16428,12 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR(0x7f & (perm[j] + SHIFT)), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
-                    LFS3_RATTR(LFS3_TAG_ATTR(0x80), 0, 1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_ATTR(0x80), 0, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -16584,12 +16584,12 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR(0x7f & (perm[j] + SHIFT)), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
-                    LFS3_RATTR(LFS3_TAG_ATTR(0x80), 0, 1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_ATTR(0x80), 0, 1, LFS3_FROM_LBUF, 1),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -16619,7 +16619,7 @@ code = '''
                     LFS3_RATTR(
                         LFS3_tag_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
                         0, 1,
-                        LFS3_FROM_BUF, 3),
+                        LFS3_FROM_LBUF, 3),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
 
@@ -16743,7 +16743,7 @@ code = '''
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), +1, 1,
-                        LFS3_FROM_BUF, 4),
+                        LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -16831,7 +16831,7 @@ code = '''
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), +1, 1,
-                        LFS3_FROM_BUF, 4),
+                        LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -16979,7 +16979,7 @@ code = '''
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), +1, 1,
-                        LFS3_FROM_BUF, 4),
+                        LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -17009,7 +17009,7 @@ code = '''
                     LFS3_RATTR(
                         LFS3_tag_MASK8 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
                         0, 1,
-                        LFS3_FROM_BUF, 6),
+                        LFS3_FROM_LBUF, 6),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
 
@@ -17119,10 +17119,10 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -17208,10 +17208,10 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -17355,10 +17355,10 @@ code = '''
 
             // give each rattr a subtype based on its rid + SHIFT
             lfs3_rbyd_commit(&lfs3, &rbyd, rid, LFS3_RATTRS(
-                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR(LFS3_TAG_ATTR((perm[j] + SHIFT) & 0x7f), 0, 1,
-                        LFS3_FROM_BUF, 2),
+                        LFS3_FROM_LBUF, 2),
                     LFS3_RATTR_ARG(names[perm[j] % 6]),
                     LFS3_RATTR_NULL)) => 0;
         }
@@ -17388,7 +17388,7 @@ code = '''
                     LFS3_RATTR(
                         LFS3_tag_MASK12 | LFS3_TAG_ATTR(~(j + SHIFT) & 0x7f),
                         0, 1,
-                        LFS3_FROM_BUF, 3),
+                        LFS3_FROM_LBUF, 3),
                     LFS3_RATTR_ARG(names[j % 6]),
                     LFS3_RATTR_NULL)) => 0;
 
@@ -17471,9 +17471,9 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR(LFS3_tag_RM | LFS3_TAG_ATTR(0), 0, 0),
             LFS3_RATTR_NULL)) => 0;
@@ -17517,11 +17517,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR(LFS3_tag_RM | LFS3_TAG_ATTR(0), 0, 0),
             LFS3_RATTR_NULL)) => 0;
@@ -17571,11 +17571,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
@@ -17627,11 +17627,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(0x00), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(0x00), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(0x01), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(0x01), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_ATTR(0x80), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(0x80), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR(LFS3_tag_RM | LFS3_TAG_ATTR(0), 0, 0),
             LFS3_RATTR_NULL)) => 0;
@@ -17640,7 +17640,7 @@ code = '''
     // subwide replace a neighbor to the hole
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_ATTR(0x02), 0, 1,
-                LFS3_FROM_BUF, 4),
+                LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     assert(rbyd.weight == 0);
@@ -17692,11 +17692,11 @@ code = '''
     rbyd = init_rbyd;
     lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
-            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 4),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
@@ -17707,7 +17707,7 @@ code = '''
     // supwide replace a neighbor to the hole
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
             LFS3_RATTR(LFS3_tag_MASK12 | LFS3_TAG_ATTR(2), 0, 1,
-                LFS3_FROM_BUF, 4),
+                LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL)) => 0;
     assert(rbyd.weight == 1);

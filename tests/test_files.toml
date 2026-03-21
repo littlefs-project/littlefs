@@ -1098,7 +1098,7 @@ code = '''
             LFS3_RATTR_ARG(&file.b),
             LFS3_RATTR_ARG(0),
             LFS3_RATTR_ARG(LFS3_RATTRS(
-                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 1),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
                 LFS3_RATTR_ARG("?"),
                 LFS3_RATTR_NULL)),
             LFS3_RATTR_NULL)) => 0;
@@ -1231,7 +1231,7 @@ code = '''
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_rbyd_alloc(&lfs3, &file.b.b.r) => 0;
     lfs3_rbyd_commit(&lfs3, &file.b.b.r, 0, LFS3_RATTRS(
-            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 1),
+            LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("?"),
             LFS3_RATTR_NULL)) => 0;
     lfs3_rbyd_commit(&lfs3, &file.b.b.r, 0, LFS3_RATTRS(
