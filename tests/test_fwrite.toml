@@ -5497,7 +5497,7 @@ code = '''
 
         printf("pos = %d, %d\n", pos, weight);
         lfs3_bshrub_commit(&lfs3, &file.b, pos, LFS3_RATTRS(
-                LFS3_RATTR(3, LFS3_tag_GROW | tag, -2, LFS3_FROM_CAT, 1),
+                LFS3_RATTR(LFS3_tag_GROW | tag, -2, 1, LFS3_FROM_CAT, 1),
                 LFS3_RATTR_WEIGHT(-(weight/2)),
                 LFS3_RATTR_ARG(&data),
                 LFS3_RATTR_NULL)) => 0;
@@ -5608,7 +5608,7 @@ code = '''
 
         printf("pos = %d, %d\n", pos, weight);
         lfs3_bshrub_commit(&lfs3, &file.b, pos, LFS3_RATTRS(
-                LFS3_RATTR(3, LFS3_tag_GROW | tag, -2, LFS3_FROM_CAT, 1),
+                LFS3_RATTR(LFS3_tag_GROW | tag, -2, 1, LFS3_FROM_CAT, 1),
                 LFS3_RATTR_WEIGHT(-(weight/2)),
                 LFS3_RATTR_ARG(&data),
                 LFS3_RATTR_NULL)) => 0;

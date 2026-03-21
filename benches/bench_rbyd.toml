@@ -58,8 +58,7 @@ code = '''
             uint8_t wbuf[SIZE];
             memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                    LFS3_RATTR(3,
-                        LFS3_TAG_ATTR(i_ & 0xff), 0, LFS3_FROM_DATA),
+                    LFS3_RATTR(LFS3_TAG_ATTR(i_ & 0xff), 0, 2, LFS3_FROM_DATA),
                     LFS3_RATTR_ARG(SIZE),
                     LFS3_RATTR_ARG(wbuf),
                     LFS3_RATTR_NULL)) => 0;
@@ -75,8 +74,7 @@ code = '''
             uint8_t wbuf[SIZE];
             memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                    LFS3_RATTR(3,
-                        LFS3_TAG_ATTR(i_ & 0xff), 0, LFS3_FROM_DATA),
+                    LFS3_RATTR(LFS3_TAG_ATTR(i_ & 0xff), 0, 2, LFS3_FROM_DATA),
                     LFS3_RATTR_ARG(SIZE),
                     LFS3_RATTR_ARG(wbuf),
                     LFS3_RATTR_NULL)) => 0;
@@ -88,8 +86,7 @@ code = '''
             BENCH_START("remove");
             lfs3_off_t i_ = BENCH_PRNG(&prng) % n;
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, LFS3_RATTRS(
-                    LFS3_RATTR(1,
-                        LFS3_tag_RM | LFS3_TAG_ATTR(i_ & 0xff), 0),
+                    LFS3_RATTR(LFS3_tag_RM | LFS3_TAG_ATTR(i_ & 0xff), 0, 0),
                     LFS3_RATTR_NULL)) => 0;
             BENCH_STOP("remove", n+STEP);
         }
@@ -171,7 +168,7 @@ code = '''
             uint8_t wbuf[SIZE];
             memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
             lfs3_rbyd_commit(&lfs3, &rbyd, i_, LFS3_RATTRS(
-                    LFS3_RATTR(3, LFS3_TAG_DATA, +1, LFS3_FROM_DATA),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 2, LFS3_FROM_DATA),
                     LFS3_RATTR_ARG(SIZE),
                     LFS3_RATTR_ARG(wbuf),
                     LFS3_RATTR_NULL)) => 0;
@@ -188,7 +185,7 @@ code = '''
             uint8_t wbuf[SIZE];
             memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), SIZE);
             lfs3_rbyd_commit(&lfs3, &rbyd, i_, LFS3_RATTRS(
-                    LFS3_RATTR(3, LFS3_TAG_DATA, +1, LFS3_FROM_DATA),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 2, LFS3_FROM_DATA),
                     LFS3_RATTR_ARG(SIZE),
                     LFS3_RATTR_ARG(wbuf),
                     LFS3_RATTR_NULL)) => 0;
@@ -202,7 +199,7 @@ code = '''
             lfs3_off_t i_ = BENCH_PRNG(&prng) % rbyd.weight;
             lfs3_off_t n_ = rbyd.weight;
             lfs3_rbyd_commit(&lfs3, &rbyd, i_, LFS3_RATTRS(
-                    LFS3_RATTR(1, LFS3_tag_RM, -1),
+                    LFS3_RATTR(LFS3_tag_RM, -1, 0),
                     LFS3_RATTR_NULL)) => 0;
             assert(rbyd.weight == n_-1);
             BENCH_STOP("delete", n+STEP);

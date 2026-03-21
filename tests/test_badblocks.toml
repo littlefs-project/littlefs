@@ -80,7 +80,7 @@ code = '''
 
             // add to btree
             lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
-                    LFS3_RATTR(2, LFS3_TAG_DATA, +1, LFS3_FROM_BUF, 1),
+                    LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 1),
                     LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                     LFS3_RATTR_NULL)) => 0;
 
@@ -2045,7 +2045,7 @@ code = '''
 
         // add to btree
         lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
-                LFS3_RATTR(2, LFS3_TAG_DATA, +1, LFS3_FROM_BUF, 1),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                 LFS3_RATTR_NULL)) => 0;
 
@@ -4012,7 +4012,7 @@ code = '''
 
         // add to btree
         lfs3_btree_commit(&lfs3, &btree, bid, LFS3_RATTRS(
-                LFS3_RATTR(2, LFS3_TAG_DATA, +1, LFS3_FROM_BUF, 1),
+                LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_BUF, 1),
                 LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
                 LFS3_RATTR_NULL)) => 0;
 
