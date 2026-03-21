@@ -10241,7 +10241,7 @@ eot:;
 
 // needed in lfs3_mtree_gc
 static int lfs3_fs_fixgrm(lfs3_t *lfs3);
-static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir);
+static int lfs3_mdir_fixorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
@@ -10364,7 +10364,7 @@ again:;
 
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         uint32_t dirty = mgc->t.h.flags;
-        int err = lfs3_mdir_mkconsistent(lfs3, mdir);
+        int err = lfs3_mdir_fixorphans(lfs3, mdir);
         if (err) {
             return err;
         }
@@ -16797,7 +16797,7 @@ static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_mdir_mkconsistent(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
+static int lfs3_mdir_fixorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // save the current mid
     lfs3_mid_t mid = mdir->mid;
 
