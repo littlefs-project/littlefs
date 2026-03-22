@@ -800,21 +800,21 @@ enum lfs3_tag {
 
     // config tags
     LFS3_TAG_CONFIG         = 0x0200,
-    LFS3_TAG_MAGIC          = 0x0231,
-    LFS3_TAG_VERSION        = 0x0234,
-    LFS3_TAG_RCOMPAT        = 0x0235,
-    LFS3_TAG_WCOMPAT        = 0x0236,
-    LFS3_TAG_OCOMPAT        = 0x0237,
-    LFS3_TAG_GEOMETRY       = 0x0238,
-    LFS3_TAG_NAMELIMIT      = 0x0239,
-    LFS3_TAG_FILELIMIT      = 0x023a,
+    LFS3_TAG_MAGIC          = 0x0201,
+    LFS3_TAG_VERSION        = 0x0204,
+    LFS3_TAG_RCOMPAT        = 0x0205,
+    LFS3_TAG_WCOMPAT        = 0x0206,
+    LFS3_TAG_OCOMPAT        = 0x0207,
+    LFS3_TAG_GEOMETRY       = 0x0208,
+    LFS3_TAG_NAMELIMIT      = 0x0209,
+    LFS3_TAG_FILELIMIT      = 0x020a,
     // in-device only, to help find unknown config tags
-    LFS3_tag_UNKNOWNCONFIG  = 0x023b,
+    LFS3_tag_UNKNOWNCONFIG  = 0x020b,
 
     // global-state tags
     LFS3_TAG_GDELTA         = 0x0300,
-    LFS3_TAG_GRMDELTA       = 0x0330,
-    LFS3_TAG_GBMAPDELTA     = 0x0334,
+    LFS3_TAG_GRMDELTA       = 0x0300,
+    LFS3_TAG_GBMAPDELTA     = 0x0304,
 
     // name tags
     LFS3_TAG_NAME           = 0x0400,
