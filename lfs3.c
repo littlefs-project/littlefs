@@ -1889,7 +1889,7 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 //    '--|----|-----|----:-----------------:-- compressed weight
 //   ::  '----|-----|----:-----------------:-- total len
 //   ::       '-----|----:-----------------:-- from encoder
-//   ::             '----:-----------------:-- optional count
+//   ::             '----:-----------------:-- optional from count
 //   ::                  rgmm kkkk -kkk kkkk
 //   11 => w=-1          ^^ ^ '-.' '---.---'
 //   00 => w=0           '|-|---|------|------ rm bit
@@ -1926,18 +1926,18 @@ typedef uint8_t lfs3_from_t;
 typedef uint8_t lfs3_count_t;
 
 // initial rattr macros
-#define LFS3_RATTR_5(_tag, _weight, _len, _from, _count) \
-    (((lfs3_rattr_t)(1+(((_weight) <= -2) ? 1 : 0)+(_len)) << 26) \
+#define LFS3_RATTR_5(_tag, _weight, _arg_count, _from, _from_count) \
+    (((lfs3_rattr_t)(1+(((_weight) <= -2) ? 1 : 0)+(_arg_count)) << 26) \
         | ((lfs3_rattr_t)(_tag) << 0) \
         | ((lfs3_rattr_t)(_weight) << 30) \
         | ((lfs3_rattr_t)(_from) << 22) \
-        | ((lfs3_rattr_t)(_count) << 16))
+        | ((lfs3_rattr_t)(_from_count) << 16))
 
-#define LFS3_RATTR_4(_tag, _weight, _len, _from) \
-    LFS3_RATTR_5(_tag, _weight, _len, _from, 0)
+#define LFS3_RATTR_4(_tag, _weight, _arg_count, _from) \
+    LFS3_RATTR_5(_tag, _weight, _arg_count, _from, 0)
 
-#define LFS3_RATTR_3(_tag, _weight, _len) \
-    LFS3_RATTR_5(_tag, _weight, _len, LFS3_FROM_NIL, 0)
+#define LFS3_RATTR_3(_tag, _weight, _arg_count) \
+    LFS3_RATTR_5(_tag, _weight, _arg_count, LFS3_FROM_NIL, 0)
 
 #define LFS3_RATTR_N_(_0, _1, _2, _3, _4, _n, ...) _n
 #define LFS3_RATTR_N(...) LFS3_RATTR_N_(__VA_ARGS__, 5, 4, 3, 2, 1)
@@ -1975,13 +1975,21 @@ static inline lfs3_size_t lfs3_rattr_len_(lfs3_rattr_t rattr) {
 #endif
 
 #ifndef LFS3_RDONLY
+static inline lfs3_ssize_t lfs3_rattr_argcount_(lfs3_rattr_t rattr) {
+    return lfs3_rattr_len_(rattr)
+            - 1
+            - ((lfs3_rattr_weight_(rattr) <= -2) ? 1 : 0);
+}
+#endif
+
+#ifndef LFS3_RDONLY
 static inline lfs3_from_t lfs3_rattr_from_(lfs3_rattr_t rattr) {
     return 0xf & (rattr >> 22);
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static inline lfs3_count_t lfs3_rattr_count_(lfs3_rattr_t rattr) {
+static inline lfs3_count_t lfs3_rattr_fromcount_(lfs3_rattr_t rattr) {
     return 0x3f & (rattr >> 16);
 }
 #endif
@@ -2022,6 +2030,18 @@ static inline lfs3_srid_t lfs3_rattr_weight(const lfs3_rattr_t *rattr) {
 #endif
 
 #ifndef LFS3_RDONLY
+static inline lfs3_size_t lfs3_rattr_len(const lfs3_rattr_t *rattr) {
+    return lfs3_rattr_len_(rattr[0]);
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static inline lfs3_ssize_t lfs3_rattr_argcount(const lfs3_rattr_t *rattr) {
+    return lfs3_rattr_argcount_(rattr[0]);
+}
+#endif
+
+#ifndef LFS3_RDONLY
 static inline const lfs3_rattr_t *lfs3_rattr_args(const lfs3_rattr_t *rattr) {
     lfs3_srid_t weight = lfs3_rattr_weight_(rattr[0]);
     if (weight <= -2) {
@@ -2040,22 +2060,14 @@ static inline lfs3_rattr_t lfs3_rattr_arg(const lfs3_rattr_t *rattr,
 #endif
 
 #ifndef LFS3_RDONLY
-static inline lfs3_ssize_t lfs3_rattr_len(const lfs3_rattr_t *rattr) {
-    return lfs3_rattr_len_(rattr[0])
-            - 1
-            - ((lfs3_rattr_weight_(rattr[0]) <= -2) ? 1 : 0);
-}
-#endif
-
-#ifndef LFS3_RDONLY
 static inline lfs3_from_t lfs3_rattr_from(const lfs3_rattr_t *rattr) {
     return lfs3_rattr_from_(rattr[0]);
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static inline lfs3_count_t lfs3_rattr_count(const lfs3_rattr_t *rattr) {
-    return lfs3_rattr_count_(rattr[0]);
+static inline lfs3_count_t lfs3_rattr_fromcount(const lfs3_rattr_t *rattr) {
+    return lfs3_rattr_fromcount_(rattr[0]);
 }
 #endif
 
@@ -2104,7 +2116,7 @@ static inline bool lfs3_rattr_isinsert(const lfs3_rattr_t *rattr) {
 static inline const lfs3_rattr_t *lfs3_rattr_next(const lfs3_rattr_t *rattr,
         lfs3_srid_t *rid) {
     // a len of zero here is probably a bug
-    LFS3_ASSERT(lfs3_rattr_len_(rattr[0]) > 0);
+    LFS3_ASSERT(lfs3_rattr_len(rattr) > 0);
 
     // adjust rid?
     if (rid) {
@@ -2117,7 +2129,7 @@ static inline const lfs3_rattr_t *lfs3_rattr_next(const lfs3_rattr_t *rattr,
     }
 
     // return next rattr
-    return rattr + lfs3_rattr_len_(rattr[0]);
+    return rattr + lfs3_rattr_len(rattr);
 }
 #endif
 
@@ -4361,7 +4373,7 @@ leaf:;
                     : lfs3_tag_key(tag)),
             upper_rid - lower_rid + weight,
             lfs3_rattr_from(rattr),
-            lfs3_rattr_count(rattr),
+            lfs3_rattr_fromcount(rattr),
             lfs3_rattr_args(rattr));
     if (err) {
         return err;
@@ -4693,7 +4705,7 @@ static int lfs3_rbyd_appendcompactrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 | lfs3_rattr_tag(rattr),
             lfs3_rattr_weight(rattr),
             lfs3_rattr_from(rattr),
-            lfs3_rattr_count(rattr),
+            lfs3_rattr_fromcount(rattr),
             lfs3_rattr_args(rattr));
     if (err) {
         return err;
@@ -6830,11 +6842,11 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
         if (lfs3_rattr_from(r) == LFS3_FROM_CAT) {
             const lfs3_data_t *datas
                     = (const lfs3_data_t*)lfs3_rattr_arg(r, 0);
-            for (lfs3_size_t j = 0; j < lfs3_rattr_count(r); j++) {
+            for (lfs3_size_t j = 0; j < lfs3_rattr_fromcount(r); j++) {
                 commit_estimate += lfs3_data_size(&datas[j]);
             }
         } else {
-            commit_estimate += lfs3_rattr_count(r);
+            commit_estimate += lfs3_rattr_fromcount(r);
         }
     }
 
