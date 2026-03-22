@@ -4043,7 +4043,7 @@ code = '''
 
     // create enough files for mroot to split
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "uloborus%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4192,7 +4192,7 @@ code = '''
 
     // create enough files for mroot to split
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "uloborus%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4342,7 +4342,7 @@ code = '''
 
     // create enough files for mroot to split
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "uloborus%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4960,7 +4960,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4970,8 +4970,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -4996,8 +4996,8 @@ code = '''
 
     // create enough files for mdir to split again
     i = 0;
-    orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "vulsor%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5159,7 +5159,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5169,8 +5169,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5225,8 +5225,8 @@ code = '''
 
     // create enough files for mdir to split again
     i = 0;
-    orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "vulsor%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5364,7 +5364,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5374,8 +5374,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5435,8 +5435,8 @@ code = '''
 
     // create enough files for mdir to split again
     i = 0;
-    orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "vulsor%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5564,7 +5564,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5574,8 +5574,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5761,7 +5761,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5771,8 +5771,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5975,7 +5975,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -5985,8 +5985,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -6178,7 +6178,7 @@ code = '''
 
     // create enough files for mroot to split twice
     lfs3_size_t i = 0;
-    while (lfs3.mtree.r.weight == 0) {
+    while (lfs3.mtree.weight == 0) {
         char name[256];
         sprintf(name, "tarantula%03x", i);
         lfs3_file_open(&lfs3, &file, name,
@@ -6188,8 +6188,8 @@ code = '''
     }
 
     i = 0;
-    lfs3_size_t orig = lfs3.mtree.r.weight;
-    while (lfs3.mtree.r.weight == orig) {
+    lfs3_size_t orig = lfs3.mtree.weight;
+    while (lfs3.mtree.weight == orig) {
         char name[256];
         sprintf(name, "xnotata%03x", i);
         lfs3_file_open(&lfs3, &file, name,

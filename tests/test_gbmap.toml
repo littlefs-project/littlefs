@@ -33,12 +33,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMINUSE, NULL) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -100,12 +100,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMBAD, NULL) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMBAD, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -168,12 +168,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMINUSE, NULL) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, 13, LFS3_TAG_BMINUSE, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -237,12 +237,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMFREE, NULL) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMINUSE, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -301,12 +301,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 0, LFS3_TAG_BMINUSE, NULL) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, BLOCK_COUNT-1, LFS3_TAG_BMINUSE, NULL) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -367,9 +367,9 @@ code = '''
         sim[block] = tag;
     }
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // check if gbmap matches sim
     lfs3_size_t i = 0;
@@ -422,12 +422,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -500,12 +500,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 8, LFS3_TAG_BMERASED, &ecksum_b) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, 10, LFS3_TAG_BMERASED, &ecksum_b) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -578,12 +578,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMERASED, &ecksum) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, 13, LFS3_TAG_BMERASED, &ecksum) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -658,12 +658,12 @@ code = '''
     lfs3_gbmap_set(&lfs3, &gbmap, 9, LFS3_TAG_BMERASED, &ecksum_b) => 0;
     lfs3_gbmap_set(&lfs3, &gbmap, 13, LFS3_TAG_BMERASED, &ecksum_b) => 0;
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // weight should stay the same
-    assert(gbmap.r.weight == BLOCK_COUNT);
+    assert(gbmap.weight == BLOCK_COUNT);
 
     // check ranges
     lfs3_bid_t bid_;
@@ -771,9 +771,9 @@ code = '''
         sim[block] = ecksum.cksum;
     }
     printf("gbmap: w%d 0x%x.%x\n",
-            gbmap.r.weight,
-            gbmap.r.blocks[0],
-            gbmap.r.trunk);
+            gbmap.weight,
+            gbmap.blocks[0],
+            gbmap.trunk);
 
     // check if gbmap matches sim
     lfs3_size_t i = 0;

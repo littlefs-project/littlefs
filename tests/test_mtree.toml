@@ -211,7 +211,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -238,7 +238,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -306,7 +306,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -335,7 +335,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -405,7 +405,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -428,7 +428,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -469,7 +469,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -757,7 +757,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -771,7 +771,7 @@ code = '''
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -793,7 +793,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -856,7 +856,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -872,7 +872,7 @@ code = '''
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -894,7 +894,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -962,7 +962,7 @@ code = '''
     assert(mdir.r.weight == 2);
 
     // assert split/drop worked out
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -979,7 +979,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1037,7 +1037,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1064,7 +1064,7 @@ code = '''
     assert(mdir.r.weight == 1);
 
     // assert split/drop worked out
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1093,7 +1093,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert split/drop worked out
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1163,7 +1163,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1190,7 +1190,7 @@ code = '''
     assert(mdir.r.weight == 1);
 
     // assert split/drop worked out
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1219,7 +1219,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert split/drop worked out
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1427,7 +1427,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1448,7 +1448,7 @@ code = '''
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1487,7 +1487,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1569,7 +1569,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1592,7 +1592,7 @@ code = '''
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1633,7 +1633,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1717,7 +1717,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1740,7 +1740,7 @@ code = '''
     assert(lfs3_mdir_cmp(&old_mdir, &mdir) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -1781,7 +1781,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2224,7 +2224,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2252,7 +2252,7 @@ code = '''
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2293,7 +2293,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2377,7 +2377,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2413,7 +2413,7 @@ code = '''
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2459,7 +2459,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2548,7 +2548,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2575,7 +2575,7 @@ code = '''
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
     // assert mdir was dropped
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2597,7 +2597,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was dropped
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2665,7 +2665,7 @@ code = '''
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2692,7 +2692,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2771,7 +2771,7 @@ code = '''
     assert(lfs3_mdir_cmp(&old_mroot, &lfs3.mroot) != 0);
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -2800,7 +2800,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -3259,7 +3259,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -3363,7 +3363,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -3519,7 +3519,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -3631,7 +3631,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -3757,7 +3757,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -3778,7 +3778,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (4 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (4 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -3882,7 +3882,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -3893,7 +3893,7 @@ code = '''
     assert(mdir.r.weight == 0);
 
     // assert mdir was dropped correctly
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4064,7 +4064,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4131,7 +4131,7 @@ code = '''
     // and the tree should still work
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4153,7 +4153,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined
-    assert(lfs3.mtree.r.weight == (1 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (1 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4215,7 +4215,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4282,7 +4282,7 @@ code = '''
     // and the tree should still work
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4306,7 +4306,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4370,7 +4370,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdirs were unininlined and split
-    assert(lfs3.mtree.r.weight == (2 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (2 << lfs3.mbits));
     // assert mroot now has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4391,7 +4391,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4458,7 +4458,7 @@ code = '''
     // and the tree should still work
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 
@@ -4489,7 +4489,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
 
     // assert mdir was split correctly
-    assert(lfs3.mtree.r.weight == (3 << lfs3.mbits));
+    assert(lfs3.mtree.weight == (3 << lfs3.mbits));
     // assert mroot still has no entries
     assert(lfs3.mroot.r.weight == 0);
 

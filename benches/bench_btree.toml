@@ -52,7 +52,7 @@ code = '''
         lfs3_bid_t i_
                 = (ORDER == 0) ? i
                 : (ORDER == 1) ? 0
-                : BENCH_PRNG(&prng) % (btree.r.weight+1);
+                : BENCH_PRNG(&prng) % (btree.weight+1);
         // measure commits
         if ((MASK & 0x1) && (i+1) % STEP == 0) {
             BENCH_START("commit");
@@ -71,7 +71,7 @@ code = '''
         // measure lookups
         if ((MASK & 0x2) && (i+1) % STEP == 0) {
             BENCH_START("lookup");
-            lfs3_bid_t i_ = BENCH_PRNG(&prng) % btree.r.weight;
+            lfs3_bid_t i_ = BENCH_PRNG(&prng) % btree.weight;
             lfs3_data_t data_;
             lfs3_stag_t tag_ = lfs3_btree_lookup(&lfs3, &btree,
                     i_, LFS3_TAG_DATA,
@@ -243,7 +243,7 @@ code = '''
         // measure lookups
         if ((MASK & 0x2) && (i+1) % STEP == 0) {
             BENCH_START("lookup");
-            lfs3_bid_t i_ = BENCH_PRNG(&prng) % btree.r.weight;
+            lfs3_bid_t i_ = BENCH_PRNG(&prng) % btree.weight;
             lfs3_data_t data_;
             lfs3_stag_t tag_ = lfs3_btree_lookup(&lfs3, &btree,
                     i_, LFS3_TAG_DATA,

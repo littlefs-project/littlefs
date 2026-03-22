@@ -54,9 +54,6 @@
 #ifndef LFS3_PREERASE
 #define LFS3_PREERASE
 #endif
-#ifndef LFS3_BLEAFCACHE
-#define LFS3_BLEAFCACHE
-#endif
 #endif
 
 // LFS3_YES_* variants imply the relevant LFS3_* macro
@@ -86,9 +83,6 @@
 #endif
 #ifdef LFS3_YES_GBMAP
 #define LFS3_GBMAP
-#endif
-#ifdef LFS3_YES_BLEAFCACHE
-#define LFS3_BLEAFCACHE
 #endif
 
 // LFS3_NO_LOG disables all logging macros
@@ -327,12 +321,6 @@
 #define LFS3_IFDEF_PREERASE(a, b) (a)
 #else
 #define LFS3_IFDEF_PREERASE(a, b) (b)
-#endif
-
-#ifdef LFS3_BLEAFCACHE
-#define LFS3_IFDEF_BLEAFCACHE(a, b) (a)
-#else
-#define LFS3_IFDEF_BLEAFCACHE(a, b) (b)
 #endif
 
 

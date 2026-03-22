@@ -1229,12 +1229,12 @@ code = '''
 
     // create an empty btree
     lfs3_alloc_ckpoint(&lfs3);
-    lfs3_rbyd_alloc(&lfs3, &file.b.b.r) => 0;
-    lfs3_rbyd_commit(&lfs3, &file.b.b.r, 0, (const lfs3_rattr_t[]){
+    lfs3_rbyd_alloc(&lfs3, &file.b.b) => 0;
+    lfs3_rbyd_commit(&lfs3, &file.b.b, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 1),
             LFS3_RATTR_ARG("?"),
             LFS3_RATTR_NULL}) => 0;
-    lfs3_rbyd_commit(&lfs3, &file.b.b.r, 0, (const lfs3_rattr_t[]){
+    lfs3_rbyd_commit(&lfs3, &file.b.b, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
             LFS3_RATTR_NULL}) => 0;
     lfs3_mdir_commit(&lfs3, &file.b.h.mdir, (const lfs3_rattr_t[]){

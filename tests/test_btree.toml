@@ -26,10 +26,10 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 0);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 0);
 
     // try looking up tags
     lfs3_bid_t bid_;
@@ -62,10 +62,10 @@ code = '''
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -112,10 +112,10 @@ code = '''
             LFS3_RATTR_ARG("b"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 2);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -167,10 +167,10 @@ code = '''
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 2);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -227,10 +227,10 @@ code = '''
             LFS3_RATTR_ARG("c"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 3);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -293,10 +293,10 @@ code = '''
             LFS3_RATTR_ARG("a"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 3);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -358,10 +358,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == n);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -410,10 +410,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == n);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -493,10 +493,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == sim_size);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -549,10 +549,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == n*W);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == n*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -669,15 +669,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
 
     lfs3_size_t total_weight = 0;
     for (lfs3_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(btree.r.weight == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -760,10 +760,10 @@ code = '''
             LFS3_RATTR_ARG("A"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -819,10 +819,10 @@ code = '''
             LFS3_RATTR_ARG("B"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 2);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -894,10 +894,10 @@ code = '''
             LFS3_RATTR_ARG("C"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 3);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -963,10 +963,10 @@ code = '''
                 LFS3_RATTR_NULL}) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == N);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == N);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -1052,10 +1052,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == N);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == N);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -1113,10 +1113,10 @@ code = '''
                 LFS3_RATTR_NULL}) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == N*W);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == N*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -1240,15 +1240,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
 
     lfs3_size_t total_weight = 0;
     for (lfs3_size_t j = 0; j < N; j++) {
         total_weight += sim_weights[j];
     }
-    assert(btree.r.weight == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -1330,10 +1330,10 @@ code = '''
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 0);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 0);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -1351,10 +1351,10 @@ code = '''
             LFS3_RATTR_ARG("A"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     tag_ = lfs3_btree_lookupnext(&lfs3, &btree, 0,
@@ -1397,10 +1397,10 @@ code = '''
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -1425,10 +1425,10 @@ code = '''
             LFS3_RATTR_ARG("B"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 2);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     tag_ = lfs3_btree_lookupnext(&lfs3, &btree, 0,
@@ -1478,10 +1478,10 @@ code = '''
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -1506,10 +1506,10 @@ code = '''
             LFS3_RATTR_ARG("A"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 2);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     tag_ = lfs3_btree_lookupnext(&lfs3, &btree, 0,
@@ -1563,10 +1563,10 @@ code = '''
             LFS3_RATTR(LFS3_tag_RM, -1, 0),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 2);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try looking up tags
     uint8_t buffer[4];
@@ -1598,10 +1598,10 @@ code = '''
             LFS3_RATTR_ARG("C"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 3);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try looking up tags
     tag_ = lfs3_btree_lookupnext(&lfs3, &btree, 0,
@@ -1662,10 +1662,10 @@ code = '''
     }
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == REMAINING);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == REMAINING);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -1745,10 +1745,10 @@ code = '''
                 LFS3_RATTR_NULL}) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == REMAINING);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == REMAINING);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -1863,10 +1863,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == sim_size);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -1925,10 +1925,10 @@ code = '''
                 LFS3_RATTR_NULL}) => 0;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == REMAINING*W);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == REMAINING*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -2099,15 +2099,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
 
     lfs3_size_t total_weight = 0;
     for (lfs3_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(btree.r.weight == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -2193,10 +2193,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == n);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -2284,10 +2284,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == sim_size);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -2347,10 +2347,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == n*W);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == n*W);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -2452,7 +2452,7 @@ code = '''
         for (lfs3_size_t j = 0; j < sim_size; j++) {
             total_weight += sim_weights[j];
         }
-        assert(btree.r.weight == total_weight);
+        assert(btree.weight == total_weight);
 
         uint8_t buffer[4];
         lfs3_bid_t bid_;
@@ -2495,15 +2495,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
 
     lfs3_size_t total_weight = 0;
     for (lfs3_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(btree.r.weight == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -2604,7 +2604,7 @@ code = '''
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
             LFS3_RATTR_NULL}) => 0;
-    assert(btree.r.weight == 2);
+    assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down to zero,
     // this should force one of the blocks to drop
@@ -2613,10 +2613,10 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // check that our other entry is fine
     lfs3_bid_t bid_;
@@ -2682,7 +2682,7 @@ code = '''
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
             LFS3_RATTR_NULL}) => 0;
-    assert(btree.r.weight == 2);
+    assert(btree.weight == 2);
 
     // now remove one entry, since this brings the rbyd down this zero,
     // this should force one of the blocks to drop
@@ -2694,10 +2694,10 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // check that our other entry is fine
     lfs3_bid_t bid_;
@@ -2767,10 +2767,10 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // check that our other entry is fine
     lfs3_bid_t bid_;
@@ -2836,7 +2836,7 @@ code = '''
             LFS3_RATTR_ARG(buf2),
             LFS3_RATTR_ARG(SIZE),
             LFS3_RATTR_NULL}) => 0;
-    assert(btree.r.weight == 2);
+    assert(btree.weight == 2);
 
     // now make both entries small so they should be merged if either compacts
     lfs3_btree_commit(&lfs3, &btree, 0, (const lfs3_rattr_t[]){
@@ -2858,10 +2858,10 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // check that our other entry is fine
     lfs3_bid_t bid_;
@@ -2964,10 +2964,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == sim_size);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -3104,15 +3104,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
 
     lfs3_size_t total_weight = 0;
     for (lfs3_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(btree.r.weight == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -3183,10 +3183,10 @@ code = '''
     lfs3_btree_t btree;
     lfs3_btree_init(&btree);
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 0);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 0);
 
     // try to find tags
     lfs3_bid_t bid_;
@@ -3222,10 +3222,10 @@ code = '''
             LFS3_RATTR_ARG("0"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 1);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 1);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3292,10 +3292,10 @@ code = '''
             LFS3_RATTR_ARG("1"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 2);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 2);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3382,10 +3382,10 @@ code = '''
             LFS3_RATTR_ARG("2"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 3);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3483,10 +3483,10 @@ code = '''
             LFS3_RATTR_ARG("1"),
             LFS3_RATTR_NULL}) => 0;
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == 3);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == 3);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3586,10 +3586,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == n);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == n);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3705,10 +3705,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == sim_size);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -3783,10 +3783,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == n*W);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == n*W);
 
     // try to find tags
     uint8_t buffer[4];
@@ -3934,15 +3934,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
 
     lfs3_size_t total_weight = 0;
     for (lfs3_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(btree.r.weight == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -4132,10 +4132,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == sim_size);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -4354,15 +4354,15 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
 
     lfs3_size_t total_weight = 0;
     for (lfs3_size_t j = 0; j < sim_size; j++) {
         total_weight += sim_weights[j];
     }
-    assert(btree.r.weight == total_weight);
+    assert(btree.weight == total_weight);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -4424,10 +4424,10 @@ code = '''
         n += 1;
     }
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == n);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == n);
 
     // check that the elements are in the tree
     uint8_t buffer[4];
@@ -4583,10 +4583,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == sim_size);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     uint8_t buffer[4];
     lfs3_bid_t bid_;
@@ -4681,10 +4681,10 @@ code = '''
     }
     printf("]\n");
     printf("btree: w%d 0x%x.%x\n",
-            btree.r.weight,
-            btree.r.blocks[0],
-            btree.r.trunk);
-    assert(btree.r.weight == sim_size);
+            btree.weight,
+            btree.blocks[0],
+            btree.trunk);
+    assert(btree.weight == sim_size);
 
     for (lfs3_size_t i = 0; i < sim_size; i++) {
         tag_ = lfs3_btree_lookupnext(&lfs3, &btree, i,
