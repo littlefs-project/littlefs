@@ -2928,9 +2928,10 @@ class Gstate:
 
         def repr(self):
             if self:
-                return 'gbmap %s 0x%x %d' % (
+                return 'gbmap %s 0x%x-%x' % (
                         self.btree.addr(),
-                        self.window, self.known)
+                        self.window,
+                        (self.window+self.known-1) % self.btree.weight)
             else:
                 return 'gbmap (unused)'
 
