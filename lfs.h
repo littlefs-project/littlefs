@@ -32,6 +32,14 @@ extern "C"
 #define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
 #define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
 
+// Copyright info
+#define LFS_COPYRIGHT \
+	"Copyright (c) 2022, The littlefs authors.\n" \
+	"Copyright (c) 2017, Arm Limited. All rights reserved."
+
+// License identifier
+#define LFS_LICENSE_IDENTIFIER "BSD-3-Clause"
+
 
 /// Definitions ///
 
