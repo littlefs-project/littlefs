@@ -250,6 +250,189 @@ code = '''
     }
 '''
 
+# multiple handle allocation test
+#
+# this tests that multiple open handles to the same file don't clobber
+# each other
+[cases.test_alloc_multihandle]
+defines.FILES = 2
+defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / FILES)'
+defines.GC = [false, true]
+defines.COMPACT_THRESH = ['-1', '0', 'BLOCK_SIZE/2']
+defines.INFER_BC = [false, true]
+defines.SYNC = [false, true]
+code = '''
+    const char *names[] = {"eggs", "spinach"};
+    lfs2_file_t files[FILES];
+
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    struct lfs2_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
+    lfs2_mount(&lfs2, &cfg_) => 0;
+    lfs2_mkdir(&lfs2, "breakfast") => 0;
+
+    // write one file
+    char path[1024];
+    sprintf(path, "breakfast/quiche");
+    lfs2_file_open(&lfs2, &files[0], path,
+            LFS2_O_RDWR | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+    if (GC) {
+        lfs2_fs_gc(&lfs2) => 0;
+    }
+    size_t size = strlen(names[0]);
+    for (lfs2_size_t i = 0; i < SIZE; i += size) {
+        lfs2_file_write(&lfs2, &files[0], names[0], size) => size;
+    }
+    // sync?
+    if (SYNC) {
+        lfs2_file_sync(&lfs2, &files[0]) => 0;
+    }
+
+    // write the other file
+    sprintf(path, "breakfast/quiche");
+    lfs2_file_open(&lfs2, &files[1], path,
+            LFS2_O_RDWR | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+    if (GC) {
+        lfs2_fs_gc(&lfs2) => 0;
+    }
+    size = strlen(names[1]);
+    for (lfs2_size_t i = 0; i < SIZE; i += size) {
+        lfs2_file_write(&lfs2, &files[1], names[1], size) => size;
+    }
+    // sync?
+    if (SYNC) {
+        lfs2_file_sync(&lfs2, &files[1]) => 0;
+    }
+
+    // try to read from both
+    for (int n = 0; n < FILES; n++) {
+        lfs2_file_rewind(&lfs2, &files[n]) => 0;
+        size_t size = strlen(names[n]);
+        for (lfs2_size_t i = 0; i < SIZE; i += size) {
+            uint8_t buffer[1024];
+            lfs2_file_read(&lfs2, &files[n], buffer, size) => size;
+            assert(memcmp(buffer, names[n], size) == 0);
+        }
+    }
+    for (int n = 0; n < FILES; n++) {
+        lfs2_file_close(&lfs2, &files[n]) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+
+    // check after remounting
+    lfs2_mount(&lfs2, &cfg_) => 0;
+    {
+        // last one wins
+        int n = FILES-1;
+        char path[1024];
+        sprintf(path, "breakfast/quiche");
+        lfs2_file_t file;
+        lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+        size_t size = strlen(names[n]);
+        for (lfs2_size_t i = 0; i < SIZE; i += size) {
+            uint8_t buffer[1024];
+            lfs2_file_read(&lfs2, &file, buffer, size) => size;
+            assert(memcmp(buffer, names[n], size) == 0);
+        }
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''
+
+# multiple handle allocation reuse test
+[cases.test_alloc_multihandle_reuse]
+defines.FILES = 2
+defines.SIZE = '(((BLOCK_SIZE-8)*(BLOCK_COUNT-6)) / (FILES+1))'
+defines.CYCLES = [1, 10]
+defines.INFER_BC = [false, true]
+defines.SYNC = [false, true]
+code = '''
+    const char *names[] = {"eggs", "spinach"};
+    lfs2_file_t files[FILES];
+
+    lfs2_t lfs2;
+    lfs2_format(&lfs2, cfg) => 0;
+    struct lfs2_config cfg_ = *cfg;
+    if (INFER_BC) {
+        cfg_.block_count = 0;
+    }
+
+    lfs2_mount(&lfs2, &cfg_) => 0;
+    lfs2_mkdir(&lfs2, "breakfast") => 0;
+
+    // write one file
+    char path[1024];
+    sprintf(path, "breakfast/quiche");
+    lfs2_file_open(&lfs2, &files[0], path,
+            LFS2_O_RDWR | LFS2_O_CREAT | LFS2_O_EXCL) => 0;
+    if (GC) {
+        lfs2_fs_gc(&lfs2) => 0;
+    }
+    size_t size = strlen(names[0]);
+    for (lfs2_size_t i = 0; i < SIZE; i += size) {
+        lfs2_file_write(&lfs2, &files[0], names[0], size) => size;
+    }
+    // sync?
+    if (SYNC) {
+        lfs2_file_sync(&lfs2, &files[0]) => 0;
+    }
+
+    for (int c = 0; c < CYCLES; c++) {
+        // write the other file
+        sprintf(path, "breakfast/quiche");
+        lfs2_file_open(&lfs2, &files[1], path,
+                LFS2_O_RDWR | LFS2_O_CREAT | LFS2_O_TRUNC) => 0;
+        if (GC) {
+            lfs2_fs_gc(&lfs2) => 0;
+        }
+        size = strlen(names[1]);
+        for (lfs2_size_t i = 0; i < SIZE; i += size) {
+            lfs2_file_write(&lfs2, &files[1], names[1], size) => size;
+        }
+        // sync?
+        if (SYNC) {
+            lfs2_file_sync(&lfs2, &files[1]) => 0;
+        }
+
+        // try to read from both
+        for (int n = 0; n < FILES; n++) {
+            lfs2_file_rewind(&lfs2, &files[n]) => 0;
+            size_t size = strlen(names[n]);
+            for (lfs2_size_t i = 0; i < SIZE; i += size) {
+                uint8_t buffer[1024];
+                lfs2_file_read(&lfs2, &files[n], buffer, size) => size;
+                assert(memcmp(buffer, names[n], size) == 0);
+            }
+        }
+
+        lfs2_file_close(&lfs2, &files[1]) => 0;
+    }
+    lfs2_file_close(&lfs2, &files[0]) => 0;
+    lfs2_unmount(&lfs2) => 0;
+
+    // check after remounting
+    lfs2_mount(&lfs2, &cfg_) => 0;
+    {
+        // last one wins
+        int n = (SYNC) ? FILES-1 : 0;
+        char path[1024];
+        sprintf(path, "breakfast/quiche");
+        lfs2_file_t file;
+        lfs2_file_open(&lfs2, &file, path, LFS2_O_RDONLY) => 0;
+        size_t size = strlen(names[n]);
+        for (int i = 0; i < SIZE; i += size) {
+            uint8_t buffer[1024];
+            lfs2_file_read(&lfs2, &file, buffer, size) => size;
+            assert(memcmp(buffer, names[n], size) == 0);
+        }
+        lfs2_file_close(&lfs2, &file) => 0;
+    }
+    lfs2_unmount(&lfs2) => 0;
+'''
+
 # exhaustion test
 [cases.test_alloc_exhaustion]
 defines.INFER_BC = [false, true]
