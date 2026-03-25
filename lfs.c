@@ -4286,7 +4286,7 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
             goto cleanup;
         }
     }
-
+#ifndef LFS_READONLY
     // setup program cache
     if (lfs->cfg->prog_buffer) {
         lfs->pcache.buffer = lfs->cfg->prog_buffer;
@@ -4297,11 +4297,12 @@ static int lfs_init(lfs_t *lfs, const struct lfs_config *cfg) {
             goto cleanup;
         }
     }
-
+#endif	//ndef LFS_READONLY
     // zero to avoid information leaks
     lfs_cache_zero(lfs, &lfs->rcache);
+#ifndef LFS_READONLY
     lfs_cache_zero(lfs, &lfs->pcache);
-
+#endif	//ndef LFS_READONLY
     // setup lookahead buffer, note mount finishes initializing this after
     // we establish a decent pseudo-random seed
     LFS_ASSERT(lfs->cfg->lookahead_size > 0);
@@ -4381,11 +4382,11 @@ static int lfs_deinit(lfs_t *lfs) {
     if (!lfs->cfg->read_buffer) {
         lfs_free(lfs->rcache.buffer);
     }
-
+#ifndef LFS_READONLY
     if (!lfs->cfg->prog_buffer) {
         lfs_free(lfs->pcache.buffer);
     }
-
+#endif	//ndef LFS_READONLY
     if (!lfs->cfg->lookahead_buffer) {
         lfs_free(lfs->lookahead.buffer);
     }
