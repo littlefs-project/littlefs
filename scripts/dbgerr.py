@@ -30,7 +30,7 @@ ERR_RANGE       = -34   # Result out of range
 
 # self-parsing error codes
 class Err:
-    def __init__(self, name, code, help, *,
+    def __init__(self, name, code, help='', *,
             lineno=0):
         self.name = name
         self.code = code
@@ -38,10 +38,10 @@ class Err:
         self.lineno = lineno
 
     def __repr__(self):
-        return 'Err(%r, %r, %r)' % (
+        return 'Err(%r, %r%s)' % (
                 self.name,
                 self.code,
-                self.help)
+                ', %r' % self.help if self.help else '')
 
     def __eq__(self, other):
         return self.name == other.name
@@ -66,7 +66,7 @@ class Err:
         import re
         errs = []
         err_pattern = re.compile(
-                '^(?P<name>ERR_[^ ]*) *= *(?P<code>[^#]*?) *'
+                '^(?P<name>(?i:ERR)_[^ ]*) *= *(?P<code>[^#]*?) *'
                     '#+ *(?P<help>.*)$')
         for i, line in enumerate(
                 inspect.getsource(inspect.getmodule(inspect.currentframe()))

@@ -83,7 +83,7 @@ TAG_GCKSUMDELTA = 0x3300    ##  v-11 --11 ++++ ++++
 
 # self-parsing tag repr
 class Tag:
-    def __init__(self, name, tag, encoding, help, *,
+    def __init__(self, name, tag, encoding, help='', *,
             lineno=0):
         self.name = name
         self.tag = tag
@@ -96,10 +96,11 @@ class Tag:
                     for i, x in enumerate(self.encoding))
 
     def __repr__(self):
-        return 'Tag(%r, %r, %r)' % (
+        return 'Tag(%r, %r, %r%s)' % (
                 self.name,
                 self.tag,
-                self.encoding)
+                self.encoding,
+                ', %r' % self.help if self.help else '')
 
     def __eq__(self, other):
         return self.name == other.name
@@ -156,7 +157,7 @@ class Tag:
         import re
         tags = []
         tag_pattern = re.compile(
-            '^(?P<name>TAG_[^ ]*) *= *(?P<tag>[^#]*?) *'
+            '^(?P<name>(?i:TAG)_[^ ]*) *= *(?P<tag>[^#]*?) *'
                 '#+ *(?P<encoding>(?:[^ ] *?){16}) *(?P<help>.*)$')
         for i, line in enumerate(
                 inspect.getsource(inspect.getmodule(inspect.currentframe()))

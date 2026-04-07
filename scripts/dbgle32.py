@@ -36,7 +36,7 @@ def dbg_le32s(data, *,
         d = 0
         while (j+d < len(data)
                 and (d < n if word_bits != 0 else True)):
-            word |= data[j+d] << d
+            word |= data[j+d] << (8*d)
             d += 1
 
         lines.append((

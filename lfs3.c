@@ -1890,11 +1890,11 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 //   ::  '----|-----|----:-----------------:-- total len
 //   ::       '-----|----:-----------------:-- from encoder
 //   ::             '----:-----------------:-- optional from count
-//   ::                  rgmm kkkk -kkk kkkk
+//   ::                  rgmm kkkk +kkk kkkk
 //   11 => w=-1          ^^ ^ '-.' '---.---'
 //   00 => w=0           '|-|---|------|------ rm bit
 //   01 => w=+1           '-|---|------|------ grow bit
-//   10 => w=attached       '---|------|------ mask bits
+//   10 => w=arg            '---|------|------ mask bits
 //                              '------|------ tag suptype
 //                                     '------ tag subtype
 //

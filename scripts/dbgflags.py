@@ -282,10 +282,10 @@ class Flag:
         self.type = type
 
     def __repr__(self):
-        return 'Flag(%r, %r, %r)' % (
+        return 'Flag(%r, %r%s)' % (
                 self.name,
                 self.flag,
-                self.help)
+                ', %r' % self.help if self.help else '')
 
     def __eq__(self, other):
         return self.name == getattr(other, 'name', None)
