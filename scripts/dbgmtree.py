@@ -208,10 +208,10 @@ class Tag:
                     elif r[-1].endswith('delta'):
                         r[-1] = r[-1][:-len('delta')]
                 # include perturb/phase bits
-                if 'q' in t:
-                    r.append('q%d' % t.get('q', tag))
                 if 'p' in t and tag & TAG_PERTURB:
                     r.append('p')
+                if 'q' in t:
+                    r.append('q%d' % t.get('q', tag))
 
                 # include unmatched fields, but not just redund, and
                 # only reserved bits if non-zero
