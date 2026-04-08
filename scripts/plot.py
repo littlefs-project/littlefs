@@ -2397,7 +2397,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(
-            '-w', '--wait',
+            '-+', '--wait',
             type=float,
             help="Time in seconds to sleep between redraws when running "
                 "with -k. Defaults to 2 seconds.")

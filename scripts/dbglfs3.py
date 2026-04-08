@@ -3890,7 +3890,7 @@ class TreeArt:
                 else:
                     alts[ralt.toff] |= {'nf': ralt.off, 'c': ralt.color}
 
-        if args.get('tree_rbyd_all'):
+        if args.get('tree_rbyd'):
             # treat unreachable alts as converging paths
             for j_, alt in alts.items():
                 if 'f' not in alt:
@@ -4269,8 +4269,8 @@ def dbg_gstate(lfs, *,
 
         # precompute tree renderings
         bt_width = 0
-        if (args.get('tree_rbyd')
-                or args.get('tree_rbyd_all')
+        if (args.get('tree')
+                or args.get('tree_rbyd')
                 or args.get('tree_btree')):
             treeart = TreeArt.frombtree(gstate.btree, **args)
             bt_width = treeart.width
@@ -4294,8 +4294,8 @@ def dbg_gstate(lfs, *,
                         treeart.repr(
                                 (bid-(name.weight-1), d, rattr.tag),
                                 color)
-                            if args.get('tree_rbyd')
-                                or args.get('tree_rbyd_all')
+                            if args.get('tree')
+                                or args.get('tree_rbyd')
                                 or args.get('tree_btree')
                             else '',
                         2*bw_width+1, '%d-%d' % (bid-(rattr.weight-1), bid)
@@ -4593,8 +4593,8 @@ def dbg_files(lfs, paths, *,
 
         # precompute tree renderings
         bt_width = 0
-        if (args.get('tree_rbyd')
-                or args.get('tree_rbyd_all')
+        if (args.get('tree')
+                or args.get('tree_rbyd')
                 or args.get('tree_btree')):
             treeart = TreeArt.fromfile(file, **args)
             bt_width = treeart.width
@@ -4616,8 +4616,8 @@ def dbg_files(lfs, paths, *,
                         treeart.repr(
                                 (bid-(name.weight-1), d, rattr.tag),
                                 color)
-                            if args.get('tree_rbyd')
-                                or args.get('tree_rbyd_all')
+                            if args.get('tree')
+                                or args.get('tree_rbyd')
                                 or args.get('tree_btree')
                             else '',
                         2*bw_width+1, '%d-%d' % (bid-(rattr.weight-1), bid)
@@ -4667,8 +4667,8 @@ def dbg_files(lfs, paths, *,
                     '\x1b[0m' if color and notes else '',
                     2*w_width+1, '',
                     treeart.repr((pos, d, bptr.tag), color)
-                        if args.get('tree_rbyd')
-                            or args.get('tree_rbyd_all')
+                        if args.get('tree')
+                            or args.get('tree_rbyd')
                             or args.get('tree_btree')
                         else '',
                     '\x1b[31m' if color and notes else '',
@@ -5071,17 +5071,16 @@ if __name__ == "__main__":
             action='store_true',
             help="Don't truncate, show the full contents.")
     parser.add_argument(
-            '-R', '--tree', '--rbyd', '--tree-rbyd',
-            dest='tree_rbyd',
+            '-t', '--tree',
             action='store_true',
             help="Show the rbyd tree.")
     parser.add_argument(
-            '-Y', '--rbyd-all', '--tree-rbyd-all',
-            dest='tree_rbyd_all',
+            '--rbyd', '--tree-rbyd',
+            dest='tree_rbyd',
             action='store_true',
             help="Show the full rbyd tree.")
     parser.add_argument(
-            '-B', '--btree', '--tree-btree',
+            '--btree', '--tree-btree',
             dest='tree_btree',
             action='store_true',
             help="Show a simplified btree tree.")

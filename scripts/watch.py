@@ -327,7 +327,7 @@ if __name__ == "__main__":
             action='store_true',
             help="Pipe directly to stdout.")
     parser.add_argument(
-            '-w', '--wait',
+            '-+', '--wait',
             type=float,
             help="Seconds to sleep between runs. Defaults to 2 seconds.")
     parser.add_argument(
