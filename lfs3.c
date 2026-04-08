@@ -1192,7 +1192,6 @@ static inline void lfs3_tag_trim(
         lfs3_tag_t alt, lfs3_rid_t weight,
         lfs3_srid_t *lower_rid, lfs3_srid_t *upper_rid,
         lfs3_tag_t *lower_tag, lfs3_tag_t *upper_tag) {
-    LFS3_ASSERT((lfs3_srid_t)weight >= 0);
     if (lfs3_tag_isgt(alt)) {
         *upper_rid -= weight;
         if (upper_tag) {
@@ -3906,6 +3905,8 @@ trunk:;
             jump_ = branch - jump_;
             lfs3_size_t branch_ = branch + d;
 
+            // in expected bounds?
+            LFS3_ASSERT(weight_ <= upper_rid - lower_rid);
             // yellow alts should be parallel
             LFS3_ASSERT(!(lfs3_tag_isred(alt_) && lfs3_tag_isred(p[0].alt))
                     || lfs3_tag_isparallel(alt_, p[0].alt));
@@ -3958,13 +3959,13 @@ trunk:;
             //   <b    <b      |       <b         |             nb
             // .-'|  .-'|      |     .-'|         |        .-----'
             // 1  2  3  4      1  2  3  4  x      1  2  3  4  x  x
-            bool diverging_b = lfs3_tag_diverging2(
+            bool diverging = lfs3_tag_diverging2(
                     alt_, weight_,
                     p[0].alt, p[0].weight,
                     lower_rid, upper_rid,
                     a_rid, a_tag,
                     b_rid, b_tag);
-            bool diverging_r = lfs3_tag_isred(p[0].alt)
+            bool r_diverging = lfs3_tag_isred(p[0].alt)
                     && lfs3_tag_diverging(
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
@@ -3977,31 +3978,40 @@ trunk:;
                 // |    <b  =>        |  |
                 // |  .-'|      .-----|--'
                 // 1  2  3      1  2  3  x
-                if (diverging_b && diverging_r) {
+                if (diverging && r_diverging) {
                     LFS3_ASSERT(a_rid < b_rid || a_tag < b_tag);
                     LFS3_ASSERT(lfs3_tag_isparallel(alt_, p[0].alt));
 
-                    weight_ += p[0].weight;
+                    // adjust b_rid temporarily to ignore collapsed weight
+                    d_weight += weight_;
+                    upper_rid -= weight_;
+                    b_rid -= weight_;
+
+                    weight_ = p[0].weight;
                     jump_ = p[0].jump;
                     lfs3_rbyd_p_pop(p);
 
-                    diverging_r = false;
+                    r_diverging = false;
                 }
 
                 // diverging? start trimming inner alts
-                //                            >b
-                //                          .-'|
-                //         <b  =>           | nb
-                //    .----'|      .--------|--'
-                //   <b    <b      |       <b
-                // .-'|  .-'|      |     .-'|
-                // 1  2  3  4      1  2  3  4  x
-                if ((diverging_b || diverging_r)
+                if ((diverging || r_diverging)
                         // diverging black?
                         && (lfs3_tag_isblack(alt_)
                             // give up if we find a yellow alt
                             || (lfs3_tag_isred(p[0].alt)))) {
                     diverged = true;
+
+                    // diverging lower? revert collapsed b_rid
+                    //                            >b
+                    //                          .-'|
+                    //         <b  =>           | nb
+                    //    .----'|      .--------|--'
+                    //   <b    <b      |       <b
+                    // .-'|  .-'|      |     .-'|
+                    // 1  2  3  4      1  2  3  4  x
+                    if (a_rid < b_rid || a_tag < b_tag) {
+                        b_rid += d_weight;
 
                     // diverging upper? stitch together both trunks
                     //            >b                    <b
@@ -4011,8 +4021,8 @@ trunk:;
                     // |       <b         |             nb
                     // |     .-'|         |        .-----'
                     // 1  2  3  4  x      1  2  3  4  x  x
-                    if (a_rid > b_rid || a_tag > b_tag) {
-                        LFS3_ASSERT(!diverging_r);
+                    } else {
+                        LFS3_ASSERT(!r_diverging);
 
                         alt_ = LFS3_TAG_ALT(
                             alt_ & LFS3_TAG_R,
@@ -4028,7 +4038,9 @@ trunk:;
                 //   <b  =>       nb
                 // .-'|         .--'
                 // 3  4      3  4  x
-                if (diverging_b) {
+                if (diverging) {
+                    d_weight += weight_;
+
                     lfs3_tag_trim(
                             alt_, weight_,
                             &lower_rid, &upper_rid,
@@ -4135,7 +4147,17 @@ trunk:;
                 //   <b  =>       nb
                 // .-'|         .--'
                 // 3  4      3  4  x
-                } else if (lfs3_tag_isblack(alt_)) {
+                } else if (lfs3_tag_isblack(alt_)
+                        // we eagerly mark red alts as unreachable as
+                        // well, but only if the whole edge is not worth
+                        // visiting, otherwise we'd risk negative weight
+                        // mess
+                        //      <r  =>          nb
+                        // .----'|               |
+                        // |    <b               |
+                        // |  .-'|            .--'
+                        // 1  2  3      1  2  3  x
+                        || branch_ < branch) {
                     alt_ = LFS3_TAG_ALT(
                             LFS3_TAG_B,
                             LFS3_TAG_LE,
@@ -4147,6 +4169,17 @@ trunk:;
                     // else we loop indefinitely), and uses the minimum
                     // alt encoding
                     jump_ = 0;
+
+                // prune unreachable red alts, we do this early to avoid
+                // issues with negative weights
+                //      <r  =>          <b
+                // .----'|         .----'|
+                // |    <b         |     |
+                // |  .-'|         |  .--'
+                // 1  2  3      1  2  3  x
+                } else {
+                    branch = branch_;
+                    continue;
                 }
             }
 
@@ -4252,7 +4285,7 @@ trunk:;
                 if (a_rid < b_rid || a_tag < b_tag) {
                     // keep track of the lower diverged bound
                     d_tag = lower_tag;
-                    d_weight = upper_rid - lower_rid;
+                    d_weight += upper_rid - lower_rid;
 
                     // flush any pending alts
                     err = lfs3_rbyd_p_flush(lfs3, rbyd, p, 3);
