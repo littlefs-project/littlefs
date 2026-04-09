@@ -12470,6 +12470,125 @@ code = '''
     free(sim);
 '''
 
+# mixing types tends to mess with diverging weight assumptions
+[cases.test_rbyd_fuzz_create_deletes_typed]
+defines.N = 'range(1, 33)'
+defines.SEED = 'range(1000)'
+fuzz = 'SEED'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_init(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    lfs3_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfs3_rbyd_t rbyd;
+    lfs3_stag_t tag;
+    lfs3_data_t data;
+    uint8_t buffer[4];
+
+    printf("perm: [");
+    uint32_t prng = SEED;
+    lfs3_size_t count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an rid
+        lfs3_ssize_t rid = TEST_PRNG(&prng) % (count+1);
+        // choose create or delete
+        if (rid == (lfs3_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
+            printf("c%d=%c", rid, 'a'+(i % 26));
+            count += 1;
+        } else {
+            printf("d%d", rid);
+            count -= 1;
+        }
+        if (i < N-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+
+    // set up a simulation to compare against, fun fact this performs
+    // worst than our actual rbyd block!
+    char *sim = malloc(N);
+    memset(sim, 0, N);
+
+    // set up rbyd block
+    rbyd = init_rbyd;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+
+    prng = SEED;
+    count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose an rid
+        lfs3_ssize_t rid = TEST_PRNG(&prng) % (count+1);
+        // choose create or delete
+        if (rid == (lfs3_ssize_t)count || (TEST_PRNG(&prng) & 1)) {
+            // update our sim
+            memmove(sim+rid+1, sim+rid, count-rid);
+            sim[rid] = 'a'+(i % 26);
+            count += 1;
+            // update our rbyd
+            lfs3_rbyd_commit(&lfs3, &rbyd, rid, (const lfs3_rattr_t[]){
+                    LFS3_RATTR(LFS3_TAG_ATTR('a'+(i % 26)), +1, 1,
+                        LFS3_FROM_LBUF, 1),
+                    LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
+                    LFS3_RATTR_NULL}) => 0;
+        } else {
+            // update our sim
+            memmove(sim+rid, sim+rid+1, count-rid-1);
+            count -= 1;
+            // update our rbyd
+            lfs3_rbyd_commit(&lfs3, &rbyd, rid, (const lfs3_rattr_t[]){
+                    LFS3_RATTR(LFS3_tag_RM, -1, 0),
+                    LFS3_RATTR_NULL}) => 0;
+        }
+    }
+
+    // compare rbyd vs simulation
+    printf("expd: [");
+    for (lfs3_ssize_t rid = 0; rid < (lfs3_ssize_t)count; rid++) {
+        printf("%c", sim[rid]);
+        if (rid < (lfs3_ssize_t)count-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+    printf("rbyd: [");
+    for (lfs3_ssize_t rid = 0; rid < (lfs3_ssize_t)rbyd.weight; rid++) {
+        tag = lfs3_rbyd_lookup(&lfs3, &rbyd, rid,
+                LFS3_tag_MASK8 | LFS3_TAG_ATTR,
+                &data);
+        if (tag >= 0) {
+            lfs3_ssize_t size = lfs3_data_read(&lfs3, &data, buffer, 4);
+            printf("%.*s", size, buffer);
+        } else {
+            printf("?");
+        }
+        if (rid < (lfs3_ssize_t)count-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+
+    assert(count == rbyd.weight);
+    for (lfs3_ssize_t rid = 0; rid < (lfs3_ssize_t)count; rid++) {
+        lfs3_rbyd_lookup(&lfs3, &rbyd, rid, LFS3_tag_MASK8 | LFS3_TAG_ATTR,
+                &data) => LFS3_TAG_ATTR(sim[rid]);
+        lfs3_data_read(&lfs3, &data, buffer, 4) => 1;
+        assert(memcmp(&sim[rid], buffer, 1) == 0);
+    }
+
+    // cleanup
+    free(sim);
+'''
+
 # fuzz with create/deletes + append/removes
 [cases.test_rbyd_fuzz_mixed]
 defines.N = 'range(1, 33)'
@@ -17487,6 +17606,150 @@ code = '''
     for (lfs3_ssize_t rid = 0; rid < (lfs3_ssize_t)count; rid++) {
         lfs3_rbyd_lookup(&lfs3, &rbyd, rid, LFS3_TAG_DATA,
                 &data) => LFS3_TAG_DATA;
+        lfs3_data_read(&lfs3, &data, buffer, 4) => 1;
+        assert(memcmp(&sim[rid], buffer, 1) == 0);
+    }
+
+    // cleanup
+    free(sim);
+'''
+
+# mixing types tends to mess with diverging weight assumptions
+[cases.test_rbyd_fuzz_range_create_deletes_typed]
+defines.N = 'range(1, 33)'
+# the method we use for choosing ranges deletes ~1/2 of the rbyd on
+# average, so creating multiple entries during creates may lead to more
+# interesting topologies, I think this converges to weight=~C over time?
+defines.C = [1, 10]
+defines.SEED = 'range(1000)'
+fuzz = 'SEED'
+# large progs take too long for now
+if = 'PROG_SIZE < 512'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_init(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    lfs3_rbyd_t init_rbyd = {
+        .blocks[0] = 0,
+        .eoff = 0,
+        .cksum = 0,
+        .trunk = 0,
+        .weight = 0,
+    };
+    lfs3_rbyd_t rbyd;
+    lfs3_stag_t tag;
+    lfs3_data_t data;
+    uint8_t buffer[4];
+
+    printf("perm: [");
+    uint32_t prng = SEED;
+    lfs3_size_t count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose create or delete
+        if (count == 0 || (TEST_PRNG(&prng) & 1)) {
+            // choose an rid
+            lfs3_ssize_t rid = TEST_PRNG(&prng) % (count+1);
+            // create multiple to try to keep the sim balanced
+            if (C > 1) {
+                printf("c%d-%d=%c", rid, rid+(lfs3_ssize_t)C-1, 'a'+(i % 26));
+            } else {
+                printf("c%d=%c", rid, 'a'+(i % 26));
+            }
+            count += C;
+        } else {
+            // choose a range first
+            lfs3_ssize_t weight = 1 + (TEST_PRNG(&prng) % count);
+            // choose an rid such that range is valid
+            lfs3_ssize_t rid = TEST_PRNG(&prng) % (count-weight+1);
+            if (weight > 1) {
+                printf("d%d-%d", rid, rid+weight-1);
+            } else {
+                printf("d%d", rid);
+            }
+            count -= weight;
+        }
+        if (i < N-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+
+    // set up a simulation to compare against, fun fact this performs
+    // worst than our actual rbyd block!
+    char *sim = malloc(N*C);
+    memset(sim, 0, N);
+
+    // set up rbyd block
+    rbyd = init_rbyd;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+
+    prng = SEED;
+    count = 0;
+    for (unsigned i = 0; i < N; i++) {
+        // choose create or delete
+        if (count == 0 || (TEST_PRNG(&prng) & 1)) {
+            // choose an rid
+            lfs3_ssize_t rid = TEST_PRNG(&prng) % (count+1);
+            // create multiple to try to keep the sim balanced
+            // update our sim
+            memmove(sim+rid+C, sim+rid, count-rid);
+            memset(sim+rid, 'a'+(i % 26), C);
+            count += C;
+            // update our rbyd
+            for (lfs3_size_t j = 0; j < C; j++) {
+                lfs3_rbyd_commit(&lfs3, &rbyd, rid+j, (const lfs3_rattr_t[]){
+                        LFS3_RATTR(LFS3_TAG_ATTR('a'+(i % 26)), +1, 1,
+                            LFS3_FROM_LBUF, 1),
+                        LFS3_RATTR_ARG(&(uint8_t){'a'+(i % 26)}),
+                        LFS3_RATTR_NULL}) => 0;
+            }
+        } else {
+            // choose a range first
+            lfs3_ssize_t weight = 1 + (TEST_PRNG(&prng) % count);
+            // choose an rid such that range is valid
+            lfs3_ssize_t rid = TEST_PRNG(&prng) % (count-weight+1);
+            // update our sim
+            memmove(sim+rid, sim+rid+weight, count-rid-weight);
+            count -= weight;
+            // update our rbyd
+            lfs3_rbyd_commit(&lfs3, &rbyd, rid+weight-1, (const lfs3_rattr_t[]){
+                    LFS3_RATTR(LFS3_tag_RM, -2, 0),
+                    LFS3_RATTR_WEIGHT(-weight),
+                    LFS3_RATTR_NULL}) => 0;
+        }
+    }
+
+    // compare rbyd vs simulation
+    printf("expd: [");
+    for (lfs3_ssize_t rid = 0; rid < (lfs3_ssize_t)count; rid++) {
+        printf("%c", sim[rid]);
+        if (rid < (lfs3_ssize_t)count-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+    printf("rbyd: [");
+    for (lfs3_ssize_t rid = 0; rid < (lfs3_ssize_t)rbyd.weight; rid++) {
+        tag = lfs3_rbyd_lookup(&lfs3, &rbyd, rid,
+                LFS3_tag_MASK8 | LFS3_TAG_ATTR,
+                &data);
+        if (tag >= 0) {
+            lfs3_ssize_t size = lfs3_data_read(&lfs3, &data, buffer, 4);
+            printf("%.*s", size, buffer);
+        } else {
+            printf("?");
+        }
+        if (rid < (lfs3_ssize_t)count-1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+
+    assert(count == rbyd.weight);
+    for (lfs3_ssize_t rid = 0; rid < (lfs3_ssize_t)count; rid++) {
+        lfs3_rbyd_lookup(&lfs3, &rbyd, rid, LFS3_tag_MASK8 | LFS3_TAG_ATTR,
+                &data) => LFS3_TAG_ATTR(sim[rid]);
         lfs3_data_read(&lfs3, &data, buffer, 4) => 1;
         assert(memcmp(&sim[rid], buffer, 1) == 0);
     }

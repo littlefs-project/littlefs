@@ -3911,7 +3911,7 @@ trunk:;
             LFS3_ASSERT(!(lfs3_tag_isred(alt_) && lfs3_tag_isred(p[0].alt))
                     || lfs3_tag_isparallel(alt_, p[0].alt));
 
-            // take black alt? needs a flip
+            // take alt? needs a flip
             //   <b           >b
             // .-'|  =>     .-'|
             // 1  2      1  2  1
@@ -4094,23 +4094,14 @@ trunk:;
                 lfs3_rbyd_p_pop(p);
             }
 
-            // prune red alts
-            if (lfs3_tag_isred(p[0].alt)
-                    && lfs3_tag_unreachable(
+            // we should have pruned unreachable red alts earlier
+            LFS3_ASSERT(!lfs3_tag_isred(p[0].alt)
+                    || !lfs3_tag_unreachable(
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
-                        lower_tag, upper_tag)) {
-                // prune unreachable recolorable alts
-                //      <r  =>          <b
-                // .----'|         .----'|
-                // |    <b         |     |
-                // |  .-'|         |  .--'
-                // 1  2  3      1  2  3  x
-                LFS3_ASSERT(p[0].jump < branch);
-                lfs3_rbyd_p_pop(p);
-            }
+                        lower_tag, upper_tag));
 
-            // prune black alts
+            // prune unreachable alts
             if (lfs3_tag_unreachable2(
                     alt_, weight_,
                     p[0].alt, p[0].weight,
@@ -4124,6 +4115,18 @@ trunk:;
                 // .-'|  .-'|            |  .--'
                 // 1  3  4  5      1  3  4  5  x
                 if (!p[0].alt) {
+                    branch = branch_;
+                    continue;
+
+                // prune unreachable red alts if black alts are still
+                // reachable, we do this early to avoid issues with
+                // negative weights
+                //      <r  =>          <b
+                // .----'|         .----'|
+                // |    <b         |     |
+                // |  .-'|         |  .--'
+                // 1  2  3      1  2  3  x
+                } else if (lfs3_tag_isred(alt_) && branch_ >= branch) {
                     branch = branch_;
                     continue;
 
@@ -4147,17 +4150,16 @@ trunk:;
                 //   <b  =>       nb
                 // .-'|         .--'
                 // 3  4      3  4  x
-                } else if (lfs3_tag_isblack(alt_)
-                        // we eagerly mark red alts as unreachable as
-                        // well, but only if the whole edge is not worth
-                        // visiting, otherwise we'd risk negative weight
-                        // mess
-                        //      <r  =>          nb
-                        // .----'|               |
-                        // |    <b               |
-                        // |  .-'|            .--'
-                        // 1  2  3      1  2  3  x
-                        || branch_ < branch) {
+                //
+                // we do this to red alts as well, but only if the whole
+                // edge is unreachable, otherwise we'd risk negative
+                // weight mess trying to follow unreachable red alts
+                //      <r  =>          nb
+                // .----'|               |
+                // |    <b               |
+                // |  .-'|            .--'
+                // 1  2  3      1  2  3  x
+                } else {
                     alt_ = LFS3_TAG_ALT(
                             LFS3_TAG_B,
                             LFS3_TAG_LE,
@@ -4169,17 +4171,6 @@ trunk:;
                     // else we loop indefinitely), and uses the minimum
                     // alt encoding
                     jump_ = 0;
-
-                // prune unreachable red alts, we do this early to avoid
-                // issues with negative weights
-                //      <r  =>          <b
-                // .----'|         .----'|
-                // |    <b         |     |
-                // |  .-'|         |  .--'
-                // 1  2  3      1  2  3  x
-                } else {
-                    branch = branch_;
-                    continue;
                 }
             }
 
