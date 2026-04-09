@@ -3964,19 +3964,13 @@ trunk:;
                     p[0].alt, p[0].weight,
                     lower_rid, upper_rid,
                     a_rid, a_tag,
-                    b_rid - ((a_rid < b_rid || a_tag < b_tag)
-                        ? d_weight
-                        : 0),
-                    b_tag);
+                    b_rid, b_tag);
             bool r_diverging = lfs3_tag_isred(p[0].alt)
                     && lfs3_tag_diverging(
                         p[0].alt, p[0].weight,
                         lower_rid, upper_rid,
                         a_rid, a_tag,
-                        b_rid - ((a_rid < b_rid || a_tag < b_tag)
-                            ? d_weight
-                            : 0),
-                        b_tag);
+                        b_rid, b_tag);
             if (!diverged) {
                 // both diverging? collapse
                 //      <r              >b
@@ -3988,8 +3982,10 @@ trunk:;
                     LFS3_ASSERT(a_rid < b_rid || a_tag < b_tag);
                     LFS3_ASSERT(lfs3_tag_isparallel(alt_, p[0].alt));
 
+                    // adjust b_rid temporarily to ignore collapsed weight
                     d_weight += weight_;
                     upper_rid -= weight_;
+                    b_rid -= weight_;
 
                     weight_ = p[0].weight;
                     jump_ = p[0].jump;
@@ -3999,19 +3995,23 @@ trunk:;
                 }
 
                 // diverging? start trimming inner alts
-                //                            >b
-                //                          .-'|
-                //         <b  =>           | nb
-                //    .----'|      .--------|--'
-                //   <b    <b      |       <b
-                // .-'|  .-'|      |     .-'|
-                // 1  2  3  4      1  2  3  4  x
                 if ((diverging || r_diverging)
                         // diverging black?
                         && (lfs3_tag_isblack(alt_)
                             // give up if we find a yellow alt
                             || (lfs3_tag_isred(p[0].alt)))) {
                     diverged = true;
+
+                    // diverging lower? revert collapsed b_rid
+                    //                            >b
+                    //                          .-'|
+                    //         <b  =>           | nb
+                    //    .----'|      .--------|--'
+                    //   <b    <b      |       <b
+                    // .-'|  .-'|      |     .-'|
+                    // 1  2  3  4      1  2  3  4  x
+                    if (a_rid < b_rid || a_tag < b_tag) {
+                        b_rid += d_weight;
 
                     // diverging upper? stitch together both trunks
                     //            >b                    <b
@@ -4021,7 +4021,7 @@ trunk:;
                     // |       <b         |             nb
                     // |     .-'|         |        .-----'
                     // 1  2  3  4  x      1  2  3  4  x  x
-                    if (a_rid > b_rid || a_tag > b_tag) {
+                    } else {
                         LFS3_ASSERT(!r_diverging);
 
                         alt_ = LFS3_TAG_ALT(
