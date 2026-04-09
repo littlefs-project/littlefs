@@ -5922,6 +5922,9 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
+# we need prog checking to detect read errors
+defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READERROR'
+if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     if (BADBLOCKS & 0x1) {
         lfs3_emubd_mkbad(CFG, 0) => 0;
