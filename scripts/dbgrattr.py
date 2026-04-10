@@ -537,12 +537,11 @@ class Rattr:
         from_ = Rattr.from_(rattr)
         fromcount = Rattr.fromcount(rattr)
         if from_:
-            r.append('from')
             try:
                 f = From.find(from_)
-                r.append('%s' % f.name.split('_', 1)[1].lower())
+                r.append('from%s' % f.name.split('_', 1)[1].lower())
             except KeyError:
-                r.append('0x%x' % from_)
+                r.append('from 0x%x' % from_)
 
             if fromcount:
                 r.append('%d' % fromcount)
