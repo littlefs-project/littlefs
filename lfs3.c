@@ -3802,10 +3802,10 @@ static int lfs3_rbyd_appendrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
             // limit range removes to rbyd weight, normally we would reject
             // out-of-bound ranges, but this was the easiest way to implement
             // range removes across btree splits without mutating rattrs
-            weight = -lfs3_min(
-                    -weight - (rid+1 - lfs3_min(rid+1, rbyd->weight)),
-                    lfs3_min(rid+1, rbyd->weight));
-            rid = lfs3_min(rid+1, rbyd->weight)-1;
+            lfs3_srid_t rid_ = lfs3_min(rid+1, rbyd->weight)-1;
+            lfs3_srid_t weight_ = -lfs3_min(-weight - (rid - rid_), rid_+1);
+            rid = rid_;
+            weight = weight_;
             LFS3_ASSERT(rid < (lfs3_srid_t)rbyd->weight);
 
             // it's a bit ugly, but adjusting the rid here makes the following
