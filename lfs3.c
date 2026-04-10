@@ -13374,19 +13374,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
                 // can we merge a fragment?
                 if (!lfs3_bptr_isbptr(&bptr_)
                         && lfs3_bptr_size(&bptr__) >= l_slice
-                        && (!lfs3_bptr_isbptr(&bptr__)
-// TODO rm?
-//                            // if bptr would be too small, fragment
-//                            //
-//                            // TODO probably doc this crystal_thresh
-//                            // condition a bit better, it's important
-//                            // when fruncating!
-//                            || (l_slice
-//                                    <= lfs3->cfg->fragment_size
-//                                && l_slice
-//                                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))
-//
-                            )
+                        && !lfs3_bptr_isbptr(&bptr__)
                         && l_slice < lfs3->cfg->fragment_size) {
                     pos_ -= l_slice;
                     datas[0] = lfs3_data_fromslice(&bptr__.d,
@@ -13425,20 +13413,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
                         && lfs3_data_size(&datas[0])
                                 + lfs3_data_size(&datas[1])
                             >= grow_
-                        && (!lfs3_bptr_isbptr(&bptr__)
-// TODO rm?
-//                            // if bptr would be too small, fragment
-//                            //
-//                            // TODO probably doc this crystal_thresh
-//                            // condition a bit better, it's important
-//                            // when fruncating!
-//                            || (bid__-(weight__-1)+lfs3_bptr_size(&bptr__)
-//                                        - (pos_+cut_)
-//                                    <= lfs3->cfg->fragment_size
-//                                && bid__-(weight__-1)+lfs3_bptr_size(&bptr__)
-//                                        - (pos_+cut_)
-//                                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))
-                            )
+                        && !lfs3_bptr_isbptr(&bptr__)
                         // unlike left sibling, we don't bother merging if
                         // things won't fit in a single fragment
                         && lfs3_data_size(&datas[0])
@@ -13558,18 +13533,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
         // left sibling?
         if (l_grow) {
             // left fragment?
-            if (!lfs3_bptr_isbptr(&l_bptr)
-// TODO rm?
-//                    // if bptr would be too small, fragment
-//                    //
-//                    // TODO probably doc this crystal_thresh
-//                    // condition a bit better, it's important
-//                    // when fruncating!
-//                    || (lfs3_bptr_size(&l_bptr)
-//                            <= lfs3->cfg->fragment_size
-//                        && lfs3_bptr_size(&l_bptr)
-//                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))
-                    ) {
+            if (!lfs3_bptr_isbptr(&l_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1,
                         LFS3_FROM_CAT, 1);
                 *r++ = LFS3_RATTR_WEIGHT(+l_grow);
@@ -13619,18 +13583,7 @@ static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
         // right sibling?
         if (r_grow) {
             // right fragment?
-            if (!lfs3_bptr_isbptr(&r_bptr)
-// TODO rm?
-//                    // if bptr would be too small, fragment
-//                    //
-//                    // TODO probably doc this crystal_thresh
-//                    // condition a bit better, it's important
-//                    // when fruncating!
-//                    || (lfs3_bptr_size(&r_bptr)
-//                            // TODO <= // < lfs3->cfg->fragment_size
-//                        && lfs3_bptr_size(&r_bptr)
-//                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))
-                    ) {
+            if (!lfs3_bptr_isbptr(&r_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1,
                         LFS3_FROM_CAT, 1);
                 *r++ = LFS3_RATTR_WEIGHT(+r_grow);
@@ -15027,12 +14980,10 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
         lfs3_bptr_claim(&file->leaf.bptr);
         file->b.h.flags &= ~LFS3_o_NEEDSCRYST;
     }
-    // discard if our leaf is a fragment, is fragmented, or is completed
-    // truncated, we can't rely on any in-bshrub/btree state
+    // discard if our leaf is a fragment or completely truncated, we
+    // can't rely on any in-bshrub/btree state
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
-            || (lfs3_bptr_size(&file->leaf.bptr) <= lfs3->cfg->fragment_size
-                && lfs3_bptr_size(&file->leaf.bptr)
-                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
+            || lfs3_bptr_size(&file->leaf.bptr) == 0) {
         lfs3_file_discardleaf(file);
     }
 
@@ -15117,12 +15068,10 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     file->leaf.pos -= lfs3_smin(
             size - size_,
             file->leaf.pos);
-    // discard if our leaf is a fragment, is fragmented, or is completed
-    // truncated, we can't rely on any in-bshrub/btree state
+    // discard if our leaf is a fragment or completely truncated, we
+    // can't rely on any in-bshrub/btree state
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
-            || (lfs3_bptr_size(&file->leaf.bptr) <= lfs3->cfg->fragment_size
-                && lfs3_bptr_size(&file->leaf.bptr)
-                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
+            || lfs3_bptr_size(&file->leaf.bptr) == 0) {
         lfs3_file_discardleaf(file);
     }
 
