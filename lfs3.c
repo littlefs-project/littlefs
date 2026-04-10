@@ -11320,9 +11320,6 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
 }
 #endif
 
-// needed in lfs3_alloc
-static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count);
-
 // allocate a block
 #ifndef LFS3_RDONLY
 static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
@@ -11386,13 +11383,6 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
 
             // track in-use blocks
             lfs3_alloc_setinusebptr(lfs3, tag, &bptr);
-        }
-
-        // mask out any in-flight graft state
-        for (lfs3_size_t i = 0;
-                i < lfs3_graft_count(lfs3->graft_count);
-                i++) {
-            lfs3_alloc_setinuse(lfs3, lfs3->graft[i].u.disk.block);
         }
 
         // mark anything not seen as free
@@ -13112,7 +13102,8 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
             || tag == LFS3_TAG_BLOCK);
 
     // fetch the bptr/data fragment
-    int err = lfs3_bptr_fetch(lfs3, bptr_, tag, weight, data);
+    int err = lfs3_bptr_fetch(lfs3, bptr_,
+            tag, weight, data);
     if (err) {
         return err;
     }
@@ -13293,259 +13284,396 @@ static int lfs3_file_commit(lfs3_t *lfs3, lfs3_file_t *file,
 }
 #endif
 
-// use this flag to indicate bptr vs concatenated data fragments
-#define LFS3_GRAFT_ISBPTR 0x80000000
-
-static inline bool lfs3_graft_isbptr(lfs3_size_t graft_count) {
-    return graft_count & LFS3_GRAFT_ISBPTR;
-}
-
-static inline lfs3_size_t lfs3_graft_count(lfs3_size_t graft_count) {
-    return graft_count & ~LFS3_GRAFT_ISBPTR;
-}
-
 // graft bptr/fragments into our bshrub/btree
 #ifndef LFS3_RDONLY
 static int lfs3_file_graft_(lfs3_t *lfs3, lfs3_file_t *file,
-        lfs3_off_t pos, lfs3_off_t weight, lfs3_soff_t delta,
-        const lfs3_data_t *graft, lfs3_ssize_t graft_count) {
+        lfs3_off_t pos, lfs3_off_t cut,
+        const lfs3_bptr_t *bptr, lfs3_off_t grow) {
     // note! we must never allow our btree size to overflow, even
     // temporarily
 
-    // can't carve more than the graft weight
-    LFS3_ASSERT(delta >= -(lfs3_soff_t)weight);
-
-    // carving the entire tree? revert to no bshrub/btree
+    // cutting the entire tree? revert to no bshrub/btree
     if (pos == 0
-            && weight >= file->b.b.weight
-            && delta == -(lfs3_soff_t)weight) {
+            && file->b.b.weight
+                    - lfs3_min(cut, file->b.b.weight)
+                    + grow
+                == 0) {
         lfs3_file_discardbshrub(file);
         return 0;
     }
 
-    // keep track of in-flight graft state
-    //
-    // normally, in-flight state would be protected by the block
-    // allocator's checkpoint mechanism, where checkpoints prevent double
-    // allocation of new blocks while the old copies remain tracked
-    //
-    // but we don't track the original bshrub copy during grafting!
-    //
-    // in theory, we could track 3 copies of the bshrub/btree: before
-    // after, and mid-graft (we need the mid-graft copy to survive mdir
-    // compactions), but that would add a lot of complexity/state to a
-    // critical function on the stack hot-path
-    //
-    // instead, we can just explicitly track any in-flight graft state to
-    // make sure we don't allocate these blocks in-between commits
-    //
-    lfs3->graft = graft;
-    lfs3->graft_count = graft_count;
-
-    // try to merge commits where possible
-    lfs3_bid_t bid = file->b.b.weight;
-    lfs3_rattr_t rattrs[10];
-    lfs3_rattr_t *r = rattrs;
-    lfs3_bptr_t l_bptr;
-    lfs3_bptr_t r_bptr;
-    int err;
-
-    // need a hole?
-    if (pos > file->b.b.weight) {
-        // can we coalesce?
-        if (file->b.b.weight > 0) {
-            bid = lfs3_min(bid, file->b.b.weight-1);
-            *r++ = LFS3_RATTR(LFS3_tag_GROW, -2, 0);
-            *r++ = LFS3_RATTR_WEIGHT(+(pos - file->b.b.weight));
-
-        // new hole
-        } else {
-            bid = lfs3_min(bid, file->b.b.weight);
-            *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 0);
-            *r++ = LFS3_RATTR_WEIGHT(+(pos - file->b.b.weight));
-        }
+    // we may need to make multiple commits if weight spans multiple
+    // leaf blocks
+    lfs3_off_t pos_ = pos;
+    // limit cut to size of tree
+    lfs3_off_t cut_ = lfs3_min(cut,
+            file->b.b.weight - lfs3_min(pos_, file->b.b.weight));
+    // allow null bptrs
+    lfs3_bptr_t bptr_;
+    if (bptr) {
+        bptr_ = *bptr;
+    } else {
+        lfs3_bptr_discard(&bptr_);
     }
+    lfs3_off_t grow_ = grow;
 
-    // try to carve any existing data
-    lfs3_off_t r_weight = 0;
-    while (pos < file->b.b.weight) {
-        lfs3_bid_t weight_;
-        lfs3_bptr_t bptr_;
-        err = lfs3_file_lookupnext(lfs3, file, pos,
-                &bid, &weight_, &bptr_);
-        if (err) {
-            LFS3_ASSERT(err != LFS3_ERR_NOENT);
-            goto failed;
+    lfs3_off_t poke = lfs3_smax(pos_-1, 0);
+    while (pos_ > file->b.b.weight || cut_ > 0 || grow_ > 0) {
+        // but try to use as few commits where possible
+        lfs3_bid_t l_bid = pos_;
+        lfs3_off_t l_cut = 0;
+        lfs3_bptr_t l_bptr;
+        lfs3_bptr_discard(&l_bptr);
+        lfs3_off_t l_grow = 0;
+        lfs3_bptr_t r_bptr;
+        lfs3_bptr_discard(&r_bptr);
+        lfs3_off_t r_grow = 0;
+
+        // merge data?
+        lfs3_data_t datas[3];
+        lfs3_off_t dcut = 0;
+        lfs3_off_t dgrow = grow_;
+
+        // if we're grafting a fragment, go ahead and init the data
+        // array for merging
+        if (!lfs3_bptr_isbptr(&bptr_)) {
+            datas[0] = LFS3_DATA_NULL();
+            datas[1] = bptr_.d;
+            datas[2] = LFS3_DATA_NULL();
         }
 
-        // note, an entry can be both a left and right sibling
-        l_bptr = bptr_;
-        lfs3_bptr_slice(&l_bptr,
-                -1,
-                pos - (bid-(weight_-1)));
-        r_bptr = bptr_;
-        lfs3_bptr_slice(&r_bptr,
-                pos+weight - (bid-(weight_-1)),
-                -1);
+        while (poke < lfs3_min(pos_+cut_+1, file->b.b.weight)) {
+            lfs3_bid_t bid__;
+            lfs3_rbyd_t rbyd__;
+            lfs3_srid_t rid__;
+            lfs3_bid_t weight__;
+            lfs3_data_t data__;
+            lfs3_stag_t tag__ = lfs3_bshrub_lookupnext_(lfs3, &file->b, poke,
+                    &bid__, &rbyd__, &rid__, &weight__, &data__);
+            if (tag__ < 0) {
+                return tag__;
+            }
+            LFS3_ASSERT(tag__ == LFS3_TAG_DATA
+                    || tag__ == LFS3_TAG_BLOCK);
 
-        // found left sibling?
-        if (bid-(weight_-1) < pos) {
-            // can we get away with a grow attribute?
-            if (lfs3_bptr_size(&bptr_) == lfs3_bptr_size(&l_bptr)) {
-                *r++ = LFS3_RATTR(LFS3_tag_GROW, -2, 0);
-                *r++ = LFS3_RATTR_WEIGHT(-(bid+1 - pos));
-
-            // carve fragment?
-            } else if (!lfs3_bptr_isbptr(&bptr_)
-                    // carve bptr into fragment?
-                    || (lfs3_bptr_size(&l_bptr) <= lfs3->cfg->fragment_size
-                        && lfs3_bptr_size(&l_bptr)
-                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
-                *r++ = LFS3_RATTR(
-                        LFS3_tag_GROW | LFS3_tag_MASK8 | LFS3_TAG_DATA,
-                        -2, 1,
-                        LFS3_FROM_CAT, 1);
-                *r++ = LFS3_RATTR_WEIGHT(-(bid+1 - pos));
-                *r++ = LFS3_RATTR_ARG(&l_bptr);
-
-            // carve bptr?
-            } else {
-                *r++ = LFS3_RATTR(
-                        LFS3_tag_GROW | LFS3_tag_MASK8 | LFS3_TAG_BLOCK,
-                        -2, 1,
-                        LFS3_FROM_BPTR, LFS3_BPTR_DSIZE);
-                *r++ = LFS3_RATTR_WEIGHT(-(bid+1 - pos));
-                *r++ = LFS3_RATTR_ARG(&l_bptr);
+            // fetch the bptr/data fragment
+            lfs3_bptr_t bptr__;
+            int err = lfs3_bptr_fetch(lfs3, &bptr__,
+                    tag__, weight__, data__);
+            if (err) {
+                return err;
             }
 
-        // completely overwriting this entry?
-        } else {
-            *r++ = LFS3_RATTR(LFS3_tag_RM, -2, 0);
-            *r++ = LFS3_RATTR_WEIGHT(-weight_);
+            // we need to cut anything that's overlapping
+            bool snip = bid__-(weight__-1) < pos_+cut_
+                    && bid__+1 > pos_;
+
+            // found left sibling?
+            if (bid__-(weight__-1) < pos_) {
+                lfs3_off_t l_slice = pos_ - (bid__-(weight__-1));
+                // can we merge a fragment?
+                if (!lfs3_bptr_isbptr(&bptr_)
+                        && lfs3_bptr_size(&bptr__) >= l_slice
+                        && (!lfs3_bptr_isbptr(&bptr__)
+// TODO rm?
+//                            // if bptr would be too small, fragment
+//                            //
+//                            // TODO probably doc this crystal_thresh
+//                            // condition a bit better, it's important
+//                            // when fruncating!
+//                            || (l_slice
+//                                    <= lfs3->cfg->fragment_size
+//                                && l_slice
+//                                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))
+//
+                            )
+                        && l_slice < lfs3->cfg->fragment_size) {
+                    pos_ -= l_slice;
+                    datas[0] = lfs3_data_fromslice(&bptr__.d,
+                            -1,
+                            l_slice);
+                    cut_ += l_slice;
+                    grow_ += l_slice;
+                    // TODO duplicating this is a bit awkward, can we
+                    // calculate dgrow later?
+                    dgrow += l_slice;
+                    snip = true;
+
+                // need to slice?
+                } else if (bid__+1 > pos_) {
+                    l_bptr = bptr__;
+                    lfs3_bptr_slice(&l_bptr,
+                            -1,
+                            l_slice);
+                    l_grow = l_slice;
+                    snip = true;
+                }
+            }
+
+            // found right sibling?
+            if (bid__+1 > pos_+cut_) {
+                lfs3_off_t r_slice = bid__+1 - (pos_+cut_);
+                // can we merge a hole?
+                if (bid__-(weight__-1)+lfs3_bptr_size(&bptr__)
+                        <= pos_+cut_) {
+                    grow_ += r_slice;
+                    dgrow += r_slice;
+                    snip = true;
+
+                // can we merge a fragment?
+                } else if (!lfs3_bptr_isbptr(&bptr_)
+                        && lfs3_data_size(&datas[0])
+                                + lfs3_data_size(&datas[1])
+                            >= grow_
+                        && (!lfs3_bptr_isbptr(&bptr__)
+// TODO rm?
+//                            // if bptr would be too small, fragment
+//                            //
+//                            // TODO probably doc this crystal_thresh
+//                            // condition a bit better, it's important
+//                            // when fruncating!
+//                            || (bid__-(weight__-1)+lfs3_bptr_size(&bptr__)
+//                                        - (pos_+cut_)
+//                                    <= lfs3->cfg->fragment_size
+//                                && bid__-(weight__-1)+lfs3_bptr_size(&bptr__)
+//                                        - (pos_+cut_)
+//                                    < lfs3_max(lfs3->cfg->crystal_thresh, 1))
+                            )
+                        // unlike left sibling, we don't bother merging if
+                        // things won't fit in a single fragment
+                        && lfs3_data_size(&datas[0])
+                                + lfs3_data_size(&datas[1])
+                                + (bid__-(weight__-1)+lfs3_bptr_size(&bptr__)
+                                    - (pos_+cut_))
+                            <= lfs3->cfg->fragment_size) {
+                    datas[2] = lfs3_data_fromslice(&bptr__.d,
+                            weight__ - r_slice,
+                            -1);
+                    grow_ += r_slice;
+                    dgrow += r_slice;
+                    snip = true;
+
+                // need to slice?
+                } else if (bid__-(weight__-1) < pos_+cut_) {
+                    r_bptr = bptr__;
+                    lfs3_bptr_slice(&r_bptr,
+                            weight__ - r_slice,
+                            -1);
+                    r_grow = r_slice;
+                    snip = true;
+                }
+            }
+
+            // overlapping? merging? need to cut
+            if (snip) {
+                l_bid = bid__;
+                l_cut += weight__;
+                dcut += lfs3_min(
+                        lfs3_min(weight__, bid__+1 - pos_),
+                        cut_ - dcut);
+            }
+
+            // increment poke
+            poke = bid__+1;
+
+            // stop here if we've reached the end of a leaf rbyd, we
+            // can't commit to multiple leaves simultaneously, so this
+            // is the best we can do
+            //
+            // as a consequence, we will never merge fragments across
+            // leaf rbyds, but this is actually a good thing! otherwise
+            // we'd have to worry about the underlying blocks being
+            // reallocated before the graft finishes (consider rbyds
+            // with single fragments). I don't think it's possible to
+            // merge cross-rbyd fragments atomically
+            //
+            // the staging shrub doesn't help here as we need it to
+            // restart commits during mdir compactions, etc. if we
+            // wanted to track everything for cross-rbyd fragment
+            // merging, I think we'd need either 3 shrubs or some
+            // other hack
+            //
+            // note this is not a problem for bptrs because we
+            // explicitly track crystallizing blocks in file->leaf
+            //
+            if (rid__+1 == (lfs3_srid_t)rbyd__.weight) {
+                // if we stop early, limit how much we grow to how much
+                // we cut to avoid overflow issues
+                if (bid__+1 < file->b.b.weight) {
+                    if (!lfs3_bptr_isbptr(&bptr_)) {
+                        dgrow = lfs3_min(dgrow, dcut);
+                    // if we're a bptr, just don't graft anything until
+                    // last commit
+                    } else {
+                        dgrow = 0;
+                    }
+                }
+                break;
+            }
         }
 
-        // spans more than one entry? we can't do everything in one
-        // commit because it might span more than one btree leaf, so
-        // commit what we have and move on to next entry
-        if (pos+weight > bid+1) {
-            LFS3_ASSERT(lfs3_bptr_size(&r_bptr) == 0);
+        if (!lfs3_bptr_isbptr(&bptr_)) {
+            // limit fragment data to:
+            // 1. fragment size
+            // 2. cut size, to avoid overflow issues
+            //
+            // note we don't need to worry about: (1) left data, because
+            // we only merge left if left < fragment size, and (2) right
+            // data, because we only merge right if everything would fit
+            //
+            LFS3_ASSERT(lfs3_data_size(&datas[0]) < lfs3->cfg->fragment_size);
+            dgrow = lfs3_min(dgrow, lfs3->cfg->fragment_size);
+            lfs3_data_slice(&datas[1],
+                    -1,
+                    dgrow - lfs3_data_size(&datas[0]));
 
+            LFS3_ASSERT(lfs3_data_size(&datas[0])
+                        + lfs3_data_size(&datas[1])
+                        + lfs3_data_size(&datas[2])
+                    <= lfs3->cfg->fragment_size);
+        }
+
+        // build graft commit
+        lfs3_rattr_t rattrs[12];
+        lfs3_rattr_t *r = rattrs;
+
+        // need to grow hole?
+        if (pos_ > file->b.b.weight && file->b.b.weight > 0) {
+            l_bid = file->b.b.weight-1;
+            *r++ = LFS3_RATTR(LFS3_tag_GROW, -2, 0);
+            *r++ = LFS3_RATTR_WEIGHT(+(pos_ - file->b.b.weight));
+
+        // need a new hole?
+        } else if (pos_ > file->b.b.weight) {
+            l_bid = file->b.b.weight;
+            *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 0);
+            *r++ = LFS3_RATTR_WEIGHT(+(pos_ - file->b.b.weight));
+
+        // need to cut tree?
+        } else if (l_cut) {
+            *r++ = LFS3_RATTR(LFS3_tag_RM, -2, 0);
+            *r++ = LFS3_RATTR_WEIGHT(-l_cut);
+        }
+
+        // left sibling?
+        if (l_grow) {
+            // left fragment?
+            if (!lfs3_bptr_isbptr(&l_bptr)
+// TODO rm?
+//                    // if bptr would be too small, fragment
+//                    //
+//                    // TODO probably doc this crystal_thresh
+//                    // condition a bit better, it's important
+//                    // when fruncating!
+//                    || (lfs3_bptr_size(&l_bptr)
+//                            <= lfs3->cfg->fragment_size
+//                        && lfs3_bptr_size(&l_bptr)
+//                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))
+                    ) {
+                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1,
+                        LFS3_FROM_CAT, 1);
+                *r++ = LFS3_RATTR_WEIGHT(+l_grow);
+                *r++ = LFS3_RATTR_ARG(&l_bptr);
+
+            // left bptr?
+            } else {
+                *r++ = LFS3_RATTR(LFS3_TAG_BLOCK, -2, 1,
+                        LFS3_FROM_BPTR, LFS3_BPTR_DSIZE);
+                *r++ = LFS3_RATTR_WEIGHT(+l_grow);
+                *r++ = LFS3_RATTR_ARG(&l_bptr);
+            }
+        }
+
+        // graft?
+        if (dgrow) {
+            // grow a hole?
+            if (!lfs3_bptr_isbptr(&bptr_)
+                    // TODO is there a better way to check for this?
+                    && lfs3_data_size(&datas[0])
+                            + lfs3_data_size(&datas[1])
+                            + lfs3_data_size(&datas[1])
+                        == 0
+                    // new holes we just write as zero-length fragments
+                    && pos_ > 0) {
+                if (r-rattrs == 0) {
+                    l_bid = pos_-1;
+                }
+                *r++ = LFS3_RATTR(LFS3_tag_GROW, -2, 0);
+                *r++ = LFS3_RATTR_WEIGHT(+dgrow);
+
+            // graft fragment?
+            } else if (!lfs3_bptr_isbptr(&bptr_)) {
+                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_CAT, 3);
+                *r++ = LFS3_RATTR_WEIGHT(+dgrow);
+                *r++ = LFS3_RATTR_ARG(datas);
+
+            // graft bptr?
+            } else {
+                *r++ = LFS3_RATTR(LFS3_TAG_BLOCK, -2, 1,
+                        LFS3_FROM_BPTR, LFS3_BPTR_DSIZE);
+                *r++ = LFS3_RATTR_WEIGHT(+dgrow);
+                *r++ = LFS3_RATTR_ARG(&bptr_);
+            }
+        }
+
+        // right sibling?
+        if (r_grow) {
+            // right fragment?
+            if (!lfs3_bptr_isbptr(&r_bptr)
+// TODO rm?
+//                    // if bptr would be too small, fragment
+//                    //
+//                    // TODO probably doc this crystal_thresh
+//                    // condition a bit better, it's important
+//                    // when fruncating!
+//                    || (lfs3_bptr_size(&r_bptr)
+//                            // TODO <= // < lfs3->cfg->fragment_size
+//                        && lfs3_bptr_size(&r_bptr)
+//                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))
+                    ) {
+                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1,
+                        LFS3_FROM_CAT, 1);
+                *r++ = LFS3_RATTR_WEIGHT(+r_grow);
+                *r++ = LFS3_RATTR_ARG(&r_bptr);
+
+            // right bptr?
+            } else {
+                *r++ = LFS3_RATTR(LFS3_TAG_BLOCK, -2, 1,
+                        LFS3_FROM_BPTR, LFS3_BPTR_DSIZE);
+                *r++ = LFS3_RATTR_WEIGHT(+r_grow);
+                *r++ = LFS3_RATTR_ARG(&r_bptr);
+            }
+        }
+
+        // commit pending rattrs
+        if (r > rattrs) {
             *r++ = LFS3_RATTR_NULL;
             LFS3_ASSERT((lfs3_size_t)(r-rattrs)
                     <= sizeof(rattrs)/sizeof(lfs3_rattr_t));
 
-            err = lfs3_file_commit(lfs3, file, bid, rattrs);
+            int err = lfs3_file_commit(lfs3, file, l_bid, rattrs);
             if (err) {
-                goto failed;
-            }
-
-            delta += lfs3_min(weight, bid+1 - pos);
-            weight -= lfs3_min(weight, bid+1 - pos);
-            r = rattrs;
-            continue;
-        }
-
-        // found right sibling?
-        if (pos+weight < bid+1) {
-            // can we coalesce a hole?
-            if (lfs3_bptr_size(&r_bptr) == 0) {
-                delta += bid+1 - (pos+weight);
-
-            // carve fragment?
-            } else if (!lfs3_bptr_isbptr(&bptr_)
-                    // carve bptr into fragment?
-                    || (lfs3_bptr_size(&r_bptr) <= lfs3->cfg->fragment_size
-                        && lfs3_bptr_size(&r_bptr)
-                            < lfs3_max(lfs3->cfg->crystal_thresh, 1))) {
-                r_weight = bid+1 - (pos+weight);
-                r_bptr.d.size &= ~LFS3_DATA_ISBPTR;
-
-            // carve bptr?
-            } else {
-                r_weight = bid+1 - (pos+weight);
-                LFS3_ASSERT(lfs3_bptr_isbptr(&r_bptr));
+                return err;
             }
         }
 
-        delta += lfs3_min(weight, bid+1 - pos);
-        weight -= lfs3_min(weight, bid+1 - pos);
-        break;
+        // update graft state
+        pos_ += dgrow;
+        cut_ -= dcut;
+        lfs3_bptr_slice(&bptr_,
+                dgrow - ((!lfs3_bptr_isbptr(&bptr_))
+                    ? lfs3_data_size(&datas[0])
+                    : 0),
+                -1);
+        grow_ -= dgrow;
+
+        // we don't include r_grow here because we may need to commit
+        // multiple fragments, and to avoid losing data we commit right
+        // siblings as soon as we find them
+        poke += -l_cut + l_grow + dgrow;
     }
 
-    // append our data
-    if (weight + delta > 0) {
-        lfs3_size_t dsize = 0;
-        for (lfs3_size_t i = 0; i < lfs3_graft_count(graft_count); i++) {
-            dsize += lfs3_data_size(&graft[i]);
-        }
-
-        // can we coalesce a hole?
-        if (dsize == 0 && pos > 0) {
-            bid = lfs3_min(bid, file->b.b.weight-1);
-            *r++ = LFS3_RATTR(LFS3_tag_GROW, -2, 0);
-            *r++ = LFS3_RATTR_WEIGHT(+(weight + delta));
-
-        // need a new hole?
-        } else if (dsize == 0) {
-            bid = lfs3_min(bid, file->b.b.weight);
-            *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 0);
-            *r++ = LFS3_RATTR_WEIGHT(+(weight + delta));
-
-        // append a new fragment?
-        } else if (!lfs3_graft_isbptr(graft_count)) {
-            bid = lfs3_min(bid, file->b.b.weight);
-            *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1,
-                    LFS3_FROM_CAT, graft_count);
-            *r++ = LFS3_RATTR_WEIGHT(+(weight + delta));
-            *r++ = LFS3_RATTR_ARG(graft);
-
-        // append a new bptr?
-        } else {
-            bid = lfs3_min(bid, file->b.b.weight);
-            *r++ = LFS3_RATTR(LFS3_TAG_BLOCK, -2, 1,
-                    LFS3_FROM_BPTR, LFS3_BPTR_DSIZE);
-            *r++ = LFS3_RATTR_WEIGHT(+(weight + delta));
-            *r++ = LFS3_RATTR_ARG(graft);
-        }
-    }
-
-    // and don't forget the right sibling
-    if (r_weight > 0) {
-        if (!lfs3_bptr_isbptr(&r_bptr)) {
-            *r++ = LFS3_RATTR(
-                    LFS3_TAG_DATA, -2, 1,
-                    LFS3_FROM_CAT, 1);
-            *r++ = LFS3_RATTR_WEIGHT(+r_weight);
-            *r++ = LFS3_RATTR_ARG(&r_bptr);
-        } else {
-            *r++ = LFS3_RATTR(
-                    LFS3_TAG_BLOCK, -2, 1,
-                    LFS3_FROM_BPTR, LFS3_BPTR_DSIZE);
-            *r++ = LFS3_RATTR_WEIGHT(+r_weight);
-            *r++ = LFS3_RATTR_ARG(&r_bptr);
-        }
-    }
-
-    // commit pending rattrs
-    if (r > rattrs) {
-        *r++ = LFS3_RATTR_NULL;
-        LFS3_ASSERT((lfs3_size_t)(r-rattrs)
-                <= sizeof(rattrs)/sizeof(lfs3_rattr_t));
-
-        err = lfs3_file_commit(lfs3, file, bid, rattrs);
-        if (err) {
-            goto failed;
-        }
-    }
-
-    lfs3->graft = NULL;
-    lfs3->graft_count = 0;
     return 0;
-
-failed:;
-    lfs3->graft = NULL;
-    lfs3->graft_count = 0;
-    return err;
 }
 #endif
 
@@ -13567,8 +13695,8 @@ static int lfs3_file_graft(lfs3_t *lfs3, lfs3_file_t *file) {
 
     // graft into the tree
     err = lfs3_file_graft_(lfs3, file,
-            file->leaf.pos, file->leaf.weight, 0,
-            &file->leaf.bptr.d, LFS3_GRAFT_ISBPTR | 1);
+            file->leaf.pos, file->leaf.weight,
+            &file->leaf.bptr, file->leaf.weight);
     if (err) {
         return err;
     }
@@ -14206,111 +14334,20 @@ fragment:;
         lfs3_file_discardleaf(file);
     }
 
-    // iteratively write fragments (inlined leaves)
-    while (size > 0) {
-        // checkpoint the allocator
-        int err = lfs3_alloc_ckpoint(lfs3);
-        if (err) {
-            return err;
-        }
-
-        // truncate to our fragment size
-        lfs3_off_t fragment_start = pos;
-        lfs3_off_t fragment_end = fragment_start + lfs3_min(
-                size,
-                lfs3->cfg->fragment_size);
-
-        lfs3_data_t datas[3];
-        lfs3_size_t data_count = 0;
-
-        // do we have a left sibling? don't bother to lookup if fragment
-        // is already full
-        if (fragment_end - fragment_start < lfs3->cfg->fragment_size
-                && fragment_start > 0
-                && fragment_start <= file->b.b.weight
-                // don't bother to lookup left after first fragment
-                && !aligned) {
-            lfs3_bid_t bid;
-            lfs3_bid_t weight;
-            lfs3_bptr_t bptr;
-            err = lfs3_file_lookupnext(lfs3, file,
-                    fragment_start-1,
-                    &bid, &weight, &bptr);
-            if (err) {
-                LFS3_ASSERT(err != LFS3_ERR_NOENT);
-                return err;
-            }
-
-            // can we coalesce?
-            if (bid-(weight-1) + lfs3_bptr_size(&bptr) >= fragment_start
-                    && fragment_end - (bid-(weight-1))
-                        <= lfs3->cfg->fragment_size) {
-                datas[data_count++] = lfs3_data_fromslice(&bptr.d,
-                        -1,
-                        fragment_start - (bid-(weight-1)));
-
-                fragment_start = bid-(weight-1);
-            }
-        }
-
-        // append our new data
-        datas[data_count++] = LFS3_DATA_BUF(
-                buffer,
-                fragment_end - pos);
-
-        // do we have a right sibling? don't bother to lookup if fragment
-        // is already full
-        //
-        // note this may the same as our left sibling
-        if (fragment_end - fragment_start < lfs3->cfg->fragment_size
-                && fragment_end < file->b.b.weight) {
-            lfs3_bid_t bid;
-            lfs3_bid_t weight;
-            lfs3_bptr_t bptr;
-            err = lfs3_file_lookupnext(lfs3, file,
-                    fragment_end,
-                    &bid, &weight, &bptr);
-            if (err) {
-                LFS3_ASSERT(err != LFS3_ERR_NOENT);
-                return err;
-            }
-
-            // can we coalesce?
-            if (fragment_end < bid-(weight-1) + lfs3_bptr_size(&bptr)
-                    && bid-(weight-1) + lfs3_bptr_size(&bptr)
-                            - fragment_start
-                        <= lfs3->cfg->fragment_size) {
-                datas[data_count++] = lfs3_data_fromslice(&bptr.d,
-                        fragment_end - (bid-(weight-1)),
-                        -1);
-
-                fragment_end = bid-(weight-1) + lfs3_bptr_size(&bptr);
-            }
-        }
-
-        // make sure we didn't overflow our data buffer
-        LFS3_ASSERT(data_count <= 3);
-
-        // once we've figured out what fragment to write, graft it into
-        // our tree
-        err = lfs3_file_graft_(lfs3, file,
-                fragment_start, fragment_end - fragment_start, 0,
-                datas, data_count);
-        if (err) {
-            return err;
-        }
-
-        // update buffer state
-        lfs3_ssize_t d = fragment_end - pos;
-        pos += d;
-        buffer += lfs3_min(d, size);
-        size -= lfs3_min(d, size);
-
-        // we should be aligned now
-        aligned = true;
+    // TODO need to checkpoint in graft now?
+    // checkpoint the allocator
+    int err = lfs3_alloc_ckpoint(lfs3);
+    if (err) {
+        return err;
     }
 
-    return 0;
+    // graft fragments into tree
+    // TODO can we just cast data ptr -> bptr and save a couple words?
+    lfs3_bptr_t bptr;
+    bptr.d = LFS3_DATA_BUF(buffer, size);
+    return lfs3_file_graft_(lfs3, file,
+            pos, size,
+            &bptr, size);
 }
 #endif
 
@@ -14965,9 +15002,8 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
 
     // truncate our btree
     err = lfs3_file_graft_(lfs3, file,
-            lfs3_min(size, size_), size - lfs3_min(size, size_),
-                +size_ - size,
-            NULL, 0);
+            lfs3_min(size, size_), lfs3_smax(size - size_, 0),
+            NULL, lfs3_smax(size_ - size, 0));
     if (err) {
         goto failed;
     }
@@ -15056,8 +15092,7 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     // fruncate our btree
     err = lfs3_file_graft_(lfs3, file,
             0, lfs3_smax(size - size_, 0),
-                +size_ - size,
-            NULL, 0);
+            NULL, lfs3_smax(size_ - size, 0));
     if (err) {
         goto failed;
     }
@@ -15593,12 +15628,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     // zero linked-list of opened mdirs
     lfs3->handles = NULL;
-
-    // zero in-flight graft state
-    #ifndef LFS3_RDONLY
-    lfs3->graft = NULL;
-    lfs3->graft_count = 0;
-    #endif
 
     // TODO are these zeros accomplished by zerogdelta in mountinited?
     // should the zerogdelta be dropped?

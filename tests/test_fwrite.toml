@@ -8,9 +8,6 @@ defines.FRAGMENT_SIZE = [1, 16, 64]
 # test with different crystallization thresholds
 defines.CRYSTAL_THRESH = [512]
 
-# test with different fragment thresholds
-defines.FRAGMENT_THRESH = [-1]
-
 # test with different prog sizes
 defines.PROG_SIZE = [1, 16]
 
@@ -2508,6 +2505,12 @@ defines.SIZE = 'N*BLOCK_SIZE'
 defines.FRAGMENTS = [1]
 defines.TSIZE = 'FRAGMENTS*FRAGMENT_SIZE'
 defines.SYNC = [false, true]
+# TODO drop this test?
+#
+# our new graft algorithm no longer does this, it was too error-prone
+# and block recrystallization should avoid small wasteful blocks most of
+# the time
+if = false
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -2660,6 +2663,12 @@ defines.SIZE = 'N*BLOCK_SIZE'
 defines.FRAGMENTS = [1]
 defines.TSIZE = 'FRAGMENTS*FRAGMENT_SIZE'
 defines.SYNC = [false, true]
+# TODO drop this test?
+#
+# our new graft algorithm no longer does this, it was too error-prone
+# and block recrystallization should avoid small wasteful blocks most of
+# the time
+if = false
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;

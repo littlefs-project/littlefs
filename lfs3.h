@@ -1319,11 +1319,6 @@ typedef struct lfs3 {
     } lookahead;
     #endif
 
-    #ifndef LFS3_RDONLY
-    const lfs3_data_t *graft;
-    lfs3_ssize_t graft_count;
-    #endif
-
     // global state
     uint32_t gcksum;
     #ifndef LFS3_RDONLY
