@@ -1950,6 +1950,10 @@ typedef uint8_t lfs3_count_t;
 #define LFS3_RATTR(...) \
     LFS3_RATTR_(LFS3_RATTR_N(__VA_ARGS__), __VA_ARGS__)
 
+// some rattr macros with special behavior
+#define LFS3_RATTR_NOOP(_arg_count) \
+    LFS3_RATTR_5(LFS3_TAG_NULL, 0, _arg_count, LFS3_FROM_NIL, 0)
+
 // extended rattr macros
 #define LFS3_RATTR_WEIGHT(_weight) \
     ((lfs3_rattr_t)(lfs3_srid_t){_weight})
@@ -9269,7 +9273,7 @@ static int lfs3_mdir_commit_(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     // were we committing to the mroot? include any -1 rattrs
                     (mdir->mid <= -1)
                         ? LFS3_RATTR(LFS3_tag_RATTRS, 0, 1)
-                        : LFS3_RATTR(LFS3_TAG_NULL, 0, 1),
+                        : LFS3_RATTR_NOOP(1),
                     LFS3_RATTR_ARG(rattrs),
                     LFS3_RATTR_NULL});
         if (err) {
@@ -10852,7 +10856,7 @@ static int lfs3_gbmap_set__(lfs3_t *lfs3, lfs3_btree_t *gbmap,
                 ? (lfs3_ecksum_isecksum(&ecksum__))
                     ? LFS3_RATTR(tag__, -2, 1, LFS3_FROM_ECKSUM)
                     : LFS3_RATTR(tag__, -2, 1)
-                : LFS3_RATTR(LFS3_TAG_NULL, 0, 2),
+                : LFS3_RATTR_NOOP(2),
             LFS3_RATTR_WEIGHT(+(bid__ - block)),
             LFS3_RATTR_ARG(&ecksum__),
             LFS3_RATTR_NULL});
@@ -16379,7 +16383,7 @@ static int lfs3_formatgbmap(lfs3_t *lfs3) {
             // blocks 3..block_count - free
             (lfs3->block_count > 3)
                 ? LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0)
-                : LFS3_RATTR(LFS3_TAG_NULL, 0, 1),
+                : LFS3_RATTR_NOOP(1),
             LFS3_RATTR_WEIGHT(+(lfs3->block_count - 3)),
             LFS3_RATTR_NULL});
     if (err) {
@@ -16465,7 +16469,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                         ? LFS3_RATTR(LFS3_TAG_GBMAPDELTA, 0, 1,
                             LFS3_FROM_LBUF,
                             lfs3_memlen(lfs3->gbmap_d, LFS3_GBMAP_DSIZE))
-                        : LFS3_RATTR(LFS3_TAG_NULL, 0, 1),
+                        : LFS3_RATTR_NOOP(1),
                     LFS3_RATTR_ARG(&lfs3->gbmap_d),
                     #endif
                     // root did=0

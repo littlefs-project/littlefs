@@ -493,9 +493,6 @@ class Rattr:
         # build repr
         r = []
 
-        # should be null?
-        if Rattr.len(rattr) == 0:
-            r.append('null')
         # rm bit?
         if rattr & tag_RM:
             r.append('rm')
@@ -514,6 +511,14 @@ class Rattr:
         if rattr & 0xfff:
             r.append(Tag.repr(rattr & 0xfff))
 
+        if not r:
+            # truly null?
+            if Rattr.len(rattr) == 0:
+                r.append('null')
+            # noop?
+            else:
+                r.append('noop')
+
         # include weight
         weight = Rattr.weight(rattr)
         if weight in {+1, -1}:
@@ -525,7 +530,7 @@ class Rattr:
 
         # include argcount
         argcount = Rattr.argcount(rattr)
-        if argcount and argcount != -1:
+        if argcount and rattr:
             r.append('%d' % argcount)
 
         # include from encoder, if there is one
