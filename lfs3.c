@@ -3766,8 +3766,6 @@ static int lfs3_rbyd_appendrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     LFS3_ASSERT(!lfs3_rattr_isinternal(rattr));
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(lfs3_rattr_tag(rattr) & 0x80));
-    // you can't delete more than what's in the rbyd
-    LFS3_ASSERT(lfs3_rattr_weight(rattr) >= -(lfs3_srid_t)rbyd->weight);
 
     // ignore noops
     if (lfs3_rattr_isnoop(rattr)) {
@@ -3797,12 +3795,19 @@ static int lfs3_rbyd_appendrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
             a_rid = rid + 1;
             b_rid = rid + 1;
         } else {
+            // limit range removes to rbyd weight, normally we would reject
+            // out-of-bound ranges, but this was the easiest way to implement
+            // range removes across btree splits without mutating rattrs
+            weight = -lfs3_min(
+                    -weight - (rid+1 - lfs3_min(rid+1, rbyd->weight)),
+                    lfs3_min(rid+1, rbyd->weight));
+            rid = lfs3_min(rid+1, rbyd->weight)-1;
             LFS3_ASSERT(rid < (lfs3_srid_t)rbyd->weight);
 
             // it's a bit ugly, but adjusting the rid here makes the following
             // logic work out more consistently
             rid += 1;
-            a_rid = rid - lfs3_smax(-weight, 0);
+            a_rid = rid - -weight;
             b_rid = rid;
         }
 
@@ -3811,6 +3816,7 @@ static int lfs3_rbyd_appendrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     } else {
         LFS3_ASSERT(rid < (lfs3_srid_t)rbyd->weight);
+        LFS3_ASSERT(weight >= -(lfs3_srid_t)rbyd->weight);
 
         a_rid = rid - lfs3_smax(-weight, 0);
         b_rid = rid;
@@ -4587,7 +4593,12 @@ static int lfs3_rbyd_appendrattrs(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 // note the use of rid+1 and unsigned comparison here to
                 // treat end_rid=-1 as "unbounded" in such a way that rid=-1
                 // is still included
-                && (lfs3_size_t)(rid + 1) <= (lfs3_size_t)end_rid) {
+                && (lfs3_size_t)(
+                        // we also use the lowest rid here so that range
+                        // removes work across btree splits
+                        (rid - lfs3_smax(-lfs3_rattr_weight(r)-1, 0))
+                            + 1)
+                    <= (lfs3_size_t)end_rid) {
             int err = lfs3_rbyd_appendrattr(lfs3, rbyd,
                     rid - lfs3_smax(start_rid, 0),
                     r);
