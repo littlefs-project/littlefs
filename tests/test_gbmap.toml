@@ -745,9 +745,10 @@ code = '''
     lfs3_btree_t gbmap;
     lfs3_btree_init(&gbmap);
     lfs3_gbmap_commit(&lfs3, &gbmap, 0, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_BMERASED, -2, 1, LFS3_FROM_ECKSUM),
+            LFS3_RATTR(LFS3_TAG_BMERASED, -2, 2, LFS3_FROM_ECKSUM),
             LFS3_RATTR_WEIGHT(+BLOCK_COUNT),
-            LFS3_RATTR_ARG(&ecksum),
+            LFS3_RATTR_ARG(ecksum.cksize),
+            LFS3_RATTR_ARG(ecksum.cksum),
             LFS3_RATTR_NULL}) => 0;
 
     // create a simulation to compare against

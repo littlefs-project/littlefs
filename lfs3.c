@@ -3528,7 +3528,9 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // ecksum?
     } else if (from == LFS3_FROM_ECKSUM) {
         ctx.u.ecksum.data = lfs3_data_fromecksum(
-                (const lfs3_ecksum_t*)args[0],
+                &(lfs3_ecksum_t){
+                    args[0],
+                    args[1]},
                 ctx.u.ecksum.buf);
         datas = &ctx.u.ecksum.data;
         data_count = 1;
@@ -4490,7 +4492,8 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         err = lfs3_rbyd_appendrattr_(lfs3, rbyd, 
                 LFS3_TAG_ECKSUM, 0,
                 LFS3_FROM_ECKSUM, 0, (const lfs3_rattr_t[]){
-                    LFS3_RATTR_ARG(&ecksum)});
+                    LFS3_RATTR_ARG(ecksum.cksize),
+                    LFS3_RATTR_ARG(ecksum.cksum)});
         if (err) {
             return err;
         }
@@ -10854,17 +10857,19 @@ static int lfs3_gbmap_set__(lfs3_t *lfs3, lfs3_btree_t *gbmap,
                 : LFS3_RATTR(LFS3_tag_RM, -2, 0),
             LFS3_RATTR_WEIGHT(-((bid__+1) - (block-(weight-1)))),
             (lfs3_ecksum_isecksum(ecksum))
-                ? LFS3_RATTR(tag, -2, 1, LFS3_FROM_ECKSUM)
-                : LFS3_RATTR(tag, -2, 1),
+                ? LFS3_RATTR(tag, -2, 2, LFS3_FROM_ECKSUM)
+                : LFS3_RATTR(tag, -2, 2),
             LFS3_RATTR_WEIGHT(+weight_),
-            LFS3_RATTR_ARG(ecksum),
+            LFS3_RATTR_ARG(ecksum->cksize),
+            LFS3_RATTR_ARG(ecksum->cksum),
             (bid__ > block)
                 ? (lfs3_ecksum_isecksum(&ecksum__))
-                    ? LFS3_RATTR(tag__, -2, 1, LFS3_FROM_ECKSUM)
-                    : LFS3_RATTR(tag__, -2, 1)
-                : LFS3_RATTR_NOOP(2),
+                    ? LFS3_RATTR(tag__, -2, 2, LFS3_FROM_ECKSUM)
+                    : LFS3_RATTR(tag__, -2, 2)
+                : LFS3_RATTR_NOOP(3),
             LFS3_RATTR_WEIGHT(+(bid__ - block)),
-            LFS3_RATTR_ARG(&ecksum__),
+            LFS3_RATTR_ARG(ecksum__.cksize),
+            LFS3_RATTR_ARG(ecksum__.cksum),
             LFS3_RATTR_NULL});
     if (err) {
         return err;
