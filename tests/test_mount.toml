@@ -1342,10 +1342,9 @@ code = '''
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 1, LFS3_FROM_GEOMETRY),
-            LFS3_RATTR_ARG((&(lfs3_geometry_t){
-                INC_BLOCK_SIZE,
-                BLOCK_COUNT})),
+            LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 2, LFS3_FROM_GEOMETRY),
+            LFS3_RATTR_ARG(INC_BLOCK_SIZE),
+            LFS3_RATTR_ARG(BLOCK_COUNT),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1372,10 +1371,9 @@ code = '''
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 1, LFS3_FROM_GEOMETRY),
-            LFS3_RATTR_ARG((&(lfs3_geometry_t){
-                BLOCK_SIZE,
-                INC_BLOCK_COUNT})),
+            LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 2, LFS3_FROM_GEOMETRY),
+            LFS3_RATTR_ARG(BLOCK_SIZE),
+            LFS3_RATTR_ARG(INC_BLOCK_COUNT),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 

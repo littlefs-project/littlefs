@@ -3381,7 +3381,10 @@ static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
         uint8_t buffer[static LFS3_SHRUB_DSIZE]);
 static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
         uint8_t buffer[static LFS3_MPTR_DSIZE]);
-typedef struct lfs3_geometry lfs3_geometry_t;
+typedef struct lfs3_geometry {
+    lfs3_size_t block_size;
+    lfs3_block_t block_count;
+} lfs3_geometry_t;
 static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
         uint8_t buffer[static LFS3_GEOMETRY_DSIZE]);
 
@@ -3389,7 +3392,8 @@ static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
 #ifndef LFS3_RDONLY
 static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag, lfs3_srid_t weight,
-        lfs3_from_t from, lfs3_count_t count, const lfs3_rattr_t *args) {
+        lfs3_from_t from, lfs3_count_t count,
+        const lfs3_rattr_t *args) {
     // tag must not be internal at this point
     LFS3_ASSERT(lfs3_tag_suptype(tag) != LFS3_TAG_INTERNAL);
     // bit 7 is reserved for future subtype extensions
@@ -3567,7 +3571,9 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // geometry?
     } else if (from == LFS3_FROM_GEOMETRY) {
         ctx.u.geometry.data = lfs3_data_fromgeometry(
-                (const lfs3_geometry_t*)args[0],
+                &(lfs3_geometry_t){
+                    args[0],
+                    args[1]},
                 ctx.u.geometry.buf);
         datas = &ctx.u.geometry.data;
         data_count = 1;
@@ -15750,10 +15756,6 @@ static inline int lfs3_data_readocompat(lfs3_t *lfs3, lfs3_data_t *data,
 // disk geometry
 //
 // note these are stored minus 1 to avoid overflow issues
-struct lfs3_geometry {
-    lfs3_size_t block_size;
-    lfs3_block_t block_count;
-};
 
 // geometry on-disk encoding
 #ifndef LFS3_RDONLY
@@ -16455,10 +16457,9 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                     LFS3_RATTR_ARG(lfs3_rcompat(lfs3)),
                     LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 1, LFS3_FROM_LE32),
                     LFS3_RATTR_ARG(lfs3_wcompat(lfs3)),
-                    LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 1, LFS3_FROM_GEOMETRY),
-                    LFS3_RATTR_ARG((&(lfs3_geometry_t){
-                        lfs3->cfg->block_size,
-                        lfs3->cfg->block_count})),
+                    LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 2, LFS3_FROM_GEOMETRY),
+                    LFS3_RATTR_ARG(lfs3->cfg->block_size),
+                    LFS3_RATTR_ARG(lfs3->cfg->block_count),
                     LFS3_RATTR(LFS3_TAG_NAMELIMIT, 0, 1, LFS3_FROM_LLEB128),
                     LFS3_RATTR_ARG(lfs3->name_limit),
                     LFS3_RATTR(LFS3_TAG_FILELIMIT, 0, 1, LFS3_FROM_LEB128),
@@ -17081,13 +17082,10 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
     #endif
 
     // update our on-disk config
-    const lfs3_geometry_t geometry = {
-        .block_size=lfs3->cfg->block_size,
-        .block_count=block_count_,
-    };
     err = lfs3_mdir_commit(lfs3, &lfs3->mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 1, LFS3_FROM_GEOMETRY),
-            LFS3_RATTR_ARG(&geometry),
+            LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 2, LFS3_FROM_GEOMETRY),
+            LFS3_RATTR_ARG(lfs3->cfg->block_size),
+            LFS3_RATTR_ARG(block_count_),
             LFS3_RATTR_NULL});
     if (err) {
         goto failed;
