@@ -118,6 +118,7 @@ static int lfs_bd_read(lfs_t *lfs,
                 rcache->off, rcache->buffer, rcache->size);
         LFS_ASSERT(err <= 0);
         if (err) {
+            lfs_cache_drop(lfs, rcache);
             return err;
         }
     }
