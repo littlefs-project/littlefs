@@ -66,8 +66,8 @@ TAG_GCKSUMDELTA = 0x3300    ##  v-11 --11 ++++ ++++
 
 # our core rbyd attribute type
 #
-#   wwll llff ffcc cccc tttt tttt tttt tttt
-#    ^'-.-''-.-''--.--' :                 :
+#   wwll lfff ffcc cccc tttt tttt tttt tttt
+#    ^'-.''--.-''--.--' :                 :
 #    '--|----|-----|----:-----------------:-- compressed weight
 #   ::  '----|-----|----:-----------------:-- total len
 #   ::       '-----|----:-----------------:-- from encoder
@@ -81,8 +81,8 @@ TAG_GCKSUMDELTA = 0x3300    ##  v-11 --11 ++++ ++++
 #                                     '------ tag subtype
 #
 RATTR_WEIGHT    = 0xc0000000    # 11-- ---- ---- ---- ---- ---- ---- ----
-RATTR_LEN       = 0x3c000000    # --11 11-- ---- ---- ---- ---- ---- ----
-RATTR_FROM      = 0x03c00000    # ---- --11 11-- ---- ---- ---- ---- ----
+RATTR_LEN       = 0x38000000    # --11 1--- ---- ---- ---- ---- ---- ----
+RATTR_FROM      = 0x07c00000    # ---- -111 11-- ---- ---- ---- ---- ----
 RATTR_FROMCOUNT = 0x003f0000    # ---- ---- --11 1111 ---- ---- ---- ----
 RATTR_RM        = 0x00008000    # ---- ---- ---- ---- 1--- ---- ---- ----
 RATTR_GROW      = 0x00004000    # ---- ---- ---- ---- -1-- ---- ---- ----
@@ -469,7 +469,7 @@ class Rattr:
 
     @staticmethod
     def len(rattr):
-        return 0xf & (rattr >> 26)
+        return 1 + (0x7 & (rattr >> 27))
 
     @staticmethod
     def argcount(rattr):
@@ -477,7 +477,7 @@ class Rattr:
 
     @staticmethod
     def from_(rattr):
-        return 0xf & (rattr >> 22)
+        return 0x1f & (rattr >> 22)
 
     @staticmethod
     def fromcount(rattr):
@@ -498,7 +498,11 @@ class Rattr:
             r.append('rm')
         # grow bit?
         if rattr & tag_GROW:
-            r.append('grow')
+            # noop?
+            if Rattr.tag(rattr) == tag_GROW and Rattr.weight(rattr) == 0:
+                r.append('noop')
+            else:
+                r.append('grow')
         # mask bits?
         if (rattr & tag_MASK) == tag_MASK12:
             r.append('mask12')
@@ -511,13 +515,9 @@ class Rattr:
         if rattr & 0xfff:
             r.append(Tag.repr(rattr & 0xfff))
 
+        # truly null?
         if not r:
-            # truly null?
-            if Rattr.len(rattr) == 0:
-                r.append('null')
-            # noop?
-            else:
-                r.append('noop')
+            r.append('null')
 
         # include weight
         weight = Rattr.weight(rattr)
@@ -530,7 +530,7 @@ class Rattr:
 
         # include argcount
         argcount = Rattr.argcount(rattr)
-        if argcount and rattr:
+        if argcount:
             r.append('%d' % argcount)
 
         # include from encoder, if there is one

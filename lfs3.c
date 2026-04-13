@@ -1883,8 +1883,8 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 
 // our core rbyd attribute type
 //
-//   wwll llff ffcc cccc tttt tttt tttt tttt
-//    ^'-.-''-.-''--.--' :                 :
+//   wwll lfff ffcc cccc tttt tttt tttt tttt
+//    ^'-.''--.-''--.--' :                 :
 //    '--|----|-----|----:-----------------:-- compressed weight
 //   ::  '----|-----|----:-----------------:-- total len
 //   ::       '-----|----:-----------------:-- from encoder
@@ -1926,11 +1926,11 @@ typedef uint8_t lfs3_count_t;
 
 // initial rattr macros
 #define LFS3_RATTR_5(_tag, _weight, _arg_count, _from, _from_count) \
-    (((lfs3_rattr_t)(1+(((_weight) <= -2) ? 1 : 0)+(_arg_count)) << 26) \
-        | ((lfs3_rattr_t)(_tag) << 0) \
-        | ((lfs3_rattr_t)(_weight) << 30) \
+    (((lfs3_rattr_t)(_weight) << 30) \
+        | ((lfs3_rattr_t)((((_weight) == -2) ? 1 : 0)+(_arg_count)) << 27) \
         | ((lfs3_rattr_t)(_from) << 22) \
-        | ((lfs3_rattr_t)(_from_count) << 16))
+        | ((lfs3_rattr_t)(_from_count) << 16) \
+        | ((lfs3_rattr_t)(_tag) << 0))
 
 #define LFS3_RATTR_4(_tag, _weight, _arg_count, _from) \
     LFS3_RATTR_5(_tag, _weight, _arg_count, _from, 0)
@@ -1952,7 +1952,7 @@ typedef uint8_t lfs3_count_t;
 
 // some rattr macros with special behavior
 #define LFS3_RATTR_NOOP(_arg_count) \
-    LFS3_RATTR_5(LFS3_TAG_NULL, 0, _arg_count, LFS3_FROM_NIL, 0)
+    LFS3_RATTR_5(LFS3_tag_GROW, 0, _arg_count, LFS3_FROM_NIL, 0)
 
 // extended rattr macros
 #define LFS3_RATTR_WEIGHT(_weight) \
@@ -1972,22 +1972,26 @@ static inline lfs3_srid_t lfs3_rattr_weight_(lfs3_rattr_t rattr) {
 #endif
 
 #ifndef LFS3_RDONLY
+static inline lfs3_ssize_t lfs3_rattr_weightcount_(lfs3_rattr_t rattr) {
+    return (lfs3_rattr_weight_(rattr) == -2) ? 1 : 0;
+}
+#endif
+
+#ifndef LFS3_RDONLY
 static inline lfs3_size_t lfs3_rattr_len_(lfs3_rattr_t rattr) {
-    return 0xf & (rattr >> 26);
+    return 1 + (0x7 & (rattr >> 27));
 }
 #endif
 
 #ifndef LFS3_RDONLY
 static inline lfs3_ssize_t lfs3_rattr_argcount_(lfs3_rattr_t rattr) {
-    return lfs3_rattr_len_(rattr)
-            - 1
-            - ((lfs3_rattr_weight_(rattr) <= -2) ? 1 : 0);
+    return lfs3_rattr_len_(rattr) - lfs3_rattr_weightcount_(rattr) - 1;
 }
 #endif
 
 #ifndef LFS3_RDONLY
 static inline lfs3_from_t lfs3_rattr_from_(lfs3_rattr_t rattr) {
-    return 0xf & (rattr >> 22);
+    return 0x1f & (rattr >> 22);
 }
 #endif
 
@@ -2005,7 +2009,7 @@ static inline lfs3_tag_t lfs3_rattr_tag_(lfs3_rattr_t rattr) {
 
 #ifndef LFS3_RDONLY
 static inline bool lfs3_rattr_isinternal_(lfs3_rattr_t rattr) {
-    return lfs3_rattr_tag_(rattr) == LFS3_TAG_INTERNAL;
+    return lfs3_tag_suptype(lfs3_rattr_tag_(rattr)) == LFS3_TAG_INTERNAL;
 }
 #endif
 
@@ -2024,7 +2028,7 @@ static inline bool lfs3_rattr_isgrow_(lfs3_rattr_t rattr) {
 #ifndef LFS3_RDONLY
 static inline lfs3_srid_t lfs3_rattr_weight(const lfs3_rattr_t *rattr) {
     lfs3_srid_t weight = lfs3_rattr_weight_(rattr[0]);
-    if (weight <= -2) {
+    if (weight == -2) {
         return rattr[1];
     } else {
         return weight;
@@ -2047,7 +2051,7 @@ static inline lfs3_ssize_t lfs3_rattr_argcount(const lfs3_rattr_t *rattr) {
 #ifndef LFS3_RDONLY
 static inline const lfs3_rattr_t *lfs3_rattr_args(const lfs3_rattr_t *rattr) {
     lfs3_srid_t weight = lfs3_rattr_weight_(rattr[0]);
-    if (weight <= -2) {
+    if (weight == -2) {
         return &rattr[2];
     } else {
         return &rattr[1];
@@ -2100,18 +2104,16 @@ static inline bool lfs3_rattr_isgrow(const lfs3_rattr_t *rattr) {
 
 #ifndef LFS3_RDONLY
 static inline bool lfs3_rattr_isnoop(const lfs3_rattr_t *rattr) {
-    // noop rattrs must have zero weight and nil encoder
-    LFS3_ASSERT(lfs3_rattr_tag(rattr)
-            || lfs3_rattr_weight(rattr) == 0);
-    LFS3_ASSERT(lfs3_rattr_tag(rattr)
-            || lfs3_rattr_from(rattr) == LFS3_FROM_NIL);
-    return !lfs3_rattr_tag(rattr);
+    // note this implies no tag/rm/mask bits
+    return lfs3_rattr_tag(rattr) == LFS3_tag_GROW
+            && lfs3_rattr_weight(rattr) == 0;
 }
 #endif
 
 #ifndef LFS3_RDONLY
 static inline bool lfs3_rattr_isinsert(const lfs3_rattr_t *rattr) {
-    return !lfs3_rattr_isgrow(rattr) && lfs3_rattr_weight(rattr) > 0;
+    return !lfs3_rattr_isgrow(rattr)
+            && lfs3_rattr_weight(rattr) > 0;
 }
 #endif
 

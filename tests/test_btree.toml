@@ -4080,7 +4080,7 @@ code = '''
                 lfs3_btree_commit(&lfs3, &btree,
                         split_bid, (const lfs3_rattr_t[]){
                             // yes, we need this noop, see above
-                            LFS3_RATTR(LFS3_RATTR_NULL, 0, 0),
+                            LFS3_RATTR_NOOP(0),
                             LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
                             LFS3_RATTR_ARG(0),
                             LFS3_RATTR_ARG(name),
@@ -4280,7 +4280,7 @@ code = '''
                 lfs3_btree_commit(&lfs3, &btree,
                         split_bid, (const lfs3_rattr_t[]){
                             // yes, we need this noop, see above
-                            LFS3_RATTR(LFS3_RATTR_NULL, 0, 0),
+                            LFS3_RATTR_NOOP(0),
                             LFS3_RATTR(LFS3_TAG_REG, -2, 2, LFS3_FROM_NAME),
                             LFS3_RATTR_WEIGHT(+weight),
                             LFS3_RATTR_ARG(0),
