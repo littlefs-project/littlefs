@@ -90,11 +90,12 @@ RATTR_MASK      = 0x00003000    # ---- ---- ---- ---- --11 ---- ---- ----
 RATTR_TAG       = 0x00000fff    # ---- ---- ---- ---- ---- 1111 +111 1111
 
 # internal tags
-tag_RATTRS      = 0x0100    #i  ---- ---1 ---- ----
-tag_SHRUBCOMMIT = 0x0101    #i  ---- ---1 ---- ---1
-tag_GRMPUSH     = 0x0102    #i  ---- ---1 ---- --1-
-tag_MOVE        = 0x0103    #i  ---- ---1 ---- --11
-tag_ATTRS       = 0x0104    #i  ---- ---1 ---- -1--
+tag_NOOP        = 0x0100    #i  ---- ---1 ---- ----
+tag_RATTRS      = 0x0101    #i  ---- ---1 ---- ---1
+tag_SHRUBCOMMIT = 0x0102    #i  ---- ---1 ---- --1-
+tag_GRMPUSH     = 0x0103    #i  ---- ---1 ---- --11
+tag_MOVE        = 0x0104    #i  ---- ---1 ---- -1--
+tag_ATTRS       = 0x0105    #i  ---- ---1 ---- -1-1
 
 tag_RM          = 0x8000    #i  1--- ---- ---- ----
 tag_GROW        = 0x4000    #i  -1-- ---- ---- ----
@@ -498,11 +499,7 @@ class Rattr:
             r.append('rm')
         # grow bit?
         if rattr & tag_GROW:
-            # noop?
-            if Rattr.tag(rattr) == tag_GROW and Rattr.weight(rattr) == 0:
-                r.append('noop')
-            else:
-                r.append('grow')
+            r.append('grow')
         # mask bits?
         if (rattr & tag_MASK) == tag_MASK12:
             r.append('mask12')

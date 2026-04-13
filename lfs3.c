@@ -1952,7 +1952,7 @@ typedef uint8_t lfs3_count_t;
 
 // some rattr macros with special behavior
 #define LFS3_RATTR_NOOP(_arg_count) \
-    LFS3_RATTR_5(LFS3_tag_GROW, 0, _arg_count, LFS3_FROM_NIL, 0)
+    LFS3_RATTR_5(LFS3_tag_NOOP, 0, _arg_count, LFS3_FROM_NIL, 0)
 
 // extended rattr macros
 #define LFS3_RATTR_WEIGHT(_weight) \
@@ -2099,14 +2099,6 @@ static inline bool lfs3_rattr_isrm(const lfs3_rattr_t *rattr) {
 #ifndef LFS3_RDONLY
 static inline bool lfs3_rattr_isgrow(const lfs3_rattr_t *rattr) {
     return lfs3_rattr_isgrow_(rattr[0]);
-}
-#endif
-
-#ifndef LFS3_RDONLY
-static inline bool lfs3_rattr_isnoop(const lfs3_rattr_t *rattr) {
-    // note this implies no tag/rm/mask bits
-    return lfs3_rattr_tag(rattr) == LFS3_tag_GROW
-            && lfs3_rattr_weight(rattr) == 0;
 }
 #endif
 
@@ -3780,15 +3772,14 @@ static int lfs3_rbyd_appendrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_srid_t rid, const lfs3_rattr_t *rattr) {
     // must fetch before mutating!
     LFS3_ASSERT(lfs3_rbyd_isfetched(rbyd));
+    // ignore noops
+    if (lfs3_rattr_tag(rattr) == LFS3_tag_NOOP) {
+        return 0;
+    }
     // tag must not be internal at this point
     LFS3_ASSERT(!lfs3_rattr_isinternal(rattr));
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(lfs3_rattr_tag(rattr) & 0x80));
-
-    // ignore noops
-    if (lfs3_rattr_isnoop(rattr)) {
-        return 0;
-    }
 
     // begin appending
     int err = lfs3_rbyd_appendinit(lfs3, rbyd);
@@ -8438,8 +8429,6 @@ static int lfs3_mdir_commit___(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
             // write out normal tags normally
             } else {
-                LFS3_ASSERT(!lfs3_rattr_isinternal(r));
-
                 int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
                         rid - lfs3_smax(start_rid, 0),
                         r);

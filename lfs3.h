@@ -872,11 +872,12 @@ enum lfs3_tag {
     LFS3_TAG_GCKSUMDELTA    = 0x3300,
 
     // in-device only tags, these should never get written to disk
-    LFS3_tag_RATTRS         = 0x0100,
-    LFS3_tag_SHRUBCOMMIT    = 0x0101,
-    LFS3_tag_GRMPUSH        = 0x0102,
-    LFS3_tag_MOVE           = 0x0103,
-    LFS3_tag_ATTRS          = 0x0104,
+    LFS3_tag_NOOP           = 0x0100,
+    LFS3_tag_RATTRS         = 0x0101,
+    LFS3_tag_SHRUBCOMMIT    = 0x0102,
+    LFS3_tag_GRMPUSH        = 0x0103,
+    LFS3_tag_MOVE           = 0x0104,
+    LFS3_tag_ATTRS          = 0x0105,
 
     // some in-device only tag modifiers
     LFS3_tag_RM             = 0x8000,
