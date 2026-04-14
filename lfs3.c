@@ -3921,7 +3921,7 @@ trunk:;
             lfs3_size_t branch_ = branch + d;
 
             // in expected bounds?
-            LFS3_ASSERT(weight_ <= upper_rid - lower_rid);
+            LFS3_ASSERT((lfs3_srid_t)weight_ <= upper_rid - lower_rid);
             // yellow alts should be parallel
             LFS3_ASSERT(!(lfs3_tag_isred(alt_) && lfs3_tag_isred(p[0].alt))
                     || lfs3_tag_isparallel(alt_, p[0].alt));
