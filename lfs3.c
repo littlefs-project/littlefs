@@ -1918,7 +1918,8 @@ enum lfs3_from {
     LFS3_FROM_BTREE     = 12,
     LFS3_FROM_SHRUB     = 13,
     LFS3_FROM_MPTR      = 14,
-    LFS3_FROM_GEOMETRY  = 15,
+    LFS3_FROM_COMPAT    = 15,
+    LFS3_FROM_GEOMETRY  = 16,
 };
 
 typedef uint8_t lfs3_from_t;
@@ -3375,10 +3376,8 @@ static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
         uint8_t buffer[static LFS3_SHRUB_DSIZE]);
 static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
         uint8_t buffer[static LFS3_MPTR_DSIZE]);
-typedef struct lfs3_geometry {
-    lfs3_size_t block_size;
-    lfs3_block_t block_count;
-} lfs3_geometry_t;
+static lfs3_data_t lfs3_data_fromcompat(lfs3_compat_t compat,
+        uint8_t buffer[static LFS3_COMPAT_DSIZE]);
 static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
         uint8_t buffer[static LFS3_GEOMETRY_DSIZE]);
 
@@ -3445,6 +3444,10 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 lfs3_data_t data;
                 uint8_t buf[LFS3_MPTR_DSIZE];
             } mptr;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_COMPAT_DSIZE];
+            } compat;
             struct {
                 lfs3_data_t data;
                 uint8_t buf[LFS3_GEOMETRY_DSIZE];
@@ -3562,6 +3565,14 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 (const lfs3_block_t*)args[0],
                 ctx.u.mptr.buf);
         datas = &ctx.u.mptr.data;
+        data_count = 1;
+
+    // compat flags?
+    } else if (from == LFS3_FROM_COMPAT) {
+        ctx.u.compat.data = lfs3_data_fromcompat(
+                args[0],
+                ctx.u.compat.buf);
+        datas = &ctx.u.compat.data;
         data_count = 1;
 
     // geometry?
@@ -15653,107 +15664,135 @@ static int lfs3_deinit(lfs3_t *lfs3) {
 
 // compat flags things
 
-static inline bool lfs3_wcompat_isgbmap(lfs3_wcompat_t flags) {
-    return flags & LFS3_WCOMPAT_GBMAP;
+#define LFS3_COMPAT(rcompat, wcompat) \
+    (((wcompat) << 20) | (rcompat))
+
+static inline lfs3_compat_t lfs3_compat_rcompat(lfs3_compat_t compat) {
+    return 0xfffff & compat;
+}
+
+static inline lfs3_compat_t lfs3_compat_wcompat(lfs3_compat_t compat) {
+    return 0xfff & (compat >> 20);
+}
+
+static inline bool lfs3_compat_isgbmap(lfs3_compat_t compat) {
+    return lfs3_compat_wcompat(compat) & LFS3_WCOMPAT_GBMAP;
 }
 
 // figure out what compat flags the current fs configuration needs
-static inline lfs3_rcompat_t lfs3_rcompat(const lfs3_t *lfs3) {
+static inline lfs3_compat_t lfs3_fs_compat(const lfs3_t *lfs3) {
     (void)lfs3;
-    return LFS3_RCOMPAT_MMOSS
-            | LFS3_RCOMPAT_MTREE
-            | LFS3_RCOMPAT_BSHRUB
-            | LFS3_RCOMPAT_BTREE
-            | LFS3_RCOMPAT_GRM;
+    return LFS3_COMPAT(
+            LFS3_RCOMPAT_GRM
+                | LFS3_RCOMPAT_STICKYNOTE
+                | LFS3_RCOMPAT_MMOSS
+                | LFS3_RCOMPAT_MTREE
+                | LFS3_RCOMPAT_BSHRUB
+                | LFS3_RCOMPAT_BTREE,
+            LFS3_WCOMPAT_GCKSUM
+                | LFS3_WCOMPAT_DIR
+                | LFS3_IFDEF_GBMAP(
+                    (lfs3_f_isgbmap(lfs3->flags))
+                        ? LFS3_WCOMPAT_GBMAP
+                        : 0,
+                    0));
 }
 
-static inline lfs3_rcompat_t lfs3_rmask(const lfs3_t *lfs3) {
+static inline lfs3_compat_t lfs3_fs_rmask(const lfs3_t *lfs3) {
     (void)lfs3;
-    return ~0;
+    return LFS3_COMPAT(
+            0xfffff,
+            0);
 }
 
-static inline lfs3_wcompat_t lfs3_wcompat(const lfs3_t *lfs3) {
+static inline lfs3_compat_t lfs3_fs_wmask(const lfs3_t *lfs3) {
     (void)lfs3;
-    return LFS3_WCOMPAT_GCKSUM
-            | LFS3_IFDEF_GBMAP(
-                (lfs3_f_isgbmap(lfs3->flags)) ? LFS3_WCOMPAT_GBMAP : 0,
-                0)
-            | LFS3_WCOMPAT_DIR;
-}
-
-static inline lfs3_wcompat_t lfs3_wmask(const lfs3_t *lfs3) {
-    (void)lfs3;
-    return ~(
-            LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0));
-}
-
-static inline lfs3_ocompat_t lfs3_ocompat(const lfs3_t *lfs3) {
-    (void)lfs3;
-    return 0;
-}
-
-static inline lfs3_rcompat_t lfs3_omask(const lfs3_t *lfs3) {
-    (void)lfs3;
-    return ~0;
+    return LFS3_COMPAT(
+            0,
+            0xfff & ~(
+                // we can ignore the gbmap flag if we support both modes
+                LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0)));
 }
 
 // compat flags on-disk encoding
 //
-// little-endian, truncated bits must be assumed zero
+// we need to use the smallest leb128 encoding when writing to disk,
+// otherwise detecting overflow would be tricky
+#ifndef LFS3_RDONLY
+static lfs3_data_t lfs3_data_fromcompat(lfs3_compat_t compat,
+        uint8_t buffer[static LFS3_COMPAT_DSIZE]) {
+    lfs3_ssize_t d = 0;
+    lfs3_ssize_t d_ = lfs3_toleb128(lfs3_compat_rcompat(compat),
+            &buffer[d], 3);
+    if (d_ < 0) {
+        LFS3_UNREACHABLE();
+    }
+    d += d_;
+
+    d_ = lfs3_toleb128(lfs3_compat_wcompat(compat),
+            &buffer[d], 1);
+    if (d_ < 0) {
+        LFS3_UNREACHABLE();
+    }
+    d += d_;
+
+    return LFS3_DATA_BUF(buffer, d);
+}
+#endif
 
 static int lfs3_data_readcompat(lfs3_t *lfs3, lfs3_data_t *data,
         uint32_t *compat) {
-    // allow truncated compat flags
-    uint8_t buf[4] = {0};
-    lfs3_ssize_t d = lfs3_data_read(lfs3, data, buf, 4);
-    if (d < 0) {
-        return d;
-    }
-    *compat = lfs3_fromle32(buf);
-
-    // if any out-of-range flags are set, set the internal overflow bit,
-    // this is a compromise in correctness and and compat-flag complexity
+    // try to read compat flags, not we may:
+    // - fail to read flags, but set LFS3_*_OVERFLOW
+    // - not read wcompat, but set LFS3_rcompat_OVERFLOW
     //
-    // we don't really care about performance here
-    while (lfs3_data_size(data) > 0) {
-        uint8_t b;
-        lfs3_ssize_t d = lfs3_data_read(lfs3, data, &b, 1);
-        if (d < 0) {
-            return d;
-        }
+    // this is ok as long as LFS3_*_OVERFLOW is set in whichever compat
+    // flags is the most restricting, we don't need wcompat if we can't
+    // even mount rdonly, for example
 
-        if (b != 0x00) {
-            *compat |= 0x80000000;
-            break;
-        }
+    // read rcompat flags
+    uint32_t rcompat;
+    int err = lfs3_data_readleb128(lfs3, data, &rcompat);
+    if (err && err != LFS3_ERR_CORRUPT) {
+        return err;
+    }
+    if (err == LFS3_ERR_CORRUPT) {
+        rcompat = -1;
+    }
+    // if we overflowed, set LFS3_*_OVERFLOW and stop parsing
+    if (rcompat >= LFS3_rcompat_OVERFLOW) {
+        rcompat = LFS3_rcompat_OVERFLOW
+                | (rcompat & (LFS3_rcompat_OVERFLOW-1));
+        goto done;
     }
 
+    // read wcompat flags
+    uint32_t wcompat;
+    err = lfs3_data_readleb128(lfs3, data, &wcompat);
+    if (err && err != LFS3_ERR_CORRUPT) {
+        return err;
+    }
+    if (err == LFS3_ERR_CORRUPT) {
+        wcompat = -1;
+    }
+    // if we overflowed, set LFS3_*_OVERFLOW and stop parsing
+    if (wcompat >= LFS3_wcompat_OVERFLOW) {
+        wcompat = LFS3_wcompat_OVERFLOW
+                | (wcompat & (LFS3_wcompat_OVERFLOW-1));
+        goto done;
+    }
+
+done:;
+    *compat = LFS3_COMPAT(rcompat, wcompat);
     return 0;
 }
 
-// all the compat parsing is basically the same, so try to reuse code
 
-static inline int lfs3_data_readrcompat(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_rcompat_t *rcompat) {
-    return lfs3_data_readcompat(lfs3, data, rcompat);
-}
-
-static inline int lfs3_data_readwcompat(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_wcompat_t *wcompat) {
-    return lfs3_data_readcompat(lfs3, data, wcompat);
-}
-
-static inline int lfs3_data_readocompat(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_ocompat_t *ocompat) {
-    return lfs3_data_readcompat(lfs3, data, ocompat);
-}
-
-
-// disk geometry
-//
-// note these are stored minus 1 to avoid overflow issues
+// disk geometry things
 
 // geometry on-disk encoding
+//
+// these are stored minus 1 to avoid overflow issues
 #ifndef LFS3_RDONLY
 static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
         uint8_t buffer[static LFS3_GEOMETRY_DSIZE]) {
@@ -15818,72 +15857,53 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
         return LFS3_ERR_NOTSUP;
     }
 
-    // check for any rcompatflags, we must understand these to read
-    // the filesystem
-    lfs3_rcompat_t rcompat_ = 0;
-    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_RCOMPAT,
+    // check the on-disk compat flags
+    lfs3_compat_t compat = 0;
+    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_COMPAT,
             &data);
     if (tag < 0 && tag != LFS3_ERR_NOENT) {
         return tag;
     }
     if (tag != LFS3_ERR_NOENT) {
-        int err = lfs3_data_readrcompat(lfs3, &data, &rcompat_);
+        int err = lfs3_data_readcompat(lfs3, &data, &compat);
         if (err) {
             return err;
         }
     }
 
-    // optional rcompat flags
-    lfs3_rcompat_t rcompat = lfs3_rcompat(lfs3);
-    lfs3_rcompat_t rmask = lfs3_rmask(lfs3);
-    if ((rcompat_ & rmask) != (rcompat & rmask)) {
-        LFS3_ERROR("Incompatible rcompat flags 0x%"PRIx32" "
-                    "(!= 0x%"PRIx32" & ~0x%"PRIx32")",
-                rcompat_,
-                rcompat,
-                ~rmask);
+    // check rcompat flags - we must understand these to read the
+    // filesystem
+    lfs3_compat_t compat_ = lfs3_fs_compat(lfs3);
+    lfs3_compat_t rmask_ = lfs3_fs_rmask(lfs3);
+    if ((compat & rmask_) != (compat_ & rmask_)) {
+        LFS3_ERROR("Incompatible rcompat flags r%"PRIx32" "
+                    "(!= r%"PRIx32" & 0x%"PRIx32")",
+                lfs3_compat_rcompat(compat),
+                lfs3_compat_rcompat(compat_),
+                rmask_);
         return LFS3_ERR_NOTSUP;
     }
 
-    // check for any wcompatflags, we must understand these to write
-    // the filesystem
-    lfs3_wcompat_t wcompat_ = 0;
-    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_WCOMPAT,
-            &data);
-    if (tag < 0 && tag != LFS3_ERR_NOENT) {
-        return tag;
-    }
-    if (tag != LFS3_ERR_NOENT) {
-        int err = lfs3_data_readwcompat(lfs3, &data, &wcompat_);
-        if (err) {
-            return err;
-        }
-    }
-
-    // optional wcompat flags
-    lfs3_wcompat_t wcompat = lfs3_wcompat(lfs3);
-    lfs3_wcompat_t wmask = lfs3_wmask(lfs3);
-    if ((wcompat_ & wmask) != (wcompat & wmask)) {
-        LFS3_WARN("Incompatible wcompat flags 0x%"PRIx32" "
-                    "(!= 0x%"PRIx32" & ~0x%"PRIx32")",
-                wcompat_,
-                wcompat,
-                ~wmask);
-        // we can ignore this if rdonly
-        if (!lfs3_m_isrdonly(lfs3->flags)) {
+    // check wcompat flags - we must understand these to write to the
+    // filesystem
+    if (!lfs3_m_isrdonly(lfs3->flags)) {
+        lfs3_compat_t wmask_ = lfs3_fs_wmask(lfs3);
+        if ((compat & wmask_) != (compat_ & wmask_)) {
+            LFS3_ERROR("Incompatible wcompat flags w%"PRIx32" "
+                        "(!= w%"PRIx32" & 0x%"PRIx32")",
+                    lfs3_compat_wcompat(compat),
+                    lfs3_compat_wcompat(compat_),
+                    wmask_);
             return LFS3_ERR_NOTSUP;
         }
     }
 
     #ifdef LFS3_GBMAP
     // using the gbmap?
-    if (lfs3_wcompat_isgbmap(wcompat_)) {
+    if (lfs3_compat_isgbmap(compat)) {
         lfs3->flags |= LFS3_I_GBMAP;
     }
     #endif
-
-    // we don't bother to check for any ocompatflags, we would just
-    // ignore these anyways
 
     // check the on-disk geometry
     lfs3_geometry_t geometry;
@@ -16449,10 +16469,8 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                     LFS3_RATTR_ARG(((const uint8_t[2]){
                         LFS3_DISK_VERSION_MAJOR,
                         LFS3_DISK_VERSION_MINOR})),
-                    LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 1, LFS3_FROM_LE32),
-                    LFS3_RATTR_ARG(lfs3_rcompat(lfs3)),
-                    LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 1, LFS3_FROM_LE32),
-                    LFS3_RATTR_ARG(lfs3_wcompat(lfs3)),
+                    LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_COMPAT),
+                    LFS3_RATTR_ARG(lfs3_fs_compat(lfs3)),
                     LFS3_RATTR(LFS3_TAG_GEOMETRY, 0, 2, LFS3_FROM_GEOMETRY),
                     LFS3_RATTR_ARG(lfs3->cfg->block_size),
                     LFS3_RATTR_ARG(lfs3->cfg->block_count),
@@ -17146,12 +17164,12 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
 
     // mark the gbmap as in-use on-disk while atomically committing the
     // gbmap into gstate
-    lfs3_wcompat_t wcompat_ = lfs3_wcompat(lfs3);
-    wcompat_ |= LFS3_WCOMPAT_GBMAP;
+    lfs3_compat_t compat_ = lfs3_fs_compat(lfs3);
+    compat_ |= LFS3_COMPAT(0, LFS3_WCOMPAT_GBMAP);
 
     err = lfs3_mdir_commit(lfs3, &lfs3->mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 1, LFS3_FROM_LE32),
-            LFS3_RATTR_ARG(wcompat_),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_COMPAT),
+            LFS3_RATTR_ARG(compat_),
             LFS3_RATTR_NULL});
     if (err) {
         goto failed;
@@ -17186,12 +17204,12 @@ int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
     //
     // this leaves garbage gdeltas around, but these should be cleaned
     // up implicitly as mdirs are compacted
-    lfs3_wcompat_t wcompat_ = lfs3_wcompat(lfs3);
-    wcompat_ &= ~LFS3_WCOMPAT_GBMAP;
+    lfs3_compat_t compat_ = lfs3_fs_compat(lfs3);
+    compat_ &= ~LFS3_COMPAT(0, LFS3_WCOMPAT_GBMAP);
 
     err = lfs3_mdir_commit(lfs3, &lfs3->mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 1, LFS3_FROM_LE32),
-            LFS3_RATTR_ARG(wcompat_),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_COMPAT),
+            LFS3_RATTR_ARG(compat_),
             LFS3_RATTR_NULL});
     if (err) {
         return err;

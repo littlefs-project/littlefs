@@ -971,10 +971,10 @@ code = '''
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 1, LFS3_FROM_LE32),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_COMPAT),
             LFS3_RATTR_ARG(
-                lfs3_rcompat(&lfs3)
-                    | LFS3_RCOMPAT_NONSTANDARD),
+                lfs3_fs_compat(&lfs3)
+                    | LFS3_COMPAT(LFS3_RCOMPAT_NONSTANDARD, 0)),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -994,17 +994,17 @@ code = '''
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
 
-    // set the nonstandard rcompat flag, this will always be incompatible
+    // set the nonstandard wcompat flag, this will always be incompatible
     // with standard littlefs
     //
     // note we're messing around with internals to do this! this
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 1, LFS3_FROM_LE32),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_COMPAT),
             LFS3_RATTR_ARG(
-                lfs3_wcompat(&lfs3)
-                    | LFS3_WCOMPAT_NONSTANDARD),
+                lfs3_fs_compat(&lfs3)
+                    | LFS3_COMPAT(0, LFS3_WCOMPAT_NONSTANDARD)),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1027,17 +1027,37 @@ code = '''
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
 
-    // set the nonstandard ocompat flag, this will always be incompatible
-    // with standard littlefs
+    // set the nonstandard ocompat flag
+    //
+    // we don't actually have ocompat flags (a third leb), but if we
+    // did, we should ignore them
     //
     // note we're messing around with internals to do this! this
     // is not a user API
+    uint8_t compat_buf[32];
+    lfs3_ssize_t d = 0;
+    lfs3_ssize_t d_ = lfs3_toleb128(
+            lfs3_compat_rcompat(lfs3_fs_compat(&lfs3)),
+            &compat_buf[d], 5);
+    assert(d_ >= 0);
+    d += d_;
+    d_ = lfs3_toleb128(
+            lfs3_compat_wcompat(lfs3_fs_compat(&lfs3)),
+            &compat_buf[d], 5);
+    assert(d_ >= 0);
+    d += d_;
+    // our ocompat flag!
+    d_ = lfs3_toleb128(
+            2,
+            &compat_buf[d], 5);
+    assert(d_ >= 0);
+    d += d_;
+
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_OCOMPAT, 0, 1, LFS3_FROM_LE32),
-            LFS3_RATTR_ARG(
-                lfs3_ocompat(&lfs3)
-                    | LFS3_OCOMPAT_NONSTANDARD),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 2, LFS3_FROM_BUF),
+            LFS3_RATTR_ARG(compat_buf),
+            LFS3_RATTR_ARG(d),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1065,10 +1085,10 @@ code = '''
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 1, LFS3_FROM_LE32),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_COMPAT),
             LFS3_RATTR_ARG(
-                lfs3_wcompat(&lfs3)
-                    | LFS3_WCOMPAT_RDONLY),
+                lfs3_fs_compat(&lfs3)
+                    | LFS3_COMPAT(0, LFS3_WCOMPAT_RDONLY)),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1097,10 +1117,10 @@ code = '''
     // is not a user API
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 1, LFS3_FROM_LE32),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_LE32),
             LFS3_RATTR_ARG(
-                lfs3_rcompat(&lfs3)
-                    | LFS3_RCOMPAT_WRONLY),
+                lfs3_fs_compat(&lfs3)
+                    | LFS3_COMPAT(LFS3_RCOMPAT_WRONLY, 0)),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1111,8 +1131,7 @@ code = '''
 
 # these are just a bit harder to detect
 [cases.test_mount_incompat_rcompat_overflow]
-defines.OVERFLOW = 72
-defines.FLAG = 'range(72)'
+defines.SHIFT = 'range(72)'
 in = 'lfs3.c'
 code = '''
     // create a superblock
@@ -1122,20 +1141,42 @@ code = '''
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
 
-    // set a really far rcompat flag
+    // set an out-of-range rcompat flag, we can use
+    // LFS3_rcompat_OVERFLOW as a starting point
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    uint8_t rcompat_buf[sizeof(uint32_t) + OVERFLOW/8];
-    memset(rcompat_buf, 0, sizeof(rcompat_buf));
-    lfs3_data_fromle32(lfs3_rcompat(&lfs3), rcompat_buf);
-    rcompat_buf[sizeof(uint32_t) + FLAG/8] |= 1 << (FLAG%8);
+    uint8_t compat_buf[32];
+    lfs3_ssize_t d = 0;
+    lfs3_ssize_t d_ = lfs3_toleb128(
+            lfs3_compat_rcompat(lfs3_fs_compat(&lfs3))
+                | ((SHIFT <= __builtin_clz(LFS3_rcompat_OVERFLOW))
+                    ? LFS3_rcompat_OVERFLOW << SHIFT
+                    : 0),
+            &compat_buf[d], 5);
+    assert(d_ >= 0);
+    d += d_;
+    // whoops, overflowed 32-bits?
+    if (SHIFT > __builtin_clz(LFS3_rcompat_OVERFLOW)) {
+        lfs3_size_t shift = SHIFT - __builtin_clz(LFS3_rcompat_OVERFLOW);
+        while (shift) {
+            compat_buf[d-1] |= 0x80;
+            compat_buf[d] = (shift <= 7) ? 1 << shift : 0;
+            d += 1;
+            shift -= lfs3_min(7, shift);
+        }
+    }
+    d_ = lfs3_toleb128(
+            lfs3_compat_wcompat(lfs3_fs_compat(&lfs3)),
+            &compat_buf[d], 5);
+    assert(d_ >= 0);
+    d += d_;
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 2, LFS3_FROM_BUF),
-            LFS3_RATTR_ARG(rcompat_buf),
-            LFS3_RATTR_ARG(sizeof(rcompat_buf)),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 2, LFS3_FROM_BUF),
+            LFS3_RATTR_ARG(compat_buf),
+            LFS3_RATTR_ARG(d),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1145,8 +1186,7 @@ code = '''
 '''
 
 [cases.test_mount_incompat_wcompat_overflow]
-defines.OVERFLOW = 72
-defines.FLAG = 'range(72)'
+defines.SHIFT = 'range(72)'
 in = 'lfs3.c'
 code = '''
     // create a superblock
@@ -1156,23 +1196,42 @@ code = '''
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
 
-    uint8_t flags[9] = {0};
-    flags[FLAG / 8] |= 1 << (FLAG % 8);
-
-    // set a really far wcompat flag
+    // set an out-of-range wcompat flag, we can use
+    // LFS3_wcompat_OVERFLOW as a starting point
     //
     // note we're messing around with internals to do this! this
     // is not a user API
-    uint8_t wcompat_buf[sizeof(uint32_t) + OVERFLOW/8];
-    memset(wcompat_buf, 0, sizeof(wcompat_buf));
-    lfs3_data_fromle32(lfs3_wcompat(&lfs3), wcompat_buf);
-    wcompat_buf[sizeof(uint32_t) + FLAG/8] |= 1 << (FLAG%8);
+    uint8_t compat_buf[32];
+    lfs3_ssize_t d = 0;
+    lfs3_ssize_t d_ = lfs3_toleb128(
+            lfs3_compat_rcompat(lfs3_fs_compat(&lfs3)),
+            &compat_buf[d], 5);
+    assert(d_ >= 0);
+    d += d_;
+    d_ = lfs3_toleb128(
+            lfs3_compat_wcompat(lfs3_fs_compat(&lfs3))
+                | ((SHIFT <= __builtin_clz(LFS3_wcompat_OVERFLOW))
+                    ? LFS3_wcompat_OVERFLOW << SHIFT
+                    : 0),
+            &compat_buf[d], 5);
+    assert(d_ >= 0);
+    d += d_;
+    // whoops, overflowed 32-bits?
+    if (SHIFT > __builtin_clz(LFS3_wcompat_OVERFLOW)) {
+        lfs3_size_t shift = SHIFT - __builtin_clz(LFS3_wcompat_OVERFLOW);
+        while (shift) {
+            compat_buf[d-1] |= 0x80;
+            compat_buf[d] = (shift <= 7) ? 1 << shift : 0;
+            d += 1;
+            shift -= lfs3_min(7, shift);
+        }
+    }
 
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 2, LFS3_FROM_BUF),
-            LFS3_RATTR_ARG(wcompat_buf),
-            LFS3_RATTR_ARG(sizeof(wcompat_buf)),
+            LFS3_RATTR(LFS3_TAG_COMPAT, 0, 2, LFS3_FROM_BUF),
+            LFS3_RATTR_ARG(compat_buf),
+            LFS3_RATTR_ARG(d),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1180,146 +1239,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
 
     // but we _can_ mount readonly
-    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
-    lfs3_unmount(&lfs3) => 0;
-'''
-
-[cases.test_mount_incompat_ocompat_overflow]
-defines.OVERFLOW = 72
-defines.FLAG = 'range(72)'
-in = 'lfs3.c'
-code = '''
-    // create a superblock
-    lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
-            CFG) => 0;
-
-    // set a really far ocompat flag
-    //
-    // note we're messing around with internals to do this! this
-    // is not a user API
-    uint8_t ocompat_buf[sizeof(uint32_t) + OVERFLOW/8];
-    memset(ocompat_buf, 0, sizeof(ocompat_buf));
-    ocompat_buf[sizeof(uint32_t) + FLAG/8] |= 1 << (FLAG%8);
-
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_OCOMPAT, 0, 2, LFS3_FROM_BUF),
-            LFS3_RATTR_ARG(ocompat_buf),
-            LFS3_RATTR_ARG(sizeof(ocompat_buf)),
-            LFS3_RATTR_NULL}) => 0;
-    lfs3_unmount(&lfs3) => 0;
-
-    // mount should _not_ fail, ocompat should always be ignored
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
-    lfs3_unmount(&lfs3) => 0;
-'''
-
-# but just appending zeros is _not_ an error
-[cases.test_mount_incompat_rcompat_padding]
-defines.OVERFLOW = 72
-in = 'lfs3.c'
-code = '''
-    // create a superblock
-    lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
-            CFG) => 0;
-
-    // set a really far rcompat flag
-    //
-    // note we're messing around with internals to do this! this
-    // is not a user API
-    uint8_t rcompat_buf[sizeof(uint32_t) + OVERFLOW/8];
-    memset(rcompat_buf, 0, sizeof(rcompat_buf));
-    lfs3_data_fromle32(lfs3_rcompat(&lfs3), rcompat_buf);
-
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_RCOMPAT, 0, 2, LFS3_FROM_BUF),
-            LFS3_RATTR_ARG(rcompat_buf),
-            LFS3_RATTR_ARG(sizeof(rcompat_buf)),
-            LFS3_RATTR_NULL}) => 0;
-    lfs3_unmount(&lfs3) => 0;
-
-    // mount should _not_ fail, extra zeros should be ignored
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
-    lfs3_unmount(&lfs3) => 0;
-'''
-
-[cases.test_mount_incompat_wcompat_padding]
-defines.OVERFLOW = 72
-in = 'lfs3.c'
-code = '''
-    // create a superblock
-    lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
-            CFG) => 0;
-
-    uint8_t flags[9] = {0};
-    flags[FLAG / 8] |= 1 << (FLAG % 8);
-
-    // set a really far wcompat flag
-    //
-    // note we're messing around with internals to do this! this
-    // is not a user API
-    uint8_t wcompat_buf[sizeof(uint32_t) + OVERFLOW/8];
-    memset(wcompat_buf, 0, sizeof(wcompat_buf));
-    lfs3_data_fromle32(lfs3_wcompat(&lfs3), wcompat_buf);
-
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_WCOMPAT, 0, 2, LFS3_FROM_BUF),
-            LFS3_RATTR_ARG(wcompat_buf),
-            LFS3_RATTR_ARG(sizeof(wcompat_buf)),
-            LFS3_RATTR_NULL}) => 0;
-    lfs3_unmount(&lfs3) => 0;
-
-    // mount should _not_ fail, extra zeros should be ignored
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
-    lfs3_unmount(&lfs3) => 0;
-'''
-
-[cases.test_mount_incompat_ocompat_padding]
-defines.OVERFLOW = 72
-in = 'lfs3.c'
-code = '''
-    // create a superblock
-    lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
-            CFG) => 0;
-
-    // set a really far ocompat flag
-    //
-    // note we're messing around with internals to do this! this
-    // is not a user API
-    uint8_t ocompat_buf[sizeof(uint32_t) + OVERFLOW/8];
-    memset(ocompat_buf, 0, sizeof(ocompat_buf));
-
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_OCOMPAT, 0, 2, LFS3_FROM_BUF),
-            LFS3_RATTR_ARG(ocompat_buf),
-            LFS3_RATTR_ARG(sizeof(ocompat_buf)),
-            LFS3_RATTR_NULL}) => 0;
-    lfs3_unmount(&lfs3) => 0;
-
-    // mount should _not_ fail, extra zeros should be ignored
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    lfs3_unmount(&lfs3) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
     lfs3_unmount(&lfs3) => 0;
 '''

@@ -10,18 +10,19 @@ import math as mt
 
 
 # Flag prefixes
-PREFIX_O       = ['+o', '+open']        # Filter by LFS3_O_* flags
-PREFIX_SEEK    = ['+seek']              # Filter by LFS3_SEEK_* flags
-PREFIX_A       = ['+a', '+attr']        # Filter by LFS3_A_* flags
-PREFIX_F       = ['+f', '+format']      # Filter by LFS3_F_* flags
-PREFIX_M       = ['+m', '+mount']       # Filter by LFS3_M_* flags
-PREFIX_I       = ['+i', '+info']        # Filter by LFS3_I_* flags
-PREFIX_T       = ['+t', '+trv']         # Filter by LFS3_T_* flags
-PREFIX_GC      = ['+gc']                # Filter by LFS3_GC_* flags
-PREFIX_ALLOC   = ['+alloc']             # Filter by LFS3_ALLOC_* flags
-PREFIX_RCOMPAT = ['+rc', '+rcompat']    # Filter by LFS3_RCOMPAT_* flags
-PREFIX_WCOMPAT = ['+wc', '+wcompat']    # Filter by LFS3_WCOMPAT_* flags
-PREFIX_OCOMPAT = ['+oc', '+ocompat']    # Filter by LFS3_OCOMPAT_* flags
+PREFIX_O       = ['+o', '+open']     # Filter by LFS3_O_* flags
+PREFIX_SEEK    = ['+seek']           # Filter by LFS3_SEEK_* flags
+PREFIX_A       = ['+a', '+attr']     # Filter by LFS3_A_* flags
+PREFIX_F       = ['+f', '+format']   # Filter by LFS3_F_* flags
+PREFIX_M       = ['+m', '+mount']    # Filter by LFS3_M_* flags
+PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
+PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
+PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
+PREFIX_ALLOC   = ['+alloc']          # Filter by LFS3_ALLOC_* flags
+PREFIX_RCOMPAT = ['+r', '+rc', '+rcompat'] \
+                                     # Filter by on-disk LFS3_RCOMPAT_* flags
+PREFIX_WCOMPAT = ['+w', '+wc', '+wcompat'] \
+                                     # Filter by on-disk LFS3_WCOMPAT_* flags
 
 
 # File open flags
@@ -189,31 +190,33 @@ GC_GC           = 0x003f0000  # a-  Alias for all gc work
 # Block allocator flags
 alloc_ERASE     = 0x00000001  # i-  Please erase the block
 
-# Read-compat flags
-RCOMPAT_NONSTANDARD = 0x00000001  # --  Non-standard filesystem format
-RCOMPAT_WRONLY      = 0x00000004  # --  Reading is disallowed
-RCOMPAT_MMOSS       = 0x00000010  # --  May use an inlined mdir
-RCOMPAT_MSPROUT     = 0x00000020  # --  May use an mdir pointer
-RCOMPAT_MSHRUB      = 0x00000040  # --  May use an inlined mtree
-RCOMPAT_MTREE       = 0x00000080  # --  May use an mdir btree
-RCOMPAT_BMOSS       = 0x00000100  # --  Files may use inlined data
-RCOMPAT_BSPROUT     = 0x00000200  # --  Files may use block pointers
-RCOMPAT_BSHRUB      = 0x00000400  # --  Files may use inlined btrees
-RCOMPAT_BTREE       = 0x00000800  # --  Files may use btrees
-RCOMPAT_GRM         = 0x00010000  # --  Global-remove in use
-rcompat_OVERFLOW    = 0x80000000  # i-  Can't represent all flags
+# On-disk read-compat flags - Must understand to read the filesystem
+RCOMPAT_WRONLY  =    0x00001  # --  Reading is disallowed
+RCOMPAT_NONSTANDARD \
+                =    0x00002  # --  Non-standard filesystem format
+RCOMPAT_GRM     =    0x00004  # --  Global-remove in use
+RCOMPAT_STICKYNOTE \
+                =    0x00008  # --  Stickynote file type in use
+RCOMPAT_MMOSS   =    0x00010  # --  May use an inlined mdir
+RCOMPAT_MGRASS  =    0x00020  # --  May use an mdir pointer
+RCOMPAT_MSHRUB  =    0x00040  # --  May use an inlined mtree
+RCOMPAT_MTREE   =    0x00080  # --  May use an mdir btree
+RCOMPAT_BMOSS   =    0x00100  # --  Files may use inlined data
+RCOMPAT_BGRASS  =    0x00200  # --  Files may use block pointers
+RCOMPAT_BSHRUB  =    0x00400  # --  Files may use inlined btrees
+RCOMPAT_BTREE   =    0x00800  # --  Files may use btrees
+rcompat_OVERFLOW \
+                =    0x80000  # i-  Can't represent all flags
 
-# Write-compat flags
-WCOMPAT_NONSTANDARD = 0x00000001  # --  Non-standard filesystem format
-WCOMPAT_RDONLY      = 0x00000002  # --  Writing is disallowed
-WCOMPAT_GCKSUM      = 0x00040000  # --  Global-checksum in use
-WCOMPAT_GBMAP       = 0x00080000  # --  Global on-disk block-map in use
-WCOMPAT_DIR         = 0x01000000  # --  Directory file types in use
-wcompat_OVERFLOW    = 0x80000000  # i-  Can't represent all flags
-
-# Optional-compat flags
-OCOMPAT_NONSTANDARD = 0x00000001  # --  Non-standard filesystem format
-ocompat_OVERFLOW    = 0x80000000  # i-  Can't represent all flags
+# On-disk write-compat flags - Must understand to write to the filesystem
+WCOMPAT_RDONLY  =      0x001  # --  Writing is disallowed
+WCOMPAT_NONSTANDARD \
+                =      0x002  # --  Non-standard filesystem format
+WCOMPAT_GCKSUM  =      0x004  # --  Global-checksum in use
+WCOMPAT_DIR     =      0x008  # --  Directory file type in use
+WCOMPAT_GBMAP   =      0x010  # --  Global on-disk block-map in use
+wcompat_OVERFLOW \
+                =      0x800  # i-  Can't represent all write flags
 
 
 # self-parsing prefixes

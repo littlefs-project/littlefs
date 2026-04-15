@@ -55,10 +55,6 @@ typedef int32_t  lfs3_smid_t;
 typedef uint32_t lfs3_did_t;
 typedef int32_t  lfs3_sdid_t;
 
-typedef uint32_t lfs3_rcompat_t;
-typedef uint32_t lfs3_wcompat_t;
-typedef uint32_t lfs3_ocompat_t;
-
 // Maximum name size in bytes, may be redefined to reduce the size of the
 // info struct. Limited to <= 1022. Stored in superblock and must be
 // respected by other littlefs drivers.
@@ -802,14 +798,12 @@ enum lfs3_tag {
     LFS3_TAG_CONFIG         = 0x0200,
     LFS3_TAG_MAGIC          = 0x0201,
     LFS3_TAG_VERSION        = 0x0204,
-    LFS3_TAG_RCOMPAT        = 0x0205,
-    LFS3_TAG_WCOMPAT        = 0x0206,
-    LFS3_TAG_OCOMPAT        = 0x0207,
-    LFS3_TAG_GEOMETRY       = 0x0208,
-    LFS3_TAG_NAMELIMIT      = 0x0209,
-    LFS3_TAG_FILELIMIT      = 0x020a,
+    LFS3_TAG_COMPAT         = 0x0208,
+    LFS3_TAG_GEOMETRY       = 0x020c,
+    LFS3_TAG_NAMELIMIT      = 0x0210,
+    LFS3_TAG_FILELIMIT      = 0x0214,
     // in-device only, to help find unknown config tags
-    LFS3_tag_UNKNOWNCONFIG  = 0x020b,
+    LFS3_tag_UNKNOWNCONFIG  = 0x0218,
 
     // global-state tags
     LFS3_TAG_GDELTA         = 0x0300,
@@ -903,37 +897,38 @@ enum lfs3_tag {
 
 // On-disk compat flags
 //
-// - RCOMPAT => Must understand to read the filesystem
-// - WCOMPAT => Must understand to write to the filesystem
-// - OCOMPAT => No understanding necessary, we don't really use these
+// - RCOMPAT - Must understand to read the filesystem
+// - WCOMPAT - Must understand to write to the filesystem
 //
-// note, "understanding" does not necessarily mean support
+// At some point we may also add OCOMPAT flags (no understanding
+// necessary), but we currently have no need for these.
 //
-#define LFS3_RCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
-#define LFS3_RCOMPAT_WRONLY      0x00000004 // Reading is disallowed
-#define LFS3_RCOMPAT_MMOSS       0x00000010 // May use an inlined mdir
-#define LFS3_RCOMPAT_MSPROUT     0x00000020 // May use an mdir pointer
-#define LFS3_RCOMPAT_MSHRUB      0x00000040 // May use an inlined mtree
-#define LFS3_RCOMPAT_MTREE       0x00000080 // May use an mtree
-#define LFS3_RCOMPAT_BMOSS       0x00000100 // Files may use inlined data
-#define LFS3_RCOMPAT_BSPROUT     0x00000200 // Files may use block pointers
-#define LFS3_RCOMPAT_BSHRUB      0x00000400 // Files may use inlined btrees
-#define LFS3_RCOMPAT_BTREE       0x00000800 // Files may use btrees
-#define LFS3_RCOMPAT_GRM         0x00010000 // Global-remove in use
-// internally used flags
-#define LFS3_rcompat_OVERFLOW    0x80000000 // Can't represent all flags
+// Note, "understanding" does not necessarily mean support
 
-#define LFS3_WCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
-#define LFS3_WCOMPAT_RDONLY      0x00000002 // Writing is disallowed
-#define LFS3_WCOMPAT_GCKSUM      0x00040000 // Global-checksum in use
-#define LFS3_WCOMPAT_GBMAP       0x00080000 // Global on-disk block-map in use
-#define LFS3_WCOMPAT_DIR         0x01000000 // Directory files in use
+// On-disk read-compat flags - Must understand to read the filesystem
+#define LFS3_RCOMPAT_WRONLY         0x00001 // Reading is disallowed
+#define LFS3_RCOMPAT_NONSTANDARD    0x00002 // Non-standard filesystem format
+#define LFS3_RCOMPAT_GRM            0x00004 // Global-remove in use
+#define LFS3_RCOMPAT_STICKYNOTE     0x00008 // Stickynote file type in use
+#define LFS3_RCOMPAT_MMOSS          0x00010 // May use an inlined mdir
+#define LFS3_RCOMPAT_MGRASS         0x00020 // May use an mdir pointer
+#define LFS3_RCOMPAT_MSHRUB         0x00040 // May use an inlined mtree
+#define LFS3_RCOMPAT_MTREE          0x00080 // May use an mtree
+#define LFS3_RCOMPAT_BMOSS          0x00100 // Files may use inlined data
+#define LFS3_RCOMPAT_BGRASS         0x00200 // Files may use block pointers
+#define LFS3_RCOMPAT_BSHRUB         0x00400 // Files may use inlined btrees
+#define LFS3_RCOMPAT_BTREE          0x00800 // Files may use btrees
 // internally used flags
-#define LFS3_wcompat_OVERFLOW    0x80000000 // Can't represent all flags
+#define LFS3_rcompat_OVERFLOW       0x80000 // Can't represent all flags
 
-#define LFS3_OCOMPAT_NONSTANDARD 0x00000001 // Non-standard filesystem format
+// On-disk write-compat flags - Must understand to write to the filesystem
+#define LFS3_WCOMPAT_RDONLY           0x001 // Writing is disallowed
+#define LFS3_WCOMPAT_NONSTANDARD      0x002 // Non-standard filesystem format
+#define LFS3_WCOMPAT_GCKSUM           0x004 // Global-checksum in use
+#define LFS3_WCOMPAT_DIR              0x008 // Directory files in use
+#define LFS3_WCOMPAT_GBMAP            0x010 // Global on-disk block-map in use
 // internally used flags
-#define LFS3_ocompat_OVERFLOW    0x80000000 // Can't represent all flags
+#define LFS3_wcompat_OVERFLOW         0x800 // Can't represent all flags
 
 
 // On-disk encodings/decodings
@@ -965,6 +960,13 @@ enum lfs3_tag {
 // '---+- -+- -+- -'
 //
 #define LFS3_LLEB128_DSIZE 4
+
+// compat encoding
+// .- -+- -+- -+- -.  rcompat: 1 leb128  <=3 bytes
+// | r         | w |  wcompat: 1 leb128  <=1 bytes
+// '- -+- -+- -+- -'  total:             <=4 bytes
+//
+#define LFS3_COMPAT_DSIZE (3+1)
 
 // geometry encoding
 // .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
@@ -1259,6 +1261,15 @@ typedef struct lfs3_gc {
     // core gc state
     lfs3_mgc_t gc;
 } lfs3_gc_t;
+
+// littlefs on-disk compat flags
+typedef uint32_t lfs3_compat_t;
+
+// littlefs on-disk geometry
+typedef struct lfs3_geometry {
+    lfs3_size_t block_size;
+    lfs3_block_t block_count;
+} lfs3_geometry_t;
 
 // littlefs global state
 typedef struct lfs3_grm lfs3_grm_t;

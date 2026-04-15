@@ -19,35 +19,34 @@ except ModuleNotFoundError:
     crc32c_lib = None
 
 
-RCOMPAT_NONSTANDARD = 0x00000001 # Non-standard filesystem format
-RCOMPAT_WRONLY      = 0x00000004 # Reading is disallowed
-RCOMPAT_MMOSS       = 0x00000010 # May use an inlined mdir
-RCOMPAT_MSPROUT     = 0x00000020 # May use an mdir pointer
-RCOMPAT_MSHRUB      = 0x00000040 # May use an inlined mtree
-RCOMPAT_MTREE       = 0x00000080 # May use an mdir btree
-RCOMPAT_BMOSS       = 0x00000100 # Files may use inlined data
-RCOMPAT_BSPROUT     = 0x00000200 # Files may use block pointers
-RCOMPAT_BSHRUB      = 0x00000400 # Files may use inlined btrees
-RCOMPAT_BTREE       = 0x00000800 # Files may use btrees
-RCOMPAT_GRM         = 0x00010000 # Global-remove in use
+RCOMPAT_WRONLY      =    0x00001 # Reading is disallowed
+RCOMPAT_NONSTANDARD =    0x00002 # Non-standard filesystem format
+RCOMPAT_GRM         =    0x00004 # Global-remove in use
+RCOMPAT_STICKYNOTE  =    0x00008 # Stickynote file type in use
+RCOMPAT_MMOSS       =    0x00010 # May use an inlined mdir
+RCOMPAT_MGRASS      =    0x00020 # May use an mdir pointer
+RCOMPAT_MSHRUB      =    0x00040 # May use an inlined mtree
+RCOMPAT_MTREE       =    0x00080 # May use an mdir btree
+RCOMPAT_BMOSS       =    0x00100 # Files may use inlined data
+RCOMPAT_BGRASS      =    0x00200 # Files may use block pointers
+RCOMPAT_BSHRUB      =    0x00400 # Files may use inlined btrees
+RCOMPAT_BTREE       =    0x00800 # Files may use btrees
 
-WCOMPAT_NONSTANDARD = 0x00000001 # Non-standard filesystem format
-WCOMPAT_RDONLY      = 0x00000002 # Writing is disallowed
-WCOMPAT_GCKSUM      = 0x00040000 # Global-checksum in use
-WCOMPAT_GBMAP       = 0x00080000 # Global on-disk block-map in use
-WCOMPAT_DIR         = 0x01000000 # Directory file types in use
+WCOMPAT_RDONLY      =      0x001 # Writing is disallowed
+WCOMPAT_NONSTANDARD =      0x002 # Non-standard filesystem format
+WCOMPAT_GCKSUM      =      0x004 # Global-checksum in use
+WCOMPAT_DIR         =      0x008 # Directory file types in use
+WCOMPAT_GBMAP       =      0x010 # Global on-disk block-map in use
 
 TAG_NULL        = 0x0000    ##  v--- ---- ++++ ++++
 TAG_INTERNAL    = 0x0100    ##  v--- ---1 +ttt tttt
 TAG_CONFIG      = 0x0200    ##  v--- --1- +ttt tttt
 TAG_MAGIC       = 0x0201    #   v--- --1- +--- --rr
-TAG_VERSION     = 0x0204    #   v--- --1- +--- -1--
-TAG_RCOMPAT     = 0x0205    #   v--- --1- +--- -1-1
-TAG_WCOMPAT     = 0x0206    #   v--- --1- +--- -11-
-TAG_OCOMPAT     = 0x0207    #   v--- --1- +--- -111
-TAG_GEOMETRY    = 0x0208    #   v--- --1- +--- 1---
-TAG_NAMELIMIT   = 0x0209    #   v--- --1- +--- 1--1
-TAG_FILELIMIT   = 0x020a    #   v--- --1- +--- 1-1-
+TAG_VERSION     = 0x0204    #   v--- --1- +--- -1++
+TAG_COMPAT      = 0x0208    #   v--- --1- +--- 1-++
+TAG_GEOMETRY    = 0x020c    #   v--- --1- +--- 11++
+TAG_NAMELIMIT   = 0x0210    #   v--- --1- +--1 --++
+TAG_FILELIMIT   = 0x0214    #   v--- --1- +--1 -1++
 TAG_GDELTA      = 0x0300    ##  v--- --11 +ttt tttt
 TAG_GRMDELTA    = 0x0300    #   v--- --11 +--- --++
 TAG_GBMAPDELTA  = 0x0304    #   v--- --11 +--- -1rr
@@ -60,9 +59,9 @@ TAG_BOOKMARK    = 0x0404    #   v--- -1-- +--- -1--
 TAG_MNAME       = 0x0430    #   v--- -1-- +-11 ----
 TAG_STRUCT      = 0x0500    ##  v--- -1-1 +ttt tttt
 TAG_BRANCH      = 0x0500    #   v--- -1-1 +--- --rr
-TAG_DATA        = 0x0504    #   v--- -1-1 +--- -1rr
+TAG_DATA        = 0x0504    #   v--- -1-1 +--- -1++
 TAG_BLOCK       = 0x0508    #   v--- -1-1 +--- 1err
-TAG_DID         = 0x0520    #   v--- -1-1 +-1- ----
+TAG_DID         = 0x0520    #   v--- -1-1 +-1- --++
 TAG_BSHRUB      = 0x0528    #   v--- -1-1 +-1- 1-rr
 TAG_BTREE       = 0x052c    #   v--- -1-1 +-1- 11rr
 TAG_MROOT       = 0x0531    #   v--- -1-1 +-11 --rr
@@ -2530,47 +2529,17 @@ class Config:
             return 'version v%s.%s' % (self.major, self.minor)
 
     # compat flags
-    class Rcompat(Config):
-        tag = TAG_RCOMPAT
+    class Compat(Config):
+        tag = TAG_COMPAT
 
         def __init__(self, mroot, tag, rattr):
             super().__init__(mroot, tag, rattr)
-            self.flags = fromle32(self.data)
-
-        def __int__(self):
-            return self.flags
-
-        def repr(self):
-            return 'rcompat 0x%s' % (
-                    ''.join('%02x' % f for f in reversed(self.data)))
-
-    class Wcompat(Config):
-        tag = TAG_WCOMPAT
-
-        def __init__(self, mroot, tag, rattr):
-            super().__init__(mroot, tag, rattr)
-            self.flags = fromle32(self.data)
-
-        def __int__(self):
-            return self.flags
+            d = 0
+            self.rcompat, d_ = fromleb128(self.data, d); d += d_
+            self.wcompat, d_ = fromleb128(self.data, d); d += d_
 
         def repr(self):
-            return 'wcompat 0x%s' % (
-                    ''.join('%02x' % f for f in reversed(self.data)))
-
-    class Ocompat(Config):
-        tag = TAG_OCOMPAT
-
-        def __init__(self, mroot, tag, rattr):
-            super().__init__(mroot, tag, rattr)
-            self.flags = fromle32(self.data)
-
-        def __int__(self):
-            return self.flags
-
-        def repr(self):
-            return 'ocompat 0x%s' % (
-                    ''.join('%02x' % f for f in reversed(self.data)))
+            return 'compat r%x w%x' % (self.rcompat, self.wcompat)
 
     # block device geometry
     class Geometry(Config):
@@ -2719,7 +2688,6 @@ class Gstate:
         mask = None
         rcompat = None
         wcompat = None
-        ocompat = None
 
         def __init__(self, mtree, config, tag, gdeltas):
             # replace tag with what we find
@@ -2739,15 +2707,13 @@ class Gstate:
             # check compat flags while we can access config
             if self.rcompat is not None:
                 self.rcompat = self.rcompat & (
-                        int(config.rcompat) if config.rcompat is not None
+                        int(config.compat.rcompat)
+                            if config.compat is not None
                             else 0)
             if self.wcompat is not None:
                 self.wcompat = self.wcompat & (
-                        int(config.wcompat) if config.wcompat is not None
-                            else 0)
-            if self.ocompat is not None:
-                self.ocompat = self.ocompat & (
-                        int(config.ocompat) if config.ocompat is not None
+                        int(config.compat.wcompat)
+                            if config.compat is not None
                             else 0)
 
         @property
@@ -2757,9 +2723,7 @@ class Gstate:
 
         # true unless compat flags are missing
         def __bool__(self):
-            return (self.rcompat != 0
-                    and self.wcompat != 0
-                    and self.ocompat != 0)
+            return self.rcompat != 0 and self.wcompat != 0
 
         @property
         def size(self):
@@ -2897,9 +2861,12 @@ class Lfs3:
 
         # go ahead and fetch some expected fields
         self.version = self.config.version
-        self.rcompat = self.config.rcompat
-        self.wcompat = self.config.wcompat
-        self.ocompat = self.config.ocompat
+        if self.config.compat is not None:
+            self.rcompat = self.config.compat.rcompat
+            self.wcompat = self.config.compat.wcompat
+        else:
+            self.rcompat = None
+            self.wcompat = None
         if self.config.geometry is not None:
             self.block_count = self.config.geometry.block_count
             self.block_size = self.config.geometry.block_size
