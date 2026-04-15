@@ -802,8 +802,6 @@ enum lfs3_tag {
     LFS3_TAG_GEOMETRY       = 0x020c,
     LFS3_TAG_NAMELIMIT      = 0x0210,
     LFS3_TAG_FILELIMIT      = 0x0214,
-    // in-device only, to help find unknown config tags
-    LFS3_tag_UNKNOWNCONFIG  = 0x0218,
 
     // global-state tags
     LFS3_TAG_GDELTA         = 0x0300,

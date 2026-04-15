@@ -1061,7 +1061,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
-    // mount should _not_ fail, ocompat should always be ignored
+    // mount should _not_ fail, ocompat should be ignored
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_unmount(&lfs3) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
@@ -1389,9 +1389,11 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
-    // mount should now fail
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_NOTSUP;
-    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => LFS3_ERR_NOTSUP;
+    // mount should _not_ fail, unknown config should be ignored
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+    lfs3_unmount(&lfs3) => 0;
 '''
 
 # test what happens if we find an unknown file type

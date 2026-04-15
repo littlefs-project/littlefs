@@ -15992,20 +15992,6 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     lfs3->file_limit = file_limit;
 
-    // check for unknown configs
-    tag = lfs3_mdir_lookupnext(lfs3, mroot, LFS3_tag_UNKNOWNCONFIG,
-            NULL);
-    if (tag < 0 && tag != LFS3_ERR_NOENT) {
-        return tag;
-    }
-
-    if (tag != LFS3_ERR_NOENT
-            && lfs3_tag_suptype(tag) == LFS3_TAG_CONFIG) {
-        LFS3_ERROR("Unknown config 0x%04"PRIx16,
-                tag);
-        return LFS3_ERR_NOTSUP;
-    }
-
     return 0;
 }
 
