@@ -931,139 +931,125 @@ enum lfs3_tag {
 
 // On-disk encodings/decodings
 
-// tag encoding:
-// .---+---+---+- -+- -+- -+- -+---+- -+- -+- -.  tag:    1 be16    2 bytes
-// |  tag  | weight            | size          |  weight: 1 leb128  <=5 bytes
-// '---+---+---+- -+- -+- -+- -+---+- -+- -+- -'  size:   1 leb128  <=4 bytes
-//                                                total:            <=11 bytes
-#define LFS3_TAG_DSIZE (2+5+4)
+// tag encoding:                                  tag:    1 be16      2 bytes
+// .---+---+---+- -+- -+- -+- -+---+- -+- -+- -.  weight: 1 leb128  <=5 bytes
+// |  tag  | weight            | size          |  size:   1 leb128  <=4 bytes
+// '---+---+---+- -+- -+- -+- -+---+- -+- -+- -'                      .
+#define LFS3_TAG_DSIZE                                               11
 
-// le32 encoding:
-// .---+---+---+---.  total: 1 le32  4 bytes
-// |     le32      |
-// '---+---+---+---'
-//
-#define LFS3_LE32_DSIZE 4
+// le32 encoding:     word: 1 le32  4 bytes
+// .---+---+---+---.                .
+// |     le32      |                .
+// '---+---+---+---'                .
+#define LFS3_LE32_DSIZE             4
 
-// leb128 encoding:
-// .---+- -+- -+- -+- -.  total: 1 leb128  <=5 bytes
-// |      leb128       |
-// '---+- -+- -+- -+- -'
-//
-#define LFS3_LEB128_DSIZE 5
+// leb128 encoding:       word: 1 leb128  <=5 bytes
+// .---+- -+- -+- -+- -.                    .
+// | leb128            |                    .
+// '---+- -+- -+- -+- -'                    .
+#define LFS3_LEB128_DSIZE                   5
 
-// lleb128 encoding:
-// .---+- -+- -+- -.  total: 1 leb128  <=4 bytes
-// |    lleb128    |
-// '---+- -+- -+- -'
-//
-#define LFS3_LLEB128_DSIZE 4
+// lleb128 encoding:  word: 1 leb128  <=4 bytes
+// .---+- -+- -+- -.                    .
+// | lleb128       |                    .
+// '---+- -+- -+- -'                    .
+#define LFS3_LLEB128_DSIZE              4
 
-// compat encoding
-// .- -+- -+- -+- -.  rcompat: 1 leb128  <=3 bytes
-// | r         | w |  wcompat: 1 leb128  <=1 bytes
-// '- -+- -+- -+- -'  total:             <=4 bytes
-//
-#define LFS3_COMPAT_DSIZE (3+1)
+// compat encoding:   rcompat: 1 leb128  <=3 bytes
+// .- -+- -+- -+- -.  wcompat: 1 leb128  <=1 bytes
+// | r         | w |                       .
+// '- -+- -+- -+- -'                       .
+#define LFS3_COMPAT_DSIZE                  4
 
-// geometry encoding
-// .---+- -+- -+- -.      block_size:  1 leb128  <=4 bytes
-// | block_size    |      block_count: 1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -.  total:                 <=9 bytes
-// | block_count       |
-// '---+- -+- -+- -+- -'
-//
-#define LFS3_GEOMETRY_DSIZE (4+5)
+// geometry encoding:     block_size:  1 leb128  <=4 bytes
+// .---+- -+- -+- -.      block_count: 1 leb128  <=5 bytes
+// | block_size    |                               .
+// +---+- -+- -+- -+- -.                           .
+// | block_count       |                           .
+// '---+- -+- -+- -+- -'                           .
+#define LFS3_GEOMETRY_DSIZE                        9
 
-// grm encoding:
-// .- -+- -+- -+- -+- -.  mids:  2 leb128s  <=2x5 bytes
-// ' mids              '  total:            <=10 bytes
-// +                   +
-// '                   '
-// '- -+- -+- -+- -+- -'
-//
-#define LFS3_GRM_DSIZE (5+5)
+// grm encoding:          mids:  2 leb128s  <=2x5 bytes
+// .- -+- -+- -+- -+- -.                        .
+// ' mids              '                        .
+// +                   +                        .
+// '                   '                        .
+// '- -+- -+- -+- -+- -'                        .
+#define LFS3_GRM_DSIZE                         10
 
-// gbmap encoding:
-// .---+- -+- -+- -+- -. window: 1 leb128  <=5 bytes
-// | window            | known:  1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -+ block:  1 leb128  <=5 bytes
-// | known             | trunk:  1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -+ cksum:  1 le32    4 bytes
-// | block             | total:            23 bytes
-// +---+- -+- -+- -+- -'
-// | trunk         |
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFS3_GBMAP_DSIZE (5+5+5+4+4)
-
-// branch encoding:
-// .---+- -+- -+- -+- -.  block: 1 leb128  <=5 bytes
-// | block             |  trunk: 1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -'  cksum: 1 le32    4 bytes
-// | trunk         |      total:           <=13 bytes
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFS3_BRANCH_DSIZE (5+4+4)
-
-// bptr encoding:
-// .---+- -+- -+- -.      size:   1 leb128  <=4 bytes
-// | size          |      block:  1 leb128  <=5 bytes
-// +---+- -+- -+- -+- -.  off:    1 leb128  <=4 bytes
-// | block             |  cksize: 1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -'  cksum:  1 le32    4 bytes
-// | off           |      total:            <=21 bytes
-// +---+- -+- -+- -+
-// | cksize        |
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFS3_BPTR_DSIZE (4+5+4+4+4)
-
-// btree encoding:
-// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
-// | weight            |  block:  1 leb128  <=5 bytes
+// gbmap encoding:        window: 1 leb128  <=5 bytes
+// .---+- -+- -+- -+- -.  known:  1 leb128  <=5 bytes
+// | window            |  block:  1 leb128  <=5 bytes
 // +---+- -+- -+- -+- -+  trunk:  1 leb128  <=4 bytes
-// | block             |  cksum:  1 le32    4 bytes
-// +---+- -+- -+- -+- -'  total:            <=18 bytes
-// | trunk         |
-// +---+- -+- -+- -+
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFS3_BTREE_DSIZE (5+LFS3_BRANCH_DSIZE)
+// | known             |  cksum:  1 le32      4 bytes
+// +---+- -+- -+- -+- -+                      .
+// | block             |                      .
+// +---+- -+- -+- -+- -'                      .
+// | trunk         |                          .
+// +---+- -+- -+- -+                          .
+// |     cksum     |                          .
+// '---+---+---+---'                          .
+#define LFS3_GBMAP_DSIZE                     23
 
-// shrub encoding:
-// .---+- -+- -+- -+- -.  weight: 1 leb128  <=5 bytes
+// branch encoding:       block: 1 leb128  <=5 bytes
+// .---+- -+- -+- -+- -.  trunk: 1 leb128  <=4 bytes
+// | block             |  cksum: 1 le32      4 bytes
+// +---+- -+- -+- -+- -'                     .
+// | trunk         |                         .
+// +---+- -+- -+- -+                         .
+// |     cksum     |                         .
+// '---+---+---+---'                         .
+#define LFS3_BRANCH_DSIZE                   13
+
+// bptr encoding:         size:   1 leb128  <=4 bytes
+// .---+- -+- -+- -.      block:  1 leb128  <=5 bytes
+// | size          |      off:    1 leb128  <=4 bytes
+// +---+- -+- -+- -+- -.  cksize: 1 leb128  <=4 bytes
+// | block             |  cksum:  1 le32      4 bytes
+// +---+- -+- -+- -+- -'                      .
+// | off           |                          .
+// +---+- -+- -+- -+                          .
+// | cksize        |                          .
+// +---+- -+- -+- -+                          .
+// |     cksum     |                          .
+// '---+---+---+---'                          .
+#define LFS3_BPTR_DSIZE                      21
+
+// btree encoding:        weight: 1 leb128  <=5 bytes
+// .---+- -+- -+- -+- -.  block:  1 leb128  <=5 bytes
 // | weight            |  trunk:  1 leb128  <=4 bytes
-// +---+- -+- -+- -+- -'  total:            <=9 bytes
-// | trunk         |
-// '---+- -+- -+- -'
-//
-#define LFS3_SHRUB_DSIZE (5+4)
+// +---+- -+- -+- -+- -+  cksum:  1 le32      4 bytes
+// | block             |                      .
+// +---+- -+- -+- -+- -'                      .
+// | trunk         |                          .
+// +---+- -+- -+- -+                          .
+// |     cksum     |                          .
+// '---+---+---+---'                          .
+#define LFS3_BTREE_DSIZE                     18
 
-// mptr encoding:
-// .---+- -+- -+- -+- -.  blocks: 2 leb128s  <=2x5 bytes
-// | block x 2         |  total:             <=10 bytes
-// +                   +
-// |                   |
-// '---+- -+- -+- -+- -'
-//
-#define LFS3_MPTR_DSIZE (5+5)
+// shrub encoding:        weight: 1 leb128  <=5 bytes
+// .---+- -+- -+- -+- -.  trunk:  1 leb128  <=4 bytes
+// | weight            |                      .
+// +---+- -+- -+- -+- -'                      .
+// | trunk         |                          .
+// '---+- -+- -+- -'                          .
+#define LFS3_SHRUB_DSIZE                      9
 
-// ecksum encoding:
-// .---+- -+- -+- -.  cksize: 1 leb128  <=4 bytes
-// | cksize        |  cksum:  1 le32    4 bytes
-// +---+- -+- -+- -+  total:            <=8 bytes
-// |     cksum     |
-// '---+---+---+---'
-//
-#define LFS3_ECKSUM_DSIZE (4+4)
+// mptr encoding:         blocks: 2 leb128s  <=2x5 bytes
+// .---+- -+- -+- -+- -.                         .
+// | block x 2         |                         .
+// +                   +                         .
+// |                   |                         .
+// '---+- -+- -+- -+- -'                         .
+#define LFS3_MPTR_DSIZE                         10
+
+// ecksum encoding:   cksize: 1 leb128  <=4 bytes
+// .---+- -+- -+- -.  cksum:  1 le32      4 bytes
+// | cksize        |                      .
+// +---+- -+- -+- -+                      .
+// |     cksum     |                      .
+// '---+---+---+---'                      .
+#define LFS3_ECKSUM_DSIZE                 8
 
 
 
