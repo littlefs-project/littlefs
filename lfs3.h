@@ -790,78 +790,78 @@ struct lfs3_file_cfg {
 // On-disk metadata tags
 enum lfs3_tag {
     // null tag reserved for null tag things
-    LFS3_TAG_NULL           = 0x0000,
+    LFS3_TAG_NULL           = 0x0000,   /// v--- ---- ++++ ++++
     // internal tag reserved for in-device use
-    LFS3_TAG_INTERNAL       = 0x0100,
+    LFS3_TAG_INTERNAL       = 0x0100,   /// v--- ---1 +ttt tttt
 
     // config tags
-    LFS3_TAG_CONFIG         = 0x0200,
-    LFS3_TAG_MAGIC          = 0x0201,
-    LFS3_TAG_VERSION        = 0x0204,
-    LFS3_TAG_COMPAT         = 0x0208,
-    LFS3_TAG_GEOMETRY       = 0x020c,
-    LFS3_TAG_NAMELIMIT      = 0x0210,
-    LFS3_TAG_FILELIMIT      = 0x0214,
+    LFS3_TAG_CONFIG         = 0x0200,   /// v--- --1- +ttt tttt
+    LFS3_TAG_MAGIC          = 0x0201,   //  v--- --1- +--- --rr
+    LFS3_TAG_VERSION        = 0x0204,   //  v--- --1- +--- -1++
+    LFS3_TAG_COMPAT         = 0x0208,   //  v--- --1- +--- 1-++
+    LFS3_TAG_GEOMETRY       = 0x020c,   //  v--- --1- +--- 11++
+    LFS3_TAG_NAMELIMIT      = 0x0210,   //  v--- --1- +--1 --++
+    LFS3_TAG_FILELIMIT      = 0x0214,   //  v--- --1- +--1 -1++
 
     // global-state tags
-    LFS3_TAG_GDELTA         = 0x0300,
-    LFS3_TAG_GRMDELTA       = 0x0300,
-    LFS3_TAG_GBMAPDELTA     = 0x0304,
+    LFS3_TAG_GDELTA         = 0x0300,   /// v--- --11 +ttt tttt
+    LFS3_TAG_GRMDELTA       = 0x0300,   //  v--- --11 +--- --++
+    LFS3_TAG_GBMAPDELTA     = 0x0304,   //  v--- --11 +--- -1rr
 
     // name tags
-    LFS3_TAG_NAME           = 0x0400,
-    LFS3_TAG_BNAME          = 0x0400,
-    LFS3_TAG_REG            = 0x0401,
-    LFS3_TAG_DIR            = 0x0402,
-    LFS3_TAG_STICKYNOTE     = 0x0403,
-    LFS3_TAG_BOOKMARK       = 0x0404,
+    LFS3_TAG_NAME           = 0x0400,   /// v--- -1-- +ttt tttt
+    LFS3_TAG_BNAME          = 0x0400,   //  v--- -1-- +--- ----
+    LFS3_TAG_REG            = 0x0401,   //  v--- -1-- +--- ---1
+    LFS3_TAG_DIR            = 0x0402,   //  v--- -1-- +--- --1-
+    LFS3_TAG_STICKYNOTE     = 0x0403,   //  v--- -1-- +--- --11
+    LFS3_TAG_BOOKMARK       = 0x0404,   //  v--- -1-- +--- -1--
     // in-device only name tags, these should never get written to disk
     LFS3_tag_ORPHAN         = 0x0405,
     LFS3_tag_TRV            = 0x0406,
     LFS3_tag_GC             = 0x0407,
     LFS3_tag_UNKNOWN        = 0x0408,
     // non-file name tags
-    LFS3_TAG_MNAME          = 0x0430,
+    LFS3_TAG_MNAME          = 0x0430,   //  v--- -1-- +-11 ----
 
     // struct tags
-    LFS3_TAG_STRUCT         = 0x0500,
-    LFS3_TAG_BRANCH         = 0x0500,
-    LFS3_TAG_DATA           = 0x0504,
-    LFS3_TAG_BLOCK          = 0x0508,
-    LFS3_TAG_DID            = 0x0520,
-    LFS3_TAG_BSHRUB         = 0x0528,
-    LFS3_TAG_BTREE          = 0x052c,
-    LFS3_TAG_MROOT          = 0x0531,
-    LFS3_TAG_MDIR           = 0x0535,
-    LFS3_TAG_MTREE          = 0x053c,
-    LFS3_TAG_BMRANGE        = 0x0540,
-    LFS3_TAG_BMFREE         = 0x0540,
-    LFS3_TAG_BMINUSE        = 0x0541,
-    LFS3_TAG_BMERASED       = 0x0542,
-    LFS3_TAG_BMBAD          = 0x0543,
+    LFS3_TAG_STRUCT         = 0x0500,   /// v--- -1-1 +ttt tttt
+    LFS3_TAG_BRANCH         = 0x0500,   //  v--- -1-1 +--- --rr
+    LFS3_TAG_DATA           = 0x0504,   //  v--- -1-1 +--- -1++
+    LFS3_TAG_BLOCK          = 0x0508,   //  v--- -1-1 +--- 1err
+    LFS3_TAG_DID            = 0x0520,   //  v--- -1-1 +-1- --++
+    LFS3_TAG_BSHRUB         = 0x0528,   //  v--- -1-1 +-1- 1-rr
+    LFS3_TAG_BTREE          = 0x052c,   //  v--- -1-1 +-1- 11rr
+    LFS3_TAG_MROOT          = 0x0531,   //  v--- -1-1 +-11 --rr
+    LFS3_TAG_MDIR           = 0x0535,   //  v--- -1-1 +-11 -1rr
+    LFS3_TAG_MTREE          = 0x053c,   //  v--- -1-1 +-11 11rr
+    LFS3_TAG_BMRANGE        = 0x0540,   //  v--- -1-1 +1-- ++uu
+    LFS3_TAG_BMFREE         = 0x0540,   //  v--- -1-1 +1-- ----
+    LFS3_TAG_BMINUSE        = 0x0541,   //  v--- -1-1 +1-- ---1
+    LFS3_TAG_BMERASED       = 0x0542,   //  v--- -1-1 +1-- --1-
+    LFS3_TAG_BMBAD          = 0x0543,   //  v--- -1-1 +1-- --11
 
     // user/sys attributes
-    LFS3_TAG_ATTR           = 0x0600,
-    LFS3_TAG_UATTR          = 0x0600,
-    LFS3_TAG_SATTR          = 0x0700,
+    LFS3_TAG_ATTR           = 0x0600,   /// v--- -11a +aaa aaaa
+    LFS3_TAG_UATTR          = 0x0600,   //  v--- -11- +aaa aaaa
+    LFS3_TAG_SATTR          = 0x0700,   //  v--- -111 +aaa aaaa
 
     // shrub tags belong to secondary trees
-    LFS3_TAG_SHRUB          = 0x1000,
+    LFS3_TAG_SHRUB          = 0x1000,   /// v--1 kkkk +kkk kkkk
 
     // alt pointers form the inner nodes of our rbyd trees
-    LFS3_TAG_ALT            = 0x4000,
+    LFS3_TAG_ALT            = 0x4000,   /// v1cd kkkk +kkk kkkk
     LFS3_TAG_B              = 0x0000,
     LFS3_TAG_R              = 0x2000,
     LFS3_TAG_LE             = 0x0000,
     LFS3_TAG_GT             = 0x1000,
 
     // checksum tags
-    LFS3_TAG_CKSUM          = 0x3000,
+    LFS3_TAG_CKSUM          = 0x3000,   /// v-11 ---- ++++ +pqq
     LFS3_TAG_PHASE          = 0x0003,
     LFS3_TAG_PERTURB        = 0x0004,
-    LFS3_TAG_NOTE           = 0x3100,
-    LFS3_TAG_ECKSUM         = 0x3200,
-    LFS3_TAG_GCKSUMDELTA    = 0x3300,
+    LFS3_TAG_NOTE           = 0x3100,   /// v-11 ---1 ++++ ++++
+    LFS3_TAG_ECKSUM         = 0x3200,   /// v-11 --1- ++++ ++++
+    LFS3_TAG_GCKSUMDELTA    = 0x3300,   /// v-11 --11 ++++ ++++
 
     // in-device only tags, these should never get written to disk
     LFS3_tag_NOOP           = 0x0100,
