@@ -2475,13 +2475,8 @@ code = '''
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
-                // and maybe ckmeta/ckdata, note ckdata implies ckmeta
-                | (((!CKMETA && !CKDATA) || SIZE > FCACHE_SIZE || SYNC)
-                    ? LFS3_I_NEEDSCKMETA
-                    : 0)
-                | ((!CKDATA || SIZE > FCACHE_SIZE || SYNC)
-                    ? LFS3_I_NEEDSCKDATA
-                    : 0)
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check the file contents

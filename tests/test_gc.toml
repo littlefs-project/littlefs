@@ -1442,7 +1442,7 @@ code = '''
         // we should not have split yet
         assert(lfs3.mtree.weight == 0);
         // we need internals to check this
-        lfs3_ssize_t estimate = lfs3_mdir_estimate___(&lfs3,
+        lfs3_ssize_t estimate = lfs3_mdir_estimate__(&lfs3,
                 &file1.b.h.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
@@ -1820,7 +1820,7 @@ code = '''
         // we should not have split yet
         assert(lfs3.mtree.weight == orig);
         // we need internals to check this
-        lfs3_ssize_t estimate = lfs3_mdir_estimate___(&lfs3,
+        lfs3_ssize_t estimate = lfs3_mdir_estimate__(&lfs3,
                 &file2.b.h.mdir, -1, -1,
                 NULL);
         assert(estimate >= 0);
