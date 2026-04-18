@@ -17080,6 +17080,15 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
 // attempt to grow the filesystem
 #ifndef LFS3_RDONLY
 int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
+    // Note we do _not_ call lfs3_fs_mkconsistent here. This is a bit scary,
+    // but we should be ok as long as we patch grms in lfs3_mdir_commit and
+    // only commit to the mroot.
+    //
+    // Calling lfs3_fs_mkconsistent risks locking our filesystem up trying
+    // to fix grms/orphans before we can commit the new filesystem size. If
+    // we don't, we should always be able to recover a stuck filesystem with
+    // lfs3_fs_grow.
+
     // filesystem must be writeable
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
     // shrinking the filesystem is not supported
@@ -17089,15 +17098,6 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
     if (block_count_ == lfs3->block_count) {
         return 0;
     }
-
-    // Note we do _not_ call lfs3_fs_mkconsistent here. This is a bit scary,
-    // but we should be ok as long as we patch grms in lfs3_mdir_commit and
-    // only commit to the mroot.
-    //
-    // Calling lfs3_fs_mkconsistent risks locking our filesystem up trying
-    // to fix grms/orphans before we can commit the new filesystem size. If
-    // we don't, we should always be able to recover a stuck filesystem with
-    // lfs3_fs_grow.
 
     LFS3_INFO("Growing littlefs %"PRId32"x%"PRId32" -> %"PRId32"x%"PRId32,
             lfs3->cfg->block_size, lfs3->block_count,
@@ -17180,15 +17180,15 @@ failed:;
 // enable the global on-disk block-map
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
-    // error if we already have a gbmap
-    if (lfs3_f_isgbmap(lfs3->flags)) {
-        return LFS3_ERR_EXIST;
-    }
-
     // prepare our filesystem for writing
     int err = lfs3_fs_mkconsistent(lfs3);
     if (err) {
         return err;
+    }
+
+    // error if we already have a gbmap
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        return LFS3_ERR_EXIST;
     }
 
     // checkpoint the lookahead buffer, the gbmap doesn't exist yet
@@ -17245,15 +17245,15 @@ failed:;
 // disable the global on-disk block-map
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
-    // error if we already don't have a gbmap
-    if (!lfs3_f_isgbmap(lfs3->flags)) {
-        return LFS3_ERR_NOENT;
-    }
-
     // prepare our filesystem for writing
     int err = lfs3_fs_mkconsistent(lfs3);
     if (err) {
         return err;
+    }
+
+    // error if we already don't have a gbmap
+    if (!lfs3_f_isgbmap(lfs3->flags)) {
+        return LFS3_ERR_NOENT;
     }
 
     // checkpoint the allocator
