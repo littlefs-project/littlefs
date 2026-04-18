@@ -16806,14 +16806,14 @@ static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
         // we need to revert manually on error
         lfs3_grm_t grm_p = lfs3->grm;
 
-        // mark grm as taken care of
-        lfs3_grm_pop(lfs3);
-
         // checkpoint the allocator
         err = lfs3_alloc_ckpoint(lfs3);
         if (err) {
             return err;
         }
+
+        // mark grm as taken care of
+        lfs3_grm_pop(lfs3);
 
         // remove the rid while atomically updating our grm
         err = lfs3_mdir_commit(lfs3, &mdir, (const lfs3_rattr_t[]){
