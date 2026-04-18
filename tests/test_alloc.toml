@@ -757,6 +757,119 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+# here's an interesting one, test that spamming gc calls does not clog
+# up the allocator
+#
+# TODO why?
+[cases.test_alloc_wraparound_gc_spam]
+defines.COUNT = [
+    'BLOCK_COUNT',
+    'BLOCK_COUNT-1',
+    'BLOCK_COUNT/2',
+    'BLOCK_COUNT/4',
+    '5',
+    'FORMAT_BLOCK_COUNT',
+]
+defines.SIZE = [
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+defines.N = ['5', 'BLOCK_COUNT/2']
+defines.WRAPAROUND = 3
+if = [
+    'COUNT >= FORMAT_BLOCK_COUNT',
+    'COUNT >= 2*N*SIZE/BLOCK_SIZE',
+]
+code = '''
+    // test various block counts
+    struct lfs3_cfg cfg = *CFG;
+    cfg.block_count = COUNT;
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
+
+    // create n files repeatedly until we're sure we've wrapped around
+    // a few times
+    uint32_t prng = 42;
+    uint32_t prng_ = prng;
+    for (lfs3_size_t i = 0;
+            i < (WRAPAROUND*COUNT)
+                / (N*(SIZE/BLOCK_SIZE));
+            i++) {
+        prng = prng_;
+        for (lfs3_size_t n = 0; n < N; n++) {
+            char name[256];
+            sprintf(name, "file%08d", n);
+
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+            lfs3_file_close(&lfs3, &file) => 0;
+
+            // call gc after every write
+            lfs3_gc_t gc;
+            lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
+            for (lfs3_block_t i = 0;; i++) {
+                // a bit hacky, but this catches infinite loops
+                assert(i < 2*BLOCK_COUNT);
+
+                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+                assert(steps >= 0);
+                if (steps == 0) {
+                    break;
+                }
+            }
+            lfs3_gc_close(&lfs3, &gc) => 0;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
+        }
+
+        // check that our file writes worked
+        prng_ = prng;
+        for (lfs3_size_t i = 0; i < N; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "file%08d", i);
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS3_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng_) % 26);
+            }
+
+            lfs3_file_t file;
+            uint8_t rbuf[SIZE];
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfs3_file_close(&lfs3, &file) => 0;
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
 
 
 # test that alloc works up until nospc

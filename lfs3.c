@@ -7608,7 +7608,7 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
 // some mdir-related gstate things we need
 
 // zero any pending gdeltas
-static void lfs3_fs_zerogdelta(lfs3_t *lfs3) {
+static void lfs3_fs_discardgdelta(lfs3_t *lfs3) {
     // TODO one cool trick would be to make these all contiguous so
     // zeroing is one memset
 
@@ -8984,7 +8984,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     }
 
     // flush gdeltas
-    lfs3_fs_zerogdelta(lfs3);
+    lfs3_fs_discardgdelta(lfs3);
 
     // xor our old cksum
     lfs3->gcksum ^= mdir->r.cksum;
@@ -10211,8 +10211,9 @@ static int lfs3_mdir_fixorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
+static inline void lfs3_alloc_discard_(lfs3_t *lfs3);
 static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known);
-static int lfs3_gbmap_zerounknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t window, lfs3_block_t size);
 static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
@@ -10248,7 +10249,7 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         && !lfs3_alloc_canlookahead(lfs3),
                     false)) {
                 #ifdef LFS3_GBMAP
-                // lfs3_gbmap_zerounknown may allocate, so checkpoint
+                // lfs3_gbmap_discardunknown may allocate, so checkpoint
                 // the lookahead buffer
                 lfs3_alloc_ckpoint_(lfs3);
 
@@ -10260,8 +10261,13 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 // we do this instead of creating a new gbmap to
                 // (1) preserve any known erased/bad info and (2) try to
                 // best use any in-btree erased-state
+                //
+                // note this discards in-use blocks in both the known
+                // and unknown regions, we need to do this for the same
+                // reason we discard the lookahead buffer, to avoid
+                // clogging things up when gc is called frequently
                 LFS3_ASSERT(lfs3->lookahead.ckpoint >= lfs3->gbmap.known);
-                int err = lfs3_gbmap_zerounknown(lfs3, &mgc->gbmap_,
+                int err = lfs3_gbmap_discardunknown(lfs3, &mgc->gbmap_,
                         lfs3->gbmap.window + lfs3->gbmap.known,
                         lfs3->lookahead.ckpoint - lfs3->gbmap.known);
                 if (err) {
@@ -10269,12 +10275,23 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 }
                 #endif
 
-            // checkpoint the allocator to maximize any lookahead scans
-            //
-            // note we try to repopulate even if the lookahead flag isn't
-            // set because there's no real downside
+            // checkpoint+discard the lookahead buffer to maximize any
+            // lookahead scans
             } else  {
+                // checkpoint the lookahead buffer
                 lfs3_alloc_ckpoint_(lfs3);
+
+                // discard the current lookahead buffer
+                //
+                // note the discard is important, we need to discard
+                // stale lookahead state or we risk clogging things up
+                // if gc is called frequently
+                //
+                // consider repeatedly rewriting a file and calling gc
+                // after every write, the lookahead buffer would fill up
+                // with new blocks without noticing the old blocks are
+                // no longer in use
+                lfs3_alloc_discard_(lfs3);
 
                 #ifdef LFS3_GBMAP
                 // use weight=0 to indicate we're populating the
@@ -10921,33 +10938,53 @@ static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 // note this is not completely atomic, but worst case we just end up with
 // only some ranges zeroed
-static int lfs3_gbmap_zerounknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t window, lfs3_block_t size) {
-    lfs3_block_t window_ = window % lfs3->block_count;
-    lfs3_block_t size_ = size;
-    while (size_ > 0) {
-        lfs3_block_t block__;
-        lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, window_,
-                &block__, NULL, NULL);
+    // we need to discard in-use blocks in both the known and unknown
+    // regions to avoid clogging things up when gc is called frequently,
+    // see the comments in lfs3_mtree_gc for why
+    //
+    // but the known window is still important for keeping track of
+    // pre-erased blocks
+    lfs3_block_t block__ = -1;
+    while (true) {
+        lfs3_block_t weight__;
+        lfs3_stag_t tag__ = lfs3_gbmap_lookupnext(lfs3, gbmap, block__+1,
+                &block__, &weight__, NULL);
         if (tag__ < 0) {
-            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
+            if (tag__ == LFS3_ERR_NOENT) {
+                break;
+            }
             return tag__;
         }
-        lfs3_sblock_t d = lfs3_min(
-                block__+1 - window_,
-                size_);
 
-        // mark in-use/erased ranges as free
-        if (tag__ == LFS3_TAG_BMINUSE || tag__ == LFS3_TAG_BMERASED) {
-            int err = lfs3_gbmap_set_(lfs3, gbmap, window_+d-1, d,
+        // translate to known-window-relative
+        lfs3_block_t block___
+                = ((block__-(weight__-1)) + lfs3->block_count - window)
+                % lfs3->block_count;
+
+        // mark in-use/unknown-erased ranges as free
+        if (tag__ == LFS3_TAG_BMINUSE
+                || (tag__ == LFS3_TAG_BMERASED && block___ >= size)) {
+            // if erased limit to region in unknown window, potentially
+            // slicing the range if necessary
+            //
+            // ugh, this ended up quite complicated!
+            if (tag__ == LFS3_TAG_BMERASED) {
+                lfs3_sblock_t d = lfs3_min(
+                        weight__,
+                        lfs3->block_count - block___);
+                block__ = block__-(weight__-1) + d-1;
+                weight__ = d;
+            }
+
+            // mark as free
+            int err = lfs3_gbmap_set_(lfs3, gbmap, block__, weight__,
                     LFS3_TAG_BMFREE, NULL);
             if (err) {
                 return err;
             }
         }
-
-        window_ = (window_ + d) % lfs3->block_count;
-        size_ -= d;
     }
 
     return 0;
@@ -11081,13 +11118,22 @@ static inline bool lfs3_alloc_cansyncgbmap(const lfs3_t *lfs3) {
 }
 #endif
 
-// discard any lookahead/gbmap windows, this is necessary if block_count
+// discard lookahead state
+#ifndef LFS3_RDONLY
+static inline void lfs3_alloc_discard_(lfs3_t *lfs3) {
+    // set things to zero, note we don't mess with the window offset,
+    // to avoid messing with wear-leveling
+    lfs3->lookahead.known = 0;
+    lfs3_memset(lfs3->lookahead.buffer, 0, lfs3->cfg->lookahead_size);
+}
+#endif
+
+// discard any lookahead/gbmap state, this is necessary if block_count
 // changes
 #ifndef LFS3_RDONLY
 static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
     // discard lookahead state
-    lfs3->lookahead.known = 0;
-    lfs3_memset(lfs3->lookahead.buffer, 0, lfs3->cfg->lookahead_size);
+    lfs3_alloc_discard_(lfs3);
 
     // discard the gbmap window
     #ifdef LFS3_GBMAP
@@ -11535,7 +11581,7 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
     // known erased/bad info and (2) try to best use any in-btree
     // erased-state
     LFS3_ASSERT(lfs3->lookahead.ckpoint >= lfs3->gbmap.known);
-    int err = lfs3_gbmap_zerounknown(lfs3, &gbmap_,
+    int err = lfs3_gbmap_discardunknown(lfs3, &gbmap_,
             lfs3->gbmap.window + lfs3->gbmap.known,
             lfs3->lookahead.ckpoint - lfs3->gbmap.known);
     if (err) {
@@ -15487,7 +15533,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->lookahead.off = 0;
     lfs3->lookahead.known = 0;
     lfs3->lookahead.ckpoint = 0;
-    lfs3_alloc_discard(lfs3);
+    lfs3_alloc_discard_(lfs3);
     #endif
 
     // check that the size limits are sane
@@ -16032,7 +16078,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 
     // zero gcksum/gdeltas, we'll read these from our mdirs
     lfs3->gcksum = 0;
-    lfs3_fs_zerogdelta(lfs3);
+    lfs3_fs_discardgdelta(lfs3);
 
     // traverse the mtree rooted at mroot 0x{1,0}
     //
