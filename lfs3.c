@@ -7653,26 +7653,6 @@ static void lfs3_fs_commitgdelta(lfs3_t *lfs3) {
 }
 #endif
 
-// revert gstate to on-disk state
-#ifndef LFS3_RDONLY
-static void lfs3_fs_revertgdelta(lfs3_t *lfs3) {
-    // revert to the on-disk gcksum
-    lfs3->gcksum = lfs3->gcksum_p;
-
-    // revert to the on-disk grm
-    int err = lfs3_data_readgrm(lfs3,
-            &LFS3_DATA_BUF(lfs3->grm_p, LFS3_GRM_DSIZE),
-            &lfs3->grm);
-    if (err) {
-        LFS3_UNREACHABLE();
-    }
-
-    // note we do _not_ revert the on-disk gbmap
-    //
-    // if we did, any in-flight state would be lost
-}
-#endif
-
 // append and consume any pending gstate
 #ifndef LFS3_RDONLY
 static int lfs3_rbyd_appendgdelta(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
@@ -8958,8 +8938,14 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // lfs3->mroot must have mid=-1
     LFS3_ASSERT(lfs3->mroot.mid == -1);
 
-    // play out any rattrs that affect our grm _before_ committing to disk,
-    // keep in mind we revert to on-disk gstate if we run into an error
+    // save our grm in case we fail
+    //
+    // note that we can't use lfs3->grm_p here, as our grm may not match
+    // the on-disk state thanks to orphaned readonly files
+    lfs3_grm_t grm_p = lfs3->grm;
+
+    // play out any rattrs that affect our grm _before_ committing to
+    // disk, this is where reverting things on error is handy
     lfs3_smid_t mid_ = lfs3_smax(mdir->mid, -1);
     for (const lfs3_rattr_t *r = rattrs; *r; r = lfs3_rattr_next(r, &mid_)) {
         // push a new grm, this tag lets us push grms atomically when
@@ -9521,8 +9507,13 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     return 0;
 
 failed:;
-    // revert gstate to on-disk state
-    lfs3_fs_revertgdelta(lfs3);
+    // revert any grm changes
+    lfs3->grm = grm_p;
+    // revert to the on-disk gcksum
+    lfs3->gcksum = lfs3->gcksum_p;
+    // note we do _not_ revert the on-disk gbmap
+    //
+    // if we did, any in-flight state would be lost
     return err;
 }
 #endif
@@ -11863,7 +11854,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
     // commit our new directory into our parent, zeroing the grm in the
     // process
-    lfs3_grm_pop(lfs3);
+    lfs3_mid_t bookmark_mid = lfs3_grm_pop(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(
                 LFS3_tag_MASK12 | LFS3_TAG_DIR,
@@ -11875,6 +11866,8 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
             LFS3_RATTR_ARG(did_),
             LFS3_RATTR_NULL});
     if (err) {
+        // we need to manually revert the grm pop if we fail
+        lfs3_grm_push(lfs3, bookmark_mid);
         return err;
     }
 
@@ -12084,9 +12077,6 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
 
 failed:;
     // make sure grm queue is empty if we fail
-    //
-    // this isn't required for lfs3_mdir_commit, which reverts gstate on
-    // failure, but it is required if anything else errors
     lfs3_grm_discard(lfs3);
     return err;
 }
@@ -12199,14 +12189,14 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         }
     }
 
-    // mark old entry for removal with a grm
-    lfs3_grm_push(lfs3, old_mdir.mid);
-
     // checkpoint the allocator
     err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
         goto failed;
     }
+
+    // mark old entry for removal with a grm
+    lfs3_grm_push(lfs3, old_mdir.mid);
 
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
@@ -12281,9 +12271,6 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
 failed:;
     // make sure grm queue is empty if we fail
-    //
-    // this isn't required for lfs3_mdir_commit, which reverts gstate on
-    // failure, but it is required if anything else errors
     lfs3_grm_discard(lfs3);
     return err;
 }
