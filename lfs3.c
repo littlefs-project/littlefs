@@ -8289,6 +8289,11 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
             } else if (lfs3_rattr_tag(r) == LFS3_tag_GRMPUSH) {
                 // do nothing here, this is handled up in lfs3_mdir_commit
 
+            // pop a grm, this just lets lfs3_mdir_commit revert things
+            // easily
+            } else if (lfs3_rattr_tag(r) == LFS3_tag_GRMPOP) {
+                // do nothing here, this is handled up in lfs3_mdir_commit
+
             // move tags copy over any tags associated with the source's rid
             // TODO can this be deduplicated with lfs3_mdir_compact__ more?
             // it _really_ wants to be deduplicated
@@ -8952,6 +8957,11 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         // creating new mids
         if (lfs3_rattr_tag(r) == LFS3_tag_GRMPUSH) {
             lfs3_grm_push(lfs3, mid_);
+
+        // pop a grm, this just lets lfs3_mdir_commit revert things
+        // easily
+        } else if (lfs3_rattr_tag(r) == LFS3_tag_GRMPOP) {
+            lfs3_grm_pop(lfs3);
 
         // adjust pending grms?
         } else {
@@ -11854,7 +11864,6 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
     // commit our new directory into our parent, zeroing the grm in the
     // process
-    lfs3_mid_t bookmark_mid = lfs3_grm_pop(lfs3);
     err = lfs3_mdir_commit(lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(
                 LFS3_tag_MASK12 | LFS3_TAG_DIR,
@@ -11864,10 +11873,9 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
             LFS3_RATTR_ARG(name),
             LFS3_RATTR(LFS3_TAG_DID, 0, 1, LFS3_FROM_LEB128),
             LFS3_RATTR_ARG(did_),
+            LFS3_RATTR(LFS3_tag_GRMPOP, 0, 0),
             LFS3_RATTR_NULL});
     if (err) {
-        // we need to manually revert the grm pop if we fail
-        lfs3_grm_push(lfs3, bookmark_mid);
         return err;
     }
 
@@ -16788,27 +16796,18 @@ static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
             return err;
         }
 
-        // we also use grm to track orphans that need to be cleaned up,
-        // which means it may not match the on-disk state, which means
-        // we need to revert manually on error
-        lfs3_grm_t grm_p = lfs3->grm;
-
         // checkpoint the allocator
         err = lfs3_alloc_ckpoint(lfs3);
         if (err) {
             return err;
         }
 
-        // mark grm as taken care of
-        lfs3_grm_pop(lfs3);
-
         // remove the rid while atomically updating our grm
         err = lfs3_mdir_commit(lfs3, &mdir, (const lfs3_rattr_t[]){
+                LFS3_RATTR(LFS3_tag_GRMPOP, 0, 0),
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
                 LFS3_RATTR_NULL});
         if (err) {
-            // revert grm manually
-            lfs3->grm = grm_p;
             return err;
         }
     }

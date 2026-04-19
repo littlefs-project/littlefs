@@ -868,8 +868,9 @@ enum lfs3_tag {
     LFS3_tag_RATTRS         = 0x0101,
     LFS3_tag_SHRUBCOMMIT    = 0x0102,
     LFS3_tag_GRMPUSH        = 0x0103,
-    LFS3_tag_MOVE           = 0x0104,
-    LFS3_tag_ATTRS          = 0x0105,
+    LFS3_tag_GRMPOP         = 0x0104,
+    LFS3_tag_MOVE           = 0x0105,
+    LFS3_tag_ATTRS          = 0x0106,
 
     // some in-device only tag modifiers
     LFS3_tag_RM             = 0x8000,
