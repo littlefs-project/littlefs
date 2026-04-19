@@ -1325,7 +1325,7 @@ typedef struct lfs3 {
     uint32_t gcksum_d;
 
     struct lfs3_grm {
-        lfs3_smid_t queue[2];
+        lfs3_mid_t queue[2];
     } grm;
     #ifndef LFS3_RDONLY
     uint8_t grm_p[LFS3_GRM_DSIZE];

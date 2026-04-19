@@ -7517,7 +7517,7 @@ static inline void lfs3_grm_discard(lfs3_t *lfs3) {
 #endif
 
 #ifndef LFS3_RDONLY
-static inline void lfs3_grm_push(lfs3_t *lfs3, lfs3_smid_t mid) {
+static inline void lfs3_grm_push(lfs3_t *lfs3, lfs3_mid_t mid) {
     // note mid=0.0 always maps to the root bookmark and should never
     // be grmed
     LFS3_ASSERT(mid != 0);
@@ -7528,7 +7528,7 @@ static inline void lfs3_grm_push(lfs3_t *lfs3, lfs3_smid_t mid) {
 #endif
 
 #ifndef LFS3_RDONLY
-static inline lfs3_smid_t lfs3_grm_pop(lfs3_t *lfs3) {
+static inline lfs3_mid_t lfs3_grm_pop(lfs3_t *lfs3) {
     lfs3_smid_t mid = lfs3->grm.queue[0];
     lfs3->grm.queue[0] = lfs3->grm.queue[1];
     lfs3->grm.queue[1] = 0;
@@ -7536,7 +7536,7 @@ static inline lfs3_smid_t lfs3_grm_pop(lfs3_t *lfs3) {
 }
 #endif
 
-static inline bool lfs3_grm_hasmid(const lfs3_t *lfs3, lfs3_smid_t mid) {
+static inline bool lfs3_grm_hasmid(const lfs3_t *lfs3, lfs3_mid_t mid) {
     return mid != 0
             && (lfs3->grm.queue[0] == mid
                 || lfs3->grm.queue[1] == mid);
@@ -8966,10 +8966,11 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         // adjust pending grms?
         } else {
             for (int j = 0; j < 2; j++) {
-                if (lfs3_mbid(lfs3, lfs3->grm.queue[j]) == lfs3_mbid(lfs3, mid_)
-                        && lfs3->grm.queue[j] >= mid_) {
+                if (lfs3_mbid(lfs3, lfs3->grm.queue[j])
+                            == lfs3_mbid(lfs3, mid_)
+                        && (lfs3_smid_t)lfs3->grm.queue[j] >= mid_) {
                     // deleting a pending grm doesn't really make sense
-                    LFS3_ASSERT(lfs3->grm.queue[j]
+                    LFS3_ASSERT((lfs3_smid_t)lfs3->grm.queue[j]
                             >= mid_ - lfs3_rattr_weight(r));
 
                     // adjust the grm
@@ -9252,7 +9253,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 lfs3->grm.queue[j]
                         += (1 << lfs3->mbits) - mdir_[0].r.weight;
             }
-        } else if (lfs3->grm.queue[j] > mdir->mid) {
+        } else if ((lfs3_smid_t)lfs3->grm.queue[j] > mdir->mid) {
             lfs3->grm.queue[j] += mdelta;
         }
     }
@@ -11849,7 +11850,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     if (err) {
         return err;
     }
-    LFS3_ASSERT(lfs3->grm.queue[0] == mdir.mid);
+    LFS3_ASSERT((lfs3_smid_t)lfs3->grm.queue[0] == mdir.mid);
 
     // committing our bookmark may have changed the mid of our metadata entry,
     // we need to look it up again, we can at least avoid the full path walk
@@ -12237,7 +12238,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
         // update moved files with the new mdir
         } else if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                && h->mdir.mid == lfs3->grm.queue[0]) {
+                && h->mdir.mid == (lfs3_smid_t)lfs3->grm.queue[0]) {
             h->mdir = new_mdir;
 
         // mark any removed dirs as zombied
@@ -12255,8 +12256,8 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
             }
 
             if (((lfs3_dir_t*)h)->did == old_did
-                    && h->mdir.mid >= lfs3->grm.queue[0]) {
-                if (h->mdir.mid == lfs3->grm.queue[0]) {
+                    && h->mdir.mid >= (lfs3_smid_t)lfs3->grm.queue[0]) {
+                if (h->mdir.mid == (lfs3_smid_t)lfs3->grm.queue[0]) {
                     h->mdir.mid += 1;
                 } else {
                     ((lfs3_dir_t*)h)->pos -= 1;
