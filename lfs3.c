@@ -7536,7 +7536,7 @@ static inline lfs3_smid_t lfs3_grm_pop(lfs3_t *lfs3) {
 }
 #endif
 
-static inline bool lfs3_grm_ismidrm(const lfs3_t *lfs3, lfs3_smid_t mid) {
+static inline bool lfs3_grm_hasmid(const lfs3_t *lfs3, lfs3_smid_t mid) {
     return mid != 0
             && (lfs3->grm.queue[0] == mid
                 || lfs3->grm.queue[1] == mid);
@@ -7978,7 +7978,7 @@ static lfs3_tag_t lfs3_mdir_nametag(const lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     // fortunately pending grms/orphaned stickynotes have roughly the
     // same semantics, and this makes it easier to manage the implied
     // mid gap in higher-levels
-    if (lfs3_grm_ismidrm(lfs3, mid)) {
+    if (lfs3_grm_hasmid(lfs3, mid)) {
         return LFS3_tag_ORPHAN;
 
     // if we find a stickynote, check to see if there are any open
