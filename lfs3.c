@@ -11903,9 +11903,9 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 }
 #endif
 
-// push a did to grm, but only if the directory is empty
+// push a bookmark to grm, but only if the directory is empty
 #ifndef LFS3_RDONLY
-static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
+static int lfs3_grm_pushbookmark(lfs3_t *lfs3, lfs3_did_t did) {
     // first lookup the bookmark entry
     lfs3_mdir_t bookmark_mdir;
     lfs3_stag_t tag = lfs3_mtree_namelookup(lfs3, did, NULL, 0,
@@ -11925,6 +11925,7 @@ static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
                 &bookmark_mdir);
         if (tag < 0) {
             if (tag == LFS3_ERR_NOENT) {
+                // no more mdirs, must be empty
                 goto empty;
             }
             return tag;
@@ -11950,6 +11951,7 @@ static int lfs3_grm_pushdid(lfs3_t *lfs3, lfs3_did_t did) {
         return LFS3_ERR_NOTEMPTY;
     }
 
+    // is empty
 empty:;
     lfs3_grm_push(lfs3, bookmark_mid);
     return 0;
@@ -11999,8 +12001,8 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
             return err;
         }
 
-        // mark bookmark for removal with grm
-        err = lfs3_grm_pushdid(lfs3, did_);
+        // is dir empty? mark bookmark for removal with grm
+        err = lfs3_grm_pushbookmark(lfs3, did_);
         if (err) {
             return err;
         }
@@ -12179,8 +12181,8 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
                 return err;
             }
 
-            // mark bookmark for removal with grm
-            err = lfs3_grm_pushdid(lfs3, new_did_);
+            // is dir empty? mark bookmark for removal with grm
+            err = lfs3_grm_pushbookmark(lfs3, new_did_);
             if (err) {
                 return err;
             }
