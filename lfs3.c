@@ -7501,45 +7501,39 @@ static void lfs3_handle_seek(lfs3_t *lfs3, lfs3_handle_t *h,
 /// Global-state things ///
 
 // grm (global remove) things
-static inline lfs3_size_t lfs3_grm_count_(const lfs3_grm_t *grm) {
+static inline lfs3_size_t lfs3_grm_count(const lfs3_grm_t *grm) {
     return (grm->queue[0] != 0) + (grm->queue[1] != 0);
 }
 
-static inline lfs3_size_t lfs3_grm_count(const lfs3_t *lfs3) {
-    return lfs3_grm_count_(&lfs3->grm);
-}
-
 #ifndef LFS3_RDONLY
-static inline void lfs3_grm_discard(lfs3_t *lfs3) {
-    lfs3->grm.queue[0] = 0;
-    lfs3->grm.queue[1] = 0;
+static inline void lfs3_grm_discard(lfs3_grm_t *grm) {
+    grm->queue[0] = 0;
+    grm->queue[1] = 0;
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static inline void lfs3_grm_push(lfs3_t *lfs3, lfs3_mid_t mid) {
+static inline void lfs3_grm_push(lfs3_grm_t *grm, lfs3_mid_t mid) {
     // note mid=0.0 always maps to the root bookmark and should never
     // be grmed
     LFS3_ASSERT(mid != 0);
-    LFS3_ASSERT(lfs3->grm.queue[1] == 0);
-    lfs3->grm.queue[1] = lfs3->grm.queue[0];
-    lfs3->grm.queue[0] = mid;
+    LFS3_ASSERT(grm->queue[1] == 0);
+    grm->queue[1] = grm->queue[0];
+    grm->queue[0] = mid;
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static inline lfs3_mid_t lfs3_grm_pop(lfs3_t *lfs3) {
-    lfs3_smid_t mid = lfs3->grm.queue[0];
-    lfs3->grm.queue[0] = lfs3->grm.queue[1];
-    lfs3->grm.queue[1] = 0;
+static inline lfs3_mid_t lfs3_grm_pop(lfs3_grm_t *grm) {
+    lfs3_smid_t mid = grm->queue[0];
+    grm->queue[0] = grm->queue[1];
+    grm->queue[1] = 0;
     return mid;
 }
 #endif
 
-static inline bool lfs3_grm_hasmid(const lfs3_t *lfs3, lfs3_mid_t mid) {
-    return mid != 0
-            && (lfs3->grm.queue[0] == mid
-                || lfs3->grm.queue[1] == mid);
+static inline bool lfs3_grm_hasmid(const lfs3_grm_t *grm, lfs3_mid_t mid) {
+    return mid != 0 && (grm->queue[0] == mid || grm->queue[1] == mid);
 }
 
 #ifndef LFS3_RDONLY
@@ -7549,7 +7543,7 @@ static lfs3_data_t lfs3_data_fromgrm(const lfs3_grm_t *grm,
     lfs3_memset(buffer, 0, LFS3_GRM_DSIZE);
 
     // encode grms
-    lfs3_size_t count = lfs3_grm_count_(grm);
+    lfs3_size_t count = lfs3_grm_count(grm);
     lfs3_ssize_t d = 0;
     for (lfs3_size_t i = 0; i < count; i++) {
         lfs3_ssize_t d_ = lfs3_toleb128(grm->queue[i], &buffer[d], 5);
@@ -7978,7 +7972,7 @@ static lfs3_tag_t lfs3_mdir_nametag(const lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     // fortunately pending grms/orphaned stickynotes have roughly the
     // same semantics, and this makes it easier to manage the implied
     // mid gap in higher-levels
-    if (lfs3_grm_hasmid(lfs3, mid)) {
+    if (lfs3_grm_hasmid(&lfs3->grm, mid)) {
         return LFS3_tag_ORPHAN;
 
     // if we find a stickynote, check to see if there are any open
@@ -8956,12 +8950,12 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         // push a new grm, this tag lets us push grms atomically when
         // creating new mids
         if (lfs3_rattr_tag(r) == LFS3_tag_GRMPUSH) {
-            lfs3_grm_push(lfs3, mid_);
+            lfs3_grm_push(&lfs3->grm, mid_);
 
         // pop a grm, this just lets lfs3_mdir_commit revert things
         // easily
         } else if (lfs3_rattr_tag(r) == LFS3_tag_GRMPOP) {
-            lfs3_grm_pop(lfs3);
+            lfs3_grm_pop(&lfs3->grm);
 
         // adjust pending grms?
         } else {
@@ -10345,7 +10339,7 @@ again:;
             && lfs3_i_needsmkconsistent(lfs3->flags)
             && tag == LFS3_TAG_MDIR) {
         // grm queue should be flushed before calling lfs3_mtree_gc
-        LFS3_ASSERT(lfs3_grm_count(lfs3) == 0);
+        LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         uint32_t dirty = mgc->t.h.flags;
@@ -10482,7 +10476,7 @@ static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         if (LFS3_IFDEF_RDONLY(
                 false,
                 lfs3_i_needsmkconsistent(mgc->t.h.flags)
-                    && lfs3_grm_count(lfs3) > 0)) {
+                    && lfs3_grm_count(&lfs3->grm) > 0)) {
             #ifndef LFS3_RDONLY
             // fix pending grms
             uint32_t dirty = mgc->t.h.flags;
@@ -11906,7 +11900,8 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 
 // push a bookmark to grm, but only if the directory is empty
 #ifndef LFS3_RDONLY
-static int lfs3_grm_pushbookmark(lfs3_t *lfs3, lfs3_did_t did) {
+static int lfs3_grm_pushbookmark(lfs3_t *lfs3, lfs3_grm_t *grm,
+        lfs3_did_t did) {
     // first lookup the bookmark entry
     lfs3_mdir_t bookmark_mdir;
     lfs3_stag_t tag = lfs3_mtree_namelookup(lfs3, did, NULL, 0,
@@ -11954,7 +11949,7 @@ static int lfs3_grm_pushbookmark(lfs3_t *lfs3, lfs3_did_t did) {
 
     // is empty
 empty:;
-    lfs3_grm_push(lfs3, bookmark_mid);
+    lfs3_grm_push(grm, bookmark_mid);
     return 0;
 }
 #endif
@@ -12003,7 +11998,7 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
         }
 
         // is dir empty? mark bookmark for removal with grm
-        err = lfs3_grm_pushbookmark(lfs3, did_);
+        err = lfs3_grm_pushbookmark(lfs3, &lfs3->grm, did_);
         if (err) {
             return err;
         }
@@ -12088,7 +12083,7 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
 
 failed:;
     // make sure grm queue is empty if we fail
-    lfs3_grm_discard(lfs3);
+    lfs3_grm_discard(&lfs3->grm);
     return err;
 }
 #endif
@@ -12183,7 +12178,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
             }
 
             // is dir empty? mark bookmark for removal with grm
-            err = lfs3_grm_pushbookmark(lfs3, new_did_);
+            err = lfs3_grm_pushbookmark(lfs3, &lfs3->grm, new_did_);
             if (err) {
                 return err;
             }
@@ -12207,7 +12202,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     }
 
     // mark old entry for removal with a grm
-    lfs3_grm_push(lfs3, old_mdir.mid);
+    lfs3_grm_push(&lfs3->grm, old_mdir.mid);
 
     // rename our entry, copying all tags associated with the old rid to the
     // new rid, while also marking the old rid for removal
@@ -12282,7 +12277,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
 failed:;
     // make sure grm queue is empty if we fail
-    lfs3_grm_discard(lfs3);
+    lfs3_grm_discard(&lfs3->grm);
     return err;
 }
 #endif
@@ -13152,8 +13147,8 @@ static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
         // a few tricks
 
         // first try to push onto our grm queue
-        if (lfs3_grm_count(lfs3) < 2) {
-            lfs3_grm_push(lfs3, file->b.h.mdir.mid);
+        if (lfs3_grm_count(&lfs3->grm) < 2) {
+            lfs3_grm_push(&lfs3->grm, file->b.h.mdir.mid);
 
         // fallback to just marking the filesystem as inconsistent
         } else {
@@ -15677,7 +15672,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->gcksum_d = 0;
     #endif
 
-    lfs3_grm_discard(lfs3);
+    lfs3_grm_discard(&lfs3->grm);
     #ifndef LFS3_RDONLY
     lfs3_memset(lfs3->grm_p, 0, LFS3_GRM_DSIZE);
     lfs3_memset(lfs3->grm_d, 0, LFS3_GRM_DSIZE);
@@ -16220,13 +16215,13 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     }
 
     // found pending grms? this should only happen if we lost power
-    if (lfs3_grm_count(lfs3) == 2) {
+    if (lfs3_grm_count(&lfs3->grm) == 2) {
         LFS3_INFO("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[1]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[1]));
-    } else if (lfs3_grm_count(lfs3) == 1) {
+    } else if (lfs3_grm_count(&lfs3->grm) == 1) {
         LFS3_INFO("Found pending grm %"PRId32".%"PRId32,
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]));
@@ -16712,7 +16707,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
             // internally it strictly indicates untracked orphans, but
             // externally it also includes any pending grms
             | LFS3_IFDEF_RDONLY(0,
-                (lfs3_grm_count(lfs3) > 0)
+                (lfs3_grm_count(&lfs3->grm) > 0)
                     ? LFS3_I_NEEDSMKCONSISTENT
                     : 0)
             // LFS3_I_NEEDSPREERASE we're just lazy about, since it
@@ -16777,19 +16772,19 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
 
 #ifndef LFS3_RDONLY
 static int lfs3_fs_fixgrm(lfs3_t *lfs3) {
-    if (lfs3_grm_count(lfs3) == 2) {
+    if (lfs3_grm_count(&lfs3->grm) == 2) {
         LFS3_INFO("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[1]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[1]));
-    } else if (lfs3_grm_count(lfs3) == 1) {
+    } else if (lfs3_grm_count(&lfs3->grm) == 1) {
         LFS3_INFO("Fixing grm %"PRId32".%"PRId32,
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]));
     }
 
-    while (lfs3_grm_count(lfs3) > 0) {
+    while (lfs3_grm_count(&lfs3->grm) > 0) {
         // find our mdir
         lfs3_mdir_t mdir;
         int err = lfs3_mtree_lookup(lfs3, lfs3->grm.queue[0],
@@ -16915,7 +16910,7 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
 
     // fix pending grms
-    if (lfs3_grm_count(lfs3) > 0) {
+    if (lfs3_grm_count(&lfs3->grm) > 0) {
         int err = lfs3_fs_fixgrm(lfs3);
         if (err) {
             return err;
