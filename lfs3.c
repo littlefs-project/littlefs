@@ -5489,7 +5489,8 @@ static int lfs3_btree_leaf(lfs3_t *lfs3, const lfs3_btree_t *btree,
         }
 
         // adjust rid
-        rid -= bid__ - rid__;
+        LFS3_ASSERT(bid >= bid__ - rid__);
+        rid = bid - (bid__ - rid__);
     }
 
     // TODO how many of these should be conditional?
@@ -13430,13 +13431,6 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
 
 // low-level file writing
 
-#ifndef LFS3_RDONLY
-static int lfs3_file_commit(lfs3_t *lfs3, lfs3_file_t *file,
-        lfs3_bid_t bid, const lfs3_rattr_t *rattrs) {
-    return lfs3_bshrub_commit(lfs3, &file->b, bid, rattrs);
-}
-#endif
-
 // graft bptr/fragments into our bshrub/btree
 #ifndef LFS3_RDONLY
 static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
@@ -13473,7 +13467,9 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
     lfs3_off_t poke = lfs3_smax(pos_-1, 0);
     while (pos_ > file->b.b.weight || cut_ > 0 || grow_ > 0) {
         // but try to use as few commits where possible
-        lfs3_bid_t l_bid = pos_;
+        lfs3_bid_t l_bid = lfs3_min(pos_, file->b.b.weight);
+        lfs3_rbyd_t l_rbyd = file->b.b;
+        lfs3_srid_t l_rid = lfs3_min(pos_, file->b.b.weight);
         lfs3_off_t l_cut = 0;
         lfs3_bptr_t l_bptr;
         lfs3_bptr_discard(&l_bptr);
@@ -13495,14 +13491,15 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             datas[2] = LFS3_DATA_NULL();
         }
 
-        while (poke < lfs3_min(pos_+cut_+1, file->b.b.weight)) {
+        poke = lfs3_min(poke, pos_);
+        while (file->b.b.weight > 0) {
             lfs3_bid_t bid__;
-            lfs3_rbyd_t rbyd__;
             lfs3_srid_t rid__;
             lfs3_bid_t weight__;
             lfs3_data_t data__;
-            lfs3_stag_t tag__ = lfs3_bshrub_lookupnext_(lfs3, &file->b, poke,
-                    &bid__, &rbyd__, &rid__, &weight__, &data__);
+            lfs3_stag_t tag__ = lfs3_bshrub_lookupnext_(lfs3, &file->b,
+                    lfs3_min(poke, file->b.b.weight-1),
+                    &bid__, &l_rbyd, &rid__, &weight__, &data__);
             if (tag__ < 0) {
                 return tag__;
             }
@@ -13516,6 +13513,14 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             if (err) {
                 return err;
             }
+
+            // adjust l_rid
+            //
+            // note this shift will always be valid unless we change
+            // rbyds, which we explicitly don't because then everything
+            // else would break
+            LFS3_ASSERT(l_bid >= bid__ - rid__);
+            l_rid = l_bid - (bid__ - rid__);
 
             // we need to cut anything that's overlapping
             bool snip = bid__-(weight__-1) < pos_+cut_
@@ -13595,6 +13600,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             // overlapping? merging? need to cut
             if (snip) {
                 l_bid = bid__;
+                l_rid = rid__;
                 l_cut += weight__;
                 dcut += lfs3_min(
                         lfs3_min(weight__, bid__+1 - pos_),
@@ -13602,7 +13608,11 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // increment poke
-            poke = bid__+1;
+            poke = bid__ + 1;
+
+            // stop if we have nothing else to poke
+            if (poke >= lfs3_min(pos_+cut_+1, file->b.b.weight)) {
+                break;
 
             // stop here if we've reached the end of a leaf rbyd, we
             // can't commit to multiple leaves simultaneously, so this
@@ -13624,23 +13634,26 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             // note this is not a problem for bptrs because we
             // explicitly track crystallizing blocks in file->leaf
             //
-            if (rid__+1 == (lfs3_srid_t)rbyd__.weight) {
+            } else if (rid__+1 == (lfs3_srid_t)l_rbyd.weight) {
                 // if we stop early, limit how much we grow to how much
                 // we cut to avoid overflow issues
-                if (bid__+1 < file->b.b.weight) {
-                    if (lfs3_bptr_isfragment(&bptr_)) {
-                        dgrow = lfs3_min(dgrow, dcut);
-                    // if we're a bptr, just don't graft anything until
-                    // last commit
-                    } else {
-                        dgrow = 0;
-                    }
+                if (lfs3_bptr_isfragment(&bptr_)) {
+                    dgrow = lfs3_min(dgrow, dcut);
+                // if we're a bptr, just don't graft anything until
+                // last commit
+                } else {
+                    dgrow = 0;
                 }
                 break;
             }
         }
 
-        if (lfs3_bptr_isfragment(&bptr_)) {
+        if (lfs3_bptr_isfragment(&bptr_)
+                // TODO is there a better way to check for this?
+                && lfs3_data_size(&datas[0])
+                        + lfs3_data_size(&datas[1])
+                        + lfs3_data_size(&datas[2])
+                    > 0) {
             // limit fragment data to:
             // 1. fragment size
             // 2. cut size, to avoid overflow issues
@@ -13667,13 +13680,14 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
         // need to grow hole?
         if (pos_ > file->b.b.weight && file->b.b.weight > 0) {
-            l_bid = file->b.b.weight-1;
+            LFS3_ASSERT(l_rid > 0);
+            l_bid -= 1;
+            l_rid -= 1;
             *r++ = LFS3_RATTR(LFS3_tag_GROW, -2, 0);
             *r++ = LFS3_RATTR_WEIGHT(+(pos_ - file->b.b.weight));
 
         // need a new hole?
         } else if (pos_ > file->b.b.weight) {
-            l_bid = file->b.b.weight;
             *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 0);
             *r++ = LFS3_RATTR_WEIGHT(+(pos_ - file->b.b.weight));
 
@@ -13708,12 +13722,21 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     // TODO is there a better way to check for this?
                     && lfs3_data_size(&datas[0])
                             + lfs3_data_size(&datas[1])
-                            + lfs3_data_size(&datas[1])
+                            + lfs3_data_size(&datas[2])
                         == 0
                     // new holes we just write as zero-length fragments
-                    && pos_ > 0) {
+                    && pos_ > 0
+                    // TODO can we reproduce this specific case in
+                    // testing? this can happen if we merge a right hole
+                    // and that hole aligns perfectly with an rbyd
+                    // boundary, or insertrange in the future
+                    //
+                    // make sure not to grow holes across rbyds
+                    && (r-rattrs > 0 || l_rid > 0)) {
                 if (r-rattrs == 0) {
-                    l_bid = pos_-1;
+                    LFS3_ASSERT(l_rid > 0);
+                    l_bid -= 1;
+                    l_rid -= 1;
                 }
                 *r++ = LFS3_RATTR(LFS3_tag_GROW, -2, 0);
                 *r++ = LFS3_RATTR_WEIGHT(+dgrow);
@@ -13757,7 +13780,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             LFS3_ASSERT((lfs3_size_t)(r-rattrs)
                     <= sizeof(rattrs)/sizeof(lfs3_rattr_t));
 
-            int err = lfs3_file_commit(lfs3, file, l_bid, rattrs);
+            int err = lfs3_bshrub_commit_(lfs3, &file->b,
+                    l_bid, &l_rbyd, l_rid, rattrs);
             if (err) {
                 return err;
             }
