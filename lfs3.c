@@ -13463,6 +13463,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_bptr_discard(&bptr_);
     }
     lfs3_off_t grow_ = grow;
+    bool aligned_ = false;
 
     while (pos_ > file->b.b.weight || cut_ > 0 || grow_ > 0) {
         // but try to use as few commits where possible
@@ -13490,7 +13491,11 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             datas[2] = LFS3_DATA_NULL();
         }
 
-        lfs3_off_t poke = lfs3_smax(lfs3_min(pos_, file->b.b.weight)-1, 0);
+        lfs3_off_t poke = lfs3_smax(
+                lfs3_smin(
+                    (aligned_) ? pos_ : pos_-1,
+                    file->b.b.weight-1),
+                0);
         while (poke < lfs3_min(pos_+cut_+1, file->b.b.weight)) {
             lfs3_bid_t bid__;
             lfs3_srid_t rid__;
@@ -13793,6 +13798,9 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     : 0),
                 -1);
         grow_ -= dgrow;
+
+        // we should be aligned now
+        aligned_ = true;
     }
 
     return 0;
