@@ -13464,7 +13464,6 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
     }
     lfs3_off_t grow_ = grow;
 
-    lfs3_off_t poke = lfs3_smax(pos_-1, 0);
     while (pos_ > file->b.b.weight || cut_ > 0 || grow_ > 0) {
         // but try to use as few commits where possible
         lfs3_bid_t l_bid = lfs3_min(pos_, file->b.b.weight);
@@ -13491,14 +13490,14 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             datas[2] = LFS3_DATA_NULL();
         }
 
-        poke = lfs3_min(poke, pos_);
-        while (file->b.b.weight > 0) {
+        lfs3_off_t poke = lfs3_smax(lfs3_min(pos_, file->b.b.weight)-1, 0);
+        while (poke < lfs3_min(pos_+cut_+1, file->b.b.weight)) {
             lfs3_bid_t bid__;
             lfs3_srid_t rid__;
             lfs3_bid_t weight__;
             lfs3_data_t data__;
             lfs3_stag_t tag__ = lfs3_bshrub_lookupnext_(lfs3, &file->b,
-                    lfs3_min(poke, file->b.b.weight-1),
+                    poke,
                     &bid__, &l_rbyd, &rid__, &weight__, &data__);
             if (tag__ < 0) {
                 return tag__;
@@ -13607,13 +13606,6 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                         cut_ - dcut);
             }
 
-            // increment poke
-            poke = bid__ + 1;
-
-            // stop if we have nothing else to poke
-            if (poke >= lfs3_min(pos_+cut_+1, file->b.b.weight)) {
-                break;
-
             // stop here if we've reached the end of a leaf rbyd, we
             // can't commit to multiple leaves simultaneously, so this
             // is the best we can do
@@ -13634,7 +13626,9 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             // note this is not a problem for bptrs because we
             // explicitly track crystallizing blocks in file->leaf
             //
-            } else if (rid__+1 == (lfs3_srid_t)l_rbyd.weight) {
+            if (rid__+1 == (lfs3_srid_t)l_rbyd.weight
+                    && bid__+1 < lfs3_min(pos_+cut_+1, file->b.b.weight)
+                    && snip) {
                 // if we stop early, limit how much we grow to how much
                 // we cut to avoid overflow issues
                 if (lfs3_bptr_isfragment(&bptr_)) {
@@ -13646,6 +13640,9 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 }
                 break;
             }
+
+            // increment poke
+            poke = bid__ + 1;
         }
 
         if (lfs3_bptr_isfragment(&bptr_)
@@ -13796,11 +13793,6 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     : 0),
                 -1);
         grow_ -= dgrow;
-
-        // we don't include r_grow here because we may need to commit
-        // multiple fragments, and to avoid losing data we commit right
-        // siblings as soon as we find them
-        poke += -l_cut + l_grow + dgrow;
     }
 
     return 0;
