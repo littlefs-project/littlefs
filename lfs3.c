@@ -13463,6 +13463,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_bptr_discard(&bptr_);
     }
     lfs3_off_t grow_ = grow;
+
+    // keep track of if we are aligned
     bool aligned_ = false;
 
     while (pos_ > file->b.b.weight || cut_ > 0 || grow_ > 0) {
@@ -14155,9 +14157,14 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file) {
 #ifndef LFS3_RDONLY
 static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
+    // we may need to graft multiple blocks/fragments
+    lfs3_off_t pos_ = pos;
+    const uint8_t *buffer_ = buffer;
+    lfs3_size_t size_ = size;
+
     // we can skip some btree lookups if we know we are aligned from a
     // previous iteration, we already do way too many btree lookups
-    bool aligned = false;
+    bool aligned_ = false;
 
     // if crystallization is disabled, just skip to writing fragments
     if (lfs3->cfg->crystal_thresh > lfs3->cfg->block_size) {
@@ -14165,7 +14172,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // iteratively write blocks
-    while (size > 0) {
+    while (size_ > 0) {
         // mid-crystallization? can we just resume crystallizing?
         //
         // note that the threshold to resume crystallization (prog_size),
@@ -14177,21 +14184,21 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
                 + lfs3_bptr_size(&file->leaf.bptr);
         if (lfs3_bptr_isbptr(&file->leaf.bptr)
                 && lfs3_bptr_iserased(&file->leaf.bptr)
-                && pos >= block_end
-                && pos < block_start + lfs3->cfg->block_size
+                && pos_ >= block_end
+                && pos_ < block_start + lfs3->cfg->block_size
                 // if we're more than a crystal away, graft and check crystal
                 // heuristic before resuming
-                && pos - block_end < lfs3_max(lfs3->cfg->crystal_thresh, 1)
+                && pos_ - block_end < lfs3_max(lfs3->cfg->crystal_thresh, 1)
                 // need to bail if we can't meet prog alignment
-                && (pos + size) - block_end >= lfs3_min(
+                && (pos_ + size_) - block_end >= lfs3_min(
                     lfs3->cfg->prog_size,
                     lfs3->cfg->crystal_thresh)) {
             // mark as uncrystallized to avoid allocating a new block
             file->b.h.flags |= LFS3_o_NEEDSCRYST;
             // crystallize
             int err = lfs3_file_crystallize__(lfs3, file,
-                    block_start, -1, (pos + size) - block_start,
-                    pos, buffer, size);
+                    block_start, -1, (pos_ + size_) - block_start,
+                    pos_, buffer_, size_);
             if (err) {
                 return err;
             }
@@ -14199,13 +14206,13 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             // update buffer state
             lfs3_ssize_t d = lfs3_max(
                     file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr),
-                    pos) - pos;
-            pos += d;
-            buffer += lfs3_min(d, size);
-            size -= lfs3_min(d, size);
+                    pos_) - pos_;
+            pos_ += d;
+            buffer_ += lfs3_min(d, size_);
+            size_ -= lfs3_min(d, size_);
 
             // we should be aligned now
-            aligned = true;
+            aligned_ = true;
             continue;
         }
 
@@ -14228,8 +14235,8 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // crystallization anyways
 
         // default to arbitrary alignment
-        lfs3_off_t crystal_start = pos;
-        lfs3_off_t crystal_end = pos + size;
+        lfs3_off_t crystal_start = pos_;
+        lfs3_off_t crystal_end = pos_ + size_;
 
         // if we haven't already exceeded our crystallization threshold,
         // find left crystal neighbor
@@ -14240,7 +14247,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
                 && crystal_start > 0
                 && poke < file->b.b.weight
                 // don't bother looking up left after the first block
-                && !aligned) {
+                && !aligned_) {
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
@@ -14328,7 +14335,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             // crystallize
             err = lfs3_file_crystallize__(lfs3, file,
                     block_start, -1, crystal_end - block_start,
-                    pos, buffer, size);
+                    pos_, buffer_, size_);
             if (err) {
                 return err;
             }
@@ -14336,13 +14343,13 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             // update buffer state, this may or may not make progress
             lfs3_ssize_t d = lfs3_max(
                     file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr),
-                    pos) - pos;
-            pos += d;
-            buffer += lfs3_min(d, size);
-            size -= lfs3_min(d, size);
+                    pos_) - pos_;
+            pos_ += d;
+            buffer_ += lfs3_min(d, size_);
+            size_ -= lfs3_min(d, size_);
 
             // we should be aligned now
-            aligned = true;
+            aligned_ = true;
             continue;
         }
 
@@ -14364,7 +14371,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         if (crystal_start > 0
                 && file->b.b.weight > 0
                 // don't bother to lookup left after the first block
-                && !aligned) {
+                && !aligned_) {
             lfs3_bid_t bid;
             lfs3_bid_t weight;
             lfs3_bptr_t bptr;
@@ -14403,7 +14410,7 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // lfs3_file_crystallize__ handles block allocation/relocation
         err = lfs3_file_crystallize__(lfs3, file,
                 crystal_start, -1, crystal_end - crystal_start,
-                pos, buffer, size);
+                pos_, buffer_, size_);
         if (err) {
             return err;
         }
@@ -14411,13 +14418,13 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
         // update buffer state, this may or may not make progress
         lfs3_ssize_t d = lfs3_max(
                 file->leaf.pos + lfs3_bptr_size(&file->leaf.bptr),
-                pos) - pos;
-        pos += d;
-        buffer += lfs3_min(d, size);
-        size -= lfs3_min(d, size);
+                pos_) - pos_;
+        pos_ += d;
+        buffer_ += lfs3_min(d, size_);
+        size_ -= lfs3_min(d, size_);
 
         // we should be aligned now
-        aligned = true;
+        aligned_ = true;
     }
 
     return 0;
@@ -14441,18 +14448,18 @@ fragment:;
     // until after the commit, so we can't track it in our leaf
     // quite yet
     if (lfs3_bptr_isfragment(&file->leaf.bptr)
-            || (pos < file->leaf.pos + file->leaf.weight
-                && pos + size > file->leaf.pos)) {
+            || (pos_ < file->leaf.pos + file->leaf.weight
+                && pos_ + size_ > file->leaf.pos)) {
         lfs3_file_discardleaf(file);
     }
 
     // graft fragments into tree
     // TODO can we just cast data ptr -> bptr and save a couple words?
-    lfs3_bptr_t bptr;
-    bptr.d = LFS3_DATA_BUF(buffer, size);
+    lfs3_bptr_t bptr_;
+    bptr_.d = LFS3_DATA_BUF(buffer_, size_);
     return lfs3_file_graft__(lfs3, file,
-            pos, size,
-            &bptr, size);
+            pos_, size_,
+            &bptr_, size_);
 }
 #endif
 
