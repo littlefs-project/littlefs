@@ -297,8 +297,7 @@ code = '''
 
 # many small file read throughput
 [cases.bench_rt_many]
-defines.FILE_SIZE = 'CHUNK'
-defines.FILE_COUNT = '(SIZE+(FILE_SIZE-1)) / lfs3_max(FILE_SIZE, 1)'
+defines.NO_GET = false
 code = '''
     lfs3_t lfs3;
     BENCH_STACK_PAUSE();
@@ -337,20 +336,13 @@ code = '''
             BENCH_HEAP_PAUSE();
             char name[256];
             sprintf(name, "bench_%08x", (lfs3_off_t)(size/CHUNK));
+            uint8_t wbuf[CHUNK];
+            memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), CHUNK);
+
             lfs3_file_t wfile;
             lfs3_file_open(&lfs3, &wfile, name,
                     LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
-            for (lfs3_size_t i = 0; i < (FILE_SIZE+(CHUNK-1))/CHUNK; i++) {
-                lfs3_ssize_t d = lfs3_min(CHUNK, FILE_SIZE);
-                uint8_t wbuf[CHUNK];
-                memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), d);
-                lfs3_file_write(&lfs3, &wfile, wbuf, d) => d;
-
-                // taking too long?
-                if (SIM_TIME && BENCH_SIMTIME() >= SIM_TIME) {
-                    break;
-                }
-            }
+            lfs3_file_write(&lfs3, &wfile, wbuf, CHUNK) => CHUNK;
             lfs3_file_close(&lfs3, &wfile) => 0;
 
             size += CHUNK;
@@ -369,19 +361,16 @@ code = '''
         //
         // note file == CHUNK here, the sum of all files should add up
         // roughly to the benchmark SIZE
-        lfs3_file_t rfile;
-        lfs3_file_open(&lfs3, &rfile, name, LFS3_O_RDONLY) => 0;
-        for (lfs3_size_t i = 0; i < (FILE_SIZE+(CHUNK-1))/CHUNK; i++) {
-            lfs3_ssize_t d = lfs3_min(CHUNK, FILE_SIZE);
-            lfs3_file_read(&lfs3, &rfile, rbuf, d) => d;
-            readed += d;
-
-            // taking too long?
-            if (SIM_TIME && BENCH_SIMTIME() >= SIM_TIME) {
-                break;
-            }
+        if (!NO_GET) {
+            lfs3_get(&lfs3, name, rbuf, CHUNK) => CHUNK;
+        } else {
+            lfs3_file_t rfile;
+            lfs3_file_open(&lfs3, &rfile, name, LFS3_O_RDONLY) => 0;
+            lfs3_file_read(&lfs3, &rfile, rbuf, CHUNK) => CHUNK;
+            lfs3_file_close(&lfs3, &rfile) => 0;
         }
-        lfs3_file_close(&lfs3, &rfile) => 0;
+
+        readed += CHUNK;
         BENCH_STOP("read", readed);
     }
     BENCH_START("read");

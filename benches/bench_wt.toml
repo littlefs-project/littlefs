@@ -260,8 +260,7 @@ code = '''
 
 # many small file write throughput
 [cases.bench_wt_many]
-defines.FILE_SIZE = 'CHUNK'
-defines.FILE_COUNT = '(SIZE+(FILE_SIZE-1)) / lfs3_max(FILE_SIZE, 1)'
+defines.NO_SET = false
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -290,31 +289,27 @@ code = '''
             && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
         BENCH_START("write");
         // choose a random filename
-        lfs3_off_t pos = BENCH_PRNG(&prng) % FILE_COUNT;
+        lfs3_off_t pos = BENCH_PRNG(&prng) % ((SIZE+(CHUNK-1))/CHUNK);
         char name[256];
         sprintf(name, "bench_%08x", pos);
         uint8_t wbuf[CHUNK];
+        memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), CHUNK);
 
         // create the file
         //
         // note file == CHUNK here, the sum of all files should add up
         // roughly to the benchmark SIZE
-        lfs3_file_t file;
-        lfs3_file_open(&lfs3, &file, name,
-                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
-        for (lfs3_size_t i = 0; i < (FILE_SIZE+(CHUNK-1))/CHUNK; i++) {
-            lfs3_ssize_t d = lfs3_min(CHUNK, FILE_SIZE);
-            memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), d);
-            lfs3_file_write(&lfs3, &file, wbuf, d) => d;
-
-            written += d;
-
-            // taking too long?
-            if (SIM_TIME && BENCH_SIMTIME() >= SIM_TIME) {
-                break;
-            }
+        if (!NO_SET) {
+            lfs3_set(&lfs3, name, wbuf, CHUNK) => 0;
+        } else {
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+            lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+            lfs3_file_close(&lfs3, &file) => 0;
         }
-        lfs3_file_close(&lfs3, &file) => 0;
+
+        written += CHUNK;
         BENCH_STOP("write", written);
     }
     BENCH_START("write");
