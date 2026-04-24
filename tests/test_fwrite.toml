@@ -2407,7 +2407,7 @@ code = '''
 
         // here's our main test, did the file drop bshrubs/btrees?
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        assert(lfs3_bshrub_isbnull(&file.b));
+        assert(!file.b.b.trunk);
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
@@ -2490,7 +2490,7 @@ code = '''
 
         // here's our main test, did the file drop bshrubs/btrees?
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        assert(lfs3_bshrub_isbnull(&file.b));
+        assert(!file.b.b.trunk);
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
@@ -5492,6 +5492,7 @@ code = '''
     // this should normally never happen, so we need to use the
     // internal bshrub APIs to force this
     lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+    file.b.h.flags |= LFS3_o_NEEDSSYNC;
     lfs3_off_t pos = 0;
     while (true) {
         lfs3_stag_t tag;
@@ -5509,11 +5510,10 @@ code = '''
                 LFS3_RATTR(LFS3_tag_GROW | tag, -2, 1, LFS3_FROM_CAT, 1),
                 LFS3_RATTR_WEIGHT(-(weight/2)),
                 LFS3_RATTR_ARG(&data),
-                LFS3_RATTR_NULL}) => 0;
+                LFS3_RATTR_NULL}, 0) => 0;
 
         pos = pos - (weight/2) + 1;
     }
-    file.b.h.flags |= LFS3_o_NEEDSSYNC;
     lfs3_file_close(&lfs3, &file) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
@@ -5603,6 +5603,7 @@ code = '''
     // this should normally never happen, so we need to use the
     // internal bshrub APIs to force this
     lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+    file.b.h.flags |= LFS3_o_NEEDSSYNC;
     lfs3_off_t pos = 0;
     while (true) {
         lfs3_stag_t tag;
@@ -5620,11 +5621,10 @@ code = '''
                 LFS3_RATTR(LFS3_tag_GROW | tag, -2, 1, LFS3_FROM_CAT, 1),
                 LFS3_RATTR_WEIGHT(-(weight/2)),
                 LFS3_RATTR_ARG(&data),
-                LFS3_RATTR_NULL}) => 0;
+                LFS3_RATTR_NULL}, 0) => 0;
 
         pos = pos - (weight/2) + 1;
     }
-    file.b.h.flags |= LFS3_o_NEEDSSYNC;
     lfs3_file_close(&lfs3, &file) => 0;
 
     for (int remount = 0; remount < 2; remount++) {
