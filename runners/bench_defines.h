@@ -40,7 +40,7 @@
     BENCH_DEFINE(GC_LOOKGBMAP_THRESH,   -1                                  )
     BENCH_DEFINE(GC_PREERASE_COUNT,     -1                                  )
     BENCH_DEFINE(GC_COMPACTMETA_THRESH, 0                                   )
-    BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/4                        )
+    BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/8                        )
     BENCH_DEFINE(FRAGMENT_SIZE,         LFS3_MIN(BLOCK_SIZE/16, 512)        )
     BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/16                       )
     BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )

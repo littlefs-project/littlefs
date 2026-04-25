@@ -15542,8 +15542,8 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #endif
 
     #ifndef LFS3_RDONLY
-    // shrub_size must be <= block_size/4
-    LFS3_ASSERT(lfs3->cfg->shrub_size <= lfs3->cfg->block_size/4);
+    // shrub_size must be <= block_size/8
+    LFS3_ASSERT(lfs3->cfg->shrub_size <= lfs3->cfg->block_size/8);
     // fragment_size must be <= block_size/4
     LFS3_ASSERT(lfs3->cfg->fragment_size <= lfs3->cfg->block_size/4);
     #endif

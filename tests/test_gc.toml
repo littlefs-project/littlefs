@@ -2531,7 +2531,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # this configuration should create a 2-layer bshrub, which may be
 # a bit delicate
-defines.SHRUB_SIZE = 'BLOCK_SIZE/4'
+defines.SHRUB_SIZE = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = 'BLOCK_SIZE'
@@ -2680,7 +2680,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # this configuration should create a 2-layer bshrub, which may be
 # a bit delicate
-defines.SHRUB_SIZE = 'BLOCK_SIZE/4'
+defines.SHRUB_SIZE = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
 defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = 'BLOCK_SIZE'

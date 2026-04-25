@@ -645,8 +645,8 @@ struct lfs3_cfg {
     // defaults? need to benchmark.
 
     // Maximum size of inlined trees (shrubs) in bytes. Shrubs reduce B-tree
-    // root overhead, but may impact metadata-related performance. Must be <=
-    // blocksize/4.
+    // root overhead, but may impact metadata-related performance. Must be
+    // <= blocksize/8.
     //
     // 0 disables shrubs.
     #ifndef LFS3_RDONLY
