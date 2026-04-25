@@ -4718,7 +4718,25 @@ static lfs3_ssize_t lfs3_rbyd_estimate(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
             weight += weight_;
 
             // include the cost of this tag
-            dsize_ += lfs3->rattr_estimate + lfs3_data_size(&data);
+
+            // bit of a hack, but we need to be more conservative around
+            // tags included in shrub estimates, as we don't want to
+            // read the on-disk encoding just to update estimates
+            // correctly
+            //
+            // fortunately, only a handful of tags can actually end up
+            // in shrubs
+
+            // shrubbed branch?
+            if (lfs3_rbyd_isshrub(rbyd) && tag == LFS3_TAG_BRANCH) {
+                dsize_ += lfs3->rattr_estimate + LFS3_BRANCH_DSIZE;
+            // shrubbed bptr?
+            } else if (lfs3_rbyd_isshrub(rbyd) && tag == LFS3_TAG_BLOCK) {
+                dsize_ += lfs3->rattr_estimate + LFS3_BPTR_DSIZE;
+            // everything else, including shrubbed data
+            } else {
+                dsize_ += lfs3->rattr_estimate + lfs3_data_size(&data);
+            }
         }
 
         if (a_rid == -1) {
@@ -6670,53 +6688,6 @@ static int lfs3_shrub_commit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
     rbyd_->trunk = trunk;
     rbyd_->weight = weight;
     return 0;
-}
-#endif
-
-// find an upper bound on a shrub that can be easily updated during
-// bshrub commits
-//
-// note this is subtly different from lfs3_rbyd_estimate, we need to
-// stick to constant type-dependent sizes to avoid on-disk encoding
-// differences, but we also only care about a handful of types
-#ifndef LFS3_RDONLY
-static lfs3_ssize_t lfs3_shrub_shestimate(lfs3_t *lfs3,
-        const lfs3_shrub_t *shrub) {
-    lfs3_size_t shestimate = 0;
-    lfs3_srid_t rid = -1;
-    lfs3_stag_t tag = 0;
-    while (true) {
-        lfs3_data_t data;
-        tag = lfs3_rbyd_lookupnext(lfs3, shrub, rid, tag+1,
-                &rid, NULL, &data);
-        if (tag < 0) {
-            if (tag == LFS3_ERR_NOENT) {
-                break;
-            }
-            return tag;
-        }
-
-        // fortunately, the number of different tags we can find in
-        // bshrubs is relatively small
-
-        // indirect branch
-        if (tag == LFS3_TAG_BRANCH) {
-            shestimate += lfs3->rattr_estimate + LFS3_BRANCH_DSIZE;
-
-        // fragment? (inlined data)
-        } else if (tag == LFS3_TAG_DATA) {
-            shestimate += lfs3->rattr_estimate + lfs3_data_size(&data);
-
-        // bptr?
-        } else if (tag == LFS3_TAG_BLOCK) {
-            shestimate += lfs3->rattr_estimate + LFS3_BPTR_DSIZE;
-
-        } else {
-            LFS3_UNREACHABLE();
-        }
-    }
-
-    return shestimate;
 }
 #endif
 
@@ -12845,7 +12816,9 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
             #ifndef LFS3_RDONLY
             if (!lfs3_o_isrdonly(flags)
                     && lfs3_shrub_isshrub(&btree)) {
-                lfs3_ssize_t estimate = lfs3_shrub_shestimate(lfs3, &btree);
+                lfs3_ssize_t estimate = lfs3_rbyd_estimate(lfs3,
+                        &btree, -1, -1,
+                        NULL);
                 if (estimate < 0) {
                     return estimate;
                 }
