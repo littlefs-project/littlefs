@@ -354,7 +354,7 @@
 #define LFS3_MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define LFS3_MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-// Min/max functions for unsigned 32-bit numbers
+// Min/max functions for unsigned/signed numbers
 static inline uint32_t lfs3_min(uint32_t a, uint32_t b) {
     return (a < b) ? a : b;
 }
@@ -374,6 +374,23 @@ static inline int32_t lfs3_smax(int32_t a, int32_t b) {
 // Absolute value of signed numbers
 static inline uint32_t lfs3_abs(int32_t a) {
     return (a < 0) ? -a : a;
+}
+
+// Saturating addition/subtraction for unsigned/signed numbers
+static inline uint32_t lfs3_sadd(uint32_t a, uint32_t b) {
+    return a + lfs3_min(b, (uint32_t)-1 - a);
+}
+
+static inline uint32_t lfs3_ssub(uint32_t a, uint32_t b) {
+    return a - lfs3_min(b, a);
+}
+
+static inline int32_t lfs3_ssadd(int32_t a, int32_t b) {
+    return a + lfs3_smin(b, (int32_t)((uint32_t)-1 >> 1) - a);
+}
+
+static inline int32_t lfs3_sssub(int32_t a, int32_t b) {
+    return a + lfs3_smax(-b, (int32_t)(~((uint32_t)-1 >> 1)) - a);
 }
 
 // Swap two variables
