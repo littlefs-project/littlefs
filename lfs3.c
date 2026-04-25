@@ -15690,13 +15690,16 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     //
     //   t = 2 + log128(file_limit+1) + log128(block_size)
     //
+    // But file_limit isn't something we change often, so we can just use
+    // LFS3_LEB128_DSIZE to simplify things.
+    //
     // Note this is different from LFS3_TAG_DSIZE, which is the worst case
     // tag encoding at compile-time.
     //
     #ifndef LFS3_RDONLY
     uint8_t tag_estimate
             = 2
-            + (lfs3_nlog2(lfs3->file_limit+1)+7-1)/7
+            + LFS3_LEB128_DSIZE
             + (lfs3_nlog2(lfs3->cfg->block_size)+7-1)/7;
     LFS3_ASSERT(tag_estimate <= LFS3_TAG_DSIZE);
     lfs3->rattr_estimate = 3*tag_estimate + 4;
