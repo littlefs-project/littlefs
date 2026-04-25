@@ -6850,7 +6850,7 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
                 && lfs3_o_needssync(h->flags)) {
             // we abuse eoff here because we're not using it for
             // anything else
-            shestimate += ((lfs3_bshrub_t*)h)->b.eoff;
+            shestimate = lfs3_sadd(shestimate, ((lfs3_bshrub_t*)h)->b.eoff);
         }
     }
 
@@ -6861,7 +6861,7 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
                 ? bshrub->b.eoff
                 : 0));
     // uh oh, too big?
-    if (shestimate + bcommit->shestimate > lfs3->cfg->shrub_size) {
+    if (lfs3_sadd(shestimate, bcommit->shestimate) > lfs3->cfg->shrub_size) {
         return LFS3_ERR_RANGE;
     }
 
