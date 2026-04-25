@@ -16,7 +16,7 @@ defines.SIM_TIME = '60ULL*60ULL*1000ULL*1000ULL*1000ULL' # 1 hour
 defines.SIM_SIZE = 0
 
 # set this to true to skip bench warmup
-defines.SKIP_WARMUP = false
+defines.NO_WARMUP = false
 
 # include common bench helpers
 code = '''
@@ -30,7 +30,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!SKIP_WARMUP) {
+    if (!NO_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -107,7 +107,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!SKIP_WARMUP) {
+    if (!NO_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -181,7 +181,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!SKIP_WARMUP) {
+    if (!NO_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -265,7 +265,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!SKIP_WARMUP) {
+    if (!NO_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);

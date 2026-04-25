@@ -153,6 +153,10 @@ BENCHFLAGS += -b
 # forward -j flag
 TESTFLAGS  += $(filter -j%,$(MAKEFLAGS))
 BENCHFLAGS += $(filter -j%,$(MAKEFLAGS))
+ifdef NO_WARMUP
+TESTFLAGS  += -DNO_WARMUP=1
+BENCHFLAGS += -DNO_WARMUP=1
+endif
 ifdef PERFGEN
 TESTFLAGS  += -p$(TEST_PERF)
 BENCHFLAGS += -p$(BENCH_PERF)
