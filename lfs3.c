@@ -13198,13 +13198,14 @@ int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file) {
 
 // low-level file reading
 
-static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
+static int lfs3_file_lookupnext_(lfs3_t *lfs3, const lfs3_file_t *file,
         lfs3_bid_t bid,
-        lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_bptr_t *bptr_) {
+        lfs3_bid_t *bid_, lfs3_rbyd_t *rbyd_, lfs3_srid_t *rid_,
+        lfs3_bid_t *weight_, lfs3_bptr_t *bptr_) {
     lfs3_bid_t weight;
     lfs3_data_t data;
-    lfs3_stag_t tag = lfs3_bshrub_lookupnext(lfs3, &file->b, bid,
-            bid_, &weight, &data);
+    lfs3_stag_t tag = lfs3_bshrub_lookupnext_(lfs3, &file->b, bid,
+            bid_, rbyd_, rid_, &weight, &data);
     if (tag < 0) {
         return tag;
     }
@@ -13216,13 +13217,22 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
     if (err) {
         return err;
     }
+
     // larger than expected?
-    LFS3_ASSERT(lfs3_bptr_size(&bptr) <= weight);
+    LFS3_ASSERT(lfs3_bptr_size(bptr_) <= weight);
 
     if (weight_) {
         *weight_ = weight;
     }
     return 0;
+}
+
+static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
+        lfs3_bid_t bid,
+        lfs3_bid_t *bid_, lfs3_bid_t *weight_, lfs3_bptr_t *bptr_) {
+    lfs3_rbyd_t rbyd__;
+    return lfs3_file_lookupnext_(lfs3, file, bid,
+            bid_, &rbyd__, NULL, weight_, bptr_);
 }
 
 static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
@@ -13462,24 +13472,13 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             lfs3_bid_t bid__;
             lfs3_srid_t rid__;
             lfs3_bid_t weight__;
-            lfs3_data_t data__;
-            lfs3_stag_t tag__ = lfs3_bshrub_lookupnext_(lfs3, &file->b,
-                    poke,
-                    &bid__, &l_rbyd, &rid__, &weight__, &data__);
-            if (tag__ < 0) {
-                return tag__;
-            }
-            LFS3_ASSERT(tag__ == LFS3_TAG_DATA
-                    || tag__ == LFS3_TAG_BLOCK);
-
-            // fetch the bptr/data fragment
             lfs3_bptr_t bptr__;
-            int err = lfs3_bptr_fetch(lfs3, &bptr__, tag__, data__);
+            int err = lfs3_file_lookupnext_(lfs3, file,
+                    poke,
+                    &bid__, &l_rbyd, &rid__, &weight__, &bptr__);
             if (err) {
                 return err;
             }
-            // larger than expected?
-            LFS3_ASSERT(lfs3_bptr_size(&bptr) <= weight);
 
             // adjust l_rid
             //
