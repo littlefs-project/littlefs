@@ -8614,8 +8614,8 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
             // why we need a second function...
             //
             if (tag == LFS3_TAG_BSHRUB) {
-                // include the cost of this trunk
-                dsize_ += LFS3_SHRUB_DSIZE;
+                // include the cost of the shrub pointer
+                dsize_ += lfs3->mattr_estimate + LFS3_SHRUB_DSIZE;
 
                 lfs3_shrub_t shrub;
                 int err = lfs3_data_readshrub(lfs3, mdir, &data,
@@ -8628,7 +8628,7 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
                 if (dsize__ < 0) {
                     return dsize__;
                 }
-                dsize_ += lfs3->rattr_estimate + dsize__;
+                dsize_ += dsize__;
 
             } else {
                 // include the cost of this tag
