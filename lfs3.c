@@ -2426,8 +2426,7 @@ static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr);
 
 // fetch a bptr or data fragment
 static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
-        lfs3_tag_t tag, lfs3_bid_t weight, lfs3_data_t data) {
-    (void)weight;
+        lfs3_tag_t tag, lfs3_data_t data) {
     // fragment? (inlined data)
     if (tag == LFS3_TAG_DATA) {
         bptr->d = data;
@@ -2443,9 +2442,6 @@ static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
     } else {
         LFS3_UNREACHABLE();
     }
-
-    // larger than expected?
-    LFS3_ASSERT(lfs3_bptr_size(&bptr) <= weight);
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
@@ -13216,11 +13212,12 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
             || tag == LFS3_TAG_BLOCK);
 
     // fetch the bptr/data fragment
-    int err = lfs3_bptr_fetch(lfs3, bptr_,
-            tag, weight, data);
+    int err = lfs3_bptr_fetch(lfs3, bptr_, tag, data);
     if (err) {
         return err;
     }
+    // larger than expected?
+    LFS3_ASSERT(lfs3_bptr_size(&bptr) <= weight);
 
     if (weight_) {
         *weight_ = weight;
@@ -13477,11 +13474,12 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
             // fetch the bptr/data fragment
             lfs3_bptr_t bptr__;
-            int err = lfs3_bptr_fetch(lfs3, &bptr__,
-                    tag__, weight__, data__);
+            int err = lfs3_bptr_fetch(lfs3, &bptr__, tag__, data__);
             if (err) {
                 return err;
             }
+            // larger than expected?
+            LFS3_ASSERT(lfs3_bptr_size(&bptr) <= weight);
 
             // adjust l_rid
             //
