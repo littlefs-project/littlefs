@@ -2427,6 +2427,7 @@ static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr);
 // fetch a bptr or data fragment
 static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
         lfs3_tag_t tag, lfs3_bid_t weight, lfs3_data_t data) {
+    (void)weight;
     // fragment? (inlined data)
     if (tag == LFS3_TAG_DATA) {
         bptr->d = data;
@@ -2443,9 +2444,8 @@ static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
         LFS3_UNREACHABLE();
     }
 
-    // limit bptrs to btree weights, this may be useful for
-    // compression in the future
-    lfs3_bptr_slice(bptr, -1, weight);
+    // larger than expected?
+    LFS3_ASSERT(lfs3_bptr_size(&bptr) <= weight);
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
