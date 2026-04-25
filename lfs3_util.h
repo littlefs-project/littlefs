@@ -479,8 +479,8 @@ static inline bool lfs3_parity(uint32_t a) {
 
 // Find the sequence comparison of a and b, this is the distance
 // between a and b ignoring overflow
-static inline int lfs3_scmp(uint32_t a, uint32_t b) {
-    return (int)(unsigned)(a - b);
+static inline int32_t lfs3_scmp(uint32_t a, uint32_t b) {
+    return (int32_t)(uint32_t)(a - b);
 }
 
 // Perform polynomial/carry-less multiplication
