@@ -1150,15 +1150,15 @@ code = '''
     lfs3_ssize_t d = 0;
     lfs3_ssize_t d_ = lfs3_toleb128(
             lfs3_compat_rcompat(lfs3_fs_compat(&lfs3))
-                | ((SHIFT <= __builtin_clz(LFS3_rcompat_OVERFLOW))
+                | ((SHIFT <= lfs3_clz(LFS3_rcompat_OVERFLOW))
                     ? LFS3_rcompat_OVERFLOW << SHIFT
                     : 0),
             &compat_buf[d], 5);
     assert(d_ >= 0);
     d += d_;
     // whoops, overflowed 32-bits?
-    if (SHIFT > __builtin_clz(LFS3_rcompat_OVERFLOW)) {
-        lfs3_size_t shift = SHIFT - __builtin_clz(LFS3_rcompat_OVERFLOW);
+    if (SHIFT > lfs3_clz(LFS3_rcompat_OVERFLOW)) {
+        lfs3_size_t shift = SHIFT - lfs3_clz(LFS3_rcompat_OVERFLOW);
         while (shift) {
             compat_buf[d-1] |= 0x80;
             compat_buf[d] = (shift <= 7) ? 1 << shift : 0;
@@ -1210,15 +1210,15 @@ code = '''
     d += d_;
     d_ = lfs3_toleb128(
             lfs3_compat_wcompat(lfs3_fs_compat(&lfs3))
-                | ((SHIFT <= __builtin_clz(LFS3_wcompat_OVERFLOW))
+                | ((SHIFT <= lfs3_clz(LFS3_wcompat_OVERFLOW))
                     ? LFS3_wcompat_OVERFLOW << SHIFT
                     : 0),
             &compat_buf[d], 5);
     assert(d_ >= 0);
     d += d_;
     // whoops, overflowed 32-bits?
-    if (SHIFT > __builtin_clz(LFS3_wcompat_OVERFLOW)) {
-        lfs3_size_t shift = SHIFT - __builtin_clz(LFS3_wcompat_OVERFLOW);
+    if (SHIFT > lfs3_clz(LFS3_wcompat_OVERFLOW)) {
+        lfs3_size_t shift = SHIFT - lfs3_clz(LFS3_wcompat_OVERFLOW);
         while (shift) {
             compat_buf[d-1] |= 0x80;
             compat_buf[d] = (shift <= 7) ? 1 << shift : 0;

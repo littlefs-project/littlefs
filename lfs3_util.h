@@ -433,6 +433,16 @@ static inline uint32_t lfs3_nlog2(uint32_t a) {
 #endif
 }
 
+// Count the number of leading binary zeros in a
+// lfs3_clz(0) may be undefined
+static inline uint32_t lfs3_clz(uint32_t a) {
+#if !defined(LFS3_NO_BUILTINS) && defined(__GNUC__)
+    return __builtin_clz(a);
+#else
+    return 32 - lfs3_nlog2(a | 1);
+#endif
+}
+
 // Count the number of trailing binary zeros in a
 // lfs3_ctz(0) may be undefined
 static inline uint32_t lfs3_ctz(uint32_t a) {
