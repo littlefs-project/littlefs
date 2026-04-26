@@ -821,24 +821,24 @@ enum lfs3_tag {
     LFS3_tag_GC             = 0x0407,
     LFS3_tag_UNKNOWN        = 0x0408,
     // non-file name tags
-    LFS3_TAG_MNAME          = 0x0430,   //  v--- -1-- +-11 ----
+    LFS3_TAG_MNAME          = 0x0440,   //  v--- -1-- +1-- ----
 
     // struct tags
     LFS3_TAG_STRUCT         = 0x0500,   /// v--- -1-1 +ttt tttt
     LFS3_TAG_BRANCH         = 0x0500,   //  v--- -1-1 +--- --rr
-    LFS3_TAG_DATA           = 0x0504,   //  v--- -1-1 +--- -1++
-    LFS3_TAG_BLOCK          = 0x0508,   //  v--- -1-1 +--- 1err
+    LFS3_TAG_BSHRUB         = 0x0508,   //  v--- -1-1 +--- 1-rr
+    LFS3_TAG_BTREE          = 0x050c,   //  v--- -1-1 +--- 11rr
+    LFS3_TAG_DATA           = 0x0510,   //  v--- -1-1 +--1 --++
+    LFS3_TAG_BLOCK          = 0x0518,   //  v--- -1-1 +--1 1err
     LFS3_TAG_DID            = 0x0520,   //  v--- -1-1 +-1- --++
-    LFS3_TAG_BSHRUB         = 0x0528,   //  v--- -1-1 +-1- 1-rr
-    LFS3_TAG_BTREE          = 0x052c,   //  v--- -1-1 +-1- 11rr
-    LFS3_TAG_MROOT          = 0x0531,   //  v--- -1-1 +-11 --rr
-    LFS3_TAG_MDIR           = 0x0535,   //  v--- -1-1 +-11 -1rr
-    LFS3_TAG_MTREE          = 0x053c,   //  v--- -1-1 +-11 11rr
-    LFS3_TAG_BMRANGE        = 0x0540,   //  v--- -1-1 +1-- ++uu
-    LFS3_TAG_BMFREE         = 0x0540,   //  v--- -1-1 +1-- ----
-    LFS3_TAG_BMINUSE        = 0x0541,   //  v--- -1-1 +1-- ---1
-    LFS3_TAG_BMERASED       = 0x0542,   //  v--- -1-1 +1-- --1-
-    LFS3_TAG_BMBAD          = 0x0543,   //  v--- -1-1 +1-- --11
+    LFS3_TAG_MROOT          = 0x0541,   //  v--- -1-1 +1-- --rr
+    LFS3_TAG_MDIR           = 0x0545,   //  v--- -1-1 +1-- -1rr
+    LFS3_TAG_MTREE          = 0x054c,   //  v--- -1-1 +1-- 11rr
+    LFS3_TAG_BMRANGE        = 0x0550,   //  v--- -1-1 +1-1 ++uu
+    LFS3_TAG_BMFREE         = 0x0550,   //  v--- -1-1 +1-1 ----
+    LFS3_TAG_BMINUSE        = 0x0551,   //  v--- -1-1 +1-1 ---1
+    LFS3_TAG_BMERASED       = 0x0552,   //  v--- -1-1 +1-1 --1-
+    LFS3_TAG_BMBAD          = 0x0553,   //  v--- -1-1 +1-1 --11
 
     // user/sys attributes
     LFS3_TAG_ATTR           = 0x0600,   /// v--- -11a +aaa aaaa
