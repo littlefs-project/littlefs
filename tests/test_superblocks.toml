@@ -465,7 +465,13 @@ code = '''
     lfs_unmount(&lfs) => 0;
 
     if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT_2 + 1;
+        lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
+        cfg->flags |= LFS_CFG_DISABLE_BLOCK_COUNT_CHECK;
+        lfs_mount(&lfs, cfg) => 0;
+        lfs_unmount(&lfs) => 0;
         cfg->block_count = BLOCK_COUNT_2;
+        cfg->flags &= ~LFS_CFG_DISABLE_BLOCK_COUNT_CHECK;
     } else {
         cfg->block_count = 0;
     }
