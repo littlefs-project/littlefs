@@ -828,7 +828,8 @@ enum lfs3_tag {
     LFS3_TAG_BRANCH         = 0x0500,   //  v--- -1-1 +--- --rr
     LFS3_TAG_BSHRUB         = 0x0508,   //  v--- -1-1 +--- 1-rr
     LFS3_TAG_BTREE          = 0x050c,   //  v--- -1-1 +--- 11rr
-    LFS3_TAG_DATA           = 0x0510,   //  v--- -1-1 +--1 --++
+    LFS3_TAG_HOLE           = 0x0510,   //  v--- -1-1 +--1 --++
+    LFS3_TAG_DATA           = 0x0514,   //  v--- -1-1 +--1 -1++
     LFS3_TAG_BLOCK          = 0x0518,   //  v--- -1-1 +--1 1err
     LFS3_TAG_DID            = 0x0520,   //  v--- -1-1 +-1- --++
     LFS3_TAG_MROOT          = 0x0541,   //  v--- -1-1 +1-- --rr
@@ -1063,6 +1064,7 @@ enum lfs3_tag {
 //
 typedef struct lfs3_data {
     // sign2(size)=0b00 => in-RAM buffer
+    // sign2(size)=0b01 => hole
     // sign2(size)=0b10 => on-disk data
     // sign2(size)=0b11 => on-disk data + cksum
     lfs3_size_t size;
@@ -1085,6 +1087,7 @@ typedef struct lfs3_data {
 // a possible block pointer
 typedef struct lfs3_bptr {
     // sign2(size)=0b00 => in-RAM buffer
+    // sign2(size)=0b01 => hole
     // sign2(size)=0b10 => on-disk data
     // sign2(size)=0b11 => block pointer
     lfs3_data_t d;

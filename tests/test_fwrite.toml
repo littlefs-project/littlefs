@@ -1401,6 +1401,7 @@ code = '''
 
     // do we have a tracked leaf now?
     assert(file.leaf.pos == BLOCK_SIZE);
+    assert(lfs3_bptr_isbptr(&file.leaf.bptr));
     assert(lfs3_bptr_size(&file.leaf.bptr) == BLOCK_SIZE/2);
     assert(file.leaf.weight == BLOCK_SIZE/2);
 
@@ -1559,33 +1560,16 @@ code = '''
 
     memcpy(sim + 3*BLOCK_SIZE, wbuf, BLOCK_SIZE);
 
-    // write a bit to crystallize a leaf
-    lfs3_off_t off = BLOCK_SIZE;
-    lfs3_off_t size = BLOCK_SIZE/2;
-    lfs3_file_seek(&lfs3, &file, off, LFS3_SEEK_SET) => off;
-    for (lfs3_size_t i = 0; i < size; i++) {
-        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
-    }
-    lfs3_file_write(&lfs3, &file, wbuf, size) => size;
-
-    memcpy(sim + off, wbuf, size);
-
-    // read a full block somewhere else to force our leaf into the bshrub
-    lfs3_file_seek(&lfs3, &file, 0, LFS3_SEEK_SET) => 0;
-    uint8_t rbuf[2*SIZE];
-    lfs3_file_read(&lfs3, &file, rbuf, BLOCK_SIZE/2) => BLOCK_SIZE/2;
-    assert(memcmp(rbuf, sim, BLOCK_SIZE/2) == 0);
-
-    // and then read our leaf again, note we can't just call
-    // lfs3_file_flush because it wouldn't fetch the hole information
+    // read a bit to get the hole into our file leaf
     lfs3_file_seek(&lfs3, &file, BLOCK_SIZE, LFS3_SEEK_SET) => BLOCK_SIZE;
+    uint8_t rbuf[2*SIZE];
     lfs3_file_read(&lfs3, &file, rbuf, BLOCK_SIZE/2) => BLOCK_SIZE/2;
     assert(memcmp(rbuf, sim + BLOCK_SIZE, BLOCK_SIZE/2) == 0);
 
     // do we have a tracked leaf now?
     assert(file.leaf.pos == BLOCK_SIZE);
-    assert(lfs3_bptr_size(&file.leaf.bptr) == BLOCK_SIZE/2);
-    // note the big hole in our leaf!
+    assert(lfs3_bptr_ishole(&file.leaf.bptr));
+    assert(lfs3_bptr_size(&file.leaf.bptr) == 2*BLOCK_SIZE);
     assert(file.leaf.weight == 2*BLOCK_SIZE);
 
     // write a bit before, clipping our leaf
@@ -1620,8 +1604,8 @@ code = '''
     memset(rbuf, 0xaa, 2*SIZE);
 
     // first try reading _in_ our leaf (which may have been discarded)
-    off = BLOCK_SIZE + 1;
-    size = 2*BLOCK_SIZE - 2;
+    lfs3_off_t off = BLOCK_SIZE + 1;
+    lfs3_off_t size = 2*BLOCK_SIZE - 2;
     lfs3_file_seek(&lfs3, &file, off, LFS3_SEEK_SET) => off;
     lfs3_file_read(&lfs3, &file, rbuf, size) => size;
     // does our file match our simulation?
