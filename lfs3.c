@@ -14442,29 +14442,42 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
                 return err;
             }
 
+            // TODO should we consider including neighbor fragments in
+            // the block here?
+
+            // note we don't bother to check for fragments here, in
+            // theory we could include neighboring fragments in the
+            // current block, but:
+            //
+            // 1. it would make this logic a bit more complicated, we'd
+            //    need to ignore bptr off for fragments
+            //
+            // 2. left neighboring fragments should be crystallized
+            //    earlier in most write patterns, so finding fragments
+            //    here should be uncommon
+            //
+            // 3. it's unclear if including neighboring fragments in the
+            //    the current block is the best strategy anyways, what
+            //    if we keep writing?
+            //
+            // if we did, only the first condition would be possible
+            // because fragment_size < block_size
+
             // is our left neighbor in the same block?
             //
             // note we use the actual block start here! not the sliced
             // view! this avoids excessive recrystallizations when
             // fruncating
-            if (!lfs3_bptr_ishole(&bptr)
-                    && crystal_start - (bid-(weight-1)-(
-                            // TODO need this condition?
-                            (lfs3_bptr_isbptr(&bptr))
-                                ? lfs3_bptr_off(&bptr)
-                                : 0))
+            if (lfs3_bptr_isbptr(&bptr)
+                    && crystal_start - (bid-(weight-1)-lfs3_bptr_off(&bptr))
                         < lfs3->cfg->block_size
                     && lfs3_bptr_size(&bptr) > 0) {
                 crystal_start = bid-(weight-1);
 
             // no? is our left neighbor at least our left block neighbor?
             // align to block alignment
-            } else if (!lfs3_bptr_ishole(&bptr)
-                    && crystal_start - (bid-(weight-1)-(
-                            // TODO need this condition?
-                            (lfs3_bptr_isbptr(&bptr))
-                                ? lfs3_bptr_off(&bptr)
-                                : 0))
+            } else if (lfs3_bptr_isbptr(&bptr)
+                    && crystal_start - (bid-(weight-1)-lfs3_bptr_off(&bptr))
                         < 2*lfs3->cfg->block_size
                     && lfs3_bptr_size(&bptr) > 0) {
                 crystal_start = bid-(weight-1)-lfs3_bptr_off(&bptr)
