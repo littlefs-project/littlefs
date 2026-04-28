@@ -1758,7 +1758,6 @@ code = '''
     assert(file.leaf.pos == BLOCK_SIZE);
     assert(lfs3_bptr_isbptr(&file.leaf.bptr));
     assert(lfs3_bptr_size(&file.leaf.bptr) == BLOCK_SIZE/2);
-    assert(file.leaf.weight == BLOCK_SIZE/2);
 
     // write a bit before, clipping our leaf
     if (MASK & 0x1) {
@@ -1925,7 +1924,6 @@ code = '''
     assert(file.leaf.pos == BLOCK_SIZE);
     assert(lfs3_bptr_ishole(&file.leaf.bptr));
     assert(lfs3_bptr_size(&file.leaf.bptr) == 2*BLOCK_SIZE);
-    assert(file.leaf.weight == 2*BLOCK_SIZE);
 
     // write a bit before, clipping our leaf
     if (MASK & 0x1) {

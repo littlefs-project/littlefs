@@ -1181,7 +1181,6 @@ typedef struct lfs3_file {
     // on-disk leaf bptr
     struct {
         lfs3_off_t pos;
-        lfs3_off_t weight;
         lfs3_bptr_t bptr;
     } leaf;
 } lfs3_file_t;
