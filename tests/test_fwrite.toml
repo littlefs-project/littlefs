@@ -1010,6 +1010,361 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+# test that overwriting fragment-aligned writes are optimal
+[cases.test_fwrite_overwrite_litmus_fragments]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.CHUNK = [32, 8, 1]
+# force a btree node
+defines.SHRUB_SIZE = 0
+defines.CRYSTAL_THRESH = -1
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = 'CHUNK <= SIZE'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs3_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+
+    // sync?
+    if (SYNC) {
+        lfs3_file_sync(&lfs3, &file) => 0;
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // overwrite the file
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+    for (lfs3_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs3_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs3_file_write(&lfs3, &file, &wbuf[i], lfs3_min(CHUNK, SIZE-i))
+                => lfs3_min(CHUNK, SIZE-i);
+
+        // sync?
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+            lfs3_file_seek(&lfs3, &file, i+CHUNK, LFS3_SEEK_SET) => i+CHUNK;
+        }
+    }
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == SIZE);
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
+
+        // try reading our file
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+        // is size correct?
+        lfs3_file_size(&lfs3, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfs3_file_read(&lfs3, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of fragments? we need our internal btree traversal
+        // API to check this
+        //
+        lfs3_size_t fragments = 0;
+
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
+        for (lfs3_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfs3_stag_t tag;
+            lfs3_sbid_t bid;
+            lfs3_bid_t weight;
+            lfs3_data_t data;
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+                    &bid, &weight, &data);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag == LFS3_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFS3_TAG_BRANCH) {
+                lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        weight,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFS3_TAG_DATA) {
+                printf("traversal: %d 0x%x w%d data %d\n",
+                        bid,
+                        tag,
+                        weight,
+                        lfs3_data_size(&data));
+
+                // keep track of how many fragments we've seen
+                fragments += 1;
+
+            } else if (tag == LFS3_TAG_BLOCK) {
+                lfs3_bptr_t bptr;
+                lfs3_data_readbptr(&lfs3, &data,
+                        &bptr) => 0;
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        weight,
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
+
+                // we disabled block crystallization so this shouldn't
+                // happen
+                assert(false);
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x w%d\n",
+                        bid,
+                        tag,
+                        weight);
+                assert(false);
+            }
+        }
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // correct number of fragments?
+        assert(fragments == N);
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that overwriting block-aligned writes always end up as compact blocks
+[cases.test_fwrite_overwrite_litmus_blocks]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*BLOCK_SIZE'
+defines.CHUNK = [32, 8, 1]
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = 'CHUNK <= SIZE'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs3_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+
+    // sync?
+    if (SYNC) {
+        lfs3_file_sync(&lfs3, &file) => 0;
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // overwrite the file
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+    for (lfs3_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs3_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs3_file_write(&lfs3, &file, &wbuf[i], lfs3_min(CHUNK, SIZE-i))
+                => lfs3_min(CHUNK, SIZE-i);
+
+        // sync?
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+            lfs3_file_seek(&lfs3, &file, i+CHUNK, LFS3_SEEK_SET) => i+CHUNK;
+        }
+    }
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == SIZE);
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
+
+        // try reading our file
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+        // is size correct?
+        lfs3_file_size(&lfs3, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfs3_file_read(&lfs3, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of branches/blocks? we need our internal btree
+        // traversal API to check this
+        //
+        lfs3_block_t blocks = 0;
+
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
+        for (lfs3_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfs3_stag_t tag;
+            lfs3_sbid_t bid;
+            lfs3_bid_t weight;
+            lfs3_data_t data;
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+                    &bid, &weight, &data);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag == LFS3_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFS3_TAG_BRANCH) {
+                lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        weight,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFS3_TAG_DATA) {
+                printf("traversal: %d 0x%x w%d data %d\n",
+                        bid,
+                        tag,
+                        weight,
+                        lfs3_data_size(&data));
+
+                // if block crystallization is working we shouldn't be
+                // left with any inlined data fragments
+                assert(false);
+
+            } else if (tag == LFS3_TAG_BLOCK) {
+                lfs3_bptr_t bptr;
+                lfs3_data_readbptr(&lfs3, &data,
+                        &bptr) => 0;
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        weight,
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
+
+                // keep track of how many data blocks we've seen
+                blocks += 1;
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x w%d\n",
+                        bid,
+                        tag,
+                        weight);
+                assert(false);
+            }
+        }
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // correct number of blocks?
+        assert(blocks == N);
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
 # similar to overwrite files, but without underlying data
 [cases.test_fwrite_holes]
 defines.SIZE = [
@@ -3122,6 +3477,449 @@ code = '''
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     uint8_t wbuf[SIZE];
     uint32_t prng = 42;
+    for (lfs3_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs3_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs3_off_t chunk_ = lfs3_min(CHUNK, SIZE-i);
+        lfs3_off_t i_ = SIZE-i-chunk_;
+        lfs3_file_seek(&lfs3, &file, i_, LFS3_SEEK_SET) => i_;
+        lfs3_file_write(&lfs3, &file, &wbuf[i_], chunk_) => chunk_;
+
+        // sync?
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+        }
+    }
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == SIZE);
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
+
+        // try reading our file
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+        // is size correct?
+        lfs3_file_size(&lfs3, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfs3_file_read(&lfs3, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of branches/blocks? we need our internal btree
+        // traversal API to check this
+        //
+        lfs3_block_t blocks = 0;
+
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
+        for (lfs3_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfs3_stag_t tag;
+            lfs3_sbid_t bid;
+            lfs3_bid_t weight;
+            lfs3_data_t data;
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+                    &bid, &weight, &data);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag == LFS3_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFS3_TAG_BRANCH) {
+                lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        weight,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFS3_TAG_DATA) {
+                printf("traversal: %d 0x%x w%d data %d\n",
+                        bid,
+                        tag,
+                        weight,
+                        lfs3_data_size(&data));
+
+                // if block crystallization is working we shouldn't be
+                // left with any inlined data fragments
+                assert(false);
+
+            } else if (tag == LFS3_TAG_BLOCK) {
+                lfs3_bptr_t bptr;
+                lfs3_data_readbptr(&lfs3, &data,
+                        &bptr) => 0;
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        weight,
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
+
+                // keep track of how many data blocks we've seen
+                blocks += 1;
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x w%d\n",
+                        bid,
+                        tag,
+                        weight);
+                assert(false);
+            }
+        }
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // correct number of blocks?
+        assert(blocks == N);
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that reversed overwriting fragment-aligned writes are optimal
+[cases.test_fwrite_reversed_overwrite_litmus_fragments]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.CHUNK = [32, 8, 1]
+# force a btree node
+defines.SHRUB_SIZE = 0
+defines.CRYSTAL_THRESH = -1
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # writing backwards is expected to be a bit slow
+    'SIZE <= 4*1024*CHUNK',
+]
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs3_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+
+    // sync?
+    if (SYNC) {
+        lfs3_file_sync(&lfs3, &file) => 0;
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // overwrite the file
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+    for (lfs3_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    for (lfs3_size_t i = 0; i < SIZE; i += CHUNK) {
+        lfs3_off_t chunk_ = lfs3_min(CHUNK, SIZE-i);
+        lfs3_off_t i_ = SIZE-i-chunk_;
+        lfs3_file_seek(&lfs3, &file, i_, LFS3_SEEK_SET) => i_;
+        lfs3_file_write(&lfs3, &file, &wbuf[i_], chunk_) => chunk_;
+
+        // sync?
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+
+        // remount?
+        if (REMOUNT) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
+        }
+    }
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // check our file with stat
+        struct lfs3_info info;
+        lfs3_stat(&lfs3, "hello", &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == SIZE);
+
+        // and with dir read
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "hello") == 0);
+        assert(info.type == LFS3_TYPE_REG);
+        assert(info.size == SIZE);
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
+
+        // try reading our file
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+        // is size correct?
+        lfs3_file_size(&lfs3, &file) => SIZE;
+        // try reading
+        uint8_t rbuf[2*SIZE];
+        memset(rbuf, 0xaa, 2*SIZE);
+        lfs3_file_read(&lfs3, &file, rbuf, 2*SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // here's our main test, do we end up with the expected
+        // number of fragments? we need our internal btree traversal
+        // API to check this
+        //
+        lfs3_size_t fragments = 0;
+
+        lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
+        for (lfs3_block_t i = 0;; i++) {
+            // a bit hacky, but this catches infinite loops
+            assert(i < 2*BLOCK_COUNT);
+
+            lfs3_stag_t tag;
+            lfs3_sbid_t bid;
+            lfs3_bid_t weight;
+            lfs3_data_t data;
+            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+                    &bid, &weight, &data);
+            assert(tag >= 0 || tag == LFS3_ERR_NOENT);
+            if (tag == LFS3_ERR_NOENT) {
+                break;
+            }
+
+            if (tag == LFS3_TAG_BRANCH) {
+                lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
+                printf("traversal: %d 0x%x w%d btree 0x%x.%x\n",
+                        bid,
+                        tag,
+                        weight,
+                        rbyd->blocks[0], rbyd->trunk);
+
+            } else if (tag == LFS3_TAG_DATA) {
+                printf("traversal: %d 0x%x w%d data %d\n",
+                        bid,
+                        tag,
+                        weight,
+                        lfs3_data_size(&data));
+
+                // keep track of how many fragments we've seen
+                fragments += 1;
+
+            } else if (tag == LFS3_TAG_BLOCK) {
+                lfs3_bptr_t bptr;
+                lfs3_data_readbptr(&lfs3, &data,
+                        &bptr) => 0;
+                printf("traversal: %d 0x%x w%d block 0x%x.%x %d\n",
+                        bid,
+                        tag,
+                        weight,
+                        lfs3_bptr_block(&bptr),
+                        lfs3_bptr_off(&bptr),
+                        lfs3_bptr_size(&bptr));
+
+                // we disabled block crystallization so this shouldn't
+                // happen
+                assert(false);
+
+            } else {
+                // well this shouldn't happen
+                printf("traversal: %d 0x%x w%d\n",
+                        bid,
+                        tag,
+                        weight);
+                assert(false);
+            }
+        }
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // correct number of fragments?
+        assert(fragments == N);
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that reversed overwriting block-aligned writes always end up as
+# compact blocks
+[cases.test_fwrite_reversed_overwrite_litmus_blocks]
+defines.N = [0, 1, 2, 3, 4]
+defines.SIZE = 'N*BLOCK_SIZE'
+defines.CHUNK = [32, 8, 1]
+defines.SYNC = [false, true]
+defines.REMOUNT = [false, true]
+if = [
+    'CHUNK <= SIZE',
+    # writing backwards is expected to be a bit slow
+    'SIZE <= 4*1024*CHUNK',
+    # TODO is it possible to avoid this?
+    #
+    # Unfortunately our crystallization heuristic fails here, resulting
+    # in poor block crystallization, but at least maintaining block
+    # alignment.
+    #
+    # The problem is when we overwrite backwards across blocks, we'll
+    # eventually see this:
+    #
+    #                                         writing
+    #                                        <---|
+    #   [0           block0        4095][4096 b1][f][4608    b1    8191]
+    #   :                              ::                              :
+    #   [            block0            ][            block1            ]
+    #
+    # Our crystallization heuristic will do up to two lookups a
+    # crystal_thresh away, and guess this crystal, recrystallizing
+    # prematurely. It never actually looks up the block neighbor, so it
+    # has no way of knowing if it's a block or fragment:
+    #
+    #                                  crystal guess
+    #                                   .----'-----.
+    #   [0           block0        4095][4096 b1][f][4608    b1    8191]
+    #
+    # Fortunately block alignment checks keep things block aligned:
+    #
+    #                                        | recrystallization
+    #                                        v
+    #   [0           block0        4095][4096        block1        8191]
+    #
+    # But the next write results in an unaligned fragment:
+    #
+    #                                      writing
+    #                                     <---|
+    #   [0           block0        4095][ b1 ][f][4576     b1      8191]
+    #
+    # Eventually we'll have enough fragments to recrystallize again, but
+    # note we'll be overlapping block 0:
+    #
+    #                             writing
+    #                            <---|
+    #   [0         block0       4063][f][f][f][f][4576     b1      8191]
+    #   :                              ::                              :
+    #   [            block0            ][            block1            ]
+    #
+    # Block alignment forces recrystallization of block 0, leaving
+    # block 1 with fragments that may never be cleaned up:
+    #
+    #                                | recrystallization
+    #                                v
+    #   [0           block0        4095][f][f][f][4576     b1      8191]
+    #                                   '---.---'
+    #                               leftover fragments :(
+    #
+    # Some of the problem is the initial fragment looks identical to
+    # this common pattern when overwriting sequentially:
+    #
+    #                                           writing
+    #                                              |--->
+    #   [0           block0        4095][f][f][f][f][4608    b1    8191]
+    #   :                              ::                              :
+    #   [            block0            ][            block1            ]
+    #
+    # ---
+    #
+    # Fortunately:
+    #
+    # 1. Reversed writes are rare, inefficiencies should be expected if
+    #    you write to files backwards.
+    #
+    # 2. The downside is ~1 crystal worth of fragments per block, which
+    #    is not the end of the world.
+    #
+    # 3. Reversed writes with either a hole or fruncate are still
+    #    efficient, since there's no block to recrystallize early.
+    #
+    false,
+]
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "hello",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    uint32_t prng = 42;
+    for (lfs3_size_t i = 0; i < SIZE; i++) {
+        wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+
+    // sync?
+    if (SYNC) {
+        lfs3_file_sync(&lfs3, &file) => 0;
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // overwrite the file
+    lfs3_file_open(&lfs3, &file, "hello", LFS3_O_WRONLY) => 0;
     for (lfs3_size_t i = 0; i < SIZE; i++) {
         wbuf[i] = 'a' + (TEST_PRNG(&prng) % 26);
     }
