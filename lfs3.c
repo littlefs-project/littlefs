@@ -14443,26 +14443,35 @@ static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // is our left neighbor in the same block?
-            if ((lfs3_bptr_isfragment(&bptr)
-                        && crystal_start - (bid-(weight-1))
-                            < lfs3->cfg->block_size
-                        && lfs3_bptr_size(&bptr) > 0)
-                    // note we use the actual block start here! not the
-                    // sliced view! this avoids excessive
-                    // recrystallizations when fruncating
-                    || (lfs3_bptr_isbptr(&bptr)
-                        && crystal_start
-                                - (bid-(weight-1)-lfs3_bptr_off(&bptr))
-                            < lfs3->cfg->block_size
-                        && lfs3_bptr_size(&bptr) > 0)) {
+            //
+            // note we use the actual block start here! not the sliced
+            // view! this avoids excessive recrystallizations when
+            // fruncating
+            if (!lfs3_bptr_ishole(&bptr)
+                    && crystal_start
+                        - (bid-(weight-1)-(
+                            (lfs3_bptr_isbptr(&bptr))
+                                ? lfs3_bptr_off(&bptr)
+                                : 0))
+                        < lfs3->cfg->block_size
+                    && lfs3_bptr_size(&bptr) > 0) {
+                // include in block alignment
                 crystal_start = bid-(weight-1);
 
             // no? is our left neighbor at least our left block neighbor?
             // align to block alignment
-            } else if (lfs3_bptr_isbptr(&bptr)
-                    && crystal_start - (bid-(weight-1)-lfs3_bptr_off(&bptr))
+            } else if (!lfs3_bptr_ishole(&bptr)
+                    && crystal_start
+                        - (bid-(weight-1)-(
+                            (lfs3_bptr_isbptr(&bptr))
+                                ? lfs3_bptr_off(&bptr)
+                                : 0))
                         < 2*lfs3->cfg->block_size
                     && lfs3_bptr_size(&bptr) > 0) {
+                // this should not be possible for fragments, because
+                // fragment_size < block_size
+                LFS3_ASSERT(lfs3_bptr_isbptr(&bptr));
+                // align to block alignment
                 crystal_start = bid-(weight-1)-lfs3_bptr_off(&bptr)
                         + lfs3->cfg->block_size;
             }
