@@ -2323,6 +2323,16 @@ static inline lfs3_size_t lfs3_bptr_size(const lfs3_bptr_t *bptr) {
     return bptr->d.size & ~(LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR);
 }
 
+static inline lfs3_size_t lfs3_bptr_estimate(const lfs3_bptr_t *bptr) {
+    if (lfs3_bptr_ishole(bptr)) {
+        return 0;
+    } else if (lfs3_bptr_isfragment(bptr)) {
+        return lfs3_bptr_size(bptr);
+    } else {
+        return LFS3_BPTR_DSIZE;
+    }
+}
+
 // checked reads adds ck info to lfs3_data_t that we don't want to
 // unnecessarily duplicate, this makes accessing ck info annoyingly
 // messy...
@@ -13614,16 +13624,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                             lfs3_bptr_size(&bptr__),
                             bid__+1 - pos_),
                         cut_ - dcut);
-                // TODO lfs3_bptr_estimate?
-                if (lfs3_bptr_ishole(&bptr__)) {
-                    shestimate -= lfs3->rattr_estimate;
-                } else if (lfs3_bptr_isfragment(&bptr__)) {
-                    shestimate -= lfs3->rattr_estimate
-                            + lfs3_bptr_size(&bptr__);
-                } else {
-                    shestimate -= lfs3->rattr_estimate
-                            + LFS3_BPTR_DSIZE;
-                }
+                shestimate -= lfs3->rattr_estimate
+                        + lfs3_bptr_estimate(&bptr__);
             }
 
             // stop here if we've reached the end of a leaf rbyd, we
@@ -13701,22 +13703,20 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             if (lfs3_bptr_ishole(&l_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_HOLE, -2, 0);
                 *r++ = LFS3_RATTR_WEIGHT(+lfs3_bptr_size(&l_bptr));
-                shestimate += lfs3->rattr_estimate;
 
             // left fragment?
             } else if (lfs3_bptr_isfragment(&l_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_CAT, 1);
                 *r++ = LFS3_RATTR_WEIGHT(+lfs3_bptr_size(&l_bptr));
                 *r++ = LFS3_RATTR_ARG(&l_bptr);
-                shestimate += lfs3->rattr_estimate + lfs3_bptr_size(&l_bptr);
 
             // left bptr?
             } else {
                 *r++ = LFS3_RATTR(LFS3_TAG_BLOCK, -2, 1, LFS3_FROM_BPTR);
                 *r++ = LFS3_RATTR_WEIGHT(+lfs3_bptr_size(&l_bptr));
                 *r++ = LFS3_RATTR_ARG(&l_bptr);
-                shestimate += lfs3->rattr_estimate + LFS3_BPTR_DSIZE;
             }
+            shestimate += lfs3->rattr_estimate + lfs3_bptr_estimate(&l_bptr);
         }
 
         // graft?
@@ -13749,22 +13749,20 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             if (lfs3_bptr_ishole(&r_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_HOLE, -2, 0);
                 *r++ = LFS3_RATTR_WEIGHT(+lfs3_bptr_size(&r_bptr));
-                shestimate += lfs3->rattr_estimate;
 
             // right fragment?
             } else if (lfs3_bptr_isfragment(&r_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_CAT, 1);
                 *r++ = LFS3_RATTR_WEIGHT(+lfs3_bptr_size(&r_bptr));
                 *r++ = LFS3_RATTR_ARG(&r_bptr);
-                shestimate += lfs3->rattr_estimate + lfs3_bptr_size(&r_bptr);
 
             // right bptr?
             } else {
                 *r++ = LFS3_RATTR(LFS3_TAG_BLOCK, -2, 1, LFS3_FROM_BPTR);
                 *r++ = LFS3_RATTR_WEIGHT(+lfs3_bptr_size(&r_bptr));
                 *r++ = LFS3_RATTR_ARG(&r_bptr);
-                shestimate += lfs3->rattr_estimate + LFS3_BPTR_DSIZE;
             }
+            shestimate += lfs3->rattr_estimate + lfs3_bptr_estimate(&r_bptr);
         }
 
         // commit pending rattrs
