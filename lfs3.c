@@ -13356,7 +13356,6 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
                 pos_ += d_;
                 buffer_ += d_;
                 size_ -= d_;
-                d -= d_;
                 continue;
             }
 
@@ -13948,7 +13947,6 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     }
 
                     pos_ += d_;
-                    d -= d_;
                     continue;
                 }
 
@@ -13982,7 +13980,6 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     }
 
                     pos_ += d_;
-                    d -= d_;
                     continue;
                 }
 
@@ -14044,7 +14041,6 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                 }
 
                 pos_ += d_;
-                d -= d_;
                 continue;
             }
 
