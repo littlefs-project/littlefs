@@ -1063,15 +1063,17 @@ enum lfs3_tag {
 // from the compiler being able to aggresively optimize this struct
 //
 typedef struct lfs3_data {
-    // sign2(size)=0b00 => in-RAM buffer
-    // sign2(size)=0b01 => hole
-    // sign2(size)=0b10 => on-disk data
-    // sign2(size)=0b11 => on-disk data + cksum
-    lfs3_size_t size;
+    // sign(size)=0 => in-RAM buffer/hole
+    // sign(size)=1 => on-disk data
+    lfs3_off_t size;
     union {
+        // buffer>NULL => in-RAM buffer
+        // buffer=NULL => hole
         const uint8_t *buffer;
         struct {
             lfs3_block_t block;
+            // sign(off)=0 => on-disk data
+            // sign(off)=1 => on-disk data + cksum
             lfs3_size_t off;
             // optional context for validating data
             #ifdef LFS3_CKDATACKSUMS
@@ -1086,10 +1088,10 @@ typedef struct lfs3_data {
 
 // a possible block pointer
 typedef struct lfs3_bptr {
-    // sign2(size)=0b00 => in-RAM buffer
-    // sign2(size)=0b01 => hole
-    // sign2(size)=0b10 => on-disk data
-    // sign2(size)=0b11 => block pointer
+    // sign(size)=0 => in-RAM buffer/hole
+    // sign(size)=1 => on-disk data
+    // sign(off)=0 => on-disk data
+    // sign(off)=1 => on-disk data + cksum
     lfs3_data_t d;
     #ifndef LFS3_CKDATACKSUMS
     // sign(cksize)=0 => block not erased

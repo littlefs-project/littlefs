@@ -1506,8 +1506,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 /// Data - lfs3_data_t stuff ///
 
 #define LFS3_DATA_ONDISK 0x80000000
-#define LFS3_DATA_ISHOLE 0x40000000
-#define LFS3_DATA_ISBPTR 0x40000000
+#define LFS3_DATA_ISBPTR 0x80000000
 
 #ifdef LFS3_CKDATACKSUMS
 #define LFS3_DATA_ISERASED 0x80000000
@@ -1525,7 +1524,8 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 
 #define LFS3_DATA_HOLE(_size) \
     ((lfs3_data_t){ \
-        .size=LFS3_DATA_ISHOLE | (_size)})
+        .size=_size, \
+        .u.buffer=NULL})
 
 #define LFS3_DATA_DISK(_block, _off, _size) \
     ((lfs3_data_t){ \
@@ -1534,26 +1534,44 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
         .u.disk.off=_off})
 
 // data helpers
+LFS3_FORCEINLINE
 static inline bool lfs3_data_ondisk(const lfs3_data_t *data) {
     return data->size & LFS3_DATA_ONDISK;
 }
 
+LFS3_FORCEINLINE
 static inline bool lfs3_data_isbuf(const lfs3_data_t *data) {
-    return !(data->size & (LFS3_DATA_ONDISK | LFS3_DATA_ISHOLE));
+    return !lfs3_data_ondisk(data) && data->u.buffer;
 }
 
+LFS3_FORCEINLINE
 static inline bool lfs3_data_ishole(const lfs3_data_t *data) {
-    return (data->size & (LFS3_DATA_ONDISK | LFS3_DATA_ISHOLE))
-            == LFS3_DATA_ISHOLE;
+    return !lfs3_data_ondisk(data) && !data->u.buffer;
 }
 
+LFS3_FORCEINLINE
+static inline bool lfs3_data_isfragment(const lfs3_data_t *data) {
+    return lfs3_data_ondisk(data) && !(data->u.disk.off & LFS3_DATA_ISBPTR);
+}
+
+LFS3_FORCEINLINE
 static inline bool lfs3_data_isbptr(const lfs3_data_t *data) {
-    return (data->size & (LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR))
-            == (LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR);
+    return lfs3_data_ondisk(data) && (data->u.disk.off & LFS3_DATA_ISBPTR);
 }
 
-static inline lfs3_size_t lfs3_data_size(const lfs3_data_t *data) {
-    return data->size & ~(LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR);
+LFS3_FORCEINLINE
+static inline lfs3_block_t lfs3_data_block(const lfs3_data_t *data) {
+    return data->u.disk.block;
+}
+
+LFS3_FORCEINLINE
+static inline lfs3_size_t lfs3_data_off(const lfs3_data_t *data) {
+    return data->u.disk.off & ~LFS3_DATA_ISBPTR;
+}
+
+LFS3_FORCEINLINE
+static inline lfs3_off_t lfs3_data_size(const lfs3_data_t *data) {
+    return data->size & ~LFS3_DATA_ONDISK;
 }
 
 #ifdef LFS3_CKDATACKSUMS
@@ -1634,7 +1652,7 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
             int err = lfs3_bd_readck(lfs3,
-                    data->u.disk.block, data->u.disk.off,
+                    lfs3_data_block(data), lfs3_data_off(data),
                     // note our hint includes the full data range
                     lfs3_data_size(data),
                     buffer, d,
@@ -1646,7 +1664,7 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
 
         } else {
             int err = lfs3_bd_read(lfs3,
-                    data->u.disk.block, data->u.disk.off,
+                    lfs3_data_block(data), lfs3_data_off(data),
                     // note our hint includes the full data range
                     lfs3_data_size(data),
                     buffer, d);
@@ -1747,7 +1765,7 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
             int cmp = lfs3_bd_cmpck(lfs3,
                     // note the 0 hint, we don't usually use any
                     // following data
-                    data.u.disk.block, data.u.disk.off, 0,
+                    lfs3_data_block(data), lfs3_data_off(data), 0,
                     buffer, d,
                     lfs3_data_cksize(data), lfs3_data_cksum(data));
             if (cmp != LFS3_CMP_EQ) {
@@ -1759,7 +1777,7 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
             int cmp = lfs3_bd_cmp(lfs3,
                     // note the 0 hint, we don't usually use any
                     // following data
-                    data->u.disk.block, data->u.disk.off, 0,
+                    lfs3_data_block(data), lfs3_data_off(data), 0,
                     buffer, d);
             if (cmp != LFS3_CMP_EQ) {
                 return cmp;
@@ -1826,7 +1844,8 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
             int err = lfs3_bd_cpyck(lfs3, block, off,
-                    data.u.disk.block, data.u.disk.off, lfs3_data_size(data),
+                    lfs3_data_block(data), lfs3_data_off(data),
+                    lfs3_data_size(data),
                     lfs3_data_size(data),
                     lfs3_data_cksize(data), lfs3_data_cksum(data),
                     cksum);
@@ -1837,7 +1856,8 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
 
         } else {
             int err = lfs3_bd_cpy(lfs3, block, off,
-                    data->u.disk.block, data->u.disk.off, lfs3_data_size(data),
+                    lfs3_data_block(data), lfs3_data_off(data),
+                    lfs3_data_size(data),
                     lfs3_data_size(data),
                     cksum);
             if (err) {
@@ -2248,7 +2268,6 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 /// Block pointer things ///
 
 #define LFS3_BPTR_ONDISK LFS3_DATA_ONDISK
-#define LFS3_BPTR_ISHOLE LFS3_DATA_ISHOLE
 #define LFS3_BPTR_ISBPTR LFS3_DATA_ISBPTR
 
 #ifndef LFS3_RDONLY
@@ -2258,10 +2277,10 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 static void lfs3_bptr_init(lfs3_bptr_t *bptr,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t size,
         lfs3_size_t cksize, uint32_t cksum) {
-    // make sure the bptr flag is set
-    bptr->d.size = LFS3_DATA_ONDISK | LFS3_BPTR_ISBPTR | size;
+    // make sure the bptr flags are set
+    bptr->d.size = LFS3_DATA_ONDISK | size;
     bptr->d.u.disk.block = block;
-    bptr->d.u.disk.off = off;
+    bptr->d.u.disk.off = LFS3_BPTR_ISBPTR | off;
     #ifdef LFS3_CKDATACKSUMS
     bptr->d.u.disk.cksize = cksize;
     bptr->d.u.disk.cksum = cksum;
@@ -2289,44 +2308,50 @@ static inline void lfs3_bptr_claim(lfs3_bptr_t *bptr) {
 }
 #endif
 
+LFS3_FORCEINLINE
 static inline bool lfs3_bptr_ondisk(const lfs3_bptr_t *bptr) {
-    return bptr->d.size & LFS3_BPTR_ONDISK;
+    return lfs3_data_ondisk(&bptr->d);
 }
 
+LFS3_FORCEINLINE
 static inline bool lfs3_bptr_isbuf(const lfs3_bptr_t *bptr) {
-    return !(bptr->d.size & (LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR));
+    return lfs3_data_isbuf(&bptr->d);
 }
 
+LFS3_FORCEINLINE
 static inline bool lfs3_bptr_ishole(const lfs3_bptr_t *bptr) {
-    return (bptr->d.size & (LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR))
-            == LFS3_BPTR_ISHOLE;
+    return lfs3_data_ishole(&bptr->d);
 }
 
+LFS3_FORCEINLINE
 static inline bool lfs3_bptr_isfragment(const lfs3_bptr_t *bptr) {
-    return !(bptr->d.size & LFS3_BPTR_ISBPTR);
+    return lfs3_data_isfragment(&bptr->d);
 }
 
+LFS3_FORCEINLINE
 static inline bool lfs3_bptr_isbptr(const lfs3_bptr_t *bptr) {
-    return (bptr->d.size & (LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR))
-            == (LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR);
+    return lfs3_data_isbptr(&bptr->d);
 }
 
+LFS3_FORCEINLINE
 static inline lfs3_block_t lfs3_bptr_block(const lfs3_bptr_t *bptr) {
-    return bptr->d.u.disk.block;
+    return lfs3_data_block(&bptr->d);
 }
 
+LFS3_FORCEINLINE
 static inline lfs3_size_t lfs3_bptr_off(const lfs3_bptr_t *bptr) {
-    return bptr->d.u.disk.off;
+    return lfs3_data_off(&bptr->d);
 }
 
-static inline lfs3_size_t lfs3_bptr_size(const lfs3_bptr_t *bptr) {
-    return bptr->d.size & ~(LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR);
+LFS3_FORCEINLINE
+static inline lfs3_off_t lfs3_bptr_size(const lfs3_bptr_t *bptr) {
+    return lfs3_data_size(&bptr->d);
 }
 
 static inline lfs3_size_t lfs3_bptr_estimate(const lfs3_bptr_t *bptr) {
     if (lfs3_bptr_ishole(bptr)) {
         return 0;
-    } else if (lfs3_bptr_isfragment(bptr)) {
+    } else if (!lfs3_bptr_isbptr(bptr)) {
         return lfs3_bptr_size(bptr);
     } else {
         return LFS3_BPTR_DSIZE;
@@ -2457,7 +2482,8 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
     }
 
     // mark as on-disk + cksum
-    bptr->d.size |= LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR;
+    bptr->d.size |= LFS3_DATA_ONDISK;
+    bptr->d.u.disk.off |= LFS3_DATA_ISBPTR;
     return 0;
 }
 
@@ -13487,7 +13513,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
         // if we're grafting a fragment, go ahead and init the data
         // array for merging
-        if (lfs3_bptr_isfragment(&bptr_)) {
+        if (lfs3_bptr_isbuf(&bptr_) || lfs3_bptr_isfragment(&bptr_)) {
             datas[0] = LFS3_DATA_NULL();
             datas[1] = bptr_.d;
             datas[2] = LFS3_DATA_NULL();
@@ -13557,7 +13583,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     snip = true;
 
                 // can we merge a fragment?
-                } else if (lfs3_bptr_isfragment(&bptr_)
+                } else if ((lfs3_bptr_isbuf(&bptr_)
+                            || lfs3_bptr_isfragment(&bptr_))
                         && lfs3_bptr_isfragment(&bptr__)
                         // not if there's a hole!
                         && bid__+1 >= pos_
@@ -13592,7 +13619,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     snip = true;
 
                 // can we merge a fragment?
-                } else if (lfs3_bptr_isfragment(&bptr_)
+                } else if ((lfs3_bptr_isbuf(&bptr_)
+                            || lfs3_bptr_isfragment(&bptr_))
                         && lfs3_bptr_isfragment(&bptr__)
                         // unlike left sibling, we don't bother merging if
                         // things won't fit in a single fragment
@@ -13667,7 +13695,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             poke = bid__ + 1;
         }
 
-        if (lfs3_bptr_isfragment(&bptr_) && dgrow > 0) {
+        if ((lfs3_bptr_isbuf(&bptr_) || lfs3_bptr_isfragment(&bptr_))
+                && dgrow > 0) {
             // limit fragment data to:
             // 1. fragment size
             // 2. cut size, to avoid overflow issues
@@ -13728,7 +13757,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 shestimate += lfs3->rattr_estimate;
 
             // graft fragment?
-            } else if (lfs3_bptr_isfragment(&bptr_)) {
+            } else if (lfs3_bptr_isbuf(&bptr_)
+                    || lfs3_bptr_isfragment(&bptr_)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_CAT, 3);
                 *r++ = LFS3_RATTR_WEIGHT(+dgrow);
                 *r++ = LFS3_RATTR_ARG(datas);
@@ -13782,7 +13812,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         pos_ += dgrow;
         cut_ -= dcut;
         lfs3_bptr_slice(&bptr_,
-                dgrow - ((lfs3_bptr_isfragment(&bptr_))
+                dgrow - ((lfs3_bptr_isbuf(&bptr_)
+                        || lfs3_bptr_isfragment(&bptr_))
                     ? lfs3_data_size(&datas[0])
                     : 0),
                 -1);
