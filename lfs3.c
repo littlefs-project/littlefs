@@ -13451,13 +13451,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             cut,
             // limit cut to size of tree
             file->b.b.weight - lfs3_min(pos_, file->b.b.weight));
-    lfs3_bptr_t bptr_;
-    // bit of a hack, but let callers avoid allocating a full bptr
-    if (!lfs3_bptr_isbptr(bptr)) {
-        bptr_.d = *(const lfs3_data_t*)bptr;
-    } else {
-        bptr_ = *bptr;
-    }
+    lfs3_bptr_t bptr_ = *bptr;
 
     // keep track of if we are aligned
     bool aligned_ = false;
@@ -14444,9 +14438,11 @@ fragment:;
     }
 
     // graft fragments into tree
+    lfs3_bptr_t bptr_;
+    bptr_.d = LFS3_DATA_BUF(buffer_, size_);
     return lfs3_file_graft__(lfs3, file,
             pos_, size_,
-            (const lfs3_bptr_t*)&LFS3_DATA_BUF(buffer_, size_));
+            &bptr_);
 }
 #endif
 
@@ -15118,9 +15114,11 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // truncate our btree
+    lfs3_bptr_t bptr_;
+    bptr_.d = LFS3_DATA_HOLE(lfs3_smax(size_ - size, 0));
     err = lfs3_file_graft__(lfs3, file,
             lfs3_min(size, size_), lfs3_smax(size - size_, 0),
-            (const lfs3_bptr_t*)&LFS3_DATA_HOLE(lfs3_smax(size_ - size, 0)));
+            &bptr_);
     if (err) {
         goto failed;
     }
@@ -15202,9 +15200,11 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // fruncate our btree
+    lfs3_bptr_t bptr_;
+    bptr_.d = LFS3_DATA_HOLE(lfs3_smax(size_ - size, 0));
     err = lfs3_file_graft__(lfs3, file,
             0, lfs3_smax(size - size_, 0),
-            (const lfs3_bptr_t*)&LFS3_DATA_HOLE(lfs3_smax(size_ - size, 0)));
+            &bptr_);
     if (err) {
         goto failed;
     }
