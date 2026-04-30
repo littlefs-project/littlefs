@@ -1595,20 +1595,18 @@ static inline void lfs3_data_slice(lfs3_data_t *data,
             (lfs3_size_t)size,
             lfs3_data_size(data) - off_);
 
-    // buffer?
-    if (lfs3_data_isbuf(data)) {
-        data->u.buffer += off_;
-        data->size -= lfs3_data_size(data) - size_;
-
-    // hole?
-    } else if (lfs3_data_ishole(data)) {
-        data->size -= lfs3_data_size(data) - size_;
-
-    // on-disk?
-    } else {
-        data->off += off_;
-        data->size -= lfs3_data_size(data) - size_;
-    }
+    // for cool points we use a common off field so we don't need to
+    // figure out the type here, this is worthwhile because we slice
+    // often, about everything we do slices data at some point!
+    //
+    // this does have a risk of overflowing if off > 30-bits,
+    // fortunately that's only possible with holes, which we don't care
+    // about because holes are always zero
+    //
+    // though this is the reason we need to mask the data bits
+    data->off = (data->off & (LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR))
+            | ((data->off + off_) & ~(LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR));
+    data->size = size_;
 }
 
 static inline lfs3_data_t lfs3_data_fromslice(const lfs3_data_t *data,
@@ -1642,7 +1640,7 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
 
     // buffer?
     if (lfs3_data_isbuf(data)) {
-        lfs3_memcpy(buffer, data->u.buffer, d);
+        lfs3_memcpy(buffer, data->u.buffer+data->off, d);
 
     // hole?
     } else if (lfs3_data_ishole(data)) {
@@ -1753,7 +1751,7 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
 
     // buffer?
     if (lfs3_data_isbuf(data)) {
-        int cmp = lfs3_memcmp(data->u.buffer, buffer, d);
+        int cmp = lfs3_memcmp(data->u.buffer+data->off, buffer, d);
         if (cmp < 0) {
             return LFS3_CMP_LT;
         } else if (cmp > 0) {
@@ -1835,7 +1833,7 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
     // buffer?
     if (lfs3_data_isbuf(data)) {
         int err = lfs3_bd_prog(lfs3, block, off,
-                data->u.buffer, data->size,
+                data->u.buffer+data->off, data->size,
                 cksum);
         if (err) {
             return err;
