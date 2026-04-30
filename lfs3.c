@@ -1507,14 +1507,10 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 
 #define LFS3_DATA_ONDISK 0x80000000
 
-#define LFS3_DATA_DTYPE      0xc0000000
 #define LFS3_DATA_ISHOLE     0x00000000
 #define LFS3_DATA_ISFRAGMENT 0x40000000
 #define LFS3_DATA_ISBPTR     0x80000000
-
-#ifdef LFS3_CKDATACKSUMS
-#define LFS3_DATA_ISERASED 0x80000000
-#endif
+#define LFS3_DATA_ISERASED   0x40000000
 
 #define LFS3_DATA_NULL() \
     ((lfs3_data_t){ \
@@ -1547,15 +1543,17 @@ static inline bool lfs3_data_isbuf(const lfs3_data_t *data) {
 }
 
 static inline bool lfs3_data_ishole(const lfs3_data_t *data) {
-    return (data->u.disk.off & LFS3_DATA_DTYPE) == LFS3_DATA_ISHOLE;
+    return (data->u.disk.off & (LFS3_DATA_ISBPTR | LFS3_DATA_ISFRAGMENT))
+            == LFS3_DATA_ISHOLE;
 }
 
 static inline bool lfs3_data_isfragment(const lfs3_data_t *data) {
-    return (data->u.disk.off & LFS3_DATA_DTYPE) == LFS3_DATA_ISFRAGMENT;
+    return (data->u.disk.off & (LFS3_DATA_ISBPTR | LFS3_DATA_ISFRAGMENT))
+            == LFS3_DATA_ISFRAGMENT;
 }
 
 static inline bool lfs3_data_isbptr(const lfs3_data_t *data) {
-    return (data->u.disk.off & LFS3_DATA_DTYPE) == LFS3_DATA_ISBPTR;
+    return data->u.disk.off & LFS3_DATA_ISBPTR;
 }
 
 static inline lfs3_block_t lfs3_data_block(const lfs3_data_t *data) {
@@ -1563,7 +1561,7 @@ static inline lfs3_block_t lfs3_data_block(const lfs3_data_t *data) {
 }
 
 static inline lfs3_size_t lfs3_data_off(const lfs3_data_t *data) {
-    return data->u.disk.off & ~LFS3_DATA_DTYPE;
+    return data->u.disk.off & ~(LFS3_DATA_ISBPTR | LFS3_DATA_ISFRAGMENT);
 }
 
 static inline lfs3_off_t lfs3_data_size(const lfs3_data_t *data) {
@@ -1572,7 +1570,7 @@ static inline lfs3_off_t lfs3_data_size(const lfs3_data_t *data) {
 
 #ifdef LFS3_CKDATACKSUMS
 static inline lfs3_size_t lfs3_data_cksize(const lfs3_data_t *data) {
-    return data->u.disk.cksize & ~LFS3_DATA_ISERASED;
+    return data->u.disk.cksize;
 }
 #endif
 
@@ -2265,14 +2263,10 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
 #define LFS3_BPTR_ONDISK LFS3_DATA_ONDISK
 
-#define LFS3_BPTR_DTYPE      LFS3_DATA_ISBPTR
 #define LFS3_BPTR_ISHOLE     LFS3_DATA_ISHOLE
 #define LFS3_BPTR_ISFRAGMENT LFS3_DATA_ISFRAGMENT
 #define LFS3_BPTR_ISBPTR     LFS3_DATA_ISBPTR
-
-#ifndef LFS3_RDONLY
-#define LFS3_BPTR_ISERASED 0x80000000
-#endif
+#define LFS3_BPTR_ISERASED   LFS3_DATA_ISERASED
 
 static void lfs3_bptr_init(lfs3_bptr_t *bptr,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t size,
@@ -2300,11 +2294,7 @@ static inline void lfs3_bptr_discard(lfs3_bptr_t *bptr) {
 
 #ifndef LFS3_RDONLY
 static inline void lfs3_bptr_claim(lfs3_bptr_t *bptr) {
-    #ifdef LFS3_CKDATACKSUMS
-    bptr->d.u.disk.cksize &= ~LFS3_BPTR_ISERASED;
-    #else
-    bptr->cksize &= ~LFS3_BPTR_ISERASED;
-    #endif
+    bptr->d.u.disk.off &= ~LFS3_BPTR_ISERASED;
 }
 #endif
 
@@ -2351,28 +2341,20 @@ static inline lfs3_size_t lfs3_bptr_estimate(const lfs3_bptr_t *bptr) {
     }
 }
 
-// checked reads adds ck info to lfs3_data_t that we don't want to
-// unnecessarily duplicate, this makes accessing ck info annoyingly
-// messy...
 #ifndef LFS3_RDONLY
 static inline bool lfs3_bptr_iserased(const lfs3_bptr_t *bptr) {
-    #ifdef LFS3_CKDATACKSUMS
-    return bptr->d.u.disk.cksize & LFS3_BPTR_ISERASED;
-    #else
-    return bptr->cksize & LFS3_BPTR_ISERASED;
-    #endif
+    return bptr->d.u.disk.off & LFS3_BPTR_ISERASED;
 }
 #endif
 
+// checked reads adds ck info to lfs3_data_t that we don't want to
+// unnecessarily duplicate, this makes accessing ck info annoyingly
+// messy...
 static inline lfs3_size_t lfs3_bptr_cksize(const lfs3_bptr_t *bptr) {
     #ifdef LFS3_CKDATACKSUMS
-    return LFS3_IFDEF_RDONLY(
-            bptr->d.u.disk.cksize,
-            bptr->d.u.disk.cksize & ~LFS3_BPTR_ISERASED);
+    return bptr->d.u.disk.cksize;
     #else
-    return LFS3_IFDEF_RDONLY(
-            bptr->cksize,
-            bptr->cksize & ~LFS3_BPTR_ISERASED);
+    return bptr->cksize;
     #endif
 }
 
@@ -2492,9 +2474,11 @@ static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     }
 
     lfs3_bptr_init(bptr,
-            block, 0, 0,
+            block,
             // mark as erased
-            LFS3_BPTR_ISERASED | 0, 0);
+            LFS3_BPTR_ISERASED | 0,
+            0,
+            0, 0);
     return 0;
 }
 #endif
@@ -14096,13 +14080,15 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         LFS3_ASSERT(pos_ - block_pos <= lfs3->cfg->block_size);
         file->leaf.pos = block_pos + off_;
         lfs3_bptr_init(&file->leaf.bptr,
-                block_, off_, pos_ - file->leaf.pos,
+                block_,
                 // mark as erased, unless crystal_thresh prevented
                 // prog alignment
                 (((pos_ - block_pos) % lfs3->cfg->prog_size == 0)
                         ? LFS3_BPTR_ISERASED
                         : 0)
-                    | (pos_ - block_pos),
+                    | off_,
+                pos_ - file->leaf.pos,
+                pos_ - block_pos,
                 lfs3->pcksum);
 
         // mark as ungrafted

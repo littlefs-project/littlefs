@@ -1073,11 +1073,10 @@ typedef struct lfs3_data {
             // sign2(off)=0b00 => hole
             // sign2(off)=0b01 => on-disk data
             // sign2(off)=0b10 => on-disk data + cksum
+            // sign2(off)=0b11 => on-disk data + cksum + erased
             lfs3_size_t off;
             // optional context for validating data
             #ifdef LFS3_CKDATACKSUMS
-            // sign(cksize)=0 => block not erased
-            // sign(cksize)=1 => block erased
             lfs3_size_t cksize;
             uint32_t cksum;
             #endif
@@ -1090,12 +1089,11 @@ typedef struct lfs3_bptr {
     // sign(size)=0 => in-RAM buffer
     // sign(size)=1 => on-disk data
     // sign2(off)=0b00 => hole
-    // sign2(off)=0b01 => on-disk data
-    // sign2(off)=0b10 => on-disk data + cksum
+    // sign2(off)=0b01 => fragment
+    // sign2(off)=0b10 => block pointer
+    // sign2(off)=0b11 => block pointer + erased
     lfs3_data_t d;
     #ifndef LFS3_CKDATACKSUMS
-    // sign(cksize)=0 => block not erased
-    // sign(cksize)=1 => block erased
     lfs3_size_t cksize;
     uint32_t cksum;
     #endif
