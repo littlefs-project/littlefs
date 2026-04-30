@@ -2287,10 +2287,6 @@ static void lfs3_bptr_init(lfs3_bptr_t *bptr,
 
 static inline void lfs3_bptr_discard(lfs3_bptr_t *bptr) {
     bptr->d = LFS3_DATA_NULL();
-    #ifndef LFS3_CKDATACKSUMS
-    bptr->cksize = 0;
-    bptr->cksum = 0;
-    #endif
 }
 
 #ifndef LFS3_RDONLY
