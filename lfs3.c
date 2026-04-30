@@ -1507,8 +1507,8 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 
 #define LFS3_DATA_ONDISK 0x80000000
 
-#define LFS3_DATA_ISHOLE     0x00000000
-#define LFS3_DATA_ISFRAGMENT 0x40000000
+#define LFS3_DATA_ISFRAGMENT 0x00000000
+#define LFS3_DATA_ISHOLE     0x40000000
 #define LFS3_DATA_ISBPTR     0x80000000
 #define LFS3_DATA_ISERASED   0x40000000
 
@@ -1531,7 +1531,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
     ((lfs3_data_t){ \
         .size=LFS3_DATA_ONDISK | (_size), \
         .u.disk.block=_block, \
-        .u.disk.off=LFS3_DATA_ISFRAGMENT | (_off)})
+        .u.disk.off=_off})
 
 // data helpers
 static inline bool lfs3_data_ondisk(const lfs3_data_t *data) {
@@ -1543,12 +1543,12 @@ static inline bool lfs3_data_isbuf(const lfs3_data_t *data) {
 }
 
 static inline bool lfs3_data_ishole(const lfs3_data_t *data) {
-    return (data->u.disk.off & (LFS3_DATA_ISBPTR | LFS3_DATA_ISFRAGMENT))
+    return (data->u.disk.off & (LFS3_DATA_ISBPTR | LFS3_DATA_ISHOLE))
             == LFS3_DATA_ISHOLE;
 }
 
 static inline bool lfs3_data_isfragment(const lfs3_data_t *data) {
-    return (data->u.disk.off & (LFS3_DATA_ISBPTR | LFS3_DATA_ISFRAGMENT))
+    return (data->u.disk.off & (LFS3_DATA_ISBPTR | LFS3_DATA_ISHOLE))
             == LFS3_DATA_ISFRAGMENT;
 }
 
@@ -1561,7 +1561,7 @@ static inline lfs3_block_t lfs3_data_block(const lfs3_data_t *data) {
 }
 
 static inline lfs3_size_t lfs3_data_off(const lfs3_data_t *data) {
-    return data->u.disk.off & ~(LFS3_DATA_ISBPTR | LFS3_DATA_ISFRAGMENT);
+    return data->u.disk.off & ~(LFS3_DATA_ISBPTR | LFS3_DATA_ISHOLE);
 }
 
 static inline lfs3_off_t lfs3_data_size(const lfs3_data_t *data) {
