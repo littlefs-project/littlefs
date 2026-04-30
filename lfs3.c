@@ -1760,7 +1760,6 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
 
     // hole?
     } else if (lfs3_data_ishole(data)) {
-        // TODO something more efficient?
         if (0 < lfs3_memlen(buffer, d)) {
             return LFS3_CMP_LT;
         }

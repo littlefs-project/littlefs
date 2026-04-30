@@ -631,11 +631,14 @@ static inline void *lfs3_memcchr(const void *a, int c, size_t size) {
 // Find the minimum length that includes all non-zero bytes
 static inline size_t lfs3_memlen(const void *a, size_t size) {
     const uint8_t *a_ = a;
-    while (size > 0 && a_[size-1] == 0) {
-        size -= 1;
+    size_t n = 0;
+    for (size_t i = 0; i < size; i++) {
+        if (a_[i]) {
+            n = i+1;
+        }
     }
 
-    return size;
+    return n;
 }
 
 // Xor n bytes from b into a
