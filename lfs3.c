@@ -2384,6 +2384,13 @@ static inline void lfs3_bptr_slice(lfs3_bptr_t *bptr,
     lfs3_data_slice(&bptr->d, off, size);
 }
 
+static inline lfs3_bptr_t lfs3_bptr_fromslice(const lfs3_bptr_t *bptr,
+        lfs3_ssize_t off, lfs3_ssize_t size) {
+    lfs3_bptr_t bptr_ = *bptr;
+    lfs3_bptr_slice(&bptr_, off, size);
+    return bptr_;
+}
+
 // bptr on-disk encoding
 #ifndef LFS3_RDONLY
 static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
@@ -13585,8 +13592,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
                 // need to slice?
                 } else if (bid__+1 > pos_) {
-                    l_bptr = bptr__;
-                    lfs3_bptr_slice(&l_bptr,
+                    l_bptr = lfs3_bptr_fromslice(&bptr__,
                             -1,
                             l_slice);
                     snip = true;
@@ -13618,8 +13624,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
                 // need to slice?
                 } else if (bid__-(lfs3_bptr_size(&bptr__)-1) < pos_+cut_) {
-                    r_bptr = bptr__;
-                    lfs3_bptr_slice(&r_bptr,
+                    r_bptr = lfs3_bptr_fromslice(&bptr__,
                             lfs3_bptr_size(&bptr__) - r_slice,
                             -1);
                     snip = true;
