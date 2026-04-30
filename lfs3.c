@@ -2269,22 +2269,6 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 #define LFS3_BPTR_ISERASED 0x80000000
 #endif
 
-static void lfs3_bptr_init(lfs3_bptr_t *bptr,
-        lfs3_block_t block, lfs3_size_t off, lfs3_size_t size,
-        lfs3_size_t cksize, uint32_t cksum) {
-    // make sure the bptr flags are set
-    bptr->d.u.disk.block = block;
-    bptr->d.off = LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR | off;
-    bptr->d.size = size;
-    #ifdef LFS3_CKDATACKSUMS
-    bptr->d.u.disk.cksize = cksize;
-    bptr->d.u.disk.cksum = cksum;
-    #else
-    bptr->cksize = cksize;
-    bptr->cksum = cksum;
-    #endif
-}
-
 static inline void lfs3_bptr_discard(lfs3_bptr_t *bptr) {
     bptr->d = LFS3_DATA_NULL();
 }
@@ -2487,10 +2471,16 @@ static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         return block;
     }
 
-    lfs3_bptr_init(bptr,
-            block, 0, 0,
-            // mark as erased
-            LFS3_BPTR_ISERASED | 0, 0);
+    bptr->d.u.disk.block = block;
+    bptr->d.off = LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR | 0;
+    bptr->d.size = 0;
+    // mark as erased
+    LFS3_IFDEF_CKDATACKSUMS(
+            bptr->d.u.disk.cksize,
+            bptr->cksize) = LFS3_BPTR_ISERASED | 0;
+    LFS3_IFDEF_CKDATACKSUMS(
+            bptr->d.u.disk.cksum,
+            bptr->cksum) = 0;
     return 0;
 }
 #endif
@@ -14081,15 +14071,21 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         LFS3_ASSERT(pos_ - block_pos >= off_);
         LFS3_ASSERT(pos_ - block_pos <= lfs3->cfg->block_size);
         file->leaf.pos = block_pos + off_;
-        lfs3_bptr_init(&file->leaf.bptr,
-                block_, off_, pos_ - file->leaf.pos,
-                // mark as erased, unless crystal_thresh prevented
-                // prog alignment
-                (((pos_ - block_pos) % lfs3->cfg->prog_size == 0)
-                        ? LFS3_BPTR_ISERASED
-                        : 0)
-                    | (pos_ - block_pos),
-                lfs3->pcksum);
+        file->leaf.bptr.d.u.disk.block = block_;
+        file->leaf.bptr.d.off = LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR | off_;
+        file->leaf.bptr.d.size = pos_ - file->leaf.pos;
+        LFS3_IFDEF_CKDATACKSUMS(
+                file->leaf.bptr.d.u.disk.cksize,
+                file->leaf.bptr.cksize) = (
+                    // mark as erased, unless crystal_thresh prevented
+                    // prog alignment
+                    ((pos_ - block_pos) % lfs3->cfg->prog_size == 0)
+                            ? LFS3_BPTR_ISERASED
+                            : 0)
+                        | (pos_ - block_pos);
+        LFS3_IFDEF_CKDATACKSUMS(
+                file->leaf.bptr.d.u.disk.cksum,
+                file->leaf.bptr.cksum) = lfs3->pcksum;
 
         // mark as ungrafted
         file->b.h.flags |= LFS3_o_NEEDSGRAFT;
