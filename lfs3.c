@@ -5312,17 +5312,15 @@ static int lfs3_data_readbranch(lfs3_t *lfs3, lfs3_data_t *data,
     return 0;
 }
 
-static int lfs3_branch_fetch(lfs3_t *lfs3, lfs3_rbyd_t *branch,
-        lfs3_block_t block, lfs3_size_t trunk, lfs3_bid_t weight,
-        uint32_t cksum) {
-    (void)lfs3;
-    branch->blocks[0] = block;
-    branch->trunk = trunk;
-    branch->weight = weight;
-    #ifndef LFS3_RDONLY
-    branch->eoff = 0;
-    #endif
-    branch->cksum = cksum;
+static int lfs3_data_fetchbranch(lfs3_t *lfs3,
+        lfs3_data_t *data, lfs3_bid_t weight,
+        lfs3_rbyd_t *branch) {
+    // decode branch and fetch
+    int err = lfs3_data_readbranch(lfs3, data, weight,
+            branch);
+    if (err) {
+        return err;
+    }
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
@@ -5338,21 +5336,6 @@ static int lfs3_branch_fetch(lfs3_t *lfs3, lfs3_rbyd_t *branch,
     #endif
 
     return 0;
-}
-
-static int lfs3_data_fetchbranch(lfs3_t *lfs3,
-        lfs3_data_t *data, lfs3_bid_t weight,
-        lfs3_rbyd_t *branch) {
-    // decode branch and fetch
-    int err = lfs3_data_readbranch(lfs3, data, weight,
-            branch);
-    if (err) {
-        return err;
-    }
-
-    return lfs3_branch_fetch(lfs3, branch,
-            branch->blocks[0], branch->trunk, branch->weight,
-            branch->cksum);
 }
 
 
@@ -5396,19 +5379,28 @@ static int lfs3_data_readbtree(lfs3_t *lfs3, lfs3_data_t *data,
     return 0;
 }
 
-
-// core btree operations
-
-static int lfs3_btree_fetch(lfs3_t *lfs3, lfs3_btree_t *btree,
-        lfs3_block_t block, lfs3_size_t trunk, lfs3_bid_t weight,
-        uint32_t cksum) {
-    // btree/branch fetch really are the same once we know the weight
-    int err = lfs3_branch_fetch(lfs3, btree,
-            block, trunk, weight,
-            cksum);
+static int lfs3_data_fetchbtree(lfs3_t *lfs3, lfs3_data_t *data,
+        lfs3_btree_t *btree) {
+    // decode btree and fetch
+    int err = lfs3_data_readbtree(lfs3, data,
+            btree);
     if (err) {
         return err;
     }
+
+    // checking fetches?
+    #ifdef LFS3_CKFETCHES
+    if (lfs3_m_isckfetches(lfs3->flags)) {
+        lfs3_bid_t weight = btree->weight;
+        int err = lfs3_rbyd_fetchck(lfs3, btree,
+                btree->blocks[0], lfs3_rbyd_trunk(btree),
+                btree->cksum);
+        if (err) {
+            return err;
+        }
+        LFS3_ASSERT(btree->weight == weight);
+    }
+    #endif
 
     #ifdef LFS3_DBGBTREEFETCHES
     LFS3_DEBUG("Fetched btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
@@ -5420,19 +5412,8 @@ static int lfs3_btree_fetch(lfs3_t *lfs3, lfs3_btree_t *btree,
     return 0;
 }
 
-static int lfs3_data_fetchbtree(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_btree_t *btree) {
-    // decode btree and fetch
-    int err = lfs3_data_readbtree(lfs3, data,
-            btree);
-    if (err) {
-        return err;
-    }
 
-    return lfs3_btree_fetch(lfs3, btree,
-            btree->blocks[0], btree->trunk, btree->weight,
-            btree->cksum);
-}
+// core btree operations
 
 // lookup rbyd/rid containing a given bid
 static lfs3_stag_t lfs3_btree_lookupnext_(lfs3_t *lfs3,
@@ -5629,12 +5610,7 @@ static int lfs3_btree_parent(lfs3_t *lfs3, const lfs3_btree_t *btree,
             return 0;
         }
 
-        err = lfs3_branch_fetch(lfs3, parent_,
-                child__.blocks[0], child__.trunk, child__.weight,
-                child__.cksum);
-        if (err) {
-            return err;
-        }
+        *parent_ = child__;
     }
 }
 #endif
@@ -5877,7 +5853,8 @@ static int lfs3_btree_commit__(lfs3_t *lfs3,
                 }
 
                 LFS3_ASSERT(sibling_tag == LFS3_TAG_BRANCH);
-                err = lfs3_data_fetchbranch(lfs3, &sibling_data, sibling_weight,
+                err = lfs3_data_fetchbranch(lfs3,
+                        &sibling_data, sibling_weight,
                         &sibling);
                 if (err) {
                     return err;
@@ -5924,7 +5901,8 @@ static int lfs3_btree_commit__(lfs3_t *lfs3,
                 }
 
                 LFS3_ASSERT(sibling_tag == LFS3_TAG_BRANCH);
-                err = lfs3_data_fetchbranch(lfs3, &sibling_data, sibling_weight,
+                err = lfs3_data_fetchbranch(lfs3,
+                        &sibling_data, sibling_weight,
                         &sibling);
                 if (err) {
                     return err;
