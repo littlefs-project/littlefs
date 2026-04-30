@@ -1063,9 +1063,11 @@ enum lfs3_tag {
 // from the compiler being able to aggresively optimize this struct
 //
 typedef struct lfs3_data {
+    // this is only lfs3_off_t because we use it to store holes in
+    // lfs3_bptr_t, when used as lfs3_data_t, this should only store
+    // lfs3_size_ts
     lfs3_off_t size;
     // sign2(off)=0b00 => in-RAM buffer
-    // sign2(off)=0b01 => hole
     // sign2(off)=0b10 => on-disk data
     // sign2(off)=0b11 => on-disk data + cksum
     lfs3_size_t off;
