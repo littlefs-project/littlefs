@@ -5516,7 +5516,7 @@ static lfs3_stag_t lfs3_btree_lookup(lfs3_t *lfs3,
 }
 
 #ifndef LFS3_RDONLY
-static int lfs3_btree_leaf(lfs3_t *lfs3, const lfs3_btree_t *btree,
+static int lfs3_btree_leaf_(lfs3_t *lfs3, const lfs3_btree_t *btree,
         lfs3_bid_t bid,
         lfs3_rbyd_t *rbyd_, lfs3_srid_t *rid_) {
     LFS3_ASSERT(bid <= btree->weight);
@@ -5552,7 +5552,7 @@ static int lfs3_btree_leaf(lfs3_t *lfs3, const lfs3_btree_t *btree,
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_btree_parent(lfs3_t *lfs3, const lfs3_btree_t *btree,
+static int lfs3_btree_parent_(lfs3_t *lfs3, const lfs3_btree_t *btree,
         lfs3_bid_t bid, const lfs3_rbyd_t *child,
         lfs3_rbyd_t *parent_, lfs3_srid_t *pid_) {
     // we should only call this when we actually have parents
@@ -5706,7 +5706,7 @@ static int lfs3_btree_commit__(lfs3_t *lfs3,
 
         // need to lookup child's parent
         } else {
-            int err = lfs3_btree_parent(lfs3, btree, bcommit->bid, child,
+            int err = lfs3_btree_parent_(lfs3, btree, bcommit->bid, child,
                     &parent, &pid);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
@@ -6320,7 +6320,7 @@ static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
     // lookup which leaf our bid resides
     lfs3_rbyd_t rbyd;
     lfs3_srid_t rid;
-    int err = lfs3_btree_leaf(lfs3, btree, bid,
+    int err = lfs3_btree_leaf_(lfs3, btree, bid,
             &rbyd, &rid);
     if (err) {
         return err;
@@ -6967,7 +6967,7 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     // lookup which leaf our bid resides
     lfs3_rbyd_t rbyd;
     lfs3_srid_t rid;
-    int err = lfs3_btree_leaf(lfs3, &bshrub->b, bid,
+    int err = lfs3_btree_leaf_(lfs3, &bshrub->b, bid,
             &rbyd, &rid);
     if (err) {
         return err;
@@ -8890,7 +8890,7 @@ compact:;
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_mroot_parent(lfs3_t *lfs3, const lfs3_block_t mptr[static 2],
+static int lfs3_mroot_parent_(lfs3_t *lfs3, const lfs3_block_t mptr[static 2],
         lfs3_mdir_t *mparent_) {
     // we only call this when we actually have parents
     LFS3_ASSERT(!lfs3_mptr_ismrootanchor(mptr));
@@ -9326,7 +9326,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 && !lfs3_mdir_ismrootanchor(&mrootchild)) {
             // find the mroot's parent
             lfs3_mdir_t mrootparent;
-            err = lfs3_mroot_parent(lfs3, mrootchild.r.blocks,
+            err = lfs3_mroot_parent_(lfs3, mrootchild.r.blocks,
                     &mrootparent);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
