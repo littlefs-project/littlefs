@@ -5516,42 +5516,6 @@ static lfs3_stag_t lfs3_btree_lookup(lfs3_t *lfs3,
 }
 
 #ifndef LFS3_RDONLY
-static int lfs3_btree_leaf_(lfs3_t *lfs3, const lfs3_btree_t *btree,
-        lfs3_bid_t bid,
-        lfs3_rbyd_t *rbyd_, lfs3_srid_t *rid_) {
-    LFS3_ASSERT(bid <= btree->weight);
-
-    // lookup which leaf our bid resides
-    *rbyd_ = *btree;
-    lfs3_srid_t rid = bid;
-    if (btree->weight > 0) {
-        lfs3_bid_t bid__;
-        lfs3_srid_t rid__;
-        lfs3_stag_t tag__ = lfs3_btree_lookupnext_(lfs3, btree,
-                // for lfs3_btree_commit__ operations to work out, we
-                // need to limit our bid to an rid in the tree, which
-                // is what this min is doing
-                lfs3_min(bid, btree->weight-1),
-                &bid__, rbyd_, &rid__, NULL, NULL);
-        if (tag__ < 0) {
-            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
-            return tag__;
-        }
-
-        // adjust rid
-        LFS3_ASSERT(bid >= bid__ - rid__);
-        rid = bid - (bid__ - rid__);
-    }
-
-    // TODO how many of these should be conditional?
-    if (rid_) {
-        *rid_ = rid;
-    }
-    return 0;
-}
-#endif
-
-#ifndef LFS3_RDONLY
 static int lfs3_btree_parent_(lfs3_t *lfs3, const lfs3_btree_t *btree,
         lfs3_bid_t bid, const lfs3_rbyd_t *child,
         lfs3_rbyd_t *parent_, lfs3_srid_t *pid_) {
@@ -6318,12 +6282,25 @@ static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
     LFS3_ASSERT(bid <= btree->weight);
 
     // lookup which leaf our bid resides
-    lfs3_rbyd_t rbyd;
-    lfs3_srid_t rid;
-    int err = lfs3_btree_leaf_(lfs3, btree, bid,
-            &rbyd, &rid);
-    if (err) {
-        return err;
+    lfs3_rbyd_t rbyd = *btree;
+    lfs3_srid_t rid = bid;
+    if (btree->weight > 0) {
+        lfs3_bid_t bid__;
+        lfs3_srid_t rid__;
+        lfs3_stag_t tag__ = lfs3_btree_lookupnext_(lfs3, btree,
+                // for lfs3_btree_commit__ operations to work out, we
+                // need to limit our bid to an rid in the tree, which
+                // is what this min is doing
+                lfs3_min(bid, btree->weight-1),
+                &bid__, &rbyd, &rid__, NULL, NULL);
+        if (tag__ < 0) {
+            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
+            return tag__;
+        }
+
+        // adjust rid
+        LFS3_ASSERT(bid >= bid__ - rid__);
+        rid = bid - (bid__ - rid__);
     }
 
     // tail-recursively commit to the btree
@@ -6965,12 +6942,25 @@ static int lfs3_bshrub_commit(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     LFS3_ASSERT(bid <= bshrub->b.weight);
 
     // lookup which leaf our bid resides
-    lfs3_rbyd_t rbyd;
-    lfs3_srid_t rid;
-    int err = lfs3_btree_leaf_(lfs3, &bshrub->b, bid,
-            &rbyd, &rid);
-    if (err) {
-        return err;
+    lfs3_rbyd_t rbyd = bshrub->b;
+    lfs3_srid_t rid = bid;
+    if (bshrub->b.weight > 0) {
+        lfs3_bid_t bid__;
+        lfs3_srid_t rid__;
+        lfs3_stag_t tag__ = lfs3_btree_lookupnext_(lfs3, &bshrub->b,
+                // for lfs3_btree_commit__ operations to work out, we
+                // need to limit our bid to an rid in the tree, which
+                // is what this min is doing
+                lfs3_min(bid, bshrub->b.weight-1),
+                &bid__, &rbyd, &rid__, NULL, NULL);
+        if (tag__ < 0) {
+            LFS3_ASSERT(tag__ != LFS3_ERR_NOENT);
+            return tag__;
+        }
+
+        // adjust rid
+        LFS3_ASSERT(bid >= bid__ - rid__);
+        rid = bid - (bid__ - rid__);
     }
 
     // tail-recursively commit to the bshrub
