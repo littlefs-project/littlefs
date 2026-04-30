@@ -2460,6 +2460,33 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
     return 0;
 }
 
+// needed in lfs3_data_fetchbptr
+#ifdef LFS3_CKFETCHES
+static inline bool lfs3_m_isckfetches(uint32_t flags);
+#endif
+static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr);
+
+static int lfs3_data_fetchbptr(lfs3_t *lfs3, lfs3_data_t *data,
+        lfs3_bptr_t *bptr) {
+    // decode bptr and fetch
+    int err = lfs3_data_readbptr(lfs3, data,
+            bptr);
+    if (err) {
+        return err;
+    }
+
+    // checking fetches?
+    #ifdef LFS3_CKFETCHES
+    if (lfs3_m_isckfetches(lfs3->flags)) {
+        err = lfs3_bptr_ck(lfs3, bptr);
+        if (err) {
+            return err;
+        }
+    }
+    #endif
+
+    return 0;
+}
 
 // allocate a bptr
 #ifndef LFS3_RDONLY
@@ -2484,56 +2511,6 @@ static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     return 0;
 }
 #endif
-
-// needed in lfs3_bptr_fetch
-#ifdef LFS3_CKFETCHES
-static inline bool lfs3_m_isckfetches(uint32_t flags);
-#endif
-static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr);
-
-// fetch a bptr or data fragment
-static int lfs3_bptr_fetch(lfs3_t *lfs3, lfs3_bptr_t *bptr,
-        lfs3_tag_t tag, lfs3_bid_t weight, lfs3_data_t data) {
-    // hole? (no data)
-    if (tag == LFS3_TAG_HOLE) {
-        bptr->d = LFS3_DATA_HOLE(weight);
-
-    // fragment? (inlined data)
-    } else if (tag == LFS3_TAG_DATA) {
-        bptr->d = data;
-
-    // bptr?
-    } else if (tag == LFS3_TAG_BLOCK) {
-        int err = lfs3_data_readbptr(lfs3, &data,
-                bptr);
-        if (err) {
-            return err;
-        }
-
-    } else {
-        LFS3_UNREACHABLE();
-    }
-
-    // weight/size mismatch?
-    LFS3_ASSERT(lfs3_bptr_size(bptr) == weight);
-
-    // TODO rm
-    // // larger than expected?
-    // LFS3_ASSERT(lfs3_bptr_size(bptr) <= weight);
-
-    // checking fetches?
-    #ifdef LFS3_CKFETCHES
-    if (lfs3_m_isckfetches(lfs3->flags)
-            && lfs3_bptr_isbptr(bptr)) {
-        int err = lfs3_bptr_ck(lfs3, bptr);
-        if (err) {
-            return err;
-        }
-    }
-    #endif
-
-    return 0;
-}
 
 // check the contents of a bptr
 static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr) {
@@ -13287,12 +13264,28 @@ static int lfs3_file_lookupnext_(lfs3_t *lfs3, const lfs3_file_t *file,
         return tag;
     }
 
-    // fetch the bptr/data fragment
-    int err = lfs3_bptr_fetch(lfs3, bptr_, tag, weight, data);
-    if (err) {
-        return err;
+    // hole? (no data)
+    if (tag == LFS3_TAG_HOLE) {
+        bptr_->d = LFS3_DATA_HOLE(weight);
+
+    // fragment? (inlined data)
+    } else if (tag == LFS3_TAG_DATA) {
+        bptr_->d = data;
+
+    // bptr?
+    } else if (tag == LFS3_TAG_BLOCK) {
+        int err = lfs3_data_fetchbptr(lfs3, &data,
+                bptr_);
+        if (err) {
+            return err;
+        }
+
+    } else {
+        LFS3_UNREACHABLE();
     }
 
+    // weight/size mismatch?
+    LFS3_ASSERT(lfs3_bptr_size(bptr_) == weight);
     return 0;
 }
 
