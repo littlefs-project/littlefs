@@ -13256,50 +13256,6 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
             bid_, &rbyd__, NULL, bptr_);
 }
 
-static lfs3_ssize_t lfs3_file_readnext(lfs3_t *lfs3, lfs3_file_t *file,
-        lfs3_off_t pos, uint8_t *buffer, lfs3_size_t size) {
-    // the leaf must not be pinned down here
-    LFS3_ASSERT(!lfs3_o_needscryst(file->b.h.flags));
-    LFS3_ASSERT(!lfs3_o_needsgraft(file->b.h.flags));
-
-    while (true) {
-        // any data in our leaf?
-        if (pos >= file->leaf.pos
-                && pos < file->leaf.pos + lfs3_bptr_weight(&file->leaf.bptr)) {
-            lfs3_ssize_t d = lfs3_min(
-                    size,
-                    lfs3_bptr_weight(&file->leaf.bptr)
-                        - (pos - file->leaf.pos));
-            // any data on disk?
-            if (!lfs3_bptr_ishole(&file->leaf.bptr)) {
-                // note one important side-effect here is a strict
-                // data hint
-                return lfs3_data_read(lfs3,
-                        &LFS3_DATA_SLICE(&file->leaf.bptr.d,
-                            pos - file->leaf.pos,
-                            d),
-                        buffer, d);
-            }
-
-            // found a hole? fill with zeros
-            lfs3_memset(buffer, 0, d);
-            return d;
-        }
-
-        // fetch a new leaf
-        lfs3_bid_t bid;
-        lfs3_bptr_t bptr;
-        int err = lfs3_file_lookupnext(lfs3, file, pos,
-                &bid, &bptr);
-        if (err) {
-            return err;
-        }
-
-        file->leaf.pos = bid-(lfs3_bptr_weight(&bptr)-1);
-        file->leaf.bptr = bptr;
-    }
-}
-
 // high-level file reading
 
 lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
@@ -13320,16 +13276,15 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         if (pos_ < file->cache.pos + file->cache.size
                 && file->cache.size != 0) {
             if (pos_ >= file->cache.pos) {
-                lfs3_ssize_t d_ = lfs3_min(
-                        d,
-                        file->cache.size - (pos_ - file->cache.pos));
+                d = lfs3_min(d, (file->cache.pos + file->cache.size) - pos_);
+
                 lfs3_memcpy(buffer_,
                         &file->cache.buffer[pos_ - file->cache.pos],
-                        d_);
+                        d);
 
-                pos_ += d_;
-                buffer_ += d_;
-                size_ -= d_;
+                pos_ += d;
+                buffer_ += d;
+                size_ -= d;
                 continue;
             }
 
@@ -13341,43 +13296,88 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         if (pos_ < lfs3_max(
                 file->leaf.pos + lfs3_bptr_weight(&file->leaf.bptr),
                 file->b.b.weight)) {
-            if (!lfs3_o_needscryst(file->b.h.flags)
-                    && !lfs3_o_needsgraft(file->b.h.flags)) {
-                // bypass cache?
-                if ((lfs3_size_t)d >= lfs3_file_fcachesize(lfs3, file)) {
-                    lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
-                            pos_, buffer_, d);
-                    if (d_ < 0) {
-                        LFS3_ASSERT(d_ != LFS3_ERR_NOENT);
-                        return d_;
-                    }
-
-                    pos_ += d_;
-                    buffer_ += d_;
-                    size_ -= d_;
-                    continue;
-                }
-
-                // try to fill our cache with some data
-                if (!lfs3_o_needsflush(file->b.h.flags)) {
-                    lfs3_ssize_t d_ = lfs3_file_readnext(lfs3, file,
-                            pos_, file->cache.buffer, d);
-                    if (d_ < 0) {
-                        LFS3_ASSERT(d != LFS3_ERR_NOENT);
-                        return d_;
-                    }
-                    file->cache.pos = pos_;
-                    file->cache.size = d_;
-                    continue;
-                }
+            // we need to flush first if our leaf is not grafted
+            if (lfs3_o_needscryst(file->b.h.flags)
+                    || lfs3_o_needsgraft(file->b.h.flags)) {
+                goto flush;
             }
 
+            // any data in our leaf?
+            if (pos_ >= file->leaf.pos
+                    && pos_ < file->leaf.pos
+                        + lfs3_bptr_weight(&file->leaf.bptr)) {
+                d = lfs3_min(
+                        d,
+                        (file->leaf.pos + lfs3_bptr_weight(&file->leaf.bptr))
+                            - pos_);
+
+                // any data on disk?
+                if (!lfs3_bptr_ishole(&file->leaf.bptr)) {
+                    // bypass cache?
+                    if ((lfs3_size_t)d >= lfs3_file_fcachesize(lfs3, file)) {
+                        // note one important side-effect here is a strict
+                        // data hint
+                        lfs3_ssize_t d_ = lfs3_data_read(lfs3,
+                                &LFS3_DATA_SLICE(&file->leaf.bptr.d,
+                                    pos_ - file->leaf.pos,
+                                    d),
+                                buffer_, d);
+                        if (d_ < 0) {
+                            return d_;
+                        }
+
+                        pos_ += d_;
+                        buffer_ += d_;
+                        size_ -= d_;
+                        continue;
+                    }
+
+                    // try to fill our cache with some data
+                    if (!lfs3_o_needsflush(file->b.h.flags)) {
+                        // note one important side-effect here is a strict
+                        // data hint
+                        lfs3_ssize_t d_ = lfs3_data_read(lfs3,
+                                &LFS3_DATA_SLICE(&file->leaf.bptr.d,
+                                    pos_ - file->leaf.pos,
+                                    d),
+                                file->cache.buffer, d);
+                        if (d_ < 0) {
+                            return d_;
+                        }
+
+                        file->cache.pos = pos_;
+                        file->cache.size = d_;
+                        continue;
+                    }
+
+                    // we need a free cache to make progress
+                    goto flush;
+                }
+
+                // found a hole? just make sure next leaf takes priority
+                goto hole;
+            }
+
+            // fetch a new leaf
+            lfs3_bid_t bid;
+            lfs3_bptr_t bptr;
+            int err = lfs3_file_lookupnext(lfs3, file, pos_,
+                    &bid, &bptr);
+            if (err) {
+                return err;
+            }
+
+            file->leaf.pos = bid-(lfs3_bptr_weight(&bptr)-1);
+            file->leaf.bptr = bptr;
+            continue;
+
+        flush:;
             // flush our cache so the above can't fail
             //
             // note that flush does not change the actual file data, so if
             // a read fails it's ok to fall back to our flushed state
             //
-            int err = lfs3_file_flush(lfs3, file);
+            err = lfs3_file_flush(lfs3, file);
             if (err) {
                 return err;
             }
@@ -13385,6 +13385,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
             continue;
         }
 
+    hole:;
         // found a hole? fill with zeros
         lfs3_memset(buffer_, 0, d);
         
@@ -13855,11 +13856,10 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
             // any data in our buffer?
             if (pos_ < pos + size && size > 0) {
                 if (pos_ >= pos) {
-                    lfs3_ssize_t d_ = lfs3_min(
-                            d,
-                            size - (pos_ - pos));
+                    d = lfs3_min(d, (pos + size) - pos_);
+
                     int err = lfs3_bd_prog(lfs3, block_, pos_ - block_pos,
-                            &buffer[pos_ - pos], d_,
+                            &buffer[pos_ - pos], d,
                             &lfs3->pcksum);
                     if (err) {
                         LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -13870,7 +13870,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                         return err;
                     }
 
-                    pos_ += d_;
+                    pos_ += d;
                     continue;
                 }
 
@@ -13883,19 +13883,21 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
             // yes, we can hit this if we had to relocate
             if (pos_ < file->leaf.pos + lfs3_bptr_weight(&file->leaf.bptr)) {
                 if (pos_ >= file->leaf.pos) {
+                    d = lfs3_min(
+                            d,
+                            (file->leaf.pos
+                                    + lfs3_bptr_weight(&file->leaf.bptr))
+                                - pos_);
+
                     // any data on disk?
                     if (!lfs3_bptr_ishole(&file->leaf.bptr)) {
                         // note one important side-effect here is a strict
                         // data hint
-                        lfs3_ssize_t d_ = lfs3_min(
-                                d,
-                                lfs3_bptr_size(&file->leaf.bptr)
-                                    - (pos_ - file->leaf.pos));
                         int err = lfs3_bd_progdata(lfs3, block_,
                                 pos_ - block_pos,
                                 &LFS3_DATA_SLICE(&file->leaf.bptr.d,
                                     pos_ - file->leaf.pos,
-                                    d_),
+                                    d),
                                 &lfs3->pcksum);
                         if (err) {
                             LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -13906,16 +13908,11 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                             return err;
                         }
 
-                        pos_ += d_;
+                        pos_ += d;
                         continue;
                     }
 
                     // found a hole? just make sure next leaf takes priority
-                    d = lfs3_min(
-                            d,
-                            (file->leaf.pos
-                                    + lfs3_bptr_weight(&file->leaf.bptr))
-                                - pos_);
                     goto hole;
                 }
 
@@ -13923,7 +13920,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                 d = lfs3_min(d, file->leaf.pos - pos_);
             }
 
-            // any data on disk?
+            // any data in our btree?
             if (pos_ < file->b.b.weight) {
                 lfs3_bid_t bid__;
                 lfs3_bptr_t bptr__;
@@ -13956,18 +13953,16 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     break;
                 }
 
+                d = lfs3_min(d, bid__+1 - pos_);
+
                 // any data on-disk?
                 if (!lfs3_bptr_ishole(&bptr__)) {
                     // note one important side-effect here is a strict
                     // data hint
-                    lfs3_ssize_t d_ = lfs3_min(
-                            d,
-                            lfs3_bptr_size(&bptr__)
-                                - (pos_ - (bid__-(lfs3_bptr_size(&bptr__)-1))));
                     err = lfs3_bd_progdata(lfs3, block_, pos_ - block_pos,
                             &LFS3_DATA_SLICE(&bptr__.d,
                                 pos_ - (bid__-(lfs3_bptr_size(&bptr__)-1)),
-                                d_),
+                                d),
                             &lfs3->pcksum);
                     if (err) {
                         LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -13978,12 +13973,11 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                         return err;
                     }
 
-                    pos_ += d_;
+                    pos_ += d;
                     continue;
                 }
 
                 // found a hole? just make sure next leaf takes priority
-                d = lfs3_min(d, bid__+1 - pos_);
                 goto hole;
             }
 
