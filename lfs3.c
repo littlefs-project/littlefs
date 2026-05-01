@@ -13256,6 +13256,23 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
             bid_, &rbyd__, NULL, bptr_);
 }
 
+LFS3_NOINLINE
+static int lfs3_file_fetchleaf(lfs3_t *lfs3, lfs3_file_t *file,
+        lfs3_off_t pos) {
+    // fetch a new leaf
+    lfs3_bid_t bid;
+    lfs3_bptr_t bptr;
+    int err = lfs3_file_lookupnext(lfs3, file, pos,
+            &bid, &bptr);
+    if (err) {
+        return err;
+    }
+
+    file->leaf.pos = bid-(lfs3_bptr_weight(&bptr)-1);
+    file->leaf.bptr = bptr;
+    return 0;
+}
+
 // high-level file reading
 
 lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
@@ -13359,16 +13376,10 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // fetch a new leaf
-            lfs3_bid_t bid;
-            lfs3_bptr_t bptr;
-            int err = lfs3_file_lookupnext(lfs3, file, pos_,
-                    &bid, &bptr);
+            int err = lfs3_file_fetchleaf(lfs3, file, pos_);
             if (err) {
                 return err;
             }
-
-            file->leaf.pos = bid-(lfs3_bptr_weight(&bptr)-1);
-            file->leaf.bptr = bptr;
             continue;
 
         flush:;
