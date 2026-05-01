@@ -13330,14 +13330,16 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
 
                 // any data on disk?
                 if (!lfs3_bptr_ishole(&file->leaf.bptr)) {
+                    // note one important side-effect here is a strict
+                    // data hint
+                    lfs3_data_t slice = lfs3_data_fromslice(
+                            &file->leaf.bptr.d,
+                            pos_ - file->leaf.pos,
+                            d);
+
                     // bypass cache?
                     if ((lfs3_size_t)d >= lfs3_file_fcachesize(lfs3, file)) {
-                        // note one important side-effect here is a strict
-                        // data hint
-                        lfs3_ssize_t d_ = lfs3_data_read(lfs3,
-                                &LFS3_DATA_SLICE(&file->leaf.bptr.d,
-                                    pos_ - file->leaf.pos,
-                                    d),
+                        lfs3_ssize_t d_ = lfs3_data_read(lfs3, &slice,
                                 buffer_, d);
                         if (d_ < 0) {
                             return d_;
@@ -13353,10 +13355,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
                     if (!lfs3_o_needsflush(file->b.h.flags)) {
                         // note one important side-effect here is a strict
                         // data hint
-                        lfs3_ssize_t d_ = lfs3_data_read(lfs3,
-                                &LFS3_DATA_SLICE(&file->leaf.bptr.d,
-                                    pos_ - file->leaf.pos,
-                                    d),
+                        lfs3_ssize_t d_ = lfs3_data_read(lfs3, &slice,
                                 file->cache.buffer, d);
                         if (d_ < 0) {
                             return d_;
@@ -13904,11 +13903,13 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     if (!lfs3_bptr_ishole(&file->leaf.bptr)) {
                         // note one important side-effect here is a strict
                         // data hint
-                        int err = lfs3_bd_progdata(lfs3, block_,
-                                pos_ - block_pos,
-                                &LFS3_DATA_SLICE(&file->leaf.bptr.d,
-                                    pos_ - file->leaf.pos,
-                                    d),
+                        lfs3_data_t slice = lfs3_data_fromslice(
+                                &file->leaf.bptr.d,
+                                pos_ - file->leaf.pos,
+                                d);
+                        int err = lfs3_bd_progdata(lfs3,
+                                block_, pos_ - block_pos,
+                                &slice,
                                 &lfs3->pcksum);
                         if (err) {
                             LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -13970,10 +13971,13 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                 if (!lfs3_bptr_ishole(&bptr__)) {
                     // note one important side-effect here is a strict
                     // data hint
-                    err = lfs3_bd_progdata(lfs3, block_, pos_ - block_pos,
-                            &LFS3_DATA_SLICE(&bptr__.d,
-                                pos_ - (bid__-(lfs3_bptr_size(&bptr__)-1)),
-                                d),
+                    lfs3_data_t slice = lfs3_data_fromslice(
+                            &bptr__.d,
+                            pos_ - (bid__-(lfs3_bptr_size(&bptr__)-1)),
+                            d);
+                    err = lfs3_bd_progdata(lfs3, block_,
+                            pos_ - block_pos,
+                            &slice,
                             &lfs3->pcksum);
                     if (err) {
                         LFS3_ASSERT(err != LFS3_ERR_RANGE);
