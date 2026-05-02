@@ -13646,21 +13646,21 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             // can't commit to multiple leaves simultaneously, so this
             // is the best we can do
             //
-            // as a consequence, we will never merge fragments across
-            // leaf rbyds, but this is actually a good thing! otherwise
+            // As a consequence, we will never merge fragments across
+            // leaf rbyds, but this is actually a good thing! Otherwise
             // we'd have to worry about the underlying blocks being
             // reallocated before the graft finishes (consider rbyds
             // with single fragments). I don't think it's possible to
-            // merge cross-rbyd fragments atomically
+            // merge cross-rbyd fragments atomically.
             //
-            // the staging shrub doesn't help here as we need it to
-            // restart commits during mdir compactions, etc. if we
+            // The staging shrub doesn't help here as we need it to
+            // restart commits during mdir compactions, etc. If we
             // wanted to track everything for cross-rbyd fragment
             // merging, I think we'd need either 3 shrubs or some
-            // other hack
+            // other hack.
             //
-            // note this is not a problem for bptrs because we
-            // explicitly track crystallizing blocks in file->leaf
+            // Note this is not a problem for bptrs because we
+            // explicitly track crystallizing blocks in file->leaf.
             //
             if (rid__+1 == (lfs3_srid_t)l_rbyd.weight
                     && bid__+1 < lfs3_min(pos_+cut_+1, file->b.b.weight)
@@ -13681,16 +13681,15 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             poke = bid__ + 1;
         }
 
-        if (lfs3_bptr_isfragment(&bptr_) && dgrow > 0) {
-            // limit fragment data to:
-            // 1. fragment size
-            // 2. cut size, to avoid overflow issues
-            //
-            // note we don't need to worry about: (1) left data, because
-            // we only merge left if left < fragment size, and (2) right
-            // data, because we only merge right if everything would fit
-            //
-            LFS3_ASSERT(lfs3_data_size(&datas[0]) < lfs3->cfg->fragment_size);
+        // limit fragment data to:
+        // 1. fragment size
+        // 2. cut size, to avoid overflow issues
+        //
+        // note we don't need to worry about: (1) left data, because
+        // we only merge left if left < fragment size, and (2) right
+        // data, because we only merge right if everything would fit
+        //
+        if (lfs3_bptr_isfragment(&bptr_)) {
             dgrow = lfs3_min(dgrow, lfs3->cfg->fragment_size);
             lfs3_data_slice(&datas[1],
                     -1,
@@ -13699,6 +13698,10 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                         + lfs3_data_size(&datas[1])
                         + lfs3_data_size(&datas[2])
                     == dgrow);
+            LFS3_ASSERT(lfs3_data_size(&datas[0])
+                        + lfs3_data_size(&datas[1])
+                        + lfs3_data_size(&datas[2])
+                    <= lfs3->cfg->fragment_size);
         }
 
         // build graft commit
