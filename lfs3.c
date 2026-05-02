@@ -13493,21 +13493,19 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_bptr_t l_bptr; l_bptr.d = LFS3_DATA_NULL();
         lfs3_bptr_t r_bptr; r_bptr.d = LFS3_DATA_NULL();
 
-        // keep track of how each cut affects our shrub estimate
-        lfs3_ssize_t shestimate = 0;
+        // data array for merging fragments
+        lfs3_data_t datas[3] = {
+            LFS3_DATA_NULL(),
+            LFS3_DATA_NULL(),
+            LFS3_DATA_NULL(),
+        };
 
-        // merge data?
-        lfs3_data_t datas[3];
+        // how much we'll be able to cut/grow this commit
         lfs3_off_t dcut = 0;
         lfs3_off_t dgrow = lfs3_bptr_weight(&bptr_);
 
-        // if we're grafting a fragment, go ahead and init the data
-        // array for merging
-        if (lfs3_bptr_isfragment(&bptr_)) {
-            datas[0] = LFS3_DATA_NULL();
-            datas[1] = bptr_.d;
-            datas[2] = LFS3_DATA_NULL();
-        }
+        // keep track of how each cut affects our shrub estimate
+        lfs3_ssize_t shestimate = 0;
 
         // needs a new hole?
         if (pos_ > file->b.b.weight) {
@@ -13681,29 +13679,6 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             poke = bid__ + 1;
         }
 
-        // limit fragment data to:
-        // 1. fragment size
-        // 2. cut size, to avoid overflow issues
-        //
-        // note we don't need to worry about: (1) left data, because
-        // we only merge left if left < fragment size, and (2) right
-        // data, because we only merge right if everything would fit
-        //
-        if (lfs3_bptr_isfragment(&bptr_)) {
-            dgrow = lfs3_min(dgrow, lfs3->cfg->fragment_size);
-            lfs3_data_slice(&datas[1],
-                    -1,
-                    dgrow - lfs3_data_size(&datas[0]));
-            LFS3_ASSERT(lfs3_data_size(&datas[0])
-                        + lfs3_data_size(&datas[1])
-                        + lfs3_data_size(&datas[2])
-                    == dgrow);
-            LFS3_ASSERT(lfs3_data_size(&datas[0])
-                        + lfs3_data_size(&datas[1])
-                        + lfs3_data_size(&datas[2])
-                    <= lfs3->cfg->fragment_size);
-        }
-
         // build graft commit
         lfs3_rattr_t rattrs[12];
         lfs3_rattr_t *r = rattrs;
@@ -13746,6 +13721,28 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
             // graft fragment?
             } else if (lfs3_bptr_isfragment(&bptr_)) {
+                // limit fragment data to:
+                // 1. fragment size
+                // 2. cut size, to avoid overflow issues
+                //
+                // note we don't need to worry about: (1) left data,
+                // because we only merge left if left < fragment size,
+                // and (2) right data, because we only merge right if
+                // everything would fit
+                //
+                dgrow = lfs3_min(dgrow, lfs3->cfg->fragment_size);
+                datas[1] = lfs3_data_fromslice(&bptr_.d,
+                        -1,
+                        dgrow - lfs3_data_size(&datas[0]));
+                LFS3_ASSERT(lfs3_data_size(&datas[0])
+                            + lfs3_data_size(&datas[1])
+                            + lfs3_data_size(&datas[2])
+                        == dgrow);
+                LFS3_ASSERT(lfs3_data_size(&datas[0])
+                            + lfs3_data_size(&datas[1])
+                            + lfs3_data_size(&datas[2])
+                        <= lfs3->cfg->fragment_size);
+
                 *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_CAT, 3);
                 *r++ = LFS3_RATTR_WEIGHT(+dgrow);
                 *r++ = LFS3_RATTR_ARG(datas);
@@ -13799,9 +13796,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         pos_ += dgrow;
         cut_ -= dcut;
         lfs3_bptr_slice(&bptr_,
-                dgrow - ((lfs3_bptr_isfragment(&bptr_))
-                    ? lfs3_data_size(&datas[0])
-                    : 0),
+                dgrow - lfs3_data_size(&datas[0]),
                 -1);
 
         // we should be aligned now
