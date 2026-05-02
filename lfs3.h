@@ -1068,6 +1068,7 @@ typedef struct lfs3_data {
     // lfs3_size_ts
     lfs3_off_t size;
     // sign2(off)=0b00 => in-RAM buffer
+    // sign2(off)=0b01 => hole (unreadable)
     // sign2(off)=0b10 => on-disk data
     // sign2(off)=0b11 => on-disk data + cksum
     lfs3_size_t off;
@@ -1089,7 +1090,7 @@ typedef struct lfs3_data {
 // a possible block pointer
 typedef struct lfs3_bptr {
     // sign2(off)=0b00 => in-RAM buffer
-    // sign2(off)=0b01 => hole
+    // sign2(off)=0b01 => hole (unreadable)
     // sign2(off)=0b10 => on-disk fragment
     // sign2(off)=0b11 => on-disk bptr
     lfs3_data_t d;

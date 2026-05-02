@@ -1571,6 +1571,11 @@ static inline lfs3_size_t lfs3_data_size(const lfs3_data_t *data) {
     return data->size;
 }
 
+// this is just a hint that size may be > lfs3_size_t
+static inline lfs3_off_t lfs3_data_weight(const lfs3_data_t *data) {
+    return data->size;
+}
+
 #ifdef LFS3_CKDATACKSUMS
 static inline lfs3_size_t lfs3_data_cksize(const lfs3_data_t *data) {
     return data->u.disk.cksize & ~LFS3_DATA_ISERASED;
@@ -2302,8 +2307,9 @@ static inline lfs3_size_t lfs3_bptr_size(const lfs3_bptr_t *bptr) {
     return lfs3_data_size(&bptr->d);
 }
 
+// this is just a hint that size may be > lfs3_size_t
 static inline lfs3_off_t lfs3_bptr_weight(const lfs3_bptr_t *bptr) {
-    return lfs3_data_size(&bptr->d);
+    return lfs3_data_weight(&bptr->d);
 }
 
 static inline lfs3_size_t lfs3_bptr_estimate(const lfs3_bptr_t *bptr) {
@@ -13252,7 +13258,7 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
 static int lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t buffer_pos, const uint8_t *buffer, lfs3_size_t buffer_size,
         lfs3_off_t pos,
-        lfs3_bptr_t *bptr_) {
+        lfs3_data_t *data_) {
     // out-of-bounds?
     //
     // note we can't use lfs3_file_size_ here, because buffer may not
@@ -13273,7 +13279,7 @@ static int lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
     if (pos < buffer_pos + buffer_size && buffer_size > 0) {
         if (pos >= buffer_pos) {
             d = lfs3_min(d, (buffer_pos + buffer_size) - pos);
-            bptr_->d = LFS3_DATA_BUF(&buffer[pos - buffer_pos], d);
+            *data_ = LFS3_DATA_BUF(&buffer[pos - buffer_pos], d);
             return 0;
         }
 
@@ -13289,7 +13295,7 @@ static int lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
                     (file->leaf.pos + lfs3_bptr_weight(&file->leaf.bptr))
                         - pos);
             // note one important side-effect here is a strict data hint
-            lfs3_bptr_fromslice(bptr_, &file->leaf.bptr,
+            *data_ = lfs3_data_fromslice(&file->leaf.bptr.d,
                     pos - file->leaf.pos,
                     d);
             return 0;
@@ -13302,8 +13308,9 @@ static int lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
     // any data in our btree?
     if (pos < file->b.b.weight) {
         lfs3_bid_t bid__;
+        lfs3_bptr_t bptr__;
         int err = lfs3_file_lookupnext(lfs3, file, pos,
-                &bid__, bptr_);
+                &bid__, &bptr__);
         if (err) {
             LFS3_ASSERT(err != LFS3_ERR_NOENT);
             return err;
@@ -13315,20 +13322,20 @@ static int lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
         // but only if we're not crystallizing!
         if (!lfs3_o_needscryst(file->b.h.flags)
                 && !lfs3_o_needsgraft(file->b.h.flags)) {
-            file->leaf.pos = bid__-(lfs3_bptr_weight(bptr_)-1);
-            file->leaf.bptr = *bptr_;
+            file->leaf.pos = bid__-(lfs3_bptr_weight(&bptr__)-1);
+            file->leaf.bptr = bptr__;
         }
 
         d = lfs3_min(d, bid__+1 - pos);
         // note one important side-effect here is a strict data hint
-        lfs3_bptr_slice(bptr_,
-                pos - (bid__-(lfs3_bptr_weight(bptr_)-1)),
+        *data_ = lfs3_data_fromslice(&bptr__.d,
+                pos - (bid__-(lfs3_bptr_weight(&bptr__)-1)),
                 d);
         return 0;
     }
 
     // found a hole?
-    bptr_->d = LFS3_DATA_HOLE(d);
+    *data_ = LFS3_DATA_HOLE(d);
     return 0;
 }
 
@@ -13378,21 +13385,21 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
                 // btree
                 && !lfs3_o_needscryst(file->b.h.flags)
                 && !lfs3_o_needsgraft(file->b.h.flags)) {
-            lfs3_bptr_t bptr__;
+            lfs3_data_t data__;
             int err = lfs3_file_read_(lfs3, file,
                     file->cache.pos, file->cache.buffer, file->cache.size,
                     pos_,
-                    &bptr__);
+                    &data__);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
                 return err;
             }
 
             // any data on-disk?
-            if (!lfs3_bptr_ishole(&bptr__)) {
+            if (!lfs3_data_ishole(&data__)) {
                 // bypass cache?
                 if (size_ >= lfs3_file_fcachesize(lfs3, file)) {
-                    lfs3_ssize_t d = lfs3_data_read(lfs3, &bptr__.d,
+                    lfs3_ssize_t d = lfs3_data_read(lfs3, &data__,
                             buffer_, size_);
                     if (d < 0) {
                         return d;
@@ -13405,7 +13412,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
                 }
 
                 // try to fill our cache with some data
-                lfs3_ssize_t d = lfs3_data_read(lfs3, &bptr__.d,
+                lfs3_ssize_t d = lfs3_data_read(lfs3, &data__,
                         file->cache.buffer, lfs3_file_fcachesize(lfs3, file));
                 if (d < 0) {
                     return d;
@@ -13417,7 +13424,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // found a hole? fill with zeros
-            lfs3_ssize_t d = lfs3_min(lfs3_bptr_weight(&bptr__), size_);
+            lfs3_ssize_t d = lfs3_min(lfs3_data_weight(&data__), size_);
             lfs3_memset(buffer_, 0, d);
 
             pos_ += d;
@@ -13894,11 +13901,11 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         // i.e. eagerly merge any right neighbors unless that would put
         // us over our crystal_size/block_size
         while (pos_ < crystal_limit) {
-            lfs3_bptr_t bptr__;
+            lfs3_data_t data__;
             int err = lfs3_file_read_(lfs3, file,
                     buffer_pos, buffer, buffer_size,
                     pos_,
-                    &bptr__);
+                    &data__);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_NOENT);
                 return err;
@@ -13907,11 +13914,11 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
             // is this data a pure hole? stop early to (FUTURE)
             // better leverage erased-state in sparse files, and to
             // try to avoid writing a bunch of unnecessary zeros
-            if ((lfs3_bptr_ishole(&bptr__)
+            if ((lfs3_data_ishole(&data__)
                         // does this data exceed our block_size? also
                         // stop early to try to avoid messing up
                         // block alignment
-                        || pos_+lfs3_bptr_weight(&bptr__) - block_pos
+                        || pos_+lfs3_data_weight(&data__) - block_pos
                             > lfs3->cfg->block_size)
                     // but make sure to include all of the requested
                     // crystal if explicit, otherwise above loops
@@ -13928,12 +13935,12 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             // slice the data we care about
-            lfs3_bptr_slice(&bptr__, -1, crystal_limit - pos_);
+            lfs3_data_slice(&data__, -1, crystal_limit - pos_);
 
             // any data on-disk?
-            if (!lfs3_bptr_ishole(&bptr__)) {
+            if (!lfs3_data_ishole(&data__)) {
                 int err = lfs3_bd_progdata(lfs3, block_, pos_ - block_pos,
-                        &bptr__.d,
+                        &data__,
                         &lfs3->pcksum);
                 if (err) {
                     LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -13944,13 +13951,13 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     return err;
                 }
 
-                pos_ += lfs3_bptr_weight(&bptr__);
+                pos_ += lfs3_data_weight(&data__);
                 continue;
             }
 
             // found a hole? fill with zeros
             err = lfs3_bd_set(lfs3, block_, pos_ - block_pos,
-                    0, lfs3_bptr_weight(&bptr__),
+                    0, lfs3_data_weight(&data__),
                     &lfs3->pcksum);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -13961,7 +13968,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                 return err;
             }
 
-            pos_ += lfs3_bptr_weight(&bptr__);
+            pos_ += lfs3_data_weight(&data__);
         }
 
         // if we're fully crystallized, mark as crystallized
