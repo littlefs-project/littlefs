@@ -9542,24 +9542,17 @@ static int lfs3_mdir_compact(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
 static lfs3_stag_t lfs3_mdir_namelookup(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_did_t did, const char *name, lfs3_size_t name_len,
         lfs3_smid_t *mid_, lfs3_data_t *data_) {
-    // default to mid_ = 0, this blanket assignment is the only way to
-    // keep GCC happy
-    if (mid_) {
-        *mid_ = 0;
-    }
-
-    // empty mdir?
-    if (mdir->r.weight == 0) {
-        return LFS3_ERR_NOENT;
-    }
-
+    // lookup name in mdir
     lfs3_srid_t rid;
     lfs3_tag_t tag;
     lfs3_scmp_t cmp = lfs3_rbyd_namelookup(lfs3, &mdir->r,
             did, name, name_len,
             &rid, &tag, NULL, data_);
     if (cmp < 0) {
-        LFS3_ASSERT(cmp != LFS3_ERR_NOENT);
+        // we need this in case mdir is empty
+        if (mid_) {
+            *mid_ = 0;
+        }
         return cmp;
     }
 
