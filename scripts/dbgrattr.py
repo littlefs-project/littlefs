@@ -65,28 +65,36 @@ TAG_GCKSUMDELTA = 0x3300    ##  v-11 --11 ++++ ++++
 
 # our core rbyd attribute type
 #
-#   wwll lfff ffcc cccc tttt tttt tttt tttt
-#    ^'-.''--.-''--.--' :                 :
-#    '--|----|-----|----:-----------------:-- compressed weight
-#   ::  '----|-----|----:-----------------:-- total len
-#   ::       '-----|----:-----------------:-- from encoder
-#   ::             '----:-----------------:-- optional from count
-#   ::                  rgmm kkkk +kkk kkkk
-#   11 => w=-1          ^^ ^ '-.' '---.---'
-#   00 => w=0           '|-|---|------|------ rm bit
-#   01 => w=+1           '-|---|------|------ grow bit
-#   10 => w=arg            '---|------|------ mask bits
-#                              '------|------ tag suptype
-#                                     '------ tag subtype
+#   wwll llff ffff ffff tttt tttt tttt tttt
+#    ^'-.-' ^ '---.---' :                 :
+#    '--|---|-----|-----:-----------------:-- compressed weight
+#   ::  '---|-----|-----:-----------------:-- total len - 1
+#   ::      '-----|-----:-----------------:-- from encoder
+#   ::            '-----:-----------------:-- optional from count
+#   ::     :          : rgmm kkkk +kkk kkkk
+#   11 => w=-1        : ^^ ^ '-.' '---.---'
+#   00 => w=0         : '|-|---|------|------ rm bit
+#   01 => w=+1        :  '-|---|------|------ grow bit
+#   10 => w=arg       :    '---|------|------ mask bits
+#          :          :   ::   '------|------ tag suptype
+#          ff cccc cccc   ::          '------ tag subtype
+#          11 ffff ffcc   ::
+#                         00 => mask0  (---- ---- ----)
+#                         01 => mask2  (---- ---- --11)
+#                         10 => mask8  (---- 1111 1111)
+#                         11 => mask12 (1111 1111 1111)
 #
-RATTR_WEIGHT    = 0xc0000000    # 11-- ---- ---- ---- ---- ---- ---- ----
-RATTR_LEN       = 0x38000000    # --11 1--- ---- ---- ---- ---- ---- ----
-RATTR_FROM      = 0x07c00000    # ---- -111 11-- ---- ---- ---- ---- ----
-RATTR_FROMCOUNT = 0x003f0000    # ---- ---- --11 1111 ---- ---- ---- ----
-RATTR_RM        = 0x00008000    # ---- ---- ---- ---- 1--- ---- ---- ----
-RATTR_GROW      = 0x00004000    # ---- ---- ---- ---- -1-- ---- ---- ----
-RATTR_MASK      = 0x00003000    # ---- ---- ---- ---- --11 ---- ---- ----
-RATTR_TAG       = 0x00000fff    # ---- ---- ---- ---- ---- 1111 +111 1111
+RATTR_WEIGHT        = 0xc0000000    # 11-- ---- ---- ---- ---- ---- ---- ----
+RATTR_LEN           = 0x3c000000    # --11 11-- ---- ---- ---- ---- ---- ----
+RATTR_FROM          = 0x03ff0000    # ---- --11 1111 1111 ---- ---- ---- ----
+RATTR_FROM8         = 0x03000000    # ---- --11 ---- ---- ---- ---- ---- ----
+RATTR_FROM2         = 0x03fc0000    # ---- --11 1111 11-- ---- ---- ---- ----
+RATTR_FROMCOUNT8    = 0x00ff0000    # ---- ---- 1111 1111 ---- ---- ---- ----
+RATTR_FROMCOUNT2    = 0x00030000    # ---- ---- ---- --11 ---- ---- ---- ----
+RATTR_RM            = 0x00008000    # ---- ---- ---- ---- 1--- ---- ---- ----
+RATTR_GROW          = 0x00004000    # ---- ---- ---- ---- -1-- ---- ---- ----
+RATTR_MASK          = 0x00003000    # ---- ---- ---- ---- --11 ---- ---- ----
+RATTR_TAG           = 0x00000fff    # ---- ---- ---- ---- ---- 1111 +111 1111
 
 # internal tags
 tag_NOOP        = 0x0100    #i  ---- ---1 ---- ----
@@ -106,22 +114,23 @@ tag_MASK8       = 0x2000    #i  --1- ---- ---- ----  (---- 1111 1111)
 tag_MASK12      = 0x3000    #i  --11 ---- ---- ----  (1111 1111 1111)
 
 # from encoders
-FROM_NIL      = 0   #
-FROM_LBUF     = 1   #
-FROM_BUF      = 2   #
-FROM_DISK     = 3   #
-FROM_CAT      = 4   #
-FROM_LE32     = 5   #
-FROM_LEB128   = 6   #
-FROM_LLEB128  = 7   #
-FROM_NAME     = 8   #
-FROM_BRANCH   = 9   #
-FROM_ECKSUM   = 10  #
-FROM_BPTR     = 11  #
-FROM_BTREE    = 12  #
-FROM_SHRUB    = 13  #
-FROM_MPTR     = 14  #
-FROM_GEOMETRY = 15  #
+FROM_NIL        = 0x000     # -- ++++ ++++ (count unused)
+FROM_LBUF       = 0x100     # -1 cccc cccc
+FROM_NAME       = 0x200     # 1- ++++ ++++ (count if non-null?)
+FROM_BUF        = 0x300     # 11 ---- --++
+FROM_GRAFT      = 0x304     # 11 ---- -1cc
+FROM_DATA       = 0x308     # 11 ---- 1-cc
+FROM_LE32       = 0x30c     # 11 ---- 11++
+FROM_LEB128     = 0x310     # 11 ---1 --++
+FROM_LLEB128    = 0x314     # 11 ---1 -1++
+FROM_ECKSUM     = 0x318     # 11 ---1 1-++
+FROM_BPTR       = 0x31c     # 11 ---1 11++
+FROM_BRANCH     = 0x320     # 11 --1- --++
+FROM_BTREE      = 0x324     # 11 --1- -1++
+FROM_SHRUB      = 0x328     # 11 --1- 1-++
+FROM_MPTR       = 0x32c     # 11 --1- 11++
+FROM_COMPAT     = 0x330     # 11 --11 --++
+FROM_GEOMETRY   = 0x334     # 11 --11 -1++
 
 
 # self-parsing tag repr
@@ -305,18 +314,24 @@ class Tag:
 
 # self-parsing from repr
 class From:
-    def __init__(self, name, from_, help='', *,
+    def __init__(self, name, from_, encoding, help='', *,
             lineno=0):
         self.name = name
         self.from_ = from_
+        self.encoding = encoding
         self.help = help
         self.lineno = lineno
+        # derive mask from encoding
+        self.mask = sum(
+                (1 if x in 'v-01' else 0) << len(self.encoding)-1-i
+                    for i, x in enumerate(self.encoding))
 
     def __repr__(self):
-        return 'From(%r, %r%s)' % (
+        return 'From(%r, %r, %r%s)' % (
                 self.name,
                 self.from_,
-                ', ' % self.help if self.help else '')
+                self.encoding,
+                ', %r' % self.help if self.help else '')
 
     def __eq__(self, other):
         return self.name == other.name
@@ -327,6 +342,31 @@ class From:
     def __hash__(self):
         return hash(self.name)
 
+    def specificity(self):
+        return sum(1 for x in self.encoding if x in 'v-01')
+
+    def matches(self, from_):
+        return (from_ & self.mask) == (self.from_ & self.mask)
+
+    def get(self, chars, from_):
+        return sum(
+                from_ & ((1 if x in chars else 0) << len(self.encoding)-1-i)
+                    for i, x in enumerate(self.encoding))
+
+    def max(self, chars):
+        return max(len(self.encoding)-1-i
+                for i, x in enumerate(self.encoding) if x in chars)
+
+    def min(self, chars):
+        return min(len(self.encoding)-1-i
+                for i, x in enumerate(self.encoding) if x in chars)
+
+    def width(self, chars):
+        return self.max(chars) - self.min(chars)
+
+    def __contains__(self, chars):
+        return any(x in self.encoding for x in chars)
+
     @staticmethod
     @ft.cache
     def froms():
@@ -336,7 +376,7 @@ class From:
         froms = []
         from_pattern = re.compile(
             '^(?P<name>FROM_[^ ]*) *= *(?P<from>[^#]*?) *'
-                '#+ *(?P<help>.*)$')
+                '#+ *(?P<encoding>(?:[^ ] *?){10}) *(?P<help>.*)$')
         for i, line in enumerate(
                 inspect.getsource(inspect.getmodule(inspect.currentframe()))
                     .replace('\\\n', '')
@@ -346,6 +386,7 @@ class From:
                 froms.append(From(
                         m.group('name'),
                         globals()[m.group('name')],
+                        m.group('encoding').replace(' ', ''),
                         m.group('help'),
                         lineno=1+i))
         return froms
@@ -357,12 +398,13 @@ class From:
         # find froms, note this is cached
         froms__ = From.froms()
 
-        # find the most specific from encoder
-        for f in froms__:
-            if f.from_ == from_:
-                return f
-        # not found
-        if default is From._sentinel:
+        # find the most specific matching from
+        f = max((f for f in froms__ if f.matches(from_)),
+                key=lambda f: f.specificity(),
+                default=None)
+        if f is not None:
+            return f
+        elif default is From._sentinel:
             raise KeyError(from_)
         else:
             return default
@@ -413,12 +455,12 @@ class Rattr:
     def specificity(self):
         return sum(1 for x in self.encoding if x in 'v-01')
 
-    def matches(self, tag):
-        return (tag & self.mask) == (self.tag & self.mask)
+    def matches(self, rattr):
+        return (rattr & self.mask) == (self.rattr & self.mask)
 
-    def get(self, chars, tag):
+    def get(self, chars, rattr):
         return sum(
-                tag & ((1 if x in chars else 0) << len(self.encoding)-1-i)
+                rattr & ((1 if x in chars else 0) << len(self.encoding)-1-i)
                     for i, x in enumerate(self.encoding))
 
     def max(self, chars):
@@ -470,7 +512,7 @@ class Rattr:
 
     @staticmethod
     def len(rattr):
-        return 1 + (0x7 & (rattr >> 27))
+        return 1 + (0xf & (rattr >> 26))
 
     @staticmethod
     def argcount(rattr):
@@ -478,11 +520,17 @@ class Rattr:
 
     @staticmethod
     def from_(rattr):
-        return 0x1f & (rattr >> 22)
+        if 0x300 & (rattr >> 16) != 0x300:
+            return 0x300 & (rattr >> 16)
+        else:
+            return 0x3fc & (rattr >> 16)
 
     @staticmethod
     def fromcount(rattr):
-        return 0x3f & (rattr >> 16)
+        if 0x300 & (rattr >> 16) != 0x300:
+            return 0x0ff & (rattr >> 16)
+        else:
+            return 0x003 & (rattr >> 16)
 
     @staticmethod
     def tag(rattr):
@@ -523,7 +571,7 @@ class Rattr:
                     '+' if weight > 0 else '-' if weight < 0 else '',
                     abs(weight)))
         elif weight == -2:
-            r.append('w%')
+            r.append('+-w%')
 
         # include argcount
         argcount = Rattr.argcount(rattr)

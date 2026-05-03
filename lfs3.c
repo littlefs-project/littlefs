@@ -1924,53 +1924,58 @@ static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
 
 // our core rbyd attribute type
 //
-//   wwll lfff ffcc cccc tttt tttt tttt tttt
-//    ^'-.''--.-''--.--' :                 :
-//    '--|----|-----|----:-----------------:-- compressed weight
-//   ::  '----|-----|----:-----------------:-- total len
-//   ::       '-----|----:-----------------:-- from encoder
-//   ::             '----:-----------------:-- optional from count
-//   ::                  rgmm kkkk +kkk kkkk
-//   11 => w=-1          ^^ ^ '-.' '---.---'
-//   00 => w=0           '|-|---|------|------ rm bit
-//   01 => w=+1           '-|---|------|------ grow bit
-//   10 => w=arg            '---|------|------ mask bits
-//                              '------|------ tag suptype
-//                                     '------ tag subtype
+//   wwll llff ffff ffff tttt tttt tttt tttt
+//    ^'-.-' ^ '---.---' :                 :
+//    '--|---|-----|-----:-----------------:-- compressed weight
+//   ::  '---|-----|-----:-----------------:-- total len - 1
+//   ::      '-----|-----:-----------------:-- from encoder
+//   ::            '-----:-----------------:-- optional from count
+//   ::     :          : rgmm kkkk +kkk kkkk
+//   11 => w=-1        : ^^ ^ '-.' '---.---'
+//   00 => w=0         : '|-|---|------|------ rm bit
+//   01 => w=+1        :  '-|---|------|------ grow bit
+//   10 => w=arg       :    '---|------|------ mask bits
+//          :          :   ::   '------|------ tag suptype
+//          ff cccc cccc   ::          '------ tag subtype
+//          11 ffff ffcc   ::
+//                         00 => mask0  (---- ---- ----)
+//                         01 => mask2  (---- ---- --11)
+//                         10 => mask8  (---- 1111 1111)
+//                         11 => mask12 (1111 1111 1111)
 //
 typedef uintptr_t lfs3_rattr_t;
 
 // rattr from encoders
 enum lfs3_from {
-    LFS3_FROM_NIL       = 0,
-    LFS3_FROM_LBUF      = 1,
-    LFS3_FROM_BUF       = 2,
-    LFS3_FROM_DISK      = 3,
-    LFS3_FROM_CAT       = 4,
+    LFS3_FROM_NIL       = 0x000, // -- ++++ ++++ (count unused)
+    LFS3_FROM_LBUF      = 0x100, // -1 cccc cccc
+    LFS3_FROM_NAME      = 0x200, // 1- ++++ ++++ (count if non-null?)
 
-    LFS3_FROM_LE32      = 5,
-    LFS3_FROM_LEB128    = 6,
-    LFS3_FROM_LLEB128   = 7,
-    LFS3_FROM_NAME      = 8,
-    LFS3_FROM_BRANCH    = 9,
+    LFS3_FROM_BUF       = 0x300, // 11 ---- --++
+    LFS3_FROM_GRAFT     = 0x304, // 11 ---- -1cc
+    LFS3_FROM_DATA      = 0x308, // 11 ---- 1-cc // TODO rm?
 
-    LFS3_FROM_ECKSUM    = 10,
-    LFS3_FROM_BPTR      = 11,
-    LFS3_FROM_BTREE     = 12,
-    LFS3_FROM_SHRUB     = 13,
-    LFS3_FROM_MPTR      = 14,
-    LFS3_FROM_COMPAT    = 15,
-    LFS3_FROM_GEOMETRY  = 16,
+    LFS3_FROM_LE32      = 0x30c, // 11 ---- 11++ // TODO cat?
+    LFS3_FROM_LEB128    = 0x310, // 11 ---1 --++
+    LFS3_FROM_LLEB128   = 0x314, // 11 ---1 -1++
+
+    LFS3_FROM_ECKSUM    = 0x318, // 11 ---1 1-++
+    LFS3_FROM_BPTR      = 0x31c, // 11 ---1 11++
+    LFS3_FROM_BRANCH    = 0x320, // 11 --1- --++
+    LFS3_FROM_BTREE     = 0x324, // 11 --1- -1++
+    LFS3_FROM_SHRUB     = 0x328, // 11 --1- 1-++
+    LFS3_FROM_MPTR      = 0x32c, // 11 --1- 11++ // TODO rm?
+    LFS3_FROM_COMPAT    = 0x330, // 11 --11 --++ // TODO rm?
+    LFS3_FROM_GEOMETRY  = 0x334, // 11 --11 -1++ // TODO rm?
 };
 
-typedef uint8_t lfs3_from_t;
-typedef uint8_t lfs3_count_t;
+typedef uint16_t lfs3_from_t;
 
 // initial rattr macros
 #define LFS3_RATTR_5(_tag, _weight, _arg_count, _from, _from_count) \
     (((lfs3_rattr_t)(_weight) << 30) \
-        | ((lfs3_rattr_t)((((_weight) == -2) ? 1 : 0)+(_arg_count)) << 27) \
-        | ((lfs3_rattr_t)(_from) << 22) \
+        | ((lfs3_rattr_t)((((_weight) == -2) ? 1 : 0)+(_arg_count)) << 26) \
+        | ((lfs3_rattr_t)(_from) << 16) \
         | ((lfs3_rattr_t)(_from_count) << 16) \
         | ((lfs3_rattr_t)(_tag) << 0))
 
@@ -2021,7 +2026,7 @@ static inline lfs3_ssize_t lfs3_rattr_weightcount_(lfs3_rattr_t rattr) {
 
 #ifndef LFS3_RDONLY
 static inline lfs3_size_t lfs3_rattr_len_(lfs3_rattr_t rattr) {
-    return 1 + (0x7 & (rattr >> 27));
+    return 1 + (0xf & (rattr >> 26));
 }
 #endif
 
@@ -2033,13 +2038,7 @@ static inline lfs3_ssize_t lfs3_rattr_argcount_(lfs3_rattr_t rattr) {
 
 #ifndef LFS3_RDONLY
 static inline lfs3_from_t lfs3_rattr_from_(lfs3_rattr_t rattr) {
-    return 0x1f & (rattr >> 22);
-}
-#endif
-
-#ifndef LFS3_RDONLY
-static inline lfs3_count_t lfs3_rattr_fromcount_(lfs3_rattr_t rattr) {
-    return 0x3f & (rattr >> 16);
+    return 0x3ff & (rattr >> 16);
 }
 #endif
 
@@ -2115,12 +2114,6 @@ static inline lfs3_from_t lfs3_rattr_from(const lfs3_rattr_t *rattr) {
 #endif
 
 #ifndef LFS3_RDONLY
-static inline lfs3_count_t lfs3_rattr_fromcount(const lfs3_rattr_t *rattr) {
-    return lfs3_rattr_fromcount_(rattr[0]);
-}
-#endif
-
-#ifndef LFS3_RDONLY
 static inline lfs3_tag_t lfs3_rattr_tag(const lfs3_rattr_t *rattr) {
     return lfs3_rattr_tag_(rattr[0]);
 }
@@ -2169,6 +2162,31 @@ static inline const lfs3_rattr_t *lfs3_rattr_next(const lfs3_rattr_t *rattr,
 
     // return next rattr
     return rattr + lfs3_rattr_len(rattr);
+}
+#endif
+
+// from helpers
+#ifndef LFS3_RDONLY
+static inline lfs3_from_t lfs3_from_from8(lfs3_from_t from) {
+    return 0x300 & from;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static inline lfs3_from_t lfs3_from_from2(lfs3_from_t from) {
+    return 0x3fc & from;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static inline lfs3_size_t lfs3_from_fromcount8(lfs3_from_t from) {
+    return 0x0ff & from;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static inline lfs3_size_t lfs3_from_fromcount2(lfs3_from_t from) {
+    return 0x003 & from;
 }
 #endif
 
@@ -3432,8 +3450,7 @@ static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
 // encode rattrs
 #ifndef LFS3_RDONLY
 static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
-        lfs3_tag_t tag, lfs3_srid_t weight,
-        lfs3_from_t from, lfs3_count_t count,
+        lfs3_tag_t tag, lfs3_srid_t weight, lfs3_from_t from,
         const lfs3_rattr_t *args) {
     // tag must not be internal at this point
     LFS3_ASSERT(lfs3_tag_suptype(tag) != LFS3_TAG_INTERNAL);
@@ -3452,6 +3469,11 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
             lfs3_data_t data;
 
             struct {
+                lfs3_data_t datas[2];
+                uint8_t buf[LFS3_LEB128_DSIZE];
+            } name;
+
+            struct {
                 lfs3_data_t data;
                 uint8_t buf[LFS3_LE32_DSIZE];
             } le32;
@@ -3463,14 +3485,6 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 lfs3_data_t data;
                 uint8_t buf[LFS3_LLEB128_DSIZE];
             } lleb128;
-            struct {
-                lfs3_data_t datas[2];
-                uint8_t buf[LFS3_LEB128_DSIZE];
-            } name;
-            struct {
-                lfs3_data_t data;
-                uint8_t buf[LFS3_BRANCH_DSIZE];
-            } branch;
 
             struct {
                 lfs3_data_t data;
@@ -3480,6 +3494,10 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 lfs3_data_t data;
                 uint8_t buf[LFS3_BPTR_DSIZE];
             } bptr;
+            struct {
+                lfs3_data_t data;
+                uint8_t buf[LFS3_BRANCH_DSIZE];
+            } branch;
             struct {
                 lfs3_data_t data;
                 uint8_t buf[LFS3_BTREE_DSIZE];
@@ -3504,54 +3522,20 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     } ctx;
 
     // nil data?
-    if (from == LFS3_FROM_NIL) {
+    if (lfs3_from_from8(from) == LFS3_FROM_NIL) {
         datas = NULL;
         data_count = 0;
 
     // little buffer?
-    } else if (from == LFS3_FROM_LBUF) {
-        ctx.u.data = LFS3_DATA_BUF((const uint8_t*)args[0], count);
+    } else if (lfs3_from_from8(from) == LFS3_FROM_LBUF) {
+        ctx.u.data = LFS3_DATA_BUF(
+                (const uint8_t*)args[0],
+                lfs3_from_fromcount8(from));
         datas = &ctx.u.data;
-        data_count = 1;
-
-    // big buffer?
-    } else if (from == LFS3_FROM_BUF) {
-        ctx.u.data = LFS3_DATA_BUF((const uint8_t*)args[0], args[1]);
-        datas = &ctx.u.data;
-        data_count = 1;
-
-    // immediate data?
-    } else if (from == LFS3_FROM_DISK) {
-        ctx.u.data = LFS3_DATA_DISK(args[0], args[1], args[2]);
-        datas = &ctx.u.data;
-        data_count = 1;
-
-    // indirect concatenated data?
-    } else if (from == LFS3_FROM_CAT) {
-        datas = (const lfs3_data_t*)args[0];
-        data_count = count;
-
-    // le32?
-    } else if (from == LFS3_FROM_LE32) {
-        ctx.u.le32.data = lfs3_data_fromle32(args[0],
-                ctx.u.le32.buf);
-        datas = &ctx.u.le32.data;
-        data_count = 1;
-
-    // leb128? little-leb128?
-    } else if (from == LFS3_FROM_LEB128
-            || from == LFS3_FROM_LLEB128) {
-        // leb128s should not exceed 31-bits
-        LFS3_ASSERT(args[0] <= 0x7fffffff);
-        // little-leb128s should not exceed 28-bits
-        LFS3_ASSERT(from != LFS3_FROM_LLEB128 || args[0] <= 0x0fffffff);
-        ctx.u.leb128.data = lfs3_data_fromleb128(args[0],
-                ctx.u.leb128.buf);
-        datas = &ctx.u.leb128.data;
         data_count = 1;
 
     // name?
-    } else if (from == LFS3_FROM_NAME) {
+    } else if (lfs3_from_from8(from) == LFS3_FROM_NAME) {
         ctx.u.name.datas[0] = lfs3_data_fromleb128(args[0], ctx.u.name.buf);
         ctx.u.name.datas[1] = LFS3_DATA_BUF(
                 (const char*)args[1],
@@ -3559,82 +3543,120 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         datas = ctx.u.name.datas;
         data_count = 2;
 
-    // branch?
-    } else if (from == LFS3_FROM_BRANCH) {
-        ctx.u.branch.data = lfs3_data_frombranch(
-                &(const lfs3_rbyd_t){
-                    .blocks[0] = args[0],
-                    .trunk = args[1],
-                    .cksum = args[2]},
-                ctx.u.ecksum.buf);
-        datas = &ctx.u.branch.data;
-        data_count = 1;
-
-    // ecksum?
-    } else if (from == LFS3_FROM_ECKSUM) {
-        ctx.u.ecksum.data = lfs3_data_fromecksum(
-                &(lfs3_ecksum_t){
-                    args[0],
-                    args[1]},
-                ctx.u.ecksum.buf);
-        datas = &ctx.u.ecksum.data;
-        data_count = 1;
-
-    // bptr?
-    } else if (from == LFS3_FROM_BPTR) {
-        ctx.u.bptr.data = lfs3_data_frombptr(
-                (const lfs3_bptr_t*)args[0],
-                ctx.u.bptr.buf);
-        datas = &ctx.u.bptr.data;
-        data_count = 1;
-
-    // btree?
-    } else if (from == LFS3_FROM_BTREE) {
-        ctx.u.btree.data = lfs3_data_frombtree(
-                (const lfs3_btree_t*)args[0],
-                ctx.u.btree.buf);
-        datas = &ctx.u.btree.data;
-        data_count = 1;
-
-    // shrub trunk?
-    } else if (from == LFS3_FROM_SHRUB) {
-        // note unlike the other lazy tags, we _need_ to lazily encode
-        // shrub trunks, since they change underneath us during mdir
-        // compactions, relocations, etc
-        ctx.u.shrub.data = lfs3_data_fromshrub(
-                (const lfs3_shrub_t*)args[0],
-                ctx.u.shrub.buf);
-        datas = &ctx.u.shrub.data;
-        data_count = 1;
-
-    // mptr?
-    } else if (from == LFS3_FROM_MPTR) {
-        ctx.u.mptr.data = lfs3_data_frommptr(
-                (const lfs3_block_t*)args[0],
-                ctx.u.mptr.buf);
-        datas = &ctx.u.mptr.data;
-        data_count = 1;
-
-    // compat flags?
-    } else if (from == LFS3_FROM_COMPAT) {
-        ctx.u.compat.data = lfs3_data_fromcompat(
-                args[0],
-                ctx.u.compat.buf);
-        datas = &ctx.u.compat.data;
-        data_count = 1;
-
-    // geometry?
-    } else if (from == LFS3_FROM_GEOMETRY) {
-        ctx.u.geometry.data = lfs3_data_fromgeometry(
-                &(lfs3_geometry_t){
-                    args[0],
-                    args[1]},
-                ctx.u.geometry.buf);
-        datas = &ctx.u.geometry.data;
-        data_count = 1;
-
     } else {
-        LFS3_UNREACHABLE();
+        // big buffer?
+        if (lfs3_from_from2(from) == LFS3_FROM_BUF) {
+            ctx.u.data = LFS3_DATA_BUF((const uint8_t*)args[0], args[1]);
+            datas = &ctx.u.data;
+            data_count = 1;
+
+        // immediate data?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_GRAFT) {
+            datas = (const lfs3_data_t*)args;
+            data_count = lfs3_from_fromcount2(from);
+
+        // indirect concatenated data?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_DATA) {
+            datas = (const lfs3_data_t*)args[0];
+            data_count = lfs3_from_fromcount2(from);
+
+        // le32?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_LE32) {
+            ctx.u.le32.data = lfs3_data_fromle32(args[0],
+                    ctx.u.le32.buf);
+            datas = &ctx.u.le32.data;
+            data_count = 1;
+
+        // leb128? little-leb128?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_LEB128
+                || lfs3_from_from2(from) == LFS3_FROM_LLEB128) {
+            // leb128s should not exceed 31-bits
+            LFS3_ASSERT(args[0] <= 0x7fffffff);
+            // little-leb128s should not exceed 28-bits
+            LFS3_ASSERT(lfs3_from_from2(from) != LFS3_FROM_LLEB128
+                    || args[0] <= 0x0fffffff);
+            ctx.u.leb128.data = lfs3_data_fromleb128(args[0],
+                    ctx.u.leb128.buf);
+            datas = &ctx.u.leb128.data;
+            data_count = 1;
+
+        // ecksum?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_ECKSUM) {
+            ctx.u.ecksum.data = lfs3_data_fromecksum(
+                    &(lfs3_ecksum_t){
+                        args[0],
+                        args[1]},
+                    ctx.u.ecksum.buf);
+            datas = &ctx.u.ecksum.data;
+            data_count = 1;
+
+        // bptr?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_BPTR) {
+            ctx.u.bptr.data = lfs3_data_frombptr(
+                    (const lfs3_bptr_t*)args[0],
+                    ctx.u.bptr.buf);
+            datas = &ctx.u.bptr.data;
+            data_count = 1;
+
+        // branch?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_BRANCH) {
+            ctx.u.branch.data = lfs3_data_frombranch(
+                    &(const lfs3_rbyd_t){
+                        .blocks[0] = args[0],
+                        .trunk = args[1],
+                        .cksum = args[2]},
+                    ctx.u.ecksum.buf);
+            datas = &ctx.u.branch.data;
+            data_count = 1;
+
+        // btree?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_BTREE) {
+            ctx.u.btree.data = lfs3_data_frombtree(
+                    (const lfs3_btree_t*)args[0],
+                    ctx.u.btree.buf);
+            datas = &ctx.u.btree.data;
+            data_count = 1;
+
+        // shrub trunk?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_SHRUB) {
+            // note unlike the other lazy tags, we _need_ to lazily encode
+            // shrub trunks, since they change underneath us during mdir
+            // compactions, relocations, etc
+            ctx.u.shrub.data = lfs3_data_fromshrub(
+                    (const lfs3_shrub_t*)args[0],
+                    ctx.u.shrub.buf);
+            datas = &ctx.u.shrub.data;
+            data_count = 1;
+
+        // mptr?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_MPTR) {
+            ctx.u.mptr.data = lfs3_data_frommptr(
+                    (const lfs3_block_t*)args[0],
+                    ctx.u.mptr.buf);
+            datas = &ctx.u.mptr.data;
+            data_count = 1;
+
+        // compat flags?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_COMPAT) {
+            ctx.u.compat.data = lfs3_data_fromcompat(
+                    args[0],
+                    ctx.u.compat.buf);
+            datas = &ctx.u.compat.data;
+            data_count = 1;
+
+        // geometry?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_GEOMETRY) {
+            ctx.u.geometry.data = lfs3_data_fromgeometry(
+                    &(lfs3_geometry_t){
+                        args[0],
+                        args[1]},
+                    ctx.u.geometry.buf);
+            datas = &ctx.u.geometry.data;
+            data_count = 1;
+
+        } else {
+            LFS3_UNREACHABLE();
+        }
     }
 
     // now everything should be raw data, either in-ram or on-disk
@@ -4471,7 +4493,6 @@ leaf:;
                     : lfs3_tag_key(tag)),
             upper_rid - lower_rid + weight,
             lfs3_rattr_from(rattr),
-            lfs3_rattr_fromcount(rattr),
             lfs3_rattr_args(rattr));
     if (err) {
         return err;
@@ -4543,7 +4564,7 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
         err = lfs3_rbyd_appendrattr_(lfs3, rbyd, 
                 LFS3_TAG_ECKSUM, 0,
-                LFS3_FROM_ECKSUM, 0, (const lfs3_rattr_t[]){
+                LFS3_FROM_ECKSUM, (const lfs3_rattr_t[]){
                     LFS3_RATTR_ARG(ecksum.cksize),
                     LFS3_RATTR_ARG(ecksum.cksum)});
         if (err) {
@@ -4827,7 +4848,6 @@ static int lfs3_rbyd_appendcompactrattr(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 | lfs3_rattr_tag(rattr),
             lfs3_rattr_weight(rattr),
             lfs3_rattr_from(rattr),
-            lfs3_rattr_fromcount(rattr),
             lfs3_rattr_args(rattr));
     if (err) {
         return err;
@@ -4865,7 +4885,7 @@ static int lfs3_rbyd_appendcompactrbyd(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
         // write the tag
         int err = lfs3_rbyd_appendcompactrattr(lfs3, rbyd_,
                 (const lfs3_rattr_t[]){
-                    LFS3_RATTR(tag, -2, 1, LFS3_FROM_CAT, 1),
+                    LFS3_RATTR(tag, -2, 1, LFS3_FROM_DATA, 1),
                     LFS3_RATTR_WEIGHT(weight),
                     LFS3_RATTR_ARG(&data)});
         if (err) {
@@ -6080,10 +6100,9 @@ static int lfs3_btree_commit__(lfs3_t *lfs3,
         *r++ = LFS3_RATTR_ARG(sibling.trunk);
         *r++ = LFS3_RATTR_ARG(sibling.cksum);
         if (lfs3_tag_suptype(split_tag) == LFS3_TAG_NAME) {
-            *r++ = LFS3_RATTR(LFS3_TAG_BNAME, 0, 3, LFS3_FROM_DISK);
-            *r++ = LFS3_RATTR_ARG(split_name.u.disk.block);
-            *r++ = LFS3_RATTR_ARG(split_name.off);
-            *r++ = LFS3_RATTR_ARG(split_name.size);
+            *r++ = LFS3_RATTR(LFS3_TAG_BNAME, 0, 3, LFS3_FROM_GRAFT, 1);
+            *(lfs3_data_t*)r = split_name;
+            r += 3;
         }
         // we don't care about the name cost in our estimate only
         // because bshrubs never include names
@@ -8337,7 +8356,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                         int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
                                 rid - lfs3_smax(start_rid, 0),
                                 (const lfs3_rattr_t[]){
-                                    LFS3_RATTR(tag, 0, 1, LFS3_FROM_CAT, 1),
+                                    LFS3_RATTR(tag, 0, 1, LFS3_FROM_DATA, 1),
                                     LFS3_RATTR_ARG(&data)});
                         if (err) {
                             return err;
@@ -8469,7 +8488,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
         int err = lfs3_rbyd_appendrattr_(lfs3, &mdir_->r,
                 LFS3_TAG_GCKSUMDELTA, 0,
-                LFS3_FROM_LE32, 0, (const lfs3_rattr_t[]){
+                LFS3_FROM_LE32, (const lfs3_rattr_t[]){
                     LFS3_RATTR_ARG(mdir_->gcksumdelta)});
         if (err) {
             return err;
@@ -8689,7 +8708,7 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3,
             // write the tag
             int err = lfs3_rbyd_appendcompactrattr(lfs3, &mdir_->r,
                     (const lfs3_rattr_t[]){
-                        LFS3_RATTR(tag, -2, 1, LFS3_FROM_CAT, 1),
+                        LFS3_RATTR(tag, -2, 1, LFS3_FROM_DATA, 1),
                         LFS3_RATTR_WEIGHT(weight),
                         LFS3_RATTR_ARG(&data)});
             if (err) {
@@ -9147,7 +9166,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                         LFS3_RATTR(LFS3_TAG_MDIR, -2, 1, LFS3_FROM_MPTR),
                         LFS3_RATTR_WEIGHT(+(1 << lfs3->mbits)),
                         LFS3_RATTR_ARG(mdir_[0].r.blocks),
-                        LFS3_RATTR(LFS3_TAG_MNAME, -2, 1, LFS3_FROM_CAT, 1),
+                        LFS3_RATTR(LFS3_TAG_MNAME, -2, 1, LFS3_FROM_DATA, 1),
                         LFS3_RATTR_WEIGHT(+(1 << lfs3->mbits)),
                         LFS3_RATTR_ARG(&split_name),
                         LFS3_RATTR(LFS3_TAG_MDIR, 0, 1, LFS3_FROM_MPTR),
@@ -9163,7 +9182,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     lfs3_mbid(lfs3, mdir->mid), (const lfs3_rattr_t[]){
                         LFS3_RATTR(LFS3_TAG_MDIR, 0, 1, LFS3_FROM_MPTR),
                         LFS3_RATTR_ARG(mdir_[0].r.blocks),
-                        LFS3_RATTR(LFS3_TAG_MNAME, -2, 1, LFS3_FROM_CAT, 1),
+                        LFS3_RATTR(LFS3_TAG_MNAME, -2, 1, LFS3_FROM_DATA, 1),
                         LFS3_RATTR_WEIGHT(+(1 << lfs3->mbits)),
                         LFS3_RATTR_ARG(&split_name),
                         LFS3_RATTR(LFS3_TAG_MDIR, 0, 1, LFS3_FROM_MPTR),
@@ -13490,15 +13509,10 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_rbyd_t l_rbyd = file->b.b;
         lfs3_srid_t l_rid = lfs3_min(pos_, file->b.b.weight);
         lfs3_off_t l_cut = 0;
-        lfs3_bptr_t l_bptr; l_bptr.d = LFS3_DATA_NULL();
-        lfs3_bptr_t r_bptr; r_bptr.d = LFS3_DATA_NULL();
-
-        // data array for merging fragments
-        lfs3_data_t datas[3] = {
-            LFS3_DATA_NULL(),
-            LFS3_DATA_NULL(),
-            LFS3_DATA_NULL(),
-        };
+        lfs3_bptr_t l_bptr;
+        l_bptr.d = LFS3_DATA_NULL();
+        lfs3_bptr_t r_bptr;
+        r_bptr.d = LFS3_DATA_NULL();
 
         // how much we'll be able to cut/grow this commit
         lfs3_off_t dcut = 0;
@@ -13578,9 +13592,10 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                         // or if we're already a full fragment
                         && l_slice < lfs3->cfg->fragment_size) {
                     pos_ -= l_slice;
-                    datas[0] = lfs3_data_fromslice(&bptr__.d,
+                    l_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             -1,
                             l_slice);
+                    l_bptr.d.size = -l_bptr.d.size;
                     cut_ += l_slice;
                     dgrow += l_slice;
                     snip = true;
@@ -13611,9 +13626,10 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                         // things won't fit in a single fragment
                         && dgrow + (bid__+1 - (pos_+cut_))
                             <= lfs3->cfg->fragment_size) {
-                    datas[2] = lfs3_data_fromslice(&bptr__.d,
+                    r_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             lfs3_data_size(&bptr__.d) - r_slice,
                             -1);
+                    r_bptr.d.size = -r_bptr.d.size;
                     dgrow += r_slice;
                     snip = true;
 
@@ -13679,8 +13695,15 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             poke = bid__ + 1;
         }
 
+        // limit fragment data to:
+        // 1. fragment size
+        // 2. cut size, to avoid overflow issues
+        if (lfs3_bptr_isfragment(&bptr_)) {
+            dgrow = lfs3_min(dgrow, lfs3->cfg->fragment_size);
+        }
+
         // build graft commit
-        lfs3_rattr_t rattrs[12];
+        lfs3_rattr_t rattrs[14];
         lfs3_rattr_t *r = rattrs;
 
         // need to cut tree?
@@ -13690,7 +13713,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // left sibling?
-        if (lfs3_bptr_weight(&l_bptr)) {
+        if ((lfs3_soff_t)lfs3_bptr_weight(&l_bptr) > 0) {
             // left hole?
             if (lfs3_bptr_ishole(&l_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_HOLE, -2, 0);
@@ -13698,7 +13721,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
             // left fragment?
             } else if (lfs3_bptr_isfragment(&l_bptr)) {
-                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_CAT, 1);
+                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_DATA, 1);
                 *r++ = LFS3_RATTR_WEIGHT(+lfs3_bptr_weight(&l_bptr));
                 *r++ = LFS3_RATTR_ARG(&l_bptr);
 
@@ -13721,31 +13744,50 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
             // graft fragment?
             } else if (lfs3_bptr_isfragment(&bptr_)) {
-                // limit fragment data to:
-                // 1. fragment size
-                // 2. cut size, to avoid overflow issues
+                lfs3_size_t count
+                        = ((lfs3_soff_t)lfs3_bptr_weight(&l_bptr) < 0)
+                        + 1
+                        + ((lfs3_soff_t)lfs3_bptr_weight(&r_bptr) < 0);
+                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 3*count,
+                        LFS3_FROM_GRAFT, count);
+                *r++ = LFS3_RATTR_WEIGHT(+dgrow);
+
+                // merge and slice data
                 //
                 // note we don't need to worry about: (1) left data,
                 // because we only merge left if left < fragment size,
                 // and (2) right data, because we only merge right if
                 // everything would fit
-                //
-                dgrow = lfs3_min(dgrow, lfs3->cfg->fragment_size);
-                datas[1] = lfs3_data_fromslice(&bptr_.d,
+                lfs3_data_t *d = (lfs3_data_t*)r;
+                if ((lfs3_soff_t)lfs3_bptr_weight(&l_bptr) < 0) {
+                    *d = l_bptr.d;
+                    d->size = -d->size;
+                    d++;
+                }
+                *d++ = lfs3_data_fromslice(&bptr_.d,
                         -1,
-                        dgrow - lfs3_data_size(&datas[0]));
-                LFS3_ASSERT(lfs3_data_size(&datas[0])
-                            + lfs3_data_size(&datas[1])
-                            + lfs3_data_size(&datas[2])
-                        == dgrow);
-                LFS3_ASSERT(lfs3_data_size(&datas[0])
-                            + lfs3_data_size(&datas[1])
-                            + lfs3_data_size(&datas[2])
-                        <= lfs3->cfg->fragment_size);
+                        dgrow - lfs3_smax(
+                            -(lfs3_soff_t)lfs3_bptr_weight(&l_bptr),
+                            0));
+                if ((lfs3_soff_t)lfs3_bptr_weight(&r_bptr) < 0) {
+                    *d = r_bptr.d;
+                    d->size = -d->size;
+                    d++;
+                }
 
-                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_CAT, 3);
-                *r++ = LFS3_RATTR_WEIGHT(+dgrow);
-                *r++ = LFS3_RATTR_ARG(datas);
+                LFS3_ASSERT(
+                        ((count > 0)
+                                ? lfs3_data_size(&((lfs3_data_t*)r)[0])
+                                : 0)
+                            + ((count > 1)
+                                ? lfs3_data_size(&((lfs3_data_t*)r)[1])
+                                : 0)
+                            + ((count > 2)
+                                ? lfs3_data_size(&((lfs3_data_t*)r)[2])
+                                : 0)
+                        == dgrow);
+                LFS3_ASSERT(dgrow <= lfs3->cfg->fragment_size);
+                r += 3*count;
                 shestimate += lfs3->rattr_estimate + dgrow;
 
             // graft bptr?
@@ -13758,7 +13800,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // right sibling?
-        if (lfs3_bptr_weight(&r_bptr)) {
+        if ((lfs3_soff_t)lfs3_bptr_weight(&r_bptr) > 0) {
             // right hole?
             if (lfs3_bptr_ishole(&r_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_HOLE, -2, 0);
@@ -13766,7 +13808,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
 
             // right fragment?
             } else if (lfs3_bptr_isfragment(&r_bptr)) {
-                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_CAT, 1);
+                *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_DATA, 1);
                 *r++ = LFS3_RATTR_WEIGHT(+lfs3_bptr_weight(&r_bptr));
                 *r++ = LFS3_RATTR_ARG(&r_bptr);
 
@@ -13796,7 +13838,9 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         pos_ += dgrow;
         cut_ -= dcut;
         lfs3_bptr_slice(&bptr_,
-                dgrow - lfs3_data_size(&datas[0]),
+                dgrow - lfs3_smax(
+                    -(lfs3_soff_t)lfs3_bptr_weight(&l_bptr),
+                    0),
                 -1);
 
         // we should be aligned now
@@ -14643,10 +14687,9 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
             }
 
             *r++ = LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_REG, 0, 3,
-                    LFS3_FROM_DISK);
-            *r++ = LFS3_RATTR_ARG(name_data.u.disk.block);
-            *r++ = LFS3_RATTR_ARG(name_data.off);
-            *r++ = LFS3_RATTR_ARG(name_data.size);
+                    LFS3_FROM_GRAFT, 1);
+            *(lfs3_data_t*)r = name_data;
+            r += 3;
         }
 
         // pending small file flush?
@@ -16570,7 +16613,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
         uint32_t cksum = rbyd.cksum;
         err = lfs3_rbyd_appendrattr_(lfs3, &rbyd,
                 LFS3_TAG_GCKSUMDELTA, 0,
-                LFS3_FROM_LE32, 0, (const lfs3_rattr_t[]){
+                LFS3_FROM_LE32, (const lfs3_rattr_t[]){
                     LFS3_RATTR_ARG(lfs3_crc32c_cube(cksum))});
         if (err) {
             return err;
