@@ -1066,7 +1066,7 @@ typedef struct lfs3_data {
     // this is only lfs3_off_t because we use it to store holes in
     // lfs3_bptr_t, when used as lfs3_data_t, this should only store
     // lfs3_size_ts
-    lfs3_off_t size;
+    lfs3_off_t weight;
     // sign2(off)=0b00 => in-RAM buffer
     // sign2(off)=0b01 => hole (unreadable)
     // sign2(off)=0b10 => on-disk data

@@ -1515,24 +1515,24 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
 
 #define LFS3_DATA_NULL() \
     ((lfs3_data_t){ \
-        .size=0, \
+        .weight=0, \
         .off=0, \
         .u.buffer=NULL})
 
 #define LFS3_DATA_BUF(_buffer, _size) \
     ((lfs3_data_t){ \
-        .size=_size, \
+        .weight=_size, \
         .off=0, \
         .u.buffer=(const void*)(_buffer)})
 
-#define LFS3_DATA_HOLE(_size) \
+#define LFS3_DATA_HOLE(_weight) \
     ((lfs3_data_t){ \
-        .size=_size, \
+        .weight=_weight, \
         .off=LFS3_DATA_ISHOLE})
 
 #define LFS3_DATA_DISK(_block, _off, _size) \
     ((lfs3_data_t){ \
-        .size=_size, \
+        .weight=_size, \
         .off=LFS3_DATA_ONDISK | (_off), \
         .u.disk.block=_block})
 
@@ -1568,12 +1568,12 @@ static inline lfs3_size_t lfs3_data_off(const lfs3_data_t *data) {
 }
 
 static inline lfs3_size_t lfs3_data_size(const lfs3_data_t *data) {
-    return data->size;
+    return data->weight;
 }
 
 // this is just a hint that size may be > lfs3_size_t
 static inline lfs3_off_t lfs3_data_weight(const lfs3_data_t *data) {
-    return data->size;
+    return data->weight;
 }
 
 #ifdef LFS3_CKDATACKSUMS
@@ -1610,7 +1610,7 @@ static inline void lfs3_data_slice(lfs3_data_t *data,
     // Holes are the only reason we need this mask.
     data->off = (data->off & (LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR))
             | ((data->off + off_) & ~(LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR));
-    data->size = size_;
+    data->weight = size_;
 }
 
 static inline lfs3_data_t lfs3_data_fromslice(const lfs3_data_t *data,
@@ -1863,7 +1863,7 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
     // buffer?
     } else {
         int err = lfs3_bd_prog(lfs3, block, off,
-                data->u.buffer+data->off, data->size,
+                data->u.buffer+data->off, lfs3_data_size(data),
                 cksum);
         if (err) {
             return err;
@@ -2438,7 +2438,7 @@ static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
 static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_bptr_t *bptr) {
     // read the block, offset, size
-    int err = lfs3_data_readlleb128(lfs3, data, &bptr->d.size);
+    int err = lfs3_data_readlleb128(lfs3, data, &bptr->d.weight);
     if (err) {
         return err;
     }
@@ -2513,9 +2513,9 @@ static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         return block;
     }
 
+    bptr->d.weight = 0;
     bptr->d.u.disk.block = block;
     bptr->d.off = LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR | 0;
-    bptr->d.size = 0;
     // mark as erased
     LFS3_IFDEF_CKDATACKSUMS(
             bptr->d.u.disk.cksize,
@@ -13527,7 +13527,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             // can we merge a new hole?
             if (lfs3_bptr_ishole(&bptr_)) {
                 pos_ -= l_hole;
-                bptr_.d.size += l_hole;
+                bptr_.d.weight += l_hole;
                 dgrow += l_hole;
 
             // needs a new hole?
@@ -13579,7 +13579,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 if (lfs3_bptr_ishole(&bptr_)
                         && lfs3_bptr_ishole(&bptr__)) {
                     pos_ -= l_slice;
-                    bptr_.d.size += l_slice;
+                    bptr_.d.weight += l_slice;
                     cut_ += l_slice;
                     dgrow += l_slice;
                     snip = true;
@@ -13595,7 +13595,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     l_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             -1,
                             l_slice);
-                    l_bptr.d.size = -l_bptr.d.size;
+                    l_bptr.d.weight = -l_bptr.d.weight;
                     cut_ += l_slice;
                     dgrow += l_slice;
                     snip = true;
@@ -13615,7 +13615,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 // can we merge a hole?
                 if (lfs3_bptr_ishole(&bptr_)
                         && lfs3_bptr_ishole(&bptr__)) {
-                    bptr_.d.size += r_slice;
+                    bptr_.d.weight += r_slice;
                     dgrow += r_slice;
                     snip = true;
 
@@ -13629,7 +13629,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     r_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             lfs3_data_size(&bptr__.d) - r_slice,
                             -1);
-                    r_bptr.d.size = -r_bptr.d.size;
+                    r_bptr.d.weight = -r_bptr.d.weight;
                     dgrow += r_slice;
                     snip = true;
 
@@ -13761,7 +13761,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 lfs3_data_t *d = (lfs3_data_t*)r;
                 if ((lfs3_soff_t)lfs3_bptr_weight(&l_bptr) < 0) {
                     *d = l_bptr.d;
-                    d->size = -d->size;
+                    d->weight = -d->weight;
                     d++;
                 }
                 *d++ = lfs3_data_fromslice(&bptr_.d,
@@ -13771,7 +13771,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                             0));
                 if ((lfs3_soff_t)lfs3_bptr_weight(&r_bptr) < 0) {
                     *d = r_bptr.d;
-                    d->size = -d->size;
+                    d->weight = -d->weight;
                     d++;
                 }
 
@@ -14059,9 +14059,9 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         LFS3_ASSERT(pos_ - block_pos >= off_);
         LFS3_ASSERT(pos_ - block_pos <= lfs3->cfg->block_size);
         file->leaf.pos = block_pos + off_;
+        file->leaf.bptr.d.weight = pos_ - file->leaf.pos;
         file->leaf.bptr.d.u.disk.block = block_;
         file->leaf.bptr.d.off = LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR | off_;
-        file->leaf.bptr.d.size = pos_ - file->leaf.pos;
         LFS3_IFDEF_CKDATACKSUMS(
                 file->leaf.bptr.d.u.disk.cksize,
                 file->leaf.bptr.cksize) = (
