@@ -1112,7 +1112,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
     lfs3_mdir_commit(&lfs3, &file.b.h.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_BSHRUB, 0, 1,
-                LFS3_FROM_SHRUB | LFS3_FROM_PTR),
+                LFS3_FROM_SHRUB),
             LFS3_RATTR_ARG(&file.b.b_),
             LFS3_RATTR_NULL}) => 0;
 
@@ -1239,7 +1239,7 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
     lfs3_mdir_commit(&lfs3, &file.b.h.mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_BTREE, 0, 1,
-                LFS3_FROM_BTREE | LFS3_FROM_PTR),
+                LFS3_FROM_BTREE),
             LFS3_RATTR_ARG(&file.b.b)}) => 0;
 
     lfs3_file_close(&lfs3, &file) => 0;
