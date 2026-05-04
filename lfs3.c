@@ -1676,7 +1676,9 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
 
     // buffer?
     } else {
-        lfs3_memcpy(buffer, data->u.buffer+data->off, d);
+        lfs3_memcpy(buffer,
+                data->u.buffer + lfs3_data_off(data),
+                d);
     }
 
     lfs3_data_slice(data, d, -1);
@@ -1785,7 +1787,9 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
 
     // buffer?
     } else {
-        int cmp = lfs3_memcmp(data->u.buffer+data->off, buffer, d);
+        int cmp = lfs3_memcmp(data->u.buffer + lfs3_data_off(data),
+                buffer,
+                d);
         if (cmp < 0) {
             return LFS3_CMP_LT;
         } else if (cmp > 0) {
@@ -1863,7 +1867,7 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
     // buffer?
     } else {
         int err = lfs3_bd_prog(lfs3, block, off,
-                data->u.buffer+data->off, lfs3_data_size(data),
+                data->u.buffer + lfs3_data_off(data), lfs3_data_size(data),
                 cksum);
         if (err) {
             return err;
