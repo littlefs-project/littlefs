@@ -529,7 +529,7 @@ class Rattr:
         if 0x300 & (rattr >> 16) != 0x300:
             return 0x0ff & (rattr >> 16)
         else:
-            return 0x003 & (rattr >> 16)
+            return (0x003 & (rattr >> 16)) + 1
 
     @staticmethod
     def tag(rattr):
@@ -587,7 +587,7 @@ class Rattr:
             except KeyError:
                 r.append('from 0x%x' % from_)
 
-            if fromcount:
+            if fromcount and not (from_ >= 0x300 and fromcount == 1):
                 r.append('%d' % fromcount)
 
         # include a % for each arg
