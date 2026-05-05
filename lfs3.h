@@ -1149,26 +1149,12 @@ typedef struct lfs3_handle {
 
 // a shrub is a secondary trunk in an mdir
 typedef lfs3_rbyd_t lfs3_shrub_t;
-
 // a bshrub is like a btree but with a shrub as a root
-typedef struct lfs3_bshrub {
-    // bshrubs need to be tracked for commits to work
-    lfs3_handle_t h;
-    // files contain both an active bshrub and staging bshrub, to allow
-    // staging during mdir compacts
-    // trunk=0       => no bshrub/btree
-    // sign(trunk)=1 => bshrub
-    // sign(trunk)=0 => btree
-    lfs3_shrub_t b;
-    #ifndef LFS3_RDONLY
-    lfs3_shrub_t b_;
-    #endif
-} lfs3_bshrub_t;
+typedef lfs3_rbyd_t lfs3_bshrub_t;
 
 // littlefs file type
 typedef struct lfs3_file {
-    // btree/bshrub stuff is in here
-    lfs3_bshrub_t b;
+    lfs3_handle_t h;
     const struct lfs3_file_cfg *cfg;
 
     // current file position
@@ -1180,6 +1166,19 @@ typedef struct lfs3_file {
         lfs3_off_t size;
         uint8_t *buffer;
     } cache;
+
+    // on-disk bshrub/btree, our core file data-structure
+    //
+    // files contain both an active bshrub and staging bshrub, to allow
+    // staging during mdir compacts
+    //
+    // weight=0      => no bshrub/btree
+    // sign(trunk)=1 => bshrub
+    // sign(trunk)=0 => btree
+    lfs3_bshrub_t bshrub;
+    #ifndef LFS3_RDONLY
+    lfs3_bshrub_t bshrub_;
+    #endif
 
     // on-disk leaf bptr
     struct {

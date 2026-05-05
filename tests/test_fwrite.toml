@@ -190,7 +190,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -338,7 +338,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -604,7 +604,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -767,7 +767,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -1130,7 +1130,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -1306,7 +1306,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -2744,7 +2744,7 @@ code = '''
 
         // here's our main test, did the file drop bshrubs/btrees?
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        assert(!file.b.b.trunk);
+        assert(!file.bshrub.trunk);
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
@@ -2827,7 +2827,7 @@ code = '''
 
         // here's our main test, did the file drop bshrubs/btrees?
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
-        assert(!file.b.b.trunk);
+        assert(!file.bshrub.trunk);
         lfs3_file_close(&lfs3, &file) => 0;
     }
 
@@ -2935,7 +2935,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -3093,7 +3093,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -3392,7 +3392,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -3559,7 +3559,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -3743,7 +3743,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -4002,7 +4002,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -4295,7 +4295,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
@@ -4466,7 +4466,7 @@ code = '''
             lfs3_sbid_t bid;
             lfs3_bid_t weight;
             lfs3_data_t data;
-            tag = lfs3_bshrub_traverse(&lfs3, &file.b, &btrv,
+            tag = lfs3_bshrub_traverse(&lfs3, &file.bshrub, &btrv,
                     &bid, &weight, &data);
             assert(tag >= 0 || tag == LFS3_ERR_NOENT);
             if (tag == LFS3_ERR_NOENT) {
