@@ -2228,10 +2228,10 @@ static lfs3_scmp_t lfs3_attr_cmp(lfs3_t *lfs3, const struct lfs3_attr *attr,
 // everything we need here
 
 // block allocator flags
-#define LFS3_alloc_ERASE    0x000000001 // Please erase the block
+#define LFS3_ALLOC_ERASE    0x000000001 // Please erase the block
 
 static inline bool lfs3_alloc_iserase(uint32_t flags) {
-    return flags & LFS3_alloc_ERASE;
+    return flags & LFS3_ALLOC_ERASE;
 }
 
 // checkpoint the allocator
@@ -2498,8 +2498,7 @@ static int lfs3_data_fetchbptr(lfs3_t *lfs3, lfs3_data_t *data,
 #ifndef LFS3_RDONLY
 static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         lfs3_bptr_t *bptr) {
-    lfs3_sblock_t block = lfs3_allocclaim(lfs3, mdir,
-            LFS3_alloc_ERASE);
+    lfs3_sblock_t block = lfs3_allocclaim(lfs3, mdir, LFS3_ALLOC_ERASE);
     if (block < 0) {
         return block;
     }
@@ -2708,7 +2707,7 @@ static inline int lfs3_rbyd_cmp(
 // allocate an rbyd block
 #ifndef LFS3_RDONLY
 static int lfs3_rbyd_alloc(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
-    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_alloc_ERASE);
+    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
     if (block < 0) {
         return block;
     }
@@ -8172,7 +8171,7 @@ static int lfs3_mdir_alloc__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
 relocate:;
     // allocate another block with an erase
-    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_alloc_ERASE);
+    lfs3_sblock_t block = lfs3_alloc(lfs3, LFS3_ALLOC_ERASE);
     if (block < 0) {
         return block;
     }
@@ -14097,8 +14096,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         // if we relocate, we rewrite the entire block from block_pos
         // using what we can find in our tree/leaf/cache
         //
-        block_ = lfs3_allocclaim(lfs3, &file->h.mdir,
-                LFS3_alloc_ERASE);
+        block_ = lfs3_allocclaim(lfs3, &file->h.mdir, LFS3_ALLOC_ERASE);
         if (block_ < 0) {
             return block_;
         }

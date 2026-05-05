@@ -188,7 +188,7 @@ GC_CK           = 0x00300000  # a-  Alias for all check work
 GC_GC           = 0x003f0000  # a-  Alias for all gc work
 
 # Block allocator flags
-alloc_ERASE     = 0x00000001  # i-  Please erase the block
+ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
 
 # On-disk read-compat flags - Must understand to read the filesystem
 RCOMPAT_WRONLY  =    0x00001  # --  Reading is disallowed
