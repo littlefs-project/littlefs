@@ -9881,7 +9881,7 @@ again:;
     // fetch a btree/bshrub?
     if (mtrv->u.btrv.bid == LFS3_BID_MDIR) {
         // default to null btree
-        lfs3_btree_init(&mtrv->b);
+        lfs3_btree_init(&mtrv->btree);
         // reset our position in the opened handles
         //
         // after traversing on-disk bshrubs/btrees, we'll need
@@ -9957,7 +9957,7 @@ again:;
             } else if (tag == LFS3_TAG_MTREE) {
                 // fetch the root of the mtree
                 int err = lfs3_data_fetchbtree(lfs3, &data,
-                        &mtrv->b);
+                        &mtrv->btree);
                 if (err) {
                     return err;
                 }
@@ -9975,7 +9975,7 @@ again:;
                     && !lfs3_t_ismtreeonly(mtrv->h.flags),
                 false)) {
             #ifdef LFS3_GBMAP
-            mtrv->b = lfs3->gbmap.b;
+            mtrv->btree = lfs3->gbmap.b;
             #endif
 
         // traverse on-disk gbmap if it doesn't match our in-RAM
@@ -9992,7 +9992,7 @@ again:;
                         &lfs3->gbmap.b) != 0,
                 false)) {
             #ifdef LFS3_GBMAP
-            mtrv->b = lfs3->gbmap.b_p;
+            mtrv->btree = lfs3->gbmap.b_p;
             #endif
 
         // fetch the next btree/bshrub
@@ -10001,7 +10001,7 @@ again:;
             // try to fetch bshrub/btree, if we don't find one
             // that's ok
             int err = lfs3_mdir_fetchbshrub(lfs3, &mtrv->h.mdir,
-                    &mtrv->b);
+                    &mtrv->btree);
             if (err && err != LFS3_ERR_NOENT) {
                 return err;
             }
@@ -10014,7 +10014,8 @@ again:;
     LFS3_ASSERT(mtrv->u.btrv.bid >= -1);
     while (true) {
         lfs3_data_t data;
-        lfs3_stag_t tag = lfs3_btree_traverse(lfs3, &mtrv->b, &mtrv->u.btrv,
+        lfs3_stag_t tag = lfs3_btree_traverse(lfs3,
+                &mtrv->btree, &mtrv->u.btrv,
                 NULL, NULL, &data);
         if (tag < 0) {
             if (tag == LFS3_ERR_NOENT) {
@@ -10054,7 +10055,7 @@ again:;
                     && lfs3_o_needssync(h->flags)) {
                 // found one!
                 const lfs3_file_t *file = (const lfs3_file_t*)h;
-                mtrv->b = file->bshrub;
+                mtrv->btree = file->bshrub;
                 mtrv->u.btrv.bid = -1;
 
                 // move our handle to make progress

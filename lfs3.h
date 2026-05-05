@@ -1214,7 +1214,7 @@ typedef struct lfs3_mtrv {
     // is also used to keep track of what handles we've seen
     lfs3_handle_t h;
     // current bshrub/btree
-    lfs3_btree_t b;
+    lfs3_btree_t btree;
     union {
         // bshrub/btree traversal state
         lfs3_btrv_t btrv;
