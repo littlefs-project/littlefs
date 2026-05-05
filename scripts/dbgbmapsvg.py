@@ -113,24 +113,16 @@ SI2_PREFIXES = {
 }
 
 
-RCOMPAT_WRONLY      =    0x00001 # Reading is disallowed
-RCOMPAT_NONSTANDARD =    0x00002 # Non-standard filesystem format
-RCOMPAT_GRM         =    0x00004 # Global-remove in use
-RCOMPAT_STICKYNOTE  =    0x00008 # Stickynote file type in use
-RCOMPAT_MMOSS       =    0x00010 # May use an inlined mdir
-RCOMPAT_MGRASS      =    0x00020 # May use an mdir pointer
-RCOMPAT_MSHRUB      =    0x00040 # May use an inlined mtree
-RCOMPAT_MTREE       =    0x00080 # May use an mdir btree
-RCOMPAT_BMOSS       =    0x00100 # Files may use inlined data
-RCOMPAT_BGRASS      =    0x00200 # Files may use block pointers
-RCOMPAT_BSHRUB      =    0x00400 # Files may use inlined btrees
-RCOMPAT_BTREE       =    0x00800 # Files may use btrees
+RCOMPAT_WRONLY      =     0x0001 # Reading is disallowed
+RCOMPAT_NONSTANDARD =     0x0002 # Non-standard filesystem format
+RCOMPAT_GRM         =     0x0004 # Global-remove in use
+RCOMPAT_STICKYNOTE  =     0x0008 # Stickynote file type in use
 
-WCOMPAT_RDONLY      =      0x001 # Writing is disallowed
-WCOMPAT_NONSTANDARD =      0x002 # Non-standard filesystem format
-WCOMPAT_GCKSUM      =      0x004 # Global-checksum in use
-WCOMPAT_DIR         =      0x008 # Directory file types in use
-WCOMPAT_GBMAP       =      0x010 # Global on-disk block-map in use
+WCOMPAT_RDONLY      =     0x0001 # Writing is disallowed
+WCOMPAT_NONSTANDARD =     0x0002 # Non-standard filesystem format
+WCOMPAT_GCKSUM      =     0x0004 # Global-checksum in use
+WCOMPAT_DIR         =     0x0008 # Directory file types in use
+WCOMPAT_GBMAP       =     0x0010 # Global on-disk block-map in use
 
 TAG_NULL        = 0x0000    ##  v--- ---- ++++ ++++
 TAG_INTERNAL    = 0x0100    ##  v--- ---1 +ttt tttt

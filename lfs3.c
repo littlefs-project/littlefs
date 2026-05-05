@@ -15803,14 +15803,14 @@ static int lfs3_deinit(lfs3_t *lfs3) {
 // compat flags things
 
 #define LFS3_COMPAT(rcompat, wcompat) \
-    (((wcompat) << 20) | (rcompat))
+    (((wcompat) << 16) | (rcompat))
 
 static inline lfs3_compat_t lfs3_compat_rcompat(lfs3_compat_t compat) {
-    return 0xfffff & compat;
+    return 0xffff & compat;
 }
 
 static inline lfs3_compat_t lfs3_compat_wcompat(lfs3_compat_t compat) {
-    return 0xfff & (compat >> 20);
+    return 0xffff & (compat >> 16);
 }
 
 static inline bool lfs3_compat_isgbmap(lfs3_compat_t compat) {
@@ -15822,11 +15822,7 @@ static inline lfs3_compat_t lfs3_fs_compat(const lfs3_t *lfs3) {
     (void)lfs3;
     return LFS3_COMPAT(
             LFS3_RCOMPAT_GRM
-                | LFS3_RCOMPAT_STICKYNOTE
-                | LFS3_RCOMPAT_MMOSS
-                | LFS3_RCOMPAT_MTREE
-                | LFS3_RCOMPAT_BSHRUB
-                | LFS3_RCOMPAT_BTREE,
+                | LFS3_RCOMPAT_STICKYNOTE,
             LFS3_WCOMPAT_GCKSUM
                 | LFS3_WCOMPAT_DIR
                 | LFS3_IFDEF_GBMAP(
@@ -15839,7 +15835,7 @@ static inline lfs3_compat_t lfs3_fs_compat(const lfs3_t *lfs3) {
 static inline lfs3_compat_t lfs3_fs_rmask(const lfs3_t *lfs3) {
     (void)lfs3;
     return LFS3_COMPAT(
-            0xfffff,
+            0xffff,
             0);
 }
 
@@ -15847,7 +15843,7 @@ static inline lfs3_compat_t lfs3_fs_wmask(const lfs3_t *lfs3) {
     (void)lfs3;
     return LFS3_COMPAT(
             0,
-            0xfff & ~(
+            0xffff & ~(
                 // we can ignore the gbmap flag if we support both modes
                 LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0)));
 }
@@ -15861,7 +15857,7 @@ static lfs3_data_t lfs3_data_fromcompat(lfs3_compat_t compat,
         uint8_t buffer[static LFS3_COMPAT_DSIZE]) {
     lfs3_ssize_t d = 0;
     lfs3_ssize_t d_ = lfs3_toleb128(lfs3_compat_rcompat(compat),
-            &buffer[d], 3);
+            &buffer[d], 1);
     if (d_ < 0) {
         LFS3_UNREACHABLE();
     }

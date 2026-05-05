@@ -906,29 +906,21 @@ enum lfs3_tag {
 // Note, "understanding" does not necessarily mean support
 
 // On-disk read-compat flags - Must understand to read the filesystem
-#define LFS3_RCOMPAT_WRONLY         0x00001 // Reading is disallowed
-#define LFS3_RCOMPAT_NONSTANDARD    0x00002 // Non-standard filesystem format
-#define LFS3_RCOMPAT_GRM            0x00004 // Global-remove in use
-#define LFS3_RCOMPAT_STICKYNOTE     0x00008 // Stickynote file type in use
-#define LFS3_RCOMPAT_MMOSS          0x00010 // May use an inlined mdir
-#define LFS3_RCOMPAT_MGRASS         0x00020 // May use an mdir pointer
-#define LFS3_RCOMPAT_MSHRUB         0x00040 // May use an inlined mtree
-#define LFS3_RCOMPAT_MTREE          0x00080 // May use an mtree
-#define LFS3_RCOMPAT_BMOSS          0x00100 // Files may use inlined data
-#define LFS3_RCOMPAT_BGRASS         0x00200 // Files may use block pointers
-#define LFS3_RCOMPAT_BSHRUB         0x00400 // Files may use inlined btrees
-#define LFS3_RCOMPAT_BTREE          0x00800 // Files may use btrees
+#define LFS3_RCOMPAT_WRONLY          0x0001 // Reading is disallowed
+#define LFS3_RCOMPAT_NONSTANDARD     0x0002 // Non-standard filesystem format
+#define LFS3_RCOMPAT_GRM             0x0004 // Global-remove in use
+#define LFS3_RCOMPAT_STICKYNOTE      0x0008 // Stickynote file type in use
 // internally used flags
-#define LFS3_rcompat_OVERFLOW       0x80000 // Can't represent all flags
+#define LFS3_rcompat_OVERFLOW        0x8000 // Can't represent all flags
 
 // On-disk write-compat flags - Must understand to write to the filesystem
-#define LFS3_WCOMPAT_RDONLY           0x001 // Writing is disallowed
-#define LFS3_WCOMPAT_NONSTANDARD      0x002 // Non-standard filesystem format
-#define LFS3_WCOMPAT_GCKSUM           0x004 // Global-checksum in use
-#define LFS3_WCOMPAT_DIR              0x008 // Directory files in use
-#define LFS3_WCOMPAT_GBMAP            0x010 // Global on-disk block-map in use
+#define LFS3_WCOMPAT_RDONLY          0x0001 // Writing is disallowed
+#define LFS3_WCOMPAT_NONSTANDARD     0x0002 // Non-standard filesystem format
+#define LFS3_WCOMPAT_GCKSUM          0x0004 // Global-checksum in use
+#define LFS3_WCOMPAT_DIR             0x0008 // Directory files in use
+#define LFS3_WCOMPAT_GBMAP           0x0010 // Global on-disk block-map in use
 // internally used flags
-#define LFS3_wcompat_OVERFLOW         0x800 // Can't represent all flags
+#define LFS3_wcompat_OVERFLOW        0x8000 // Can't represent all flags
 
 
 // On-disk encodings/decodings
@@ -957,11 +949,11 @@ enum lfs3_tag {
 // '---+- -+- -+- -'                    .
 #define LFS3_LLEB128_DSIZE              4
 
-// compat encoding:   rcompat: 1 leb128  <=3 bytes
-// .- -+- -+- -+- -.  wcompat: 1 leb128  <=1 bytes
-// | r         | w |                       .
-// '- -+- -+- -+- -'                       .
-#define LFS3_COMPAT_DSIZE                  4
+// compat encoding:  rcompat: 1 leb128  <=1 bytes
+// .- -+- -.         wcompat: 1 leb128  <=1 bytes
+// | r | w |                              .
+// '- -+- -'                              .
+#define LFS3_COMPAT_DSIZE                 2
 
 // geometry encoding:     block_size:  1 leb128  <=4 bytes
 // .---+- -+- -+- -.      block_count: 1 leb128  <=5 bytes
