@@ -963,6 +963,10 @@ code = '''
     lfs3_file_open(&lfs3, &file, "jellyfish",
             LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
 
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
     while ((file.h.mdir.r.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
@@ -1078,6 +1082,10 @@ code = '''
         lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
         lfs3_file_sync(&lfs3, &file) => 0;
     }
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
 
     // now write to our mdir until mrootanchor >gc_compact_thresh full
     while (true) {
@@ -1204,6 +1212,10 @@ code = '''
         lfs3_file_sync(&lfs3, &file) => 0;
     }
 
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
     // now write to our mdir until mrootanchor >gc_compact_thresh full
     while (true) {
         // we need internals to check this
@@ -1317,6 +1329,10 @@ code = '''
     lfs3_file_t file;
     lfs3_file_open(&lfs3, &file, "jellyfish",
             LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
 
     // hack, don't use the internals like this
     uint8_t wbuf[SIZE];
@@ -1435,6 +1451,10 @@ code = '''
     }
     lfs3_file_write(&lfs3, &file2, wbuf2, SIZE) => SIZE;
     lfs3_file_sync(&lfs3, &file2) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
 
     // create enough files to both compact and split
     lfs3_size_t i = 0;
@@ -1609,6 +1629,10 @@ code = '''
         i += 1;
     }
 
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
     // write to each file until mdir >gc_compact_thresh full
     if (COMPACTSET & 0x1) {
         // hack, don't use the internals like this
@@ -1654,7 +1678,7 @@ code = '''
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_NEEDSLOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
-                | LFS3_I_NEEDSCOMPACTMETA
+                | ((COMPACTSET) ? LFS3_I_NEEDSCOMPACTMETA : 0)
                 | LFS3_I_NEEDSCKMETA
                 | LFS3_I_NEEDSCKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
@@ -1813,6 +1837,10 @@ code = '''
         i += 1;
     }
 
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
     // create enough files to both compact and split
     i = 0;
     orig = lfs3.mtree.weight;
@@ -1927,6 +1955,1979 @@ code = '''
     lfs3_file_close(&lfs3, &file2) => 0;
     lfs3_file_close(&lfs3, &file3) => 0;
     lfs3_file_close(&lfs3, &file4) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test traversals with btree compaction
+
+[cases.test_gc_t_compact_btree_mtree]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = 'FCACHE_SIZE/2'
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# force early relocations
+defines.BLOCK_RECYCLES = 0
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfs3_file_t file1;
+    lfs3_file_open(&lfs3, &file1, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file1) => 0;
+
+    lfs3_file_t file2;
+    lfs3_file_open(&lfs3, &file2, "octopus",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file2, wbuf2, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file2) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // create more files until mtree >gc_compact_thresh full
+    lfs3_size_t i = 0;
+    // hack, don't use the internals like this
+    while (lfs3.mtree.weight == 0 // make sure we split!
+            || (lfs3.mtree.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
+        char name[256];
+        sprintf(name, "medusaaaaaaaaaaaaaaaa%03x", i);
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+        // let's speed this up a bit
+        file.h.mdir.r.eoff = -1;
+        lfs3_file_close(&lfs3, &file) => 0;
+        i += 1;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // mtree should have been compacted
+    assert((lfs3.mtree.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the files
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file1) => 0;
+            lfs3_file_close(&lfs3, &file2) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file1, "jellyfish", LFS3_O_RDONLY) => 0;
+            lfs3_file_open(&lfs3, &file2, "octopus", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file1) => 0;
+        uint8_t rbuf[SIZE];
+        lfs3_file_read(&lfs3, &file1, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+
+        lfs3_file_rewind(&lfs3, &file2) => 0;
+        lfs3_file_read(&lfs3, &file2, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    }
+
+    lfs3_file_close(&lfs3, &file1) => 0;
+    lfs3_file_close(&lfs3, &file2) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_mtree_mtree]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = 'FCACHE_SIZE/2'
+defines.SMACK = 20
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# force early relocations
+defines.BLOCK_RECYCLES = 0
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create two files
+    lfs3_file_t file1;
+    lfs3_file_open(&lfs3, &file1, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf1[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf1[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file1, wbuf1, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file1) => 0;
+
+    lfs3_file_t file2;
+    lfs3_file_open(&lfs3, &file2, "octopus",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf2[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf2[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file2, wbuf2, SIZE) => SIZE;
+    lfs3_file_sync(&lfs3, &file2) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // create more files until we have 2 btree nodes
+    // >gc_compact_thresh full
+    lfs3_size_t i = 0;
+    while (true) {
+        // >2 btree nodes >gc_compact_thresh full?
+        lfs3_size_t full = 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        for (lfs3_block_t i = 0;; i++) {
+            assert(i < 2*BLOCK_COUNT);
+
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_trv_close(&lfs3, &trv) => 0;
+                break;
+            }
+
+            if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                // hack, don't use the internals like this
+                lfs3_rbyd_t rbyd;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
+                    full += 1;
+                }
+            }
+        }
+        if (full >= 2) {
+            break;
+        }
+
+        for (lfs3_size_t k = 0; k < SMACK; k++) {
+            char name[256];
+            sprintf(name, "medusaaaaaaaaaaaaaaaa%03x", i);
+            lfs3_file_t file;
+            lfs3_file_open(&lfs3, &file, name,
+                    LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+            lfs3_file_close(&lfs3, &file) => 0;
+            i += 1;
+        }
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // mtree should have been compacted
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            break;
+        }
+
+        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            // hack, don't use the internals like this
+            lfs3_rbyd_t rbyd;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
+        }
+    }
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the files
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file1) => 0;
+            lfs3_file_close(&lfs3, &file2) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file1, "jellyfish", LFS3_O_RDONLY) => 0;
+            lfs3_file_open(&lfs3, &file2, "octopus", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file1) => 0;
+        uint8_t rbuf[SIZE];
+        lfs3_file_read(&lfs3, &file1, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf1, SIZE) == 0);
+
+        lfs3_file_rewind(&lfs3, &file2) => 0;
+        lfs3_file_read(&lfs3, &file2, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf2, SIZE) == 0);
+    }
+
+    lfs3_file_close(&lfs3, &file1) => 0;
+    lfs3_file_close(&lfs3, &file2) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_btree]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until btree >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    // hack, don't use the internals like this
+    while ((file.bshrub.trunk & 0x80000000)
+            || (file.bshrub.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+        lfs3_file_sync(&lfs3, &file) => 0;
+        wsize += CHUNK;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // btree should have been compacted
+    assert((file.bshrub.trunk & 0x80000000)
+            || (file.bshrub.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_btree_btree]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until we have 2 btree nodes
+    // >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    while (true) {
+        // >2 btree nodes >gc_compact_thresh full?
+        lfs3_size_t full = 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        for (lfs3_block_t i = 0;; i++) {
+            assert(i < 2*BLOCK_COUNT);
+
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_trv_close(&lfs3, &trv) => 0;
+                break;
+            }
+
+            if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                // hack, don't use the internals like this
+                lfs3_rbyd_t rbyd;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
+                    full += 1;
+                }
+            }
+        }
+        if (full >= 2) {
+            break;
+        }
+
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+        lfs3_file_sync(&lfs3, &file) => 0;
+        wsize += CHUNK;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // btree should have been compacted
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            break;
+        }
+
+        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            // hack, don't use the internals like this
+            lfs3_rbyd_t rbyd;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
+        }
+    }
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_bshrub]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until we are a bshrub with a btree node
+    // >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    while (true) {
+        // are a bshrub?
+        if (lfs3_bshrub_isbshrub(&file.bshrub)) {
+            // >1 btree nodes >gc_compact_thresh full?
+            lfs3_size_t full = 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            for (lfs3_block_t i = 0;; i++) {
+                assert(i < 2*BLOCK_COUNT);
+
+                struct lfs3_tinfo tinfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                assert(!err || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
+                    lfs3_trv_close(&lfs3, &trv) => 0;
+                    break;
+                }
+
+                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                    // hack, don't use the internals like this
+                    lfs3_rbyd_t rbyd;
+                    lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                    if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
+                        full += 1;
+                    }
+                }
+            }
+            if (full >= 1) {
+                break;
+            }
+        }
+
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+        lfs3_file_sync(&lfs3, &file) => 0;
+        wsize += CHUNK;
+
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // btree should have been compacted
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            break;
+        }
+
+        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            // hack, don't use the internals like this
+            lfs3_rbyd_t rbyd;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
+        }
+    }
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_btree_unsync]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until btree >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    // hack, don't use the internals like this
+    while ((file.bshrub.trunk & 0x80000000)
+            || (file.bshrub.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+        wsize += CHUNK;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // btree should have been compacted
+    assert((file.bshrub.trunk & 0x80000000)
+            || (file.bshrub.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_btree_btree_unsync]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until we have 2 btree nodes
+    // >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    while (true) {
+        // >2 btree nodes >gc_compact_thresh full?
+        lfs3_size_t full = 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        for (lfs3_block_t i = 0;; i++) {
+            assert(i < 2*BLOCK_COUNT);
+
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_trv_close(&lfs3, &trv) => 0;
+                break;
+            }
+
+            if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                // hack, don't use the internals like this
+                lfs3_rbyd_t rbyd;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
+                    full += 1;
+                }
+            }
+        }
+        if (full >= 2) {
+            break;
+        }
+
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+        wsize += CHUNK;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // btree should have been compacted
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            break;
+        }
+
+        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            // hack, don't use the internals like this
+            lfs3_rbyd_t rbyd;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
+        }
+    }
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_bshrub_unsync]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until we are a bshrub with a btree node
+    // >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    while (true) {
+        // are a bshrub?
+        if (lfs3_bshrub_isbshrub(&file.bshrub)) {
+            // >1 btree nodes >gc_compact_thresh full?
+            lfs3_size_t full = 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            for (lfs3_block_t i = 0;; i++) {
+                assert(i < 2*BLOCK_COUNT);
+
+                struct lfs3_tinfo tinfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                assert(!err || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
+                    lfs3_trv_close(&lfs3, &trv) => 0;
+                    break;
+                }
+
+                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                    // hack, don't use the internals like this
+                    lfs3_rbyd_t rbyd;
+                    lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                    if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
+                        full += 1;
+                    }
+                }
+            }
+            if (full >= 1) {
+                break;
+            }
+        }
+
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+        wsize += CHUNK;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // btree should have been compacted
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            break;
+        }
+
+        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            // hack, don't use the internals like this
+            lfs3_rbyd_t rbyd;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
+        }
+    }
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_btree_broadcast]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+defines.HANDLESET = 'range(0x8)'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until btree >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    // hack, don't use the internals like this
+    while ((file.bshrub.trunk & 0x80000000)
+            || (file.bshrub.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH) {
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+        lfs3_file_sync(&lfs3, &file) => 0;
+        wsize += CHUNK;
+    }
+
+    // open a couple other handles in different states
+    lfs3_file_t file_mutated;
+    if (HANDLESET & 0x1) {
+        lfs3_file_open(&lfs3, &file_mutated, "jellyfish", LFS3_O_RDWR) => 0;
+        lfs3_file_write(&lfs3, &file_mutated, "!", 1) => 1;
+        lfs3_file_flush(&lfs3, &file_mutated) => 0;
+    }
+
+    lfs3_file_t file_desync;
+    if (HANDLESET & 0x2) {
+        lfs3_file_open(&lfs3, &file_desync, "jellyfish",
+                LFS3_O_RDWR | LFS3_O_DESYNC) => 0;
+    }
+
+    lfs3_file_t file_desync_mutated;
+    if (HANDLESET & 0x4) {
+        lfs3_file_open(&lfs3, &file_desync_mutated, "jellyfish",
+                LFS3_O_RDWR | LFS3_O_DESYNC) => 0;
+        lfs3_file_write(&lfs3, &file_desync_mutated, "!", 1) => 1;
+        lfs3_file_flush(&lfs3, &file_desync_mutated) => 0;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // btree should have been compacted
+    assert((file.bshrub.trunk & 0x80000000)
+            || (file.bshrub.eoff & 0x7fffffff) <= GC_COMPACTMETA_THRESH);
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    if (HANDLESET & 0x1) {
+        // file_mutated should have been compacted
+        assert((file_mutated.bshrub.trunk & 0x80000000)
+                || (file_mutated.bshrub.eoff & 0x7fffffff)
+                    <= GC_COMPACTMETA_THRESH);
+        // but still a different bshrub
+        assert(file_mutated.bshrub.blocks[0]
+                    != file.bshrub.blocks[0]
+                || (file_mutated.bshrub.trunk & 0x7fffffff)
+                    != (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    if (HANDLESET & 0x2) {
+        // file_desync should have been compacted
+        assert((file_desync.bshrub.trunk & 0x80000000)
+                || (file_desync.bshrub.eoff & 0x7fffffff)
+                    <= GC_COMPACTMETA_THRESH);
+        // and the same bshrub, yes we ignore desync here!
+        assert(file_desync.bshrub.blocks[0]
+                    == file.bshrub.blocks[0]
+                && (file_desync.bshrub.trunk & 0x7fffffff)
+                    == (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    if (HANDLESET & 0x4) {
+        // file_desync_mutated should have been compacted
+        assert((file_desync_mutated.bshrub.trunk & 0x80000000)
+                || (file_desync_mutated.bshrub.eoff & 0x7fffffff)
+                    <= GC_COMPACTMETA_THRESH);
+        // but still a different bshrub
+        assert(file_desync_mutated.bshrub.blocks[0]
+                    != file.bshrub.blocks[0]
+                || (file_desync_mutated.bshrub.trunk & 0x7fffffff)
+                    != (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    // check we can still read the files
+    lfs3_file_rewind(&lfs3, &file) => 0;
+    prng = wprng;
+    for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+    }
+
+    if (HANDLESET & 0x1) {
+        lfs3_file_rewind(&lfs3, &file_mutated) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            if (i == 0) {
+                wbuf[0] = '!';
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_mutated, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    if (HANDLESET & 0x2) {
+        lfs3_file_rewind(&lfs3, &file_desync) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_desync, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    if (HANDLESET & 0x4) {
+        lfs3_file_rewind(&lfs3, &file_desync_mutated) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            if (i == 0) {
+                wbuf[0] = '!';
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_desync_mutated, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    if (HANDLESET & 0x1) {
+        lfs3_file_desync(&lfs3, &file_mutated) => 0;
+        lfs3_file_close(&lfs3, &file_mutated) => 0;
+    }
+    if (HANDLESET & 0x2) {
+        lfs3_file_close(&lfs3, &file_desync) => 0;
+    }
+    if (HANDLESET & 0x4) {
+        lfs3_file_close(&lfs3, &file_desync_mutated) => 0;
+    }
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_btree_btree_broadcast]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+defines.HANDLESET = 'range(0x8)'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until we have 2 btree nodes
+    // >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    while (true) {
+        // >2 btree nodes >gc_compact_thresh full?
+        lfs3_size_t full = 0;
+        lfs3_trv_t trv;
+        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        for (lfs3_block_t i = 0;; i++) {
+            assert(i < 2*BLOCK_COUNT);
+
+            struct lfs3_tinfo tinfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            assert(!err || err == LFS3_ERR_NOENT);
+            if (err == LFS3_ERR_NOENT) {
+                lfs3_trv_close(&lfs3, &trv) => 0;
+                break;
+            }
+
+            if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                // hack, don't use the internals like this
+                lfs3_rbyd_t rbyd;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
+                    full += 1;
+                }
+            }
+        }
+        if (full >= 2) {
+            break;
+        }
+
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+        lfs3_file_sync(&lfs3, &file) => 0;
+        wsize += CHUNK;
+    }
+
+    // open a couple other handles in different states
+    lfs3_file_t file_mutated;
+    if (HANDLESET & 0x1) {
+        lfs3_file_open(&lfs3, &file_mutated, "jellyfish", LFS3_O_RDWR) => 0;
+        lfs3_file_write(&lfs3, &file_mutated, "!", 1) => 1;
+        lfs3_file_flush(&lfs3, &file_mutated) => 0;
+    }
+
+    lfs3_file_t file_desync;
+    if (HANDLESET & 0x2) {
+        lfs3_file_open(&lfs3, &file_desync, "jellyfish",
+                LFS3_O_RDWR | LFS3_O_DESYNC) => 0;
+    }
+
+    lfs3_file_t file_desync_mutated;
+    if (HANDLESET & 0x4) {
+        lfs3_file_open(&lfs3, &file_desync_mutated, "jellyfish",
+                LFS3_O_RDWR | LFS3_O_DESYNC) => 0;
+        lfs3_file_write(&lfs3, &file_desync_mutated, "!", 1) => 1;
+        lfs3_file_flush(&lfs3, &file_desync_mutated) => 0;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 4*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // _all_ btrees should have been compacted
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            break;
+        }
+
+        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            // hack, don't use the internals like this
+            lfs3_rbyd_t rbyd;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
+        }
+    }
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    if (HANDLESET & 0x1) {
+        // file_mutated should still be a different bshrub
+        assert(file_mutated.bshrub.blocks[0]
+                    != file.bshrub.blocks[0]
+                || (file_mutated.bshrub.trunk & 0x7fffffff)
+                    != (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    if (HANDLESET & 0x2) {
+        // file_desync should be the same bshrub, yes we ignore desync
+        // here!
+        assert(file_desync.bshrub.blocks[0]
+                    == file.bshrub.blocks[0]
+                && (file_desync.bshrub.trunk & 0x7fffffff)
+                    == (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    if (HANDLESET & 0x4) {
+        // file_desync_mutated should still be a different bshrub
+        assert(file_desync_mutated.bshrub.blocks[0]
+                    != file.bshrub.blocks[0]
+                || (file_desync_mutated.bshrub.trunk & 0x7fffffff)
+                    != (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    // check we can still read the files
+    lfs3_file_rewind(&lfs3, &file) => 0;
+    prng = wprng;
+    for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+    }
+
+    if (HANDLESET & 0x1) {
+        lfs3_file_rewind(&lfs3, &file_mutated) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            if (i == 0) {
+                wbuf[0] = '!';
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_mutated, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    if (HANDLESET & 0x2) {
+        lfs3_file_rewind(&lfs3, &file_desync) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_desync, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    if (HANDLESET & 0x4) {
+        lfs3_file_rewind(&lfs3, &file_desync_mutated) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            if (i == 0) {
+                wbuf[0] = '!';
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_desync_mutated, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    if (HANDLESET & 0x1) {
+        lfs3_file_desync(&lfs3, &file_mutated) => 0;
+        lfs3_file_close(&lfs3, &file_mutated) => 0;
+    }
+    if (HANDLESET & 0x2) {
+        lfs3_file_close(&lfs3, &file_desync) => 0;
+    }
+    if (HANDLESET & 0x4) {
+        lfs3_file_close(&lfs3, &file_desync_mutated) => 0;
+    }
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_gc_t_compact_btree_bshrub_broadcast]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.CHUNK = 'BLOCK_SIZE/8'
+defines.HANDLESET = 'range(0x8)'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+
+    // hack, but we want to make sure LFS3_I_NEEDSCOMPACTMETA is set
+    // correctly
+    lfs3.flags &= ~LFS3_I_NEEDSCOMPACTMETA;
+
+    // write to our file until we are a bshrub with a btree node
+    // >gc_compact_thresh full
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = 0;
+    while (true) {
+        // are a bshrub?
+        if (lfs3_bshrub_isbshrub(&file.bshrub)) {
+            // >1 btree nodes >gc_compact_thresh full?
+            lfs3_size_t full = 0;
+            lfs3_trv_t trv;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            for (lfs3_block_t i = 0;; i++) {
+                assert(i < 2*BLOCK_COUNT);
+
+                struct lfs3_tinfo tinfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                assert(!err || err == LFS3_ERR_NOENT);
+                if (err == LFS3_ERR_NOENT) {
+                    lfs3_trv_close(&lfs3, &trv) => 0;
+                    break;
+                }
+
+                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                    // hack, don't use the internals like this
+                    lfs3_rbyd_t rbyd;
+                    lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                    if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
+                        full += 1;
+                    }
+                }
+            }
+            if (full >= 1) {
+                break;
+            }
+        }
+
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, CHUNK) => CHUNK;
+            lfs3_file_sync(&lfs3, &file) => 0;
+        wsize += CHUNK;
+    }
+
+    // open a couple other handles in different states
+    lfs3_file_t file_mutated;
+    if (HANDLESET & 0x1) {
+        lfs3_file_open(&lfs3, &file_mutated, "jellyfish", LFS3_O_RDWR) => 0;
+        lfs3_file_write(&lfs3, &file_mutated, "!", 1) => 1;
+        lfs3_file_flush(&lfs3, &file_mutated) => 0;
+    }
+
+    lfs3_file_t file_desync;
+    if (HANDLESET & 0x2) {
+        lfs3_file_open(&lfs3, &file_desync, "jellyfish",
+                LFS3_O_RDWR | LFS3_O_DESYNC) => 0;
+    }
+
+    lfs3_file_t file_desync_mutated;
+    if (HANDLESET & 0x4) {
+        lfs3_file_open(&lfs3, &file_desync_mutated, "jellyfish",
+                LFS3_O_RDWR | LFS3_O_DESYNC) => 0;
+        lfs3_file_write(&lfs3, &file_desync_mutated, "!", 1) => 1;
+        lfs3_file_flush(&lfs3, &file_desync_mutated) => 0;
+    }
+
+    // we should be marked as uncompacted
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | LFS3_I_NEEDSLOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                | LFS3_I_NEEDSCOMPACTMETA
+                | LFS3_I_NEEDSCKMETA
+                | LFS3_I_NEEDSCKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // try gcing and compacting
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc,
+            LFS3_GC_WRONLY
+                | LFS3_GC_COMPACTMETA
+                | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+                | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // _all_ btrees should have been compacted
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 4*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            lfs3_trv_close(&lfs3, &trv) => 0;
+            break;
+        }
+
+        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            // hack, don't use the internals like this
+            lfs3_rbyd_t rbyd;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
+        }
+    }
+
+    // uncompacted flag should have been cleared
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
+                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_NEEDSCKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    if (HANDLESET & 0x1) {
+        // file_mutated should still be a different bshrub
+        assert(file_mutated.bshrub.blocks[0]
+                    != file.bshrub.blocks[0]
+                || (file_mutated.bshrub.trunk & 0x7fffffff)
+                    != (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    if (HANDLESET & 0x2) {
+        // file_desync should be the same bshrub, yes we ignore desync
+        // here!
+        assert(file_desync.bshrub.blocks[0]
+                    == file.bshrub.blocks[0]
+                && (file_desync.bshrub.trunk & 0x7fffffff)
+                    == (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    if (HANDLESET & 0x4) {
+        // file_desync_mutated should still be a different bshrub
+        assert(file_desync_mutated.bshrub.blocks[0]
+                    != file.bshrub.blocks[0]
+                || (file_desync_mutated.bshrub.trunk & 0x7fffffff)
+                    != (file.bshrub.trunk & 0x7fffffff));
+    }
+
+    // check we can still read the files
+    lfs3_file_rewind(&lfs3, &file) => 0;
+    prng = wprng;
+    for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+        uint8_t wbuf[CHUNK];
+        for (lfs3_size_t j = 0; j < CHUNK; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        uint8_t rbuf[CHUNK];
+        lfs3_file_read(&lfs3, &file, rbuf, CHUNK) => CHUNK;
+        assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+    }
+
+    if (HANDLESET & 0x1) {
+        lfs3_file_rewind(&lfs3, &file_mutated) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            if (i == 0) {
+                wbuf[0] = '!';
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_mutated, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    if (HANDLESET & 0x2) {
+        lfs3_file_rewind(&lfs3, &file_desync) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_desync, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    if (HANDLESET & 0x4) {
+        lfs3_file_rewind(&lfs3, &file_desync_mutated) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += CHUNK) {
+            uint8_t wbuf[CHUNK];
+            for (lfs3_size_t j = 0; j < CHUNK; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            if (i == 0) {
+                wbuf[0] = '!';
+            }
+            uint8_t rbuf[CHUNK];
+            lfs3_file_read(&lfs3, &file_desync_mutated, rbuf, CHUNK) => CHUNK;
+            assert(memcmp(rbuf, wbuf, CHUNK) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    if (HANDLESET & 0x1) {
+        lfs3_file_desync(&lfs3, &file_mutated) => 0;
+        lfs3_file_close(&lfs3, &file_mutated) => 0;
+    }
+    if (HANDLESET & 0x2) {
+        lfs3_file_close(&lfs3, &file_desync) => 0;
+    }
+    if (HANDLESET & 0x4) {
+        lfs3_file_close(&lfs3, &file_desync_mutated) => 0;
+    }
     lfs3_unmount(&lfs3) => 0;
 '''
 
