@@ -187,6 +187,16 @@ GC_CKDATA       = 0x00200000  # --  Check metadata + data checksums
 GC_CK           = 0x00300000  # a-  Alias for all check work
 GC_GC           = 0x003f0000  # a-  Alias for all gc work
 
+gc_TYPE         = 0xf0000000  # im  The gc's type
+gc_REG          = 0x10000000  # i^  Type = regular-file
+gc_DIR          = 0x20000000  # i^  Type = directory
+gc_STICKYNOTE   = 0x30000000  # i^  Type = stickynote
+gc_BOOKMARK     = 0x40000000  # i^  Type = bookmark
+gc_ORPHAN       = 0x50000000  # i^  Type = orphan
+gc_TRV          = 0x60000000  # i^  Type = traversal
+gc_GC           = 0x70000000  # i^  Type = gc
+gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
+
 # Block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
 

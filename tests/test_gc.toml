@@ -948,6 +948,10 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -1053,6 +1057,10 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # force early relocations, but keep at least 1 to prevent mroot anchor
 # from extendeding during compaction
 defines.BLOCK_RECYCLES = 1
@@ -1183,6 +1191,10 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
@@ -1312,6 +1324,10 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
@@ -1386,7 +1402,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
@@ -1420,6 +1436,10 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -1522,7 +1542,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
@@ -1563,6 +1583,10 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.COMPACTSET = 'range(0x8)'
 code = '''
     lfs3_t lfs3;
@@ -1676,7 +1700,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | ((COMPACTSET) ? LFS3_I_NEEDSCOMPACTMETA : 0)
                 | LFS3_I_NEEDSCKMETA
@@ -1713,7 +1737,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
@@ -1761,6 +1785,10 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -1872,7 +1900,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -1889,7 +1917,8 @@ code = '''
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
-        assert(i < 2*BLOCK_COUNT);
+        // TODO this is a lot of steps, is something fighting?
+        assert(i < 16*BLOCK_COUNT);
 
         lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
@@ -1910,7 +1939,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
@@ -1967,6 +1996,10 @@ defines.CKDATA = [false, true]
 defines.SIZE = 'FCACHE_SIZE/2'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 code = '''
@@ -2061,7 +2094,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
@@ -2103,6 +2136,10 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SMACK = 20
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
@@ -2244,7 +2281,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
+                | ((!LOOKAHEAD) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
@@ -2287,6 +2324,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -2327,7 +2368,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -2406,6 +2447,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -2474,7 +2519,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -2571,6 +2616,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -2643,7 +2692,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -2740,6 +2789,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -2779,7 +2832,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -2858,6 +2911,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -2925,7 +2982,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -3022,6 +3079,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -3092,7 +3153,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -3190,6 +3251,10 @@ defines.HANDLESET = 'range(0x8)'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3252,7 +3317,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -3416,6 +3481,10 @@ defines.HANDLESET = 'range(0x8)'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -3506,7 +3575,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -3677,6 +3746,10 @@ defines.HANDLESET = 'range(0x8)'
 defines.CRYSTAL_THRESH = -1
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -3770,7 +3843,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_NEEDSLOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -4834,6 +4907,10 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -4914,9 +4991,7 @@ code = '''
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((ORPHANS > 0) ? LFS3_I_NEEDSMKCONSISTENT : 0)
-                | ((!GBMAP || ORPHANS >= 100)
-                    ? LFS3_I_NEEDSLOOKAHEAD
-                    : 0)
+                | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 | LFS3_I_NEEDSCOMPACTMETA
                 | LFS3_I_NEEDSCKMETA
@@ -4963,9 +5038,7 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
-                    ? LFS3_I_NEEDSLOOKAHEAD
-                    : 0)
+                | ((!LOOKAHEAD && !GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_NEEDSCKMETA : 0)
@@ -5009,6 +5082,10 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.ORPHANS = [0, 1, 2, 3, 100]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -5133,8 +5210,7 @@ code = '''
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | ((ORPHANS >= 3) ? LFS3_I_NEEDSMKCONSISTENT : 0)
-                | (((!LOOKAHEAD || ORPHANS > 0)
-                        && (!GBMAP || ORPHANS >= 100))
+                | (((!LOOKAHEAD || ORPHANS > 0) && (!GBMAP))
                     ? LFS3_I_NEEDSLOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_NEEDSPREERASE : 0, 0)
@@ -6110,6 +6186,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -6200,6 +6280,10 @@ defines.GC_FLAGS = '''
 '''
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -8041,6 +8125,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -8130,6 +8218,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -8223,6 +8315,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.SIZE = 'BLOCK_SIZE'
 if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
@@ -8344,6 +8440,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
@@ -8468,6 +8568,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
@@ -8663,6 +8767,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -8781,6 +8889,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -9038,6 +9150,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.OPS = 20
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -9213,6 +9329,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # you probably need to flush if you expect errors
 defines.FLUSH = false
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -9679,6 +9799,10 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # you probably need to flush if you expect errors
 defines.FLUSH = false
 defines.N = [1, 2, 4, 8, 16, 32, 64]
