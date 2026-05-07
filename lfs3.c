@@ -15543,7 +15543,13 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     }
 
     // fruncate _does_ update pos, to keep the same pos relative to end
-    // of file, though we can't let pos go negative
+    // of file
+    //
+    // yes, this is inconsistent from truncate, but we can't let pos go
+    // negative
+    //
+    // or is it? arguably truncate keeps pos relative to front of file,
+    // and fruncate is just doing to inverse
     file->pos -= lfs3_smin(
             size - size_,
             file->pos);
