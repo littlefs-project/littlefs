@@ -5258,47 +5258,6 @@ static void lfs3_fs_claimbtree(lfs3_t *lfs3, const lfs3_btree_t *btree) {
 }
 #endif
 
-// needed in lfs3_fs_syncbtree
-static inline void lfs3_file_discardleaf(lfs3_file_t *file);
-
-// sync any relevant btrees known to the system, this is called by mgc
-// to update btree references when compacting/evicting/repairing things
-//
-// note this doesn't, and can't, include any stack allocated btrees
-#ifndef LFS3_RDONLY
-static void lfs3_fs_syncbtree(lfs3_t *lfs3, const lfs3_btree_t *btree,
-        const lfs3_btree_t *btree_) {
-    // sync the mtree
-    if (lfs3_btree_cmp(&lfs3->mtree, btree) == 0) {
-        lfs3->mtree = *btree_;
-    }
-
-    // sync gbmap snapshots
-    #ifdef LFS3_GBMAP
-    if (lfs3_btree_cmp(&lfs3->gbmap.b, btree) == 0) {
-        lfs3->gbmap.b = *btree_;
-    }
-    if (lfs3_btree_cmp(&lfs3->gbmap.b_p, btree) == 0) {
-        lfs3->gbmap.b_p = *btree_;
-    }
-    #endif
-
-    // sync file btrees/bshrubs
-    for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                && lfs3_btree_cmp(&((lfs3_file_t*)h)->bshrub, btree) == 0) {
-            ((lfs3_file_t*)h)->bshrub = *btree_;
-
-            // we also need to discard any fragments that may be in our
-            // btree/bshrub
-            if (!lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr)) {
-                lfs3_file_discardleaf((lfs3_file_t*)h);
-            }
-        }
-    }
-}
-#endif
-
 
 // branch on-disk encoding
 #ifndef LFS3_RDONLY
@@ -6362,10 +6321,6 @@ static int lfs3_btree_compact_(lfs3_t *lfs3, lfs3_btree_t *btree,
     // the easiest way to do this is to just mark the rbyd as unerased
     // and call lfs3_btree_commit_
     rbyd->eoff = -1;
-    // TODO better way?
-    if (lfs3_rbyd_cmp(btree, rbyd) == 0) {
-        btree->eoff = -1;
-    }
     return lfs3_btree_commit_(lfs3, btree, bid, rbyd, rbyd->weight-1,
             (const lfs3_rattr_t[]){
                 LFS3_RATTR_NULL});
@@ -7073,10 +7028,6 @@ static int lfs3_bshrub_compact_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     // the easiest way to do this is to just mark the rbyd as unerased
     // and call lfs3_btree_commit_
     rbyd->eoff = -1;
-    // TODO better way?
-    if (lfs3_rbyd_cmp(&file->bshrub, rbyd) == 0) {
-        file->bshrub.eoff = -1;
-    }
     return lfs3_bshrub_commit_(lfs3, &file->bshrub,
             bid, rbyd, rbyd->weight-1,
             (const lfs3_rattr_t[]){
@@ -9038,6 +8989,9 @@ static int lfs3_mroot_parent(lfs3_t *lfs3, const lfs3_block_t mptr[static 2],
 }
 #endif
 
+// needed in lfs3_mdir_commit
+static inline void lfs3_file_discardleaf(lfs3_file_t *file);
+
 // high-level mdir commit
 //
 // this is atomic and updates any opened mdirs, lfs3_t, etc
@@ -10547,30 +10501,27 @@ again:;
                 > ((lfs3->cfg->gc_compactmeta_thresh)
                     ? lfs3->cfg->gc_compactmeta_thresh
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
-            #ifdef LFS3_GBMAP
-            // if we're in gbmap_p, just force sync the gbmap to disk,
-            // we can't mutate gbmap_p as it's in the past, and there's
-            // no real reason to keep it around
-            if (mgc->t.h.mdir.mid == LFS3_MID_GBMAP_P) {
-                LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
-                uint32_t dirty = mgc->t.h.flags;
-                // checkpoint the lookahead buffer, we need to signal
-                // that we're mutating, but try not to mess with the
-                // gbmap more than is necessary
-                lfs3_alloc_ckpoint_(lfs3);
+            // grab bid before checkpointing the allocator
+            //
+            // note using btrv.bid here is a bit of hack, for non-btree
+            // nodes it usually points to the _next_ bid, so would need to
+            // be adjusted (cough cough bptr eviction cough cough)
+            lfs3_bid_t bid = mgc->t.u.btrv.bid;
+            uint32_t dirty = mgc->t.h.flags;
 
-                // sync gbmap
-                int err = lfs3_alloc_syncgbmap(lfs3);
-                if (err) {
-                    return err;
-                }
+            // checkpoint the lookahead buffer, but avoid repopulating
+            // the gbmap, for a couple reasons:
+            //
+            // 1. we may be compacting a btree node in the gbmap,
+            //    repopulating would be counterproductive and messy
+            //
+            // 2. even if we're not in the gbmap, this code will
+            //    eventually be used for repairing blocks, in which case
+            //    we _really_ don't want to write more than is necessary
+            //
+            lfs3_alloc_ckpoint_(lfs3);
 
-                // reset dirty flag
-                mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
-                goto again;
-            }
-            #endif
-
+            // mtree?
             if (mgc->t.h.mdir.mid == LFS3_MID_MTREE) {
                 LFS3_INFO("Compacting mtree rbyd 0x%"PRIx32".%"PRIx32" "
                             "(%"PRId32" > %"PRId32")",
@@ -10580,6 +10531,32 @@ again:;
                         (lfs3->cfg->gc_compactmeta_thresh)
                             ? lfs3->cfg->gc_compactmeta_thresh
                             : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
+                // lfs3_bshrub_compact_ mutates the rbyd, which may point at
+                // the root, so we need to make a copy
+                mgc->t.u.btrv.rbyd = *rbyd;
+                // compact the btree node
+                int err = lfs3_btree_compact_(lfs3, &mgc->t.btree,
+                        bid, &mgc->t.u.btrv.rbyd);
+                if (err) {
+                    return err;
+                }
+
+                // commit into mroot
+                LFS3_ASSERT(lfs3_mdir_cmp(&mgc->t.h.mdir, &lfs3->mroot) == 0);
+                err = lfs3_mdir_commit(lfs3, &mgc->t.h.mdir,
+                        (const lfs3_rattr_t[]){
+                            LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_MTREE, 0, 1,
+                                LFS3_FROM_BTREE),
+                            LFS3_RATTR_ARG(&mgc->t.btree),
+                            LFS3_RATTR_NULL});
+                if (err) {
+                    return err;
+                }
+
+                // update the mtree
+                lfs3->mtree = mgc->t.btree;
+
+            // in gbmap?
             } else if (LFS3_IFDEF_GBMAP(
                     mgc->t.h.mdir.mid == LFS3_MID_GBMAP,
                     false)) {
@@ -10592,127 +10569,138 @@ again:;
                         (lfs3->cfg->gc_compactmeta_thresh)
                             ? lfs3->cfg->gc_compactmeta_thresh
                             : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
-            #endif
-            } else if (lfs3_bshrub_isbshrub(&mgc->t.btree)) {
-                LFS3_INFO("Compacting bshrub rbyd 0x%"PRIx32".%"PRIx32" "
-                            "(%"PRId32" > %"PRId32")",
-                        rbyd->blocks[0],
-                        lfs3_rbyd_trunk(rbyd),
-                        lfs3_rbyd_eoff(rbyd),
-                        (lfs3->cfg->gc_compactmeta_thresh)
-                            ? lfs3->cfg->gc_compactmeta_thresh
-                            : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
-            } else {
-                LFS3_INFO("Compacting btree rbyd 0x%"PRIx32".%"PRIx32" "
-                            "(%"PRId32" > %"PRId32")",
-                        rbyd->blocks[0],
-                        lfs3_rbyd_trunk(rbyd),
-                        lfs3_rbyd_eoff(rbyd),
-                        (lfs3->cfg->gc_compactmeta_thresh)
-                            ? lfs3->cfg->gc_compactmeta_thresh
-                            : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
-            }
-
-            // grab bid before checkpointing the allocator
-            //
-            // note using btrv.bid here is a bit of hack, for non-btree
-            // nodes it usually points to the _next_ bid, so would need to
-            // be adjusted (cough cough bptr eviction cough cough)
-            lfs3_bid_t bid = mgc->t.u.btrv.bid;
-            uint32_t dirty = mgc->t.h.flags;
-            // checkpoint the allocator
-            // TODO is this right? should we ckpoint before traversing?
-//            int err = lfs3_alloc_ckpoint(lfs3);
-//            if (err) {
-//                return err;
-//            }
-            lfs3_alloc_ckpoint_(lfs3);
-
-            // this gets messy because it might be a bshrub, the easiest
-            // option is to just create an ad-hoc file handle on the stack
-            //
-            // counterintuitively this uses less stack than putting the file
-            // handle in lfs3_mgc_t, because we're not on the stack hot-path
-            lfs3_file_t file;
-            file.h.flags = lfs3_o_typeflags(LFS3_TYPE_REG)
-                    | LFS3_O_WRONLY
-                    | LFS3_o_NEEDSSYNC;
-            file.h.mdir = mgc->t.h.mdir;
-            file.bshrub = mgc->t.btree;
-
-            // start tracking, this is the important bit
-            lfs3_handle_open(lfs3, &file.h);
-            // lfs3_bshrub_compact_ mutates the rbyd, which may point at
-            // the root, so we need to make a copy
-            mgc->t.u.btrv.rbyd = *rbyd;
-            // compact the btree/bshrub node
-            // TODO hmm
-            if (mgc->t.h.mdir.mid < 0) {
-                int err = lfs3_btree_compact_(lfs3, &file.bshrub,
+                // lfs3_bshrub_compact_ mutates the rbyd, which may point at
+                // the root, so we need to make a copy
+                mgc->t.u.btrv.rbyd = *rbyd;
+                // compact the btree node
+                int err = lfs3_btree_compact_(lfs3, &mgc->t.btree,
                         bid, &mgc->t.u.btrv.rbyd);
                 if (err) {
-                    lfs3_handle_close(lfs3, &file.h);
                     return err;
                 }
+
+                // stage gbmap before calling lfs3_alloc_syncgbmap
+                lfs3->gbmap.b = mgc->t.btree;
+
+                // sync gbmap
+                err = lfs3_alloc_syncgbmap(lfs3);
+                if (err) {
+                    return err;
+                }
+            #endif
+
+            // in gbmap_p?
+            } else if (LFS3_IFDEF_GBMAP(
+                    mgc->t.h.mdir.mid == LFS3_MID_GBMAP_P,
+                    false)) {
+            #ifdef LFS3_GBMAP
+                // if we're in gbmap_p, just force sync the gbmap to
+                // disk, we can't mutate gbmap_p as it's in the past,
+                // and there's no real reason to keep it around
+                LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
+                // sync gbmap
+                int err = lfs3_alloc_syncgbmap(lfs3);
+                if (err) {
+                    return err;
+                }
+            #endif
+
+            // in a file?
             } else {
+                if (lfs3_bshrub_isbshrub(&mgc->t.btree)) {
+                    LFS3_INFO("Compacting bshrub rbyd 0x%"PRIx32".%"PRIx32" "
+                                "(%"PRId32" > %"PRId32")",
+                            rbyd->blocks[0],
+                            lfs3_rbyd_trunk(rbyd),
+                            lfs3_rbyd_eoff(rbyd),
+                            (lfs3->cfg->gc_compactmeta_thresh)
+                                ? lfs3->cfg->gc_compactmeta_thresh
+                                : lfs3->cfg->block_size
+                                    - lfs3->cfg->block_size/8);
+                } else {
+                    LFS3_INFO("Compacting btree rbyd 0x%"PRIx32".%"PRIx32" "
+                                "(%"PRId32" > %"PRId32")",
+                            rbyd->blocks[0],
+                            lfs3_rbyd_trunk(rbyd),
+                            lfs3_rbyd_eoff(rbyd),
+                            (lfs3->cfg->gc_compactmeta_thresh)
+                                ? lfs3->cfg->gc_compactmeta_thresh
+                                : lfs3->cfg->block_size
+                                    - lfs3->cfg->block_size/8);
+                }
+
+                // this gets messy if we're a a bshrub, the easiest
+                // option is to just create an ad-hoc file handle on the
+                // stack
+                //
+                // counterintuitively this uses less ram than putting
+                // the file handle in lfs3_mgc_t, because we're not on
+                // the stack hot-path
+                lfs3_file_t file;
+                file.h.flags = lfs3_o_typeflags(LFS3_TYPE_REG)
+                        | LFS3_O_WRONLY
+                        | LFS3_o_NEEDSSYNC;
+                file.h.mdir = mgc->t.h.mdir;
+                file.bshrub = mgc->t.btree;
+
+                // start tracking, this is the important bit
+                lfs3_handle_open(lfs3, &file.h);
+                // lfs3_bshrub_compact_ mutates the rbyd, which may point at
+                // the root, so we need to make a copy
+                mgc->t.u.btrv.rbyd = *rbyd;
+                // compact the btree/bshrub node
                 int err = lfs3_bshrub_compact_(lfs3, &file.bshrub,
                         bid, &mgc->t.u.btrv.rbyd);
                 if (err) {
                     lfs3_handle_close(lfs3, &file.h);
                     return err;
                 }
-            }
 
-            // commit into the relevant mdir, if there is one
-            if (mgc->t.h.mdir.mid < 0
-                    // for on-disk bshrubs, mgc should be first in the
-                    // handle list, but we just opened a new handle
-                    || file.h.next == &mgc->t.h) {
-                // stage gbmap before calling lfs3_mdir_commit
-                #ifdef LFS3_GBMAP
-                if (mgc->t.h.mdir.mid == LFS3_MID_GBMAP) {
-                    lfs3->gbmap.b = file.bshrub;
-                }
-                #endif
-
-                int err = lfs3_mdir_commit(lfs3, &mgc->t.h.mdir,
-                        (const lfs3_rattr_t[]){
-                            (mgc->t.h.mdir.mid == LFS3_MID_MTREE)
+                // commit into the relevant mdir, if there is one
+                //
+                // for on-disk bshrubs, mgc is normally first in the
+                // handle list, but we just opened a new handle
+                if (file.h.next == &mgc->t.h) {
+                    err = lfs3_mdir_commit(lfs3, &mgc->t.h.mdir,
+                            (const lfs3_rattr_t[]){
+                                (lfs3_bshrub_isbshrub(&file.bshrub))
                                     ? LFS3_RATTR(
-                                        LFS3_tag_MASK8 | LFS3_TAG_MTREE,
-                                        0, 1,
-                                        LFS3_FROM_BTREE)
-                                : (mgc->t.h.mdir.mid >= 0)
-                                    ? (lfs3_bshrub_isbshrub(&file.bshrub))
-                                        ? LFS3_RATTR(
-                                            LFS3_tag_MASK8 | LFS3_TAG_BSHRUB,
-                                            0, 1,
-                                            LFS3_FROM_SHRUB)
-                                        : LFS3_RATTR(
-                                            LFS3_tag_MASK8 | LFS3_TAG_BTREE,
-                                            0, 1,
-                                            LFS3_FROM_BTREE)
-                                    // if it's not the mtree or a file
-                                    // bshrub/btree, it must be a global
-                                    // btree, which lfs3_mdir_commit
-                                    // handles implicitly
-                                    : LFS3_RATTR_NOOP(1),
-                            // TODO should we just switch to file.bshrub_
-                            // in LFS3_FROM_SHRUB?
-                            (lfs3_bshrub_isbshrub(&file.bshrub))
-                                ? LFS3_RATTR_ARG(&file.bshrub_)
-                                : LFS3_RATTR_ARG(&file.bshrub),
-                            LFS3_RATTR_NULL});
-                if (err) {
-                    lfs3_handle_close(lfs3, &file.h);
-                    return err;
+                                        LFS3_tag_MASK8 | LFS3_TAG_BSHRUB, 0, 1,
+                                        LFS3_FROM_SHRUB)
+                                    : LFS3_RATTR(
+                                        LFS3_tag_MASK8 | LFS3_TAG_BTREE, 0, 1,
+                                        LFS3_FROM_BTREE),
+                                // TODO should we just switch to file.bshrub_
+                                // in LFS3_FROM_SHRUB?
+                                (lfs3_bshrub_isbshrub(&file.bshrub))
+                                    ? LFS3_RATTR_ARG(&file.bshrub_)
+                                    : LFS3_RATTR_ARG(&file.bshrub),
+                                LFS3_RATTR_NULL});
+                    if (err) {
+                        lfs3_handle_close(lfs3, &file.h);
+                        return err;
+                    }
+                }
+
+                lfs3_handle_close(lfs3, &file.h);
+
+                // update any open btree/bshrub references
+                for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
+                    if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
+                            && lfs3_btree_cmp(
+                                &((lfs3_file_t*)h)->bshrub,
+                                &mgc->t.btree) == 0) {
+                        ((lfs3_file_t*)h)->bshrub = file.bshrub;
+
+                        // we also need to discard any fragments that
+                        // may be in our btree/bshrub
+                        if (!lfs3_bptr_isbptr(
+                                &((lfs3_file_t*)h)->leaf.bptr)) {
+                            lfs3_file_discardleaf((lfs3_file_t*)h);
+                        }
+                    }
                 }
             }
-
-            lfs3_handle_close(lfs3, &file.h);
-
-            // update any relevant btrees in the system
-            lfs3_fs_syncbtree(lfs3, &mgc->t.btree, &file.bshrub);
 
             // reset dirty flag
             mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
