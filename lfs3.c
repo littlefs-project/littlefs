@@ -10553,8 +10553,12 @@ again:;
             // no real reason to keep it around
             if (mgc->t.h.mdir.mid == LFS3_MID_GBMAP_P) {
                 LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
-                // TODO what's going on with alloc_ckpoints wrt syncgbmap?
+                // checkpoint the lookahead buffer, we need to signal
+                // that we're mutating, but try not to mess with the
+                // gbmap more than is necessary
                 lfs3_alloc_ckpoint_(lfs3);
+
+                // sync gbmap
                 int err = lfs3_alloc_syncgbmap(lfs3);
                 if (err) {
                     return err;
@@ -10893,6 +10897,12 @@ static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         && lfs3_alloc_canpreerase(lfs3),
                     false))) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
+            // checkpoint the lookahead buffer, we need to signal that
+            // we're mutating, but try not to mess with the gbmap more
+            // than is necessary
+            lfs3_alloc_ckpoint_(lfs3);
+
+            // preerase
             uint32_t dirty = mgc->t.h.flags;
             int err = lfs3_alloc_preerase(lfs3);
             if (err && err != LFS3_ERR_NOENT) {
@@ -10915,6 +10925,12 @@ static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         && lfs3_alloc_cansyncgbmap(lfs3),
                     false))) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+            // checkpoint the lookahead buffer, we need to signal that
+            // we're mutating, but try not to mess with the gbmap more
+            // than is necessary
+            lfs3_alloc_ckpoint_(lfs3);
+
+            // sync gbmap
             uint32_t dirty = mgc->t.h.flags;
             int err = lfs3_alloc_syncgbmap(lfs3);
             if (err) {
