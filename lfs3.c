@@ -10917,8 +10917,7 @@ static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         } else if (LFS3_IFDEF_RDONLY(
                 false,
                 LFS3_IFDEF_GBMAP(
-                    (lfs3_gc_ismkconsistent(mgc->t.h.flags)
-                            || lfs3_gc_islookahead(mgc->t.h.flags)
+                    (lfs3_gc_islookahead(mgc->t.h.flags)
                             || LFS3_IFDEF_PREERASE(
                                 lfs3_gc_ispreerase(mgc->t.h.flags),
                                 0))
