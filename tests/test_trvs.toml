@@ -1755,10 +1755,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(
-                    LFS3_I_REVPERTURB,
-                    (PREERASE) ? LFS3_I_REVPERTURB : 0,
-                    0)
+            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
                 | LFS3_I_NEEDSMKCONSISTENT
                 | ((!GBMAP) ? LFS3_I_NEEDSLOOKAHEAD : 0)

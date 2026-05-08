@@ -8002,6 +8002,12 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -8231,6 +8237,12 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
 defines.GC_STEPS = -1
+# set compact thresh to minimum
+defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
+# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
+# gives ourselves a bit of wiggle room, this is a more realistic value
+# anyways
+defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
