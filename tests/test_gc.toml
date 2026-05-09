@@ -2200,7 +2200,7 @@ code = '''
             if (tinfo.btype == LFS3_BTYPE_BTREE) {
                 // hack, don't use the internals like this
                 lfs3_rbyd_t rbyd;
-                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
                 if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
                     full += 1;
                 }
@@ -2271,7 +2271,7 @@ code = '''
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             // hack, don't use the internals like this
             lfs3_rbyd_t rbyd;
-            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
@@ -2510,7 +2510,7 @@ code = '''
             if (tinfo.btype == LFS3_BTYPE_BTREE) {
                 // hack, don't use the internals like this
                 lfs3_rbyd_t rbyd;
-                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
                 if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
                     full += 1;
                 }
@@ -2591,7 +2591,7 @@ code = '''
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             // hack, don't use the internals like this
             lfs3_rbyd_t rbyd;
-            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
@@ -2695,7 +2695,7 @@ code = '''
                 if (tinfo.btype == LFS3_BTYPE_BTREE) {
                     // hack, don't use the internals like this
                     lfs3_rbyd_t rbyd;
-                    lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                    lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
                     if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
                         full += 1;
                     }
@@ -2777,7 +2777,7 @@ code = '''
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             // hack, don't use the internals like this
             lfs3_rbyd_t rbyd;
-            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
@@ -3108,7 +3108,7 @@ code = '''
             if (tinfo.btype == LFS3_BTYPE_BTREE) {
                 // hack, don't use the internals like this
                 lfs3_rbyd_t rbyd;
-                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
                 if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
                     full += 1;
                 }
@@ -3199,7 +3199,7 @@ code = '''
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             // hack, don't use the internals like this
             lfs3_rbyd_t rbyd;
-            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
@@ -3375,7 +3375,7 @@ code = '''
                 if (tinfo.btype == LFS3_BTYPE_BTREE) {
                     // hack, don't use the internals like this
                     lfs3_rbyd_t rbyd;
-                    lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                    lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
                     if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
                         full += 1;
                     }
@@ -3467,7 +3467,7 @@ code = '''
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             // hack, don't use the internals like this
             lfs3_rbyd_t rbyd;
-            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
@@ -3815,7 +3815,7 @@ code = '''
             if (tinfo.btype == LFS3_BTYPE_BTREE) {
                 // hack, don't use the internals like this
                 lfs3_rbyd_t rbyd;
-                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
                 if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
                     full += 1;
                 }
@@ -3891,7 +3891,7 @@ code = '''
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             // hack, don't use the internals like this
             lfs3_rbyd_t rbyd;
-            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
@@ -4268,7 +4268,7 @@ code = '''
             if (tinfo.btype == LFS3_BTYPE_BTREE) {
                 // hack, don't use the internals like this
                 lfs3_rbyd_t rbyd;
-                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+                lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
                 if (lfs3_rbyd_eoff(&rbyd) >= GC_COMPACTMETA_THRESH) {
                     full += 1;
                 }
@@ -4400,7 +4400,7 @@ code = '''
         if (tinfo.btype == LFS3_BTYPE_BTREE) {
             // hack, don't use the internals like this
             lfs3_rbyd_t rbyd;
-            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, 0) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd, tinfo.block, -1) => 0;
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }

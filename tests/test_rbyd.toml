@@ -35,7 +35,7 @@ code = '''
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
 
     // commit with two attributes
     rbyd = init_rbyd;
@@ -46,7 +46,7 @@ code = '''
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
 '''
 
 [cases.test_rbyd_commit]
@@ -71,7 +71,7 @@ code = '''
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
 
     // commit with two attributes
     rbyd = init_rbyd;
@@ -84,7 +84,7 @@ code = '''
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
 '''
 
 [cases.test_rbyd_commit_fetch_commit]
@@ -111,14 +111,14 @@ code = '''
             LFS3_RATTR_NULL}) => 0;
 
     // fetch
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
 
     // commit with the second attribute
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
 '''
 
 [cases.test_rbyd_atomic_lookup]
@@ -155,7 +155,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -187,7 +187,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -224,7 +224,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -273,7 +273,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -307,7 +307,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -346,7 +346,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -393,7 +393,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &data) => LFS3_TAG_ATTR(1);
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -420,7 +420,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &data) => LFS3_TAG_ATTR(1);
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -448,7 +448,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &data) => LFS3_TAG_ATTR(1);
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -491,7 +491,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &data) => LFS3_TAG_ATTR(1);
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -520,7 +520,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &data) => LFS3_TAG_ATTR(1);
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -550,7 +550,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &data) => LFS3_TAG_ATTR(1);
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
@@ -592,7 +592,7 @@ code = '''
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -617,7 +617,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -663,7 +663,7 @@ code = '''
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -690,7 +690,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -738,7 +738,7 @@ code = '''
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -772,7 +772,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -827,7 +827,7 @@ code = '''
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -863,7 +863,7 @@ code = '''
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -899,7 +899,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -935,7 +935,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -992,7 +992,7 @@ code = '''
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1035,7 +1035,7 @@ code = '''
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1078,7 +1078,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1121,7 +1121,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1183,7 +1183,7 @@ code = '''
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1226,7 +1226,7 @@ code = '''
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1269,7 +1269,7 @@ code = '''
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1312,7 +1312,7 @@ code = '''
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1378,7 +1378,7 @@ code = '''
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1425,7 +1425,7 @@ code = '''
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1470,7 +1470,7 @@ code = '''
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1515,7 +1515,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1583,7 +1583,7 @@ code = '''
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1637,7 +1637,7 @@ code = '''
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1689,7 +1689,7 @@ code = '''
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1741,7 +1741,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1816,7 +1816,7 @@ code = '''
             LFS3_RATTR_ARG("\xee\xee\xee\xee"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1872,7 +1872,7 @@ code = '''
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -1928,7 +1928,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -2005,7 +2005,7 @@ code = '''
             LFS3_RATTR_ARG("\xff\xff\xff\xff"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -2066,7 +2066,7 @@ code = '''
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -2127,7 +2127,7 @@ code = '''
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
             LFS3_RATTR_NULL}) => 0;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -2220,7 +2220,7 @@ code = '''
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, rattrs) => 0;
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         for (unsigned j = 0; j < N; j++) {
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(j+1),
                     &rid_, NULL, &data_);
@@ -2309,7 +2309,7 @@ code = '''
                     LFS3_RATTR_NULL}) => 0;
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         for (unsigned j = 0; j < N; j++) {
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(j+1),
                     &rid_, NULL, &data_);
@@ -2383,7 +2383,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -2420,7 +2420,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -2480,7 +2480,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -2519,7 +2519,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -2590,7 +2590,7 @@ code = '''
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, rattrs) => 0;
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         // try traversing all tags
         tag_ = 0;
         rid_ = -1;
@@ -2661,7 +2661,7 @@ code = '''
                     LFS3_RATTR_NULL}) => 0;
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         // try traversing all tags
         tag_ = 0;
         rid_ = -1;
@@ -2762,7 +2762,7 @@ code = '''
         }
 
         // check that all tags have been updated
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         for (unsigned j = 0; j < N; j++) {
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(j+1),
                     &rid_, NULL, &data_);
@@ -2848,7 +2848,7 @@ code = '''
 
     // check that we can still lookup all the tags
     prng = 42;
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     for (lfs3_size_t i = 0; i < count; i++) {
         lfs3_size_t x
                 = (ORDER == 0) ? i
@@ -2899,7 +2899,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
@@ -2931,7 +2931,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -2968,7 +2968,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(1));
@@ -3369,7 +3369,7 @@ code = '''
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
     // one last fetch to make sure nothing was broken
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3617,7 +3617,7 @@ code = '''
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
     // one last fetch to make sure nothing was broken
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_ATTR(2));
@@ -3675,7 +3675,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
@@ -3700,7 +3700,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
@@ -3725,7 +3725,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(2),
@@ -3815,7 +3815,7 @@ code = '''
         }
 
         // check that all tags are now removed
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(j+1),
                     &rid_, NULL, &data_) => LFS3_ERR_NOENT;
@@ -3827,7 +3827,7 @@ code = '''
                 LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa\xaa\xaa"),
                 LFS3_RATTR_NULL}) => 0;
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(1),
                 &rid_, NULL, &data_);
         assert(tag_ == LFS3_TAG_ATTR(1));
@@ -4016,7 +4016,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4043,7 +4043,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4080,7 +4080,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4127,7 +4127,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xaa\xaa\xaa\xaa", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4156,7 +4156,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4189,7 +4189,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xbb\xbb\xbb\xbb", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4230,7 +4230,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4275,7 +4275,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4320,7 +4320,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4408,7 +4408,7 @@ code = '''
                     LFS3_RATTR_NULL}) => 0;
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_lookup(&lfs3, &rbyd, j, LFS3_TAG_DATA,
@@ -4492,7 +4492,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -4570,7 +4570,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -4625,7 +4625,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -4719,7 +4719,7 @@ code = '''
                     LFS3_RATTR_NULL}) => 0;
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
         // try traversing all tags
         tag_ = 0;
@@ -4803,7 +4803,7 @@ code = '''
     lfs3_stag_t tag_;
     lfs3_ssize_t rid_;
     lfs3_data_t data_;
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     for (uint16_t x = 0; x < rbyd.weight; x++) {
         tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, x, LFS3_TAG_DATA,
                 &rid_, NULL, &data_);
@@ -4853,7 +4853,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4896,7 +4896,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4947,7 +4947,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -4988,7 +4988,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -5055,7 +5055,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xaa\xaa", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -5104,7 +5104,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -5161,7 +5161,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xbb\xbb", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -5222,7 +5222,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 4;
     assert(memcmp(buffer, "\xcc\xcc\xcc\xcc", 4) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -5263,7 +5263,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -5344,7 +5344,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -5425,7 +5425,7 @@ code = '''
     lfs3_data_read(&lfs3, &data, buffer, 4) => 2;
     assert(memcmp(buffer, "\xcc\xcc", 2) == 0);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -5533,7 +5533,7 @@ code = '''
             }
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_lookup(&lfs3, &rbyd, j, LFS3_TAG_DATA,
@@ -5646,7 +5646,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -5768,7 +5768,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -5867,7 +5867,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, NULL, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, NULL, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -5987,7 +5987,7 @@ code = '''
             }
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
 
         // try traversing all tags
@@ -6123,7 +6123,7 @@ code = '''
         }
 
         // check that all tags have been updated
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_lookup(&lfs3, &rbyd, j, LFS3_TAG_DATA,
                     &data) => LFS3_TAG_DATA;
@@ -6471,7 +6471,7 @@ code = '''
         }
 
         // check that all tags have been removed
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_lookup(&lfs3, &rbyd, j, LFS3_TAG_DATA,
                     &data) => LFS3_TAG_DATA;
@@ -6581,7 +6581,7 @@ code = '''
     lfs3_stag_t tag_;
     lfs3_ssize_t rid_;
     lfs3_data_t data_;
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     for (uint16_t x = 0; x < rbyd.weight; x++) {
         tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, x, LFS3_TAG_DATA,
                 &rid_, NULL, &data_);
@@ -6682,7 +6682,7 @@ code = '''
         }
 
         // try looking up each tag
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(j+1),
@@ -6837,7 +6837,7 @@ code = '''
         }
 
         // try looking up each tag
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_lookup(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(j+1),
@@ -6966,7 +6966,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 1, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -6996,7 +6996,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 1, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -7168,7 +7168,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 1, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -7214,7 +7214,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 1, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 1);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -7272,7 +7272,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -7338,7 +7338,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -7404,7 +7404,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -7566,7 +7566,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -7701,7 +7701,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -7896,7 +7896,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -8015,7 +8015,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -8248,7 +8248,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -8415,7 +8415,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -8661,7 +8661,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -8820,7 +8820,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -9062,7 +9062,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -9221,7 +9221,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -9457,7 +9457,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -9600,7 +9600,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -9828,7 +9828,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -9971,7 +9971,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -10260,7 +10260,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -10459,7 +10459,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -10772,7 +10772,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 2, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -10971,7 +10971,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_ATTR(1),
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 3);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -11762,7 +11762,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -11785,7 +11785,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -11810,7 +11810,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -11836,7 +11836,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -11866,7 +11866,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -11906,7 +11906,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -11933,7 +11933,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -11962,7 +11962,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -11994,7 +11994,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -12030,7 +12030,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -12137,7 +12137,7 @@ code = '''
         }
 
         // check that all tags are now removed
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == 0);
         lfs3_rbyd_lookup(&lfs3, &rbyd, LFS3_TAG_DATA, 0,
                 &data) => LFS3_ERR_NOENT;
@@ -12149,7 +12149,7 @@ code = '''
                 LFS3_RATTR_NULL}) => 0;
         assert(rbyd.weight == 1);
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == 1);
         lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
                 &data) => LFS3_TAG_DATA;
@@ -12292,7 +12292,7 @@ code = '''
         }
 
         // check that all tags are now removed
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == 0);
         lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
                 &data) => LFS3_ERR_NOENT;
@@ -12310,7 +12310,7 @@ code = '''
         }
         assert(rbyd.weight == 1);
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == 1);
         lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
                 &data) => LFS3_TAG_DATA;
@@ -12813,7 +12813,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -12860,7 +12860,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 3, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 2);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -12919,7 +12919,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -12986,7 +12986,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -13053,7 +13053,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 5, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 4);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -13216,7 +13216,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 15, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 14);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -13351,7 +13351,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 16, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 15);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -13551,7 +13551,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 13, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 12);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -13670,7 +13670,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 14, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 13);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -13910,7 +13910,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 19, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 18);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -14077,7 +14077,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 20, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 19);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -14329,7 +14329,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 18, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 17);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -14488,7 +14488,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 19, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 18);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -14732,7 +14732,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 18, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 17);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -14891,7 +14891,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 19, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 18);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -15132,7 +15132,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 16, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 15);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -15275,7 +15275,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 17, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 16);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -15506,7 +15506,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 16, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 15);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -15649,7 +15649,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 17, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 16);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -15939,7 +15939,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 23, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 22);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -16138,7 +16138,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 24, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 23);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -16456,7 +16456,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 23, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 22);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -16655,7 +16655,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 24, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 23);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_TAG_DATA;
@@ -17160,7 +17160,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -17189,7 +17189,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -17220,7 +17220,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -17255,7 +17255,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -17294,7 +17294,7 @@ code = '''
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     assert(rbyd.weight == 0);
     lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &data) => LFS3_ERR_NOENT;
@@ -17412,7 +17412,7 @@ code = '''
         }
 
         // check that all tags are now removed
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == 0);
         lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
                 &data) => LFS3_ERR_NOENT;
@@ -17430,7 +17430,7 @@ code = '''
         }
         assert(rbyd.weight == M+1);
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == M+1);
         lfs3_rbyd_lookup(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
                 &data) => LFS3_TAG_DATA;
@@ -17795,7 +17795,7 @@ code = '''
     assert(weight_ == 1);
     assert(lfs3_data_size(&data_) == 4);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -17823,7 +17823,7 @@ code = '''
     assert(weight_ == 2);
     assert(lfs3_data_size(&data_) == 4);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -17863,7 +17863,7 @@ code = '''
     assert(weight_ == 3);
     assert(lfs3_data_size(&data_) == 4);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -17915,7 +17915,7 @@ code = '''
     assert(weight_ == 4);
     assert(lfs3_data_size(&data_) == 4);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -17979,7 +17979,7 @@ code = '''
     assert(weight_ == 5);
     assert(lfs3_data_size(&data_) == 4);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, 0, LFS3_TAG_DATA,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -18089,7 +18089,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_DATA);
@@ -18198,7 +18198,7 @@ code = '''
                     LFS3_RATTR_NULL}) => 0;
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N*W);
         for (unsigned j = 0; j < N; j++) {
             tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, j*W+W-1, LFS3_TAG_DATA,
@@ -18290,7 +18290,7 @@ code = '''
                     LFS3_RATTR_NULL}) => 0;
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N*W);
         // try traversing all tags
         tag_ = 0;
@@ -18372,7 +18372,7 @@ code = '''
     assert(weight_ == 0);
     assert(lfs3_data_size(&data_) == 2);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
@@ -18452,7 +18452,7 @@ code = '''
     assert(weight_ == 0);
     assert(lfs3_data_size(&data_) == 2);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
@@ -18569,7 +18569,7 @@ code = '''
     assert(weight_ == 0);
     assert(lfs3_data_size(&data_) == 2);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
@@ -18722,7 +18722,7 @@ code = '''
     assert(weight_ == 0);
     assert(lfs3_data_size(&data_) == 2);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
@@ -18911,7 +18911,7 @@ code = '''
     assert(weight_ == 0);
     assert(lfs3_data_size(&data_) == 2);
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
@@ -19178,7 +19178,7 @@ code = '''
     lfs3_rbyd_lookupnext(&lfs3, &rbyd, rid_, tag_+1,
             &rid_, &weight_, &data_) => LFS3_ERR_NOENT;
 
-    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+    lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
     tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, 0,
             &rid_, &weight_, &data_);
     assert(tag_ == LFS3_TAG_ATTR(3));
@@ -19363,7 +19363,7 @@ code = '''
                     LFS3_RATTR_NULL}) => 0;
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N*W);
         tag_ = lfs3_rbyd_lookupnext(&lfs3, &rbyd, -1, LFS3_TAG_ATTR(3),
                 &rid_, &weight_, &data_);
@@ -19483,7 +19483,7 @@ code = '''
                     LFS3_RATTR_NULL}) => 0;
         }
 
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N*W);
         // try traversing all tags
         tag_ = 0;
@@ -21092,7 +21092,7 @@ code = '''
         assert(rbyd.weight == N);
 
         // test that we can lookup each rattr with a wide lookup
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
 
         for (unsigned j = 0; j < N; j++) {
@@ -21480,7 +21480,7 @@ code = '''
         assert(rbyd.weight == N);
 
         // test that we can lookup each rattr with a wide lookup
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
 
         for (unsigned j = 0; j < N; j++) {
@@ -21882,7 +21882,7 @@ code = '''
         assert(rbyd.weight == N);
 
         // test that we can lookup each rattr with a wide lookup
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
 
         for (unsigned j = 0; j < N; j++) {
@@ -22261,7 +22261,7 @@ code = '''
         assert(rbyd.weight == N);
 
         // a supwide rattr lookup only gets the file type
-        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], 0) => 0;
+        lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
         assert(rbyd.weight == N);
 
         for (unsigned j = 0; j < N; j++) {
