@@ -1625,11 +1625,13 @@ static void summary(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1690,11 +1692,13 @@ static void list_suites(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1750,11 +1754,13 @@ static void list_cases(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1802,11 +1808,13 @@ static void list_suite_paths(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1844,11 +1852,13 @@ static void list_case_paths(void) {
         for (size_t i = 0; i < bench_suite_count; i++) {
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1963,11 +1973,13 @@ static void list_defines(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2005,11 +2017,13 @@ static void list_permutation_defines(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2083,11 +2097,13 @@ static void list_probes(void) {
         for (size_t i = 0; i < bench_suite_count; i++) {
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2143,11 +2159,13 @@ static void list_suite_probes(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2208,11 +2226,13 @@ static void list_case_probes(void) {
         for (size_t i = 0; i < bench_suite_count; i++) {
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2279,11 +2299,13 @@ static void query_define(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2321,11 +2343,13 @@ static void query_permutation_define(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2582,11 +2606,13 @@ static void run(void) {
 
             for (size_t j = 0; j < bench_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (bench_ids[t].name && !(
-                        strcmp(bench_ids[t].name,
-                            bench_suites[i]->name) == 0
-                        || strcmp(bench_ids[t].name,
-                            bench_suites[i]->cases[j].name) == 0)) {
+                if (bench_ids[t].name
+                        && !(strcmp(bench_ids[t].name,
+                                "bench") == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->name) == 0
+                            || strcmp(bench_ids[t].name,
+                                bench_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 

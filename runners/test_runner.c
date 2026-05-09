@@ -894,11 +894,13 @@ static void summary(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -960,11 +962,13 @@ static void list_suites(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1021,11 +1025,13 @@ static void list_cases(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1074,11 +1080,13 @@ static void list_suite_paths(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1116,11 +1124,13 @@ static void list_case_paths(void) {
         for (size_t i = 0; i < test_suite_count; i++) {
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1239,11 +1249,13 @@ static void list_defines(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1281,11 +1293,13 @@ static void list_permutation_defines(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1400,11 +1414,13 @@ static void query_define(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -1442,11 +1458,13 @@ static void query_permutation_define(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
@@ -2187,11 +2205,13 @@ static void run(void) {
 
             for (size_t j = 0; j < test_suites[i]->case_count; j++) {
                 // does neither suite nor case name match?
-                if (test_ids[t].name && !(
-                        strcmp(test_ids[t].name,
-                            test_suites[i]->name) == 0
-                        || strcmp(test_ids[t].name,
-                            test_suites[i]->cases[j].name) == 0)) {
+                if (test_ids[t].name
+                        && !(strcmp(test_ids[t].name,
+                                "test") == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->name) == 0
+                            || strcmp(test_ids[t].name,
+                                test_suites[i]->cases[j].name) == 0)) {
                     continue;
                 }
 
