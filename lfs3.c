@@ -2771,9 +2771,9 @@ static lfs3_stag_t lfs3_rbyd_lookupnext_(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         lfs3_rheight_t *rheight_);
 
 // fetch an rbyd
-static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
-        lfs3_rbyd_t *rbyd, uint32_t *gcksumdelta,
-        lfs3_block_t block, lfs3_size_t trunk) {
+static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
+        lfs3_block_t block, lfs3_size_t trunk,
+        uint32_t *gcksumdelta_) {
     // set up some initial state
     rbyd->blocks[0] = block;
     rbyd->trunk = 0;
@@ -2816,7 +2816,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
     #endif
 
     // also find gcksumdelta, though this is only used by mdirs
-    uint32_t gcksumdelta_ = 0;
+    uint32_t gcksumdelta = 0;
 
     // scan tags, checking valid bits, cksums, etc
     while (off_ < lfs3->cfg->block_size
@@ -2884,7 +2884,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                                 // note this size is to make the hint do
                                 // what we want
                                 lfs3->cfg->block_size - off__),
-                            &gcksumdelta_);
+                            &gcksumdelta);
                     if (err) {
                         if (err == LFS3_ERR_CORRUPT) {
                             break;
@@ -2932,10 +2932,10 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
                 if (!lfs3_rbyd_isquickfetch(trunk)) {
                     rbyd->cksum = cksum_;
                 }
-                if (gcksumdelta) {
-                    *gcksumdelta = gcksumdelta_;
+                if (gcksumdelta_) {
+                    *gcksumdelta_ = gcksumdelta;
                 }
-                gcksumdelta_ = 0;
+                gcksumdelta = 0;
 
                 // update perturb bit
                 perturb = lfs3_tag_perturb(tag);
@@ -3102,7 +3102,8 @@ static int lfs3_rbyd_fetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // why would you try to fetch a shrub?
     LFS3_ASSERT(!(trunk & LFS3_RBYD_ISSHRUB));
 
-    return lfs3_rbyd_fetch_(lfs3, rbyd, NULL, block, trunk);
+    return lfs3_rbyd_fetch_(lfs3, rbyd, block, trunk,
+            NULL);
 }
 
 // a more reckless fetch when checksum is known
@@ -3120,8 +3121,9 @@ static int lfs3_rbyd_quickfetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // the only thing quick fetch can't figure out is the checksum
     rbyd->cksum = cksum;
 
-    int err = lfs3_rbyd_fetch_(lfs3, rbyd, NULL,
-            block, LFS3_RBYD_QUICKFETCH | trunk);
+    int err = lfs3_rbyd_fetch_(lfs3, rbyd,
+            block, LFS3_RBYD_QUICKFETCH | trunk,
+            NULL);
     if (err) {
         return err;
     }
@@ -7995,9 +7997,8 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // try to fetch rbyds in the order of most recent to least recent
     for (int i = 0; i < 2; i++) {
-        int err = lfs3_rbyd_fetch_(lfs3,
-                &mdir->r, &mdir->gcksumdelta,
-                blocks[0], 0);
+        int err = lfs3_rbyd_fetch_(lfs3, &mdir->r, blocks[0], 0,
+                &mdir->gcksumdelta);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
