@@ -868,8 +868,8 @@ def find_runner(runner, id=None, main=True, **args):
 
 def find_perms(runner, test_ids=[], **args):
     runner_ = find_runner(runner, main=False, **args)
-    case_suites = {}
-    expected_case_perms = co.OrderedDict()
+    case_suites = co.OrderedDict()
+    expected_case_perms = {}
     expected_perms = 0
     total_perms = 0
 
@@ -902,7 +902,14 @@ def find_perms(runner, test_ids=[], **args):
         sys.exit(-1)
 
     # get which suite each case belongs to via paths
-    cmd = runner_ + ['--list-case-paths'] + test_ids
+    #
+    # note if we have multiple ids, we _don't_ filter by test_ids here,
+    # as this risks messing up the suite/case order
+    #
+    # this should be fine for single ids, I guess unless the runner
+    # itself is non-deterministic
+    cmd = (runner_ + ['--list-case-paths']
+            + (test_ids if len(test_ids) <= 1 else []))
     if args.get('verbose'):
         print(' '.join(shlex.quote(c) for c in cmd))
     proc = sp.Popen(cmd,
@@ -916,7 +923,7 @@ def find_perms(runner, test_ids=[], **args):
     # skip the first line
     for line in it.islice(proc.stdout, 1, None):
         m = pattern.match(line)
-        if m:
+        if m and m.group('case') in expected_case_perms:
             path = m.group('path')
             # strip path/suffix here
             suite = os.path.basename(path)
@@ -927,12 +934,23 @@ def find_perms(runner, test_ids=[], **args):
     if proc.returncode != 0:
         sys.exit(-1)
 
-    # figure out expected suite perms
-    expected_suite_perms = co.OrderedDict()
+    # figure out expected suite perms, and reorder suite/case perms to
+    # be consistent despite test_ids order
+    #
+    # we use the path listing for ordering as it's much cheaper to
+    # find than the case permutations
+    expected_suite_perms_ = co.OrderedDict()
+    expected_case_perms_ = co.OrderedDict()
     for case, suite in case_suites.items():
-        expected_suite_perms[suite] = (
-                expected_suite_perms.get(suite, 0)
-                    + expected_case_perms.get(case, 0))
+        if case in expected_case_perms:
+            expected_suite_perms_[suite] = (
+                    expected_suite_perms_.get(suite, 0)
+                        + expected_case_perms[case])
+            expected_case_perms_[case] = (
+                    expected_case_perms_.get(case, 0)
+                        + expected_case_perms[case])
+    expected_suite_perms = expected_suite_perms_
+    expected_case_perms = expected_case_perms_
 
     return (case_suites,
             expected_suite_perms,
