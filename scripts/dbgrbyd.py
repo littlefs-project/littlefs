@@ -722,7 +722,7 @@ class Rbyd:
         return cls._fetch(data, block, trunk)
 
     @classmethod
-    def fetchck(cls, bd, blocks, trunk, weight, cksum):
+    def ckfetch(cls, bd, blocks, trunk, weight, cksum):
         # try to fetch the rbyd normally
         rbyd = cls.fetch(bd, blocks, trunk)
 

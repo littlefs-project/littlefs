@@ -3026,7 +3026,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3,
 
     #ifdef LFS3_DBGRBYDFETCHES
     if (lfs3_rbyd_isquickfetch(trunk)) {
-        LFS3_DEBUG("Quick-fetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
+        LFS3_DEBUG("Quickfetched rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                     "eoff %"PRId32", cksum %"PRIx32,
                 rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
                 rbyd->weight,
@@ -3109,9 +3109,11 @@ static int lfs3_rbyd_fetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 //
 // this just finds the eoff/perturb/ecksum for the current trunk to
 // enable reckless commits
-static int lfs3_rbyd_fetchquick(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
+static int lfs3_rbyd_quickfetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_block_t block, lfs3_size_t trunk,
         uint32_t cksum) {
+    // quickfetch requires a known trunk
+    LFS3_ASSERT(trunk != 0);
     // why would you try to fetch a shrub?
     LFS3_ASSERT(!(trunk & LFS3_RBYD_ISSHRUB));
 
@@ -3130,9 +3132,11 @@ static int lfs3_rbyd_fetchquick(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 }
 
 // a more aggressive fetch when checksum is known
-static int lfs3_rbyd_fetchck(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
+static int lfs3_rbyd_ckfetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_block_t block, lfs3_size_t trunk,
         uint32_t cksum) {
+    // ckfetch without a known trunk is probably an error
+    LFS3_ASSERT(trunk != 0);
     // why would you try to fetch a shrub?
     LFS3_ASSERT(!(trunk & LFS3_RBYD_ISSHRUB));
 
@@ -3163,6 +3167,38 @@ static int lfs3_rbyd_fetchck(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // error, that's a programming error
     LFS3_ASSERT(lfs3_rbyd_trunk(rbyd) == trunk);
     return 0;
+}
+
+// fetch for mutating
+//
+// this does one of the following:
+// 1. nothing, if already fetched
+// 2. ckfetch, if checking fetches (LFS3_M_CKFETCHES)
+// 3. quickfetch, so we have enough info to mutate
+static int lfs3_rbyd_mkfetched(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
+    // why would you try to fetch a shrub?
+    LFS3_ASSERT(!lfs3_rbyd_isshrub(rbyd));
+
+    // already fetched?
+    if (lfs3_rbyd_isfetched(rbyd)) {
+        return 0;
+
+    // checking fetches?
+    } else if (LFS3_IFDEF_CKFETCHES(
+            lfs3_m_isckfetches(lfs3->flags),
+            false)) {
+    #ifdef LFS3_CKFETCHES
+        return lfs3_rbyd_ckfetch(lfs3, rbyd,
+                rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
+                rbyd->cksum);
+    #endif
+
+    // if we're not checking fetches, we can get away with a quick fetch
+    } else {
+        return lfs3_rbyd_quickfetch(lfs3, rbyd,
+                rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
+                rbyd->cksum);
+    }
 }
 
 
@@ -5330,7 +5366,7 @@ static int lfs3_data_fetchbranch(lfs3_t *lfs3,
     // checking fetches?
     #ifdef LFS3_CKFETCHES
     if (lfs3_m_isckfetches(lfs3->flags)) {
-        int err = lfs3_rbyd_fetchck(lfs3, branch,
+        int err = lfs3_rbyd_ckfetch(lfs3, branch,
                 branch->blocks[0], lfs3_rbyd_trunk(branch),
                 branch->cksum);
         if (err) {
@@ -5397,7 +5433,7 @@ static int lfs3_data_fetchbtree(lfs3_t *lfs3, lfs3_data_t *data,
     #ifdef LFS3_CKFETCHES
     if (lfs3_m_isckfetches(lfs3->flags)) {
         lfs3_bid_t weight = btree->weight;
-        int err = lfs3_rbyd_fetchck(lfs3, btree,
+        int err = lfs3_rbyd_ckfetch(lfs3, btree,
                 btree->blocks[0], lfs3_rbyd_trunk(btree),
                 btree->cksum);
         if (err) {
@@ -5690,33 +5726,16 @@ static int lfs3_btree_commit__(lfs3_t *lfs3,
         // unfetched
         //
         // a funny benefit is we cache the root of our btree this way
-        if (!lfs3_rbyd_isfetched(child)) {
-            // if we're not checking fetches, we can get away with a
-            // quick fetch
-            if (LFS3_IFDEF_CKFETCHES(
-                    !lfs3_m_isckfetches(lfs3->flags),
-                    true)) {
-                int err = lfs3_rbyd_fetchquick(lfs3, child,
-                        child->blocks[0], lfs3_rbyd_trunk(child),
-                        child->cksum);
-                if (err) {
-                    return err;
-                }
-            } else {
-                int err = lfs3_rbyd_fetchck(lfs3, child,
-                        child->blocks[0], lfs3_rbyd_trunk(child),
-                        child->cksum);
-                if (err) {
-                    return err;
-                }
-            }
+        int err = lfs3_rbyd_mkfetched(lfs3, child);
+        if (err) {
+            return err;
         }
 
         // is rbyd erased? can we sneak our commit into any remaining
         // erased bytes? note that the btree trunk field prevents this from
         // interacting with other references to the rbyd
         *child_ = *child;
-        int err = lfs3_rbyd_commit(lfs3, child_, rid,
+        err = lfs3_rbyd_commit(lfs3, child_, rid,
                 bcommit->rattrs);
         if (err) {
             if (err == LFS3_ERR_RANGE || err == LFS3_ERR_CORRUPT) {
@@ -10220,7 +10239,7 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
                 || lfs3_t_isckdata(mtrv->h.flags))
             && tag == LFS3_TAG_BRANCH) {
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
-        int err = lfs3_rbyd_fetchck(lfs3, rbyd,
+        int err = lfs3_rbyd_ckfetch(lfs3, rbyd,
                 rbyd->blocks[0], rbyd->trunk,
                 rbyd->cksum);
         if (err) {
@@ -10406,11 +10425,11 @@ again:;
     if (lfs3_t_isstepmkconsistent(mgc->t.h.flags)
             && lfs3_i_needsmkconsistent(lfs3->flags)
             && tag == LFS3_TAG_MDIR) {
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         // grm queue should be flushed before calling lfs3_mtree_gc
         LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
-        uint32_t dirty = mgc->t.h.flags;
 
+        uint32_t dirty = mgc->t.h.flags;
         // fix any orphans in the mdir
         int err = lfs3_mdir_fixorphans(lfs3, mdir);
         if (err) {
@@ -10469,31 +10488,11 @@ again:;
     // compacting btree nodes?
     if (lfs3_t_isstepcompactmeta(mgc->t.h.flags)
             && tag == LFS3_TAG_BRANCH) {
-        // need to fetch
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
-
-        // TODO should we have a common fetchmut for this? mutfetch?
-        // writefetch? fetchwrite? commitfetch? fetchcommit?
-        if (!lfs3_rbyd_isfetched(rbyd)) {
-            // if we're not checking fetches, we can get away with a
-            // quick fetch
-            if (LFS3_IFDEF_CKFETCHES(
-                    !lfs3_m_isckfetches(lfs3->flags),
-                    true)) {
-                int err = lfs3_rbyd_fetchquick(lfs3, rbyd,
-                        rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
-                        rbyd->cksum);
-                if (err) {
-                    return err;
-                }
-            } else {
-                int err = lfs3_rbyd_fetchck(lfs3, rbyd,
-                        rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
-                        rbyd->cksum);
-                if (err) {
-                    return err;
-                }
-            }
+        // need to fetch
+        int err = lfs3_rbyd_mkfetched(lfs3, rbyd);
+        if (err) {
+            return err;
         }
 
         // exceed compaction threshold?
@@ -10535,7 +10534,7 @@ again:;
                 // the root, so we need to make a copy
                 mgc->t.u.btrv.rbyd = *rbyd;
                 // compact the btree node
-                int err = lfs3_btree_compact_(lfs3, &mgc->t.btree,
+                err = lfs3_btree_compact_(lfs3, &mgc->t.btree,
                         bid, &mgc->t.u.btrv.rbyd);
                 if (err) {
                     return err;
@@ -10573,7 +10572,7 @@ again:;
                 // the root, so we need to make a copy
                 mgc->t.u.btrv.rbyd = *rbyd;
                 // compact the btree node
-                int err = lfs3_btree_compact_(lfs3, &mgc->t.btree,
+                err = lfs3_btree_compact_(lfs3, &mgc->t.btree,
                         bid, &mgc->t.u.btrv.rbyd);
                 if (err) {
                     return err;
@@ -10599,7 +10598,7 @@ again:;
                 // and there's no real reason to keep it around
                 LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
                 // sync gbmap
-                int err = lfs3_alloc_syncgbmap(lfs3);
+                err = lfs3_alloc_syncgbmap(lfs3);
                 if (err) {
                     return err;
                 }
@@ -10649,7 +10648,7 @@ again:;
                 // the root, so we need to make a copy
                 mgc->t.u.btrv.rbyd = *rbyd;
                 // compact the btree/bshrub node
-                int err = lfs3_bshrub_compact_(lfs3, &file.bshrub,
+                err = lfs3_bshrub_compact_(lfs3, &file.bshrub,
                         bid, &mgc->t.u.btrv.rbyd);
                 if (err) {
                     lfs3_handle_close(lfs3, &file.h);
@@ -15618,7 +15617,7 @@ static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
                     || lfs3_t_isckdata(flags))
                 && tag == LFS3_TAG_BRANCH) {
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-            int err = lfs3_rbyd_fetchck(lfs3, rbyd,
+            int err = lfs3_rbyd_ckfetch(lfs3, rbyd,
                     rbyd->blocks[0], rbyd->trunk,
                     rbyd->cksum);
             if (err) {

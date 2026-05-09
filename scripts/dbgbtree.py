@@ -739,7 +739,7 @@ class Rbyd:
         return cls._fetch(data, block, trunk)
 
     @classmethod
-    def fetchck(cls, bd, blocks, trunk, weight, cksum):
+    def ckfetch(cls, bd, blocks, trunk, weight, cksum):
         # try to fetch the rbyd normally
         rbyd = cls.fetch(bd, blocks, trunk)
 
@@ -1032,9 +1032,9 @@ class Btree:
         return cls(bd, rbyd)
 
     @classmethod
-    def fetchck(cls, bd, blocks, trunk, weight, cksum):
-        # rbyd fetchck does most of the work here
-        rbyd = Rbyd.fetchck(bd, blocks, trunk, weight, cksum)
+    def ckfetch(cls, bd, blocks, trunk, weight, cksum):
+        # rbyd ckfetch does most of the work here
+        rbyd = Rbyd.ckfetch(bd, blocks, trunk, weight, cksum)
         return cls(bd, rbyd)
 
     @classmethod
@@ -1083,7 +1083,7 @@ class Btree:
             if branch_ is not None and (
                     not depth or depth_ < depth):
                 block, trunk, cksum, _ = frombranch(branch_.data)
-                rbyd = Rbyd.fetchck(self.bd, block, trunk, name_.weight,
+                rbyd = Rbyd.ckfetch(self.bd, block, trunk, name_.weight,
                         cksum)
 
                 rid -= (rid_-(name_.weight-1))
@@ -1314,7 +1314,7 @@ class Btree:
             if branch_ is not None and (
                     not depth or depth_ < depth):
                 block, trunk, cksum, _ = frombranch(branch_.data)
-                rbyd = Rbyd.fetchck(self.bd, block, trunk, name_.weight,
+                rbyd = Rbyd.ckfetch(self.bd, block, trunk, name_.weight,
                         cksum)
 
                 # update our bid

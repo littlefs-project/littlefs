@@ -799,7 +799,7 @@ class Rbyd:
         return cls._fetch(data, block, trunk)
 
     @classmethod
-    def fetchck(cls, bd, blocks, trunk, weight, cksum):
+    def ckfetch(cls, bd, blocks, trunk, weight, cksum):
         # try to fetch the rbyd normally
         rbyd = cls.fetch(bd, blocks, trunk)
 
@@ -1092,9 +1092,9 @@ class Btree:
         return cls(bd, rbyd)
 
     @classmethod
-    def fetchck(cls, bd, blocks, trunk, weight, cksum):
-        # rbyd fetchck does most of the work here
-        rbyd = Rbyd.fetchck(bd, blocks, trunk, weight, cksum)
+    def ckfetch(cls, bd, blocks, trunk, weight, cksum):
+        # rbyd ckfetch does most of the work here
+        rbyd = Rbyd.ckfetch(bd, blocks, trunk, weight, cksum)
         return cls(bd, rbyd)
 
     @classmethod
@@ -1143,7 +1143,7 @@ class Btree:
             if branch_ is not None and (
                     not depth or depth_ < depth):
                 block, trunk, cksum, _ = frombranch(branch_.data)
-                rbyd = Rbyd.fetchck(self.bd, block, trunk, name_.weight,
+                rbyd = Rbyd.ckfetch(self.bd, block, trunk, name_.weight,
                         cksum)
 
                 rid -= (rid_-(name_.weight-1))
@@ -1374,7 +1374,7 @@ class Btree:
             if branch_ is not None and (
                     not depth or depth_ < depth):
                 block, trunk, cksum, _ = frombranch(branch_.data)
-                rbyd = Rbyd.fetchck(self.bd, block, trunk, name_.weight,
+                rbyd = Rbyd.ckfetch(self.bd, block, trunk, name_.weight,
                         cksum)
 
                 # update our bid
@@ -1801,7 +1801,7 @@ class Mtree:
             rattr_ = mroot.lookup(-1, TAG_MTREE, 0x3)
             if rattr_ is not None:
                 w_, block_, trunk_, cksum_, _ = frombtree(rattr_.data)
-                mtree = Btree.fetchck(bd, block_, trunk_, w_, cksum_)
+                mtree = Btree.ckfetch(bd, block_, trunk_, w_, cksum_)
 
         return cls(bd, mrootchain, mtree,
                 mbits=mbits)
@@ -2376,7 +2376,7 @@ class Bptr:
         return cls(rattr, block, off, size, cksize, cksum, ckdata)
 
     @classmethod
-    def fetchck(cls, bd, rattr, blocks, off, size, cksize, cksum):
+    def ckfetch(cls, bd, rattr, blocks, off, size, cksize, cksum):
         # fetch the bptr normally
         bptr = cls.fetch(bd, rattr, blocks, off, size, cksize, cksum)
 
@@ -2803,7 +2803,7 @@ class Gstate:
             self.window, d_ = fromleb128(self.data, d); d += d_
             self.known, d_ = fromleb128(self.data, d); d += d_
             block, trunk, cksum, d_ = frombranch(self.data, d); d += d_
-            self.btree = Btree.fetchck(
+            self.btree = Btree.ckfetch(
                     mtree.bd, block, trunk,
                     config.geometry.block_count
                         if config.geometry is not None else 0,
@@ -3373,7 +3373,7 @@ class Lfs3:
             elif (self.struct is not None
                     and (self.struct.tag & ~0x3) == TAG_BTREE):
                 weight, block, trunk, cksum, _ = frombtree(self.struct.data)
-                self.bshrub = Btree.fetchck(
+                self.bshrub = Btree.ckfetch(
                         lfs.bd, block, trunk, weight, cksum)
 
             # did?
@@ -3493,7 +3493,7 @@ class Lfs3:
             # block pointer?
             elif (rattr.tag & ~0x1003) == TAG_BLOCK:
                 size, block, off, cksize, cksum, _ = frombptr(rattr.data)
-                bptr = Bptr.fetchck(self.lfs.bd, rattr,
+                bptr = Bptr.ckfetch(self.lfs.bd, rattr,
                         block, off, size, cksize, cksum)
                 if path:
                     return bid-(rattr.weight-1), bptr, path_
