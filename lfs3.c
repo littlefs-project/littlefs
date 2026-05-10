@@ -10175,6 +10175,7 @@ static void lfs3_alloc_setinusebptr(lfs3_t *lfs3,
 // recursive, which would be a bit bad!)
 static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
         lfs3_bptr_t *bptr_) {
+    // traverse!
     lfs3_stag_t tag = lfs3_mtree_traverse_(lfs3, mtrv,
             bptr_);
     if (tag < 0) {
@@ -10319,8 +10320,7 @@ static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 // mutation here
 //
 // every call to lfs3_mtree_gc represents ~1 step of gc work
-static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
-        lfs3_bptr_t *bptr_) {
+static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // start of traversal?
     if (mgc->t.h.mdir.mid == LFS3_MID_MROOTANCHOR) {
         #ifndef LFS3_RDONLY
@@ -10401,9 +10401,10 @@ static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         #endif
     }
 
-again:;
+    // traverse!
+    lfs3_bptr_t bptr;
     lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mgc->t,
-            bptr_);
+            &bptr);
     if (tag < 0) {
         // end of traversal?
         if (tag == LFS3_ERR_NOENT) {
@@ -10420,7 +10421,7 @@ again:;
         // mark in-use blocks in gbmap?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
             #ifdef LFS3_GBMAP
-            int err = lfs3_gbmap_setbptr(lfs3, &mgc->gbmap_, tag, bptr_,
+            int err = lfs3_gbmap_setbptr(lfs3, &mgc->gbmap_, tag, &bptr,
                     LFS3_TAG_BMINUSE);
             if (err) {
                 return err;
@@ -10429,7 +10430,7 @@ again:;
 
         // mark in-use blocks in lookahead buffer?
         } else {
-            lfs3_alloc_setinusebptr(lfs3, tag, bptr_);
+            lfs3_alloc_setinusebptr(lfs3, tag, &bptr);
         }
     }
 
@@ -10437,7 +10438,7 @@ again:;
     if (lfs3_t_isstepmkconsistent(mgc->t.h.flags)
             && lfs3_i_needsmkconsistent(lfs3->flags)
             && tag == LFS3_TAG_MDIR) {
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
         // grm queue should be flushed before calling lfs3_mtree_gc
         LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
@@ -10458,7 +10459,8 @@ again:;
             // bit of a hack, but rewind one mid and continue traversal
             mgc->t.h.mdir.mid -= 1;
             mgc->t.u.btrv.bid = LFS3_BID_MDIR;
-            goto again;
+            // return early, traversal needs to restart
+            return 0;
         }
     }
 
@@ -10466,11 +10468,11 @@ again:;
     if (lfs3_t_isstepcompactmeta(mgc->t.h.flags)
             && tag == LFS3_TAG_MDIR
             // exceed compaction threshold?
-            && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr_->d.u.buffer)->r)
+            && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr.d.u.buffer)->r)
                 > ((lfs3->cfg->gc_compactmeta_thresh)
                     ? lfs3->cfg->gc_compactmeta_thresh
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
         LFS3_INFO("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "(%"PRId32" > %"PRId32")",
                 lfs3_dbgmbid(lfs3, mdir->mid),
@@ -10500,7 +10502,7 @@ again:;
     // compacting btree nodes?
     if (lfs3_t_isstepcompactmeta(mgc->t.h.flags)
             && tag == LFS3_TAG_BRANCH) {
-        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
+        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
         // need to fetch
         int err = lfs3_rbyd_mkfetched(lfs3, rbyd);
         if (err) {
@@ -10723,12 +10725,13 @@ again:;
             mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
             // the ckpoint should have discarded our btrv state
             LFS3_ASSERT(mgc->t.u.btrv.bid == LFS3_BID_MDIR);
-            goto again;
+            // return early, traversal needs to restart
+            return 0;
         }
     }
     #endif
 
-    return tag;
+    return 0;
 
 eot:;
     #ifndef LFS3_RDONLY
@@ -10878,10 +10881,8 @@ static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             }
 
             // progress gc
-            lfs3_bptr_t bptr;
-            lfs3_stag_t tag = lfs3_mtree_gc(lfs3, mgc,
-                    &bptr);
-            if (tag < 0 && tag != LFS3_ERR_NOENT) {
+            int err = lfs3_mtree_gc(lfs3, mgc);
+            if (err && err != LFS3_ERR_NOENT) {
                 // reset traversal if we run into any errors
                 mgc->t.h.flags &= ~(
                         LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
@@ -10889,11 +10890,11 @@ static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPCOMPACTMETA)
                             | LFS3_t_STEPCKMETA
                             | LFS3_t_STEPCKDATA);
-                return tag;
+                return err;
             }
 
             // end of traversal?
-            if (tag == LFS3_ERR_NOENT) {
+            if (err == LFS3_ERR_NOENT) {
                 mgc->t.h.flags &= ~(
                         LFS3_IFDEF_RDONLY(0, LFS3_t_STEPMKCONSISTENT)
                             | LFS3_IFDEF_RDONLY(0, LFS3_t_STEPLOOKAHEAD)
@@ -11091,14 +11092,12 @@ static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
     lfs3_mgc_init(&mgc,
             LFS3_GC_WRONLY | LFS3_T_MTREEONLY | LFS3_t_STEPMKCONSISTENT);
     while (true) {
-        lfs3_bptr_t bptr;
-        lfs3_stag_t tag = lfs3_mtree_gc(lfs3, &mgc,
-                &bptr);
-        if (tag < 0) {
-            if (tag == LFS3_ERR_NOENT) {
+        int err = lfs3_mtree_gc(lfs3, &mgc);
+        if (err) {
+            if (err == LFS3_ERR_NOENT) {
                 break;
             }
-            return tag;
+            return err;
         }
     }
 
