@@ -367,26 +367,6 @@ enum lfs3_btype {
 #define LFS3_T_CKDATA   0x00200000  // Check metadata + data checksums
 
 // internally used flags, don't use these
-#ifndef LFS3_RDONLY
-#define LFS3_t_STEPMKCONSISTENT \
-                        0x00000100  // Make the filesystem consistent
-#endif
-#ifndef LFS3_RDONLY
-#define LFS3_t_STEPLOOKAHEAD \
-                        0x00000200  // Repopulate lookahead/gbmap
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-#define LFS3_t_STEPPREERASE \
-                        0x00000400  // Try to pre-erase free blocks
-#endif
-#ifndef LFS3_RDONLY
-#define LFS3_t_STEPCOMPACTMETA \
-                        0x00000800  // Compact metadata logs
-#endif
-#define LFS3_t_STEPCKMETA \
-                        0x00001000  // Check metadata checksums
-#define LFS3_t_STEPCKDATA \
-                        0x00002000  // Check metadata + data checksums
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
 #define LFS3_t_BTYPE    0x000f0000  // The current block type
 #define LFS3_t_ZOMBIE   0x08000000  // File has been removed
@@ -422,6 +402,28 @@ enum lfs3_btype {
 #endif
 #define LFS3_GC_CKMETA  0x00100000  // Check metadata checksums
 #define LFS3_GC_CKDATA  0x00200000  // Check metadata + data checksums
+
+// internally used flags, don't use these
+#ifndef LFS3_RDONLY
+#define LFS3_gc_STEPMKCONSISTENT \
+                        0x00000100  // Make the filesystem consistent
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_gc_STEPLOOKAHEAD \
+                        0x00000200  // Repopulate lookahead/gbmap
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
+#define LFS3_gc_STEPPREERASE \
+                        0x00000400  // Try to pre-erase free blocks
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_gc_STEPCOMPACTMETA \
+                        0x00000800  // Compact metadata logs
+#endif
+#define LFS3_gc_STEPCKMETA \
+                        0x00001000  // Check metadata checksums
+#define LFS3_gc_STEPCKDATA \
+                        0x00002000  // Check metadata + data checksums
 
 // an alias for all check work
 #define LFS3_GC_CK (LFS3_GC_CKMETA | LFS3_GC_CKDATA)

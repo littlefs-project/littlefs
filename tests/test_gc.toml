@@ -5848,12 +5848,12 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD);
-    assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD));
+    assert(!(lfs3.gc.t.h.flags & LFS3_gc_STEPLOOKAHEAD));
 
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_STEPLOOKAHEAD);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "spider",
@@ -5865,7 +5865,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD) {
+    while (lfs3.gc.t.h.flags & LFS3_gc_STEPLOOKAHEAD) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -6105,12 +6105,12 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_NEEDSLOOKAHEAD);
-    assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD));
+    assert(!(lfs3.gc.t.h.flags & LFS3_gc_STEPLOOKAHEAD));
 
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_STEPLOOKAHEAD);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "spider",
@@ -6122,7 +6122,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD) {
+    while (lfs3.gc.t.h.flags & LFS3_gc_STEPLOOKAHEAD) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -6806,14 +6806,14 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_NEEDSCOMPACTMETA);
-    assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA));
+    assert(!(lfs3.gc.t.h.flags & LFS3_gc_STEPCOMPACTMETA));
 
     // run GC one traversal + until compacting
     while (true) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        if (!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA)) {
+        if (!(lfs3.gc.t.h.flags & LFS3_gc_STEPCOMPACTMETA)) {
             break;
         }
     }
@@ -6821,7 +6821,7 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        if (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA) {
+        if (lfs3.gc.t.h.flags & LFS3_gc_STEPCOMPACTMETA) {
             break;
         }
     }
@@ -6835,7 +6835,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // run GC until our traversal is done (twice for compact)
-    while (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA) {
+    while (lfs3.gc.t.h.flags & LFS3_gc_STEPCOMPACTMETA) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -7148,12 +7148,12 @@ code = '''
     }
 
     // run GC until mkconsistencing
-    assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT));
+    assert(!(lfs3.gc.t.h.flags & LFS3_gc_STEPMKCONSISTENT));
     while (true) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        if (lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT) {
+        if (lfs3.gc.t.h.flags & LFS3_gc_STEPMKCONSISTENT) {
             break;
         }
     }
@@ -7178,7 +7178,7 @@ code = '''
     assert(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT);
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT) {
+    while (lfs3.gc.t.h.flags & LFS3_gc_STEPMKCONSISTENT) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
