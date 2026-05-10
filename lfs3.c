@@ -10670,8 +10670,6 @@ again:;
                                     : LFS3_RATTR(
                                         LFS3_tag_MASK8 | LFS3_TAG_BTREE, 0, 1,
                                         LFS3_FROM_BTREE),
-                                // TODO should we just switch to file.bshrub_
-                                // in LFS3_FROM_SHRUB?
                                 (lfs3_bshrub_isbshrub(&file.bshrub))
                                     ? LFS3_RATTR_ARG(&file.bshrub_)
                                     : LFS3_RATTR_ARG(&file.bshrub),
