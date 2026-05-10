@@ -10279,9 +10279,16 @@ eot:;
     return LFS3_ERR_NOENT;
 }
 
+
+
+/// Mtree-level gc work ///
+
+static void lfs3_mgc_init(lfs3_mgc_t *mgc, uint32_t flags) {
+    lfs3_mtrv_init(&mgc->t, lfs3_o_typeflags(LFS3_type_GC) | flags);
+}
+
 // needed in lfs3_mtree_gc
-static int lfs3_mtree_fixgrm(lfs3_t *lfs3);
-static int lfs3_mdir_fixorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir);
+static int lfs3_mtree_fixorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
@@ -10297,8 +10304,10 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
 static inline bool lfs3_alloc_cansyncgbmap(const lfs3_t *lfs3);
 static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 
-// high-level mutating traversal, handle extra features that require
+// mid-level mutating traversal, handle extra features that require
 // mutation here
+//
+// every call to lfs3_mtree_gc represents ~1 step of gc work
 static lfs3_stag_t lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_bptr_t *bptr_) {
     // start of traversal?
@@ -10423,7 +10432,7 @@ again:;
 
         uint32_t dirty = mgc->t.h.flags;
         // fix any orphans in the mdir
-        int err = lfs3_mdir_fixorphans(lfs3, mdir);
+        int err = lfs3_mtree_fixorphansmdir(lfs3, mdir);
         if (err) {
             return err;
         }
@@ -10743,22 +10752,15 @@ eot:;
     return LFS3_ERR_NOENT;
 }
 
-
-
-/// Mtree-level gc work ///
-
-static void lfs3_mgc_init(lfs3_mgc_t *mgc, uint32_t flags) {
-    lfs3_mtrv_init(&mgc->t, lfs3_o_typeflags(LFS3_type_GC) | flags);
-}
-
 // needed in lfs3_mgc_gc
+static int lfs3_mtree_fixgrm(lfs3_t *lfs3);
 static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3);
 static int lfs3_alloc_preerase(lfs3_t *lfs3);
 
-// low-level gc
+// high-level gc
 //
-// runs the traversal until all work is completed, which may take
-// multiple passes
+// runs the mutating traversal until all work is completed, which may
+// take multiple passes
 //
 // this code looks much worse than it actually is! most of these massive
 // macro messes compile into small constants
@@ -10993,7 +10995,10 @@ static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_mdir_fixorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
+static int lfs3_mtree_fixorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
+    // grm queue should be flushed before calling
+    // lfs3_mtree_fixorphansmdir
+    LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
     // save the current mid
     lfs3_mid_t mid = mdir->mid;
 
@@ -11057,6 +11062,9 @@ failed:;
 
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
+    // grm queue should be flushed before calling lfs3_mtree_fixorphans
+    LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
+
     // LFS3_t_STEPMKCONSISTENT really just removes orphans
     //
     // note we don't need to track this handle because we're only
