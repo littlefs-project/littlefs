@@ -10538,7 +10538,9 @@ again:;
                             "(%"PRId32" > %"PRId32")",
                         rbyd->blocks[0],
                         lfs3_rbyd_trunk(rbyd),
-                        lfs3_rbyd_eoff(rbyd),
+                        (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
+                            ? -1
+                            : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
                         (lfs3->cfg->gc_compactmeta_thresh)
                             ? lfs3->cfg->gc_compactmeta_thresh
                             : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
@@ -10576,7 +10578,9 @@ again:;
                             "(%"PRId32" > %"PRId32")",
                         rbyd->blocks[0],
                         lfs3_rbyd_trunk(rbyd),
-                        lfs3_rbyd_eoff(rbyd),
+                        (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
+                            ? -1
+                            : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
                         (lfs3->cfg->gc_compactmeta_thresh)
                             ? lfs3->cfg->gc_compactmeta_thresh
                             : lfs3->cfg->block_size - lfs3->cfg->block_size/8);
@@ -10623,7 +10627,9 @@ again:;
                                 "(%"PRId32" > %"PRId32")",
                             rbyd->blocks[0],
                             lfs3_rbyd_trunk(rbyd),
-                            lfs3_rbyd_eoff(rbyd),
+                            (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
+                                ? -1
+                                : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
                             (lfs3->cfg->gc_compactmeta_thresh)
                                 ? lfs3->cfg->gc_compactmeta_thresh
                                 : lfs3->cfg->block_size
@@ -10633,7 +10639,9 @@ again:;
                                 "(%"PRId32" > %"PRId32")",
                             rbyd->blocks[0],
                             lfs3_rbyd_trunk(rbyd),
-                            lfs3_rbyd_eoff(rbyd),
+                            (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
+                                ? -1
+                                : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
                             (lfs3->cfg->gc_compactmeta_thresh)
                                 ? lfs3->cfg->gc_compactmeta_thresh
                                 : lfs3->cfg->block_size
