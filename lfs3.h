@@ -550,7 +550,7 @@ struct lfs3_cfg {
     //
     // Defaults to steps=1 when zero.
     #ifdef LFS3_GC
-    lfs3_soff_t gc_steps;
+    lfs3_sblock_t gc_steps;
     #endif
 
     // Threshold for repopulating the lookahead buffer during gc. This
@@ -1750,7 +1750,7 @@ int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc);
 //
 // Returns the number of steps progressed on success, 0 if no work is
 // available, or a negative error code on failure.
-lfs3_soff_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_soff_t steps);
+lfs3_sblock_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_sblock_t steps);
 
 
 /// Filesystem-level filesystem operations
@@ -1820,7 +1820,7 @@ int lfs3_fs_ckdata(lfs3_t *lfs3);
 // Returns the number of steps progressed on success, 0 if no work is
 // available, or a negative error code on failure.
 #ifdef LFS3_GC
-lfs3_soff_t lfs3_fs_gc(lfs3_t *lfs3);
+lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3);
 #endif
 
 // Mark janitorial work as incomplete

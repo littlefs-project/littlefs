@@ -823,7 +823,7 @@ code = '''
                 // a bit hacky, but this catches infinite loops
                 assert(i < 2*BLOCK_COUNT);
 
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
                 assert(steps >= 0);
                 if (steps == 0) {
                     break;

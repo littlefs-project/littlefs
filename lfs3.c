@@ -10784,11 +10784,11 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3);
 //
 // this code looks much worse than it actually is! most of these massive
 // macro messes compile into small constants
-static lfs3_soff_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
-        lfs3_soff_t steps) {
+static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
+        lfs3_sblock_t steps) {
     // i here is best effort, we may make multiple passes, so we
     // saturate to avoid any overflow issues
-    lfs3_off_t i = 0;
+    lfs3_block_t i = 0;
     for (; steps < 0 || i < lfs3_max(steps, 1); i = lfs3_ssadd(i, 1)) {
         // do we have any pending traversal work?
         uint32_t t = (mgc->t.h.flags & lfs3->flags & (
@@ -17369,7 +17369,7 @@ static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     lfs3_mgc_t mgc;
     lfs3_mgc_init(&mgc, flags);
     lfs3_handle_open(lfs3, &mgc.t.h);
-    lfs3_soff_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
+    lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
     if (steps < 0) {
         lfs3_handle_close(lfs3, &mgc.t.h);
         return steps;
@@ -17391,7 +17391,7 @@ int lfs3_fs_ckdata(lfs3_t *lfs3) {
 //
 // perform any pending janitorial work
 #ifdef LFS3_GC
-lfs3_soff_t lfs3_fs_gc(lfs3_t *lfs3) {
+lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     // unknown gc flags?
     LFS3_ASSERT((lfs3->cfg->gc_flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
@@ -17832,7 +17832,8 @@ int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc) {
     return 0;
 }
 
-lfs3_soff_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_soff_t steps) {
+lfs3_sblock_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc,
+        lfs3_sblock_t steps) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &gc->gc.t.h));
 
     // filesystem modified? excl? terminate early

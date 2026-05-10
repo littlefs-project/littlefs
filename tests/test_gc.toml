@@ -50,7 +50,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -89,7 +89,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -165,7 +165,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -264,7 +264,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -365,7 +365,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -446,7 +446,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -543,7 +543,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -642,7 +642,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -723,7 +723,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -820,7 +820,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -919,7 +919,7 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps > 0 || steps == LFS3_ERR_CORRUPT);
             // found the clobbered metadata?
             if (steps == LFS3_ERR_CORRUPT) {
@@ -1007,7 +1007,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -1138,7 +1138,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -1271,7 +1271,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -1386,7 +1386,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -1525,7 +1525,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -1719,7 +1719,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -1920,7 +1920,7 @@ code = '''
         // TODO this is a lot of steps, is something fighting?
         assert(i < 16*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -2078,7 +2078,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -2246,7 +2246,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -2396,7 +2396,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -2561,7 +2561,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -2747,7 +2747,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -2916,7 +2916,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -3174,7 +3174,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 4*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -3442,7 +3442,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -3662,7 +3662,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -3866,7 +3866,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -4117,7 +4117,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 4*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -4375,7 +4375,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 4*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -4574,7 +4574,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -4695,7 +4695,7 @@ code = '''
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
     // gc once
-    lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+    lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
     assert(steps >= 0);
 
     // create this many orphaned files
@@ -4873,7 +4873,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -5021,7 +5021,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -5170,7 +5170,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -5319,7 +5319,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -5491,7 +5491,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
         assert(steps >= 0);
         if (steps == 0) {
             break;
@@ -5640,7 +5640,7 @@ code = '''
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
     // gc once
-    lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+    lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
     assert(steps >= 0);
 
     // create this many orphaned files
@@ -5783,7 +5783,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -5851,7 +5851,7 @@ code = '''
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD));
 
     // run GC one step
-    lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+    lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
     assert(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD);
 
@@ -5866,7 +5866,7 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD) {
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
 
@@ -5927,7 +5927,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
@@ -5976,7 +5976,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
@@ -6042,7 +6042,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6108,7 +6108,7 @@ code = '''
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD));
 
     // run GC one step
-    lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+    lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
     assert(lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD);
 
@@ -6123,7 +6123,7 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs3.gc.t.h.flags & LFS3_t_STEPLOOKAHEAD) {
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
 
@@ -6183,7 +6183,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
@@ -6232,7 +6232,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
@@ -6312,7 +6312,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6435,7 +6435,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         struct lfs3_fsinfo fsinfo;
@@ -6551,7 +6551,7 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
             assert(steps >= 0);
 
             struct lfs3_fsinfo fsinfo;
@@ -6715,7 +6715,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -6810,7 +6810,7 @@ code = '''
 
     // run GC one traversal + until compacting
     while (true) {
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         if (!(lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA)) {
@@ -6818,7 +6818,7 @@ code = '''
         }
     }
     while (true) {
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         if (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA) {
@@ -6836,7 +6836,7 @@ code = '''
 
     // run GC until our traversal is done (twice for compact)
     while (lfs3.gc.t.h.flags & LFS3_t_STEPCOMPACTMETA) {
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
 
@@ -6946,7 +6946,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -7150,7 +7150,7 @@ code = '''
     // run GC until mkconsistencing
     assert(!(lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT));
     while (true) {
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         if (lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT) {
@@ -7179,7 +7179,7 @@ code = '''
 
     // run GC until our traversal is done
     while (lfs3.gc.t.h.flags & LFS3_t_STEPMKCONSISTENT) {
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
 
@@ -7308,7 +7308,7 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
             assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
             // found it
             if (steps == LFS3_ERR_CORRUPT) {
@@ -7414,7 +7414,7 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
             assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
             // found it
             if (steps == LFS3_ERR_CORRUPT) {
@@ -7670,7 +7670,7 @@ code = '''
 
         // run lfs3_fs_gc once
         if (AFTER == 0) {
-            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
             assert(steps >= 0);
 
         // run lfs3_fs_gc to completion
@@ -7682,7 +7682,7 @@ code = '''
                     break;
                 }
 
-                lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+                lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
                 assert(steps >= 0);
             }
 
@@ -7705,7 +7705,7 @@ code = '''
             lfs3_gc_t gc;
             lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
             while (true) {
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
                 assert(steps >= 0);
                 if (steps == 0) {
                     break;
@@ -7781,7 +7781,7 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
             assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
             // found it
             if (steps == LFS3_ERR_CORRUPT) {
@@ -7852,7 +7852,7 @@ code = '''
 
         // run lfs3_fs_gc once
         if (AFTER == 0) {
-            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
             assert(steps >= 0);
 
         // run lfs3_fs_gc to completion
@@ -7864,7 +7864,7 @@ code = '''
                     break;
                 }
 
-                lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+                lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
                 assert(steps >= 0);
             }
 
@@ -7887,7 +7887,7 @@ code = '''
             lfs3_gc_t gc;
             lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
             while (true) {
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
                 assert(steps >= 0);
                 if (steps == 0) {
                     break;
@@ -7966,7 +7966,7 @@ code = '''
             // a bit hacky, but this catches infinite loops
             LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-            lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+            lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
             assert(steps >= 0 || steps == LFS3_ERR_CORRUPT);
             // found it
             if (steps == LFS3_ERR_CORRUPT) {
@@ -8094,7 +8094,7 @@ code = '''
     // run gc
     if (AFTER == 0) {
         #ifdef LFS3_GC
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
         #else
         assert(false);
@@ -8105,7 +8105,7 @@ code = '''
         lfs3_gc_t gc;
         lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
         while (true) {
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps >= 0);
             if (steps == 0) {
                 break;
@@ -8140,7 +8140,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8150,7 +8150,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8160,7 +8160,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8329,7 +8329,7 @@ code = '''
     // run gc
     if (AFTER == 0) {
         #ifdef LFS3_GC
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
         #else
         assert(false);
@@ -8340,7 +8340,7 @@ code = '''
         lfs3_gc_t gc;
         lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
         while (true) {
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps >= 0);
             if (steps == 0) {
                 break;
@@ -8375,7 +8375,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8385,7 +8385,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8395,7 +8395,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8475,7 +8475,7 @@ code = '''
     // run gc
     if (AFTER == 0) {
         #ifdef LFS3_GC
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
         #else
         assert(false);
@@ -8486,7 +8486,7 @@ code = '''
         lfs3_gc_t gc;
         lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
         while (true) {
-            lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+            lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps >= 0);
             if (steps == 0) {
                 break;
@@ -8521,7 +8521,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8531,7 +8531,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8541,7 +8541,7 @@ code = '''
                 lfs3_gc_t gc;
                 lfs3_gc_open(&lfs3, &gc,
                         LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
-                lfs3_soff_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
@@ -8676,7 +8676,7 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
 
@@ -8773,7 +8773,7 @@ code = '''
         lfs3_fs_unck(&lfs3, flags) => 0;
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
 
@@ -8865,7 +8865,7 @@ code = '''
         }
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
         if (steps == LFS3_ERR_NOSPC) {
             break;
@@ -8969,7 +8969,7 @@ code = '''
         assert(!err || (TEST_PLS && err == LFS3_ERR_EXIST));
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         // unck to keep things interesting?
@@ -9180,7 +9180,7 @@ code = '''
         }
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         // unck to keep things interesting?
@@ -9316,7 +9316,7 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         // unck to keep things interesting?
@@ -9548,7 +9548,7 @@ code = '''
         }
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         // unck to keep things interesting?
@@ -9743,7 +9743,7 @@ code = '''
         }
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         // unck to keep things interesting?
@@ -10174,7 +10174,7 @@ code = '''
         }
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         // unck to keep things interesting?
@@ -10710,7 +10710,7 @@ code = '''
         }
 
         // gc!
-        lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
         // unck to keep things interesting?

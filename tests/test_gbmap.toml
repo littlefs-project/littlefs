@@ -970,7 +970,7 @@ code = '''
     assert(fsinfo.flags & LFS3_I_GBMAP);
 
     // run gc to prebuild gbmap, preerase blocks, etc
-    lfs3_soff_t steps = lfs3_fs_gc(&lfs3);
+    lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
 
     // create n files repeatedly until we're sure we've wrapped around
