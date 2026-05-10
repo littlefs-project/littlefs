@@ -4660,6 +4660,17 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // revert to canonical checksum
     rbyd->cksum = cksum;
 
+    // if our commit exceeds the configured compaction threshold, set
+    // LFS3_I_NEEDSCOMPACTMETA
+    //
+    // somewhere, an rbyd can be compacted
+    if (lfs3_rbyd_eoff(rbyd)
+            > ((lfs3->cfg->gc_compactmeta_thresh)
+                ? lfs3->cfg->gc_compactmeta_thresh
+                : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
+        lfs3->flags |= LFS3_I_NEEDSCOMPACTMETA;
+    }
+
     #ifdef LFS3_DBGRBYDCOMMITS
     LFS3_DEBUG("Committed rbyd 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "eoff %"PRId32", cksum %"PRIx32,
@@ -11498,10 +11509,6 @@ static void lfs3_trv_ckpoint_(lfs3_t *lfs3, lfs3_trv_t *trv);
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3) {
     // set ckpoint = disk size
     lfs3->lookahead.ckpoint = lfs3->block_count;
-
-    // go ahead and set LFS3_I_NEEDSCOMPACTMETA, we're going to mutate,
-    // so assume uncompacted until lfs3_fs_gc can prove otherwise
-    lfs3->flags |= LFS3_I_NEEDSCOMPACTMETA;
 
     // ckpoint traversals, marking them as ckpointed + dirty and
     // resetting any btrv state
