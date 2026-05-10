@@ -405,25 +405,25 @@ enum lfs3_btype {
 
 // internally used flags, don't use these
 #ifndef LFS3_RDONLY
-#define LFS3_gc_STEPMKCONSISTENT \
-                        0x00000100  // Make the filesystem consistent
+#define LFS3_gc_MKCONSISTENTING \
+                        0x00000100  // Working on LFS3_GC_MKCONSISTENT
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_gc_STEPLOOKAHEAD \
-                        0x00000200  // Repopulate lookahead/gbmap
+#define LFS3_gc_LOOKAHEADING \
+                        0x00000200  // Working on LFS3_GC_LOOKAHEAD
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-#define LFS3_gc_STEPPREERASE \
-                        0x00000400  // Try to pre-erase free blocks
+#define LFS3_gc_PREERASEING \
+                        0x00000400  // Working on LFS3_GC_PREERASE
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_gc_STEPCOMPACTMETA \
-                        0x00000800  // Compact metadata logs
+#define LFS3_gc_COMPACTMETAING \
+                        0x00000800  // Working on LFS3_GC_COMPACTMETA
 #endif
-#define LFS3_gc_STEPCKMETA \
-                        0x00001000  // Check metadata checksums
-#define LFS3_gc_STEPCKDATA \
-                        0x00002000  // Check metadata + data checksums
+#define LFS3_gc_CKMETAING \
+                        0x00001000  // Working on LFS3_GC_CKMETA
+#define LFS3_gc_CKDATAING \
+                        0x00002000  // Working on LFS3_GC_CKDATA
 
 // an alias for all check work
 #define LFS3_GC_CK (LFS3_GC_CKMETA | LFS3_GC_CKDATA)
