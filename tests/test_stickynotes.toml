@@ -8009,11 +8009,11 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT));
+    assert(!(fsinfo.flags & LFS3_I_MKCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
@@ -8148,11 +8148,11 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT));
+    assert(!(fsinfo.flags & LFS3_I_MKCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
@@ -8301,11 +8301,11 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT));
+    assert(!(fsinfo.flags & LFS3_I_MKCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
@@ -8460,11 +8460,11 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_NEEDSMKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
 
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(!(fsinfo.flags & LFS3_I_NEEDSMKCONSISTENT));
+    assert(!(fsinfo.flags & LFS3_I_MKCONSISTENT));
 
     // double check the actual disk state, it's easy for littlefs to
     // lie here
