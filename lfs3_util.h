@@ -54,6 +54,9 @@
 #ifndef LFS3_PREERASE
 #define LFS3_PREERASE
 #endif
+#ifndef LFS3_EVICT
+#define LFS3_EVICT
+#endif
 #endif
 
 // LFS3_YES_* variants imply the relevant LFS3_* macro
@@ -321,6 +324,12 @@
 #define LFS3_IFDEF_PREERASE(a, b) (a)
 #else
 #define LFS3_IFDEF_PREERASE(a, b) (b)
+#endif
+
+#ifdef LFS3_EVICT
+#define LFS3_IFDEF_EVICT(a, b) (a)
+#else
+#define LFS3_IFDEF_EVICT(a, b) (b)
 #endif
 
 

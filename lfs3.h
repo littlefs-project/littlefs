@@ -401,6 +401,9 @@ enum lfs3_btype {
 #define LFS3_GC_CKDATA  0x00200000  // Check metadata + data checksums
 
 // internally used flags, don't use these
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#define LFS3_gc_EVICT   0x00000010  // Evict a range of blocks
+#endif
 #ifndef LFS3_RDONLY
 #define LFS3_gc_MKCONSISTENTING \
                         0x00000100  // Working on LFS3_GC_MKCONSISTENT
@@ -433,6 +436,12 @@ enum lfs3_btype {
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA) \
             | LFS3_GC_CKMETA \
             | LFS3_GC_CKDATA)
+
+// Mkbad flags
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#define LFS3_MKBAD_EVICT \
+                        0x00000010  // Delete all references to this block
+#endif
 
 
 // Configuration provided during initialization of the littlefs
@@ -1253,7 +1262,14 @@ typedef struct lfs3_geometry {
 
 // littlefs global state
 typedef struct lfs3_grm lfs3_grm_t;
+#ifdef LFS3_GBMAP
 typedef struct lfs3_gbmap lfs3_gbmap_t;
+#endif
+
+// optional eviction window
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+typedef struct lfs3_evict lfs3_evict_t;
+#endif
 
 // The littlefs filesystem type
 typedef struct lfs3 {
@@ -1347,6 +1363,14 @@ typedef struct lfs3 {
     } gbmap;
     uint8_t gbmap_p[LFS3_GBMAP_DSIZE];
     uint8_t gbmap_d[LFS3_GBMAP_DSIZE];
+    #endif
+
+    // optional eviction window
+    #ifdef LFS3_EVICT
+    struct lfs3_evict {
+        lfs3_block_t window;
+        lfs3_block_t size;
+    } evict;
     #endif
 
     // optional incremental gc state
@@ -1860,6 +1884,14 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3);
 // negative error code on failure.
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3);
+#endif
+
+// Mark a block as bad, and/or evict from the filesystem
+//
+// Returns 0 if all flags are satisfied, or a negative error code on
+// failure.
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags);
 #endif
 
 

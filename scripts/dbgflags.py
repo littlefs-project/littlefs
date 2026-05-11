@@ -18,6 +18,7 @@ PREFIX_M       = ['+m', '+mount']    # Filter by LFS3_M_* flags
 PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
 PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
+PREFIX_MKBAD   = ['+mkbad']          # Filter by LFS3_MKBAD_* flags
 PREFIX_ALLOC   = ['+alloc']          # Filter by LFS3_ALLOC_* flags
 PREFIX_RCOMPAT = ['+r', '+rc', '+rcompat'] \
                                      # Filter by on-disk LFS3_RCOMPAT_* flags
@@ -176,6 +177,7 @@ GC_CKDATA       = 0x00200000  # --  Check metadata + data checksums
 GC_CK           = 0x00300000  # a-  Alias for all check work
 GC_GC           = 0x003f0000  # a-  Alias for all gc work
 
+gc_EVICT        = 0x00000010  # i-  Evict a range of blocks
 gc_MKCONSISTENTING \
                 = 0x00000100  # i-  Working on LFS3_GC_MKCONSISTENT
 gc_LOOKAHEADING = 0x00000200  # i-  Working on LFS3_GC_LOOKAHEAD
@@ -193,6 +195,9 @@ gc_ORPHAN       = 0x50000000  # i^  Type = orphan
 gc_TRV          = 0x60000000  # i^  Type = traversal
 gc_GC           = 0x70000000  # i^  Type = gc
 gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
+
+# Mkbad flags
+MKBAD_EVICT     = 0x00000010  # --  Delete all references to this block
 
 # Block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
