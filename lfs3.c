@@ -2546,6 +2546,7 @@ static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static int lfs3_bptr_evict(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         lfs3_bptr_t *bptr) {
+relocate:;
     // allocate a new block
     //
     // this does potentially commit to the mdir to claim the block,
@@ -2569,6 +2570,10 @@ static int lfs3_bptr_evict(lfs3_t *lfs3, lfs3_mdir_t *mdir,
             lfs3_bptr_cksize(bptr),
             &cksum);
     if (err) {
+        // bad prog? try another block
+        if (err == LFS3_ERR_CORRUPT) {
+            goto relocate;
+        }
         return err;
     }
 
@@ -2577,10 +2582,10 @@ static int lfs3_bptr_evict(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // note this is sufficient for LFS3_CKDATACKSUMS, and avoids
     // unnecessary reads
     //
-    // we technically don't need to check the cksum when not
-    // LFS3_CKDATACKSUMS, but there's no reason not to, we're already
-    // reading the data, and block eviction is a case where there's
-    // a heightened risk for corrupt data
+    // We technically don't need to check the cksum when not
+    // LFS3_CKDATACKSUMS, but there's very little reason not to. We're
+    // already reading the data, and block eviction has a heightened
+    // risk for corrupt data
     if (cksum != lfs3_bptr_cksum(bptr)) {
         LFS3_ERROR("Found bptr cksum mismatch during eviction "
                     "0x%"PRIx32".%"PRIx32" %"PRId32", "
@@ -2588,7 +2593,19 @@ static int lfs3_bptr_evict(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 lfs3_bptr_block(bptr), 0,
                 lfs3_bptr_cksize(bptr),
                 cksum, lfs3_bptr_cksum(bptr));
+        // cksum mismatch here indicates a read error, so we should
+        // _not_ try another block
         return LFS3_ERR_CORRUPT;
+    }
+
+    // finalize our write
+    err = lfs3_bd_flush(lfs3, NULL);
+    if (err) {
+        // bad prog? try another block
+        if (err == LFS3_ERR_CORRUPT) {
+            goto relocate;
+        }
+        return err;
     }
 
     // update bptr
@@ -10656,7 +10673,7 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // note using btrv.bid here is a bit of hack, for non-btree
     // nodes it points to the _next_ bid, so we need to adjust
     // it
-    lfs3_bid_t bid = mgc->t.u.btrv.bid - 1;
+    lfs3_sbid_t bid = mgc->t.u.btrv.bid - 1;
     lfs3_srid_t rid = mgc->t.u.btrv.rid - 1;
 
     // checkpoint the lookahead buffer, but avoid repopulating
@@ -10697,7 +10714,7 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // the btree, if there is one
 
     // in a btree?
-    if (mgc->t.u.btrv.bid > -1) {
+    if (bid >= 0) {
         // this gets messy if we're a a bshrub, the easiest
         // option is to just create an ad-hoc file handle on the
         // stack
@@ -10775,6 +10792,7 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 && lfs3_bptr_block(&((lfs3_file_t*)h)->leaf.bptr)
                     == block) {
+            LFS3_ASSERT(lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr));
             // note because we found the largest cksize earlier, this
             // should be safe even if cksize/cksum don't match
             ((lfs3_file_t*)h)->leaf.bptr.d.u.disk.block
