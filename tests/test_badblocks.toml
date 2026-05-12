@@ -8,6 +8,7 @@ after = [
     'test_gc',
     'test_mount',
     'test_ck',
+    'test_evict',
     'test_compat',
 ]
 

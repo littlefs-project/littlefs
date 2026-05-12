@@ -939,6 +939,8 @@ done:;
 
 
 
+# test compacting traversals
+
 # test traversals with mdir compaction
 
 [cases.test_gc_t_compact]
@@ -2193,7 +2195,6 @@ code = '''
             int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_trv_close(&lfs3, &trv) => 0;
                 break;
             }
 
@@ -2206,6 +2207,7 @@ code = '''
                 }
             }
         }
+        lfs3_trv_close(&lfs3, &trv) => 0;
         if (full >= 2) {
             break;
         }
@@ -2264,7 +2266,6 @@ code = '''
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
-            lfs3_trv_close(&lfs3, &trv) => 0;
             break;
         }
 
@@ -2275,6 +2276,7 @@ code = '''
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2503,7 +2505,6 @@ code = '''
             int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_trv_close(&lfs3, &trv) => 0;
                 break;
             }
 
@@ -2516,6 +2517,7 @@ code = '''
                 }
             }
         }
+        lfs3_trv_close(&lfs3, &trv) => 0;
         if (full >= 2) {
             break;
         }
@@ -2584,7 +2586,6 @@ code = '''
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
-            lfs3_trv_close(&lfs3, &trv) => 0;
             break;
         }
 
@@ -2595,6 +2596,7 @@ code = '''
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -2688,7 +2690,6 @@ code = '''
                 int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
-                    lfs3_trv_close(&lfs3, &trv) => 0;
                     break;
                 }
 
@@ -2701,6 +2702,7 @@ code = '''
                     }
                 }
             }
+            lfs3_trv_close(&lfs3, &trv) => 0;
             if (full >= 1) {
                 break;
             }
@@ -2770,7 +2772,6 @@ code = '''
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
-            lfs3_trv_close(&lfs3, &trv) => 0;
             break;
         }
 
@@ -2781,6 +2782,7 @@ code = '''
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3101,7 +3103,6 @@ code = '''
             int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_trv_close(&lfs3, &trv) => 0;
                 break;
             }
 
@@ -3114,6 +3115,7 @@ code = '''
                 }
             }
         }
+        lfs3_trv_close(&lfs3, &trv) => 0;
         if (full >= 2) {
             break;
         }
@@ -3192,7 +3194,6 @@ code = '''
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
-            lfs3_trv_close(&lfs3, &trv) => 0;
             break;
         }
 
@@ -3203,6 +3204,7 @@ code = '''
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3368,7 +3370,6 @@ code = '''
                 int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
-                    lfs3_trv_close(&lfs3, &trv) => 0;
                     break;
                 }
 
@@ -3381,6 +3382,7 @@ code = '''
                     }
                 }
             }
+            lfs3_trv_close(&lfs3, &trv) => 0;
             if (full >= 1) {
                 break;
             }
@@ -3460,7 +3462,6 @@ code = '''
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
-            lfs3_trv_close(&lfs3, &trv) => 0;
             break;
         }
 
@@ -3471,6 +3472,7 @@ code = '''
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -3808,7 +3810,6 @@ code = '''
             int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_trv_close(&lfs3, &trv) => 0;
                 break;
             }
 
@@ -3821,6 +3822,7 @@ code = '''
                 }
             }
         }
+        lfs3_trv_close(&lfs3, &trv) => 0;
         if (full >= 2) {
             break;
         }
@@ -3884,7 +3886,6 @@ code = '''
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
-            lfs3_trv_close(&lfs3, &trv) => 0;
             break;
         }
 
@@ -3895,6 +3896,7 @@ code = '''
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
+    lfs3_trv_close(&lfs3, &trv) => 0;
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -4052,6 +4054,7 @@ code = '''
     lfs3_file_open(&lfs3, &file3, "cuttlefish",
             LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_file_close(&lfs3, &file3) => 0;
+    assert(lfs3.gbmap.b.blocks[0] == lfs3.gbmap.b_p.blocks[0]);
 
     // keep track of gbmap_p
     lfs3_btree_t b_p = lfs3.gbmap.b_p;
@@ -4261,7 +4264,6 @@ code = '''
             int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
-                lfs3_trv_close(&lfs3, &trv) => 0;
                 break;
             }
 
@@ -4274,6 +4276,7 @@ code = '''
                 }
             }
         }
+        lfs3_trv_close(&lfs3, &trv) => 0;
         if (full >= 2) {
             break;
         }
@@ -4311,6 +4314,7 @@ code = '''
     lfs3_file_open(&lfs3, &file3, "cuttlefish",
             LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_file_close(&lfs3, &file3) => 0;
+    assert(lfs3.gbmap.b.blocks[0] == lfs3.gbmap.b_p.blocks[0]);
 
     // keep track of gbmap_p
     lfs3_btree_t b_p = lfs3.gbmap.b_p;
@@ -4393,7 +4397,6 @@ code = '''
         int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
-            lfs3_trv_close(&lfs3, &trv) => 0;
             break;
         }
 
@@ -4404,6 +4407,10 @@ code = '''
             assert(lfs3_rbyd_eoff(&rbyd) <= GC_COMPACTMETA_THRESH);
         }
     }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // gbmap_p should have been discarded, so these should be the same
+    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
 
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;

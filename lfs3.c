@@ -8949,21 +8949,11 @@ compact:;
     while (true) {
         // try to compact
         #ifdef LFS3_DBGMDIRCOMMITS
-        if (LFS3_IFDEF_EVICT(
-                lfs3_evict_needsevictionmdir(&lfs3->evict, mdir),
-                false)) {
-            LFS3_DEBUG("Evicting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
-                        "-> 0x{%"PRIx32",%"PRIx32"}",
-                    lfs3_dbgmbid(lfs3, mdir->mid),
-                    mdir->r.blocks[0], mdir->r.blocks[1],
-                    mdir_->r.blocks[0], mdir_->r.blocks[1]);
-        } else {
-            LFS3_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
-                        "-> 0x{%"PRIx32",%"PRIx32"}",
-                    lfs3_dbgmbid(lfs3, mdir->mid),
-                    mdir->r.blocks[0], mdir->r.blocks[1],
-                    mdir_->r.blocks[0], mdir_->r.blocks[1]);
-        }
+        LFS3_DEBUG("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
+                    "-> 0x{%"PRIx32",%"PRIx32"}",
+                lfs3_dbgmbid(lfs3, mdir->mid),
+                mdir->r.blocks[0], mdir->r.blocks[1],
+                mdir_->r.blocks[0], mdir_->r.blocks[1]);
         #endif
 
         // don't copy over gstate if relocating
@@ -10376,14 +10366,27 @@ static int lfs3_mgc_compactmdir(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         return err;
     }
 
+    if (LFS3_IFDEF_EVICT(
+            lfs3_evict_needsevictionmdir(&lfs3->evict, mdir),
+            false)) {
+        LFS3_INFO("Evicting mdir 0x{%"PRIx32",%"PRIx32"}",
+                mdir->r.blocks[0], mdir->r.blocks[1]);
+    } else {
+        LFS3_INFO("Compacting mdir 0x{%"PRIx32",%"PRIx32"} "
+                    "(%"PRId32" > %"PRId32")",
+                mdir->r.blocks[0], mdir->r.blocks[1],
+                lfs3_rbyd_eoff(&mdir->r),
+                (lfs3->cfg->gc_compactmeta_thresh)
+                    ? lfs3->cfg->gc_compactmeta_thresh
+                    : lfs3->cfg->block_size
+                        - lfs3->cfg->block_size/8);
+    }
+
+    // compact/evict the mdir
+    //
     // mdir compaction/eviction take the same path up until
     // lfs3_mdir_commit_, which changes behavior if it's in the
     // eviction window
-    //
-    // lfs3_mdir_commit_ also logs this, so we don't need duplicate
-    // logs here
-
-    // compact/evict the mdir
     return lfs3_mdir_compact(lfs3, mdir);
 }
 #endif
@@ -17865,14 +17868,19 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
 // attempt to grow the filesystem
 #ifndef LFS3_RDONLY
 int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
-    // Note we do _not_ call lfs3_fs_mkconsistent here. This is a bit scary,
-    // but we should be ok as long as we patch grms in lfs3_mdir_commit and
-    // only commit to the mroot.
+    // Note we do _not_ call lfs3_fs_mkconsistent here, or we risk
+    // locking up our filesystem trying to fix grms/orphans when we
+    // could grow.
     //
-    // Calling lfs3_fs_mkconsistent risks locking our filesystem up trying
-    // to fix grms/orphans before we can commit the new filesystem size. If
-    // we don't, we should always be able to recover a stuck filesystem with
-    // lfs3_fs_grow.
+    // Ideally we should always be able to recover a stuck filesystem
+    // with lfs3_fs_grow.
+    //
+    // We should be ok not calling lfs3_fs_mkconsistent as long as we
+    // don't create/delete mids and patch grms in lfs3_mdir_commit.
+    //
+    // This may not match user's expectations, but at the same time, we
+    // generally want to avoid unnecessary work in functions that can be
+    // used to rescue a filesystem.
 
     // filesystem must be writeable
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
@@ -17966,11 +17974,14 @@ failed:;
 // enable the global on-disk block-map
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
-    // prepare our filesystem for writing
-    int err = lfs3_fs_mkconsistent(lfs3);
-    if (err) {
-        return err;
-    }
+    // Note we do _not_ call lfs3_fs_mkconsistent here.
+    //
+    // We should be ok not calling lfs3_fs_mkconsistent as long as we
+    // don't create/delete mids and patch grms in lfs3_mdir_commit.
+    //
+    // This may not match user's expectations, but at the same time, we
+    // generally want to avoid unnecessary work in functions that can be
+    // used to rescue a filesystem.
 
     // error if we already have a gbmap
     if (lfs3_f_isgbmap(lfs3->flags)) {
@@ -17983,10 +17994,11 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
     // create an empty gbmap, let lfs3_alloc_ckpoint populate it
     lfs3_gbmap_init(&lfs3->gbmap);
 
-    err = lfs3_gbmap_commit(lfs3, &lfs3->gbmap.b, 0, (const lfs3_rattr_t[]){
-            LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
-            LFS3_RATTR_WEIGHT(+lfs3->block_count),
-            LFS3_RATTR_NULL});
+    int err = lfs3_gbmap_commit(lfs3, &lfs3->gbmap.b,
+            0, (const lfs3_rattr_t[]){
+                LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
+                LFS3_RATTR_WEIGHT(+lfs3->block_count),
+                LFS3_RATTR_NULL});
     if (err) {
         goto failed;
     }
@@ -18031,11 +18043,14 @@ failed:;
 // disable the global on-disk block-map
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
-    // prepare our filesystem for writing
-    int err = lfs3_fs_mkconsistent(lfs3);
-    if (err) {
-        return err;
-    }
+    // Note we do _not_ call lfs3_fs_mkconsistent here.
+    //
+    // We should be ok not calling lfs3_fs_mkconsistent as long as we
+    // don't create/delete mids and patch grms in lfs3_mdir_commit.
+    //
+    // This may not match user's expectations, but at the same time, we
+    // generally want to avoid unnecessary work in functions that can be
+    // used to rescue a filesystem.
 
     // error if we already don't have a gbmap
     if (!lfs3_f_isgbmap(lfs3->flags)) {
@@ -18043,7 +18058,7 @@ int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
     }
 
     // checkpoint the allocator
-    err = lfs3_alloc_ckpoint(lfs3);
+    int err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
         return err;
     }
@@ -18074,20 +18089,35 @@ int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
 // mark a block as bad, and/or evict from the filesystem
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
+    // Note we do _not_ call lfs3_fs_mkconsistent here.
+    //
+    // We should be ok not calling lfs3_fs_mkconsistent as long as we
+    // don't create/delete mids and patch grms in lfs3_mdir_commit.
+    //
+    // This may not match user's expectations, but at the same time, we
+    // generally want to avoid unnecessary work in functions that can be
+    // used to rescue a filesystem.
+
     // unknown mkbad flags?
     LFS3_ASSERT((flags & ~(
             LFS3_MKBAD_EVICT)) == 0);
     // eviction window should be null
     LFS3_ASSERT(lfs3->evict.size == 0);
 
-    // prepare our filesystem for writing
-    int err = lfs3_fs_mkconsistent(lfs3);
-    if (err) {
-        return err;
+    // out-of-bounds?
+    if (block >= lfs3->block_count) {
+        return LFS3_ERR_NOENT;
     }
 
     // evict?
+    int err;
     if (lfs3_mkbad_isevict(flags)) {
+        // littlefs can't function if blocks 0x{0,1} are bad, so reject
+        // these
+        if (block == 0 || block == 1) {
+            return LFS3_ERR_BUSY;
+        }
+
         // setup our eviction window, this sidechannel tells the rest of
         // the filesystem what blocks to avoid
         lfs3->evict.window = block;
@@ -18100,11 +18130,17 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         lfs3_mgc_t mgc;
         lfs3_mgc_init(&mgc, LFS3_gc_EVICT);
         lfs3_handle_open(lfs3, &mgc.t.h);
-        lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
-        if (steps < 0) {
-            lfs3_handle_close(lfs3, &mgc.t.h);
-            err = steps;
-            goto failed;
+        // TODO should we make EVICT stateful and just call lfs3_mgc_gc
+        // to take advantage of its state machine?
+        while (true) {
+            err = lfs3_mtree_gc(lfs3, &mgc);
+            if (err) {
+                if (err == LFS3_ERR_NOENT) {
+                    break;
+                }
+                lfs3_handle_close(lfs3, &mgc.t.h);
+                goto failed;
+            }
         }
         lfs3_handle_close(lfs3, &mgc.t.h);
 

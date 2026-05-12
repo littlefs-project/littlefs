@@ -6,6 +6,7 @@ after = [
     'test_stickynotes',
     'test_alloc',
     'test_mount',
+    'test_evict',
 ]
 
 # Test both with and without the gbmap if available
