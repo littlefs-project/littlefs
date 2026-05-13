@@ -10421,6 +10421,7 @@ static inline bool lfs3_evict_needsevictionrbyd(const lfs3_evict_t *evict,
 #ifndef LFS3_RDONLY
 static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_rbyd_t *rbyd) {
+    (void)rbyd;
     // grab bid before checkpointing the allocator
     //
     // note using btrv.bid here is a bit of hack, for non-btree
@@ -10603,6 +10604,19 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         file.h.mdir = mgc->t.h.mdir;
         file.bshrub = mgc->t.btree;
 
+        // TODO should we have a small wrapper for this for readability?
+        // lfs3_file_estimate?
+        // find the shrub estimate
+        if (lfs3_bshrub_isbshrub(&file.bshrub)) {
+            lfs3_ssize_t estimate = lfs3_rbyd_estimate(lfs3,
+                    &file.bshrub, -1, -1,
+                    NULL);
+            if (estimate < 0) {
+                return estimate;
+            }
+            file.bshrub.eoff = estimate;
+        }
+
         // start tracking, this is the important bit
         lfs3_handle_open(lfs3, &file.h);
         // lfs3_bshrub_compact_ mutates the rbyd, which may point at
@@ -10643,11 +10657,24 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_handle_close(lfs3, &file.h);
 
         // update any open btree/bshrub references
+        //
+        // lfs3_mdir_commit eagerly migrates all shrubs during
+        // compaction, so we need to trust the sync flag here
         for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
             if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                    && lfs3_btree_cmp(
-                        &((lfs3_file_t*)h)->bshrub,
-                        &mgc->t.btree) == 0) {
+                    && h->mdir.mid == mgc->t.h.mdir.mid
+                    // in-sync? mgc is normally first in the handle
+                    // list, but we just opened a new handle
+                    && ((file.h.next == &mgc->t.h
+                            && !lfs3_o_needssync(h->flags))
+                        // unsynced? lfs3_mtree_traverse_ eagerly seeks
+                        // to the next handle, so our mgc should be
+                        // immediately after the handle we're operating
+                        // on
+                        //
+                        // hacky, but the way shrubs are staged leaves
+                        // us with few options
+                        || h->next == &mgc->t.h)) {
                 ((lfs3_file_t*)h)->bshrub = file.bshrub;
 
                 // we also need to discard any fragments that
@@ -10693,6 +10720,9 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // and no reason to ignore known bptrs
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
+                // we need to limit this to ungrafted bptr to avoid
+                // out-of-sync issues with references in the btree
+                && lfs3_o_needsgraft(h->flags)
                 && lfs3_bptr_block(&((lfs3_file_t*)h)->leaf.bptr)
                     == lfs3_bptr_block(bptr)
                 && lfs3_bptr_cksize(&((lfs3_file_t*)h)->leaf.bptr)
@@ -10715,6 +10745,9 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
     // in a btree?
     if (bid >= 0) {
+        // TODO can we deduplicate some of this between here and
+        // lfs3_mgc_compactbtree?
+
         // this gets messy if we're a a bshrub, the easiest
         // option is to just create an ad-hoc file handle on the
         // stack
@@ -10728,6 +10761,18 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 | LFS3_o_NEEDSSYNC;
         file.h.mdir = mgc->t.h.mdir;
         file.bshrub = mgc->t.btree;
+
+        // TODO should we have a small wrapper for this for readability?
+        // lfs3_file_estimate?
+        if (lfs3_bshrub_isbshrub(&file.bshrub)) {
+            lfs3_ssize_t estimate = lfs3_rbyd_estimate(lfs3,
+                    &file.bshrub, -1, -1,
+                    NULL);
+            if (estimate < 0) {
+                return estimate;
+            }
+            file.bshrub.eoff = estimate;
+        }
 
         // start tracking, this is the important bit
         lfs3_handle_open(lfs3, &file.h);
@@ -10771,16 +10816,35 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_handle_close(lfs3, &file.h);
 
         // update any open btree/bshrub references
+        //
+        // lfs3_mdir_commit eagerly migrates all shrubs during
+        // compaction, so we need to trust the sync flag here
         for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
             if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                    && lfs3_btree_cmp(
-                        &((lfs3_file_t*)h)->bshrub,
-                        &mgc->t.btree) == 0) {
+                    && h->mdir.mid == mgc->t.h.mdir.mid
+                    // in-sync? mgc is normally first in the handle
+                    // list, but we just opened a new handle
+                    && ((file.h.next == &mgc->t.h
+                            && !lfs3_o_needssync(h->flags))
+                        // unsynced? lfs3_mtree_traverse_ eagerly seeks
+                        // to the next handle, so our mgc should be
+                        // immediately after the handle we're operating
+                        // on
+                        //
+                        // hacky, but the way shrubs are staged leaves
+                        // us with few options
+                        || h->next == &mgc->t.h)) {
                 ((lfs3_file_t*)h)->bshrub = file.bshrub;
 
                 // we also need to discard any fragments that
                 // may be in our btree/bshrub
-                if (!lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr)) {
+                //
+                // and any ungrafted bptrs, unfortunately
+                //
+                // even if bptr blocks match, we can't be sure we didn't
+                // find a dag, and we can't reliably set the ungrafted
+                // flag in case we're a rdonly file
+                if (!lfs3_o_needsgraft(h->flags)) {
                     lfs3_file_discardleaf((lfs3_file_t*)h);
                 }
             }
@@ -10790,6 +10854,9 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // update any open bptr references
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
+                // we need to limit this to ungrafted bptr to avoid
+                // out-of-sync issues with references in the btree
+                && lfs3_o_needsgraft(h->flags)
                 && lfs3_bptr_block(&((lfs3_file_t*)h)->leaf.bptr)
                     == block) {
             LFS3_ASSERT(lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr));
