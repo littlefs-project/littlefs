@@ -6539,13 +6539,24 @@ static void lfs3_btrv_init(lfs3_btrv_t *btrv) {
     btrv->bid = -1;
 }
 
+// seek to a specific bid, restarting from the root
+//
+// useful for resuming traversal after mutating the btree
+static void lfs3_btrv_seek(lfs3_btrv_t *btrv, lfs3_sbid_t bid) {
+    btrv->bid = bid;
+    btrv->rid = -1;
+}
+
 static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3,
         const lfs3_btree_t *btree,
         lfs3_btrv_t *btrv,
         lfs3_sbid_t *bid_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
     // restart from the root?
     if (btrv->bid == -1
-            || btrv->rid >= (lfs3_srid_t)btrv->rbyd.weight
+            // end of rbyd? rid=-1?
+            || (lfs3_rid_t)btrv->rid >= btrv->rbyd.weight
+            // rbyd is a shrub
+            //
             // we do this unconditionally when rbyd is a shrub to avoid
             // bshrub root traversals falling out-of-sync under mutation
             || lfs3_rbyd_isshrub(&btrv->rbyd)) {
@@ -10489,6 +10500,12 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // update the mtree
         lfs3->mtree = mgc->t.btree;
 
+        // if we succeed, resume btrv at the current bid
+        //
+        // we may need to rewalk the current btree trunk, but this at
+        // least avoids O(n^2) behavior
+        lfs3_btrv_seek(&mgc->t.u.btrv, bid);
+
     // in gbmap?
     } else if (LFS3_IFDEF_GBMAP(
             mgc->t.h.mdir.mid == LFS3_MID_GBMAP,
@@ -10532,6 +10549,12 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         if (err) {
             return err;
         }
+
+        // if we succeed, resume btrv at the current bid
+        //
+        // we may need to rewalk the current btree trunk, but this at
+        // least avoids O(n^2) behavior
+        lfs3_btrv_seek(&mgc->t.u.btrv, bid);
     #endif
 
     // in gbmap_p?
@@ -10548,6 +10571,8 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         if (err) {
             return err;
         }
+
+        // _don't_ resume btrv here, the gbmap_p is no more
     #endif
 
     // in a file?
@@ -10658,6 +10683,9 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             }
         }
 
+        // update btree, shrub migration makes the old btree
+        // out-of-date, so no reason to keep it around
+        mgc->t.btree = file.bshrub;
         lfs3_handle_close(lfs3, &file.h);
 
         // update any open btree/bshrub references
@@ -10667,9 +10695,9 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
             if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                     && h->mdir.mid == mgc->t.h.mdir.mid
-                    // in-sync? mgc is normally first in the handle
-                    // list, but we just opened a new handle
-                    && ((file.h.next == &mgc->t.h
+                    // in-sync? mgc should be the first handle in our
+                    // handle list
+                    && ((lfs3->handles == &mgc->t.h
                             && !lfs3_o_needssync(h->flags))
                         // unsynced? lfs3_mtree_traverse_ eagerly seeks
                         // to the next handle, so our mgc should be
@@ -10679,7 +10707,7 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         // hacky, but the way shrubs are staged leaves
                         // us with few options
                         || h->next == &mgc->t.h)) {
-                ((lfs3_file_t*)h)->bshrub = file.bshrub;
+                ((lfs3_file_t*)h)->bshrub = mgc->t.btree;
 
                 // we also need to discard any fragments that
                 // may be in our btree/bshrub
@@ -10689,6 +10717,12 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 }
             }
         }
+
+        // if we succeed, resume btrv at the current bid
+        //
+        // we may need to rewalk the current btree trunk, but this at
+        // least avoids O(n^2) behavior
+        lfs3_btrv_seek(&mgc->t.u.btrv, bid);
     }
 
     return 0;
@@ -10818,6 +10852,9 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             }
         }
 
+        // update btree, shrub migration makes the old btree
+        // out-of-date, so no reason to keep it around
+        mgc->t.btree = file.bshrub;
         lfs3_handle_close(lfs3, &file.h);
 
         // update any open btree/bshrub references
@@ -10827,9 +10864,9 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
             if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                     && h->mdir.mid == mgc->t.h.mdir.mid
-                    // in-sync? mgc is normally first in the handle
-                    // list, but we just opened a new handle
-                    && ((file.h.next == &mgc->t.h
+                    // in-sync? mgc should be the first handle in our
+                    // handle list
+                    && ((lfs3->handles == &mgc->t.h
                             && !lfs3_o_needssync(h->flags))
                         // unsynced? lfs3_mtree_traverse_ eagerly seeks
                         // to the next handle, so our mgc should be
@@ -10839,8 +10876,13 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         // hacky, but the way shrubs are staged leaves
                         // us with few options
                         || h->next == &mgc->t.h)) {
-                ((lfs3_file_t*)h)->bshrub = file.bshrub;
+                ((lfs3_file_t*)h)->bshrub = mgc->t.btree;
 
+                // TODO actually, can we reduce this to fragments and
+                // matching bptrs in the following loop? i.e. discard
+                // non-needsgrafted, replace grafted?
+                // TODO or match bid => leaf.pos?
+                //
                 // we also need to discard any fragments that
                 // may be in our btree/bshrub
                 //
@@ -10854,6 +10896,12 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 }
             }
         }
+
+        // if we succeed, resume btrv at the current bid
+        //
+        // we may need to rewalk the current btree trunk, but this at
+        // least avoids O(n^2) behavior
+        lfs3_btrv_seek(&mgc->t.u.btrv, bid);
     }
 
     // update any open bptr references
@@ -11042,8 +11090,6 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
         // reset dirty flag
         mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
-        // the ckpoint should have discarded our btrv state
-        LFS3_ASSERT(mgc->t.u.btrv.bid == LFS3_BID_MDIR);
         // return early, traversal needs to restart
         return 0;
     }
@@ -11062,8 +11108,6 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
         // reset dirty flag
         mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
-        // the ckpoint should have discarded our btrv state
-        LFS3_ASSERT(mgc->t.u.btrv.bid == LFS3_BID_MDIR);
         // return early, traversal needs to restart
         return 0;
     }
@@ -11145,8 +11189,6 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
             // reset dirty flag
             mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
-            // the ckpoint should have discarded our btrv state
-            LFS3_ASSERT(mgc->t.u.btrv.bid == LFS3_BID_MDIR);
             // return early, traversal needs to restart
             return 0;
         }
