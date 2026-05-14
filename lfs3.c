@@ -10386,11 +10386,13 @@ static int lfs3_mgc_compactmdir(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     if (LFS3_IFDEF_EVICT(
             lfs3_evict_needsevictionmdir(&lfs3->evict, mdir),
             false)) {
-        LFS3_INFO("Evicting mdir 0x{%"PRIx32",%"PRIx32"}",
+        LFS3_INFO("Evicting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
+                lfs3_dbgmbid(lfs3, mdir->mid),
                 mdir->r.blocks[0], mdir->r.blocks[1]);
     } else {
-        LFS3_INFO("Compacting mdir 0x{%"PRIx32",%"PRIx32"} "
+        LFS3_INFO("Compacting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
                     "(%"PRId32" > %"PRId32")",
+                lfs3_dbgmbid(lfs3, mdir->mid),
                 mdir->r.blocks[0], mdir->r.blocks[1],
                 lfs3_rbyd_eoff(&mdir->r),
                 (lfs3->cfg->gc_compactmeta_thresh)
@@ -10461,6 +10463,7 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         : lfs3->cfg->block_size
                             - lfs3->cfg->block_size/8);
         }
+
         // lfs3_bshrub_compact_ mutates the rbyd, which may point at
         // the root, so we need to use a copy
         LFS3_ASSERT(lfs3_rbyd_cmp(&mgc->t.u.btrv.rbyd, rbyd) == 0);
@@ -10510,6 +10513,7 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         : lfs3->cfg->block_size
                             - lfs3->cfg->block_size/8);
         }
+
         // lfs3_bshrub_compact_ mutates the rbyd, which may point at
         // the root, so we need to use a copy
         LFS3_ASSERT(lfs3_rbyd_cmp(&mgc->t.u.btrv.rbyd, rbyd) == 0);
@@ -10708,9 +10712,6 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // to write more than is necessary
     lfs3_alloc_ckpoint_(lfs3);
 
-    LFS3_INFO("Evicting bptr 0x%"PRIx32,
-            lfs3_bptr_block(bptr));
-
     // first check if we have any bptrs with a larger cksize
     //
     // this doesn't find bptrs in btrees, so we still need to worry
@@ -10739,6 +10740,10 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     if (err) {
         return err;
     }
+
+    LFS3_INFO("Evicting bptr 0x%"PRIx32" -> 0x%"PRIx32,
+            block,
+            lfs3_bptr_block(bptr));
 
     // ok, that was the easy part, now we need to commit the bptr into
     // the btree, if there is one
