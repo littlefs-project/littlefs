@@ -6179,11 +6179,11 @@ static int lfs3_btree_commit(lfs3_t *lfs3, lfs3_btree_t *btree,
 #endif
 
 // lookup in a btree by name
-static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
+static lfs3_scmp_t lfs3_btree_namelookup_(lfs3_t *lfs3,
         const lfs3_btree_t *btree,
         lfs3_did_t did, const char *name, lfs3_size_t name_len,
-        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bid_t *weight_,
-        lfs3_data_t *data_) {
+        lfs3_bid_t *bid_, lfs3_rbyd_t *rbyd_, lfs3_srid_t *rid_,
+        lfs3_tag_t *tag_, lfs3_bid_t *weight_, lfs3_data_t *data_) {
     // an empty tree?
     if (btree->weight == 0) {
         return LFS3_ERR_NOENT;
@@ -6192,6 +6192,9 @@ static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
     // compiler needs this to be happy about initialization in callers
     if (bid_) {
         *bid_ = 0;
+    }
+    if (rid_) {
+        *rid_ = 0;
     }
     if (tag_) {
         *tag_ = 0;
@@ -6202,14 +6205,14 @@ static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
 
     // descend down the btree looking for our name
     lfs3_bid_t bid__ = btree->weight-1;
-    lfs3_rbyd_t rbyd__ = *btree;
+    *rbyd_ = *btree;
     while (true) {
         // lookup our name in the rbyd via binary search
         lfs3_srid_t rid__;
         lfs3_stag_t tag__;
         lfs3_rid_t weight__;
         lfs3_data_t data__;
-        lfs3_scmp_t cmp = lfs3_rbyd_namelookup(lfs3, &rbyd__,
+        lfs3_scmp_t cmp = lfs3_rbyd_namelookup(lfs3, rbyd_,
                 did, name, name_len,
                 &rid__, (lfs3_tag_t*)&tag__, &weight__, &data__);
         if (cmp < 0) {
@@ -6219,7 +6222,7 @@ static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
 
         // if we found a bname, lookup the branch
         if (tag__ == LFS3_TAG_BNAME) {
-            tag__ = lfs3_rbyd_lookup(lfs3, &rbyd__, rid__,
+            tag__ = lfs3_rbyd_lookup(lfs3, rbyd_, rid__,
                     LFS3_tag_MASK8 | LFS3_TAG_STRUCT,
                     &data__);
             if (tag__ < 0) {
@@ -6231,11 +6234,11 @@ static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
         // found another branch
         if (tag__ == LFS3_TAG_BRANCH) {
             // adjust bid__ with subtree's weight
-            bid__ = (bid__-(rbyd__.weight-1)) + rid__;
+            bid__ = (bid__-(rbyd_->weight-1)) + rid__;
 
             // fetch the next branch
             int err = lfs3_data_fetchbranch(lfs3, &data__, weight__,
-                    &rbyd__);
+                    rbyd_);
             if (err) {
                 return err;
             }
@@ -6244,7 +6247,10 @@ static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
         } else {
             // TODO how many of these should be conditional?
             if (bid_) {
-                *bid_ = (bid__-(rbyd__.weight-1)) + rid__;
+                *bid_ = (bid__-(rbyd_->weight-1)) + rid__;
+            }
+            if (rid_) {
+                *rid_ = rid__;
             }
             if (tag_) {
                 *tag_ = tag__;
@@ -6258,6 +6264,16 @@ static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
             return cmp;
         }
     }
+}
+
+static lfs3_scmp_t lfs3_btree_namelookup(lfs3_t *lfs3,
+        const lfs3_btree_t *btree,
+        lfs3_did_t did, const char *name, lfs3_size_t name_len,
+        lfs3_bid_t *bid_, lfs3_tag_t *tag_, lfs3_bid_t *weight_,
+        lfs3_data_t *data_) {
+    lfs3_rbyd_t rbyd__;
+    return lfs3_btree_namelookup_(lfs3, btree, did, name, name_len,
+            bid_, &rbyd__, NULL, tag_, weight_, data_);
 }
 
 // incremental btree traversal
@@ -9558,12 +9574,13 @@ static lfs3_stag_t lfs3_mtree_namelookup(lfs3_t *lfs3,
     // lookup name in actual mtree
     } else {
         lfs3_bid_t bid;
+        lfs3_srid_t rid;
         lfs3_stag_t tag;
         lfs3_bid_t weight;
         lfs3_data_t data;
-        lfs3_scmp_t cmp = lfs3_btree_namelookup(lfs3, &lfs3->mtree,
+        lfs3_scmp_t cmp = lfs3_btree_namelookup_(lfs3, &lfs3->mtree,
                 did, name, name_len,
-                &bid, (lfs3_tag_t*)&tag, &weight, &data);
+                &bid, &mdir_->r, &rid, (lfs3_tag_t*)&tag, &weight, &data);
         if (cmp < 0) {
             LFS3_ASSERT(cmp != LFS3_ERR_NOENT);
             return cmp;
@@ -9574,7 +9591,7 @@ static lfs3_stag_t lfs3_mtree_namelookup(lfs3_t *lfs3,
 
         // if we found an mname, lookup the mdir
         if (tag == LFS3_TAG_MNAME) {
-            tag = lfs3_btree_lookup(lfs3, &lfs3->mtree, bid, LFS3_TAG_MDIR,
+            tag = lfs3_rbyd_lookup(lfs3, &mdir_->r, rid, LFS3_TAG_MDIR,
                     &data);
             if (tag < 0) {
                 LFS3_ASSERT(tag != LFS3_ERR_NOENT);
