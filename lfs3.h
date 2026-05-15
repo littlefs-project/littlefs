@@ -542,6 +542,30 @@ struct lfs3_cfg {
     lfs3_size_t lookahead_size;
     #endif
 
+    // Threshold for repopulating the global on-disk block-map (gbmap).
+    //
+    // When <= this many blocks have a known state, littlefs will
+    // traverse the filesystem and attempt to repopulate the gbmap.
+    // Smaller values decrease repopulation frequency and improves
+    // overall allocator throughput, at the risk of needing to fallback
+    // to the slower lookahead allocator when empty.
+    //
+    // 0 only repopulates the gbmap when empty, minimizing gbmap
+    // repops at the risk of large latency spikes.
+    #ifdef LFS3_GBMAP
+    lfs3_block_t lookgbmap_thresh;
+    #endif
+
+    // Size of the optional evict queue in lfs3_evict_t. A larger evict
+    // queue can track more evicted/damaged/bad blocks during evictions,
+    // repairs and readonly operations. If the evict queue overflows,
+    // damaged/bad blocks are quietly forgotten until the next bd error.
+    //
+    // A suggested value is 2.
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    lfs3_size_t evictqueue_count;
+    #endif
+
     // Flags indicating what gc work to do during lfs3_gc calls.
     #ifdef LFS3_GC
     uint32_t gc_flags;
@@ -634,6 +658,13 @@ struct lfs3_cfg {
     void *lookahead_buffer;
     #endif
 
+    // Optional statically allocated evict queue array. Must be
+    // evictqueue_size. By default lfs3_malloc is used to allocate this
+    // array.
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    struct lfs3_evict *evictqueue_array;
+    #endif
+
     // Optional upper limit on length of file names in bytes. No downside for
     // larger names except the size of the info struct which is controlled by
     // the LFS3_NAME_MAX define. Defaults to LFS3_NAME_MAX when zero. Stored in
@@ -684,20 +715,6 @@ struct lfs3_cfg {
     // random-write cost.
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
-    #endif
-
-    // Threshold for repopulating the global on-disk block-map (gbmap).
-    //
-    // When <= this many blocks have a known state, littlefs will
-    // traverse the filesystem and attempt to repopulate the gbmap.
-    // Smaller values decrease repopulation frequency and improves
-    // overall allocator throughput, at the risk of needing to fallback
-    // to the slower lookahead allocator when empty.
-    //
-    // 0 only repopulates the gbmap when empty, minimizing gbmap
-    // repops at the risk of large latency spikes.
-    #ifdef LFS3_GBMAP
-    lfs3_block_t lookgbmap_thresh;
     #endif
 };
 
@@ -1251,6 +1268,22 @@ typedef struct lfs3_gc {
     lfs3_mgc_t gc;
 } lfs3_gc_t;
 
+// a single eviction entry
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+typedef struct lfs3_evict {
+    // sign(block)=0 => damaged
+    // sign(block)=1 => bad
+    // block_!=0     => dest block for dags
+    lfs3_block_t block;
+    lfs3_block_t block_;
+} lfs3_evict_t;
+#endif
+
+// optional evict queue
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+typedef struct lfs3_evictqueue lfs3_evictqueue_t;
+#endif
+
 // littlefs on-disk compat flags
 typedef uint32_t lfs3_compat_t;
 
@@ -1264,11 +1297,6 @@ typedef struct lfs3_geometry {
 typedef struct lfs3_grm lfs3_grm_t;
 #ifdef LFS3_GBMAP
 typedef struct lfs3_gbmap lfs3_gbmap_t;
-#endif
-
-// optional eviction window
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-typedef struct lfs3_evict lfs3_evict_t;
 #endif
 
 // The littlefs filesystem type
@@ -1365,12 +1393,12 @@ typedef struct lfs3 {
     uint8_t gbmap_d[LFS3_GBMAP_DSIZE];
     #endif
 
-    // optional eviction window
-    #ifdef LFS3_EVICT
-    struct lfs3_evict {
-        lfs3_block_t window;
-        lfs3_block_t size;
-    } evict;
+    // optional evict queue
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    struct lfs3_evictqueue {
+        lfs3_evict_t *queue;
+        lfs3_size_t count;
+    } evictqueue;
     #endif
 
     // optional incremental gc state

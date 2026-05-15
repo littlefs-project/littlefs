@@ -2263,6 +2263,122 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
 
 
+/// Some block eviction things ///
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#define LFS3_EVICT_ISBAD 0x80000000
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_isbad(const lfs3_evict_t *evict) {
+    return evict->block & LFS3_EVICT_ISBAD;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_block_t lfs3_evict_block(const lfs3_evict_t *evict) {
+    return evict->block & ~LFS3_EVICT_ISBAD;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline void lfs3_evict_discard(lfs3_t *lfs3) {
+    lfs3->evictqueue.count = 0;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static lfs3_evict_t *lfs3_evict_eviction(lfs3_t *lfs3,
+        lfs3_block_t block) {
+    for (lfs3_size_t i = 0; i < lfs3->evictqueue.count; i++) {
+        if (lfs3_evict_block(&lfs3->evictqueue.queue[i]) == block) {
+            return &lfs3->evictqueue.queue[i];
+        }
+    }
+
+    return NULL;
+}
+#endif
+
+// these just save a bit of typing
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_evict_t *lfs3_evict_evictionmdir(lfs3_t *lfs3,
+        const lfs3_mdir_t *mdir) {
+    lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, mdir->r.blocks[0]);
+    if (evict) {
+        return evict;
+    }
+    evict = lfs3_evict_eviction(lfs3, mdir->r.blocks[1]);
+    if (evict) {
+        return evict;
+    }
+    return NULL;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_evict_t *lfs3_evict_evictionrbyd(lfs3_t *lfs3,
+        const lfs3_rbyd_t *rbyd) {
+    return lfs3_evict_eviction(lfs3, rbyd->blocks[0]);
+}
+#endif
+
+// needed in lfs3_evict_evictionbptr
+static inline lfs3_block_t lfs3_bptr_block(const lfs3_bptr_t *bptr);
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_evict_t *lfs3_evict_evictionbptr(lfs3_t *lfs3,
+        const lfs3_bptr_t *bptr) {
+    return lfs3_evict_eviction(lfs3, lfs3_bptr_block(bptr));
+}
+#endif
+
+// returns a bool, but also takes const
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needseviction(const lfs3_t *lfs3,
+        lfs3_block_t block) {
+    return lfs3_evict_eviction((lfs3_t*)lfs3, block);
+}
+#endif
+
+// these just save a bit of typing
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needsevictionmdir(const lfs3_t *lfs3,
+        const lfs3_mdir_t *mdir) {
+    return lfs3_evict_evictionmdir((lfs3_t*)lfs3, mdir);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needsevictionrbyd(const lfs3_t *lfs3,
+        const lfs3_rbyd_t *rbyd) {
+    return lfs3_evict_evictionrbyd((lfs3_t*)lfs3, rbyd);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needsevictionbptr(const lfs3_t *lfs3,
+        const lfs3_bptr_t *bptr) {
+    return lfs3_evict_evictionbptr((lfs3_t*)lfs3, bptr);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static bool lfs3_evict_push(lfs3_t *lfs3, lfs3_block_t block) {
+    // note we quietly discard blocks if evictqueue is full
+    if (lfs3->evictqueue.count < lfs3->cfg->evictqueue_count) {
+        lfs3_size_t i = lfs3->evictqueue.count;
+        lfs3->evictqueue.queue[i].block = block;
+        lfs3->evictqueue.queue[i].block_ = 0;
+        lfs3->evictqueue.count += 1;
+        return true;
+    }
+    return false;
+}
+#endif
+
+
+
 /// Block pointer things ///
 
 #define LFS3_BPTR_ONDISK LFS3_DATA_ONDISK
@@ -2550,52 +2666,46 @@ relocate:;
     // allocate a new block
     //
     // this does potentially commit to the mdir to claim the block,
-    // but that should be ok as long as our eviction window is set up
+    // but that should be ok as long as our evict queue is set up
     // correctly...
     lfs3_sblock_t block = lfs3_allocclaim(lfs3, mdir, LFS3_ALLOC_ERASE);
     if (block < 0) {
         return block;
     }
 
-    // copy the data
+    // Note we have a couple conflicting goals here.
     //
-    // yes, we copy everything, this avoids issues with block alignment,
-    // prog alignment, etc
+    // Ideally, we'd just copy the referenced data slice, leverage new
+    // erased-state, etc. But, thanks to dags, we don't know how many
+    // bptrs reference this block, and which bptr has the largest
+    // cksize. We could try to find the largest cksize first, but that
+    // would add complexity and risk O(FS^2) performance.
     //
-    // eviction should be a rare event, and not worth optimizing/
-    // complicating for
-    uint32_t cksum = 0;
+    // So the best we can do is copy the entire block, and then patch
+    // bptrs to reference the relevant slices.
+    //
+    // Fortunately, eviction should be a rare event, and not worth
+    // optimizing/complicating for.
+    //
+    // As a plus, this avoids all the possible alignment issues:
+    // crystallization block alignment, cross-driver erased prog
+    // alignment, etc.
+
+    // copy the entire block
+    //
+    // we don't really have a cksum we can use to validate this, but we
+    // still have CKPROGS, and future reads will have the relevant
+    // cksize+cksum, so we shouldn't be violating CKDATACKSUMS even
+    // though the block changed
     int err = lfs3_bd_cpy(lfs3, block, 0,
-            lfs3_bptr_block(bptr), 0, lfs3_bptr_cksize(bptr),
-            lfs3_bptr_cksize(bptr),
-            &cksum);
+            lfs3_bptr_block(bptr), 0, -1, lfs3->cfg->block_size,
+            NULL);
     if (err) {
         // bad prog? try another block
         if (err == LFS3_ERR_CORRUPT) {
             goto relocate;
         }
         return err;
-    }
-
-    // is the resulting cksum what we expect?
-    //
-    // note this is sufficient for LFS3_CKDATACKSUMS, and avoids
-    // unnecessary reads
-    //
-    // We technically don't need to check the cksum when not
-    // LFS3_CKDATACKSUMS, but there's very little reason not to. We're
-    // already reading the data, and block eviction has a heightened
-    // risk for corrupt data
-    if (cksum != lfs3_bptr_cksum(bptr)) {
-        LFS3_ERROR("Found bptr cksum mismatch during eviction "
-                    "0x%"PRIx32".%"PRIx32" %"PRId32", "
-                    "cksum %08"PRIx32" (!= %08"PRIx32")",
-                lfs3_bptr_block(bptr), 0,
-                lfs3_bptr_cksize(bptr),
-                cksum, lfs3_bptr_cksum(bptr));
-        // cksum mismatch here indicates a read error, so we should
-        // _not_ try another block
-        return LFS3_ERR_CORRUPT;
     }
 
     // finalize our write
@@ -2610,13 +2720,10 @@ relocate:;
 
     // update bptr
     bptr->d.u.disk.block = block;
-    // mark as erased if we're prog aligned, we might not be (different
-    // driver, config, crystal_thresh issues, etc)
-    if (lfs3_bptr_cksize(bptr) % lfs3->cfg->prog_size == 0) {
-        LFS3_IFDEF_CKDATACKSUMS(
-                bptr->d.u.disk.cksize,
-                bptr->cksize) |= LFS3_BPTR_ISERASED;
-    }
+    // clear the erased flag
+    LFS3_IFDEF_CKDATACKSUMS(
+            bptr->d.u.disk.cksize,
+            bptr->cksize) &= ~LFS3_BPTR_ISERASED;
     return 0;
 }
 #endif
@@ -8900,12 +9007,6 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3,
 }
 #endif
 
-// needed in lfs3_mdir_commit_
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionmdir(const lfs3_evict_t *evict,
-        const lfs3_mdir_t *mdir);
-#endif
-
 // mid-level mdir commit, this one will at least compact on overflow
 #ifndef LFS3_RDONLY
 static int lfs3_mdir_commit_(lfs3_t *lfs3,
@@ -8959,7 +9060,7 @@ compact:;
     // are we being evicted? definitely shouldn't try compacting, jump
     // straight to relocating
     #ifdef LFS3_EVICT
-    if (lfs3_evict_needsevictionmdir(&lfs3->evict, mdir)) {
+    if (lfs3_evict_needsevictionmdir(lfs3, mdir)) {
         goto relocate;
     }
     #endif
@@ -10395,7 +10496,7 @@ static int lfs3_mgc_compactmdir(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     }
 
     if (LFS3_IFDEF_EVICT(
-            lfs3_evict_needsevictionmdir(&lfs3->evict, mdir),
+            lfs3_evict_needsevictionmdir(lfs3, mdir),
             false)) {
         LFS3_INFO("Evicting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                 lfs3_dbgmbid(lfs3, mdir->mid),
@@ -10425,10 +10526,6 @@ static int lfs3_mgc_compactmdir(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static inline bool lfs3_alloc_cansyncgbmap(const lfs3_t *lfs3);
 static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionrbyd(const lfs3_evict_t *evict,
-        const lfs3_rbyd_t *rbyd);
-#endif
 
 // compact/evict btree nodes
 #ifndef LFS3_RDONLY
@@ -10456,7 +10553,7 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // mtree?
     if (mgc->t.h.mdir.mid == LFS3_MID_MTREE) {
         if (LFS3_IFDEF_EVICT(
-                lfs3_evict_needsevictionrbyd(&lfs3->evict, rbyd),
+                lfs3_evict_needsevictionrbyd(lfs3, rbyd),
                 false)) {
             LFS3_INFO("Evicting mtree rbyd 0x%"PRIx32".%"PRIx32,
                     rbyd->blocks[0],
@@ -10512,7 +10609,7 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             false)) {
     #ifdef LFS3_GBMAP
         if (LFS3_IFDEF_EVICT(
-                lfs3_evict_needsevictionrbyd(&lfs3->evict, rbyd),
+                lfs3_evict_needsevictionrbyd(lfs3, rbyd),
                 false)) {
             LFS3_INFO("Evicting gbmap rbyd 0x%"PRIx32".%"PRIx32,
                     rbyd->blocks[0],
@@ -10578,7 +10675,7 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // in a file?
     } else {
         if (LFS3_IFDEF_EVICT(
-                lfs3_evict_needsevictionrbyd(&lfs3->evict, rbyd),
+                lfs3_evict_needsevictionrbyd(lfs3, rbyd),
                 false)) {
             if (lfs3_bshrub_isbshrub(&mgc->t.btree)) {
                 LFS3_INFO("Evicting bshrub rbyd 0x%"PRIx32".%"PRIx32,
@@ -10711,8 +10808,7 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
                 // we also need to discard any fragments that
                 // may be in our btree/bshrub
-                if (!lfs3_bptr_isbptr(
-                        &((lfs3_file_t*)h)->leaf.bptr)) {
+                if (!lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr)) {
                     lfs3_file_discardleaf((lfs3_file_t*)h);
                 }
             }
@@ -10746,38 +10842,29 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // to write more than is necessary
     lfs3_alloc_ckpoint_(lfs3);
 
-    // first check if we have any bptrs with a larger cksize
-    //
-    // this doesn't find bptrs in btrees, so we still need to worry
-    // about dags exploding, but it at least simplifies bptr updates
-    // later
-    //
-    // and no reason to ignore known bptrs
-    for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                // we need to limit this to ungrafted bptr to avoid
-                // out-of-sync issues with references in the btree
-                && lfs3_o_needsgraft(h->flags)
-                && lfs3_bptr_block(&((lfs3_file_t*)h)->leaf.bptr)
-                    == lfs3_bptr_block(bptr)
-                && lfs3_bptr_cksize(&((lfs3_file_t*)h)->leaf.bptr)
-                    > lfs3_bptr_cksize(bptr)) {
-            LFS3_ASSERT(lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr));
-            *bptr = ((lfs3_file_t*)h)->leaf.bptr;
+    // did we already allocate a new block for this block? try to
+    // deduplicate dags
+    lfs3_evict_t *evict = lfs3_evict_evictionbptr(lfs3, bptr);
+    if (!evict->block_) {
+        // allocate + evict the bptr
+        int err = lfs3_bptr_evict(lfs3, &mgc->t.h.mdir, bptr);
+        if (err) {
+            return err;
         }
-    }
 
-    // save the current block
-    lfs3_block_t block = lfs3_bptr_block(bptr);
-    // evict the block
-    int err = lfs3_bptr_evict(lfs3, &mgc->t.h.mdir, bptr);
-    if (err) {
-        return err;
-    }
+        // keep track of new block to deduplicate dags
+        evict->block_ = lfs3_bptr_block(bptr);
 
-    LFS3_INFO("Evicting bptr 0x%"PRIx32" -> 0x%"PRIx32,
-            block,
-            lfs3_bptr_block(bptr));
+        LFS3_INFO("Evicting bptr 0x%"PRIx32" -> 0x%"PRIx32,
+                lfs3_evict_block(evict),
+                evict->block_);
+    }
+    // update bptr
+    bptr->d.u.disk.block = evict->block_;
+    // clear the erased flag
+    LFS3_IFDEF_CKDATACKSUMS(
+            bptr->d.u.disk.cksize,
+            bptr->cksize) &= ~LFS3_BPTR_ISERASED;
 
     // ok, that was the easy part, now we need to commit the bptr into
     // the btree, if there is one
@@ -10816,7 +10903,7 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // start tracking, this is the important bit
         lfs3_handle_open(lfs3, &file.h);
         // commit the bptr into the tree
-        err = lfs3_bshrub_commit_(lfs3, &file.bshrub,
+        int err = lfs3_bshrub_commit_(lfs3, &file.bshrub,
                 bid, &mgc->t.u.btrv.rbyd, rid, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_tag_MASK8 | LFS3_TAG_BLOCK, 0, 1,
                         LFS3_FROM_BPTR),
@@ -10878,20 +10965,9 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         || h->next == &mgc->t.h)) {
                 ((lfs3_file_t*)h)->bshrub = mgc->t.btree;
 
-                // TODO actually, can we reduce this to fragments and
-                // matching bptrs in the following loop? i.e. discard
-                // non-needsgrafted, replace grafted?
-                // TODO or match bid => leaf.pos?
-                //
                 // we also need to discard any fragments that
                 // may be in our btree/bshrub
-                //
-                // and any ungrafted bptrs, unfortunately
-                //
-                // even if bptr blocks match, we can't be sure we didn't
-                // find a dag, and we can't reliably set the ungrafted
-                // flag in case we're a rdonly file
-                if (!lfs3_o_needsgraft(h->flags)) {
+                if (!lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr)) {
                     lfs3_file_discardleaf((lfs3_file_t*)h);
                 }
             }
@@ -10907,20 +10983,31 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // update any open bptr references
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                // we need to limit this to ungrafted bptr to avoid
-                // out-of-sync issues with references in the btree
-                && lfs3_o_needsgraft(h->flags)
                 && lfs3_bptr_block(&((lfs3_file_t*)h)->leaf.bptr)
-                    == block) {
+                    == lfs3_evict_block(evict)) {
             LFS3_ASSERT(lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr));
-            // note because we found the largest cksize earlier, this
-            // should be safe even if cksize/cksum don't match
-            ((lfs3_file_t*)h)->leaf.bptr.d.u.disk.block
-                    = lfs3_bptr_block(bptr);
 
-            // also _don't_ update the erased flag, if the bptr was
-            // erased before it should be erased after, and we can't let
-            // more than one file leaf be marked as erased
+            // if we're ungrafted, update the bptr with the new block
+            if (lfs3_o_needsgraft(h->flags)) {
+                // update bptr
+                ((lfs3_file_t*)h)->leaf.bptr.d.u.disk.block = evict->block_;
+                // clear the erased flag
+                LFS3_IFDEF_CKDATACKSUMS(
+                            ((lfs3_file_t*)h)->leaf.bptr.d.u.disk.cksize,
+                            ((lfs3_file_t*)h)->leaf.bptr.cksize)
+                        &= ~LFS3_BPTR_ISERASED;
+                // mark as crystallized
+                h->flags &= ~LFS3_o_NEEDSCRYST;
+
+            // otherwise the best we can do is discard and force reads
+            // to find the bptr in the btree/bshrub again
+            //
+            // even if the blocks match, we can't be sure we didn't find
+            // a dag, which risks out-of-sync issues with references in
+            // the btree/bshrub
+            } else {
+                lfs3_file_discardleaf((lfs3_file_t*)h);
+            }
         }
     }
 
@@ -10941,10 +11028,6 @@ static int lfs3_gbmap_setbptr(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag_);
 static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
         const lfs3_btree_t *gbmap, lfs3_block_t known);
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionbptr(const lfs3_evict_t *evict,
-        const lfs3_bptr_t *bptr);
-#endif
 
 // mid-level mutating traversal, handle extra features that require
 // mutation here
@@ -11056,7 +11139,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_MDIR
             && lfs3_gc_isevict(mgc->t.h.flags)
-            && lfs3_evict_needsevictionmdir(&lfs3->evict,
+            && lfs3_evict_needsevictionmdir(lfs3,
                 (lfs3_mdir_t*)bptr.d.u.buffer)) {
         // this takes the same code path as mdir compaction, with
         // lfs3_mdir_commit_ changing behavior if it's in the eviction
@@ -11078,7 +11161,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_BRANCH
             && lfs3_gc_isevict(mgc->t.h.flags)
-            && lfs3_evict_needsevictionrbyd(&lfs3->evict,
+            && lfs3_evict_needsevictionrbyd(lfs3,
                 (lfs3_rbyd_t*)bptr.d.u.buffer)) {
         // this is humorously the same operation btree compaction
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
@@ -11099,7 +11182,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_BLOCK
             && lfs3_gc_isevict(mgc->t.h.flags)
-            && lfs3_evict_needsevictionbptr(&lfs3->evict, &bptr)) {
+            && lfs3_evict_needsevictionbptr(lfs3, &bptr)) {
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mgc_evictbptr(lfs3, mgc, &bptr);
         if (err) {
@@ -11988,47 +12071,6 @@ static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 
 
 
-/// Some eviction things ///
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline void lfs3_evict_discard(lfs3_evict_t *evict) {
-    evict->window = 0;
-    evict->size = 0;
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needseviction(const lfs3_evict_t *evict,
-        lfs3_block_t block) {
-    return block >= evict->window && block < evict->window + evict->size;
-}
-#endif
-
-// these just save a bit of typing
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionmdir(const lfs3_evict_t *evict,
-        const lfs3_mdir_t *mdir) {
-    return lfs3_evict_needseviction(evict, mdir->r.blocks[0])
-            || lfs3_evict_needseviction(evict, mdir->r.blocks[1]);
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionrbyd(const lfs3_evict_t *evict,
-        const lfs3_rbyd_t *rbyd) {
-    return lfs3_evict_needseviction(evict, rbyd->blocks[0]);
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionbptr(const lfs3_evict_t *evict,
-        const lfs3_bptr_t *bptr) {
-    return lfs3_evict_needseviction(evict, lfs3_bptr_block(bptr));
-}
-#endif
-
-
-
 /// Block allocator ///
 
 // needed in lfs3_alloc_ckpoint_
@@ -12494,7 +12536,7 @@ static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
         //
         // reallocating the block would be a tad bit counterproductive
         #ifdef LFS3_EVICT
-        if (lfs3_evict_needseviction(&lfs3->evict, block)) {
+        if (lfs3_evict_needseviction(lfs3, block)) {
             continue;
         }
         #endif
@@ -16785,9 +16827,19 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3_memset(lfs3->gbmap_d, 0, LFS3_GBMAP_DSIZE);
     #endif
 
-    // setup null evict window
-    #ifdef LFS3_EVICT
-    lfs3_evict_discard(&lfs3->evict);
+    // setup null evict queue
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    if (lfs3->cfg->evictqueue_array) {
+        lfs3->evictqueue.queue = lfs3->cfg->evictqueue_array;
+    } else {
+        lfs3->evictqueue.queue = lfs3_malloc(
+                lfs3->cfg->evictqueue_count*sizeof(lfs3_evict_t));
+        if (!lfs3->evictqueue.queue) {
+            err = LFS3_ERR_NOMEM;
+            goto failed;
+        }
+    }
+    lfs3_evict_discard(lfs3);
     #endif
 
     // setup gc state
@@ -16818,6 +16870,12 @@ static int lfs3_deinit(lfs3_t *lfs3) {
     #ifndef LFS3_RDONLY
     if (!lfs3->cfg->lookahead_buffer) {
         lfs3_free(lfs3->lookahead.buffer);
+    }
+    #endif
+
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    if (!lfs3->cfg->evictqueue_array) {
+        lfs3_free(lfs3->evictqueue.queue);
     }
     #endif
 
@@ -18234,7 +18292,7 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
     LFS3_ASSERT((flags & ~(
             LFS3_MKBAD_EVICT)) == 0);
     // eviction window should be null
-    LFS3_ASSERT(lfs3->evict.size == 0);
+    LFS3_ASSERT(lfs3->evictqueue.count == 0);
 
     // out-of-bounds?
     if (block >= lfs3->block_count) {
@@ -18244,16 +18302,18 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
     // evict?
     int err;
     if (lfs3_mkbad_isevict(flags)) {
-        // littlefs can't function if blocks 0x{0,1} are bad, so reject
+        // littlefs can't function without blocks 0x{0,1}, so reject
         // these
         if (block == 0 || block == 1) {
             return LFS3_ERR_BUSY;
         }
 
-        // setup our eviction window, this sidechannel tells the rest of
-        // the filesystem what blocks to avoid
-        lfs3->evict.window = block;
-        lfs3->evict.size = 1;
+        // block eviction needs an evict queue with at least one entry
+        LFS3_ASSERT(lfs3->cfg->evictqueue_count >= 1);
+
+        // put our block on the evict queue, this sidechannel tells the
+        // rest of the filesystem what blocks to avoid
+        lfs3_evict_push(lfs3, block);
 
         // run gc to evict the block
         //
@@ -18277,14 +18337,14 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         lfs3_handle_close(lfs3, &mgc.t.h);
 
         // reset eviction window
-        lfs3_evict_discard(&lfs3->evict);
+        lfs3_evict_discard(lfs3);
     }
 
     return 0;
 
 failed:;
     // make sure eviction window is null
-    lfs3_evict_discard(&lfs3->evict);
+    lfs3_evict_discard(lfs3);
     return err;
 }
 #endif

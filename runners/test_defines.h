@@ -16,6 +16,8 @@
     TEST_DEFINE(PCACHE_SIZE,            LFS3_MAX(16, PROG_SIZE)             )
     TEST_DEFINE(FCACHE_SIZE,            16                                  )
     TEST_DEFINE(LOOKAHEAD_SIZE,         16                                  )
+    TEST_DEFINE(LOOKGBMAP_THRESH,       BLOCK_COUNT/4                       )
+    TEST_DEFINE(EVICTQUEUE_COUNT,       2                                   )
     TEST_DEFINE(GC_FLAGS,               LFS3_GC_GC                          )
     TEST_DEFINE(GC_STEPS,               0                                   )
     TEST_DEFINE(GC_LOOKAHEAD_THRESH,    -1                                  )
@@ -25,7 +27,6 @@
     TEST_DEFINE(SHRUB_SIZE,             BLOCK_SIZE/8                        )
     TEST_DEFINE(FRAGMENT_SIZE,          LFS3_MIN(BLOCK_SIZE/16, 512)        )
     TEST_DEFINE(CRYSTAL_THRESH,         BLOCK_SIZE/16                       )
-    TEST_DEFINE(LOOKGBMAP_THRESH,       BLOCK_COUNT/4                       )
     TEST_DEFINE(ERASE_VALUE,            0xff                                )
     #ifndef TEST_KIWIBD
     TEST_DEFINE(ERASE_CYCLES,           0                                   )
@@ -52,11 +53,14 @@
         .fcache_size                    = FCACHE_SIZE,
         .lookahead_size                 = LOOKAHEAD_SIZE,
         #ifdef LFS3_GBMAP
-        .gc_lookgbmap_thresh            = GC_LOOKGBMAP_THRESH,
         .lookgbmap_thresh               = LOOKGBMAP_THRESH,
+        .gc_lookgbmap_thresh            = GC_LOOKGBMAP_THRESH,
         #endif
         #ifdef LFS3_PREERASE
         .gc_preerase_count              = GC_PREERASE_COUNT,
+        #endif
+        #ifdef LFS3_EVICT
+        .evictqueue_count               = EVICTQUEUE_COUNT,
         #endif
         #ifdef LFS3_GC
         .gc_flags                       = GC_FLAGS,

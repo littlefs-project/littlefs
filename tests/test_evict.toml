@@ -3338,8 +3338,8 @@ code = '''
             break;
         }
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (tinfo.btype == LFS3_BTYPE_DATA) {
+            assert(tinfo.block == victim);
             count += 1;
         }
     }
@@ -3373,6 +3373,29 @@ code = '''
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // but we should still only have one block in use, twice, because
+    // it's a dag
+    lfs3_block_t block = 0;
+    count = 0;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        if (tinfo.btype == LFS3_BTYPE_DATA) {
+            assert(!block || tinfo.block == block);
+            count += 1;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+    assert(count == 2);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -3476,9 +3499,9 @@ code = '''
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // but we should still be marked as erased! not because we kept the
-    // erased state, but because we wrote a whole new half block
-    assert(lfs3_bptr_iserased(&file.leaf.bptr));
+    // we should no longer be marked as erased
+    assert(file.leaf.bptr.d.u.disk.block == 0
+            || !lfs3_bptr_iserased(&file.leaf.bptr));
 
     // check we can still read the file
     uint8_t rbuf[BLOCK_SIZE];
@@ -4766,10 +4789,10 @@ defines.SIZE = [
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
     '2*BLOCK_SIZE',
-    # TODO can we fit this with better dag handling?
-    # '4*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
 ]
 defines.ESEED = 42
+if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     // test creating files
     lfs3_t lfs3;

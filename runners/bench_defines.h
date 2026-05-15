@@ -34,6 +34,8 @@
     BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)             )
     BENCH_DEFINE(FCACHE_SIZE,           16                                  )
     BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                  )
+    BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
+    BENCH_DEFINE(EVICTQUEUE_COUNT,      2                                   )
     BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                          )
     BENCH_DEFINE(GC_STEPS,              0                                   )
     BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   -1                                  )
@@ -43,7 +45,6 @@
     BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/8                        )
     BENCH_DEFINE(FRAGMENT_SIZE,         LFS3_MIN(BLOCK_SIZE/16, 512)        )
     BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/16                       )
-    BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
     // don't bother simulating erases, this may be less realistic, but
     // it's certainly faster!
     BENCH_DEFINE(ERASE_VALUE,           -1                                  )
@@ -158,11 +159,14 @@
         .fcache_size                    = FCACHE_SIZE,
         .lookahead_size                 = LOOKAHEAD_SIZE,
         #ifdef LFS3_GBMAP
-        .gc_lookgbmap_thresh            = GC_LOOKGBMAP_THRESH,
         .lookgbmap_thresh               = LOOKGBMAP_THRESH,
+        .gc_lookgbmap_thresh            = GC_LOOKGBMAP_THRESH,
         #endif
         #ifdef LFS3_PREERASE
         .gc_preerase_count              = GC_PREERASE_COUNT,
+        #endif
+        #ifdef LFS3_EVICT
+        .evictqueue_count               = EVICTQUEUE_COUNT,
         #endif
         #ifdef LFS3_GC
         .gc_flags                       = GC_FLAGS,
