@@ -30,7 +30,7 @@
     TEST_DEFINE(ERASE_VALUE,            0xff                                )
     #ifndef TEST_KIWIBD
     TEST_DEFINE(ERASE_CYCLES,           0                                   )
-    TEST_DEFINE(BADBLOCK_BEHAVIOR,      LFS3_EMUBD_BADBLOCK_PROGERROR       )
+    TEST_DEFINE(BADBLOCK_BEHAVIOR,      LFS3_EMUBD_BADBLOCK_PROGCORRUPT     )
     TEST_DEFINE(POWERLOSS_BEHAVIOR,     LFS3_EMUBD_POWERLOSS_ATOMIC         )
     TEST_DEFINE(BD_SEED,                0                                   )
     #endif
