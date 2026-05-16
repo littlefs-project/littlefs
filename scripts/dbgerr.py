@@ -13,19 +13,22 @@ ERR_UNKNOWN     = -1    # Unknown error
 ERR_INVAL       = -22   # Invalid parameter
 ERR_NOTSUP      = -95   # Operation not supported
 ERR_BUSY        = -16   # Device or resource busy
+ERR_NOMEM       = -12   # No more memory available
 ERR_IO          = -5    # Error during device operation
-ERR_CORRUPT     = -84   # Corrupted
+ERR_DAMAGED     = -82   # Data is ok, but needs repair
+ERR_CONDEMNED   = -83   # Data is ok, but block is bad
+ERR_CORRUPT     = -84   # Data is corrupt
+ERR_BAD         = -85   # Data is corrupt, block is bad
 ERR_NOENT       = -2    # No directory entry
 ERR_EXIST       = -17   # Entry already exists
 ERR_NOTDIR      = -20   # Entry is not a dir
 ERR_ISDIR       = -21   # Entry is a dir
 ERR_NOTEMPTY    = -39   # Dir is not empty
-ERR_FBIG        = -27   # File too large
-ERR_NOSPC       = -28   # No space left on device
-ERR_NOMEM       = -12   # No more memory available
 ERR_NOATTR      = -61   # No data/attr available
 ERR_NAMETOOLONG = -36   # File name too long
+ERR_FBIG        = -27   # File too large
 ERR_RANGE       = -34   # Result out of range
+ERR_NOSPC       = -28   # No space left on device
 
 
 # self-parsing error codes

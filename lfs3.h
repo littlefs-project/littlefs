@@ -73,24 +73,32 @@ typedef int32_t  lfs3_sdid_t;
 // Possible error codes, these are negative to allow
 // valid positive return values
 enum lfs3_err {
+    // common errors
     LFS3_ERR_OK          = 0,    // No error
     LFS3_ERR_UNKNOWN     = -1,   // Unknown error
     LFS3_ERR_INVAL       = -22,  // Invalid parameter
     LFS3_ERR_NOTSUP      = -95,  // Operation not supported
     LFS3_ERR_BUSY        = -16,  // Device or resource busy
+    LFS3_ERR_NOMEM       = -12,  // No more memory available
+
+    // bd errors
     LFS3_ERR_IO          = -5,   // Error during device operation
-    LFS3_ERR_CORRUPT     = -84,  // Corrupted
+    LFS3_ERR_DAMAGED     = -82,  // Data is ok, but needs repair
+    LFS3_ERR_CONDEMNED   = -83,  // Data is ok, but block is bad
+    LFS3_ERR_CORRUPT     = -84,  // Data is corrupt
+    LFS3_ERR_BAD         = -85,  // Data is corrupt, block is bad
+
+    // filesystem errors
     LFS3_ERR_NOENT       = -2,   // No directory entry
     LFS3_ERR_EXIST       = -17,  // Entry already exists
     LFS3_ERR_NOTDIR      = -20,  // Entry is not a dir
     LFS3_ERR_ISDIR       = -21,  // Entry is a dir
     LFS3_ERR_NOTEMPTY    = -39,  // Dir is not empty
-    LFS3_ERR_FBIG        = -27,  // File too large
-    LFS3_ERR_NOSPC       = -28,  // No space left on device
-    LFS3_ERR_NOMEM       = -12,  // No more memory available
     LFS3_ERR_NOATTR      = -61,  // No data/attr available
     LFS3_ERR_NAMETOOLONG = -36,  // File name too long
+    LFS3_ERR_FBIG        = -27,  // File too large
     LFS3_ERR_RANGE       = -34,  // Result out of range
+    LFS3_ERR_NOSPC       = -28,  // No space left on device
 };
 
 // File types
