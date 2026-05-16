@@ -4940,10 +4940,14 @@ static int lfs3_rbyd_commit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
 
 // Calculate the maximum possible disk usage required by this rbyd after
-// compaction. This uses a conservative estimate so the actual on-disk cost
-// should be smaller.
+// compaction. This uses a conservative estimate so the actual on-disk
+// cost should be smaller.
 //
-// This also returns a good split_rid in case the rbyd needs to be split.
+// This also returns a good split_rid in case the rbyd needs to be
+// split.
+//
+// Note we use simple constants for tags included in shrubs, to help
+// simplify shrub estimate updates.
 //
 // TODO do we need to include commit overhead here?
 #ifndef LFS3_RDONLY
@@ -6784,6 +6788,12 @@ static inline lfs3_size_t lfs3_shrub_trunk(const lfs3_shrub_t *shrub) {
     return lfs3_rbyd_trunk(shrub);
 }
 
+#ifndef LFS3_RDONLY
+static inline bool lfs3_shrub_isfetched(const lfs3_shrub_t *shrub) {
+    return lfs3_rbyd_isfetched(shrub);
+}
+#endif
+
 static inline lfs3_file_t *lfs3_shrub_file(lfs3_shrub_t *shrub) {
     lfs3_file_t f;
     return (lfs3_file_t*)((uint8_t*)shrub
@@ -6853,12 +6863,45 @@ static int lfs3_data_readshrub(lfs3_t *lfs3,
     return 0;
 }
 
+// fetching for shrubs just means finding the shrub estimate
+//
+// we don't store this on-disk as it depends on a lot of internal
+// variables, worst-case leb128 encoding, etc, and would be easily
+// broken by driver changes
+//
+// note, unlike rbyds, we never need to discard this once fetched
+#ifndef LFS3_RDONLY
+static int lfs3_shrub_fetch(lfs3_t *lfs3, lfs3_shrub_t *shrub) {
+    lfs3_ssize_t estimate = lfs3_rbyd_estimate(lfs3, shrub, -1, -1,
+            NULL);
+    if (estimate < 0) {
+        return estimate;
+    }
+
+    // we abuse eoff here because we're not using it for anything else
+    shrub->eoff = estimate;
+    return 0;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static int lfs3_shrub_mkfetched(lfs3_t *lfs3, lfs3_shrub_t *shrub) {
+    // already fetched?
+    if (lfs3_shrub_isfetched(shrub)) {
+        return 0;
+
+    // fetch the shrub estimate
+    } else {
+        return lfs3_shrub_fetch(lfs3, shrub);
+    }
+}
+#endif
+
 // these are used in mdir commit/compaction
 
 // true if this is the last or only shrub reference in our handles
 #ifndef LFS3_RDONLY
-static bool lfs3_shrub_islast(lfs3_t *lfs3,
-        const lfs3_shrub_t *shrub) {
+static bool lfs3_shrub_islast(const lfs3_t *lfs3, const lfs3_shrub_t *shrub) {
     const lfs3_shrub_t *last = NULL;
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
@@ -6868,6 +6911,36 @@ static bool lfs3_shrub_islast(lfs3_t *lfs3,
     }
 
     return !last || shrub == last;
+}
+#endif
+
+// sneak shrub commits into mdir commits
+#ifndef LFS3_RDONLY
+static int lfs3_shrub_commit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
+        lfs3_shrub_t *shrub, lfs3_srid_t rid,
+        const lfs3_rattr_t *rattrs) {
+    // swap out our trunk/weight temporarily, note we're
+    // operating on a copy so if this fails we shouldn't mess
+    // things up too much
+    //
+    // it is important that these rbyds share eoff/cksum/etc
+    lfs3_size_t trunk = rbyd_->trunk;
+    lfs3_srid_t weight = rbyd_->weight;
+    rbyd_->trunk = shrub->trunk;
+    rbyd_->weight = shrub->weight;
+
+    // append any shrub attributes
+    int err = lfs3_rbyd_appendrattrs(lfs3, rbyd_, rid, -1, -1, rattrs);
+    if (err) {
+        return err;
+    }
+
+    // restore mdir to the main trunk/weight
+    shrub->trunk = rbyd_->trunk;
+    shrub->weight = rbyd_->weight;
+    rbyd_->trunk = trunk;
+    rbyd_->weight = weight;
+    return 0;
 }
 #endif
 
@@ -6902,36 +6975,6 @@ static int lfs3_shrub_compact(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
     shrub_->blocks[0] = rbyd_->blocks[0];
     shrub_->trunk = rbyd_->trunk;
     shrub_->weight = rbyd_->weight;
-    rbyd_->trunk = trunk;
-    rbyd_->weight = weight;
-    return 0;
-}
-#endif
-
-// sneak shrub commits into mdir commits
-#ifndef LFS3_RDONLY
-static int lfs3_shrub_commit(lfs3_t *lfs3, lfs3_rbyd_t *rbyd_,
-        lfs3_shrub_t *shrub, lfs3_srid_t rid,
-        const lfs3_rattr_t *rattrs) {
-    // swap out our trunk/weight temporarily, note we're
-    // operating on a copy so if this fails we shouldn't mess
-    // things up too much
-    //
-    // it is important that these rbyds share eoff/cksum/etc
-    lfs3_size_t trunk = rbyd_->trunk;
-    lfs3_srid_t weight = rbyd_->weight;
-    rbyd_->trunk = shrub->trunk;
-    rbyd_->weight = shrub->weight;
-
-    // append any shrub attributes
-    int err = lfs3_rbyd_appendrattrs(lfs3, rbyd_, rid, -1, -1, rattrs);
-    if (err) {
-        return err;
-    }
-
-    // restore mdir to the main trunk/weight
-    shrub->trunk = rbyd_->trunk;
-    shrub->weight = rbyd_->weight;
     rbyd_->trunk = trunk;
     rbyd_->weight = weight;
     return 0;
@@ -7055,30 +7098,55 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     lfs3_file_t *file = lfs3_bshrub_file(bshrub);
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
     LFS3_ASSERT(lfs3_o_type(file->h.flags) == LFS3_TYPE_REG);
+    // note that we may _not_ be a bshrub, if we're transition from
+    // btree -> bshrub
 
-    // this is where shestimate becomes important, we need to prevent
-    // our shrub from overflowing its mdir somehow
+    // before committing, we need to figure out if we will overflow the
+    // configured shrub_size
+    //
+    // this is where our shrub estimate and bcommit->shestimate become
+    // important, we don't have much to go on beside what we track
+    // ourselves
+    //
+    // we don't store this on-disk as it depends on a lot of internal
+    // variables, worst-case leb128 encoding, etc, and would be easily
+    // broken by driver changes
+    //
+    // but we do use simple constants (see lfs3_rbyd_estimate), to make
+    // it easy to manipulate
 
-    // check if this shrub + any not-in-sync shrub references will
-    // exceed our shrub_size
-
-    // we should be marked as needssync here
-    LFS3_ASSERT(lfs3_o_needssync(file->h.flags));
+    // calculate sum of all not-in-sync shrub estimates to see if we
+    // will exceed our shrub_size
+    //
     // note this loop includes our current bshrub, if it is a bshrub
+    //
+    // TODO should we deduplicate shrubs here like we do in
+    // lfs3_rbyd_estimate? note lfs3_shrub_islast doesn't work as-is
+    // due to mixed sync/needssync file handles
     lfs3_size_t shestimate = 0;
+    // we should be marked as not-in-sync here
+    LFS3_ASSERT(lfs3_o_needssync(file->h.flags));
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 && h->mdir.mid == file->h.mdir.mid
-                && lfs3_bshrub_isbshrub(&((lfs3_file_t*)h)->bshrub)
                 // only include not-in-sync shrubs
-                //
-                // TODO should we deduplicate shrubs here like we do in
-                // lfs3_rbyd_estimate? note lfs3_shrub_islast doesn't
-                // work as-is due to mixed sync/needssync file handles
-                && lfs3_o_needssync(h->flags)) {
+                && lfs3_o_needssync(h->flags)
+                && lfs3_shrub_isshrub(&((lfs3_file_t*)h)->bshrub)) {
+            // make sure the shrub estimate is fetched
+            //
+            // yes not-in-sync shrubs may be unfetched, things gets a
+            // bit weird for desynced rdonly shrubs
+            int err = lfs3_shrub_mkfetched(lfs3, bshrub);
+            if (err) {
+                return err;
+            }
+
+            // sum the shrub estimates
+            //
             // we abuse eoff here because we're not using it for
             // anything else
-            shestimate = lfs3_sadd(shestimate, ((lfs3_file_t*)h)->bshrub.eoff);
+            shestimate = lfs3_sadd(shestimate,
+                    ((lfs3_file_t*)h)->bshrub.eoff);
         }
     }
 
@@ -10722,19 +10790,6 @@ static int lfs3_mgc_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         file.h.mdir = mgc->t.h.mdir;
         file.bshrub = mgc->t.btree;
 
-        // TODO should we have a small wrapper for this for readability?
-        // lfs3_file_estimate?
-        // find the shrub estimate
-        if (lfs3_bshrub_isbshrub(&file.bshrub)) {
-            lfs3_ssize_t estimate = lfs3_rbyd_estimate(lfs3,
-                    &file.bshrub, -1, -1,
-                    NULL);
-            if (estimate < 0) {
-                return estimate;
-            }
-            file.bshrub.eoff = estimate;
-        }
-
         // start tracking, this is the important bit
         lfs3_handle_open(lfs3, &file.h);
         // lfs3_bshrub_compact_ mutates the rbyd, which may point at
@@ -10879,18 +10934,6 @@ static int lfs3_mgc_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 | LFS3_o_NEEDSSYNC;
         file.h.mdir = mgc->t.h.mdir;
         file.bshrub = mgc->t.btree;
-
-        // TODO should we have a small wrapper for this for readability?
-        // lfs3_file_estimate?
-        if (lfs3_bshrub_isbshrub(&file.bshrub)) {
-            lfs3_ssize_t estimate = lfs3_rbyd_estimate(lfs3,
-                    &file.bshrub, -1, -1,
-                    NULL);
-            if (estimate < 0) {
-                return estimate;
-            }
-            file.bshrub.eoff = estimate;
-        }
 
         // start tracking, this is the important bit
         lfs3_handle_open(lfs3, &file.h);
@@ -13898,30 +13941,6 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
             return err;
         }
         if (err != LFS3_ERR_NOENT) {
-            // if we're opening for writing, we need to find an upper
-            // bound on any bshrub shrubs that can be easily updated
-            // during bshrub commits, we use this in lfs3_bshrub_commit
-            // to determine when shrubs exceed shrub_size and need to be
-            // evicted
-            //
-            // we don't store this on-disk as it depends on a lot of
-            // internal variables, such as worst-case leb128 encoding,
-            // and would be easily broken by driver changes
-            #ifndef LFS3_RDONLY
-            if (!lfs3_o_isrdonly(flags)
-                    && lfs3_shrub_isshrub(&bshrub)) {
-                lfs3_ssize_t estimate = lfs3_rbyd_estimate(lfs3,
-                        &bshrub, -1, -1,
-                        NULL);
-                if (estimate < 0) {
-                    return estimate;
-                }
-                // we abuse eoff here because we're not using it for
-                // anything else
-                bshrub.eoff = estimate;
-            }
-            #endif
-
             // update with found bshrub/btree
             file->bshrub = bshrub;
         }
