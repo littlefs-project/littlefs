@@ -7115,34 +7115,43 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
     // but we do use simple constants (see lfs3_rbyd_estimate), to make
     // it easy to manipulate
 
-    // calculate sum of all not-in-sync shrub estimates to see if we
-    // will exceed our shrub_size
-    //
-    // note this loop includes our current bshrub, if it is a bshrub
-    //
-    // TODO should we deduplicate shrubs here like we do in
-    // lfs3_rbyd_estimate? note lfs3_shrub_islast doesn't work as-is
-    // due to mixed sync/needssync file handles
+    // include our current shrub estimate, if we have one
     lfs3_size_t shestimate = 0;
-    // we should be marked as not-in-sync here
-    LFS3_ASSERT(lfs3_o_needssync(file->h.flags));
+    if (lfs3_bshrub_isbshrub(bshrub)) {
+        // fetch shrub estimate if we haven't already
+        int err = lfs3_shrub_mkfetched(lfs3, bshrub);
+        if (err) {
+            return err;
+        }
+
+        // we abuse eoff here because we're not using it for
+        // anything else
+        shestimate = lfs3_sadd(shestimate, bshrub->eoff);
+    }
+
+    // check if this shrub + any not-in-sync shrub references will
+    // exceed our shrub_size
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
         if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
                 && h->mdir.mid == file->h.mdir.mid
+                // don't double include our shrub
+                && !lfs3_shrub_cmp(&((lfs3_file_t*)h)->bshrub, bshrub) == 0
                 // only include not-in-sync shrubs
                 && lfs3_o_needssync(h->flags)
-                && lfs3_shrub_isshrub(&((lfs3_file_t*)h)->bshrub)) {
+                && lfs3_shrub_isshrub(&((lfs3_file_t*)h)->bshrub)
+                // deduplicate shrubs, yes this can happen with desynced
+                // rdonly shrubs
+                && lfs3_shrub_islast(lfs3, &((lfs3_file_t*)h)->bshrub)) {
             // make sure the shrub estimate is fetched
             //
             // yes not-in-sync shrubs may be unfetched, things gets a
             // bit weird for desynced rdonly shrubs
-            int err = lfs3_shrub_mkfetched(lfs3, bshrub);
+            int err = lfs3_shrub_mkfetched(lfs3,
+                    &((lfs3_file_t*)h)->bshrub);
             if (err) {
                 return err;
             }
 
-            // sum the shrub estimates
-            //
             // we abuse eoff here because we're not using it for
             // anything else
             shestimate = lfs3_sadd(shestimate,
