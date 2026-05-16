@@ -2933,9 +2933,6 @@ static int lfs3_rbyd_ckecksum(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 }
 #endif
 
-// rbyd fetch flags
-#define LFS3_RBYD_QUICKFETCH 0x80000000 // only fetch one trunk
-
 // optional height calculation for debugging rbyd balance
 typedef struct lfs3_rheight {
     lfs3_size_t height;
@@ -2950,12 +2947,8 @@ static lfs3_stag_t lfs3_rbyd_lookupnext_(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 
 // fetch an rbyd
 static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
-        lfs3_block_t block, lfs3_ssize_t trunk,
+        lfs3_block_t block, lfs3_ssize_t trunk, bool quickfetch,
         uint32_t *gcksumdelta_) {
-    // are we quickfetching?
-    bool quickfetch = (trunk+1) & LFS3_RBYD_QUICKFETCH;
-    trunk = ((trunk+1) & ~LFS3_RBYD_QUICKFETCH) - 1;
-
     // set up some initial state
     rbyd->blocks[0] = block;
     rbyd->trunk = 0;
@@ -3283,7 +3276,7 @@ static int lfs3_rbyd_fetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     LFS3_ASSERT(trunk == (lfs3_size_t)-1
             || !(trunk & LFS3_RBYD_ISSHRUB));
 
-    return lfs3_rbyd_fetch_(lfs3, rbyd, block, trunk,
+    return lfs3_rbyd_fetch_(lfs3, rbyd, block, trunk, false,
             NULL);
 }
 
@@ -3302,8 +3295,7 @@ static int lfs3_rbyd_quickfetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // the only thing quick fetch can't figure out is the checksum
     rbyd->cksum = cksum;
 
-    int err = lfs3_rbyd_fetch_(lfs3, rbyd,
-            block, LFS3_RBYD_QUICKFETCH | trunk,
+    int err = lfs3_rbyd_fetch_(lfs3, rbyd, block, trunk, true,
             NULL);
     if (err) {
         return err;
@@ -8180,7 +8172,7 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // try to fetch rbyds in the order of most recent to least recent
     for (int i = 0; i < 2; i++) {
-        int err = lfs3_rbyd_fetch_(lfs3, &mdir->r, blocks[0], -1,
+        int err = lfs3_rbyd_fetch_(lfs3, &mdir->r, blocks[0], -1, false,
                 &mdir->gcksumdelta);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
