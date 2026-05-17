@@ -2255,9 +2255,14 @@ static lfs3_scmp_t lfs3_attr_cmp(lfs3_t *lfs3, const struct lfs3_attr *attr,
 
 // block allocator flags
 #define LFS3_ALLOC_ERASE    0x000000001 // Please erase the block
+#define LFS3_ALLOC_CLAIM    0x000000002 // Claim erased state
 
 static inline bool lfs3_alloc_iserase(uint32_t flags) {
     return flags & LFS3_ALLOC_ERASE;
+}
+
+static inline bool lfs3_alloc_isclaim(uint32_t flags) {
+    return flags & LFS3_ALLOC_CLAIM;
 }
 
 // checkpoint the allocator
@@ -2283,7 +2288,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags);
 
 // allocate a block and sync gbmap if necessary
 #ifndef LFS3_RDONLY
-static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
+static lfs3_sblock_t lfs3_allocwith(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         uint32_t flags);
 #endif
 
@@ -2640,7 +2645,8 @@ static int lfs3_data_fetchbptr(lfs3_t *lfs3, lfs3_data_t *data,
 #ifndef LFS3_RDONLY
 static int lfs3_bptr_alloc(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         lfs3_bptr_t *bptr) {
-    lfs3_sblock_t block = lfs3_allocclaim(lfs3, mdir, LFS3_ALLOC_ERASE);
+    lfs3_sblock_t block = lfs3_allocwith(lfs3, mdir,
+            LFS3_ALLOC_ERASE | LFS3_ALLOC_CLAIM);
     if (block < 0) {
         return block;
     }
@@ -2694,7 +2700,8 @@ relocate:;
     // this does potentially commit to the mdir to claim the block,
     // but that should be ok as long as our evict queue is set up
     // correctly...
-    lfs3_sblock_t block = lfs3_allocclaim(lfs3, mdir, LFS3_ALLOC_ERASE);
+    lfs3_sblock_t block = lfs3_allocwith(lfs3, mdir,
+            LFS3_ALLOC_ERASE | LFS3_ALLOC_CLAIM);
     if (block < 0) {
         return block;
     }
@@ -12687,7 +12694,7 @@ static lfs3_sblock_t lfs3_alloc(lfs3_t *lfs3, uint32_t flags) {
 }
 #endif
 
-// needed in lfs3_allocclaim
+// needed in lfs3_allocwith
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 #endif
@@ -12696,7 +12703,7 @@ static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 //
 // preerase: gbmap is synced if necessary, no perturb needed
 #ifndef LFS3_RDONLY
-static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
+static lfs3_sblock_t lfs3_allocwith(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         uint32_t flags) {
     (void)mdir;
     #ifdef LFS3_PREERASE
@@ -12712,7 +12719,8 @@ static lfs3_sblock_t lfs3_allocclaim(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     #ifdef LFS3_PREERASE
     // need to claim?
-    if (lfs3_ecksum_isecksum(&ecksum_)) {
+    if (lfs3_alloc_isclaim(flags)
+            && lfs3_ecksum_isecksum(&ecksum_)) {
         LFS3_ASSERT(lfs3_alloc_cansyncgbmap(lfs3));
         // lfs3_mdir_commit implicitly commits any pending gbmap state
         //
@@ -15209,7 +15217,8 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         // if we relocate, we rewrite the entire block from block_pos
         // using what we can find in our tree/leaf/cache
         //
-        block_ = lfs3_allocclaim(lfs3, &file->h.mdir, LFS3_ALLOC_ERASE);
+        block_ = lfs3_allocwith(lfs3, &file->h.mdir,
+                LFS3_ALLOC_ERASE | LFS3_ALLOC_CLAIM);
         if (block_ < 0) {
             return block_;
         }

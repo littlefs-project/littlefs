@@ -210,6 +210,7 @@ RBYD_QUICKFETCH = 0x00000001  # i-  Only fetch one trunk
 
 # Block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
+ALLOC_CLAIM     = 0x00000002  # i-  Claim erased state
 
 # On-disk read-compat flags - Must understand to read the filesystem
 RCOMPAT_WRONLY  =     0x0001  # --  Reading is disallowed
