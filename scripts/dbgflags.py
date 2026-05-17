@@ -203,6 +203,7 @@ MKBAD_EVICT     = 0x00000010  # --  Delete all references to this block
 
 # Bd prog flags
 PROG_ALIGN      = 0x00000001  # i-  Align cksums to prog boundaries
+PROG_PERTURB    = 0x80000000  # i-  Perturb valid bit in tags
 
 # Rbyd fetch flags
 RBYD_QUICKFETCH = 0x00000001  # i-  Only fetch one trunk

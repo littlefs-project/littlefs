@@ -29,10 +29,15 @@ typedef int lfs3_sbool_t;
 
 
 // prog flags
-#define LFS3_PROG_ALIGN 0x00000001 // Align cksums to prog boundaries
+#define LFS3_PROG_ALIGN   0x00000001 // Align cksums to prog boundaries
+#define LFS3_PROG_PERTURB 0x80000000 // Perturb valid bit in tags
 
 static inline bool lfs3_prog_isalign(uint32_t flags) {
     return flags & LFS3_PROG_ALIGN;
+}
+
+static inline bool lfs3_prog_perturb(uint32_t flags) {
+    return flags & LFS3_PROG_PERTURB;
 }
 
 
@@ -1467,7 +1472,7 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
 
 #ifndef LFS3_RDONLY
 static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
-        lfs3_block_t block, lfs3_size_t off, bool perturb,
+        lfs3_block_t block, lfs3_size_t off,
         lfs3_tag_t tag, lfs3_rid_t weight, lfs3_size_t size, uint32_t flags,
         uint32_t *cksum) {
     // we set the valid bit here
@@ -1482,7 +1487,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
     // set the valid bit to the parity of the current checksum, inverted
     // if the perturb bit is set, and exclude from the next checksum
     LFS3_ASSERT(cksum);
-    bool v = lfs3_parity(*cksum) ^ perturb;
+    bool v = lfs3_parity(*cksum) ^ lfs3_prog_perturb(flags);
     tag |= (lfs3_tag_t)v << 15;
     *cksum ^= (uint32_t)v << 7;
 
@@ -2854,7 +2859,7 @@ static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
 /// Red-black-yellow Dhara tree operations ///
 
 #define LFS3_RBYD_ISSHRUB 0x80000000
-#define LFS3_RBYD_ISPERTURB 0x80000000
+#define LFS3_RBYD_PERTURB 0x80000000
 
 // helper functions
 static void lfs3_rbyd_init(lfs3_rbyd_t *rbyd, lfs3_block_t block) {
@@ -2890,13 +2895,13 @@ static inline bool lfs3_rbyd_isfetched(const lfs3_rbyd_t *rbyd) {
 
 #ifndef LFS3_RDONLY
 static inline bool lfs3_rbyd_isperturb(const lfs3_rbyd_t *rbyd) {
-    return rbyd->eoff & LFS3_RBYD_ISPERTURB;
+    return rbyd->eoff & LFS3_RBYD_PERTURB;
 }
 #endif
 
 #ifndef LFS3_RDONLY
 static inline lfs3_size_t lfs3_rbyd_eoff(const lfs3_rbyd_t *rbyd) {
-    return rbyd->eoff & ~LFS3_RBYD_ISPERTURB;
+    return rbyd->eoff & ~LFS3_RBYD_PERTURB;
 }
 #endif
 
@@ -3638,8 +3643,9 @@ static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     }
 
     lfs3_ssize_t d = lfs3_bd_progtag(lfs3,
-            rbyd->blocks[0], lfs3_rbyd_eoff(rbyd), lfs3_rbyd_isperturb(rbyd),
-            tag, weight, size, 0,
+            rbyd->blocks[0], lfs3_rbyd_eoff(rbyd),
+            tag, weight, size,
+            (lfs3_rbyd_isperturb(rbyd)) ? LFS3_PROG_PERTURB : 0,
             &rbyd->cksum);
     if (d < 0) {
         return d;
