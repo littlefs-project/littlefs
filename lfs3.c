@@ -851,7 +851,7 @@ static int lfs3_bd_cksuffix(lfs3_t *lfs3,
 // significantly more than the data we actually end up using
 //
 #ifdef LFS3_CKDATACKSUMS
-static int lfs3_bd_readck(lfs3_t *lfs3,
+static int lfs3_bd_ckread(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         lfs3_size_t cksize, uint32_t cksum,
         void *buffer, lfs3_size_t size, uint32_t flags) {
@@ -898,10 +898,10 @@ static int lfs3_bd_readck(lfs3_t *lfs3,
 // unchecked counterparts, but we don't generally use both at the same
 // time
 //
-// we'd also need to worry about early termination in lfs3_bd_cmp/cmpck
+// we'd also need to worry about early termination in lfs3_bd_cmp/ckcmp
 
 #ifdef LFS3_CKDATACKSUMS
-static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
+static lfs3_scmp_t lfs3_bd_ckcmp(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         lfs3_size_t cksize, uint32_t cksum,
         const void *buffer, lfs3_size_t size, uint32_t flags) {
@@ -965,7 +965,7 @@ static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_CKDATACKSUMS)
-static int lfs3_bd_cpyck(lfs3_t *lfs3,
+static int lfs3_bd_ckcpy(lfs3_t *lfs3,
         lfs3_block_t dst_block, lfs3_size_t dst_off,
         lfs3_block_t src_block, lfs3_size_t src_off, lfs3_size_t hint,
         lfs3_size_t size,
@@ -1656,7 +1656,7 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
                     && lfs3_data_isbptr(data),
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
-            int err = lfs3_bd_readck(lfs3,
+            int err = lfs3_bd_ckread(lfs3,
                     data->u.disk.block,
                     lfs3_data_off(data),
                     // note our hint includes the full data range
@@ -1769,7 +1769,7 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
                     && lfs3_data_isbptr(data),
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
-            int cmp = lfs3_bd_cmpck(lfs3,
+            int cmp = lfs3_bd_ckcmp(lfs3,
                     // note the 0 hint, we don't usually use any
                     // following data
                     data->u.disk.block, lfs3_data_off(data), 0,
@@ -1849,7 +1849,7 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
                     && lfs3_data_isbptr(data),
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
-            int err = lfs3_bd_cpyck(lfs3, block, off,
+            int err = lfs3_bd_ckcpy(lfs3, block, off,
                     data->u.disk.block,
                     lfs3_data_off(data),
                     lfs3_data_size(data),
