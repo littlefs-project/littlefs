@@ -30,7 +30,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -39,7 +39,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -66,7 +66,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -75,7 +75,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -104,7 +104,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -141,7 +141,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -166,7 +166,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -203,7 +203,7 @@ code = '''
 
     // commit with two attributes, in the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -259,7 +259,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -284,7 +284,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -323,7 +323,7 @@ code = '''
 
     // commit with two attributes, in the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -380,7 +380,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -403,7 +403,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -432,7 +432,7 @@ code = '''
 
     // commit with two attributes, in the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -478,7 +478,7 @@ code = '''
 
     // commit with one attribute
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -501,7 +501,7 @@ code = '''
 
     // commit with two attributes
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -532,7 +532,7 @@ code = '''
 
     // commit with two attributes, in the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -584,7 +584,7 @@ code = '''
     //    =>  .-'|
     // 1      1  2
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -609,7 +609,7 @@ code = '''
     //    =>  .-'|
     // 2      2  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -653,7 +653,7 @@ code = '''
     // .-'|  =>  .----'|
     // 1  2      1  2  2
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -680,7 +680,7 @@ code = '''
     // .-'|  =>     .-'|
     // 1  2      1  2  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -728,7 +728,7 @@ code = '''
     // .-'|      |  .-'|
     // 1  2      1  2  3
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -762,7 +762,7 @@ code = '''
     // .-'|      .--|-'|
     // 2  3      2  3  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -815,7 +815,7 @@ code = '''
     // |  .-'|      |  .----'|
     // 1  2  3      1  2  3  3
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -851,7 +851,7 @@ code = '''
     // |  .-'|      |     .-'|
     // 1  2  3      1  2  3  2
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -887,7 +887,7 @@ code = '''
     // |  .-'|         .--|-'|
     // 1  2  3      1  2  3  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -923,7 +923,7 @@ code = '''
     // .--|-'|      |     .-'|
     // 3  1  2      3  1  2  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xcc\xcc\xcc\xcc"),
@@ -980,7 +980,7 @@ code = '''
     // |  .-'|      |  |  .-'|
     // 1  2  3      1  2  3  4
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1023,7 +1023,7 @@ code = '''
     // |  .-'|      |  .--|-'|      .--|--|-'|
     // 1  3  4      1  3  4  2      1  3  4  2
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1066,7 +1066,7 @@ code = '''
     // |  .-'|      .--|--|-'|
     // 2  3  4      2  3  4  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -1109,7 +1109,7 @@ code = '''
     // .--|-'|      |  .--|-'|
     // 4  2  3      4  2  3  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(4), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xdd\xdd\xdd\xdd"),
@@ -1171,7 +1171,7 @@ code = '''
     // |  .-'|      |  |  .-'|
     // 1  2  3      1  2  3  4
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1214,7 +1214,7 @@ code = '''
     // |  .-'|      |  |  .-'|
     // 1  2  4      1  2  4  3
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1257,7 +1257,7 @@ code = '''
     // |  .-'|      |  |  .-'|      |  .--|-'|
     // 1  4  2      1  4  2  3      1  4  2  3
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1300,7 +1300,7 @@ code = '''
     // |  .-'|      |  |  .-'|      .--|--|-'|
     // 4  1  2      4  1  2  3      4  1  2  3
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1364,7 +1364,7 @@ code = '''
     // |  |  .-'|      |  |  .----'|
     // 1  2  3  4      1  2  3  4  4
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1411,7 +1411,7 @@ code = '''
     // |  |  .-'|      |  |     .-'|
     // 1  2  3  4      1  2  3  4  3
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1456,7 +1456,7 @@ code = '''
     // |  |  .-'|      |     .-'|  |
     // 1  2  3  4      1  2  3  4  2
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1501,7 +1501,7 @@ code = '''
     // |  |  .-'|         |  .-'|  |
     // 1  2  3  4      1  2  3  4  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1569,7 +1569,7 @@ code = '''
     // |  |  .-'|      |  |  |  .-'|
     // 1  2  3  4      1  2  3  4  5
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1623,7 +1623,7 @@ code = '''
     // |  |  .-'|      |  |  .--|-'|
     // 1  2  4  5      1  2  4  5  3
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1675,7 +1675,7 @@ code = '''
     // |  |  .-'|      |  |  .-'|  |
     // 1  3  4  5      1  3  4  5  2
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1727,7 +1727,7 @@ code = '''
     // |  |  .-'|      |  |  .-'|  |
     // 2  3  4  5      2  3  4  5  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -1800,7 +1800,7 @@ code = '''
     // |  |  |  .-'|      |  |  |  .----'|
     // 1  2  3  4  5      1  2  3  4  5  5
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1856,7 +1856,7 @@ code = '''
     // |  |  |  .-'|      |     |  .-'|  |
     // 1  2  3  4  5      1  2  3  4  5  2
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1912,7 +1912,7 @@ code = '''
     // |  |  |  .-'|         |  |  .-'|  |
     // 1  2  3  4  5      1  2  3  4  5  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -1989,7 +1989,7 @@ code = '''
     // |  |  |  .-'|      |  |  |  |  .-'|
     // 1  2  3  4  5      1  2  3  4  5  6
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -2050,7 +2050,7 @@ code = '''
     // |  |  |  .-'|      |  |  |  .-'|  |
     // 1  3  4  5  6      1  3  4  5  6  2
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -2111,7 +2111,7 @@ code = '''
     // |  |  |  .-'|      |  |  |  .-'|  |
     // 2  3  4  5  6      2  3  4  5  6  1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -2217,7 +2217,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, rattrs) => 0;
 
         lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
@@ -2300,7 +2300,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
@@ -2362,7 +2362,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -2399,7 +2399,7 @@ code = '''
 
     // also try the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -2457,7 +2457,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -2496,7 +2496,7 @@ code = '''
 
     // also try the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -2587,7 +2587,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, rattrs) => 0;
 
         lfs3_rbyd_fetch(&lfs3, &rbyd, rbyd.blocks[0], -1) => 0;
@@ -2652,7 +2652,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
@@ -2709,7 +2709,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
@@ -2745,7 +2745,7 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                 backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
@@ -2821,7 +2821,7 @@ code = '''
 
     // create the rbyd tree
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     // keep appending tags until we run out of space
     //
@@ -2885,7 +2885,7 @@ code = '''
 
     // add and remove one attribute
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -2907,7 +2907,7 @@ code = '''
 
     // commit with two attributes, remove the first one
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -2947,7 +2947,7 @@ code = '''
 
     // commit with two attributes, remove the second one
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -3031,7 +3031,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
@@ -3052,7 +3052,7 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -3179,7 +3179,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_ATTR(perm[j]+1), 0, 1,
@@ -3200,7 +3200,7 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -3259,7 +3259,7 @@ code = '''
 
     // create a tree two attributes
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(2), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -3414,7 +3414,7 @@ code = '''
 
     // create a tree
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -3661,7 +3661,7 @@ code = '''
 
     // commit with one attribute, remove it
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -3683,7 +3683,7 @@ code = '''
 
     // commit with two attributes, remove both
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -3708,7 +3708,7 @@ code = '''
 
     // commit with two attributes, remove both in the other order
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(1), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -3764,7 +3764,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
@@ -3800,7 +3800,7 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                 backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
@@ -3911,7 +3911,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     prng = SEED;
     for (unsigned i = 0; i < N; i++) {
@@ -4004,7 +4004,7 @@ code = '''
 
     // try to create one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4025,7 +4025,7 @@ code = '''
 
     // try to create two ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4056,7 +4056,7 @@ code = '''
 
     // create a third to the right
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4115,7 +4115,7 @@ code = '''
 
     // try to create one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4136,7 +4136,7 @@ code = '''
 
     // try to create two ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4169,7 +4169,7 @@ code = '''
 
     // try to create two in the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -4202,7 +4202,7 @@ code = '''
 
     // create a third to the right
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4247,7 +4247,7 @@ code = '''
 
     // create a third to the left
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -4292,7 +4292,7 @@ code = '''
 
     // create a third in the middle
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4392,7 +4392,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -4463,7 +4463,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 00000000, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4539,7 +4539,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4594,7 +4594,7 @@ code = '''
 
     // also try the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -4703,7 +4703,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -4771,7 +4771,7 @@ code = '''
 
     // create the rbyd tree
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     // keep inserting tags until we run out of space
     //
@@ -4835,7 +4835,7 @@ code = '''
 
     // try to create one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4866,7 +4866,7 @@ code = '''
 
     // try to create two ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -4917,7 +4917,7 @@ code = '''
 
     // create a third to the right
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -5035,7 +5035,7 @@ code = '''
 
     // try to create one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -5068,7 +5068,7 @@ code = '''
 
     // try to create two ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -5125,7 +5125,7 @@ code = '''
 
     // try to create two in the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -5182,7 +5182,7 @@ code = '''
 
     // create a third to the right
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -5292,7 +5292,7 @@ code = '''
 
     // create a third to the left
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -5373,7 +5373,7 @@ code = '''
 
     // create a third in the middle
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -5510,7 +5510,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -5595,7 +5595,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -5711,7 +5711,7 @@ code = '''
     // so that lookups return strictly the tag greater than or equal to
     // the tag requested
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -5810,7 +5810,7 @@ code = '''
 
     // also try the other direction
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xbb\xbb\xbb\xbb"),
@@ -5964,7 +5964,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -6063,7 +6063,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j, (const lfs3_rattr_t[]){
@@ -6106,7 +6106,7 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                 backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
@@ -6225,7 +6225,7 @@ code = '''
 
         // create given permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -6260,7 +6260,7 @@ code = '''
             printf("--- remove: rid%jd, %jd ---\n", j/M, (j%M)+1);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -6413,7 +6413,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j, (const lfs3_rattr_t[]){
@@ -6456,7 +6456,7 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                 backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
@@ -6540,7 +6540,7 @@ code = '''
 
     // create the rbyd tree
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     // keep inserting tags until we run out of space
     //
@@ -6658,7 +6658,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -6807,7 +6807,7 @@ code = '''
 
         // test the given permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -6947,7 +6947,7 @@ code = '''
 
     // try to delete one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -6977,7 +6977,7 @@ code = '''
 
     // try to delete the other rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7007,7 +7007,7 @@ code = '''
 
     // try to delete the largest of three
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7045,7 +7045,7 @@ code = '''
 
     // try to delete the smallest of three
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7083,7 +7083,7 @@ code = '''
 
     // try to delete the middle
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7139,7 +7139,7 @@ code = '''
 
     // try to delete one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7185,7 +7185,7 @@ code = '''
 
     // try to delete the other rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7231,7 +7231,7 @@ code = '''
 
     // try to delete the largest of three
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7297,7 +7297,7 @@ code = '''
 
     // try to delete the smallest of three
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7363,7 +7363,7 @@ code = '''
 
     // try to delete the middle
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7457,7 +7457,7 @@ code = '''
     //              remove
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -7796,7 +7796,7 @@ code = '''
     //            remove
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -8102,7 +8102,7 @@ code = '''
     //                  remove
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -8530,7 +8530,7 @@ code = '''
     // algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -8931,7 +8931,7 @@ code = '''
     // algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -9332,7 +9332,7 @@ code = '''
     // algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -9703,7 +9703,7 @@ code = '''
     // algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -10075,7 +10075,7 @@ code = '''
     // if you try to range remove in a single trunk (outdated algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -10591,7 +10591,7 @@ code = '''
     // if you try to range remove in a single trunk (outdated algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11129,7 +11129,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -11159,7 +11159,7 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -11295,7 +11295,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -11332,7 +11332,7 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -11499,7 +11499,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -11529,7 +11529,7 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -11631,7 +11631,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -11668,7 +11668,7 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -11749,7 +11749,7 @@ code = '''
 
     // create and delete one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11769,7 +11769,7 @@ code = '''
 
     // create and delete two ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11792,7 +11792,7 @@ code = '''
 
     // create and delete two ids in the other order
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11817,7 +11817,7 @@ code = '''
 
     // create and delete three ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11843,7 +11843,7 @@ code = '''
 
     // create and delete three ids in the other order
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11891,7 +11891,7 @@ code = '''
 
     // create and delete one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11913,7 +11913,7 @@ code = '''
 
     // create and delete two ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11940,7 +11940,7 @@ code = '''
 
     // create and delete two ids in the other order
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -11969,7 +11969,7 @@ code = '''
 
     // create and delete three ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -12001,7 +12001,7 @@ code = '''
 
     // create and delete three ids in the other order
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -12075,7 +12075,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j, (const lfs3_rattr_t[]){
@@ -12112,7 +12112,7 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                 backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
@@ -12223,7 +12223,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j, (const lfs3_rattr_t[]){
@@ -12267,7 +12267,7 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                 backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
@@ -12404,7 +12404,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     prng = SEED;
     count = 0;
@@ -12521,7 +12521,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     prng = SEED;
     count = 0;
@@ -12649,7 +12649,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     prng = SEED;
     count = 0;
@@ -12783,7 +12783,7 @@ code = '''
 
     // try to delete one range
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -12830,7 +12830,7 @@ code = '''
 
     // try to delete the other rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -12877,7 +12877,7 @@ code = '''
 
     // try to delete the largest of three
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -12944,7 +12944,7 @@ code = '''
 
     // try to delete the smallest of three
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -13011,7 +13011,7 @@ code = '''
 
     // try to delete the middle
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -13106,7 +13106,7 @@ code = '''
     //              remove
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -13446,7 +13446,7 @@ code = '''
     //            remove
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -13757,7 +13757,7 @@ code = '''
     //                  remove
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -14192,7 +14192,7 @@ code = '''
     // algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -14599,7 +14599,7 @@ code = '''
     // algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -15002,7 +15002,7 @@ code = '''
     // algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -15378,7 +15378,7 @@ code = '''
     // algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -15753,7 +15753,7 @@ code = '''
     // if you try to range remove in a single trunk (outdated algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -16270,7 +16270,7 @@ code = '''
     // if you try to range remove in a single trunk (outdated algorithm)
     //
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -16814,7 +16814,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -16852,7 +16852,7 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -17025,7 +17025,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
@@ -17063,7 +17063,7 @@ code = '''
             printf("--- delete: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -17144,7 +17144,7 @@ code = '''
 
     // create and delete one rid
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -17167,7 +17167,7 @@ code = '''
 
     // create and delete two ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -17196,7 +17196,7 @@ code = '''
 
     // create and delete two ids in the other order
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -17227,7 +17227,7 @@ code = '''
 
     // create and delete three ids
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -17262,7 +17262,7 @@ code = '''
 
     // create and delete three ids in the other order
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -17340,7 +17340,7 @@ code = '''
 
     // create one consistent block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     for (unsigned j = 0; j < N; j++) {
         lfs3_rbyd_commit(&lfs3, &rbyd, j*(M+1), (const lfs3_rattr_t[]){
@@ -17385,7 +17385,7 @@ code = '''
 
         // restore backup
         rbyd = backup_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                 backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
@@ -17540,7 +17540,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     prng = SEED;
     count = 0;
@@ -17682,7 +17682,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     prng = SEED;
     count = 0;
@@ -17782,7 +17782,7 @@ code = '''
 
     // make id0 with weight w1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -18032,7 +18032,7 @@ code = '''
     lfs3_data_t data_;
 
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, 0, (const lfs3_rattr_t[]){
             // make id0 with weight w1
             LFS3_RATTR(LFS3_TAG_DATA, +1, 1, LFS3_FROM_LBUF, 4),
@@ -18181,7 +18181,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -18273,7 +18273,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -18335,7 +18335,7 @@ code = '''
 
     // make id0 with weight w1
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 9),
             LFS3_RATTR_ARG("unrelated"),
@@ -19030,7 +19030,7 @@ code = '''
     lfs3_data_t data_;
 
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 9),
             LFS3_RATTR_ARG("unrelated"),
@@ -19336,7 +19336,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 9),
                 LFS3_RATTR_ARG("unrelated"),
@@ -19456,7 +19456,7 @@ code = '''
 
         // test the given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
                 LFS3_RATTR(LFS3_TAG_ATTR(3), 0, 1, LFS3_FROM_LBUF, 9),
                 LFS3_RATTR_ARG("unrelated"),
@@ -19586,7 +19586,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -19616,7 +19616,7 @@ code = '''
             printf("--- growing: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -19725,7 +19725,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -19755,7 +19755,7 @@ code = '''
             printf("--- growing: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -19878,7 +19878,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -19908,7 +19908,7 @@ code = '''
             printf("--- growing: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -20042,7 +20042,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -20072,7 +20072,7 @@ code = '''
             printf("--- shrinking: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -20181,7 +20181,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -20211,7 +20211,7 @@ code = '''
             printf("--- shrinking: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -20334,7 +20334,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -20364,7 +20364,7 @@ code = '''
             printf("--- shrinking: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -20497,7 +20497,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -20527,7 +20527,7 @@ code = '''
             printf("--- deleting: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -20673,7 +20673,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -20704,7 +20704,7 @@ code = '''
             printf("--- appending: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -20876,7 +20876,7 @@ code = '''
 
     // set up rbyd block
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
     prng = SEED;
     count = 0;
@@ -21070,7 +21070,7 @@ code = '''
 
         // build the attribute list for the current permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -21160,7 +21160,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -21193,7 +21193,7 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -21307,7 +21307,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -21340,7 +21340,7 @@ code = '''
             printf("--- replace: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -21456,7 +21456,7 @@ code = '''
 
         // build the attribute list for the current permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -21548,7 +21548,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -21583,7 +21583,7 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -21704,7 +21704,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -21739,7 +21739,7 @@ code = '''
             printf("--- replace: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -21862,7 +21862,7 @@ code = '''
 
         // build the attribute list for the current permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -21950,7 +21950,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -21981,7 +21981,7 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -22098,7 +22098,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -22129,7 +22129,7 @@ code = '''
             printf("--- replace: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -22239,7 +22239,7 @@ code = '''
 
         // build the attribute list for the current permutation
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -22328,7 +22328,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -22361,7 +22361,7 @@ code = '''
             printf("--- remove: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -22475,7 +22475,7 @@ code = '''
 
         // create given permutation with multiple commits
         rbyd = init_rbyd;
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
         for (unsigned j = 0; j < N; j++) {
             // adjust rid based on future insertions
             uint16_t rid = perm[j];
@@ -22508,7 +22508,7 @@ code = '''
             printf("--- replace: %d ---\n", j);
 
             rbyd = backup_rbyd;
-            lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+            lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
                     backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
@@ -22601,7 +22601,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -22647,7 +22647,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -22701,7 +22701,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -22757,7 +22757,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(0x00), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),
@@ -22822,7 +22822,7 @@ code = '''
 
     // create a null tag hole
     rbyd = init_rbyd;
-    lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+    lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
     lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
             LFS3_RATTR(LFS3_TAG_ATTR(0), 0, 1, LFS3_FROM_LBUF, 4),
             LFS3_RATTR_ARG("\xaa\xaa\xaa\xaa"),

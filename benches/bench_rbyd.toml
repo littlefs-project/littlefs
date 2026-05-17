@@ -42,7 +42,7 @@ code = '''
             .trunk = 0,
             .weight = 0,
         };
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
         // create N attrs
         //
@@ -152,7 +152,7 @@ code = '''
             .trunk = 0,
             .weight = 0,
         };
-        lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
+        lfs3_bd_erase(&lfs3, rbyd.blocks[0], 0) => 0;
 
         // create N attrs
         //

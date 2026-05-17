@@ -39,7 +39,8 @@ static inline bool lfs3_prog_isalign(uint32_t flags) {
 /// Simple bd wrappers (asserts go here) ///
 
 static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
-        void *buffer, lfs3_size_t size) {
+        void *buffer, lfs3_size_t size, uint32_t flags) {
+    (void)flags;
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
@@ -84,7 +85,8 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block) {
+static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
+    (void)flags;
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
 
@@ -135,7 +137,7 @@ static inline void lfs3_bd_droppcache(lfs3_t *lfs3) {
 // -1 => maximal caching
 static int lfs3_bd_readnext(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        lfs3_size_t size,
+        lfs3_size_t size, uint32_t flags,
         const uint8_t **buffer_, lfs3_size_t *size_) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
@@ -190,7 +192,7 @@ static int lfs3_bd_readnext(lfs3_t *lfs3,
                     lfs3->cfg->rcache_size),
                 lfs3->cfg->read_size);
         int err = lfs3_bd_read__(lfs3, block, off__,
-                lfs3->rcache.buffer, size__);
+                lfs3->rcache.buffer, size__, flags);
         if (err) {
             return err;
         }
@@ -208,7 +210,7 @@ static int lfs3_bd_readnext(lfs3_t *lfs3,
 // -1 => maximal caching
 static int lfs3_bd_read(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        void *buffer, lfs3_size_t size) {
+        void *buffer, lfs3_size_t size, uint32_t flags) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
@@ -271,7 +273,7 @@ static int lfs3_bd_read(lfs3_t *lfs3,
                 && lfs3_min(d, size_) >= lfs3_min(hint_, lfs3->cfg->rcache_size)
                 && lfs3_min(d, size_) >= lfs3->cfg->read_size) {
             d = lfs3_aligndown(size_, lfs3->cfg->read_size);
-            int err = lfs3_bd_read__(lfs3, block, off_, buffer_, d);
+            int err = lfs3_bd_read__(lfs3, block, off_, buffer_, d, flags);
             if (err) {
                 return err;
             }
@@ -300,7 +302,7 @@ static int lfs3_bd_read(lfs3_t *lfs3,
                     lfs3->cfg->rcache_size),
                 lfs3->cfg->read_size);
         int err = lfs3_bd_read__(lfs3, block, off__,
-                lfs3->rcache.buffer, size__);
+                lfs3->rcache.buffer, size__, flags);
         if (err) {
             return err;
         }
@@ -319,7 +321,7 @@ static inline bool lfs3_m_isckprogs(uint32_t flags);
 #endif
 static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        const void *buffer, lfs3_size_t size);
+        const void *buffer, lfs3_size_t size, uint32_t flags);
 
 // low-level prog stuff
 #ifndef LFS3_RDONLY
@@ -574,7 +576,7 @@ static int lfs3_bd_sync(lfs3_t *lfs3) {
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_bd_erase(lfs3_t *lfs3, lfs3_block_t block) {
+static int lfs3_bd_erase(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
 
@@ -586,7 +588,7 @@ static int lfs3_bd_erase(lfs3_t *lfs3, lfs3_block_t block) {
         lfs3_bd_droprcache(lfs3);
     }
 
-    return lfs3_bd_erase__(lfs3, block);
+    return lfs3_bd_erase__(lfs3, block, flags);
 }
 #endif
 
@@ -595,7 +597,7 @@ static int lfs3_bd_erase(lfs3_t *lfs3, lfs3_block_t block) {
 
 static int lfs3_bd_cksum(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        lfs3_size_t size,
+        lfs3_size_t size, uint32_t flags,
         uint32_t *cksum) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
@@ -607,7 +609,7 @@ static int lfs3_bd_cksum(lfs3_t *lfs3,
     while (size_ > 0) {
         const uint8_t *buffer__;
         lfs3_size_t size__;
-        int err = lfs3_bd_readnext(lfs3, block, off_, hint_, size_,
+        int err = lfs3_bd_readnext(lfs3, block, off_, hint_, size_, flags,
                 &buffer__, &size__);
         if (err) {
             return err;
@@ -624,8 +626,8 @@ static int lfs3_bd_cksum(lfs3_t *lfs3,
 }
 
 static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
-        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint, 
-        const void *buffer, lfs3_size_t size) {
+        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
+        const void *buffer, lfs3_size_t size, uint32_t flags) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
@@ -637,7 +639,7 @@ static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
     while (size_ > 0) {
         const uint8_t *buffer__;
         lfs3_size_t size__;
-        int err = lfs3_bd_readnext(lfs3, block, off_, hint_, size_,
+        int err = lfs3_bd_readnext(lfs3, block, off_, hint_, size_, flags,
                 &buffer__, &size__);
         if (err) {
             return err;
@@ -687,7 +689,7 @@ static int lfs3_bd_cpy(lfs3_t *lfs3,
         }
 
         err = lfs3_bd_read(lfs3, src_block, src_off_, hint_,
-                buffer__, size__);
+                buffer__, size__, flags);
         if (err) {
             return err;
         }
@@ -770,7 +772,7 @@ static inline lfs3_size_t lfs3_ptail_off(const lfs3_t *lfs3) {
 #ifdef LFS3_CKDATACKSUMS
 static int lfs3_bd_ckprefix(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        lfs3_size_t cksize, uint32_t cksum,
+        lfs3_size_t cksize, uint32_t cksum, uint32_t flags,
         lfs3_size_t *hint_,
         uint32_t *cksum__) {
     (void)cksum;
@@ -789,7 +791,7 @@ static int lfs3_bd_ckprefix(lfs3_t *lfs3,
     // checksum any prefixed data
     int err = lfs3_bd_cksum(lfs3,
             block, 0, hint__,
-            off,
+            off, flags,
             cksum__);
     if (err) {
         return err;
@@ -805,7 +807,7 @@ static int lfs3_bd_ckprefix(lfs3_t *lfs3,
 #ifdef LFS3_CKDATACKSUMS
 static int lfs3_bd_cksuffix(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        lfs3_size_t cksize, uint32_t cksum,
+        lfs3_size_t cksize, uint32_t cksum, uint32_t flags,
         uint32_t cksum__) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
@@ -814,7 +816,7 @@ static int lfs3_bd_cksuffix(lfs3_t *lfs3,
     // checksum any suffixed data
     int err = lfs3_bd_cksum(lfs3,
             block, off, hint,
-            cksize - off,
+            cksize - off, flags,
             &cksum__);
     if (err) {
         return err;
@@ -846,8 +848,8 @@ static int lfs3_bd_cksuffix(lfs3_t *lfs3,
 #ifdef LFS3_CKDATACKSUMS
 static int lfs3_bd_readck(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        void *buffer, lfs3_size_t size,
-        lfs3_size_t cksize, uint32_t cksum) {
+        lfs3_size_t cksize, uint32_t cksum,
+        void *buffer, lfs3_size_t size, uint32_t flags) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(cksize <= lfs3->cfg->block_size);
@@ -858,7 +860,7 @@ static int lfs3_bd_readck(lfs3_t *lfs3,
     uint32_t cksum__ = 0;
     lfs3_size_t hint_;
     int err = lfs3_bd_ckprefix(lfs3, block, off, hint,
-            cksize, cksum,
+            cksize, cksum, flags,
             &hint_,
             &cksum__);
     if (err) {
@@ -868,7 +870,7 @@ static int lfs3_bd_readck(lfs3_t *lfs3,
     // read and checksum the data we're interested in
     err = lfs3_bd_read(lfs3,
             block, off, hint_,
-            buffer, size);
+            buffer, size, flags);
     if (err) {
         return err;
     }
@@ -877,7 +879,7 @@ static int lfs3_bd_readck(lfs3_t *lfs3,
 
     // checksum any suffixed data and validate
     err = lfs3_bd_cksuffix(lfs3, block, off+size, hint_-size,
-            cksize, cksum,
+            cksize, cksum, flags,
             cksum__);
     if (err) {
         return err;
@@ -896,8 +898,8 @@ static int lfs3_bd_readck(lfs3_t *lfs3,
 #ifdef LFS3_CKDATACKSUMS
 static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        const void *buffer, lfs3_size_t size,
-        lfs3_size_t cksize, uint32_t cksum) {
+        lfs3_size_t cksize, uint32_t cksum,
+        const void *buffer, lfs3_size_t size, uint32_t flags) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(cksize <= lfs3->cfg->block_size);
@@ -908,7 +910,7 @@ static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
     uint32_t cksum__ = 0;
     lfs3_size_t hint_;
     int err = lfs3_bd_ckprefix(lfs3, block, off, hint,
-            cksize, cksum,
+            cksize, cksum, flags,
             &hint_,
             &cksum__);
     if (err) {
@@ -924,7 +926,7 @@ static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
     while (size_ > 0) {
         const uint8_t *buffer__;
         lfs3_size_t size__;
-        err = lfs3_bd_readnext(lfs3, block, off_, hint__, size_,
+        err = lfs3_bd_readnext(lfs3, block, off_, hint__, size_, flags,
                 &buffer__, &size__);
         if (err) {
             return err;
@@ -947,7 +949,7 @@ static lfs3_scmp_t lfs3_bd_cmpck(lfs3_t *lfs3,
 
     // checksum any suffixed data and validate
     err = lfs3_bd_cksuffix(lfs3, block, off+size, hint_-size,
-            cksize, cksum,
+            cksize, cksum, flags,
             cksum__);
     if (err) {
         return err;
@@ -977,7 +979,7 @@ static int lfs3_bd_cpyck(lfs3_t *lfs3,
     uint32_t cksum__ = 0;
     lfs3_size_t hint_;
     int err = lfs3_bd_ckprefix(lfs3, src_block, src_off, hint,
-            src_cksize, src_cksum,
+            src_cksize, src_cksum, flags,
             &hint_,
             &cksum__);
     if (err) {
@@ -1003,7 +1005,7 @@ static int lfs3_bd_cpyck(lfs3_t *lfs3,
         }
 
         err = lfs3_bd_read(lfs3, src_block, src_off_, hint__,
-                buffer__, size__);
+                buffer__, size__, flags);
         if (err) {
             return err;
         }
@@ -1024,7 +1026,7 @@ static int lfs3_bd_cpyck(lfs3_t *lfs3,
 
     // checksum any suffixed data and validate
     err = lfs3_bd_cksuffix(lfs3, src_block, src_off+size, hint_-size,
-            src_cksize, src_cksum,
+            src_cksize, src_cksum, flags,
             cksum__);
     if (err) {
         return err;
@@ -1310,7 +1312,7 @@ static inline bool lfs3_m_isckparity(uint32_t flags);
 #endif
 
 static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
-        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
+        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint, uint32_t flags,
         lfs3_tag_t *tag_, lfs3_rid_t *weight_, lfs3_size_t *size_,
         uint32_t *cksum) {
     // read the largest possible tag size
@@ -1321,7 +1323,7 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
     }
 
     int err = lfs3_bd_read(lfs3, block, off, hint,
-            tag_buf, tag_dsize);
+            tag_buf, tag_dsize, flags);
     if (err) {
         return err;
     }
@@ -1427,7 +1429,7 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
         } else {
             uint8_t p;
             err = lfs3_bd_read(lfs3, block, off+d_, hint_,
-                    &p, 1);
+                    &p, 1, flags);
             if (err) {
                 return err;
             }
@@ -1650,11 +1652,12 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
             int err = lfs3_bd_readck(lfs3,
-                    data->u.disk.block, lfs3_data_off(data),
+                    data->u.disk.block,
+                    lfs3_data_off(data),
                     // note our hint includes the full data range
                     lfs3_data_size(data),
-                    buffer, d,
-                    lfs3_data_cksize(data), data->u.disk.cksum);
+                    lfs3_data_cksize(data), data->u.disk.cksum,
+                    buffer, d, 0);
             if (err) {
                 return err;
             }
@@ -1662,10 +1665,11 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
 
         } else {
             int err = lfs3_bd_read(lfs3,
-                    data->u.disk.block, lfs3_data_off(data),
+                    data->u.disk.block,
+                    lfs3_data_off(data),
                     // note our hint includes the full data range
                     lfs3_data_size(data),
-                    buffer, d);
+                    buffer, d, 0);
             if (err) {
                 return err;
             }
@@ -1764,8 +1768,8 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
                     // note the 0 hint, we don't usually use any
                     // following data
                     data->u.disk.block, lfs3_data_off(data), 0,
-                    buffer, d,
-                    lfs3_data_cksize(data), data->u.disk.cksum);
+                    lfs3_data_cksize(data), data->u.disk.cksum,
+                    buffer, d, 0);
             if (cmp != LFS3_CMP_EQ) {
                 return cmp;
             }
@@ -1776,7 +1780,7 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
                     // note the 0 hint, we don't usually use any
                     // following data
                     data->u.disk.block, lfs3_data_off(data), 0,
-                    buffer, d);
+                    buffer, d, 0);
             if (cmp != LFS3_CMP_EQ) {
                 return cmp;
             }
@@ -1845,8 +1849,7 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
                     lfs3_data_off(data),
                     lfs3_data_size(data),
                     lfs3_data_size(data),
-                    lfs3_data_cksize(data),
-                    data->u.disk.cksum,
+                    lfs3_data_cksize(data), data->u.disk.cksum,
                     flags,
                     cksum);
             if (err) {
@@ -2656,7 +2659,7 @@ static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr) {
     uint32_t cksum = 0;
     int err = lfs3_bd_cksum(lfs3,
             lfs3_bptr_block(bptr), 0, 0,
-            lfs3_bptr_cksize(bptr),
+            lfs3_bptr_cksize(bptr), 0,
             &cksum);
     if (err) {
         return err;
@@ -2766,7 +2769,7 @@ static int lfs3_ecksum_read(lfs3_t *lfs3, lfs3_ecksum_t *ecksum,
     ecksum->cksum = 0;
     return lfs3_bd_cksum(lfs3,
             block, off, 0,
-            lfs3->cfg->prog_size,
+            lfs3->cfg->prog_size, 0,
             &ecksum->cksum);
 }
 #endif
@@ -2779,7 +2782,7 @@ static int lfs3_ecksum_ck(lfs3_t *lfs3, const lfs3_ecksum_t *ecksum,
     uint32_t cksum_ = 0;
     int err = lfs3_bd_cksum(lfs3,
             block, off, 0,
-            ecksum->cksize,
+            ecksum->cksize, 0,
             &cksum_);
     if (err) {
         return err;
@@ -2935,7 +2938,7 @@ static int lfs3_rbyd_ckecksum(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
     uint8_t e;
     int err = lfs3_bd_read(lfs3,
             rbyd->blocks[0], lfs3_rbyd_eoff(rbyd), ecksum->cksize,
-            &e, 1);
+            &e, 1, 0);
     if (err) {
         return err;
     }
@@ -2995,7 +2998,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // checksum the revision count to get the cksum started
     uint32_t cksum_ = 0;
     if (!lfs3_rbyd_isquickfetch(flags)) {
-        int err = lfs3_bd_cksum(lfs3, block, 0, -1, sizeof(uint32_t),
+        int err = lfs3_bd_cksum(lfs3, block, 0, -1, sizeof(uint32_t), 0,
                 &cksum_);
         if (err) {
             return err;
@@ -3025,7 +3028,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag;
         lfs3_rid_t weight;
         lfs3_size_t size;
-        lfs3_ssize_t d = lfs3_bd_readtag(lfs3, block, off_, -1,
+        lfs3_ssize_t d = lfs3_bd_readtag(lfs3, block, off_, -1, 0,
                 &tag, &weight, &size,
                 (lfs3_rbyd_isquickfetch(flags)) ? NULL : &cksum__);
         if (d < 0) {
@@ -3046,7 +3049,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
             if (lfs3_tag_suptype(tag) != LFS3_TAG_CKSUM) {
                 if (!lfs3_rbyd_isquickfetch(flags)) {
                     // cksum the entry, hopefully leaving it in the cache
-                    int err = lfs3_bd_cksum(lfs3, block, off__, -1, size,
+                    int err = lfs3_bd_cksum(lfs3, block, off__, -1, size, 0,
                             &cksum__);
                     if (err) {
                         if (err == LFS3_ERR_CORRUPT) {
@@ -3108,7 +3111,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 if (!lfs3_rbyd_isquickfetch(flags)) {
                     uint32_t cksum___ = 0;
                     int err = lfs3_bd_read(lfs3, block, off__, -1,
-                            &cksum___, sizeof(uint32_t));
+                            &cksum___, sizeof(uint32_t), 0);
                     if (err) {
                         if (err == LFS3_ERR_CORRUPT) {
                             break;
@@ -3441,7 +3444,7 @@ static lfs3_stag_t lfs3_rbyd_lookupnext_(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         lfs3_rid_t weight;
         lfs3_size_t jump;
         lfs3_ssize_t d = lfs3_bd_readtag(lfs3,
-                rbyd->blocks[0], branch, 0,
+                rbyd->blocks[0], branch, 0, 0,
                 &alt, &weight, &jump,
                 NULL);
         if (d < 0) {
@@ -3576,7 +3579,7 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         uint8_t e = 0;
         int err = lfs3_bd_read(lfs3,
                 rbyd->blocks[0], 0, 0,
-                &e, 1);
+                &e, 1, 0);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
@@ -4212,7 +4215,7 @@ trunk:;
         lfs3_rid_t weight_;
         lfs3_size_t jump_;
         lfs3_ssize_t d = lfs3_bd_readtag(lfs3,
-                rbyd->blocks[0], branch, 0,
+                rbyd->blocks[0], branch, 0, 0,
                 &alt_, &weight_, &jump_,
                 NULL);
         if (d < 0) {
@@ -4768,7 +4771,7 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         uint8_t e = 0;
         int err = lfs3_bd_read(lfs3,
                 rbyd->blocks[0], off_, lfs3->cfg->prog_size,
-                &e, 1);
+                &e, 1, 0);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
@@ -5184,7 +5187,7 @@ static int lfs3_rbyd_appendcompaction(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                     lfs3_rid_t weight__;
                     lfs3_size_t size__;
                     lfs3_ssize_t d = lfs3_bd_readtag(lfs3,
-                            rbyd->blocks[0], off, layer_ - off,
+                            rbyd->blocks[0], off, layer_ - off, 0,
                             &tag__, &weight__, &size__,
                             NULL);
                     if (d < 0) {
@@ -8258,7 +8261,7 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     uint32_t revs[2] = {0, 0};
     for (int i = 0; i < 2; i++) {
         int err = lfs3_bd_read(lfs3, blocks[0], 0, 0,
-                &revs[0], sizeof(uint32_t));
+                &revs[0], sizeof(uint32_t), 0);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
@@ -8494,7 +8497,7 @@ static int lfs3_mdir_alloc__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // redund block
     uint32_t rev;
     int err = lfs3_bd_read(lfs3, mdir->r.blocks[1], 0, 0,
-            &rev, sizeof(uint32_t));
+            &rev, sizeof(uint32_t), 0);
     if (err && err != LFS3_ERR_CORRUPT) {
         return err;
     }
@@ -8540,7 +8543,7 @@ static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
     // first thing we need to do is read our current revision count
     uint32_t rev;
     int err = lfs3_bd_read(lfs3, mdir->r.blocks[0], 0, 0,
-            &rev, sizeof(uint32_t));
+            &rev, sizeof(uint32_t), 0);
     if (err && err != LFS3_ERR_CORRUPT) {
         return err;
     }
@@ -8561,7 +8564,7 @@ static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
     mdir_->r.cksum = 0;
 
     // erase, preparing for compact
-    err = lfs3_bd_erase(lfs3, mdir_->r.blocks[0]);
+    err = lfs3_bd_erase(lfs3, mdir_->r.blocks[0], 0);
     if (err) {
         return err;
     }
@@ -12641,7 +12644,7 @@ static lfs3_sblock_t lfs3_alloc_(lfs3_t *lfs3, uint32_t flags,
             }
 
             // needs an explicit erase
-            int err = lfs3_bd_erase(lfs3, block);
+            int err = lfs3_bd_erase(lfs3, block, 0);
             if (err) {
                 // bad erase? try another block
                 if (err == LFS3_ERR_CORRUPT) {
@@ -12809,7 +12812,7 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
         }
 
         // erase!
-        int err = lfs3_bd_erase(lfs3, block);
+        int err = lfs3_bd_erase(lfs3, block, 0);
         if (err) {
             return err;
         }
@@ -17640,7 +17643,7 @@ static int lfs3_formatgbmap(lfs3_t *lfs3) {
     lfs3->gbmap.b.eoff = 0;
     lfs3->gbmap.b.cksum = 0;
 
-    int err = lfs3_bd_erase(lfs3, lfs3->gbmap.b.blocks[0]);
+    int err = lfs3_bd_erase(lfs3, lfs3->gbmap.b.blocks[0], 0);
     if (err) {
         return err;
     }
@@ -17689,7 +17692,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
         rbyd.eoff = 0;
         rbyd.cksum = 0;
 
-        err = lfs3_bd_erase(lfs3, rbyd.blocks[0]);
+        err = lfs3_bd_erase(lfs3, rbyd.blocks[0], 0);
         if (err) {
             return err;
         }
