@@ -1342,8 +1342,6 @@ typedef struct lfs3 {
         lfs3_size_t size;
         uint8_t *buffer;
     } pcache;
-    // optional prog-aligned cksum
-    uint32_t pcksum;
     #ifdef LFS3_CKMETAPARITY
     struct {
         lfs3_block_t block;

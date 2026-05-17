@@ -2747,9 +2747,9 @@ code = '''
         rbyd = backup_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                backup_block, lfs3_rbyd_eoff(&rbyd),
+                backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
-        lfs3_bd_flush(&lfs3,
+        lfs3_bd_flush(&lfs3, 0,
                 NULL) => 0;
 
         // update each tag in permutation order
@@ -3054,9 +3054,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
@@ -3202,9 +3202,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, -1, (const lfs3_rattr_t[]){
@@ -3802,9 +3802,9 @@ code = '''
         rbyd = backup_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                backup_block, lfs3_rbyd_eoff(&rbyd),
+                backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
-        lfs3_bd_flush(&lfs3,
+        lfs3_bd_flush(&lfs3, 0,
                 NULL) => 0;
 
         // remove each tag in permutation order
@@ -6108,9 +6108,9 @@ code = '''
         rbyd = backup_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                backup_block, lfs3_rbyd_eoff(&rbyd),
+                backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
-        lfs3_bd_flush(&lfs3,
+        lfs3_bd_flush(&lfs3, 0,
                 NULL) => 0;
 
         // update each tag in permutation order
@@ -6262,9 +6262,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j/M, (const lfs3_rattr_t[]){
@@ -6458,9 +6458,9 @@ code = '''
         rbyd = backup_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                backup_block, lfs3_rbyd_eoff(&rbyd),
+                backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
-        lfs3_bd_flush(&lfs3,
+        lfs3_bd_flush(&lfs3, 0,
                 NULL) => 0;
 
         // remove each tag in permutation order
@@ -11161,9 +11161,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j, (const lfs3_rattr_t[]){
@@ -11334,9 +11334,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j, (const lfs3_rattr_t[]){
@@ -11531,9 +11531,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j, (const lfs3_rattr_t[]){
@@ -11670,9 +11670,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j, (const lfs3_rattr_t[]){
@@ -12114,9 +12114,9 @@ code = '''
         rbyd = backup_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                backup_block, lfs3_rbyd_eoff(&rbyd),
+                backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
-        lfs3_bd_flush(&lfs3,
+        lfs3_bd_flush(&lfs3, 0,
                 NULL) => 0;
 
         // delete each rid in permutation order
@@ -12269,9 +12269,9 @@ code = '''
         rbyd = backup_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                backup_block, lfs3_rbyd_eoff(&rbyd),
+                backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
-        lfs3_bd_flush(&lfs3,
+        lfs3_bd_flush(&lfs3, 0,
                 NULL) => 0;
 
         // delete each rid in permutation order
@@ -16854,9 +16854,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*(M+1)+M+1-1,
@@ -17065,9 +17065,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*(M+1)+M+1-1,
@@ -17387,9 +17387,9 @@ code = '''
         rbyd = backup_rbyd;
         lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
         lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                backup_block, lfs3_rbyd_eoff(&rbyd),
+                backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                 NULL) => 0;
-        lfs3_bd_flush(&lfs3,
+        lfs3_bd_flush(&lfs3, 0,
                 NULL) => 0;
 
         // delete each rid in permutation order
@@ -19618,9 +19618,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, (const lfs3_rattr_t[]){
@@ -19757,9 +19757,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, (const lfs3_rattr_t[]){
@@ -19910,9 +19910,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, (const lfs3_rattr_t[]){
@@ -20074,9 +20074,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, (const lfs3_rattr_t[]){
@@ -20213,9 +20213,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, (const lfs3_rattr_t[]){
@@ -20366,9 +20366,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, (const lfs3_rattr_t[]){
@@ -20529,9 +20529,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, (const lfs3_rattr_t[]){
@@ -20706,9 +20706,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             lfs3_rbyd_commit(&lfs3, &rbyd, j*W+W-1, (const lfs3_rattr_t[]){
@@ -21195,9 +21195,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             // remove with a wide tag
@@ -21342,9 +21342,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             // replace with bitwise inverse
@@ -21585,9 +21585,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             // remove with a wide tag
@@ -21741,9 +21741,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             // replace with bitwise inverse
@@ -21983,9 +21983,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             // remove with a wide tag
@@ -22131,9 +22131,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             // replace with bitwise inverse
@@ -22363,9 +22363,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             // remove with a wide tag
@@ -22510,9 +22510,9 @@ code = '''
             rbyd = backup_rbyd;
             lfs3_bd_erase(&lfs3, rbyd.blocks[0]) => 0;
             lfs3_bd_prog(&lfs3, rbyd.blocks[0], 0,
-                    backup_block, lfs3_rbyd_eoff(&rbyd),
+                    backup_block, lfs3_rbyd_eoff(&rbyd), 0,
                     NULL) => 0;
-            lfs3_bd_flush(&lfs3,
+            lfs3_bd_flush(&lfs3, 0,
                     NULL) => 0;
 
             // replace with bitwise inverse

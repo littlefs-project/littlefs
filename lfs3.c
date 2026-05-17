@@ -28,6 +28,14 @@ typedef int lfs3_scmp_t;
 typedef int lfs3_sbool_t;
 
 
+// prog flags
+#define LFS3_PROG_ALIGN 0x00000001 // Align cksums to prog boundaries
+
+static inline bool lfs3_prog_isalign(uint32_t flags) {
+    return flags & LFS3_PROG_ALIGN;
+}
+
+
 /// Simple bd wrappers (asserts go here) ///
 
 static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
@@ -53,7 +61,8 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
 #ifndef LFS3_RDONLY
 static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
-        const void *buffer, lfs3_size_t size) {
+        const void *buffer, lfs3_size_t size, uint32_t flags) {
+    (void)flags;
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
@@ -315,14 +324,14 @@ static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
 // low-level prog stuff
 #ifndef LFS3_RDONLY
 static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
-        const void *buffer, lfs3_size_t size,
+        const void *buffer, lfs3_size_t size, uint32_t flags,
         uint32_t *cksum) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
 
     // prog to disk
-    int err = lfs3_bd_prog__(lfs3, block, off, buffer, size);
+    int err = lfs3_bd_prog__(lfs3, block, off, buffer, size, flags);
     if (err) {
         return err;
     }
@@ -363,8 +372,8 @@ static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     }
 
     // optional prog-aligned checksum
-    if (cksum && cksum == &lfs3->pcksum) {
-        lfs3->pcksum = lfs3_crc32c(lfs3->pcksum, buffer, size);
+    if (cksum && lfs3_prog_isalign(flags)) {
+        *cksum = lfs3_crc32c(*cksum, buffer, size);
     }
 
     return 0;
@@ -373,7 +382,7 @@ static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
 // flush the pcache
 #ifndef LFS3_RDONLY
-static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t *cksum) {
+static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t flags, uint32_t *cksum) {
     if (lfs3->pcache.size != 0) {
         // must be in-bounds
         LFS3_ASSERT(lfs3->pcache.block < lfs3->block_count);
@@ -389,7 +398,7 @@ static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t *cksum) {
 
         // flush
         int err = lfs3_bd_prog_(lfs3, lfs3->pcache.block,
-                lfs3->pcache.off, lfs3->pcache.buffer, size,
+                lfs3->pcache.off, lfs3->pcache.buffer, size, flags,
                 cksum);
         if (err) {
             return err;
@@ -405,7 +414,7 @@ static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t *cksum) {
 // with optional checksum
 #ifndef LFS3_RDONLY
 static int lfs3_bd_prognext(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
-        lfs3_size_t size,
+        lfs3_size_t size, uint32_t flags,
         uint8_t **buffer_, lfs3_size_t *size_,
         uint32_t *cksum) {
     // must be in-bounds
@@ -440,7 +449,7 @@ static int lfs3_bd_prognext(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
             }
 
             // flush pcache?
-            int err = lfs3_bd_flush(lfs3, cksum);
+            int err = lfs3_bd_flush(lfs3, flags, cksum);
             if (err) {
                 return err;
             }
@@ -464,7 +473,7 @@ static int lfs3_bd_prognext(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 // with optional checksum
 #ifndef LFS3_RDONLY
 static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
-        const void *buffer, lfs3_size_t size,
+        const void *buffer, lfs3_size_t size, uint32_t flags,
         uint32_t *cksum) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
@@ -510,7 +519,7 @@ static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
             //
             // flush even if we're bypassing pcache, some devices don't
             // support out-of-order progs in a block
-            int err = lfs3_bd_flush(lfs3, cksum);
+            int err = lfs3_bd_flush(lfs3, flags, cksum);
             if (err) {
                 return err;
             }
@@ -520,7 +529,7 @@ static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         if (off_ % lfs3->cfg->prog_size == 0
                 && size_ >= lfs3->cfg->pcache_size) {
             lfs3_size_t d = lfs3_aligndown(size_, lfs3->cfg->prog_size);
-            int err = lfs3_bd_prog_(lfs3, block, off_, buffer_, d,
+            int err = lfs3_bd_prog_(lfs3, block, off_, buffer_, d, flags,
                     cksum);
             if (err) {
                 return err;
@@ -544,7 +553,7 @@ static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     }
 
     // optional checksum
-    if (cksum && cksum != &lfs3->pcksum) {
+    if (cksum && !lfs3_prog_isalign(flags)) {
         *cksum = lfs3_crc32c(*cksum, buffer, size);
     }
 
@@ -555,7 +564,7 @@ static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 #ifndef LFS3_RDONLY
 static int lfs3_bd_sync(lfs3_t *lfs3) {
     // make sure we flush any caches
-    int err = lfs3_bd_flush(lfs3, NULL);
+    int err = lfs3_bd_flush(lfs3, 0, NULL);
     if (err) {
         return err;
     }
@@ -652,7 +661,7 @@ static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
 static int lfs3_bd_cpy(lfs3_t *lfs3,
         lfs3_block_t dst_block, lfs3_size_t dst_off,
         lfs3_block_t src_block, lfs3_size_t src_off, lfs3_size_t hint,
-        lfs3_size_t size,
+        lfs3_size_t size, uint32_t flags,
         uint32_t *cksum) {
     // must be in-bounds
     LFS3_ASSERT(dst_block < lfs3->block_count);
@@ -670,7 +679,7 @@ static int lfs3_bd_cpy(lfs3_t *lfs3,
         // clobbering the rcache at all
         uint8_t *buffer__;
         lfs3_size_t size__;
-        int err = lfs3_bd_prognext(lfs3, dst_block, dst_off_, size_,
+        int err = lfs3_bd_prognext(lfs3, dst_block, dst_off_, size_, flags,
                 &buffer__, &size__,
                 cksum);
         if (err) {
@@ -684,7 +693,7 @@ static int lfs3_bd_cpy(lfs3_t *lfs3,
         }
 
         // optional checksum
-        if (cksum && cksum != &lfs3->pcksum) {
+        if (cksum && !lfs3_prog_isalign(flags)) {
             *cksum = lfs3_crc32c(*cksum, buffer__, size__);
         }
 
@@ -700,7 +709,7 @@ static int lfs3_bd_cpy(lfs3_t *lfs3,
 
 #ifndef LFS3_RDONLY
 static int lfs3_bd_set(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
-        uint8_t c, lfs3_size_t size,
+        uint8_t c, lfs3_size_t size, uint32_t flags,
         uint32_t *cksum) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
@@ -711,7 +720,7 @@ static int lfs3_bd_set(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     while (size_ > 0) {
         uint8_t *buffer__;
         lfs3_size_t size__;
-        int err = lfs3_bd_prognext(lfs3, block, off_, size_,
+        int err = lfs3_bd_prognext(lfs3, block, off_, size_, flags,
                 &buffer__, &size__,
                 cksum);
         if (err) {
@@ -721,7 +730,7 @@ static int lfs3_bd_set(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         lfs3_memset(buffer__, c, size__);
 
         // optional checksum
-        if (cksum && cksum != &lfs3->pcksum) {
+        if (cksum && !lfs3_prog_isalign(flags)) {
             *cksum = lfs3_crc32c(*cksum, buffer__, size__);
         }
 
@@ -954,6 +963,7 @@ static int lfs3_bd_cpyck(lfs3_t *lfs3,
         lfs3_block_t src_block, lfs3_size_t src_off, lfs3_size_t hint,
         lfs3_size_t size,
         lfs3_size_t src_cksize, uint32_t src_cksum,
+        uint32_t flags,
         uint32_t *cksum) {
     // must be in-bounds
     LFS3_ASSERT(dst_block < lfs3->block_count);
@@ -985,7 +995,7 @@ static int lfs3_bd_cpyck(lfs3_t *lfs3,
         // clobbering the rcache at all
         uint8_t *buffer__;
         lfs3_size_t size__;
-        err = lfs3_bd_prognext(lfs3, dst_block, dst_off_, size_,
+        err = lfs3_bd_prognext(lfs3, dst_block, dst_off_, size_, flags,
                 &buffer__, &size__,
                 cksum);
         if (err) {
@@ -1002,7 +1012,7 @@ static int lfs3_bd_cpyck(lfs3_t *lfs3,
         cksum__ = lfs3_crc32c(cksum__, buffer__, size__);
 
         // optional prog checksum
-        if (cksum && cksum != &lfs3->pcksum) {
+        if (cksum && !lfs3_prog_isalign(flags)) {
             *cksum = lfs3_crc32c(*cksum, buffer__, size__);
         }
 
@@ -1456,7 +1466,7 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
 #ifndef LFS3_RDONLY
 static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, bool perturb,
-        lfs3_tag_t tag, lfs3_rid_t weight, lfs3_size_t size,
+        lfs3_tag_t tag, lfs3_rid_t weight, lfs3_size_t size, uint32_t flags,
         uint32_t *cksum) {
     // we set the valid bit here
     LFS3_ASSERT(!(tag & 0x8000));
@@ -1492,7 +1502,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
     }
     d += d_;
 
-    int err = lfs3_bd_prog(lfs3, block, off, tag_buf, d,
+    int err = lfs3_bd_prog(lfs3, block, off, tag_buf, d, flags,
             cksum);
     if (err) {
         return err;
@@ -1816,7 +1826,8 @@ static lfs3_scmp_t lfs3_data_namecmp(lfs3_t *lfs3, const lfs3_data_t *data,
 
 #ifndef LFS3_RDONLY
 static int lfs3_bd_progdata(lfs3_t *lfs3,
-        lfs3_block_t block, lfs3_size_t off, const lfs3_data_t *data,
+        lfs3_block_t block, lfs3_size_t off,
+        const lfs3_data_t *data, uint32_t flags,
         uint32_t *cksum) {
     // we shouldn't end up with holes here
     LFS3_ASSERT(!lfs3_data_ishole(data));
@@ -1830,10 +1841,13 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
             int err = lfs3_bd_cpyck(lfs3, block, off,
-                    data->u.disk.block, lfs3_data_off(data),
+                    data->u.disk.block,
+                    lfs3_data_off(data),
                     lfs3_data_size(data),
                     lfs3_data_size(data),
-                    lfs3_data_cksize(data), data->u.disk.cksum,
+                    lfs3_data_cksize(data),
+                    data->u.disk.cksum,
+                    flags,
                     cksum);
             if (err) {
                 return err;
@@ -1842,9 +1856,11 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
 
         } else {
             int err = lfs3_bd_cpy(lfs3, block, off,
-                    data->u.disk.block, lfs3_data_off(data),
+                    data->u.disk.block,
+                    lfs3_data_off(data),
                     lfs3_data_size(data),
                     lfs3_data_size(data),
+                    flags,
                     cksum);
             if (err) {
                 return err;
@@ -1854,7 +1870,9 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
     // buffer?
     } else {
         int err = lfs3_bd_prog(lfs3, block, off,
-                data->u.buffer + lfs3_data_off(data), lfs3_data_size(data),
+                data->u.buffer + lfs3_data_off(data),
+                lfs3_data_size(data),
+                flags,
                 cksum);
         if (err) {
             return err;
@@ -2698,7 +2716,7 @@ relocate:;
     // cksize+cksum, so we shouldn't be violating CKDATACKSUMS even
     // though the block changed
     int err = lfs3_bd_cpy(lfs3, block, 0,
-            lfs3_bptr_block(bptr), 0, -1, lfs3->cfg->block_size,
+            lfs3_bptr_block(bptr), 0, -1, lfs3->cfg->block_size, 0,
             NULL);
     if (err) {
         // bad prog? try another block
@@ -2709,7 +2727,7 @@ relocate:;
     }
 
     // finalize our write
-    err = lfs3_bd_flush(lfs3, NULL);
+    err = lfs3_bd_flush(lfs3, 0, NULL);
     if (err) {
         // bad prog? try another block
         if (err == LFS3_ERR_CORRUPT) {
@@ -3590,7 +3608,7 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     int err = lfs3_bd_prog(lfs3,
             rbyd->blocks[0], lfs3_rbyd_eoff(rbyd),
-            &rev_buf, sizeof(uint32_t),
+            &rev_buf, sizeof(uint32_t), 0,
             &rbyd->cksum);
     if (err) {
         return err;
@@ -3618,7 +3636,7 @@ static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     lfs3_ssize_t d = lfs3_bd_progtag(lfs3,
             rbyd->blocks[0], lfs3_rbyd_eoff(rbyd), lfs3_rbyd_isperturb(rbyd),
-            tag, weight, size,
+            tag, weight, size, 0,
             &rbyd->cksum);
     if (d < 0) {
         return d;
@@ -3889,7 +3907,7 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // append data
     for (lfs3_size_t i = 0; i < data_count; i++) {
         err = lfs3_bd_progdata(lfs3,
-                rbyd->blocks[0], lfs3_rbyd_eoff(rbyd), &datas[i],
+                rbyd->blocks[0], lfs3_rbyd_eoff(rbyd), &datas[i], 0,
                 &rbyd->cksum);
         if (err) {
             return err;
@@ -4826,14 +4844,14 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     // prog, when this lands on disk commit is committed
     int err = lfs3_bd_prog(lfs3, rbyd->blocks[0], lfs3_rbyd_eoff(rbyd),
-            cksum_buf, 2+1+4+4,
+            cksum_buf, 2+1+4+4, 0,
             NULL);
     if (err) {
         return err;
     }
 
     // flush any pending progs
-    err = lfs3_bd_flush(lfs3, NULL);
+    err = lfs3_bd_flush(lfs3, 0, NULL);
     if (err) {
         return err;
     }
@@ -15033,7 +15051,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
     lfs3_off_t pos_ = block_pos
             + lfs3_bptr_off(&file->leaf.bptr)
             + lfs3_bptr_size(&file->leaf.bptr);
-    lfs3->pcksum = lfs3_bptr_cksum(&file->leaf.bptr);
+    uint32_t cksum_ = lfs3_bptr_cksum(&file->leaf.bptr);
     while (true) {
         // crystallize data into our block
         //
@@ -15079,8 +15097,8 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
             // any data on-disk?
             if (!lfs3_data_ishole(&data__)) {
                 int err = lfs3_bd_progdata(lfs3, block_, pos_ - block_pos,
-                        &data__,
-                        &lfs3->pcksum);
+                        &data__, LFS3_PROG_ALIGN,
+                        &cksum_);
                 if (err) {
                     LFS3_ASSERT(err != LFS3_ERR_RANGE);
                     // bad prog? try another block
@@ -15096,8 +15114,8 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
 
             // found a hole? fill with zeros
             err = lfs3_bd_set(lfs3, block_, pos_ - block_pos,
-                    0, data__.weight,
-                    &lfs3->pcksum);
+                    0, data__.weight, LFS3_PROG_ALIGN,
+                    &cksum_);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_RANGE);
                 // bad prog? try another block
@@ -15142,8 +15160,8 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // finalize our write
-        int err = lfs3_bd_flush(lfs3,
-                &lfs3->pcksum);
+        int err = lfs3_bd_flush(lfs3, LFS3_PROG_ALIGN,
+                &cksum_);
         if (err) {
             // bad prog? try another block
             if (err == LFS3_ERR_CORRUPT) {
@@ -15170,7 +15188,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                         | (pos_ - block_pos);
         LFS3_IFDEF_CKDATACKSUMS(
                 file->leaf.bptr.d.u.disk.cksum,
-                file->leaf.bptr.cksum) = lfs3->pcksum;
+                file->leaf.bptr.cksum) = cksum_;
 
         // mark as ungrafted
         file->h.flags |= LFS3_o_NEEDSGRAFT;
@@ -15189,7 +15207,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
 
         off_ = 0;
         pos_ = block_pos;
-        lfs3->pcksum = 0;
+        cksum_ = 0;
 
         // mark as uncrystallized and ungrafted
         file->h.flags |= LFS3_o_NEEDSCRYST;

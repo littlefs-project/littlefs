@@ -19,6 +19,7 @@ PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
 PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
 PREFIX_MKBAD   = ['+mkbad']          # Filter by LFS3_MKBAD_* flags
+PREFIX_PROG    = ['+prog']           # Filter by LFS3_PROG_* flags
 PREFIX_RBYD    = ['+rbyd']           # Filter by LFS3_RBYD_* flags
 PREFIX_ALLOC   = ['+alloc']          # Filter by LFS3_ALLOC_* flags
 PREFIX_RCOMPAT = ['+r', '+rc', '+rcompat'] \
@@ -199,6 +200,9 @@ gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
 
 # Mkbad flags
 MKBAD_EVICT     = 0x00000010  # --  Delete all references to this block
+
+# Bd prog flags
+PROG_ALIGN      = 0x00000001  # i-  Align cksums to prog boundaries
 
 # Rbyd fetch flags
 RBYD_QUICKFETCH = 0x00000001  # i-  Only fetch one trunk
