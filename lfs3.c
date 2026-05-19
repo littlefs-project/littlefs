@@ -28,93 +28,374 @@ typedef int lfs3_scmp_t;
 typedef int lfs3_sbool_t;
 
 
-// prog flags
-#define LFS3_PROG_ALIGN   0x00000001 // Align cksums to prog boundaries
-#define LFS3_PROG_PERTURB 0x80000000 // Perturb valid bit in tags
+// bd-level flags
+#define LFS3_BD_RELAX   0x00000001 // Don't evict corrupt data
+#define LFS3_BD_ALIGN   0x00000002 // Align cksums to prog boundaries
+#define LFS3_BD_PERTURB 0x80000000 // Perturb valid bit in tags
 
-static inline bool lfs3_prog_isalign(uint32_t flags) {
-    return flags & LFS3_PROG_ALIGN;
+static inline bool lfs3_bd_isrelax(uint32_t flags) {
+    return flags & LFS3_BD_RELAX;
 }
 
-static inline bool lfs3_prog_perturb(uint32_t flags) {
-    return flags & LFS3_PROG_PERTURB;
+static inline bool lfs3_bd_isalign(uint32_t flags) {
+    return flags & LFS3_BD_ALIGN;
+}
+
+static inline bool lfs3_bd_perturb(uint32_t flags) {
+    return flags & LFS3_BD_PERTURB;
 }
 
 
 /// Simple bd wrappers (asserts go here) ///
 
-static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
+static int lfs3_bd_read___(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         void *buffer, lfs3_size_t size, uint32_t flags) {
-    (void)flags;
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
-    // must be aligned
+    // must be read aligned
     LFS3_ASSERT(off % lfs3->cfg->read_size == 0);
     LFS3_ASSERT(size % lfs3->cfg->read_size == 0);
 
     // bd read
     int err = lfs3->cfg->read(lfs3->cfg, block, off, buffer, size);
     LFS3_ASSERT(err <= 0);
-    if (err) {
-        LFS3_INFO("Bad read 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
-                block, off, size, err);
-        return err;
+    if (err && !lfs3_bd_isrelax(flags)) {
+        if (err == LFS3_ERR_DAMAGED || err == LFS3_ERR_CONDEMNED) {
+            LFS3_INFO("Damaged read 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
+                    block, off, size, err);
+        } else {
+            LFS3_INFO("Bad read 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
+                    block, off, size, err);
+        }
     }
-
-    return 0;
+    return err;
 }
 
 #ifndef LFS3_RDONLY
-static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
+static int lfs3_bd_prog___(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         const void *buffer, lfs3_size_t size, uint32_t flags) {
-    (void)flags;
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
-    // must be aligned
+    // must be prog aligned
     LFS3_ASSERT(off % lfs3->cfg->prog_size == 0);
     LFS3_ASSERT(size % lfs3->cfg->prog_size == 0);
 
     // bd prog
     int err = lfs3->cfg->prog(lfs3->cfg, block, off, buffer, size);
     LFS3_ASSERT(err <= 0);
-    if (err) {
-        LFS3_INFO("Bad prog 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
-                block, off, size, err);
-        return err;
+    if (err && !lfs3_bd_isrelax(flags)) {
+        if (err == LFS3_ERR_DAMAGED || err == LFS3_ERR_CONDEMNED) {
+            LFS3_INFO("Damaged prog 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
+                    block, off, size, err);
+        } else {
+            LFS3_INFO("Bad prog 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
+                    block, off, size, err);
+        }
     }
-
-    return 0;
+    return err;
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
-    (void)flags;
+static int lfs3_bd_erase___(lfs3_t *lfs3, lfs3_block_t block,
+        uint32_t flags) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
 
     // bd erase
     int err = lfs3->cfg->erase(lfs3->cfg, block);
     LFS3_ASSERT(err <= 0);
-    if (err) {
-        LFS3_INFO("Bad erase 0x%"PRIx32" (%d)",
-                block, err);
+    if (err && !lfs3_bd_isrelax(flags)) {
+        if (err == LFS3_ERR_DAMAGED || err == LFS3_ERR_CONDEMNED) {
+            LFS3_INFO("Damaged erase 0x%"PRIx32" (%d)",
+                    block, err);
+        } else {
+            LFS3_INFO("Bad erase 0x%"PRIx32" (%d)",
+                    block, err);
+        }
+    }
+    return err;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static int lfs3_bd_sync___(lfs3_t *lfs3, uint32_t flags) {
+    // bd sync
+    int err = lfs3->cfg->sync(lfs3->cfg);
+    LFS3_ASSERT(err <= 0);
+    if (err && !lfs3_bd_isrelax(flags)) {
+        if (err == LFS3_ERR_DAMAGED || err == LFS3_ERR_CONDEMNED) {
+            LFS3_INFO("Damaged sync (%d)", err);
+        } else {
+            LFS3_INFO("Bad sync (%d)", err);
+        }
+    }
+    return err;
+}
+#endif
+
+
+/// Some eviction stuff we need for bd operations ///
+
+// block eviction flags
+#define LFS3_EVICT_DAMAGED       0x00000001 // Recent bd read was damaged
+#define LFS3_EVICT_CONDEMNED     0x00000002 // Recent bd read was condmemned
+#define LFS3_EVICT_RBYDDAMAGED   0x00000004 // Recent rbyd fetch was damaged
+#define LFS3_EVICT_RBYDCONDEMNED 0x00000008 // Recent rbyd fetch was condmemned
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_isdamaged(uint32_t flags) {
+    return flags & LFS3_EVICT_DAMAGED;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_iscondemned(uint32_t flags) {
+    return flags & LFS3_EVICT_CONDEMNED;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_isrbyddamaged(uint32_t flags) {
+    return flags & LFS3_EVICT_RBYDDAMAGED;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_isrbydcondemned(uint32_t flags) {
+    return flags & LFS3_EVICT_RBYDCONDEMNED;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#define LFS3_EVICT_ISBAD 0x80000000
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_isbad(const lfs3_evict_t *evict) {
+    return evict->block & LFS3_EVICT_ISBAD;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_block_t lfs3_evict_block(const lfs3_evict_t *evict) {
+    return evict->block & ~LFS3_EVICT_ISBAD;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline void lfs3_evict_discard(lfs3_t *lfs3) {
+    lfs3->evictqueue.flags = 0;
+    lfs3->evictqueue.count = 0;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static lfs3_evict_t *lfs3_evict_eviction(lfs3_t *lfs3,
+        lfs3_block_t block) {
+    for (lfs3_size_t i = 0; i < lfs3->evictqueue.count; i++) {
+        if (lfs3_evict_block(&lfs3->evictqueue.queue[i]) == block) {
+            return &lfs3->evictqueue.queue[i];
+        }
+    }
+
+    return NULL;
+}
+#endif
+
+// returns a bool, but also takes const
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needseviction(const lfs3_t *lfs3,
+        lfs3_block_t block) {
+    return lfs3_evict_eviction((lfs3_t*)lfs3, block);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static lfs3_evict_t *lfs3_evict_push(lfs3_t *lfs3, lfs3_block_t block) {
+    // TODO mark repairing traversals as dirty? different flag?
+
+    // already in evictqueue?
+    lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, block);
+    if (evict) {
+        // or bad bits
+        evict->block |= block & LFS3_EVICT_ISBAD;
+        return evict;
+    }
+
+    // add to evictqueue if we have a slot available
+    if (lfs3->evictqueue.count < lfs3->cfg->evictqueue_count) {
+        lfs3_evict_t *evict = &lfs3->evictqueue.queue[
+                lfs3->evictqueue.count++];
+        evict->block = block;
+        evict->block_ = 0;
+        // set repair flags if we successfully push a new block
+        // 
+        // we don't actually know if this is a meta or data blocks, so
+        // set both flags, they both need a full traversal anyways
+        lfs3->flags |= LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA;
+        return evict;
+    }
+
+    // quietly discard blocks if evictqueue is full
+    LFS3_WARN("Evict queue overflowed 0x%"PRIx32" (%"PRIu32" > %"PRIu32")",
+            block & ~LFS3_EVICT_ISBAD,
+            lfs3->evictqueue.count+1,
+            lfs3->cfg->evictqueue_count);
+    return NULL;
+}
+#endif
+
+
+/// Low-level bd operations ///
+
+// intercept block evictions, ckprogs, etc
+
+// needed in lfs3_bd_read__
+static inline bool lfs3_f_isgbmap(uint32_t flags);
+
+static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
+        void *buffer, lfs3_size_t size, uint32_t flags) {
+    // must be in-bounds
+    LFS3_ASSERT(block < lfs3->block_count);
+    LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
+    // must be read aligned
+    LFS3_ASSERT(off % lfs3->cfg->read_size == 0);
+    LFS3_ASSERT(size % lfs3->cfg->read_size == 0);
+
+    // read from disk
+    int err = lfs3_bd_read___(lfs3, block, off, buffer, size, flags);
+    if (err && err != LFS3_ERR_DAMAGED
+            && err != LFS3_ERR_CONDEMNED) {
+        // bad? push onto our evictqueue as a block to avoid
+        if (err == LFS3_ERR_BAD) {
+        #if defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+            if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
+                lfs3_evict_push(lfs3, LFS3_EVICT_ISBAD | block);
+            }
+        #endif
+            return LFS3_ERR_CORRUPT;
+        }
         return err;
     }
+
+    // damaged? condemned? push onto our evictqueue as a block to repair
+    if (err == LFS3_ERR_DAMAGED
+            || err == LFS3_ERR_CONDEMNED) {
+        #ifdef LFS3_EVICT
+        // these flags are useful for upper layers
+        lfs3->evictqueue.flags
+                |= ((err == LFS3_ERR_CONDEMNED) ? LFS3_EVICT_CONDEMNED : 0)
+                    | LFS3_EVICT_DAMAGED;
+
+        if (!lfs3_bd_isrelax(flags)) {
+            lfs3_evict_push(lfs3,
+                    ((err == LFS3_ERR_CONDEMNED) ? LFS3_EVICT_ISBAD : 0)
+                        | block);
+        }
+        #endif
+    }
+
+    return 0;
+}
+
+// needed in lfs3_bd_prog__ for prog validation
+#ifdef LFS3_CKPROGS
+static inline bool lfs3_m_isckprogs(uint32_t flags);
+#endif
+static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
+        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
+        const void *buffer, lfs3_size_t size, uint32_t flags);
+
+// low-level prog stuff
+#ifndef LFS3_RDONLY
+static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
+        const void *buffer, lfs3_size_t size, uint32_t flags) {
+    // must be in-bounds
+    LFS3_ASSERT(block < lfs3->block_count);
+    LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
+    // must be prog aligned
+    LFS3_ASSERT(off % lfs3->cfg->prog_size == 0);
+    LFS3_ASSERT(size % lfs3->cfg->prog_size == 0);
+
+    // prog to disk
+    int err = lfs3_bd_prog___(lfs3, block, off, buffer, size, flags);
+    if (err) {
+        // damaged/condemned vs corrupt/bad are two subtly different
+        // situations (for damaged/condemned the prog succeeded), but
+        // either way we don't trust the data at this point so we treat
+        // them the same
+        if (err == LFS3_ERR_DAMAGED) {
+            return LFS3_ERR_CORRUPT;
+        }
+        // condemned/bad? push onto our evictqueue as a block to avoid
+        if (err == LFS3_ERR_CONDEMNED
+                || err == LFS3_ERR_BAD) {
+            #if defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+            if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
+                lfs3_evict_push(lfs3, LFS3_EVICT_ISBAD | block);
+            }
+            #endif
+            return LFS3_ERR_CORRUPT;
+        }
+        return err;
+    }
+
+    // checking progs?
+    #ifdef LFS3_CKPROGS
+    if (lfs3_m_isckprogs(lfs3->flags)) {
+        // pcache should have been dropped at this point
+        LFS3_ASSERT(lfs3->pcache.size == 0);
+
+        // invalidate rcache, we're going to clobber it anyways
+        lfs3_bd_droprcache(lfs3);
+
+        lfs3_scmp_t cmp = lfs3_bd_cmp(lfs3, block, off, 0,
+                buffer, size);
+        if (cmp < 0) {
+            return cmp;
+        }
+
+        if (cmp != LFS3_CMP_EQ) {
+            LFS3_WARN("Found ckprog mismatch 0x%"PRIx32".%"PRIx32" %"PRId32,
+                    block, off, size);
+            return LFS3_ERR_CORRUPT;
+        }
+    }
+    #endif
 
     return 0;
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_bd_sync__(lfs3_t *lfs3) {
-    // bd sync
-    int err = lfs3->cfg->sync(lfs3->cfg);
-    LFS3_ASSERT(err <= 0);
+static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block,
+        uint32_t flags) {
+    // must be in-bounds
+    LFS3_ASSERT(block < lfs3->block_count);
+
+    // erase on disk
+    int err = lfs3_bd_erase___(lfs3, block, flags);
     if (err) {
-        LFS3_INFO("Bad sync (%d)", err);
+        // damaged/condemned vs corrupt/bad are two subtly different
+        // situations (for damaged/condemned the erase succeeded), but
+        // either way we don't trust the data at this point so we treat
+        // them the same
+        if (err == LFS3_ERR_DAMAGED) {
+            return LFS3_ERR_CORRUPT;
+        }
+        // condemned/bad? push onto our evictqueue as a block to avoid
+        if (err == LFS3_ERR_CONDEMNED
+                || err == LFS3_ERR_BAD) {
+            #if defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+            if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
+                lfs3_evict_push(lfs3, LFS3_EVICT_ISBAD | block);
+            }
+            #endif
+            return LFS3_ERR_CORRUPT;
+        }
         return err;
     }
 
@@ -123,7 +404,7 @@ static int lfs3_bd_sync__(lfs3_t *lfs3) {
 #endif
 
 
-/// Caching block device operations ///
+/// High-level caching bd operations ///
 
 static inline void lfs3_bd_droprcache(lfs3_t *lfs3) {
     lfs3->rcache.size = 0;
@@ -320,15 +601,7 @@ static int lfs3_bd_read(lfs3_t *lfs3,
     return 0;
 }
 
-// needed in lfs3_bd_prog_ for prog validation
-#ifdef LFS3_CKPROGS
-static inline bool lfs3_m_isckprogs(uint32_t flags);
-#endif
-static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
-        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
-        const void *buffer, lfs3_size_t size, uint32_t flags);
-
-// low-level prog stuff
+// last-minute caching prog stuff
 #ifndef LFS3_RDONLY
 static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         const void *buffer, lfs3_size_t size, uint32_t flags,
@@ -343,29 +616,6 @@ static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         return err;
     }
 
-    // checking progs?
-    #ifdef LFS3_CKPROGS
-    if (lfs3_m_isckprogs(lfs3->flags)) {
-        // pcache should have been dropped at this point
-        LFS3_ASSERT(lfs3->pcache.size == 0);
-
-        // invalidate rcache, we're going to clobber it anyways
-        lfs3_bd_droprcache(lfs3);
-
-        lfs3_scmp_t cmp = lfs3_bd_cmp(lfs3, block, off, 0,
-                buffer, size);
-        if (cmp < 0) {
-            return cmp;
-        }
-
-        if (cmp != LFS3_CMP_EQ) {
-            LFS3_WARN("Found ckprog mismatch 0x%"PRIx32".%"PRIx32" %"PRId32,
-                    block, off, size);
-            return LFS3_ERR_CORRUPT;
-        }
-    }
-    #endif
-
     // update rcache if we can
     if (block == lfs3->rcache.block
             && off <= lfs3->rcache.off + lfs3->rcache.size) {
@@ -379,7 +629,7 @@ static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     }
 
     // optional prog-aligned checksum
-    if (cksum && lfs3_prog_isalign(flags)) {
+    if (cksum && lfs3_bd_isalign(flags)) {
         *cksum = lfs3_crc32c(*cksum, buffer, size);
     }
 
@@ -387,34 +637,8 @@ static int lfs3_bd_prog_(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 }
 #endif
 
-// flush the pcache
-#ifndef LFS3_RDONLY
-static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t flags, uint32_t *cksum) {
-    if (lfs3->pcache.size != 0) {
-        // must be in-bounds
-        LFS3_ASSERT(lfs3->pcache.block < lfs3->block_count);
-        // must be aligned
-        LFS3_ASSERT(lfs3->pcache.off % lfs3->cfg->prog_size == 0);
-        lfs3_size_t size = lfs3_alignup(
-                lfs3->pcache.size,
-                lfs3->cfg->prog_size);
-
-        // make this cache available, if we error anything in this cache
-        // would be useless anyways
-        lfs3_bd_droppcache(lfs3);
-
-        // flush
-        int err = lfs3_bd_prog_(lfs3, lfs3->pcache.block,
-                lfs3->pcache.off, lfs3->pcache.buffer, size, flags,
-                cksum);
-        if (err) {
-            return err;
-        }
-    }
-
-    return 0;
-}
-#endif
+// needed in lfs3_bd_prognext
+static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t flags, uint32_t *cksum);
 
 // caching prog that lends you a buffer
 //
@@ -560,7 +784,7 @@ static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     }
 
     // optional checksum
-    if (cksum && !lfs3_prog_isalign(flags)) {
+    if (cksum && !lfs3_bd_isalign(flags)) {
         *cksum = lfs3_crc32c(*cksum, buffer, size);
     }
 
@@ -568,15 +792,44 @@ static int lfs3_bd_prog(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 }
 #endif
 
+// flush the pcache
 #ifndef LFS3_RDONLY
-static int lfs3_bd_sync(lfs3_t *lfs3) {
+static int lfs3_bd_flush(lfs3_t *lfs3, uint32_t flags, uint32_t *cksum) {
+    if (lfs3->pcache.size != 0) {
+        // must be in-bounds
+        LFS3_ASSERT(lfs3->pcache.block < lfs3->block_count);
+        // must be aligned
+        LFS3_ASSERT(lfs3->pcache.off % lfs3->cfg->prog_size == 0);
+        lfs3_size_t size = lfs3_alignup(
+                lfs3->pcache.size,
+                lfs3->cfg->prog_size);
+
+        // make this cache available, if we error anything in this cache
+        // would be useless anyways
+        lfs3_bd_droppcache(lfs3);
+
+        // flush
+        int err = lfs3_bd_prog_(lfs3, lfs3->pcache.block,
+                lfs3->pcache.off, lfs3->pcache.buffer, size, flags,
+                cksum);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static int lfs3_bd_sync(lfs3_t *lfs3, uint32_t flags) {
     // make sure we flush any caches
-    int err = lfs3_bd_flush(lfs3, 0, NULL);
+    int err = lfs3_bd_flush(lfs3, flags, NULL);
     if (err) {
         return err;
     }
 
-    return lfs3_bd_sync__(lfs3);
+    return lfs3_bd_sync___(lfs3, flags);
 }
 #endif
 
@@ -700,7 +953,7 @@ static int lfs3_bd_cpy(lfs3_t *lfs3,
         }
 
         // optional checksum
-        if (cksum && !lfs3_prog_isalign(flags)) {
+        if (cksum && !lfs3_bd_isalign(flags)) {
             *cksum = lfs3_crc32c(*cksum, buffer__, size__);
         }
 
@@ -737,7 +990,7 @@ static int lfs3_bd_set(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         lfs3_memset(buffer__, c, size__);
 
         // optional checksum
-        if (cksum && !lfs3_prog_isalign(flags)) {
+        if (cksum && !lfs3_bd_isalign(flags)) {
             *cksum = lfs3_crc32c(*cksum, buffer__, size__);
         }
 
@@ -1019,7 +1272,7 @@ static int lfs3_bd_ckcpy(lfs3_t *lfs3,
         cksum__ = lfs3_crc32c(cksum__, buffer__, size__);
 
         // optional prog checksum
-        if (cksum && !lfs3_prog_isalign(flags)) {
+        if (cksum && !lfs3_bd_isalign(flags)) {
             *cksum = lfs3_crc32c(*cksum, buffer__, size__);
         }
 
@@ -1041,6 +1294,74 @@ static int lfs3_bd_ckcpy(lfs3_t *lfs3,
 }
 #endif
 
+
+/// Some quick decoders ///
+
+// should probably prefer the lfs3_data_* functions, but these can be
+// useful when low-level hints/flags are needed
+
+static int lfs3_bd_readle32(lfs3_t *lfs3,
+        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint, uint32_t flags,
+        uint32_t *word_) {
+    // truncated?
+    if (lfs3->cfg->block_size-off < 4) {
+        return LFS3_ERR_CORRUPT;
+    }
+
+    int err = lfs3_bd_read(lfs3, block, off, hint,
+            word_, 4, flags);
+    if (err) {
+        return err;
+    }
+
+    *word_ = lfs3_fromle32(word_);
+    return 0;
+}
+
+// note all leb128s in our system reserve the sign bit
+static lfs3_ssize_t lfs3_bd_readleb128(lfs3_t *lfs3,
+        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint, uint32_t flags,
+        uint32_t *word_) {
+    // for 32-bits we can assume worst-case leb128 size is 5-bytes
+    uint8_t buf[5];
+    int err = lfs3_bd_read(lfs3, block, off, hint,
+            buf, lfs3->cfg->block_size-off, flags);
+    if (err) {
+        return err;
+    }
+
+    lfs3_ssize_t d = lfs3_fromleb128(word_, buf, lfs3->cfg->block_size-off);
+    if (d < 0) {
+        return d;
+    }
+    // all leb128s in our system reserve the sign bit
+    if (*word_ > 0x7fffffff) {
+        return LFS3_ERR_CORRUPT;
+    }
+
+    return d;
+}
+
+// a little-leb128 in our system is truncated to align nicely
+//
+// for 32-bit words, little-leb128s are truncated to 28-bits, so the
+// resulting leb128 encoding fits nicely in 4-bytes
+static lfs3_ssize_t lfs3_bd_readlleb128(lfs3_t *lfs3,
+        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint, uint32_t flags,
+        uint32_t *word_) {
+    // just call readleb128 here
+    lfs3_ssize_t d = lfs3_bd_readleb128(lfs3, block, off, hint, flags,
+            word_);
+    if (d < 0) {
+        return d;
+    }
+    // little-leb128s should be limited to 28-bits
+    if (*word_ > 0x0fffffff) {
+        return LFS3_ERR_CORRUPT;
+    }
+
+    return d;
+}
 
 
 
@@ -1322,7 +1643,9 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
         uint32_t *cksum) {
     // read the largest possible tag size
     uint8_t tag_buf[LFS3_TAG_DSIZE];
-    lfs3_size_t tag_dsize = lfs3_min(LFS3_TAG_DSIZE, lfs3->cfg->block_size-off);
+    lfs3_size_t tag_dsize = lfs3_min(
+            LFS3_TAG_DSIZE,
+            lfs3->cfg->block_size-off);
     if (tag_dsize < 4) {
         return LFS3_ERR_CORRUPT;
     }
@@ -1487,7 +1810,7 @@ static lfs3_ssize_t lfs3_bd_progtag(lfs3_t *lfs3,
     // set the valid bit to the parity of the current checksum, inverted
     // if the perturb bit is set, and exclude from the next checksum
     LFS3_ASSERT(cksum);
-    bool v = lfs3_parity(*cksum) ^ lfs3_prog_perturb(flags);
+    bool v = lfs3_parity(*cksum) ^ lfs3_bd_perturb(flags);
     tag |= (lfs3_tag_t)v << 15;
     *cksum ^= (uint32_t)v << 7;
 
@@ -1692,19 +2015,17 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
 }
 
 static int lfs3_data_readle32(lfs3_t *lfs3, lfs3_data_t *data,
-        uint32_t *word) {
-    uint8_t buf[4];
-    lfs3_ssize_t d = lfs3_data_read(lfs3, data, buf, 4);
+        uint32_t *word_) {
+    lfs3_ssize_t d = lfs3_data_read(lfs3, data, word_, 4);
     if (d < 0) {
         return d;
     }
-
     // truncated?
     if (d < 4) {
         return LFS3_ERR_CORRUPT;
     }
 
-    *word = lfs3_fromle32(buf);
+    *word_ = lfs3_fromle32(word_);
     return 0;
 }
 
@@ -1739,7 +2060,7 @@ static int lfs3_data_readleb128(lfs3_t *lfs3, lfs3_data_t *data,
 //
 // for 32-bit words, little-leb128s are truncated to 28-bits, so the
 // resulting leb128 encoding fits nicely in 4-bytes
-static inline int lfs3_data_readlleb128(lfs3_t *lfs3, lfs3_data_t *data,
+static int lfs3_data_readlleb128(lfs3_t *lfs3, lfs3_data_t *data,
         uint32_t *word_) {
     // just call readleb128 here
     int err = lfs3_data_readleb128(lfs3, data, word_);
@@ -2294,122 +2615,6 @@ static lfs3_sblock_t lfs3_allocwith(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
 
 
-/// Some block eviction things ///
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_EVICT_ISBAD 0x80000000
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_isbad(const lfs3_evict_t *evict) {
-    return evict->block & LFS3_EVICT_ISBAD;
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline lfs3_block_t lfs3_evict_block(const lfs3_evict_t *evict) {
-    return evict->block & ~LFS3_EVICT_ISBAD;
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline void lfs3_evict_discard(lfs3_t *lfs3) {
-    lfs3->evictqueue.count = 0;
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static lfs3_evict_t *lfs3_evict_eviction(lfs3_t *lfs3,
-        lfs3_block_t block) {
-    for (lfs3_size_t i = 0; i < lfs3->evictqueue.count; i++) {
-        if (lfs3_evict_block(&lfs3->evictqueue.queue[i]) == block) {
-            return &lfs3->evictqueue.queue[i];
-        }
-    }
-
-    return NULL;
-}
-#endif
-
-// these just save a bit of typing
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline lfs3_evict_t *lfs3_evict_evictionmdir(lfs3_t *lfs3,
-        const lfs3_mdir_t *mdir) {
-    lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, mdir->r.blocks[0]);
-    if (evict) {
-        return evict;
-    }
-    evict = lfs3_evict_eviction(lfs3, mdir->r.blocks[1]);
-    if (evict) {
-        return evict;
-    }
-    return NULL;
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline lfs3_evict_t *lfs3_evict_evictionrbyd(lfs3_t *lfs3,
-        const lfs3_rbyd_t *rbyd) {
-    return lfs3_evict_eviction(lfs3, rbyd->blocks[0]);
-}
-#endif
-
-// needed in lfs3_evict_evictionbptr
-static inline lfs3_block_t lfs3_bptr_block(const lfs3_bptr_t *bptr);
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline lfs3_evict_t *lfs3_evict_evictionbptr(lfs3_t *lfs3,
-        const lfs3_bptr_t *bptr) {
-    return lfs3_evict_eviction(lfs3, lfs3_bptr_block(bptr));
-}
-#endif
-
-// returns a bool, but also takes const
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needseviction(const lfs3_t *lfs3,
-        lfs3_block_t block) {
-    return lfs3_evict_eviction((lfs3_t*)lfs3, block);
-}
-#endif
-
-// these just save a bit of typing
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionmdir(const lfs3_t *lfs3,
-        const lfs3_mdir_t *mdir) {
-    return lfs3_evict_evictionmdir((lfs3_t*)lfs3, mdir);
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionrbyd(const lfs3_t *lfs3,
-        const lfs3_rbyd_t *rbyd) {
-    return lfs3_evict_evictionrbyd((lfs3_t*)lfs3, rbyd);
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionbptr(const lfs3_t *lfs3,
-        const lfs3_bptr_t *bptr) {
-    return lfs3_evict_evictionbptr((lfs3_t*)lfs3, bptr);
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static bool lfs3_evict_push(lfs3_t *lfs3, lfs3_block_t block) {
-    // note we quietly discard blocks if evictqueue is full
-    if (lfs3->evictqueue.count < lfs3->cfg->evictqueue_count) {
-        lfs3_size_t i = lfs3->evictqueue.count;
-        lfs3->evictqueue.queue[i].block = block;
-        lfs3->evictqueue.queue[i].block_ = 0;
-        lfs3->evictqueue.count += 1;
-        return true;
-    }
-    return false;
-}
-#endif
-
-
-
 /// Block pointer things ///
 
 #define LFS3_BPTR_ONDISK LFS3_DATA_ONDISK
@@ -2510,6 +2715,20 @@ static inline uint32_t lfs3_bptr_cksum(const lfs3_bptr_t *bptr) {
     return bptr->cksum;
     #endif
 }
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_evict_t *lfs3_evict_evictionbptr(lfs3_t *lfs3,
+        const lfs3_bptr_t *bptr) {
+    return lfs3_evict_eviction(lfs3, lfs3_bptr_block(bptr));
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needsevictionbptr(const lfs3_t *lfs3,
+        const lfs3_bptr_t *bptr) {
+    return lfs3_evict_evictionbptr((lfs3_t*)lfs3, bptr);
+}
+#endif
 
 // slice a bptr in-place
 static inline void lfs3_bptr_slice(lfs3_bptr_t *bptr,
@@ -2773,15 +2992,16 @@ static inline bool lfs3_ecksum_isecksum(const lfs3_ecksum_t *ecksum) {
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_ecksum_read(lfs3_t *lfs3, lfs3_ecksum_t *ecksum,
-        lfs3_block_t block, lfs3_off_t off) {
+static int lfs3_bd_ecksum(lfs3_t *lfs3,
+        lfs3_block_t block, lfs3_off_t off, lfs3_size_t hint, uint32_t flags,
+        lfs3_ecksum_t *ecksum) {
     // keep track of prog size
     ecksum->cksize = lfs3->cfg->prog_size;
     // checksum erased state
     ecksum->cksum = 0;
     return lfs3_bd_cksum(lfs3,
-            block, off, 0,
-            lfs3->cfg->prog_size, 0,
+            block, off, hint,
+            lfs3->cfg->prog_size, flags,
             &ecksum->cksum);
 }
 #endif
@@ -2794,7 +3014,7 @@ static int lfs3_ecksum_ck(lfs3_t *lfs3, const lfs3_ecksum_t *ecksum,
     uint32_t cksum_ = 0;
     int err = lfs3_bd_cksum(lfs3,
             block, off, 0,
-            ecksum->cksize, 0,
+            ecksum->cksize, LFS3_BD_RELAX,
             &cksum_);
     if (err) {
         return err;
@@ -2861,6 +3081,34 @@ static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
 }
 #endif
 
+// we sometimes need to read ecksums in weird situations
+#ifndef LFS3_RDONLY
+static lfs3_ssize_t lfs3_bd_readecksum(lfs3_t *lfs3,
+        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint, uint32_t flags,
+        lfs3_ecksum_t *ecksum_) {
+    // just read into buffer and pass to lfs3_data_readecksum
+    uint8_t ecksum_buf[LFS3_ECKSUM_DSIZE];
+    lfs3_size_t ecksum_dsize = lfs3_min(
+            LFS3_ECKSUM_DSIZE,
+            lfs3->cfg->block_size-off);
+    int err = lfs3_bd_read(lfs3, block, off, hint,
+            ecksum_buf, ecksum_dsize, flags);
+    if (err) {
+        return err;
+    }
+
+    lfs3_data_t ecksum_data = LFS3_DATA_BUF(ecksum_buf, ecksum_dsize);
+    err = lfs3_data_readecksum(lfs3, &ecksum_data,
+            ecksum_);
+    if (err) {
+        return err;
+    }
+
+    return ecksum_dsize - lfs3_data_size(&ecksum_data);
+}
+
+#endif
+
 
 
 /// Red-black-yellow Dhara tree operations ///
@@ -2922,6 +3170,20 @@ static inline int lfs3_rbyd_cmp(
     }
 }
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_evict_t *lfs3_evict_evictionrbyd(lfs3_t *lfs3,
+        const lfs3_rbyd_t *rbyd) {
+    return lfs3_evict_eviction(lfs3, rbyd->blocks[0]);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needsevictionrbyd(const lfs3_t *lfs3,
+        const lfs3_rbyd_t *rbyd) {
+    return lfs3_evict_evictionrbyd((lfs3_t*)lfs3, rbyd);
+}
+#endif
+
 
 // allocate an rbyd block
 #ifndef LFS3_RDONLY
@@ -2967,7 +3229,12 @@ static int lfs3_rbyd_ckecksum(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 #endif
 
 // rbyd fetch flags
-#define LFS3_RBYD_QUICKFETCH 0x00000001 // Only fetch the trunk
+#define LFS3_RBYD_RELAX         0x00000001 // Don't evict corrupt data
+#define LFS3_RBYD_QUICKFETCH    0x00000004 // Only fetch the trunk
+
+static inline bool lfs3_rbyd_isrelax(uint32_t flags) {
+    return flags & LFS3_RBYD_RELAX;
+}
 
 static inline bool lfs3_rbyd_isquickfetch(uint32_t flags) {
     return flags & LFS3_RBYD_QUICKFETCH;
@@ -3010,7 +3277,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // checksum the revision count to get the cksum started
     uint32_t cksum_ = 0;
     if (!lfs3_rbyd_isquickfetch(flags)) {
-        int err = lfs3_bd_cksum(lfs3, block, 0, -1, sizeof(uint32_t), 0,
+        int err = lfs3_bd_cksum(lfs3, block, 0, -1, sizeof(uint32_t), flags,
                 &cksum_);
         if (err) {
             return err;
@@ -3040,10 +3307,13 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag;
         lfs3_rid_t weight;
         lfs3_size_t size;
-        lfs3_ssize_t d = lfs3_bd_readtag(lfs3, block, off_, -1, 0,
+        lfs3_ssize_t d = lfs3_bd_readtag(lfs3, block, off_, -1, flags,
                 &tag, &weight, &size,
                 (lfs3_rbyd_isquickfetch(flags)) ? NULL : &cksum__);
-        if (d < 0) {
+        if (d < 0 && LFS3_IFDEF_EVICT(
+                d != LFS3_ERR_DAMAGED
+                    && d != LFS3_ERR_CONDEMNED,
+                true)) {
             if (d == LFS3_ERR_CORRUPT) {
                 break;
             }
@@ -3061,7 +3331,8 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
             if (lfs3_tag_suptype(tag) != LFS3_TAG_CKSUM) {
                 if (!lfs3_rbyd_isquickfetch(flags)) {
                     // cksum the entry, hopefully leaving it in the cache
-                    int err = lfs3_bd_cksum(lfs3, block, off__, -1, size, 0,
+                    int err = lfs3_bd_cksum(lfs3,
+                            block, off__, -1, size, flags,
                             &cksum__);
                     if (err) {
                         if (err == LFS3_ERR_CORRUPT) {
@@ -3076,27 +3347,19 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                         false,
                         tag == LFS3_TAG_ECKSUM)) {
                     #ifndef LFS3_RDONLY
-                    int err = lfs3_data_readecksum(lfs3,
-                            &LFS3_DATA_DISK(block, off__,
-                                // note this size is to make the hint do
-                                // what we want
-                                lfs3->cfg->block_size - off__),
+                    d = lfs3_bd_readecksum(lfs3, block, off__, -1, flags,
                             &ecksum_);
-                    if (err) {
-                        if (err == LFS3_ERR_CORRUPT) {
+                    if (d < 0) {
+                        if (d == LFS3_ERR_CORRUPT) {
                             break;
                         }
-                        return err;
+                        return d;
                     }
                     #endif
 
                 // found gcksumdelta? save for later
                 } else if (tag == LFS3_TAG_GCKSUMDELTA) {
-                    int err = lfs3_data_readle32(lfs3,
-                            &LFS3_DATA_DISK(block, off__,
-                                // note this size is to make the hint do
-                                // what we want
-                                lfs3->cfg->block_size - off__),
+                    int err = lfs3_bd_readle32(lfs3, block, off__, -1, flags,
                             &gcksumdelta);
                     if (err) {
                         if (err == LFS3_ERR_CORRUPT) {
@@ -3121,16 +3384,15 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
                 // check checksum, unless we're recklessly quick fetching
                 if (!lfs3_rbyd_isquickfetch(flags)) {
-                    uint32_t cksum___ = 0;
-                    int err = lfs3_bd_read(lfs3, block, off__, -1,
-                            &cksum___, sizeof(uint32_t), 0);
+                    uint32_t cksum___;
+                    int err = lfs3_bd_readle32(lfs3, block, off__, -1, flags,
+                            &cksum___);
                     if (err) {
                         if (err == LFS3_ERR_CORRUPT) {
                             break;
                         }
                         return err;
                     }
-                    cksum___ = lfs3_fromle32(&cksum___);
 
                     if (cksum__ != cksum___) {
                         // uh oh, checksums don't match
@@ -3159,6 +3421,17 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                         | eoff;
                 ecksum = ecksum_;
                 ecksum_.cksize = -1;
+                #endif
+
+                // update damaged/condemned bits only when we find valid
+                // commits
+                #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+                lfs3->evictqueue.flags
+                        |= ((lfs3->evictqueue.flags
+                                    & LFS3_EVICT_DAMAGED)
+                                | (lfs3->evictqueue.flags
+                                    & LFS3_EVICT_CONDEMNED))
+                            << 2;
                 #endif
 
                 // revert to canonical checksum and perturb if necessary
@@ -3652,7 +3925,7 @@ static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     lfs3_ssize_t d = lfs3_bd_progtag(lfs3,
             rbyd->blocks[0], lfs3_rbyd_eoff(rbyd),
             tag, weight, size,
-            (lfs3_rbyd_isperturb(rbyd)) ? LFS3_PROG_PERTURB : 0,
+            (lfs3_rbyd_isperturb(rbyd)) ? LFS3_BD_PERTURB : 0,
             &rbyd->cksum);
     if (d < 0) {
         return d;
@@ -4784,8 +5057,12 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         uint8_t e = 0;
         int err = lfs3_bd_read(lfs3,
                 rbyd->blocks[0], off_, lfs3->cfg->prog_size,
-                &e, 1, 0);
-        if (err && err != LFS3_ERR_CORRUPT) {
+                &e, 1, LFS3_BD_RELAX);
+        if (err && err != LFS3_ERR_CORRUPT
+                && LFS3_IFDEF_EVICT(
+                    err != LFS3_ERR_DAMAGED
+                        && err != LFS3_ERR_CONDEMNED,
+                    true)) {
             return err;
         }
 
@@ -4796,9 +5073,15 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
         // calculate the erased-state checksum
         lfs3_ecksum_t ecksum;
-        err = lfs3_ecksum_read(lfs3, &ecksum,
-                rbyd->blocks[0], off_);
-        if (err && err != LFS3_ERR_CORRUPT) {
+        err = lfs3_bd_ecksum(lfs3,
+                rbyd->blocks[0], off_, lfs3->cfg->prog_size,
+                LFS3_BD_RELAX,
+                &ecksum);
+        if (err && err != LFS3_ERR_CORRUPT
+                && LFS3_IFDEF_EVICT(
+                    err != LFS3_ERR_DAMAGED
+                        && err != LFS3_ERR_CONDEMNED,
+                    true)) {
             return err;
         }
 
@@ -7740,6 +8023,18 @@ static inline bool lfs3_gc_iscompactmeta(uint32_t flags) {
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_gc_isrepairmeta(uint32_t flags) {
+    return flags & LFS3_GC_REPAIRMETA;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_gc_isrepairdata(uint32_t flags) {
+    return flags & LFS3_GC_REPAIRDATA;
+}
+#endif
+
 // internal gc flags
 //
 // note the step flags are the same as the normal flags, but shifted
@@ -7780,6 +8075,18 @@ static inline bool lfs3_gc_isckmetaing(uint32_t flags) {
 static inline bool lfs3_gc_isckdataing(uint32_t flags) {
     return flags & LFS3_gc_CKDATAING;
 }
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_gc_isrepairmetaing(uint32_t flags) {
+    return flags & LFS3_gc_REPAIRMETAING;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_gc_isrepairdataing(uint32_t flags) {
+    return flags & LFS3_gc_REPAIRDATAING;
+}
+#endif
 
 // mkbad flags
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
@@ -8256,6 +8563,28 @@ static inline bool lfs3_mdir_ismrootanchor(const lfs3_mdir_t *mdir) {
     return lfs3_mptr_ismrootanchor(mdir->r.blocks);
 }
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_evict_t *lfs3_evict_evictionmdir(lfs3_t *lfs3,
+        const lfs3_mdir_t *mdir) {
+    lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, mdir->r.blocks[0]);
+    if (evict) {
+        return evict;
+    }
+    evict = lfs3_evict_eviction(lfs3, mdir->r.blocks[1]);
+    if (evict) {
+        return evict;
+    }
+    return NULL;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needsevictionmdir(const lfs3_t *lfs3,
+        const lfs3_mdir_t *mdir) {
+    return lfs3_evict_evictionmdir((lfs3_t*)lfs3, mdir);
+}
+#endif
+
 static inline void lfs3_mdir_sync(lfs3_mdir_t *a, const lfs3_mdir_t *b) {
     // copy over everything but the mid
     a->r = b->r;
@@ -8273,12 +8602,14 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // has the most recent revision
     uint32_t revs[2] = {0, 0};
     for (int i = 0; i < 2; i++) {
-        int err = lfs3_bd_read(lfs3, blocks[0], 0, 0,
-                &revs[0], sizeof(uint32_t), 0);
-        if (err && err != LFS3_ERR_CORRUPT) {
+        int err = lfs3_bd_readle32(lfs3, blocks[0], 0, 0, LFS3_BD_RELAX,
+                &revs[0]);
+        if (err < 0 && err != LFS3_ERR_CORRUPT) {
             return err;
         }
-        revs[i] = lfs3_fromle32(&revs[i]);
+        if (err == LFS3_ERR_CORRUPT) {
+            revs[0] = 0;
+        }
 
         if (i == 0
                 || err == LFS3_ERR_CORRUPT
@@ -8290,12 +8621,24 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
     // try to fetch rbyds in the order of most recent to least recent
     for (int i = 0; i < 2; i++) {
-        int err = lfs3_rbyd_fetch_(lfs3, &mdir->r, blocks[0], -1, 0,
+        // reset damaged/condemned bits
+        #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+        lfs3->evictqueue.flags &= ~(
+                LFS3_EVICT_DAMAGED
+                    | LFS3_EVICT_CONDEMNED
+                    | LFS3_EVICT_RBYDDAMAGED
+                    | LFS3_EVICT_RBYDCONDEMNED);
+        #endif
+
+        // try to fetch
+        int err = lfs3_rbyd_fetch_(lfs3, &mdir->r,
+                blocks[0], -1, LFS3_RBYD_RELAX,
                 &mdir->gcksumdelta);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
 
+        // success?
         if (err != LFS3_ERR_CORRUPT) {
             mdir->mid = mid;
             // keep track of other block for compactions
@@ -8310,6 +8653,32 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     mdir->r.weight,
                     mdir->r.cksum);
             #endif
+
+            // we had to relax bd operations to avoid eagerly evicting
+            // the unwritten parts of our mdirs, but we still want to
+            // evict mdirs that are damaged/condemned
+            //
+            // we use the damaged/condemned bits in the evictqueue for
+            // this to avoid needing to thread a whole bunch of nuanced
+            // error codes through lfs3_rbyd_fetch_
+            #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+            if (lfs3_evict_isrbyddamaged(lfs3->evictqueue.flags)
+                    || lfs3_evict_isrbydcondemned(lfs3->evictqueue.flags)) {
+                LFS3_INFO("Damaged mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"} "
+                            "(%d)",
+                        lfs3_dbgmbid(lfs3, mdir->mid),
+                        mdir->r.blocks[0], mdir->r.blocks[1],
+                        (lfs3_evict_isrbydcondemned(lfs3->evictqueue.flags))
+                            ? LFS3_ERR_CONDEMNED
+                            : LFS3_ERR_DAMAGED);
+
+                lfs3_evict_push(lfs3,
+                        ((lfs3_evict_isrbydcondemned(lfs3->evictqueue.flags))
+                                ? LFS3_EVICT_ISBAD : 0)
+                            | mdir->r.blocks[0]);
+            }
+            #endif
+
             return 0;
         }
 
@@ -8509,13 +8878,15 @@ static int lfs3_mdir_alloc__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // we use whatever is on-disk to avoid needing to rewrite the
     // redund block
     uint32_t rev;
-    int err = lfs3_bd_read(lfs3, mdir->r.blocks[1], 0, 0,
-            &rev, sizeof(uint32_t), 0);
+    int err = lfs3_bd_readle32(lfs3, mdir->r.blocks[1], 0, 0, LFS3_BD_RELAX,
+            &rev);
     if (err && err != LFS3_ERR_CORRUPT) {
         return err;
     }
     // note we allow corrupt errors here, as long as they are consistent
-    rev = (err != LFS3_ERR_CORRUPT) ? lfs3_fromle32(&rev) : 0;
+    if (err == LFS3_ERR_CORRUPT) {
+        rev = 0;
+    }
     // reset recycle bits in revision count, add low-effort debug bits
     rev = lfs3_rev_init(lfs3, rev) | 'm';
 
@@ -8555,13 +8926,15 @@ static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 
     // first thing we need to do is read our current revision count
     uint32_t rev;
-    int err = lfs3_bd_read(lfs3, mdir->r.blocks[0], 0, 0,
-            &rev, sizeof(uint32_t), 0);
+    int err = lfs3_bd_readle32(lfs3, mdir->r.blocks[0], 0, 0, LFS3_BD_RELAX,
+            &rev);
     if (err && err != LFS3_ERR_CORRUPT) {
         return err;
     }
     // note we allow corrupt errors here, as long as they are consistent
-    rev = (err != LFS3_ERR_CORRUPT) ? lfs3_fromle32(&rev) : 0;
+    if (err == LFS3_ERR_CORRUPT) {
+        rev = 0;
+    }
 
     // decide if we need to relocate
     if (!force && lfs3_rev_needsrelocation(lfs3, rev)) {
@@ -9170,7 +9543,11 @@ compact:;
     // are we being evicted? definitely shouldn't try compacting, jump
     // straight to relocating
     #ifdef LFS3_EVICT
-    if (lfs3_evict_needsevictionmdir(lfs3, mdir)) {
+    if (lfs3_evict_needsevictionmdir(lfs3, mdir)
+            // well, not if we're the mroot anchor, evicting the mroot
+            // anchor doesn't accomplish anything, but we can at least
+            // compact
+            && !lfs3_mdir_ismrootanchor(mdir)) {
         goto relocate;
     }
     #endif
@@ -9656,7 +10033,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
         // make sure mtree/mroot changes are on-disk before committing
         // metadata
-        err = lfs3_bd_sync(lfs3);
+        err = lfs3_bd_sync(lfs3, 0);
         if (err) {
             goto failed;
         }
@@ -9719,7 +10096,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
             // make sure mtree/mroot changes are on-disk before committing
             // metadata
-            err = lfs3_bd_sync(lfs3);
+            err = lfs3_bd_sync(lfs3, 0);
             if (err) {
                 goto failed;
             }
@@ -9757,7 +10134,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
             // make sure mtree/mroot changes are on-disk before committing
             // metadata
-            err = lfs3_bd_sync(lfs3);
+            err = lfs3_bd_sync(lfs3, 0);
             if (err) {
                 goto failed;
             }
@@ -9799,7 +10176,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     }
 
     // sync on-disk state
-    err = lfs3_bd_sync(lfs3);
+    err = lfs3_bd_sync(lfs3, 0);
     if (err) {
         return err;
     }
@@ -11223,7 +11600,8 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // evicting mdirs?
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_MDIR
-            && lfs3_gc_isevict(mgc->t.h.flags)
+            && (lfs3_gc_isrepairmetaing(mgc->t.h.flags)
+                || lfs3_gc_isrepairdataing(mgc->t.h.flags))
             && lfs3_evict_needsevictionmdir(lfs3,
                 (lfs3_mdir_t*)bptr.d.u.buffer)) {
         // this takes the same code path as mdir compaction, with
@@ -11245,7 +11623,8 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // evicting btree nodes?
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_BRANCH
-            && lfs3_gc_isevict(mgc->t.h.flags)
+            && (lfs3_gc_isrepairmetaing(mgc->t.h.flags)
+                || lfs3_gc_isrepairdataing(mgc->t.h.flags))
             && lfs3_evict_needsevictionrbyd(lfs3,
                 (lfs3_rbyd_t*)bptr.d.u.buffer)) {
         // this is humorously the same operation btree compaction
@@ -11266,7 +11645,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // evicting data blocks?
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_BLOCK
-            && lfs3_gc_isevict(mgc->t.h.flags)
+            && lfs3_gc_isrepairdataing(mgc->t.h.flags)
             && lfs3_evict_needsevictionbptr(lfs3, &bptr)) {
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mgc_evictbptr(lfs3, mgc, &bptr);
@@ -11419,6 +11798,23 @@ eot:;
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         lfs3->flags &= ~LFS3_I_COMPACTMETA;
     }
+
+    // was repair successful?
+    #ifdef LFS3_EVICT
+    if (lfs3_gc_isrepairmetaing(mgc->t.h.flags)
+            && !lfs3_t_isdirty(mgc->t.h.flags)) {
+        lfs3->flags &= ~LFS3_I_REPAIRMETA;
+    }
+    if (lfs3_gc_isrepairdataing(mgc->t.h.flags)
+            && !lfs3_t_isdirty(mgc->t.h.flags)) {
+        lfs3->flags &= ~LFS3_I_REPAIRDATA;
+    }
+    // clear evictqueue?
+    if (!lfs3_gc_isrepairmeta(lfs3->flags)
+            && !lfs3_gc_isrepairdata(lfs3->flags)) {
+        lfs3_evict_discard(lfs3);
+    }
+    #endif
     #endif
 
     return LFS3_ERR_NOENT;
@@ -11448,7 +11844,11 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                         | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                         | LFS3_GC_CKMETA
-                        | LFS3_GC_CKDATA))
+                        | LFS3_GC_CKDATA
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0))))
                 // this weird shift is to let us mask out any
                 // flags that change
                 >> 8;
@@ -11492,7 +11892,11 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
                         | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
                         | LFS3_gc_CKMETAING
-                        | LFS3_gc_CKDATAING);
+                        | LFS3_gc_CKDATAING
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0)));
 
             // will this traversal still make progress? no? start a new
             // traversal
@@ -11501,7 +11905,11 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
                         | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
                         | LFS3_gc_CKMETAING
-                        | LFS3_gc_CKDATAING)
+                        | LFS3_gc_CKDATAING
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0)))
                     // don't bother with lookahead/gbmap if we've
                     // ckpointed
                     & ~LFS3_IFDEF_RDONLY(
@@ -11518,7 +11926,13 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                 | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
                                 | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
                                 | LFS3_gc_CKMETAING
-                                | LFS3_gc_CKDATAING)));
+                                | LFS3_gc_CKDATAING
+                                | LFS3_IFDEF_RDONLY(0,
+                                    LFS3_IFDEF_EVICT(
+                                        LFS3_gc_REPAIRMETAING, 0))
+                                | LFS3_IFDEF_RDONLY(0,
+                                    LFS3_IFDEF_EVICT(
+                                        LFS3_gc_REPAIRDATAING, 0)))));
             }
 
             // do we really need a full traversal?
@@ -11528,7 +11942,11 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         // support eviction in the future
                         | LFS3_gc_COMPACTMETAING
                         | LFS3_gc_CKMETAING
-                        | LFS3_gc_CKDATAING))) {
+                        | LFS3_gc_CKDATAING
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0))))) {
                 mgc->t.h.flags |= LFS3_T_MTREEONLY;
             }
 
@@ -11541,7 +11959,11 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
                             | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
                             | LFS3_gc_CKMETAING
-                            | LFS3_gc_CKDATAING);
+                            | LFS3_gc_CKDATAING
+                            | LFS3_IFDEF_RDONLY(0,
+                                LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                            | LFS3_IFDEF_RDONLY(0,
+                                LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0)));
                 return err;
             }
 
@@ -11552,7 +11974,11 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
                             | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
                             | LFS3_gc_CKMETAING
-                            | LFS3_gc_CKDATAING);
+                            | LFS3_gc_CKDATAING
+                            | LFS3_IFDEF_RDONLY(0,
+                                LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                            | LFS3_IFDEF_RDONLY(0,
+                                LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0)));
             }
 
         // if we have no pending traversal work, can we preerase blocks?
@@ -12833,8 +13259,9 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
 
         // calculate erased-state checksum
         lfs3_ecksum_t ecksum;
-        err = lfs3_ecksum_read(lfs3, &ecksum, block, 0);
-        if (err) {
+        err = lfs3_bd_ecksum(lfs3, block, 0, 0, LFS3_BD_RELAX,
+                &ecksum);
+        if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
 
@@ -15114,7 +15541,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
             // any data on-disk?
             if (!lfs3_data_ishole(&data__)) {
                 int err = lfs3_bd_progdata(lfs3, block_, pos_ - block_pos,
-                        &data__, LFS3_PROG_ALIGN,
+                        &data__, LFS3_BD_ALIGN,
                         &cksum_);
                 if (err) {
                     LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -15131,7 +15558,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
 
             // found a hole? fill with zeros
             err = lfs3_bd_set(lfs3, block_, pos_ - block_pos,
-                    0, data__.weight, LFS3_PROG_ALIGN,
+                    0, data__.weight, LFS3_BD_ALIGN,
                     &cksum_);
             if (err) {
                 LFS3_ASSERT(err != LFS3_ERR_RANGE);
@@ -15177,7 +15604,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // finalize our write
-        int err = lfs3_bd_flush(lfs3, LFS3_PROG_ALIGN,
+        int err = lfs3_bd_flush(lfs3, LFS3_BD_ALIGN,
                 &cksum_);
         if (err) {
             // bad prog? try another block
@@ -15856,7 +16283,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         // make sure data is on-disk before committing metadata
         if (lfs3_file_size_(file) > 0
                 && !lfs3_o_needsflush(file->h.flags)) {
-            int err = lfs3_bd_sync(lfs3);
+            int err = lfs3_bd_sync(lfs3, 0);
             if (err) {
                 return err;
             }
@@ -16636,7 +17063,11 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) == 0);
+                | LFS3_GC_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
 
     // check that gc_compactmeta_thresh makes sense
     //
@@ -17543,7 +17974,11 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA)
                 | LFS3_M_CKMETA
-                | LFS3_M_CKDATA)) == 0);
+                | LFS3_M_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_PREERASE(LFS3_M_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_PREERASE(LFS3_M_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_ismkconsistent(flags));
@@ -17552,6 +17987,10 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_ispreerase(flags));
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_iscompactmeta(flags));
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_isrepairmeta(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_isrepairdata(flags));
+    #endif
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
@@ -17589,7 +18028,11 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) {
+                | LFS3_GC_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) {
         err = lfs3_fs_ck(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
@@ -17597,7 +18040,11 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                         LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                     | LFS3_GC_CKMETA
-                    | LFS3_GC_CKDATA));
+                    | LFS3_GC_CKDATA
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0))));
         if (err) {
             goto failed;
         }
@@ -17783,7 +18230,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
     }
 
     // sync on-disk state
-    err = lfs3_bd_sync(lfs3);
+    err = lfs3_bd_sync(lfs3, 0);
     if (err) {
         return err;
     }
@@ -17833,7 +18280,11 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0))
                 | LFS3_F_COMPACTMETA
                 | LFS3_F_CKMETA
-                | LFS3_F_CKDATA)) == 0);
+                | LFS3_F_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_F_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_F_REPAIRDATA, 0)))) == 0);
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
@@ -17880,7 +18331,11 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) {
+                | LFS3_GC_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) {
         err = lfs3_fs_ck(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
@@ -17888,7 +18343,11 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                         LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                     | LFS3_GC_CKMETA
-                    | LFS3_GC_CKDATA));
+                    | LFS3_GC_CKDATA
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0))));
         if (err) {
             goto failed;
         }
@@ -17925,6 +18384,10 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
                     | LFS3_I_CKMETA
                     | LFS3_I_CKDATA
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_EVICT(LFS3_I_REPAIRMETA, 0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_EVICT(LFS3_I_REPAIRDATA, 0))
                     | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)))
             // LFS3_I_MKCONSISTENT is a bit of a special case,
             // internally it strictly indicates untracked orphans, but
@@ -18002,7 +18465,11 @@ static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) == 0);
+                | LFS3_GC_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_ismkconsistent(flags));
@@ -18014,6 +18481,12 @@ static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_iscompactmeta(flags));
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_gc_isrepairmeta(lfs3->flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_gc_isrepairdata(lfs3->flags));
+    #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
@@ -18060,7 +18533,11 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) == 0);
+                | LFS3_GC_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     //
     // we don't check this in lfs3_init to avoid cfg headache when
@@ -18075,6 +18552,12 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_iscompactmeta(lfs3->cfg->gc_flags));
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_gc_isrepairmeta(lfs3->cfg->gc_flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_gc_isrepairdata(lfs3->cfg->gc_flags));
+    #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
@@ -18097,7 +18580,11 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) == 0);
+                | LFS3_GC_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
 
     // reset the requested flags
     lfs3->flags |= flags;
@@ -18371,6 +18858,9 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
             return LFS3_ERR_BUSY;
         }
 
+        // TODO we need to call lfs3_fs_repair or something to make sure
+        // we can use the evictqueue?
+
         // block eviction needs an evict queue with at least one entry
         LFS3_ASSERT(lfs3->cfg->evictqueue_count >= 1);
 
@@ -18383,30 +18873,20 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         // the allocator is also aware of the evict window, so we can
         // always do this in one pass
         lfs3_mgc_t mgc;
-        lfs3_mgc_init(&mgc, LFS3_gc_EVICT);
+        lfs3_mgc_init(&mgc, LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA);
         lfs3_handle_open(lfs3, &mgc.t.h);
-        // TODO should we make EVICT stateful and just call lfs3_mgc_gc
-        // to take advantage of its state machine?
-        while (true) {
-            err = lfs3_mtree_gc(lfs3, &mgc);
-            if (err) {
-                if (err == LFS3_ERR_NOENT) {
-                    break;
-                }
-                lfs3_handle_close(lfs3, &mgc.t.h);
-                goto failed;
-            }
+        lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
+        if (steps < 0) {
+            lfs3_handle_close(lfs3, &mgc.t.h);
+            return steps;
         }
         lfs3_handle_close(lfs3, &mgc.t.h);
-
-        // reset eviction window
-        lfs3_evict_discard(lfs3);
     }
 
     return 0;
 
 failed:;
-    // make sure eviction window is null
+    // make sure eviction queue is null
     lfs3_evict_discard(lfs3);
     return err;
 }
@@ -18541,7 +19021,11 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
                     LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                 | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA)) == 0);
+                | LFS3_GC_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
@@ -18554,6 +19038,12 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_iscompactmeta(flags));
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_gc_isrepairmeta(flags));
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
+            || !lfs3_gc_isrepairdata(flags));
+    #endif
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake

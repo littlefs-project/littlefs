@@ -19,9 +19,10 @@ PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
 PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
 PREFIX_MKBAD   = ['+mkbad']          # Filter by LFS3_MKBAD_* flags
-PREFIX_PROG    = ['+prog']           # Filter by LFS3_PROG_* flags
-PREFIX_RBYD    = ['+rbyd']           # Filter by LFS3_RBYD_* flags
+PREFIX_BD      = ['+bd']             # Filter by LFS3_BD_* flags
 PREFIX_ALLOC   = ['+alloc']          # Filter by LFS3_ALLOC_* flags
+PREFIX_EVICT   = ['+evict']          # Filter by LFS3_EVICT_* flags
+PREFIX_RBYD    = ['+rbyd']           # Filter by LFS3_RBYD_* flags
 PREFIX_RCOMPAT = ['+r', '+rc', '+rcompat'] \
                                      # Filter by on-disk LFS3_RCOMPAT_* flags
 PREFIX_WCOMPAT = ['+w', '+wc', '+wcompat'] \
@@ -87,14 +88,16 @@ F_CKFETCHES     = 0x00002000  # y-  Check block checksums before first use
 F_CKMETAPARITY  = 0x00004000  # y-  Check metadata tag parity bits
 F_CKDATACKSUMS  = 0x00008000  # y-  Check data checksums on reads
 
-F_MKCONSISTENT  = 0x00010000  # y-  Make the filesystem consistent
-F_LOOKAHEAD     = 0x00020000  # y-  Repopulate lookahead buffer
-F_PREERASE      = 0x00040000  # y-  Try to pre-erase free blocks
-F_COMPACTMETA   = 0x00080000  # y-  Compact metadata logs
-F_CKMETA        = 0x00100000  # y-  Check metadata checksums
-F_CKDATA        = 0x00200000  # y-  Check metadata + data checksums
+F_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
+F_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
+F_PREERASE      = 0x00040000  # --  Try to pre-erase free blocks
+F_COMPACTMETA   = 0x00080000  # --  Compact metadata logs
+F_CKMETA        = 0x00100000  # --  Check metadata checksums
+F_CKDATA        = 0x00200000  # --  Check metadata + data checksums
+F_REPAIRMETA    = 0x00400000  # --  Repair metadata blocks
+F_REPAIRDATA    = 0x00800000  # --  Repair metadata + data blocks
 F_CK            = 0x00300000  # a-  Alias for all check work
-F_GC            = 0x003f0000  # a-  Alias for all gc work
+F_GC            = 0x00ff0000  # a-  Alias for all gc work
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -109,14 +112,16 @@ M_CKFETCHES     = 0x00002000  # y-  Check block checksums before first use
 M_CKMETAPARITY  = 0x00004000  # y-  Check metadata tag parity bits
 M_CKDATACKSUMS  = 0x00008000  # y-  Check data checksums on reads
 
-M_MKCONSISTENT  = 0x00010000  # y-  Make the filesystem consistent
-M_LOOKAHEAD     = 0x00020000  # y-  Repopulate lookahead buffer
-M_PREERASE      = 0x00040000  # y-  Try to pre-erase free blocks
-M_COMPACTMETA   = 0x00080000  # y-  Compact metadata logs
-M_CKMETA        = 0x00100000  # y-  Check metadata checksums
-M_CKDATA        = 0x00200000  # y-  Check metadata + data checksums
+M_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
+M_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
+M_PREERASE      = 0x00040000  # --  Try to pre-erase free blocks
+M_COMPACTMETA   = 0x00080000  # --  Compact metadata logs
+M_CKMETA        = 0x00100000  # --  Check metadata checksums
+M_CKDATA        = 0x00200000  # --  Check metadata + data checksums
+M_REPAIRMETA    = 0x00400000  # --  Repair metadata blocks
+M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data blocks
 M_CK            = 0x00300000  # a-  Alias for all check work
-M_GC            = 0x003f0000  # a-  Alias for all gc work
+M_GC            = 0x00ff0000  # a-  Alias for all gc work
 
 # Filesystem info flags
 I_RDONLY        = 0x00000001  # --  Mounted read only
@@ -137,6 +142,8 @@ I_PREERASE      = 0x00040000  # --  Blocks can be pre-erased
 I_COMPACTMETA   = 0x00080000  # --  Filesystem may have uncompacted metadata
 I_CKMETA        = 0x00100000  # --  Metadata checksums not checked recently
 I_CKDATA        = 0x00200000  # --  Data checksums not checked recently
+I_REPAIRMETA    = 0x00400000  # --  Metadata blocks need repair
+I_REPAIRDATA    = 0x00800000  # --  Data blocks need repair
 
 # Traversal flags
 T_MODE          =          3  # -m  The traversal's access mode
@@ -176,8 +183,10 @@ GC_PREERASE     = 0x00040000  # --  Try to pre-erase free blocks
 GC_COMPACTMETA  = 0x00080000  # --  Compact metadata logs
 GC_CKMETA       = 0x00100000  # --  Check metadata checksums
 GC_CKDATA       = 0x00200000  # --  Check metadata + data checksums
+GC_REPAIRMETA   = 0x00400000  # --  Repair metadata blocks
+GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data blocks
 GC_CK           = 0x00300000  # a-  Alias for all check work
-GC_GC           = 0x003f0000  # a-  Alias for all gc work
+GC_GC           = 0x00ff0000  # a-  Alias for all gc work
 
 gc_EVICT        = 0x00000010  # i-  Evict a range of blocks
 gc_MKCONSISTENTING \
@@ -188,6 +197,10 @@ gc_COMPACTMETAING \
                 = 0x00000800  # i-  Working on LFS3_GC_COMPACTMETA
 gc_CKMETAING    = 0x00001000  # i-  Working on LFS3_GC_CKMETA
 gc_CKDATAING    = 0x00002000  # i-  Working on LFS3_GC_CKDATA
+gc_REPAIRMETAING \
+                = 0x00004000  # i-  Working on LFS3_GC_REPAIRMETA
+gc_REPAIRDATAING \
+                = 0x00008000  # i-  Working on LFS3_GC_REPAIRDATA
 gc_TYPE         = 0xf0000000  # im  The gc's type
 gc_REG          = 0x10000000  # i^  Type = regular-file
 gc_DIR          = 0x20000000  # i^  Type = directory
@@ -201,16 +214,26 @@ gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
 # Mkbad flags
 MKBAD_EVICT     = 0x00000010  # --  Delete all references to this block
 
-# Bd prog flags
-PROG_ALIGN      = 0x00000001  # i-  Align cksums to prog boundaries
-PROG_PERTURB    = 0x80000000  # i-  Perturb valid bit in tags
+# Bd-level flags
+BD_RELAX        = 0x00000001  # i-  Don't evict corrupt data
+BD_ALIGN        = 0x00000002  # i-  Align cksums to prog boundaries
+BD_PERTURB      = 0x80000000  # i-  Perturb valid bit in tags
 
-# Rbyd fetch flags
-RBYD_QUICKFETCH = 0x00000001  # i-  Only fetch one trunk
+# Block eviction flags
+EVICT_DAMAGED   = 0x00000001  # i-  Recent bd read was damaged
+EVICT_CONDEMNED = 0x00000002  # i-  Recent bd read was condemned
+EVICT_RBYDDAMAGED \
+                = 0x00000004  # i-  Recent rbyd fetch was damaged
+EVICT_RBYDCONDEMNED \
+                = 0x00000008  # i-  Recent rbyd fetch was condemned
 
 # Block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
 ALLOC_CLAIM     = 0x00000002  # i-  Claim erased state
+
+# Rbyd fetch flags
+RBYD_RELAX      = 0x00000001  # i-  Don't evict corrupt data
+RBYD_QUICKFETCH = 0x00000004  # i-  Only fetch one trunk
 
 # On-disk read-compat flags - Must understand to read the filesystem
 RCOMPAT_WRONLY  =     0x0001  # --  Reading is disallowed
