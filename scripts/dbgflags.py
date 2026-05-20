@@ -216,16 +216,19 @@ MKBAD_EVICT     = 0x00000010  # --  Delete all references to this block
 
 # Bd-level flags
 BD_RELAX        = 0x00000001  # i-  Don't evict corrupt data
+BD_DATA         = 0x40000000  # i-  A hint that we're reading data
 BD_ALIGN        = 0x00000002  # i-  Align cksums to prog boundaries
 BD_PERTURB      = 0x80000000  # i-  Perturb valid bit in tags
 
 # Block eviction flags
-EVICT_DAMAGED   = 0x00000001  # i-  Recent bd read was damaged
-EVICT_CONDEMNED = 0x00000002  # i-  Recent bd read was condemned
+EVICT_DAMAGED   = 0x00000001  # i-  Bd read was damaged
+EVICT_CONDEMNED = 0x00000002  # i-  Bd read was condemned
 EVICT_RBYDDAMAGED \
-                = 0x00000004  # i-  Recent rbyd fetch was damaged
+                = 0x00000004  # i-  Rbyd fetch was damaged
 EVICT_RBYDCONDEMNED \
-                = 0x00000008  # i-  Recent rbyd fetch was condemned
+                = 0x00000008  # i-  Rbyd fetch was condemned
+EVICT_BAD       = 0x80000000  # i-  Block is bad
+EVICT_DATA      = 0x40000000  # i-  Block is definitely data
 
 # Block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block

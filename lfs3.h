@@ -1325,11 +1325,12 @@ typedef struct lfs3_gc {
 // a single eviction entry
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 typedef struct lfs3_evict {
-    // sign(block)=0 => damaged
-    // sign(block)=1 => bad
-    // block_!=0     => dest block for dags
+    // sign(block)=0  => damaged
+    // sign(block)=1  => bad
     lfs3_block_t block;
-    lfs3_block_t block_;
+    // sign(block_)=1 => is definitely data
+    // block_!=0      => dest block for dags
+    lfs3_sblock_t block_;
 } lfs3_evict_t;
 #endif
 
