@@ -5,7 +5,7 @@
 #
 # It's also one of the more annoying things to test, as block eviction
 # can touch pretty much every part of the filesystem
-after = ['test_trvs', 'test_gc']
+after = ['test_trvs']
 ifdef = 'LFS3_EVICT'
 
 # Test both with and without the gbmap if available
@@ -11460,13 +11460,12 @@ code = '''
         int err = lfs3_mkdir(&lfs3, name);
         assert(!err || (TEST_PLS && err == LFS3_ERR_EXIST));
 
-        // randomly evict a block
+        // damage a random block
         //
         // to try to minimize traversals we randomly choose a block
-        // based on the _previous_ traversal, or the last
-        // non-mrootanchor block if that fails
+        // based on the _previous_ traversal
         lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
-        lfs3_block_t victim = 2;
+        lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         for (lfs3_block_t i = 0;; i++) {
@@ -11479,7 +11478,7 @@ code = '''
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
+            if (i <= victim_i) {
                 victim = tinfo.block;
             }
             n = i+1;
@@ -11525,10 +11524,14 @@ code = '''
                 break;
             }
 
-            // hmm, ok, one exception is mdir's spare blocks,
-            // these don't actually store anything at rest
-            if (!(tinfo.btype == LFS3_BTYPE_MDIR
-                    && trv.blocks[1] == -1)) {
+            // hmm, ignore the mrootanchor, which we _can_ repair, but
+            // not evict
+            if (tinfo.block != 0
+                    && tinfo.block != 1
+                    // hmm, and the mdir's spare blocks, these don't
+                    // actually store anything at rest
+                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                        && trv.blocks[0] == -1)) {
                 assert(tinfo.block != victim);
             }
         }
@@ -11705,13 +11708,12 @@ code = '''
             lfs3_rename(&lfs3, old_name, new_name) => 0;
         }
 
-        // randomly evict a block
+        // damage a random block
         //
         // to try to minimize traversals we randomly choose a block
-        // based on the _previous_ traversal, or the last
-        // non-mrootanchor block if that fails
+        // based on the _previous_ traversal
         lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
-        lfs3_block_t victim = 2;
+        lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         for (lfs3_block_t i = 0;; i++) {
@@ -11724,7 +11726,7 @@ code = '''
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
+            if (i <= victim_i) {
                 victim = tinfo.block;
             }
             n = i+1;
@@ -11770,10 +11772,14 @@ code = '''
                 break;
             }
 
-            // hmm, ok, one exception is mdir's spare blocks,
-            // these don't actually store anything at rest
-            if (!(tinfo.btype == LFS3_BTYPE_MDIR
-                    && trv.blocks[1] == -1)) {
+            // hmm, ignore the mrootanchor, which we _can_ repair, but
+            // not evict
+            if (tinfo.block != 0
+                    && tinfo.block != 1
+                    // hmm, and the mdir's spare blocks, these don't
+                    // actually store anything at rest
+                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                        && trv.blocks[0] == -1)) {
                 assert(tinfo.block != victim);
             }
         }
@@ -11875,13 +11881,12 @@ code = '''
         lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // randomly evict a block
+        // damage a random block
         //
         // to try to minimize traversals we randomly choose a block
-        // based on the _previous_ traversal, or the last
-        // non-mrootanchor block if that fails
+        // based on the _previous_ traversal
         lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
-        lfs3_block_t victim = 2;
+        lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         for (lfs3_block_t i = 0;; i++) {
@@ -11894,7 +11899,7 @@ code = '''
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
+            if (i <= victim_i) {
                 victim = tinfo.block;
             }
             n = i+1;
@@ -11940,10 +11945,14 @@ code = '''
                 break;
             }
 
-            // hmm, ok, one exception is mdir's spare blocks,
-            // these don't actually store anything at rest
-            if (!(tinfo.btype == LFS3_BTYPE_MDIR
-                    && trv.blocks[1] == -1)) {
+            // hmm, ignore the mrootanchor, which we _can_ repair, but
+            // not evict
+            if (tinfo.block != 0
+                    && tinfo.block != 1
+                    // hmm, and the mdir's spare blocks, these don't
+                    // actually store anything at rest
+                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                        && trv.blocks[0] == -1)) {
                 assert(tinfo.block != victim);
             }
         }
@@ -12141,13 +12150,12 @@ code = '''
             lfs3_rename(&lfs3, old_name, new_name) => 0;
         }
 
-        // randomly evict a block
+        // damage a random block
         //
         // to try to minimize traversals we randomly choose a block
-        // based on the _previous_ traversal, or the last
-        // non-mrootanchor block if that fails
+        // based on the _previous_ traversal
         lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
-        lfs3_block_t victim = 2;
+        lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         for (lfs3_block_t i = 0;; i++) {
@@ -12160,7 +12168,7 @@ code = '''
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
+            if (i <= victim_i) {
                 victim = tinfo.block;
             }
             n = i+1;
@@ -12206,10 +12214,14 @@ code = '''
                 break;
             }
 
-            // hmm, ok, one exception is mdir's spare blocks,
-            // these don't actually store anything at rest
-            if (!(tinfo.btype == LFS3_BTYPE_MDIR
-                    && trv.blocks[1] == -1)) {
+            // hmm, ignore the mrootanchor, which we _can_ repair, but
+            // not evict
+            if (tinfo.block != 0
+                    && tinfo.block != 1
+                    // hmm, and the mdir's spare blocks, these don't
+                    // actually store anything at rest
+                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                        && trv.blocks[0] == -1)) {
                 assert(tinfo.block != victim);
             }
         }
@@ -12372,13 +12384,12 @@ code = '''
             lfs3_file_sync(&lfs3, &file) => 0;
         }
 
-        // randomly evict a block
+        // damage a random block
         //
         // to try to minimize traversals we randomly choose a block
-        // based on the _previous_ traversal, or the last
-        // non-mrootanchor block if that fails
+        // based on the _previous_ traversal
         lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
-        lfs3_block_t victim = 2;
+        lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         for (lfs3_block_t i = 0;; i++) {
@@ -12391,7 +12402,7 @@ code = '''
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
+            if (i <= victim_i) {
                 victim = tinfo.block;
             }
             n = i+1;
@@ -12437,10 +12448,14 @@ code = '''
                 break;
             }
 
-            // hmm, ok, one exception is mdir's spare blocks,
-            // these don't actually store anything at rest
-            if (!(tinfo.btype == LFS3_BTYPE_MDIR
-                    && trv.blocks[1] == -1)) {
+            // hmm, ignore the mrootanchor, which we _can_ repair, but
+            // not evict
+            if (tinfo.block != 0
+                    && tinfo.block != 1
+                    // hmm, and the mdir's spare blocks, these don't
+                    // actually store anything at rest
+                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                        && trv.blocks[0] == -1)) {
                 assert(tinfo.block != victim);
             }
         }
@@ -12837,13 +12852,12 @@ code = '''
             }
         }
 
-        // randomly evict a block
+        // damage a random block
         //
         // to try to minimize traversals we randomly choose a block
-        // based on the _previous_ traversal, or the last
-        // non-mrootanchor block if that fails
+        // based on the _previous_ traversal
         lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
-        lfs3_block_t victim = 2;
+        lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         for (lfs3_block_t i = 0;; i++) {
@@ -12856,7 +12870,7 @@ code = '''
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
+            if (i <= victim_i) {
                 victim = tinfo.block;
             }
             n = i+1;
@@ -12902,10 +12916,14 @@ code = '''
                 break;
             }
 
-            // hmm, ok, one exception is mdir's spare blocks,
-            // these don't actually store anything at rest
-            if (!(tinfo.btype == LFS3_BTYPE_MDIR
-                    && trv.blocks[1] == -1)) {
+            // hmm, ignore the mrootanchor, which we _can_ repair, but
+            // not evict
+            if (tinfo.block != 0
+                    && tinfo.block != 1
+                    // hmm, and the mdir's spare blocks, these don't
+                    // actually store anything at rest
+                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                        && trv.blocks[0] == -1)) {
                 assert(tinfo.block != victim);
             }
         }
@@ -13423,13 +13441,12 @@ code = '''
             }
         }
 
-        // randomly evict a block
+        // damage a random block
         //
         // to try to minimize traversals we randomly choose a block
-        // based on the _previous_ traversal, or the last
-        // non-mrootanchor block if that fails
+        // based on the _previous_ traversal
         lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
-        lfs3_block_t victim = 2;
+        lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
         for (lfs3_block_t i = 0;; i++) {
@@ -13442,7 +13459,7 @@ code = '''
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
+            if (i <= victim_i) {
                 victim = tinfo.block;
             }
             n = i+1;
@@ -13488,10 +13505,14 @@ code = '''
                 break;
             }
 
-            // hmm, ok, one exception is mdir's spare blocks,
-            // these don't actually store anything at rest
-            if (!(tinfo.btype == LFS3_BTYPE_MDIR
-                    && trv.blocks[1] == -1)) {
+            // hmm, ignore the mrootanchor, which we _can_ repair, but
+            // not evict
+            if (tinfo.block != 0
+                    && tinfo.block != 1
+                    // hmm, and the mdir's spare blocks, these don't
+                    // actually store anything at rest
+                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                        && trv.blocks[0] == -1)) {
                 assert(tinfo.block != victim);
             }
         }
