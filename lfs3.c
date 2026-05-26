@@ -10282,7 +10282,10 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     // opened files should turn into stickynote, not
                     // have their mid removed
                     LFS3_ASSERT(lfs3_o_type(h->flags) != LFS3_TYPE_REG);
-                    h->flags |= LFS3_o_ZOMBIE;
+                    // so we only need to zombie dirs really
+                    if (lfs3_o_type(h->flags) == LFS3_TYPE_DIR) {
+                        h->flags |= LFS3_o_ZOMBIE;
+                    }
                     h->mdir.mid = mid_;
                 } else {
                     h->mdir.mid += lfs3_rattr_weight(r);
@@ -11762,8 +11765,6 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
         // reset dirty flag
         mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
-        // make sure we clear any zombie flags
-        mgc->t.h.flags &= ~LFS3_o_ZOMBIE;
 
         // did this drop our mdir?
         if (mdir->mid >= 0 && mdir->r.weight == 0) {
@@ -13773,14 +13774,6 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
                 h->flags &= ~LFS3_o_ZOMBIE;
             } else {
                 ((lfs3_dir_t*)h)->pos -= 1;
-            }
-
-        // clobber entangled traversals
-        } else if (lfs3_o_type(h->flags) == LFS3_type_TRV
-                || lfs3_o_type(h->flags) == LFS3_type_GC) {
-            if (lfs3_o_iszombie(h->flags)) {
-                // TODO should we just not set ZOMBIE on trvs?
-                h->flags &= ~LFS3_o_ZOMBIE;
             }
         }
     }

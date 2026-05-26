@@ -402,7 +402,6 @@ enum lfs3_btype {
 // internally used flags, don't use these
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
 #define LFS3_t_BTYPE    0x000f0000  // The current block type
-#define LFS3_t_ZOMBIE   0x08000000  // File has been removed
 #define LFS3_t_CKPOINTED \
                         0x04000000  // Filesystem ckpointed during traversal
 #define LFS3_t_DIRTY    0x02000000  // Filesystem ckpointed outside traversal
