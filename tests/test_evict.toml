@@ -11354,7 +11354,7 @@ code = '''
                 // note this takes longer than the evict tests because
                 // we need a second pass to clear the ckmeta/ckdata
                 // flags
-                assert(i < 4*BLOCK_COUNT);
+                assert(i < 8*BLOCK_COUNT);
 
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
                 assert(steps >= 0);

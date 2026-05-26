@@ -167,9 +167,10 @@ t_BTYPE         = 0x000f0000  # im  The current block type
 t_MDIR          = 0x00010000  # i^  Btype = mdir
 t_BTREE         = 0x00020000  # i^  Btype = btree
 t_DATA          = 0x00030000  # i^  Btype = data
-t_CKPOINTED     = 0x04000000  # i-  Filesystem ckpointed during traversal
-t_DIRTY         = 0x02000000  # i-  Filesystem ckpointed outside traversal
-t_STALE         = 0x01000000  # i-  Block queue probably out-of-date
+t_CKPOINTED     = 0x08000000  # i-  Filesystem ckpointed during traversal
+t_DIRTY         = 0x04000000  # i-  Filesystem ckpointed outside traversal
+t_STALE         = 0x02000000  # i-  Block queue probably out-of-date
+t_DAMAGED       = 0x01000000  # i-  Filesystem damaged during traversal
 
 # GC flags
 GC_MODE         =          3  # -m  The gc's access mode

@@ -403,9 +403,12 @@ enum lfs3_btype {
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
 #define LFS3_t_BTYPE    0x000f0000  // The current block type
 #define LFS3_t_CKPOINTED \
-                        0x04000000  // Filesystem ckpointed during traversal
-#define LFS3_t_DIRTY    0x02000000  // Filesystem ckpointed outside traversal
-#define LFS3_t_STALE    0x01000000  // Block queue probably out-of-date
+                        0x08000000  // Filesystem ckpointed during traversal
+#define LFS3_t_DIRTY    0x04000000  // Filesystem ckpointed outside traversal
+#define LFS3_t_STALE    0x02000000  // Block queue probably out-of-date
+#ifdef LFS3_EVICT
+#define LFS3_t_DAMAGED  0x01000000  // Filesystem damaged during traversal
+#endif
 
 // an alias for all check work
 #define LFS3_T_CK (LFS3_T_CKMETA | LFS3_T_CKDATA)

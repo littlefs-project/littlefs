@@ -4749,7 +4749,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
+                | ((ORPHANS >= 3
+                        || (((LOOKAHEAD && !GBMAP) || CKMETA || CKDATA)
+                            && ORPHANS > 0))
+                    ? LFS3_I_MKCONSISTENT
+                    : 0)
                 | (((!LOOKAHEAD || ORPHANS > 0)
                         && (!GBMAP || ORPHANS >= 100))
                     ? LFS3_I_LOOKAHEAD
@@ -5698,7 +5702,11 @@ code = '''
     assert(fsinfo.flags == (
             LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
                 | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKCONSISTENT : 0)
+                | ((ORPHANS >= 3
+                        || (((LOOKAHEAD && !GBMAP) || CKMETA || CKDATA)
+                            && ORPHANS > 0))
+                    ? LFS3_I_MKCONSISTENT
+                    : 0)
                 | (((!LOOKAHEAD || ORPHANS > 0) && (!GBMAP))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
@@ -5740,7 +5748,7 @@ code = '''
 '''
 
 
- 
+
 
 ### High-level incremental gc tests  ###
 
@@ -8691,6 +8699,261 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+# test that repairmeta doesn't miss damage introduced during traversal
+[cases.test_gc_repairmeta_damaged]
+defines.GC_FLAGS = 'LFS3_GC_REPAIRMETA'
+defines.SIZE = [
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = ['LFS3_GC', 'LFS3_EVICT']
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "squid",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // damage a random block
+    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    assert(n >= 0);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
+    lfs3_block_t victim = -1;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        // only consider metadata blocks
+        if ((i <= victim_i || victim == (lfs3_block_t)-1)
+                && tinfo.btype == LFS3_BTYPE_MDIR
+                // but not the mdir spare blocks
+                && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && trv.blocks[0] == -1)) {
+            victim = tinfo.block;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // make bad
+    assert(victim != (lfs3_block_t)-1);
+    lfs3_emubd_mkbad(CFG, victim) => 0;
+
+    // read the file to set the repair flag
+    lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_REPAIRMETA);
+
+    // run GC one step
+    lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING);
+
+    // damage a block that's unlikely to be in use
+    lfs3_block_t victim_ = BLOCK_COUNT-1;
+    assert(victim_ != victim);
+    lfs3_emubd_mkbad(CFG, victim_) => 0;
+
+    // bit of a hack, but force a read to detect the damaged block
+    uint8_t dbuf[READ_SIZE];
+    lfs3_bd_read__(&lfs3, victim_, 0, dbuf, READ_SIZE, 0) => 0;
+
+    // this one is a bit tricky, when damaged, our mgc logic immediately
+    // aborts and restarts repairs with the highest priority, so we
+    // can't wait for a traversal to finish like in other tests
+    //
+    // but we can at least check that the traversal restarts at the
+    // mrootanchor after one step
+
+    // run GC one step
+    steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING);
+
+    // restarted at mrootanchor?
+    assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
+
+    // run GC until our traversal is done
+    while (lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING) {
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
+    }
+
+    // because we aborted, we should make progress
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS3_I_REPAIRMETA));
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that repairdata doesn't miss damage introduced during traversal
+[cases.test_gc_repairdata_damaged]
+defines.GC_FLAGS = 'LFS3_GC_REPAIRDATA'
+defines.SIZE = [
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = ['LFS3_GC', 'LFS3_EVICT']
+# we need data blocks here
+if = 'SIZE >= BLOCK_SIZE'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "squid",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // damage a random block
+    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    assert(n >= 0);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
+    lfs3_block_t victim = -1;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        // only consider data blocks
+        if ((i <= victim_i || victim == (lfs3_block_t)-1)
+                && tinfo.btype == LFS3_BTYPE_DATA) {
+            victim = tinfo.block;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // make bad
+    assert(victim != (lfs3_block_t)-1);
+    lfs3_emubd_mkbad(CFG, victim) => 0;
+
+    // read the file to set the repair flag
+    lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_REPAIRDATA);
+
+    // run GC one step
+    lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING);
+
+    // damage a block that's unlikely to be in use
+    lfs3_block_t victim_ = BLOCK_COUNT-1;
+    assert(victim_ != victim);
+    lfs3_emubd_mkbad(CFG, victim_) => 0;
+
+    // bit of a hack, but force a read to detect the damaged block
+    uint8_t dbuf[READ_SIZE];
+    lfs3_bd_read__(&lfs3, victim_, 0, dbuf, READ_SIZE, LFS3_BD_DATA) => 0;
+
+    // this one is a bit tricky, when damaged, our mgc logic immediately
+    // aborts and restarts repairs with the highest priority, so we
+    // can't wait for a traversal to finish like in other tests
+    //
+    // but we can at least check that the traversal restarts at the
+    // mrootanchor after one step
+
+    // run GC one step
+    steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING);
+
+    // restarted at mrootanchor?
+    assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
+
+    // run GC until our traversal is done
+    while (lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING) {
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
+    }
+
+    // because we aborted, we should make progress
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS3_I_REPAIRDATA));
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
 
 # test that ck+repairmeta can make progress in isolation
 [cases.test_gc_ckrepairmeta_progress]
@@ -9085,6 +9348,251 @@ code = '''
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_CKDATA);
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that ck+repairmeta doesn't miss damage introduced during
+# traversal
+[cases.test_gc_ckrepairmeta_damaged]
+defines.GC_FLAGS = 'LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA'
+defines.SIZE = [
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = ['LFS3_GC', 'LFS3_EVICT']
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "squid",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // damage a random block
+    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    assert(n >= 0);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
+    lfs3_block_t victim = -1;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        // only consider metadata blocks
+        if ((i <= victim_i || victim == (lfs3_block_t)-1)
+                && tinfo.btype == LFS3_BTYPE_MDIR
+                // but not the mdir spare blocks
+                && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && trv.blocks[0] == -1)) {
+            victim = tinfo.block;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // make bad
+    assert(victim != (lfs3_block_t)-1);
+    lfs3_emubd_mkbad(CFG, victim) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_CKMETA);
+
+    // run GC one step
+    lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_CKMETAING);
+
+    // damage a block that's unlikely to be in use
+    lfs3_block_t victim_ = BLOCK_COUNT-1;
+    assert(victim_ != victim);
+    lfs3_emubd_mkbad(CFG, victim_) => 0;
+
+    // bit of a hack, but force a read to detect the damaged block
+    uint8_t dbuf[READ_SIZE];
+    lfs3_bd_read__(&lfs3, victim_, 0, dbuf, READ_SIZE, 0) => 0;
+
+    // this one is a bit tricky, when damaged, our mgc logic immediately
+    // aborts and restarts repairs with the highest priority, so we
+    // can't wait for a traversal to finish like in other tests
+    //
+    // but we can at least check that the traversal restarts at the
+    // mrootanchor after one step
+
+    // run GC one step
+    steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING);
+
+    // restarted at mrootanchor?
+    assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
+
+    // run GC until our traversal is done
+    while (lfs3.gc.t.h.flags & (LFS3_gc_CKMETAING | LFS3_gc_REPAIRMETAING)) {
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
+    }
+
+    // because we aborted, we should make progress
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS3_I_REPAIRMETA));
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that ck+repairmeta doesn't miss damage introduced during
+# traversal
+[cases.test_gc_ckrepairdata_damaged]
+defines.GC_FLAGS = 'LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA'
+defines.SIZE = [
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = ['LFS3_GC', 'LFS3_EVICT']
+# we need data blocks here
+if = 'SIZE >= BLOCK_SIZE'
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "squid",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // damage a random block
+    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    assert(n >= 0);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
+    lfs3_block_t victim = -1;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_tinfo tinfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        // only consider data blocks
+        if ((i <= victim_i || victim == (lfs3_block_t)-1)
+                && tinfo.btype == LFS3_BTYPE_DATA) {
+            victim = tinfo.block;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // make bad
+    assert(victim != (lfs3_block_t)-1);
+    lfs3_emubd_mkbad(CFG, victim) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_CKDATA);
+
+    // run GC one step
+    lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_CKDATAING);
+
+    // damage a block that's unlikely to be in use
+    lfs3_block_t victim_ = BLOCK_COUNT-1;
+    assert(victim_ != victim);
+    lfs3_emubd_mkbad(CFG, victim_) => 0;
+
+    // bit of a hack, but force a read to detect the damaged block
+    uint8_t dbuf[READ_SIZE];
+    lfs3_bd_read__(&lfs3, victim_, 0, dbuf, READ_SIZE, LFS3_BD_DATA) => 0;
+
+    // this one is a bit tricky, when damaged, our mgc logic immediately
+    // aborts and restarts repairs with the highest priority, so we
+    // can't wait for a traversal to finish like in other tests
+    //
+    // but we can at least check that the traversal restarts at the
+    // mrootanchor after one step
+
+    // run GC one step
+    steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING);
+
+    // restarted at mrootanchor?
+    assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
+
+    // run GC until our traversal is done
+    while (lfs3.gc.t.h.flags & (LFS3_gc_CKDATAING | LFS3_gc_REPAIRDATAING)) {
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
+    }
+
+    // because we aborted, we should make progress
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS3_I_REPAIRDATA));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
