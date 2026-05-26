@@ -8748,8 +8748,6 @@ if = [
     'LFS3_IFDEF_GC(true, AFTER != 0)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
-    # lfs3_trv_t doesn't make progress on this
-    '!PREERASE || AFTER != 1',
     'LFS3_IFDEF_EVICT(true, !REPAIRMETA)',
     'LFS3_IFDEF_EVICT(true, !REPAIRDATA)',
     # TODO implement explicit repair?
@@ -8992,8 +8990,6 @@ if = [
     'LFS3_IFDEF_GC(true, AFTER != 0)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
-    # lfs3_trv_t doesn't make progress on this
-    '!PREERASE || AFTER != 1',
     'LFS3_IFDEF_EVICT(true, !REPAIRMETA)',
     'LFS3_IFDEF_EVICT(true, !REPAIRDATA)',
     # TODO implement explicit repair?
