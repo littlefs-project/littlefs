@@ -4436,7 +4436,6 @@ code = '''
 
 [cases.test_evict_spam_dir_many]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-defines.ESEED = 42
 code = '''
     // test creating directories
     lfs3_t lfs3;
@@ -4447,7 +4446,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // make this many directories
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -4461,7 +4459,7 @@ code = '''
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal, or the last
         // non-mrootanchor block if that fails
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -4570,7 +4568,6 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 fuzz = 'SEED'
 code = '''
     // test fuzz with dirs
@@ -4582,7 +4579,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -4676,7 +4672,7 @@ code = '''
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal, or the last
         // non-mrootanchor block if that fails
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -4780,7 +4776,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.ESEED = 42
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 code = '''
     // test creating files
@@ -4792,7 +4787,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // create this many files
     uint32_t prng = 42;
@@ -4816,7 +4810,7 @@ code = '''
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal, or the last
         // non-mrootanchor block if that fails
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -4908,7 +4902,6 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
@@ -4921,7 +4914,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -5052,7 +5044,7 @@ code = '''
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal, or the last
         // non-mrootanchor block if that fails
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -5178,7 +5170,6 @@ defines.CHUNK = [32, 8, 1]
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
@@ -5195,7 +5186,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // create a file
     lfs3_file_t file;
@@ -5253,7 +5243,7 @@ code = '''
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal, or the last
         // non-mrootanchor block if that fails
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -5360,7 +5350,6 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
@@ -5373,7 +5362,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -5688,7 +5676,7 @@ code = '''
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal, or the last
         // non-mrootanchor block if that fails
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -5836,7 +5824,6 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
 code = '''
@@ -5849,7 +5836,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -6244,7 +6230,7 @@ code = '''
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal, or the last
         // non-mrootanchor block if that fails
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -11438,7 +11424,6 @@ code = '''
 
 [cases.test_evict_repair_spam_dir_many]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
-defines.ESEED = 42
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 code = '''
@@ -11451,7 +11436,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // make this many directories
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -11464,7 +11448,7 @@ code = '''
         //
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -11605,7 +11589,6 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
@@ -11619,7 +11602,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -11712,7 +11694,7 @@ code = '''
         //
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -11848,7 +11830,6 @@ defines.SIZE = [
     '2*BLOCK_SIZE',
     '4*BLOCK_SIZE',
 ]
-defines.ESEED = 42
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
@@ -11862,7 +11843,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // create this many files
     uint32_t prng = 42;
@@ -11885,7 +11865,7 @@ code = '''
         //
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -12009,7 +11989,6 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
@@ -12024,7 +12003,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -12154,7 +12132,7 @@ code = '''
         //
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -12312,7 +12290,6 @@ defines.CHUNK = [32, 8, 1]
 defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
@@ -12331,7 +12308,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // create a file
     lfs3_file_t file;
@@ -12388,7 +12364,7 @@ code = '''
         //
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -12527,7 +12503,6 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
@@ -12542,7 +12517,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -12856,7 +12830,7 @@ code = '''
         //
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -13036,7 +13010,6 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 defines.SEED = 'range(10)'
-defines.ESEED = '42+SEED'
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
@@ -13051,7 +13024,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // last seen block count
     lfs3_block_t n = 0;
-    uint32_t eprng = ESEED;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -13445,7 +13417,7 @@ code = '''
         //
         // to try to minimize traversals we randomly choose a block
         // based on the _previous_ traversal
-        lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+        lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
         lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;

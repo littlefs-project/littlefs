@@ -8277,7 +8277,6 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.ESEED = 42
 ifdef = ['LFS3_GC', 'LFS3_EVICT']
 code = '''
     lfs3_t lfs3;
@@ -8303,8 +8302,7 @@ code = '''
     // damage a random block
     lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
     assert(n >= 0);
-    uint32_t eprng = ESEED;
-    lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -8382,7 +8380,6 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.ESEED = 42
 ifdef = ['LFS3_GC', 'LFS3_EVICT']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -8410,8 +8407,7 @@ code = '''
     // damage a random block
     lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
     assert(n >= 0);
-    uint32_t eprng = ESEED;
-    lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -8485,7 +8481,6 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.ESEED = 42
 ifdef = ['LFS3_GC', 'LFS3_EVICT']
 code = '''
     lfs3_t lfs3;
@@ -8511,8 +8506,7 @@ code = '''
     // damage a random block
     lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
     assert(n >= 0);
-    uint32_t eprng = ESEED;
-    lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -8599,7 +8593,6 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.ESEED = 42
 ifdef = ['LFS3_GC', 'LFS3_EVICT']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -8627,8 +8620,7 @@ code = '''
     // damage a random block
     lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
     assert(n >= 0);
-    uint32_t eprng = ESEED;
-    lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -8714,7 +8706,6 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.ESEED = 42
 ifdef = ['LFS3_GC', 'LFS3_EVICT']
 code = '''
     lfs3_t lfs3;
@@ -8740,8 +8731,7 @@ code = '''
     // damage a random block
     lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
     assert(n >= 0);
-    uint32_t eprng = ESEED;
-    lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -8813,7 +8803,6 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.ESEED = 42
 ifdef = ['LFS3_GC', 'LFS3_EVICT']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -8841,8 +8830,7 @@ code = '''
     // damage a random block
     lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
     assert(n >= 0);
-    uint32_t eprng = ESEED;
-    lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -8910,7 +8898,6 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.ESEED = 42
 ifdef = ['LFS3_GC', 'LFS3_EVICT']
 code = '''
     lfs3_t lfs3;
@@ -8936,8 +8923,7 @@ code = '''
     // damage a random block
     lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
     assert(n >= 0);
-    uint32_t eprng = ESEED;
-    lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
@@ -9018,7 +9004,6 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.ESEED = 42
 ifdef = ['LFS3_GC', 'LFS3_EVICT']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -9046,8 +9031,7 @@ code = '''
     // damage a random block
     lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
     assert(n >= 0);
-    uint32_t eprng = ESEED;
-    lfs3_block_t victim_i = TEST_PRNG(&eprng) % lfs3_max(n, 1);
+    lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
