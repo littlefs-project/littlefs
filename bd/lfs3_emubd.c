@@ -1285,6 +1285,14 @@ int lfs3_emubd_setwear(const struct lfs3_cfg *cfg,
     // check if block is valid
     LFS3_ASSERT(block < cfg->block_count);
 
+    // no block? no wear? no reason to allocate
+    if ((!bd->blocks[block] && wear == 0)
+            // matching wear? no reason to allocate
+            || (bd->blocks[block] && bd->blocks[block]->wear == wear)) {
+        LFS3_EMUBD_TRACE("lfs3_emubd_setwear -> %d", 0);
+        return 0;
+    }
+
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
@@ -1338,6 +1346,14 @@ int lfs3_emubd_mkgood(const struct lfs3_cfg *cfg,
 
     // check if block is valid
     LFS3_ASSERT(block < cfg->block_count);
+
+    // no block? no reason to allocate
+    if (!bd->blocks[block]
+            // matching wear? no reason to allocate
+            || bd->blocks[block]->wear == 0) {
+        LFS3_EMUBD_TRACE("lfs3_emubd_mkgood -> %d", 0);
+        return 0;
+    }
 
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
