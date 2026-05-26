@@ -10025,8 +10025,6 @@ defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.REPAIRMETA = [false, true]
-defines.REPAIRDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -10034,8 +10032,6 @@ defines.GC_FLAGS = '''
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
-        | ((REPAIRMETA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, -1) : 0)
-        | ((REPAIRDATA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, -1) : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -10055,8 +10051,6 @@ defines.SIZE = [
 if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
-    'LFS3_IFDEF_EVICT(true, !REPAIRMETA)',
-    'LFS3_IFDEF_EVICT(true, !REPAIRDATA)',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -10124,8 +10118,6 @@ defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.REPAIRMETA = [false, true]
-defines.REPAIRDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -10133,8 +10125,6 @@ defines.GC_FLAGS = '''
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
-        | ((REPAIRMETA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, -1) : 0)
-        | ((REPAIRDATA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, -1) : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -10154,8 +10144,6 @@ defines.SIZE = [
 if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
-    'LFS3_IFDEF_EVICT(true, !REPAIRMETA)',
-    'LFS3_IFDEF_EVICT(true, !REPAIRDATA)',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -10226,8 +10214,6 @@ defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.REPAIRMETA = [false, true]
-defines.REPAIRDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -10235,8 +10221,6 @@ defines.GC_FLAGS = '''
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
-        | ((REPAIRMETA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, -1) : 0)
-        | ((REPAIRDATA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, -1) : 0)
 '''
 # DON'T test with GC_STEPS=-1, it may never terminate!
 defines.GC_STEPS = [1, 2, 10, 100, 1000]
@@ -10250,8 +10234,6 @@ defines.SIZE = 'BLOCK_SIZE'
 if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
-    'LFS3_IFDEF_EVICT(true, !REPAIRMETA)',
-    'LFS3_IFDEF_EVICT(true, !REPAIRDATA)',
 ]
 ifdef = 'LFS3_GC'
 code = '''
