@@ -28,28 +28,38 @@
 
 // Mode determining how "bad-blocks" behave during testing. This simulates
 // some real-world circumstances such as progs not sticking (PROGNOOP),
-// a readonly disk (ERASENOOP), ECC failures (PROGCORRUPT, PROGDAMAGED),
-// and of course, random bit failures (PROGFLIP, READFLIP, etc)
+// a readonly disk (ERASENOOP), ECC failures (PROGCORRUPT, READQUASIDAMAGED),
+// and of course, random bit failures (PROGFLIP, READQUASIFLIP, etc)
 //
 // Note these are ordered roughly by difficulty
 typedef enum lfs3_emubd_badblock_behavior {
-    LFS3_EMUBD_BADBLOCK_PROGDAMAGED     = 0,  // Prog returns DAMAGED
-    LFS3_EMUBD_BADBLOCK_PROGCONDEMNED   = 1,  // Prog returns CONDEMNED
-    LFS3_EMUBD_BADBLOCK_PROGCORRUPT     = 2,  // Prog returns CORRUPT
-    LFS3_EMUBD_BADBLOCK_PROGBAD         = 3,  // Prog returns BAD
-    LFS3_EMUBD_BADBLOCK_ERASEDAMAGED    = 4,  // Erase returns DAMAGED
-    LFS3_EMUBD_BADBLOCK_ERASECONDEMNED  = 5,  // Erase returns CONDEMNED
-    LFS3_EMUBD_BADBLOCK_ERASECORRUPT    = 6,  // Erase returns CORRUPT
-    LFS3_EMUBD_BADBLOCK_ERASEBAD        = 7,  // Erase returns BAD
-    LFS3_EMUBD_BADBLOCK_READDAMAGED     = 8,  // Read returns DAMAGED
-    LFS3_EMUBD_BADBLOCK_READCONDEMNED   = 9,  // Read returns CONDEMNED
-    LFS3_EMUBD_BADBLOCK_READCORRUPT     = 10, // Read returns CORRUPT
-    LFS3_EMUBD_BADBLOCK_READBAD         = 11, // Read returns BAD
-    LFS3_EMUBD_BADBLOCK_PROGNOOP        = 12, // Prog does nothing silently
-    LFS3_EMUBD_BADBLOCK_ERASENOOP       = 13, // Erase does nothing silently
-    LFS3_EMUBD_BADBLOCK_PROGFLIP        = 14, // Prog flips a bit
-    LFS3_EMUBD_BADBLOCK_READFLIP        = 15, // Read flips a bit sometimes
-    LFS3_EMUBD_BADBLOCK_MANUAL          = 16, // Bits require manual flipping
+    LFS3_EMUBD_BADBLOCK_ERASEDAMAGED    = 0,  // Erase returns DAMAGED
+    LFS3_EMUBD_BADBLOCK_ERASECONDEMNED  = 1,  // Erase returns CONDEMNED
+    LFS3_EMUBD_BADBLOCK_ERASECORRUPT    = 2,  // Erase returns CORRUPT
+    LFS3_EMUBD_BADBLOCK_ERASEBAD        = 3,  // Erase returns BAD
+    LFS3_EMUBD_BADBLOCK_ERASENOOP       = 4,  // Erase does nothing silently
+
+    LFS3_EMUBD_BADBLOCK_PROGDAMAGED     = 5,  // Prog returns DAMAGED
+    LFS3_EMUBD_BADBLOCK_PROGCONDEMNED   = 6,  // Prog returns CONDEMNED
+    LFS3_EMUBD_BADBLOCK_PROGCORRUPT     = 7,  // Prog returns CORRUPT
+    LFS3_EMUBD_BADBLOCK_PROGBAD         = 8,  // Prog returns BAD
+    LFS3_EMUBD_BADBLOCK_PROGNOOP        = 9,  // Prog does nothing silently
+    LFS3_EMUBD_BADBLOCK_PROGFLIP        = 10, // Prog flips a bit
+
+    LFS3_EMUBD_BADBLOCK_READDAMAGED     = 11, // Read returns DAMAGED
+    LFS3_EMUBD_BADBLOCK_READCONDEMNED   = 12, // Read returns CONDEMNED
+    LFS3_EMUBD_BADBLOCK_READCORRUPT     = 13, // Read returns CORRUPT
+    LFS3_EMUBD_BADBLOCK_READBAD         = 14, // Read returns BAD
+    LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+                                        = 15, // Read sometimes DAMAGED
+    LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+                                        = 16, // Read sometimes CONDEMNED
+    LFS3_EMUBD_BADBLOCK_READQUASICORRUPT
+                                        = 17, // Read sometimes CORRUPT
+    LFS3_EMUBD_BADBLOCK_READQUASIBAD    = 18, // Read sometimes BAD
+    LFS3_EMUBD_BADBLOCK_READQUASIFLIP   = 19, // Read flips a bit sometimes
+
+    LFS3_EMUBD_BADBLOCK_MANUAL          = 20, // Bits require manual flipping
 } lfs3_emubd_badblock_behavior_t;
 
 // Mode determining how powerloss behaves during testing.

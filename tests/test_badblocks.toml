@@ -31,7 +31,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
 defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
@@ -147,7 +151,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
@@ -262,7 +270,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
@@ -448,7 +460,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -559,7 +575,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -809,7 +829,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.OPS = 20
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -979,7 +1003,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1435,7 +1463,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1994,7 +2026,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
@@ -2107,7 +2143,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
@@ -2223,7 +2263,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
@@ -2410,7 +2454,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -2522,7 +2570,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
@@ -2773,7 +2825,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.OPS = 20
 defines.SIZE = [
@@ -2944,7 +3000,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -3401,7 +3461,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -3961,7 +4025,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
@@ -4074,7 +4142,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
@@ -4190,7 +4262,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
@@ -4377,7 +4453,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -4489,7 +4569,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
@@ -4740,7 +4824,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 defines.OPS = 20
 defines.SIZE = [
@@ -4909,7 +4997,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -5366,7 +5458,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -5924,7 +6020,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     if (BADBLOCKS & 0x1) {
@@ -5949,7 +6049,11 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 # we need prog checking to detect read errors
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR >= LFS3_EMUBD_BADBLOCK_READCORRUPT'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
 if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     lfs3_t lfs3;

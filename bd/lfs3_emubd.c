@@ -412,12 +412,18 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         if (b->wear > bd->cfg->erase_cycles) {
             // erroring reads? error
             if (bd->cfg->badblock_behavior
-                    == LFS3_EMUBD_BADBLOCK_READCORRUPT) {
+                        == LFS3_EMUBD_BADBLOCK_READCORRUPT
+                    || (bd->cfg->badblock_behavior
+                            == LFS3_EMUBD_BADBLOCK_READQUASICORRUPT
+                        && (lfs3_emubd_prng_(&bd->prng) & 1))) {
                 LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_CORRUPT);
                 return LFS3_ERR_CORRUPT;
 
             } else if (bd->cfg->badblock_behavior
-                    == LFS3_EMUBD_BADBLOCK_READBAD) {
+                        == LFS3_EMUBD_BADBLOCK_READBAD
+                    || (bd->cfg->badblock_behavior
+                            == LFS3_EMUBD_BADBLOCK_READQUASIBAD
+                        && (lfs3_emubd_prng_(&bd->prng) & 1))) {
                 LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_BAD);
                 return LFS3_ERR_BAD;
             }
@@ -467,12 +473,18 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     if (b && b->wear > bd->cfg->erase_cycles) {
         // warninging reads? error
         if (bd->cfg->badblock_behavior
-                == LFS3_EMUBD_BADBLOCK_READDAMAGED) {
+                    == LFS3_EMUBD_BADBLOCK_READDAMAGED
+                || (bd->cfg->badblock_behavior
+                        == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+                    && (lfs3_emubd_prng_(&bd->prng) & 1))) {
             LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
 
         } else if (bd->cfg->badblock_behavior
-                == LFS3_EMUBD_BADBLOCK_READCONDEMNED) {
+                    == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || (bd->cfg->badblock_behavior
+                        == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+                    && (lfs3_emubd_prng_(&bd->prng) & 1))) {
             LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_CONDEMNED);
             return LFS3_ERR_CONDEMNED;
         }
@@ -745,7 +757,7 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
 
         // reads flipping bits? prog as normal but mark as metastable
         } else if (bd->cfg->badblock_behavior
-                    == LFS3_EMUBD_BADBLOCK_READFLIP) {
+                    == LFS3_EMUBD_BADBLOCK_READQUASIFLIP) {
             // prog data
             lfs3_emubd_memprog(cfg, &b->data[off], buffer, size);
             b->metastable = true;

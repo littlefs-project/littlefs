@@ -2399,7 +2399,7 @@ defines.BADBLOCK = [0, 1]
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
-    'LFS3_EMUBD_BADBLOCK_READFLIP',
+    'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
@@ -2517,7 +2517,7 @@ code = '''
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
-    'LFS3_EMUBD_BADBLOCK_READFLIP',
+    'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
 # force the file to create a btree
 defines.SHRUB_SIZE = 0
@@ -2664,7 +2664,7 @@ code = '''
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
-    'LFS3_EMUBD_BADBLOCK_READFLIP',
+    'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
