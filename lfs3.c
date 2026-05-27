@@ -18689,6 +18689,24 @@ int lfs3_fs_repairdata(lfs3_t *lfs3) {
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+int lfs3_fs_ckrepairmeta(lfs3_t *lfs3) {
+    // filesystem must be writeable
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
+
+    return lfs3_fs_ck(lfs3, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+int lfs3_fs_ckrepairdata(lfs3_t *lfs3) {
+    // filesystem must be writeable
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
+
+    return lfs3_fs_ck(lfs3, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA);
+}
+#endif
+
 // incremental filesystem gc
 //
 // perform any pending janitorial work

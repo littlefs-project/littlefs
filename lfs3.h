@@ -1936,6 +1936,22 @@ int lfs3_fs_repairmeta(lfs3_t *lfs3);
 int lfs3_fs_repairdata(lfs3_t *lfs3);
 #endif
 
+// Check and repair metadata errors in the filesystem
+//
+// Returns LFS3_ERR_CORRUPT if unrecoverable errors are found, or a
+// negative error code on failure.
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+int lfs3_fs_ckrepairmeta(lfs3_t *lfs3);
+#endif
+
+// Check and repair metadata + data errors in the filesystem
+//
+// Returns LFS3_ERR_CORRUPT if unrecoverable errors are found, or a
+// negative error code on failure.
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+int lfs3_fs_ckrepairdata(lfs3_t *lfs3);
+#endif
+
 // Perform any janitorial work that may be pending
 //
 // The exact janitorial work depends on the configured flags and steps.
