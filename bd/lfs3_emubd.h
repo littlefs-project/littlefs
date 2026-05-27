@@ -32,7 +32,7 @@
 // and of course, random bit failures (PROGFLIP, READQUASIFLIP, etc)
 //
 // Note these are ordered roughly by difficulty
-typedef enum lfs3_emubd_badblock_behavior {
+typedef enum lfs3_emubd_badblockbehavior {
     LFS3_EMUBD_BADBLOCK_ERASEDAMAGED    = 0,  // Erase returns DAMAGED
     LFS3_EMUBD_BADBLOCK_ERASECONDEMNED  = 1,  // Erase returns CONDEMNED
     LFS3_EMUBD_BADBLOCK_ERASECORRUPT    = 2,  // Erase returns CORRUPT
@@ -60,16 +60,16 @@ typedef enum lfs3_emubd_badblock_behavior {
     LFS3_EMUBD_BADBLOCK_READQUASIFLIP   = 19, // Read flips a bit sometimes
 
     LFS3_EMUBD_BADBLOCK_MANUAL          = 20, // Bits require manual flipping
-} lfs3_emubd_badblock_behavior_t;
+} lfs3_emubd_badblockbehavior_t;
 
 // Mode determining how powerloss behaves during testing.
-typedef enum lfs3_emubd_powerloss_behavior {
+typedef enum lfs3_emubd_powerlossbehavior {
     LFS3_EMUBD_POWERLOSS_ATOMIC         = 0,  // Progs are atomic
     LFS3_EMUBD_POWERLOSS_SOMEBITS       = 1,  // One bit is progged
     LFS3_EMUBD_POWERLOSS_MOSTBITS       = 2,  // All-but-one bit is progged
     LFS3_EMUBD_POWERLOSS_OOO            = 3,  // Blocks written out-of-order
     LFS3_EMUBD_POWERLOSS_METASTABLE     = 4,  // Reads may flip a bit
-} lfs3_emubd_powerloss_behavior_t;
+} lfs3_emubd_powerlossbehavior_t;
 
 // Type for measuring read/program/erase operations
 typedef uint64_t lfs3_emubd_io_t;
@@ -154,7 +154,7 @@ struct lfs3_emubd_cfg {
     uint32_t erase_cycles;
 
     // The mode determining how bad-blocks fail
-    lfs3_emubd_badblock_behavior_t badblock_behavior;
+    lfs3_emubd_badblockbehavior_t badblock_behavior;
 
     // Number of write operations (erase/prog) before triggering a powerloss.
     // power_cycles=0 disables this. The exact behavior of powerloss is
@@ -162,7 +162,7 @@ struct lfs3_emubd_cfg {
     lfs3_emubd_powercycles_t power_cycles;
 
     // The mode determining how powerloss affects disk
-    lfs3_emubd_powerloss_behavior_t powerloss_behavior;
+    lfs3_emubd_powerlossbehavior_t powerloss_behavior;
 
     // Function to call to emulate powerloss. The exact behavior of powerloss
     // is up to the runner to provide.
