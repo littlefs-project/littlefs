@@ -235,11 +235,11 @@ enum lfs3_type {
 #ifndef LFS3_RDONLY
 #define LFS3_F_CKDATA   0x00200000  // Check metadata + data checksums
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_F_REPAIRMETA \
                         0x00400000  // Repair metadata blocks
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_F_REPAIRDATA \
                         0x00800000  // Repair metadata + data blocks
 #endif
@@ -255,8 +255,8 @@ enum lfs3_type {
             | LFS3_IFDEF_RDONLY(0, LFS3_F_COMPACTMETA) \
             | LFS3_F_CKMETA \
             | LFS3_F_CKDATA \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_EVICT(LFS3_F_REPAIRMETA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_EVICT(LFS3_F_REPAIRDATA, 0)))
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)))
 
 // Filesystem mount flags
 #define LFS3_M_MODE              1  // Mount's access mode
@@ -305,11 +305,11 @@ enum lfs3_type {
 #endif
 #define LFS3_M_CKMETA   0x00100000  // Check metadata checksums
 #define LFS3_M_CKDATA   0x00200000  // Check metadata + data checksums
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_M_REPAIRMETA \
                         0x00400000  // Repair metadata blocks
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_M_REPAIRDATA \
                         0x00800000  // Repair metadata + data blocks
 #endif
@@ -325,8 +325,8 @@ enum lfs3_type {
             | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA) \
             | LFS3_M_CKMETA \
             | LFS3_M_CKDATA \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_EVICT(LFS3_M_REPAIRMETA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_EVICT(LFS3_M_REPAIRDATA, 0)))
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
 
 // Filesystem info flags
 #define LFS3_I_RDONLY   0x00000001  // Mounted read only
@@ -374,11 +374,11 @@ enum lfs3_type {
 #endif
 #define LFS3_I_CKMETA   0x00100000  // Metadata checksums not checked recently
 #define LFS3_I_CKDATA   0x00200000  // Data checksums not checked recently
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_I_REPAIRMETA \
                         0x00400000  // Metadata blocks need repair
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_I_REPAIRDATA \
                         0x00800000  // Data blocks need repair
 #endif
@@ -406,9 +406,7 @@ enum lfs3_btype {
                         0x08000000  // Filesystem ckpointed during traversal
 #define LFS3_t_DIRTY    0x04000000  // Filesystem ckpointed outside traversal
 #define LFS3_t_STALE    0x02000000  // Block queue probably out-of-date
-#ifdef LFS3_EVICT
 #define LFS3_t_DAMAGED  0x01000000  // Filesystem damaged during traversal
-#endif
 
 // an alias for all check work
 #define LFS3_T_CK (LFS3_T_CKMETA | LFS3_T_CKDATA)
@@ -437,18 +435,23 @@ enum lfs3_btype {
 #endif
 #define LFS3_GC_CKMETA  0x00100000  // Check metadata checksums
 #define LFS3_GC_CKDATA  0x00200000  // Check metadata + data checksums
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_GC_REPAIRMETA \
                         0x00400000  // Repair metadata blocks
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_GC_REPAIRDATA \
                         0x00800000  // Repair metadata + data blocks
 #endif
 
 // internally used flags, don't use these
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_gc_EVICT   0x00000010  // Evict a range of blocks
+#define LFS3_gc_EVICTMETA \
+                        0x00400000  // Evict metadata blocks
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#define LFS3_gc_EVICTDATA \
+                        0x00800000  // Evict metadata + data blocks
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_gc_MKCONSISTENTING \
@@ -471,12 +474,12 @@ enum lfs3_btype {
 #define LFS3_gc_CKDATAING \
                         0x00002000  // Working on LFS3_GC_CKDATA
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_gc_REPAIRMETAING \
-                        0x00004000  // Working on LFS3_GC_REPAIRMETA
+#define LFS3_gc_EVICTMETAING \
+                        0x00004000  // Working on LFS3_gc_EVICTMETA
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_gc_REPAIRDATAING \
-                        0x00008000  // Working on LFS3_GC_REPAIRDATA
+#define LFS3_gc_EVICTDATAING \
+                        0x00008000  // Working on LFS3_gc_EVICTDATA
 #endif
 
 // an alias for all check work
@@ -490,8 +493,8 @@ enum lfs3_btype {
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA) \
             | LFS3_GC_CKMETA \
             | LFS3_GC_CKDATA \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_EVICT(LFS3_M_REPAIRMETA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_EVICT(LFS3_M_REPAIRDATA, 0)))
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
 
 // Mkbad flags
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
@@ -1451,10 +1454,12 @@ typedef struct lfs3 {
     // optional evict queue
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     struct lfs3_evictqueue {
-        uint32_t flags;
         lfs3_evict_t *queue;
         lfs3_size_t count;
     } evictqueue;
+    #endif
+    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+    uint8_t repair_flags;
     #endif
 
     // optional incremental gc state

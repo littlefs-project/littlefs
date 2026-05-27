@@ -22,6 +22,7 @@ PREFIX_MKBAD   = ['+mkbad']          # Filter by LFS3_MKBAD_* flags
 PREFIX_BD      = ['+bd']             # Filter by LFS3_BD_* flags
 PREFIX_ALLOC   = ['+alloc']          # Filter by LFS3_ALLOC_* flags
 PREFIX_EVICT   = ['+evict']          # Filter by LFS3_EVICT_* flags
+PREFIX_REPAIR  = ['+repair']         # Filter by LFS3_REPAIR_* flags
 PREFIX_RBYD    = ['+rbyd']           # Filter by LFS3_RBYD_* flags
 PREFIX_RCOMPAT = ['+r', '+rc', '+rcompat'] \
                                      # Filter by on-disk LFS3_RCOMPAT_* flags
@@ -188,7 +189,8 @@ GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data blocks
 GC_CK           = 0x00300000  # a-  Alias for all check work
 GC_GC           = 0x00ff0000  # a-  Alias for all gc work
 
-gc_EVICT        = 0x00000010  # i-  Evict a range of blocks
+gc_EVICTMETA    = 0x00400000  # i-  Evict metadata blocks
+gc_EVICTDATA    = 0x00800000  # i-  Evict metadata + data blocks
 gc_MKCONSISTENTING \
                 = 0x00000100  # i-  Working on LFS3_GC_MKCONSISTENT
 gc_LOOKAHEADING = 0x00000200  # i-  Working on LFS3_GC_LOOKAHEAD
@@ -197,9 +199,9 @@ gc_COMPACTMETAING \
                 = 0x00000800  # i-  Working on LFS3_GC_COMPACTMETA
 gc_CKMETAING    = 0x00001000  # i-  Working on LFS3_GC_CKMETA
 gc_CKDATAING    = 0x00002000  # i-  Working on LFS3_GC_CKDATA
-gc_REPAIRMETAING \
+gc_EVICTMETAING \
                 = 0x00004000  # i-  Working on LFS3_GC_REPAIRMETA
-gc_REPAIRDATAING \
+gc_EVICTDATAING \
                 = 0x00008000  # i-  Working on LFS3_GC_REPAIRDATA
 gc_TYPE         = 0xf0000000  # im  The gc's type
 gc_REG          = 0x10000000  # i^  Type = regular-file
@@ -214,21 +216,24 @@ gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
 # Mkbad flags
 MKBAD_EVICT     = 0x00000010  # --  Delete all references to this block
 
-# Bd-level flags
+# Internal bd-level flags
 BD_RELAX        = 0x00000001  # i-  Don't evict corrupt data
 BD_DATA         = 0x40000000  # i-  A hint that we're reading data
 BD_ALIGN        = 0x00000002  # i-  Align cksums to prog boundaries
 BD_PERTURB      = 0x80000000  # i-  Perturb valid bit in tags
 
-# Block eviction flags
-EVICT_DAMAGED   = 0x00000001  # i-  Bd read was damaged
-EVICT_CONDEMNED = 0x00000002  # i-  Bd read was condemned
-EVICT_RBYDDAMAGED \
-                = 0x00000004  # i-  Rbyd fetch was damaged
-EVICT_RBYDCONDEMNED \
-                = 0x00000008  # i-  Rbyd fetch was condemned
+# Internal block eviction flags
 EVICT_BAD       = 0x80000000  # i-  Block is bad
 EVICT_DATA      = 0x40000000  # i-  Block is definitely data
+
+# Internal block repair flags
+REPAIR_DAMAGED  = 0x00000001  # i-  Bd read was damaged
+REPAIR_CONDEMNED \
+                = 0x00000002  # i-  Bd read was condemned
+REPAIR_RBYDDAMAGED \
+                = 0x00000004  # i-  Rbyd fetch was damaged
+REPAIR_RBYDCONDEMNED \
+                = 0x00000008  # i-  Rbyd fetch was condemned
 
 # Block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block

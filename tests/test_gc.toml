@@ -8285,7 +8285,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8388,7 +8388,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
 code = '''
@@ -8489,7 +8489,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8558,7 +8558,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_EVICTMETAING);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "squid",
@@ -8570,7 +8570,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING) {
+    while (lfs3.gc.t.h.flags & LFS3_gc_EVICTMETAING) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -8601,7 +8601,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
 code = '''
@@ -8669,7 +8669,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_EVICTDATAING);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "squid",
@@ -8681,7 +8681,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING) {
+    while (lfs3.gc.t.h.flags & LFS3_gc_EVICTDATAING) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -8712,7 +8712,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -8782,7 +8782,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_EVICTMETAING);
 
     // damage a block that's unlikely to be in use
     lfs3_block_t victim_ = BLOCK_COUNT-1;
@@ -8803,13 +8803,13 @@ code = '''
     // run GC one step
     steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_EVICTMETAING);
 
     // restarted at mrootanchor?
     assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING) {
+    while (lfs3.gc.t.h.flags & LFS3_gc_EVICTMETAING) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -8840,7 +8840,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
 in = 'lfs3.c'
@@ -8909,7 +8909,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_EVICTDATAING);
 
     // damage a block that's unlikely to be in use
     lfs3_block_t victim_ = BLOCK_COUNT-1;
@@ -8930,13 +8930,13 @@ code = '''
     // run GC one step
     steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_EVICTDATAING);
 
     // restarted at mrootanchor?
     assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING) {
+    while (lfs3.gc.t.h.flags & LFS3_gc_EVICTDATAING) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -8969,7 +8969,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9066,7 +9066,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
 code = '''
@@ -9161,7 +9161,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9235,7 +9235,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & (LFS3_gc_CKMETAING | LFS3_gc_REPAIRMETAING)) {
+    while (lfs3.gc.t.h.flags & (LFS3_gc_CKMETAING | LFS3_gc_EVICTMETAING)) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9267,7 +9267,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
 code = '''
@@ -9340,7 +9340,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & (LFS3_gc_CKDATAING | LFS3_gc_REPAIRDATAING)) {
+    while (lfs3.gc.t.h.flags & (LFS3_gc_CKDATAING | LFS3_gc_EVICTDATAING)) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9373,7 +9373,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -9457,13 +9457,13 @@ code = '''
     // run GC one step
     steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRMETAING);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_EVICTMETAING);
 
     // restarted at mrootanchor?
     assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & (LFS3_gc_CKMETAING | LFS3_gc_REPAIRMETAING)) {
+    while (lfs3.gc.t.h.flags & (LFS3_gc_CKMETAING | LFS3_gc_EVICTMETAING)) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9496,7 +9496,7 @@ defines.SIZE = [
 ]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
 in = 'lfs3.c'
@@ -9579,13 +9579,13 @@ code = '''
     // run GC one step
     steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.t.h.flags & LFS3_gc_REPAIRDATAING);
+    assert(lfs3.gc.t.h.flags & LFS3_gc_EVICTDATAING);
 
     // restarted at mrootanchor?
     assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
 
     // run GC until our traversal is done
-    while (lfs3.gc.t.h.flags & (LFS3_gc_CKDATAING | LFS3_gc_REPAIRDATAING)) {
+    while (lfs3.gc.t.h.flags & (LFS3_gc_CKDATAING | LFS3_gc_EVICTDATAING)) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9626,7 +9626,7 @@ defines.SIZE = [
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_block_t i = 0;
     lfs3_block_t victim;
@@ -9763,7 +9763,7 @@ defines.SIZE = [
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
-ifdef = ['LFS3_GC', 'LFS3_EVICT']
+ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_block_t i = 0;
     lfs3_block_t victim;
@@ -9909,8 +9909,8 @@ defines.GC_FLAGS = '''
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
-        | ((REPAIRMETA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, -1) : 0)
-        | ((REPAIRDATA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, -1) : 0)
+        | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
+        | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
 '''
 defines.GC_STEPS = -1
 # set compact thresh to minimum
@@ -9934,8 +9934,8 @@ if = [
     'LFS3_IFDEF_GC(true, AFTER != 0)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
-    'LFS3_IFDEF_EVICT(true, !REPAIRMETA)',
-    'LFS3_IFDEF_EVICT(true, !REPAIRDATA)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
     # TODO implement explicit repair?
     '!REPAIRMETA || AFTER != 2',
     '!REPAIRDATA || AFTER != 2',
@@ -10151,8 +10151,8 @@ defines.GC_FLAGS = '''
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
-        | ((REPAIRMETA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, -1) : 0)
-        | ((REPAIRDATA) ? LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, -1) : 0)
+        | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
+        | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
 '''
 defines.GC_STEPS = -1
 # set compact thresh to minimum
@@ -10176,8 +10176,8 @@ if = [
     'LFS3_IFDEF_GC(true, AFTER != 0)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
-    'LFS3_IFDEF_EVICT(true, !REPAIRMETA)',
-    'LFS3_IFDEF_EVICT(true, !REPAIRDATA)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
     # TODO implement explicit repair?
     '!REPAIRMETA || AFTER != 2',
     '!REPAIRDATA || AFTER != 2',
@@ -10391,10 +10391,10 @@ code = '''
                 // _not_ imply uncking ckmeta
                 | ((!(CKDATA && !CKMETA)) ? LFS3_I_CKMETA : 0)
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_EVICT(
+                | LFS3_IFDEF_REPAIR(
                     (REPAIRMETA) ? LFS3_I_REPAIRMETA : 0,
                     0)
-                | LFS3_IFDEF_EVICT(
+                | LFS3_IFDEF_REPAIR(
                     (REPAIRDATA) ? LFS3_I_REPAIRDATA : 0,
                     0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));

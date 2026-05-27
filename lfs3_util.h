@@ -57,6 +57,9 @@
 #ifndef LFS3_EVICT
 #define LFS3_EVICT
 #endif
+#ifndef LFS3_REPAIR
+#define LFS3_REPAIR
+#endif
 #endif
 
 // LFS3_YES_* variants imply the relevant LFS3_* macro
@@ -108,6 +111,11 @@
 #if defined(LFS3_PREERASE) \
         && (!defined(LFS3_GBMAP) || !defined(LFS3_REVPERTURB))
 #error "LFS3_PREERASE requires LFS3_GBMAP and LFS3_REVPERTURB"
+#endif
+
+#if defined(LFS3_REPAIR) \
+        && !defined(LFS3_EVICT)
+#error "LFS3_REPAIR requires LFS3_EVICT"
 #endif
 
 
@@ -330,6 +338,12 @@
 #define LFS3_IFDEF_EVICT(a, b) (a)
 #else
 #define LFS3_IFDEF_EVICT(a, b) (b)
+#endif
+
+#ifdef LFS3_REPAIR
+#define LFS3_IFDEF_REPAIR(a, b) (a)
+#else
+#define LFS3_IFDEF_REPAIR(a, b) (b)
 #endif
 
 

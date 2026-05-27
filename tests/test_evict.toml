@@ -6,6 +6,8 @@
 # It's also one of the more annoying things to test, as block eviction
 # can touch pretty much every part of the filesystem
 after = ['test_trvs']
+# this ifdef covers the core evict logic, but there are others below
+# for related features (LFS3_REPAIR)
 ifdef = 'LFS3_EVICT'
 
 # Test both with and without the gbmap if available
@@ -6393,6 +6395,7 @@ defines.SIBLING = [0]
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -6493,6 +6496,7 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -6571,6 +6575,7 @@ defines.SIBLING = [0]
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -6688,6 +6693,7 @@ defines.SIBLING = [0]
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -6848,6 +6854,7 @@ defines.SIBLING = [0, 2]
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -7001,6 +7008,7 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7162,6 +7170,7 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4, 6]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -7356,6 +7365,7 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7484,6 +7494,7 @@ defines.SIBLING = [0, 1, 2]
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7650,6 +7661,7 @@ defines.SIBLING = [0]
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7776,6 +7788,7 @@ defines.SIBLING = [0, 1, 2]
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7940,6 +7953,7 @@ defines.SIBLING = [0, 1, 2]
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8103,6 +8117,7 @@ defines.SIBLING = [0]
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8310,6 +8325,7 @@ defines.SIBLING = [0, 1, 2]
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8556,6 +8572,7 @@ defines.SIBLING = [0, 1, 2]
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8801,7 +8818,7 @@ defines.SYNC = [false, true]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = 'GBMAP'
-ifdef = 'LFS3_GBMAP'
+ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
@@ -8965,7 +8982,7 @@ defines.SIBLING = [0, 1, 2]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = 'GBMAP'
-ifdef = 'LFS3_GBMAP'
+ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -9173,7 +9190,7 @@ defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = 'GBMAP'
-ifdef = 'LFS3_GBMAP'
+ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
@@ -9380,7 +9397,7 @@ defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = 'GBMAP'
-ifdef = 'LFS3_GBMAP'
+ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -9630,6 +9647,7 @@ defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9765,6 +9783,7 @@ defines.CLOSE = [false, true]
 defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9926,6 +9945,7 @@ defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10088,6 +10108,7 @@ defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10258,6 +10279,7 @@ defines.SYNC = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 # is half a block prog aligned?
 if = '(BLOCK_SIZE/2) % PROG_SIZE == 0'
+ifdef = 'LFS3_REPAIR'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -10403,6 +10425,7 @@ defines.SIBLING = [0, 1, 2, 3]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = 'SIBLING < SIZE/BLOCK_SIZE'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10635,6 +10658,7 @@ defines.SIBLING = [0, 1, 2, 3]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = 'SIBLING < SIZE/BLOCK_SIZE'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10884,6 +10908,7 @@ defines.SIBLING = [0]
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 # is a chunk prog aligned?
 if = 'CHUNK % PROG_SIZE == 0'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -11136,6 +11161,7 @@ defines.INIT = [0, 1, 2]
 defines.SYNC = [false, true]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -11280,6 +11306,7 @@ defines.SEED = 42
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -11426,6 +11453,7 @@ code = '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     // test creating directories
     lfs3_t lfs3;
@@ -11592,6 +11620,7 @@ defines.SEED = 'range(10)'
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
+ifdef = 'LFS3_REPAIR'
 code = '''
     // test fuzz with dirs
     lfs3_t lfs3;
@@ -11833,6 +11862,7 @@ defines.SIZE = [
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
+ifdef = 'LFS3_REPAIR'
 code = '''
     // test creating files
     lfs3_t lfs3;
@@ -11993,6 +12023,7 @@ defines.SEED = 'range(10)'
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
+ifdef = 'LFS3_REPAIR'
 code = '''
     // test fuzz with files
     lfs3_t lfs3;
@@ -12298,6 +12329,7 @@ if = [
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
 ]
+ifdef = 'LFS3_REPAIR'
 code = '''
     // test with complex file writes
     lfs3_t lfs3;
@@ -12507,6 +12539,7 @@ defines.SEED = 'range(10)'
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
+ifdef = 'LFS3_REPAIR'
 code = '''
     // test with uncreats, zombies, etc
     lfs3_t lfs3;
@@ -13014,6 +13047,7 @@ defines.SEED = 'range(10)'
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 fuzz = 'SEED'
 if = '(SIZE*N)/BLOCK_SIZE <= 16'
+ifdef = 'LFS3_REPAIR'
 code = '''
     // test with uncreats, zombies, dirs, etc
     lfs3_t lfs3;

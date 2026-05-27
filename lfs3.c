@@ -86,41 +86,39 @@ static int lfs3_bd_sync___(lfs3_t *lfs3) {
 
 /// Some eviction stuff we need for bd operations ///
 
-// block eviction flags
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_EVICT_DAMAGED       0x00000001 // Bd read was damaged
-#define LFS3_EVICT_CONDEMNED     0x00000002 // Bd read was condmemned
-#define LFS3_EVICT_RBYDDAMAGED   0x00000004 // Rbyd fetch was damaged
-#define LFS3_EVICT_RBYDCONDEMNED 0x00000008 // Rbyd fetch was condmemned
-
-#define LFS3_EVICT_BAD           0x80000000 // Block is bad
-#define LFS3_EVICT_DATA          0x40000000 // Block is definitely data
+// sticky block repair flags
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_REPAIR_DAMAGED       0x00000001 // Bd read was damaged
+#define LFS3_REPAIR_CONDEMNED     0x00000002 // Bd read was condmemned
+#define LFS3_REPAIR_RBYDDAMAGED   0x00000004 // Rbyd fetch was damaged
+#define LFS3_REPAIR_RBYDCONDEMNED 0x00000008 // Rbyd fetch was condmemned
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_isdamaged(uint32_t flags) {
-    return flags & LFS3_EVICT_DAMAGED;
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+static inline bool lfs3_repair_isdamaged(uint32_t flags) {
+    return flags & LFS3_REPAIR_DAMAGED;
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_iscondemned(uint32_t flags) {
-    return flags & LFS3_EVICT_CONDEMNED;
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+static inline bool lfs3_repair_iscondemned(uint32_t flags) {
+    return flags & LFS3_REPAIR_CONDEMNED;
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_isrbyddamaged(uint32_t flags) {
-    return flags & LFS3_EVICT_RBYDDAMAGED;
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+static inline bool lfs3_repair_isrbyddamaged(uint32_t flags) {
+    return flags & LFS3_REPAIR_RBYDDAMAGED;
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_isrbydcondemned(uint32_t flags) {
-    return flags & LFS3_EVICT_RBYDCONDEMNED;
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+static inline bool lfs3_repair_isrbydcondemned(uint32_t flags) {
+    return flags & LFS3_REPAIR_RBYDCONDEMNED;
 }
 #endif
 
+// eviction stuff
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 #define LFS3_EVICT_ISBAD 0x80000000
 #endif
@@ -155,7 +153,6 @@ static inline lfs3_block_t lfs3_evict_block_(const lfs3_evict_t *evict) {
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static inline void lfs3_evict_discard(lfs3_t *lfs3) {
-    lfs3->evictqueue.flags = 0;
     lfs3->evictqueue.count = 0;
 }
 #endif
@@ -179,6 +176,12 @@ static inline bool lfs3_evict_needseviction(const lfs3_t *lfs3,
         lfs3_block_t block) {
     return lfs3_evict_eviction((lfs3_t*)lfs3, block);
 }
+#endif
+
+// some block eviction flags used in lfs3_evict_push
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#define LFS3_EVICT_BAD  0x80000000 // Block is bad
+#define LFS3_EVICT_DATA 0x40000000 // Block is definitely data
 #endif
 
 // needed in lfs3_evict_push
@@ -232,10 +235,10 @@ found:;
     evict->block |= ((flags & LFS3_EVICT_BAD) ? LFS3_EVICT_ISBAD : 0);
     // or data bits
     evict->block_ |= ((flags & LFS3_EVICT_DATA) ? LFS3_EVICT_ISDATA : 0);
-    // make sure repair flags are set
+    // make sure evict/repair flags are set
     lfs3->flags |= ((flags & LFS3_EVICT_DATA)
-            ? LFS3_I_REPAIRDATA
-            : LFS3_I_REPAIRMETA);
+            ? LFS3_gc_EVICTDATA
+            : LFS3_gc_EVICTMETA);
     return evict;
 }
 #endif
@@ -254,10 +257,10 @@ static void lfs3_evict_flush(lfs3_t *lfs3, uint32_t flags) {
     }
     lfs3->evictqueue.count = count_;
 
-    // clear the relevant repair flags
+    // clear the relevant evict/repair flags
     lfs3->flags &= ~(
-            LFS3_I_REPAIRMETA
-                | ((flags & LFS3_EVICT_DATA) ? LFS3_I_REPAIRDATA : 0));
+            LFS3_gc_EVICTMETA
+                | ((flags & LFS3_EVICT_DATA) ? LFS3_gc_EVICTDATA : 0));
 }
 #endif
 
@@ -310,12 +313,14 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         }
         // bad? push onto our evictqueue as a block to avoid
         if (err == LFS3_ERR_BAD) {
-        #if defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+            #if !defined(LFS3_RDONLY) \
+                    && defined(LFS3_REPAIR) \
+                    && defined(LFS3_GBMAP)
             if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
                 lfs3_evict_push(lfs3, block,
                         LFS3_EVICT_BAD | (flags & LFS3_BD_DATA));
             }
-        #endif
+            #endif
             return LFS3_ERR_CORRUPT;
         }
         return err;
@@ -324,7 +329,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     // damaged? condemned? push onto our evictqueue as a block to repair
     if (err == LFS3_ERR_DAMAGED
             || err == LFS3_ERR_CONDEMNED) {
-        #ifdef LFS3_EVICT
+        #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
         if (!lfs3_bd_isrelax(flags)) {
             // try not to spam damaged warnings
             lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, block);
@@ -342,9 +347,9 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
         // these flags are useful for upper layers, especially when
         // relaxed
-        lfs3->evictqueue.flags
-                |= ((err == LFS3_ERR_CONDEMNED) ? LFS3_EVICT_CONDEMNED : 0)
-                    | LFS3_EVICT_DAMAGED;
+        lfs3->repair_flags
+                |= ((err == LFS3_ERR_CONDEMNED) ? LFS3_REPAIR_CONDEMNED : 0)
+                    | LFS3_REPAIR_DAMAGED;
 
         if (!lfs3_bd_isrelax(flags)) {
             lfs3_evict_push(lfs3, block,
@@ -393,7 +398,7 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         // condemned/bad? push onto our evictqueue as a block to avoid
         if (err == LFS3_ERR_CONDEMNED
                 || err == LFS3_ERR_BAD) {
-            #if defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+            #if defined(LFS3_REPAIR) && defined(LFS3_GBMAP)
             if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
                 // note we treat all bad progs/erases as metadata, we
                 // abandon these so it doesn't really matter
@@ -455,7 +460,7 @@ static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block,
         // condemned/bad? push onto our evictqueue as a block to avoid
         if (err == LFS3_ERR_CONDEMNED
                 || err == LFS3_ERR_BAD) {
-            #if defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+            #if defined(LFS3_REPAIR) && defined(LFS3_GBMAP)
             if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
                 // note we treat all bad progs/erases as metadata, we
                 // abandon these so it doesn't really matter
@@ -3516,12 +3521,10 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
                 // update damaged/condemned bits only when we find valid
                 // commits
-                #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-                lfs3->evictqueue.flags
-                        |= ((lfs3->evictqueue.flags
-                                    & LFS3_EVICT_DAMAGED)
-                                | (lfs3->evictqueue.flags
-                                    & LFS3_EVICT_CONDEMNED))
+                #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+                lfs3->repair_flags
+                        |= ((lfs3->repair_flags & LFS3_REPAIR_DAMAGED)
+                                | (lfs3->repair_flags & LFS3_REPAIR_CONDEMNED))
                             << 2;
                 #endif
 
@@ -8085,11 +8088,9 @@ static inline bool lfs3_t_isstale(uint32_t flags) {
     return flags & LFS3_t_STALE;
 }
 
-#ifdef LFS3_EVICT
 static inline bool lfs3_t_isdamaged(uint32_t flags) {
     return flags & LFS3_t_DAMAGED;
 }
-#endif
 
 // gc flags
 #ifndef LFS3_RDONLY
@@ -8116,27 +8117,33 @@ static inline bool lfs3_gc_iscompactmeta(uint32_t flags) {
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 static inline bool lfs3_gc_isrepairmeta(uint32_t flags) {
     return flags & LFS3_GC_REPAIRMETA;
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 static inline bool lfs3_gc_isrepairdata(uint32_t flags) {
     return flags & LFS3_GC_REPAIRDATA;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_gc_isevictmeta(uint32_t flags) {
+    return flags & LFS3_gc_EVICTMETA;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_gc_isevictdata(uint32_t flags) {
+    return flags & LFS3_gc_EVICTDATA;
 }
 #endif
 
 // internal gc flags
 //
 // note the step flags are the same as the normal flags, but shifted
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_gc_isevict(uint32_t flags) {
-    return flags & LFS3_gc_EVICT;
-}
-#endif
-
 #ifndef LFS3_RDONLY
 static inline bool lfs3_gc_ismkconsistenting(uint32_t flags) {
     return flags & LFS3_gc_MKCONSISTENTING;
@@ -8170,14 +8177,14 @@ static inline bool lfs3_gc_isckdataing(uint32_t flags) {
 }
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_gc_isrepairmetaing(uint32_t flags) {
-    return flags & LFS3_gc_REPAIRMETAING;
+static inline bool lfs3_gc_isevictmetaing(uint32_t flags) {
+    return flags & LFS3_gc_EVICTMETAING;
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_gc_isrepairdataing(uint32_t flags) {
-    return flags & LFS3_gc_REPAIRDATAING;
+static inline bool lfs3_gc_isevictdataing(uint32_t flags) {
+    return flags & LFS3_gc_EVICTDATAING;
 }
 #endif
 
@@ -8713,12 +8720,8 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // try to fetch rbyds in the order of most recent to least recent
     for (int i = 0; i < 2; i++) {
         // reset damaged/condemned bits
-        #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-        lfs3->evictqueue.flags &= ~(
-                LFS3_EVICT_DAMAGED
-                    | LFS3_EVICT_CONDEMNED
-                    | LFS3_EVICT_RBYDDAMAGED
-                    | LFS3_EVICT_RBYDCONDEMNED);
+        #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+        lfs3->repair_flags = 0;
         #endif
 
         // try to fetch
@@ -8752,18 +8755,18 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
             // we use the damaged/condemned bits in the evictqueue for
             // this to avoid needing to thread a whole bunch of nuanced
             // error codes through lfs3_rbyd_fetch_
-            #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-            if (lfs3_evict_isrbyddamaged(lfs3->evictqueue.flags)
-                    || lfs3_evict_isrbydcondemned(lfs3->evictqueue.flags)) {
+            #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+            if (lfs3_repair_isrbyddamaged(lfs3->repair_flags)
+                    || lfs3_repair_isrbydcondemned(lfs3->repair_flags)) {
                 // try not to spam damaged warnings
                 lfs3_evict_t *evict = lfs3_evict_evictionrbyd(lfs3, &mdir->r);
-                if (lfs3_evict_isrbydcondemned(lfs3->evictqueue.flags)
+                if (lfs3_repair_isrbydcondemned(lfs3->repair_flags)
                         && (!evict || !lfs3_evict_isbad(evict))) {
                     LFS3_INFO("Condemned mdir %"PRId32" "
                                 "0x{%"PRIx32",%"PRIx32"} (%d)",
                             lfs3_dbgmbid(lfs3, mdir->mid),
                             mdir->r.blocks[0], mdir->r.blocks[1],
-                            (lfs3_evict_isrbydcondemned(lfs3->evictqueue.flags))
+                            (lfs3_repair_isrbydcondemned(lfs3->repair_flags))
                                 ? LFS3_ERR_CONDEMNED
                                 : LFS3_ERR_DAMAGED);
                 } else if (!evict) {
@@ -8771,13 +8774,13 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                                 "0x{%"PRIx32",%"PRIx32"} (%d)",
                             lfs3_dbgmbid(lfs3, mdir->mid),
                             mdir->r.blocks[0], mdir->r.blocks[1],
-                            (lfs3_evict_isrbydcondemned(lfs3->evictqueue.flags))
+                            (lfs3_repair_isrbydcondemned(lfs3->repair_flags))
                                 ? LFS3_ERR_CONDEMNED
                                 : LFS3_ERR_DAMAGED);
                 }
 
                 lfs3_evict_push(lfs3, mdir->r.blocks[0],
-                        ((lfs3_evict_isrbydcondemned(lfs3->evictqueue.flags))
+                        ((lfs3_repair_isrbydcondemned(lfs3->repair_flags))
                             ? LFS3_EVICT_BAD
                             : 0));
             }
@@ -10707,12 +10710,10 @@ static void lfs3_mtrv_ckpoint(lfs3_mtrv_t *mtrv) {
     mtrv->u.btrv.bid = LFS3_BID_MDIR;
 }
 
-#ifdef LFS3_EVICT
 static void lfs3_mtrv_damage(lfs3_mtrv_t *mtrv) {
     // mark as damaged
     mtrv->h.flags |= LFS3_t_DAMAGED;
 }
-#endif
 
 // low-level traversal _only_ finds blocks
 static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
@@ -11715,8 +11716,8 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // evicting mdirs?
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_MDIR
-            && (lfs3_gc_isrepairmetaing(mgc->t.h.flags)
-                || lfs3_gc_isrepairdataing(mgc->t.h.flags))
+            && (lfs3_gc_isevictmetaing(mgc->t.h.flags)
+                || lfs3_gc_isevictdataing(mgc->t.h.flags))
             && lfs3_evict_needsevictionmdir(lfs3,
                 (lfs3_mdir_t*)bptr.d.u.buffer)) {
         // this takes the same code path as mdir compaction, with
@@ -11738,8 +11739,8 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // evicting btree nodes?
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_BRANCH
-            && (lfs3_gc_isrepairmetaing(mgc->t.h.flags)
-                || lfs3_gc_isrepairdataing(mgc->t.h.flags))
+            && (lfs3_gc_isevictmetaing(mgc->t.h.flags)
+                || lfs3_gc_isevictdataing(mgc->t.h.flags))
             && lfs3_evict_needsevictionrbyd(lfs3,
                 (lfs3_rbyd_t*)bptr.d.u.buffer)) {
         // this is humorously the same operation btree compaction
@@ -11760,7 +11761,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // evicting data blocks?
     #ifdef LFS3_EVICT
     if (tag == LFS3_TAG_BLOCK
-            && lfs3_gc_isrepairdataing(mgc->t.h.flags)
+            && lfs3_gc_isevictdataing(mgc->t.h.flags)
             && lfs3_evict_needsevictionbptr(lfs3, &bptr)) {
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mgc_evictbptr(lfs3, mgc, &bptr);
@@ -11914,12 +11915,14 @@ eot:;
 
     // was repair successful?
     #ifdef LFS3_EVICT
-    if ((lfs3_gc_isrepairmetaing(mgc->t.h.flags)
-                || lfs3_gc_isrepairdataing(mgc->t.h.flags))
+    if ((lfs3_gc_isevictmetaing(mgc->t.h.flags)
+                || lfs3_gc_isevictdataing(mgc->t.h.flags))
             && !lfs3_t_isdirty(mgc->t.h.flags)
-            && !lfs3_t_isdamaged(mgc->t.h.flags)) {
+            && !LFS3_IFDEF_REPAIR(
+                lfs3_t_isdamaged(mgc->t.h.flags),
+                false)) {
         lfs3_evict_flush(lfs3,
-                (lfs3_gc_isrepairdataing(mgc->t.h.flags))
+                (lfs3_gc_isevictdataing(mgc->t.h.flags))
                     ? LFS3_EVICT_DATA
                     : 0);
     }
@@ -11953,8 +11956,8 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         | (mgc->t.h.flags
                                 & (LFS3_GC_CKDATA
                                     | LFS3_IFDEF_RDONLY(0,
-                                        LFS3_IFDEF_EVICT(
-                                            LFS3_GC_REPAIRDATA,
+                                        LFS3_IFDEF_REPAIR(
+                                            LFS3_gc_EVICTDATA,
                                             0))))
                             >> 1)
                     // mask with pending flags
@@ -11965,9 +11968,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         | LFS3_GC_CKMETA
                         | LFS3_GC_CKDATA
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETA, 0))
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0))))
+                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATA, 0))))
                 // this weird shift is to let us mask out any
                 // flags that change
                 >> 8;
@@ -11977,8 +11980,8 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // we want to trust the filesystem as little as possible in this
         // state
         #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-        if (lfs3_gc_isrepairmetaing(t)
-                || lfs3_gc_isrepairdataing(t)) {
+        if (lfs3_gc_isevictmetaing(t)
+                || lfs3_gc_isevictdataing(t)) {
             t &= ~(LFS3_gc_MKCONSISTENTING
                     | LFS3_gc_LOOKAHEADING
                     | LFS3_gc_COMPACTMETAING
@@ -12030,10 +12033,10 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                     // abort and restart repairs if we were damaged
                     // mid-traversal
                     & ~LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_EVICT(
+                        LFS3_IFDEF_REPAIR(
                             (lfs3_t_isdamaged(mgc->t.h.flags))
-                                ? LFS3_gc_REPAIRMETAING
-                                    | LFS3_gc_REPAIRDATAING
+                                ? LFS3_gc_EVICTMETAING
+                                    | LFS3_gc_EVICTDATAING
                                 : 0,
                             0))
                     // we let the other flags continue even if damaged,
@@ -12045,7 +12048,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             & ~(LFS3_T_MTREEONLY
                                 | LFS3_t_DIRTY
                                 | LFS3_t_CKPOINTED
-                                | LFS3_IFDEF_EVICT(LFS3_t_DAMAGED, 0)
+                                | LFS3_t_DAMAGED
                                 | LFS3_IFDEF_RDONLY(0, LFS3_gc_MKCONSISTENTING)
                                 | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
                                 | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
@@ -12053,10 +12056,10 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                 | LFS3_gc_CKDATAING
                                 | LFS3_IFDEF_RDONLY(0,
                                     LFS3_IFDEF_EVICT(
-                                        LFS3_gc_REPAIRMETAING, 0))
+                                        LFS3_gc_EVICTMETAING, 0))
                                 | LFS3_IFDEF_RDONLY(0,
                                     LFS3_IFDEF_EVICT(
-                                        LFS3_gc_REPAIRDATAING, 0)))));
+                                        LFS3_gc_EVICTDATAING, 0)))));
             }
 
             // mask out any flags that changed
@@ -12071,9 +12074,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         | LFS3_gc_CKMETAING
                         | LFS3_gc_CKDATAING
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0)));
+                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0)));
 
             // do we really need a full traversal?
             if (!(mgc->t.h.flags
@@ -12084,9 +12087,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         | LFS3_gc_CKMETAING
                         | LFS3_gc_CKDATAING
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0))))) {
+                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0))))) {
                 mgc->t.h.flags |= LFS3_T_MTREEONLY;
             }
 
@@ -12101,9 +12104,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             | LFS3_gc_CKMETAING
                             | LFS3_gc_CKDATAING
                             | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                                LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
                             | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0)));
+                                LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0)));
                 return err;
             }
 
@@ -12116,9 +12119,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             | LFS3_gc_CKMETAING
                             | LFS3_gc_CKDATAING
                             | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_EVICT(LFS3_gc_REPAIRMETAING, 0))
+                                LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
                             | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_EVICT(LFS3_gc_REPAIRDATAING, 0)));
+                                LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0)));
             }
 
         // check for any grms, note the above logic prioritizes this
@@ -17213,9 +17216,9 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
 
     // check that gc_compactmeta_thresh makes sense
     //
@@ -18124,9 +18127,9 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_M_CKMETA
                 | LFS3_M_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_PREERASE(LFS3_M_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_PREERASE(LFS3_M_REPAIRDATA, 0)))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_ismkconsistent(flags));
@@ -18135,7 +18138,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_ispreerase(flags));
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_iscompactmeta(flags));
-    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_isrepairmeta(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_isrepairdata(flags));
     #endif
@@ -18178,9 +18181,9 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) {
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) {
         err = lfs3_fs_ck(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
@@ -18190,9 +18193,9 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_GC_CKMETA
                     | LFS3_GC_CKDATA
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                        LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0))));
+                        LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))));
         if (err) {
             goto failed;
         }
@@ -18430,9 +18433,9 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_F_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_F_REPAIRDATA, 0)))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)))) == 0);
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
@@ -18481,9 +18484,9 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) {
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) {
         err = lfs3_fs_ck(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
@@ -18493,9 +18496,9 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_GC_CKMETA
                     | LFS3_GC_CKDATA
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                        LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0))));
+                        LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))));
         if (err) {
             goto failed;
         }
@@ -18533,9 +18536,9 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_I_CKMETA
                     | LFS3_I_CKDATA
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_EVICT(LFS3_I_REPAIRMETA, 0))
+                        LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETA, 0))
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_EVICT(LFS3_I_REPAIRDATA, 0))
+                        LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, 0))
                     | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)))
             // LFS3_I_MKCONSISTENT is a bit of a special case,
             // internally it strictly indicates untracked orphans, but
@@ -18615,9 +18618,9 @@ static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_ismkconsistent(flags));
@@ -18629,7 +18632,7 @@ static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_iscompactmeta(flags));
-    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_isrepairmeta(lfs3->flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
@@ -18683,9 +18686,9 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     //
     // we don't check this in lfs3_init to avoid cfg headache when
@@ -18700,7 +18703,7 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_iscompactmeta(lfs3->cfg->gc_flags));
-    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_isrepairmeta(lfs3->cfg->gc_flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
@@ -18730,9 +18733,9 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
 
     // reset the requested flags
     lfs3->flags |= flags;
@@ -19021,7 +19024,7 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         // the allocator is also aware of the evict window, so we can
         // always do this in one pass
         lfs3_mgc_t mgc;
-        lfs3_mgc_init(&mgc, LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA);
+        lfs3_mgc_init(&mgc, LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA);
         lfs3_handle_open(lfs3, &mgc.t.h);
         lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
         if (steps < 0) {
@@ -19147,7 +19150,7 @@ int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv) {
             (trv->t.h.flags & ~(
                     LFS3_t_DIRTY
                         | LFS3_t_CKPOINTED
-                        | LFS3_IFDEF_EVICT(LFS3_t_DAMAGED, 0)))
+                        | LFS3_t_DAMAGED))
                 | LFS3_t_STALE);
     return 0;
 }
@@ -19172,9 +19175,9 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
                 | LFS3_GC_CKMETA
                 | LFS3_GC_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_EVICT(LFS3_GC_REPAIRDATA, 0)))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
@@ -19187,7 +19190,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_iscompactmeta(flags));
-    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
             || !lfs3_gc_isrepairmeta(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
