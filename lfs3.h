@@ -1922,6 +1922,20 @@ int lfs3_fs_ckmeta(lfs3_t *lfs3);
 // error code on failure.
 int lfs3_fs_ckdata(lfs3_t *lfs3);
 
+// Repair any known metadata errors in the filesystem
+//
+// Returns a negative error code on failure.
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+int lfs3_fs_repairmeta(lfs3_t *lfs3);
+#endif
+
+// Repair any known metadata + data errors in the filesystem
+//
+// Returns a negative error code on failure.
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+int lfs3_fs_repairdata(lfs3_t *lfs3);
+#endif
+
 // Perform any janitorial work that may be pending
 //
 // The exact janitorial work depends on the configured flags and steps.
