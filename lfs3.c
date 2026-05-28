@@ -11937,13 +11937,13 @@ static int lfs3_mtree_fixgrm(lfs3_t *lfs3);
 static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3);
 static int lfs3_alloc_preerase(lfs3_t *lfs3);
 
-// high-level gc
+// high-level core gc logic
 //
 // runs the mutating traversal until all work is completed, which may
 // take multiple passes
 //
-// this code looks much worse than it actually is! most of these massive
-// macro messes compile into small constants
+// note this code looks much worse than it actually is! most of these
+// massive macro messes compile into small constants
 static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_sblock_t steps) {
     // i here is best effort, we may make multiple passes, so we
@@ -11952,14 +11952,18 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     for (; steps < 0 || i < lfs3_max(steps, 1); i = lfs3_ssadd(i, 1)) {
         // do we have any pending traversal work?
         uint32_t t = ((mgc->t.h.flags
-                        // ckdata/repairdata implies ckmeta/repairmeta
-                        | (mgc->t.h.flags
-                                & (LFS3_GC_CKDATA
-                                    | LFS3_IFDEF_RDONLY(0,
-                                        LFS3_IFDEF_REPAIR(
-                                            LFS3_gc_EVICTDATA,
-                                            0))))
-                            >> 1)
+                        // mkconsistent implies repairmeta+repairdata
+                        | LFS3_IFDEF_REPAIR(
+                            (lfs3_gc_ismkconsistent(mgc->t.h.flags))
+                                ? LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA
+                                : 0,
+                            0)
+                        // ckdata implies ckmeta
+                        | ((mgc->t.h.flags & LFS3_GC_CKDATA) >> 1)
+                        // evict/repairdata implies evict/repairmeta
+                        | LFS3_IFDEF_EVICT(
+                            (mgc->t.h.flags & LFS3_gc_EVICTDATA) >> 1,
+                            0))
                     // mask with pending flags
                     & lfs3->flags
                     & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
@@ -12202,11 +12206,53 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     return i;
 }
 
+// high-level blocking gc, a simple mgc wrapper
+//
+// this just calls lfs3_mgc_gc with unbounded steps
+static int lfs3_fs_gc_(lfs3_t *lfs3, uint32_t flags) {
+    // if cking, set needs-ck flags, this has the side-effect of
+    // signaling ck work is incomplete if we encounter an error, which
+    // is probably a good thing
+    lfs3->flags |= flags & (LFS3_I_CKMETA | LFS3_I_CKDATA);
+
+    // run lfs3_mgc_gc to completion
+    lfs3_mgc_t mgc;
+    lfs3_mgc_init(&mgc, flags);
+    lfs3_handle_open(lfs3, &mgc.t.h);
+    lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
+    if (steps < 0) {
+        lfs3_handle_close(lfs3, &mgc.t.h);
+        return steps;
+    }
+    lfs3_handle_close(lfs3, &mgc.t.h);
+
+    return 0;
+}
+
 
 // consistency stuff
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+static int lfs3_fs_mkrepaired(lfs3_t *lfs3) {
+    // filesystem must be writeable
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
+
+    // nothing to repair?
+    if (!lfs3_gc_isrepairmeta(lfs3->flags)
+            && !lfs3_gc_isrepairdata(lfs3->flags)) {
+        return 0;
+    }
+
+    // repair
+    return lfs3_fs_gc_(lfs3, LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA);
+}
+#endif
+
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
+    // filesystem must be writeable
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
+
     if (lfs3_grm_count(&lfs3->grm) == 2) {
         LFS3_INFO("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
@@ -12251,6 +12297,8 @@ static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
 
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_fixorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
+    // filesystem must be writeable
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
     // grm queue should be flushed before calling
     // lfs3_mtree_fixorphansmdir
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
@@ -12317,6 +12365,8 @@ failed:;
 
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
+    // filesystem must be writeable
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
     // grm queue should be flushed before calling lfs3_mtree_fixorphans
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
@@ -12347,6 +12397,14 @@ static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
 int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
+
+    // repair any known damage
+    #ifdef LFS3_REPAIR
+    int err = lfs3_fs_mkrepaired(lfs3);
+    if (err) {
+        return err;
+    }
+    #endif
 
     // fix pending grms
     if (lfs3_grm_count(&lfs3->grm) > 0) {
@@ -18075,7 +18133,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 }
 
 // needed in lfs3_mount
-static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags);
+static int lfs3_fs_gc_(lfs3_t *lfs3, uint32_t flags);
 
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_cfg *cfg) {
@@ -18184,7 +18242,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) {
-        err = lfs3_fs_ck(lfs3, flags & (
+        err = lfs3_fs_gc_(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
@@ -18487,7 +18545,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) {
-        err = lfs3_fs_ck(lfs3, flags & (
+        err = lfs3_fs_gc_(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
@@ -18604,71 +18662,14 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
     return 0;
 }
 
-// common filesystem check function
-//
-// this just calls lfs3_mgc_gc with unbounded steps
-static int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
-    // unknown ck flags?
-    LFS3_ASSERT((flags & ~(
-            LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
-    // these flags require a writable filesystem
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_ismkconsistent(flags));
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_islookahead(flags));
-    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_ispreerase(flags));
-    #endif
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_iscompactmeta(flags));
-    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_isrepairmeta(lfs3->flags));
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags)
-            || !lfs3_gc_isrepairdata(lfs3->flags));
-    #endif
-    // we can't use preerased blocks without revperturb, so this is
-    // likely a mistake
-    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(lfs3_m_isrevperturb(lfs3->flags)
-            || !lfs3_gc_ispreerase(flags));
-    #endif
-
-    // if cking, set needs-ck flags, this has the side-effect of
-    // signaling ck work is incomplete if we encounter an error, which
-    // is probably a good thing
-    lfs3->flags |= flags & (LFS3_I_CKMETA | LFS3_I_CKDATA);
-
-    lfs3_mgc_t mgc;
-    lfs3_mgc_init(&mgc, flags);
-    lfs3_handle_open(lfs3, &mgc.t.h);
-    lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
-    if (steps < 0) {
-        lfs3_handle_close(lfs3, &mgc.t.h);
-        return steps;
-    }
-    lfs3_handle_close(lfs3, &mgc.t.h);
-
-    return 0;
-}
+// blocking filesystem ck/repair functions
 
 int lfs3_fs_ckmeta(lfs3_t *lfs3) {
-    return lfs3_fs_ck(lfs3, LFS3_GC_CKMETA);
+    return lfs3_fs_gc_(lfs3, LFS3_GC_CKMETA);
 }
 
 int lfs3_fs_ckdata(lfs3_t *lfs3) {
-    return lfs3_fs_ck(lfs3, LFS3_GC_CKDATA);
+    return lfs3_fs_gc_(lfs3, LFS3_GC_CKDATA);
 }
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
@@ -18676,7 +18677,7 @@ int lfs3_fs_repairmeta(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
 
-    return lfs3_fs_ck(lfs3, LFS3_GC_REPAIRMETA);
+    return lfs3_fs_gc_(lfs3, LFS3_GC_REPAIRMETA);
 }
 #endif
 
@@ -18685,7 +18686,7 @@ int lfs3_fs_repairdata(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
 
-    return lfs3_fs_ck(lfs3, LFS3_GC_REPAIRDATA);
+    return lfs3_fs_gc_(lfs3, LFS3_GC_REPAIRDATA);
 }
 #endif
 
@@ -18694,7 +18695,7 @@ int lfs3_fs_ckrepairmeta(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
 
-    return lfs3_fs_ck(lfs3, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA);
+    return lfs3_fs_gc_(lfs3, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA);
 }
 #endif
 
@@ -18703,7 +18704,7 @@ int lfs3_fs_ckrepairdata(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
 
-    return lfs3_fs_ck(lfs3, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA);
+    return lfs3_fs_gc_(lfs3, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA);
 }
 #endif
 
@@ -19028,8 +19029,6 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
     // unknown mkbad flags?
     LFS3_ASSERT((flags & ~(
             LFS3_MKBAD_EVICT)) == 0);
-    // eviction window should be null
-    LFS3_ASSERT(lfs3->evictqueue.count == 0);
 
     // out-of-bounds?
     if (block >= lfs3->block_count) {
@@ -19044,12 +19043,18 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         if (block == 0 || block == 1) {
             return LFS3_ERR_BUSY;
         }
-
-        // TODO we need to call lfs3_fs_repair or something to make sure
-        // we can use the evictqueue?
-
         // block eviction needs an evict queue with at least one entry
         LFS3_ASSERT(lfs3->cfg->evictqueue_count >= 1);
+
+        // repair any known damage first, we need the evict queue
+        #ifdef LFS3_REPAIR
+        int err = lfs3_fs_mkrepaired(lfs3);
+        if (err) {
+            return err;
+        }
+        #endif
+        // eviction queue should be empty now
+        LFS3_ASSERT(lfs3->evictqueue.count == 0);
 
         // put our block on the evict queue, this sidechannel tells the
         // rest of the filesystem what blocks to avoid
