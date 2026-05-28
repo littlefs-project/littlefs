@@ -88,10 +88,8 @@ static int lfs3_bd_sync___(lfs3_t *lfs3) {
 
 // sticky block repair flags
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_REPAIR_DAMAGED       0x00000001 // Bd read was damaged
-#define LFS3_REPAIR_CONDEMNED     0x00000002 // Bd read was condmemned
-#define LFS3_REPAIR_RBYDDAMAGED   0x00000004 // Rbyd fetch was damaged
-#define LFS3_REPAIR_RBYDCONDEMNED 0x00000008 // Rbyd fetch was condmemned
+#define LFS3_REPAIR_DAMAGED       0x01 // Bd read was damaged
+#define LFS3_REPAIR_CONDEMNED     0x02 // Bd read was condemned
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
@@ -103,18 +101,6 @@ static inline bool lfs3_repair_isdamaged(uint32_t flags) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 static inline bool lfs3_repair_iscondemned(uint32_t flags) {
     return flags & LFS3_REPAIR_CONDEMNED;
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-static inline bool lfs3_repair_isrbyddamaged(uint32_t flags) {
-    return flags & LFS3_REPAIR_RBYDDAMAGED;
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-static inline bool lfs3_repair_isrbydcondemned(uint32_t flags) {
-    return flags & LFS3_REPAIR_RBYDCONDEMNED;
 }
 #endif
 
@@ -3369,6 +3355,10 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // keep track of last commit off and perturb bit
     lfs3_size_t eoff = 0;
     bool perturb = false;
+    // and damaged/condemned bits, if repairing
+    #if !defined(LF33_RDONLY) && defined(LFS3_REPAIR)
+    uint8_t repair_flags = lfs3->repair_flags;
+    #endif
 
     // checksum the revision count to get the cksum started
     uint32_t cksum_ = 0;
@@ -3511,21 +3501,17 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 // update perturb bit
                 perturb = lfs3_tag_perturb(tag);
 
+                // update damaged/condemned bits
+                #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+                repair_flags |= lfs3->repair_flags;
+                #endif
+
                 #ifndef LFS3_RDONLY
                 rbyd->eoff
                         = ((lfs3_size_t)perturb << (8*sizeof(lfs3_size_t)-1))
                         | eoff;
                 ecksum = ecksum_;
                 ecksum_.cksize = -1;
-                #endif
-
-                // update damaged/condemned bits only when we find valid
-                // commits
-                #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-                lfs3->repair_flags
-                        |= ((lfs3->repair_flags & LFS3_REPAIR_DAMAGED)
-                                | (lfs3->repair_flags & LFS3_REPAIR_CONDEMNED))
-                            << 2;
                 #endif
 
                 // revert to canonical checksum and perturb if necessary
@@ -3602,6 +3588,11 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     if (!erased) {
         rbyd->eoff = -1;
     }
+    #endif
+
+    // revert damaged/condemned flags to last valid commit
+    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+    lfs3->repair_flags = repair_flags;
     #endif
 
     #ifdef LFS3_DBGRBYDFETCHES
@@ -8748,25 +8739,23 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     mdir->r.cksum);
             #endif
 
-            // we had to relax bd operations to avoid eagerly evicting
-            // the unwritten parts of our mdirs, but we still want to
-            // evict mdirs that are damaged/condemned
+            // was the rbyd damaged?
             //
-            // we use the damaged/condemned bits in the evictqueue for
-            // this to avoid needing to thread a whole bunch of nuanced
-            // error codes through lfs3_rbyd_fetch_
+            // we use these sticky bits to avoid needing to thread a
+            // whole bunch of nuanced error codes through
+            // lfs3_rbyd_fetch_ + bd operations
             #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-            if (lfs3_repair_isrbyddamaged(lfs3->repair_flags)
-                    || lfs3_repair_isrbydcondemned(lfs3->repair_flags)) {
+            if (lfs3_repair_isdamaged(lfs3->repair_flags)
+                    || lfs3_repair_iscondemned(lfs3->repair_flags)) {
                 // try not to spam damaged warnings
                 lfs3_evict_t *evict = lfs3_evict_evictionrbyd(lfs3, &mdir->r);
-                if (lfs3_repair_isrbydcondemned(lfs3->repair_flags)
+                if (lfs3_repair_iscondemned(lfs3->repair_flags)
                         && (!evict || !lfs3_evict_isbad(evict))) {
                     LFS3_INFO("Condemned mdir %"PRId32" "
                                 "0x{%"PRIx32",%"PRIx32"} (%d)",
                             lfs3_dbgmbid(lfs3, mdir->mid),
                             mdir->r.blocks[0], mdir->r.blocks[1],
-                            (lfs3_repair_isrbydcondemned(lfs3->repair_flags))
+                            (lfs3_repair_iscondemned(lfs3->repair_flags))
                                 ? LFS3_ERR_CONDEMNED
                                 : LFS3_ERR_DAMAGED);
                 } else if (!evict) {
@@ -8774,13 +8763,13 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                                 "0x{%"PRIx32",%"PRIx32"} (%d)",
                             lfs3_dbgmbid(lfs3, mdir->mid),
                             mdir->r.blocks[0], mdir->r.blocks[1],
-                            (lfs3_repair_isrbydcondemned(lfs3->repair_flags))
+                            (lfs3_repair_iscondemned(lfs3->repair_flags))
                                 ? LFS3_ERR_CONDEMNED
                                 : LFS3_ERR_DAMAGED);
                 }
 
                 lfs3_evict_push(lfs3, mdir->r.blocks[0],
-                        ((lfs3_repair_isrbydcondemned(lfs3->repair_flags))
+                        ((lfs3_repair_iscondemned(lfs3->repair_flags))
                             ? LFS3_EVICT_BAD
                             : 0));
             }

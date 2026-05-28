@@ -227,13 +227,9 @@ EVICT_BAD       = 0x80000000  # i-  Block is bad
 EVICT_DATA      = 0x40000000  # i-  Block is definitely data
 
 # Internal block repair flags
-REPAIR_DAMAGED  = 0x00000001  # i-  Bd read was damaged
+REPAIR_DAMAGED  =       0x01  # i-  Bd read was damaged
 REPAIR_CONDEMNED \
-                = 0x00000002  # i-  Bd read was condemned
-REPAIR_RBYDDAMAGED \
-                = 0x00000004  # i-  Rbyd fetch was damaged
-REPAIR_RBYDCONDEMNED \
-                = 0x00000008  # i-  Rbyd fetch was condemned
+                =       0x02  # i-  Bd read was condemned
 
 # Block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
