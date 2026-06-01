@@ -6394,7 +6394,10 @@ defines.SIBLING = [0]
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -6467,6 +6470,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -6495,7 +6504,10 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -6574,7 +6586,10 @@ defines.SIBLING = [0]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -6662,6 +6677,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -6692,7 +6713,10 @@ defines.SIBLING = [0]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -6823,6 +6847,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -6853,7 +6883,10 @@ defines.SIBLING = [0, 2]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 in = 'lfs3.c'
 code = '''
@@ -6972,6 +7005,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7007,7 +7046,10 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -7127,6 +7169,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7169,7 +7217,10 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4, 6]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 in = 'lfs3.c'
 code = '''
@@ -7364,7 +7415,10 @@ defines.SIZE = 'FCACHE_SIZE/2'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -7455,6 +7509,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7493,7 +7553,10 @@ defines.SIBLING = [0, 1, 2]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -7621,6 +7684,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7660,7 +7729,10 @@ defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -7748,6 +7820,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7787,7 +7865,10 @@ defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -7913,6 +7994,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -7952,7 +8039,10 @@ defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -8078,6 +8168,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -8116,7 +8212,10 @@ defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -8212,6 +8311,12 @@ code = '''
         if (err == LFS3_ERR_NOENT) {
             break;
         }
+
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
 
         assert(tinfo.block != victim);
     }
@@ -8324,7 +8429,10 @@ defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -8460,6 +8568,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -8571,7 +8685,10 @@ defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -8707,6 +8824,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -8816,7 +8939,10 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 defines.SYNC = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 code = '''
@@ -8896,6 +9022,12 @@ code = '''
         if (err == LFS3_ERR_NOENT) {
             break;
         }
+
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
 
         assert(tinfo.block != victim);
     }
@@ -8980,7 +9112,10 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SYNC = [false, true]
 defines.SIBLING = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 in = 'lfs3.c'
@@ -9104,6 +9239,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -9188,7 +9329,10 @@ defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 code = '''
@@ -9314,6 +9458,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -9395,7 +9545,10 @@ defines.SIBLING = [0, 1, 2]
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 in = 'lfs3.c'
@@ -9564,6 +9717,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -9646,7 +9805,10 @@ code = '''
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -9745,6 +9907,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -9782,7 +9950,10 @@ defines.CLOSE = [false, true]
 # encourage a btree
 defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -9909,6 +10080,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -9944,7 +10121,10 @@ code = '''
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -10071,6 +10251,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -10107,7 +10293,10 @@ code = '''
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
@@ -10222,6 +10411,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -10276,7 +10471,10 @@ code = '''
 [cases.test_evict_repair_t_bptr_erased]
 defines.SYNC = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 # is half a block prog aligned?
 if = '(BLOCK_SIZE/2) % PROG_SIZE == 0'
 ifdef = 'LFS3_REPAIR'
@@ -10370,6 +10568,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -10423,7 +10627,10 @@ defines.SIZE = [
 defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2, 3]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = 'SIBLING < SIZE/BLOCK_SIZE'
 ifdef = 'LFS3_REPAIR'
 code = '''
@@ -10534,6 +10741,12 @@ code = '''
         if (err == LFS3_ERR_NOENT) {
             break;
         }
+
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
 
         assert(tinfo.block != victim);
     }
@@ -10656,7 +10869,10 @@ defines.DELTA = [
 defines.DESYNC = [false, true]
 defines.SIBLING = [0, 1, 2, 3]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = 'SIBLING < SIZE/BLOCK_SIZE'
 ifdef = 'LFS3_REPAIR'
 code = '''
@@ -10783,6 +10999,12 @@ code = '''
             break;
         }
 
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
+
         assert(tinfo.block != victim);
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
@@ -10905,7 +11127,10 @@ defines.DELTA = ['+2*CHUNK', '+1*CHUNK', '-1*CHUNK', '-2*CHUNK']
 defines.DESYNC = [false, true]
 defines.SIBLING = [0]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 # is a chunk prog aligned?
 if = 'CHUNK % PROG_SIZE == 0'
 ifdef = 'LFS3_REPAIR'
@@ -11032,6 +11257,12 @@ code = '''
         if (err == LFS3_ERR_NOENT) {
             break;
         }
+
+        #ifdef LFS3_GBMAP
+        if (tinfo.btype == LFS3_BTYPE_BAD) {
+            continue;
+        }
+        #endif
 
         assert(tinfo.block != victim);
     }

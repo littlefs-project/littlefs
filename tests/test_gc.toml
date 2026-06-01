@@ -8284,7 +8284,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
@@ -8387,7 +8390,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -8487,7 +8493,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
@@ -8581,7 +8590,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -8675,7 +8687,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
@@ -8790,7 +8805,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -8904,7 +8922,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 in = 'lfs3.c'
 code = '''
@@ -9032,7 +9053,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -9161,7 +9185,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
@@ -9258,7 +9285,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -9353,7 +9383,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
     lfs3_t lfs3;
@@ -9459,7 +9492,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -9565,7 +9601,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 in = 'lfs3.c'
 code = '''
@@ -9688,7 +9727,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 # we need data blocks here
 if = 'SIZE >= BLOCK_SIZE'
@@ -9815,7 +9857,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
@@ -9917,6 +9962,12 @@ code = '''
                 break;
             }
 
+            #ifdef LFS3_GBMAP
+            if (tinfo.btype == LFS3_BTYPE_BAD) {
+                continue;
+            }
+            #endif
+
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
             if (tinfo.block != 0
@@ -9952,7 +10003,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
@@ -10055,6 +10109,12 @@ code = '''
                 break;
             }
 
+            #ifdef LFS3_GBMAP
+            if (tinfo.btype == LFS3_BTYPE_BAD) {
+                continue;
+            }
+            #endif
+
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
             if (tinfo.block != 0
@@ -10093,7 +10153,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
@@ -10186,6 +10249,12 @@ code = '''
                 break;
             }
 
+            #ifdef LFS3_GBMAP
+            if (tinfo.btype == LFS3_BTYPE_BAD) {
+                continue;
+            }
+            #endif
+
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
             if (tinfo.block != 0
@@ -10219,7 +10288,10 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+]
 if = '(SIZE*N)/BLOCK_SIZE <= 32'
 ifdef = ['LFS3_GC', 'LFS3_REPAIR']
 code = '''
@@ -10310,6 +10382,12 @@ code = '''
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
+
+            #ifdef LFS3_GBMAP
+            if (tinfo.btype == LFS3_BTYPE_BAD) {
+                continue;
+            }
+            #endif
 
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict

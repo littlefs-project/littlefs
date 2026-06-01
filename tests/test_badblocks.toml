@@ -12,7 +12,10 @@ after = [
     'test_compat',
 ]
 
-defines.FORMAT_BLOCK_COUNT = 'LFS3_IFYES_GBMAP(3, 2, 2)'
+# Test both with and without the gbmap if available
+defines.GBMAP = [false, true]
+if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
+defines.FORMAT_BLOCK_COUNT = '(GBMAP) ? 3 : 2'
 
 
 ## Single-block badblock tests
@@ -26,27 +29,54 @@ defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
 defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    # don't bother testing low-level btree logic with more complicated
+    # block allocators
+    '!GBMAP',
 ]
-# don't bother testing with more complicated block allocators
-ifndef = 'LFS3_YES_GBMAP'
 in = 'lfs3.c'
 code = '''
     // test all possible bad blocks
@@ -149,20 +179,46 @@ defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
 ]
 code = '''
     // test all possible bad blocks
@@ -178,7 +234,8 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
@@ -271,23 +328,49 @@ defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
 ]
 code = '''
     // test all possible bad blocks
@@ -303,7 +386,8 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
@@ -464,13 +548,41 @@ defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -482,12 +594,10 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 32',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 32',
 ]
 code = '''
     // test all possible bad blocks
@@ -503,7 +613,8 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
@@ -580,13 +691,41 @@ defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -601,12 +740,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test all possible bad blocks
@@ -622,7 +759,8 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
@@ -835,13 +973,41 @@ defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.OPS = 20
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -861,14 +1027,12 @@ defines.SYNC = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
+    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
-    # we need prog checking to detect prog failures
-    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 code = '''
     // test all possible bad blocks
@@ -884,7 +1048,8 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
@@ -1010,13 +1175,41 @@ defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1033,12 +1226,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test all possible bad blocks
@@ -1054,7 +1245,8 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
@@ -1471,13 +1663,41 @@ defines.BADBLOCK = -1
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1494,12 +1714,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test all possible bad blocks
@@ -1515,7 +1733,8 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
@@ -2035,13 +2254,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
@@ -2049,14 +2296,13 @@ defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    # don't bother testing low-level btree logic with more complicated
+    # block allocators
+    '!GBMAP',
 ]
-# don't bother testing with more complicated block allocators
-ifndef = 'LFS3_YES_GBMAP'
 in = 'lfs3.c'
 code = '''
     // test a large region of bad blocks
@@ -2155,21 +2401,47 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
 ]
 code = '''
     // test a large region of bad blocks
@@ -2190,7 +2462,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -2278,24 +2551,50 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
 ]
 code = '''
     // test a large region of bad blocks
@@ -2316,7 +2615,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -2472,13 +2772,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -2491,12 +2819,10 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 32',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 32',
 ]
 code = '''
     // test a large region of bad blocks
@@ -2517,7 +2843,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -2589,13 +2916,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
@@ -2611,12 +2966,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test a large region of bad blocks
@@ -2637,7 +2990,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -2845,13 +3199,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.OPS = 20
 defines.SIZE = [
@@ -2872,14 +3254,12 @@ defines.SYNC = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
+    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
-    # we need prog checking to detect prog failures
-    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 code = '''
     // test a large region of bad blocks
@@ -2900,7 +3280,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -3021,13 +3402,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -3045,12 +3454,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test a large region of bad blocks
@@ -3071,7 +3478,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -3483,13 +3891,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -3507,12 +3943,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test a large region of bad blocks
@@ -3533,7 +3967,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -4048,13 +4483,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
@@ -4062,14 +4525,13 @@ defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    # don't bother testing low-level btree logic with more complicated
+    # block allocators
+    '!GBMAP',
 ]
-# don't bother testing with more complicated block allocators
-ifndef = 'LFS3_YES_GBMAP'
 in = 'lfs3.c'
 code = '''
     // test a large region of bad blocks
@@ -4168,21 +4630,47 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
 ]
 code = '''
     // test a large region of bad blocks
@@ -4203,7 +4691,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -4291,24 +4780,50 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
 ]
 code = '''
     // test a large region of bad blocks
@@ -4329,7 +4844,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -4485,13 +5001,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -4504,12 +5048,10 @@ defines.SIZE = [
     '4*BLOCK_SIZE',
 ]
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 32',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 32',
 ]
 code = '''
     // test a large region of bad blocks
@@ -4530,7 +5072,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -4602,13 +5145,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
@@ -4624,12 +5195,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test a large region of bad blocks
@@ -4650,7 +5219,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -4858,13 +5428,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 defines.OPS = 20
 defines.SIZE = [
@@ -4885,14 +5483,12 @@ defines.SYNC = [false, true]
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
+    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
-    # we need prog checking to detect prog failures
-    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
 ]
 code = '''
     // test a large region of bad blocks
@@ -4913,7 +5509,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -5032,13 +5629,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -5056,12 +5681,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test a large region of bad blocks
@@ -5082,7 +5705,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -5494,13 +6118,41 @@ code = '''
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    # these need repair
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
     'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
+    # these need repair + gbmap
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED',
 ]
-defines.CKPROGS = [false, true]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+# we need the repair logic to repair damaged reads
+defines.REPAIR = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -5518,12 +6170,10 @@ defines.SIZE = [
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
-    '(SIZE*N)/BLOCK_SIZE <= 16',
-    # we need prog checking to detect prog failures
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
+    'LFS3_IFDEF_REPAIR(true, !REPAIR)',
+    'GBMAP || !CONDEMN',
+    '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
     // test a large region of bad blocks
@@ -5544,7 +6194,8 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
@@ -6060,18 +6711,14 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
-    # these tests require hard errors
-    # 'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    # 'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
 ]
-defines.CKPROGS = [false, true]
-if = [
-    # we need prog checking to detect prog failures
-    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
-]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     if (BADBLOCKS & 0x1) {
         lfs3_emubd_mkbad(CFG, 0) => 0;
@@ -6093,23 +6740,20 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
-    # these tests require hard errors
-    # 'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    # 'LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED',
 ]
-defines.CKPROGS = [false, true]
-if = [
-    # we need prog checking to detect prog failures
-    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCORRUPT',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGNOOP',
-    'CKPROGS || BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASENOOP',
-]
+# we need prog checking to detect prog failures
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGNOOP
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASENOOP
+'''
+if = 'LFS3_IFDEF_CKPROGS(true, !CKPROGS)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0),
+                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
 
     if (BADBLOCKS & 0x1) {

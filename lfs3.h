@@ -388,6 +388,9 @@ enum lfs3_btype {
     LFS3_BTYPE_MDIR  = 1,
     LFS3_BTYPE_BTREE = 2,
     LFS3_BTYPE_DATA  = 3,
+    #ifdef LFS3_GBMAP
+    LFS3_BTYPE_BAD   = 4,
+    #endif
 };
 
 // Traversal flags
