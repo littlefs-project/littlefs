@@ -214,7 +214,7 @@ code = '''
                 }
             }
 
-            // run gc to find read errors
+            // run gc to find read errors if we need to
             #ifdef LFS3_GC
             if (GC) {
                 lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
@@ -533,7 +533,7 @@ code = '''
                 }
             }
 
-            // run gc to find read errors
+            // run gc to find read errors if we need to
             #ifdef LFS3_GC
             if (GC) {
                 lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
@@ -791,7 +791,7 @@ code = '''
                 }
             }
 
-            // run gc to find read errors
+            // run gc to find read errors if we need to
             #ifdef LFS3_GC
             if (GC) {
                 lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
@@ -799,7 +799,20 @@ code = '''
                 lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
                 assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
                 if (steps == LFS3_ERR_NOSPC) {
+                    lfs3_file_desync(&lfs3, &file) => 0;
                     goto dead;
+                }
+
+                // if we're not syncing, we never give littlefs a chance
+                // to fix damage, so let's do that with an explicit call
+                if (!SYNC) {
+                    // this should noop if there's no damage
+                    int err = lfs3_fs_repairdata(&lfs3);
+                    assert(!err || err == LFS3_ERR_NOSPC);
+                    if (err == LFS3_ERR_NOSPC) {
+                        lfs3_file_desync(&lfs3, &file) => 0;
+                        goto dead;
+                    }
                 }
             }
             #endif
@@ -1306,7 +1319,7 @@ code = '''
                 }
             }
 
-            // run gc to find read errors
+            // run gc to find read errors if we need to
             #ifdef LFS3_GC
             if (GC) {
                 lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
@@ -1955,7 +1968,7 @@ code = '''
                 }
             }
 
-            // run gc to find read errors
+            // run gc to find read errors if we need to
             #ifdef LFS3_GC
             if (GC) {
                 lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
