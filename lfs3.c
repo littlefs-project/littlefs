@@ -88,8 +88,10 @@ static int lfs3_bd_sync___(lfs3_t *lfs3) {
 
 // sticky block repair flags
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_REPAIR_DAMAGED       0x01 // Bd read was damaged
-#define LFS3_REPAIR_CONDEMNED     0x02 // Bd read was condemned
+#define LFS3_REPAIR_DAMAGED   0x01  // Bd read was damaged
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_REPAIR_CONDEMNED 0x02  // Bd read was condemned
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
@@ -168,12 +170,32 @@ static inline bool lfs3_evict_needseviction(const lfs3_t *lfs3,
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+static inline bool lfs3_evict_needscondemnation(const lfs3_t *lfs3,
+        lfs3_block_t block) {
+    const lfs3_evict_t *evict = lfs3_evict_eviction((lfs3_t*)lfs3, block);
+    return evict && lfs3_evict_isbad(evict);
+}
+#endif
+
 // some block eviction flags used in lfs3_evict_push
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
 #define LFS3_EVICT_BAD  0x80000000 // Block is bad
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 #define LFS3_EVICT_DATA 0x40000000 // Block is definitely data
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+static inline bool lfs3_evict_isbad_(uint32_t flags) {
+    return flags & LFS3_EVICT_BAD;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_isdata_(uint32_t flags) {
+    return flags & LFS3_EVICT_DATA;
+}
 #endif
 
 // needed in lfs3_evict_push
@@ -223,14 +245,14 @@ static lfs3_evict_t *lfs3_evict_push(lfs3_t *lfs3,
 
 found:;
     // note these flags all only change the behavior of completed
-    // traversals, so we don't need to set the damaged flag here
+    // traversals, so we don't need to set traversals' damaged flag here
 
     // or bad bits
     #ifdef LFS3_GBMAP
-    evict->block |= ((flags & LFS3_EVICT_BAD) ? LFS3_EVICT_ISBAD : 0);
+    evict->block |= (flags & LFS3_EVICT_BAD) << 0;
     #endif
     // or data bits
-    evict->block_ |= ((flags & LFS3_EVICT_DATA) ? LFS3_EVICT_ISDATA : 0);
+    evict->block_ |= (flags & LFS3_EVICT_DATA) << 1;
     // make sure evict/repair flags are set
     lfs3->flags |= ((flags & LFS3_EVICT_DATA)
             ? LFS3_gc_EVICTDATA
@@ -2838,7 +2860,14 @@ static inline lfs3_evict_t *lfs3_evict_evictionbptr(lfs3_t *lfs3,
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static inline bool lfs3_evict_needsevictionbptr(const lfs3_t *lfs3,
         const lfs3_bptr_t *bptr) {
-    return lfs3_evict_evictionbptr((lfs3_t*)lfs3, bptr);
+    return lfs3_evict_needseviction(lfs3, lfs3_bptr_block(bptr));
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+static inline bool lfs3_evict_needscondemnationbptr(const lfs3_t *lfs3,
+        const lfs3_bptr_t *bptr) {
+    return lfs3_evict_needscondemnation(lfs3, lfs3_bptr_block(bptr));
 }
 #endif
 
@@ -3292,7 +3321,14 @@ static inline lfs3_evict_t *lfs3_evict_evictionrbyd(lfs3_t *lfs3,
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static inline bool lfs3_evict_needsevictionrbyd(const lfs3_t *lfs3,
         const lfs3_rbyd_t *rbyd) {
-    return lfs3_evict_evictionrbyd((lfs3_t*)lfs3, rbyd);
+    return lfs3_evict_needseviction(lfs3, rbyd->blocks[0]);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+static inline bool lfs3_evict_needscondemnationrbyd(const lfs3_t *lfs3,
+        const lfs3_rbyd_t *rbyd) {
+    return lfs3_evict_needscondemnation(lfs3, rbyd->blocks[0]);
 }
 #endif
 
@@ -7818,6 +7854,35 @@ static inline bool lfs3_mptr_ismrootanchor(
     return mptr[0] <= 1;
 }
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline lfs3_evict_t *lfs3_evict_evictionmptr(lfs3_t *lfs3,
+        const lfs3_block_t mptr[static 2]) {
+    for (lfs3_size_t i = 0; i < 2; i++) {
+        lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, mptr[i]);
+        if (evict) {
+            return evict;
+        }
+    }
+    return NULL;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+static inline bool lfs3_evict_needsevictionmptr(const lfs3_t *lfs3,
+        const lfs3_block_t mptr[static 2]) {
+    return lfs3_evict_needseviction(lfs3, mptr[0])
+            || lfs3_evict_needseviction(lfs3, mptr[1]);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+static inline bool lfs3_evict_needscondemnationmptr(const lfs3_t *lfs3,
+        const lfs3_block_t mptr[static 2]) {
+    return lfs3_evict_needscondemnation(lfs3, mptr[0])
+            || lfs3_evict_needscondemnation(lfs3, mptr[1]);
+}
+#endif
+
 // mptr on-disk encoding
 #ifndef LFS3_RDONLY
 static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
@@ -8687,20 +8752,21 @@ static inline bool lfs3_mdir_ismrootanchor(const lfs3_mdir_t *mdir) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static inline lfs3_evict_t *lfs3_evict_evictionmdir(lfs3_t *lfs3,
         const lfs3_mdir_t *mdir) {
-    for (lfs3_size_t i = 0; i < 2; i++) {
-        lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, mdir->r.blocks[i]);
-        if (evict) {
-            return evict;
-        }
-    }
-    return NULL;
+    return lfs3_evict_evictionmptr(lfs3, mdir->r.blocks);
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static inline bool lfs3_evict_needsevictionmdir(const lfs3_t *lfs3,
         const lfs3_mdir_t *mdir) {
-    return lfs3_evict_evictionmdir((lfs3_t*)lfs3, mdir);
+    return lfs3_evict_needsevictionmptr(lfs3, mdir->r.blocks);
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+static inline bool lfs3_evict_needscondemnationmdir(const lfs3_t *lfs3,
+        const lfs3_mdir_t *mdir) {
+    return lfs3_evict_needscondemnationmptr(lfs3, mdir->r.blocks);
 }
 #endif
 
@@ -9742,7 +9808,17 @@ compact:;
     relocate:;
         // needs relocation? bad prog? ok, try allocating a new mdir
         err = lfs3_mdir_alloc__(lfs3, mdir_, mdir->mid, relocated);
-        if (err && !(err == LFS3_ERR_NOSPC && overrecyclable)) {
+        if (err && !(
+                err == LFS3_ERR_NOSPC
+                    && overrecyclable
+                    // so maybe don't overrecycle if we're condemned
+                    && !LFS3_IFDEF_EVICT(
+                        LFS3_IFDEF_GBMAP(
+                            lfs3_f_isgbmap(lfs3->flags)
+                                && lfs3_evict_needscondemnationmdir(lfs3,
+                                    mdir),
+                            false),
+                        false))) {
             return err;
         }
         relocated = true;
@@ -11122,16 +11198,20 @@ static void lfs3_mgc_init(lfs3_mgc_t *mgc, uint32_t flags) {
     lfs3_mtrv_init(&mgc->t, lfs3_o_typeflags(LFS3_type_GC) | flags);
 }
 
+// needed in lfs3_mtree_compactmdir
+static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
+
 // compact/evict mdirs
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_compactmdir(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_mdir_t *mdir) {
     (void)mgc;
-    // checkpoint the allocator
-    int err = lfs3_alloc_ckpoint(lfs3);
-    if (err) {
-        return err;
-    }
+    // checkpoint the lookahead buffer, but avoid repopulating
+    // the gbmap, when repairing blocks we _really_ don't want
+    // to write more than is necessary
+    //
+    // we'd also end up mutually recursive with lfs3_alloc_ckpoint
+    lfs3_alloc_ckpoint_(lfs3);
 
     if (LFS3_IFDEF_EVICT(
             lfs3_evict_needsevictionmdir(lfs3, mdir),
@@ -11161,7 +11241,6 @@ static int lfs3_mtree_compactmdir(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 #endif
 
 // needed in lfs3_mtree_compactbtree
-static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3);
 static inline bool lfs3_alloc_cansyncgbmap(const lfs3_t *lfs3);
 static int lfs3_alloc_syncgbmap(lfs3_t *lfs3);
 
@@ -11185,6 +11264,8 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     //
     // 2. even if we're not in the gbmap, when repairing blocks
     //    we _really_ don't want to write more than is necessary
+    //
+    // 3. we'd end up mutually recursive with lfs3_alloc_ckpoint
     //
     lfs3_alloc_ckpoint_(lfs3);
 
@@ -11465,6 +11546,8 @@ static int lfs3_mtree_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // checkpoint the lookahead buffer, but avoid repopulating
     // the gbmap, when repairing blocks we _really_ don't want
     // to write more than is necessary
+    //
+    // we'd also end up mutually recursive with lfs3_alloc_ckpoint
     lfs3_alloc_ckpoint_(lfs3);
 
     // did we already allocate a new block for this block? try to
@@ -11669,6 +11752,154 @@ static int lfs3_mtree_condemnevicted(lfs3_t *lfs3, uint32_t flags) {
 }
 #endif
 
+
+// mid-level eviction traversal, handle evictions/repairs here
+//
+// this handles eviction separately from other gc work, allowing
+// allocator checkpoints to do specifically eviction gc work without
+// accidental recursion
+static lfs3_stag_t lfs3_mtree_evict(lfs3_t *lfs3, lfs3_mgc_t *mgc,
+        lfs3_bptr_t *bptr_) {
+again:;
+    // traverse!
+    lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mgc->t,
+            bptr_);
+    if (tag < 0) {
+        // end of traversal?
+        if (tag == LFS3_ERR_NOENT) {
+            goto eot;
+        }
+        return tag;
+    }
+
+    // evicting mdirs?
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    if (tag == LFS3_TAG_MDIR
+            && (lfs3_gc_isevictmetaing(mgc->t.h.flags)
+                || lfs3_gc_isevictdataing(mgc->t.h.flags))
+            && lfs3_evict_needsevictionmdir(lfs3,
+                (lfs3_mdir_t*)bptr_->d.u.buffer)) {
+        // this takes the same code path as mdir compaction, with
+        // lfs3_mdir_commit_ changing behavior if it's in the eviction
+        // window
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
+        uint32_t dirty = mgc->t.h.flags;
+        int err = lfs3_mtree_compactmdir(lfs3, mgc, mdir);
+        if (err) {
+            return err;
+        }
+
+        // reset dirty/damaged flags
+        mgc->t.h.flags &= ~(LFS3_t_DIRTY | LFS3_t_DAMAGED) | dirty;
+        // we don't need to rewind with mdirs
+    }
+    #endif
+
+    // evicting btree nodes?
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    if (tag == LFS3_TAG_BRANCH
+            && (lfs3_gc_isevictmetaing(mgc->t.h.flags)
+                || lfs3_gc_isevictdataing(mgc->t.h.flags))
+            && lfs3_evict_needsevictionrbyd(lfs3,
+                (lfs3_rbyd_t*)bptr_->d.u.buffer)) {
+        // this is humorously the same operation btree compaction
+        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
+        uint32_t dirty = mgc->t.h.flags;
+        int err = lfs3_mtree_compactbtree(lfs3, mgc, rbyd);
+        if (err) {
+            return err;
+        }
+
+        // reset dirty/damaged flags
+        mgc->t.h.flags &= ~(LFS3_t_DIRTY | LFS3_t_DAMAGED) | dirty;
+        // we mutated, so rewind traversal to btree root
+        goto again;
+    }
+    #endif
+
+    // evicting data blocks?
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    if (tag == LFS3_TAG_BLOCK
+            && lfs3_gc_isevictdataing(mgc->t.h.flags)
+            && lfs3_evict_needsevictionbptr(lfs3, bptr_)) {
+        uint32_t dirty = mgc->t.h.flags;
+        int err = lfs3_mtree_evictbptr(lfs3, mgc, bptr_);
+        if (err) {
+            return err;
+        }
+
+        // reset dirty/damaged flags
+        mgc->t.h.flags &= ~(LFS3_t_DIRTY | LFS3_t_DAMAGED) | dirty;
+        // we mutated, so rewind traversal to btree root
+        goto again;
+    }
+    #endif
+
+    return tag;
+
+eot:;
+    // was repair successful?
+    //
+    // note this can trigger a lookahead ckpoint
+    #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+    if ((lfs3_gc_isevictmetaing(mgc->t.h.flags)
+                || lfs3_gc_isevictdataing(mgc->t.h.flags))
+            && !lfs3_t_isdirty(mgc->t.h.flags)
+            && !LFS3_IFDEF_REPAIR(
+                lfs3_t_isdamaged(mgc->t.h.flags),
+                false)) {
+        uint32_t dirty = mgc->t.h.flags;
+        int err = lfs3_mtree_condemnevicted(lfs3,
+                (lfs3_gc_isevictdataing(mgc->t.h.flags))
+                    ? LFS3_EVICT_DATA
+                    : 0);
+        if (err) {
+            return err;
+        }
+
+        // reset dirty flag
+        mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
+    }
+    #endif
+
+    return LFS3_ERR_NOENT;
+}
+
+// fix any known damage in the filesystem
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+static int lfs3_fs_mkrepaired(lfs3_t *lfs3) {
+    // filesystem must be writeable
+    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
+
+    // oh no, do we need repairs?
+    if (lfs3_gc_isrepairmeta(lfs3->flags)
+            || lfs3_gc_isrepairdata(lfs3->flags)) {
+        // traverse and evict to repair any known damage, this also
+        // writes any condemned blocks into the gbmap
+        lfs3_mgc_t mgc;
+        lfs3_mgc_init(&mgc,
+                LFS3_GC_WRONLY | LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING);
+        lfs3_handle_open(lfs3, &mgc.t.h);
+        while (true) {
+            lfs3_bptr_t bptr;
+            lfs3_stag_t tag = lfs3_mtree_evict(lfs3, &mgc,
+                    &bptr);
+            if (tag < 0) {
+                if (tag == LFS3_ERR_NOENT) {
+                    break;
+                }
+                lfs3_handle_close(lfs3, &mgc.t.h);
+                return tag;
+            }
+        }
+        lfs3_handle_close(lfs3, &mgc.t.h);
+    }
+
+    return 0;
+}
+#endif
+
+
 // needed in lfs3_mtree_gc
 static int lfs3_mtree_fixorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
@@ -11770,7 +12001,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
     // traverse!
     lfs3_bptr_t bptr;
-    lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mgc->t,
+    lfs3_stag_t tag = lfs3_mtree_evict(lfs3, mgc,
             &bptr);
     if (tag < 0) {
         // end of traversal?
@@ -11780,79 +12011,16 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
         return tag;
     }
 
-    #ifndef LFS3_RDONLY
     // note the order matters here!
     //
-    // | 1. evict/repair before anything else!
+    // | 1. evict/repair before anything else! (lfs3_mtree_evict)
     // | 2. mkconsistent
     // | 3. compactmeta (after mkconsistent)
     // v 4. lookahead (no reason to do earlier)
     //
 
-    // evicting mdirs?
-    #ifdef LFS3_EVICT
-    if (tag == LFS3_TAG_MDIR
-            && (lfs3_gc_isevictmetaing(mgc->t.h.flags)
-                || lfs3_gc_isevictdataing(mgc->t.h.flags))
-            && lfs3_evict_needsevictionmdir(lfs3,
-                (lfs3_mdir_t*)bptr.d.u.buffer)) {
-        // this takes the same code path as mdir compaction, with
-        // lfs3_mdir_commit_ changing behavior if it's in the eviction
-        // window
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
-        uint32_t dirty = mgc->t.h.flags;
-        int err = lfs3_mtree_compactmdir(lfs3, mgc, mdir);
-        if (err) {
-            return err;
-        }
-
-        // reset dirty/damaged flags
-        mgc->t.h.flags &= ~(LFS3_t_DIRTY | LFS3_t_DAMAGED) | dirty;
-        // we don't need to return early with mdirs
-    }
-    #endif
-
-    // evicting btree nodes?
-    #ifdef LFS3_EVICT
-    if (tag == LFS3_TAG_BRANCH
-            && (lfs3_gc_isevictmetaing(mgc->t.h.flags)
-                || lfs3_gc_isevictdataing(mgc->t.h.flags))
-            && lfs3_evict_needsevictionrbyd(lfs3,
-                (lfs3_rbyd_t*)bptr.d.u.buffer)) {
-        // this is humorously the same operation btree compaction
-        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
-        uint32_t dirty = mgc->t.h.flags;
-        int err = lfs3_mtree_compactbtree(lfs3, mgc, rbyd);
-        if (err) {
-            return err;
-        }
-
-        // reset dirty/damaged flags
-        mgc->t.h.flags &= ~(LFS3_t_DIRTY | LFS3_t_DAMAGED) | dirty;
-        // return early, traversal needs to restart
-        return 0;
-    }
-    #endif
-
-    // evicting data blocks?
-    #ifdef LFS3_EVICT
-    if (tag == LFS3_TAG_BLOCK
-            && lfs3_gc_isevictdataing(mgc->t.h.flags)
-            && lfs3_evict_needsevictionbptr(lfs3, &bptr)) {
-        uint32_t dirty = mgc->t.h.flags;
-        int err = lfs3_mtree_evictbptr(lfs3, mgc, &bptr);
-        if (err) {
-            return err;
-        }
-
-        // reset dirty/damaged flags
-        mgc->t.h.flags &= ~(LFS3_t_DIRTY | LFS3_t_DAMAGED) | dirty;
-        // return early, traversal needs to restart
-        return 0;
-    }
-    #endif
-
     // mkconsistencing mdirs?
+    #ifndef LFS3_RDONLY
     if (tag == LFS3_TAG_MDIR
             && lfs3_gc_ismkconsistenting(mgc->t.h.flags)
             && lfs3_gc_ismkconsistent(lfs3->flags)) {
@@ -11880,8 +12048,10 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
         }
         // we don't need to return early with mdirs
     }
+    #endif
 
     // compacting mdirs?
+    #ifndef LFS3_RDONLY
     if (tag == LFS3_TAG_MDIR
             && lfs3_gc_iscompactmetaing(mgc->t.h.flags)
             // exceed compaction threshold?
@@ -11900,10 +12070,10 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
         mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
         // we don't need to return early with mdirs
     }
+    #endif
 
-    // evicting/compacting btree nodes?
-    //
-    // these are humorously the same operation
+    // compacting btree nodes?
+    #ifndef LFS3_RDONLY
     if (tag == LFS3_TAG_BRANCH
             && lfs3_gc_iscompactmetaing(mgc->t.h.flags)) {
         // need to fetch
@@ -11930,8 +12100,10 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
             return 0;
         }
     }
+    #endif
 
     // mark in-use blocks?
+    #ifndef LFS3_RDONLY
     if (lfs3_gc_islookaheading(mgc->t.h.flags)
             && !lfs3_t_ismtreeonly(mgc->t.h.flags)
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
@@ -11955,42 +12127,25 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     return 0;
 
 eot:;
-    #ifndef LFS3_RDONLY
-    // was repair successful?
-    //
-    // we need to do this first as it can trigger an allocator ckpoint
-    #ifdef LFS3_EVICT
-    if ((lfs3_gc_isevictmetaing(mgc->t.h.flags)
-                || lfs3_gc_isevictdataing(mgc->t.h.flags))
-            && !lfs3_t_isdirty(mgc->t.h.flags)
-            && !LFS3_IFDEF_REPAIR(
-                lfs3_t_isdamaged(mgc->t.h.flags),
-                false)) {
-        uint32_t dirty = mgc->t.h.flags;
-        lfs3_mtree_condemnevicted(lfs3,
-                (lfs3_gc_isevictdataing(mgc->t.h.flags))
-                    ? LFS3_EVICT_DATA
-                    : 0);
-
-        // reset dirty flag
-        mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
-    }
-    #endif
-
     // was mkconsistent successful?
+    #ifndef LFS3_RDONLY
     if (lfs3_gc_ismkconsistenting(mgc->t.h.flags)
             && !lfs3_t_isdirty(mgc->t.h.flags)) {
         lfs3->flags &= ~LFS3_I_MKCONSISTENT;
     }
+    #endif
 
     // was compaction successful? note we may need multiple passes if
     // we want to be sure everything is compacted
+    #ifndef LFS3_RDONLY
     if (lfs3_gc_iscompactmetaing(mgc->t.h.flags)
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
         lfs3->flags &= ~LFS3_I_COMPACTMETA;
     }
+    #endif
 
     // was lookahead scan successful?
+    #ifndef LFS3_RDONLY
     if (lfs3_gc_islookaheading(mgc->t.h.flags)
             && !lfs3_t_ismtreeonly(mgc->t.h.flags)
             && !lfs3_t_isckpointed(mgc->t.h.flags)) {
@@ -12321,22 +12476,6 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, uint32_t flags) {
 
 // consistency stuff
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-static int lfs3_fs_mkrepaired(lfs3_t *lfs3) {
-    // filesystem must be writeable
-    LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
-
-    // nothing to repair?
-    if (!lfs3_gc_isrepairmeta(lfs3->flags)
-            && !lfs3_gc_isrepairdata(lfs3->flags)) {
-        return 0;
-    }
-
-    // repair
-    return lfs3_fs_gc_(lfs3, LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA);
-}
-#endif
-
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
     // filesystem must be writeable
@@ -12486,14 +12625,6 @@ static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
 int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!lfs3_m_isrdonly(lfs3->flags));
-
-    // repair any known damage
-    #ifdef LFS3_REPAIR
-    int err = lfs3_fs_mkrepaired(lfs3);
-    if (err) {
-        return err;
-    }
-    #endif
 
     // fix pending grms
     if (lfs3_grm_count(&lfs3->grm) > 0) {
@@ -12931,12 +13062,23 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     // checkpoint the allocator
     lfs3_alloc_ckpoint_(lfs3);
 
-    #ifdef LFS3_GBMAP
+    // repair any known damage first
+    //
+    // note this may write condemned blocks into the gbmap
+    #ifdef LFS3_REPAIR
+    int err = lfs3_fs_mkrepaired(lfs3);
+    if (err) {
+        return err;
+    }
+    #endif
+
     // do we need to repopulate the gbmap?
+    #ifdef LFS3_GBMAP
     if (lfs3_f_isgbmap(lfs3->flags)
             && lfs3->gbmap.known < lfs3_min(
                 lfs3->cfg->lookgbmap_thresh,
                 lfs3->block_count)) {
+        // traverse and repopulate the gbmap
         int err = lfs3_alloc_lookgbmap(lfs3);
         if (err) {
             return err;
@@ -13823,10 +13965,10 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 }
 #endif
 
-// push a bookmark to grm, but only if the directory is empty
+// get a bookmark to remove (must go through grm), but only if the
+// directory is empty
 #ifndef LFS3_RDONLY
-static int lfs3_grm_pushbookmark(lfs3_t *lfs3, lfs3_grm_t *grm,
-        lfs3_did_t did) {
+static lfs3_smid_t lfs3_rmbookmark(lfs3_t *lfs3, lfs3_did_t did) {
     // first lookup the bookmark entry
     lfs3_mdir_t bookmark_mdir;
     lfs3_stag_t tag = lfs3_mtree_namelookup(lfs3, did, NULL, 0,
@@ -13844,38 +13986,35 @@ static int lfs3_grm_pushbookmark(lfs3_t *lfs3, lfs3_grm_t *grm,
         tag = lfs3_mtree_lookup(lfs3,
                 lfs3_mbid(lfs3, bookmark_mdir.mid-1) + 1,
                 &bookmark_mdir);
-        if (tag < 0) {
-            if (tag == LFS3_ERR_NOENT) {
-                // no more mdirs, must be empty
-                goto empty;
-            }
+        if (tag < 0 && tag != LFS3_ERR_NOENT) {
             return tag;
         }
     }
 
-    lfs3_data_t data;
-    tag = lfs3_mdir_lookup(lfs3, &bookmark_mdir,
-            LFS3_tag_MASK8 | LFS3_TAG_NAME,
-            &data);
-    if (tag < 0) {
-        LFS3_ASSERT(tag != LFS3_ERR_NOENT);
-        return tag;
+    // if we run out of mdirs or find a different did, we must be empty
+    if (tag != LFS3_ERR_NOENT) {
+        lfs3_data_t data;
+        tag = lfs3_mdir_lookup(lfs3, &bookmark_mdir,
+                LFS3_tag_MASK8 | LFS3_TAG_NAME,
+                &data);
+        if (tag < 0) {
+            LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+            return tag;
+        }
+
+        lfs3_did_t did_;
+        int err = lfs3_data_readleb128(lfs3, &data, &did_);
+        if (err) {
+            return err;
+        }
+
+        if (did_ == did) {
+            return LFS3_ERR_NOTEMPTY;
+        }
     }
 
-    lfs3_did_t did_;
-    int err = lfs3_data_readleb128(lfs3, &data, &did_);
-    if (err) {
-        return err;
-    }
-
-    if (did_ == did) {
-        return LFS3_ERR_NOTEMPTY;
-    }
-
-    // is empty
-empty:;
-    lfs3_grm_push(grm, bookmark_mid);
-    return 0;
+    // must be empty
+    return bookmark_mid;
 }
 #endif
 
@@ -13908,6 +14047,7 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
     // if we're removing a directory, we need to also remove the
     // bookmark entry
     lfs3_did_t did_ = 0;
+    lfs3_smid_t bookmark_ = 0;
     if (tag == LFS3_TAG_DIR) {
         // first lets figure out the did
         lfs3_data_t data_;
@@ -13922,10 +14062,10 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
             return err;
         }
 
-        // is dir empty? mark bookmark for removal with grm
-        err = lfs3_grm_pushbookmark(lfs3, &lfs3->grm, did_);
-        if (err) {
-            return err;
+        // is dir empty? we'll need to remove the bookmark with grm
+        bookmark_ = lfs3_rmbookmark(lfs3, did_);
+        if (bookmark_ < 0) {
+            return bookmark_;
         }
     }
 
@@ -13936,6 +14076,11 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
     err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
         goto failed;
+    }
+
+    // push any bookmarks (after allocator ckpoints)
+    if (bookmark_) {
+        lfs3_grm_push(&lfs3->grm, bookmark_);
     }
 
     // remove the metadata entry
@@ -14044,6 +14189,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
     // there are a few cases we need to watch out for
     lfs3_did_t new_did_ = 0;
+    lfs3_smid_t new_bookmark_ = 0;
     if (new_tag == LFS3_ERR_NOENT) {
         // if we're a file, don't allow trailing slashes
         if (old_tag != LFS3_TAG_DIR && lfs3_path_isdir(new_path)) {
@@ -14094,10 +14240,10 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
                 return err;
             }
 
-            // is dir empty? mark bookmark for removal with grm
-            err = lfs3_grm_pushbookmark(lfs3, &lfs3->grm, new_did_);
-            if (err) {
-                return err;
+            // is dir empty? we'll need to remove the bookmark with grm
+            new_bookmark_ = lfs3_rmbookmark(lfs3, new_did_);
+            if (new_bookmark_ < 0) {
+                return new_bookmark_;
             }
         }
     }
@@ -14116,6 +14262,11 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
         goto failed;
+    }
+
+    // push any bookmarks (after allocator ckpoints)
+    if (new_bookmark_) {
+        lfs3_grm_push(&lfs3->grm, new_bookmark_);
     }
 
     // mark old entry for removal with a grm

@@ -11,19 +11,7 @@ after = [
 
 # Test both with and without the gbmap if available
 defines.GBMAP = [false, true]
-if = [
-    'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)',
-    # TODO can we make these work?
-    #
-    # TODO we either need to make condemnation more aggressive, or add
-    # explicit repair calls to these tests
-    '''
-    BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_PROGBAD
-        && BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_ERASEBAD
-        && BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READCONDEMNED
-        && BADBLOCK_BEHAVIOR != LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
-    ''',
-]
+if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
 
 
 # High-level wear-leveling litmus tests
@@ -73,6 +61,21 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
 '''
+# we need gc work to detect read errors
+defines.GC = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+defines.GC_FLAGS = '''
+    LFS3_IFDEF_GC(
+        LFS3_GC_CKMETA
+            | LFS3_GC_CKDATA
+            | LFS3_GC_REPAIRMETA
+            | LFS3_GC_REPAIRDATA,
+        -1),
+'''
+# this speeds up testing time _significantly_
+defines.GC_STEPS = 40
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 42
 fuzz = 'SEED'
@@ -80,6 +83,7 @@ if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
     'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_GC(true, !GC)',
 ]
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the
@@ -210,6 +214,19 @@ code = '''
                 }
             }
 
+            // run gc to find read errors
+            #ifdef LFS3_GC
+            if (GC) {
+                lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
+
+                lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
+                if (steps == LFS3_ERR_NOSPC) {
+                    goto dead;
+                }
+            }
+            #endif
+
             // check our simulation every power-of-2 ops
             if (lfs3_popc(run_ops[run]) == 1) {
                 // test that our directories match our simulation
@@ -308,6 +325,21 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
 '''
+# we need gc work to detect read errors
+defines.GC = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+defines.GC_FLAGS = '''
+    LFS3_IFDEF_GC(
+        LFS3_GC_CKMETA
+            | LFS3_GC_CKDATA
+            | LFS3_GC_REPAIRMETA
+            | LFS3_GC_REPAIRDATA,
+        -1),
+'''
+# this speeds up testing time _significantly_
+defines.GC_STEPS = 40
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -324,6 +356,7 @@ if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
     'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_GC(true, !GC)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -500,6 +533,19 @@ code = '''
                 }
             }
 
+            // run gc to find read errors
+            #ifdef LFS3_GC
+            if (GC) {
+                lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
+
+                lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
+                if (steps == LFS3_ERR_NOSPC) {
+                    goto dead;
+                }
+            }
+            #endif
+
             // check our simulation every power-of-2 ops
             if (lfs3_popc(run_ops[run]) == 1) {
                 // check that our files match our simulation
@@ -616,6 +662,21 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
 '''
+# we need gc work to detect read errors
+defines.GC = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+defines.GC_FLAGS = '''
+    LFS3_IFDEF_GC(
+        LFS3_GC_CKMETA
+            | LFS3_GC_CKDATA
+            | LFS3_GC_REPAIRMETA
+            | LFS3_GC_REPAIRDATA,
+        -1),
+'''
+# this speeds up testing time _significantly_
+defines.GC_STEPS = 40
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -637,6 +698,7 @@ if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
     'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_GC(true, !GC)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -728,6 +790,19 @@ code = '''
                     goto dead;
                 }
             }
+
+            // run gc to find read errors
+            #ifdef LFS3_GC
+            if (GC) {
+                lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
+
+                lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
+                if (steps == LFS3_ERR_NOSPC) {
+                    goto dead;
+                }
+            }
+            #endif
 
             // check our simulation every power-of-2 ops
             if (lfs3_popc(run_ops[run]) == 1 && SYNC) {
@@ -830,6 +905,21 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
 '''
+# we need gc work to detect read errors
+defines.GC = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+defines.GC_FLAGS = '''
+    LFS3_IFDEF_GC(
+        LFS3_GC_CKMETA
+            | LFS3_GC_CKDATA
+            | LFS3_GC_REPAIRMETA
+            | LFS3_GC_REPAIRDATA,
+        -1),
+'''
+# this speeds up testing time _significantly_
+defines.GC_STEPS = 40
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -848,6 +938,7 @@ if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
     'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_GC(true, !GC)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -1215,6 +1306,19 @@ code = '''
                 }
             }
 
+            // run gc to find read errors
+            #ifdef LFS3_GC
+            if (GC) {
+                lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
+
+                lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
+                if (steps == LFS3_ERR_NOSPC) {
+                    goto dead;
+                }
+            }
+            #endif
+
             // check our simulation every power-of-2 ops
             if (lfs3_popc(run_ops[run]) == 1) {
                 // check that disk matches our simulation
@@ -1366,6 +1470,21 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
 '''
+# we need gc work to detect read errors
+defines.GC = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
+'''
+defines.GC_FLAGS = '''
+    LFS3_IFDEF_GC(
+        LFS3_GC_CKMETA
+            | LFS3_GC_CKDATA
+            | LFS3_GC_REPAIRMETA
+            | LFS3_GC_REPAIRDATA,
+        -1),
+'''
+# this speeds up testing time _significantly_
+defines.GC_STEPS = 40
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1384,6 +1503,7 @@ if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
     'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_GC(true, !GC)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -1834,6 +1954,19 @@ code = '''
                     }
                 }
             }
+
+            // run gc to find read errors
+            #ifdef LFS3_GC
+            if (GC) {
+                lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA | LFS3_GC_CKDATA);
+
+                lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+                assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
+                if (steps == LFS3_ERR_NOSPC) {
+                    goto dead;
+                }
+            }
+            #endif
 
             // check our simulation every power-of-2 ops
             if (lfs3_popc(run_ops[run]) == 1) {

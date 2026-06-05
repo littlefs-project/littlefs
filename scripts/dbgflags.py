@@ -199,10 +199,8 @@ gc_COMPACTMETAING \
                 = 0x00000800  # i-  Working on LFS3_GC_COMPACTMETA
 gc_CKMETAING    = 0x00001000  # i-  Working on LFS3_GC_CKMETA
 gc_CKDATAING    = 0x00002000  # i-  Working on LFS3_GC_CKDATA
-gc_EVICTMETAING \
-                = 0x00004000  # i-  Working on LFS3_GC_REPAIRMETA
-gc_EVICTDATAING \
-                = 0x00008000  # i-  Working on LFS3_GC_REPAIRDATA
+gc_EVICTMETAING = 0x00004000  # i-  Working on LFS3_GC_REPAIRMETA
+gc_EVICTDATAING = 0x00008000  # i-  Working on LFS3_GC_REPAIRDATA
 gc_TYPE         = 0xf0000000  # im  The gc's type
 gc_REG          = 0x10000000  # i^  Type = regular-file
 gc_DIR          = 0x20000000  # i^  Type = directory
@@ -227,9 +225,8 @@ EVICT_BAD       = 0x80000000  # i-  Block is bad
 EVICT_DATA      = 0x40000000  # i-  Block is definitely data
 
 # Internal block repair flags
-REPAIR_DAMAGED  =       0x01  # i-  Bd read was damaged
-REPAIR_CONDEMNED \
-                =       0x02  # i-  Bd read was condemned
+REPAIR_DAMAGED        = 0x01  # i-  Bd read was damaged
+REPAIR_CONDEMNED      = 0x02  # i-  Bd read was condemned
 
 # Block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
@@ -240,24 +237,19 @@ RBYD_RELAX      = 0x00000001  # i-  Don't evict corrupt data
 RBYD_QUICKFETCH = 0x00000004  # i-  Only fetch one trunk
 
 # On-disk read-compat flags - Must understand to read the filesystem
-RCOMPAT_WRONLY  =     0x0001  # --  Reading is disallowed
-RCOMPAT_NONSTANDARD \
-                =     0x0002  # --  Non-standard filesystem format
-RCOMPAT_GRM     =     0x0004  # --  Global-remove in use
-RCOMPAT_STICKYNOTE \
-                =     0x0008  # --  Stickynote file type in use
-rcompat_OVERFLOW \
-                =     0x8000  # i-  Can't represent all flags
+RCOMPAT_WRONLY      = 0x0001  # --  Reading is disallowed
+RCOMPAT_NONSTANDARD = 0x0002  # --  Non-standard filesystem format
+RCOMPAT_GRM         = 0x0004  # --  Global-remove in use
+RCOMPAT_STICKYNOTE  = 0x0008  # --  Stickynote file type in use
+rcompat_OVERFLOW    = 0x8000  # i-  Can't represent all flags
 
 # On-disk write-compat flags - Must understand to write to the filesystem
-WCOMPAT_RDONLY  =     0x0001  # --  Writing is disallowed
-WCOMPAT_NONSTANDARD \
-                =     0x0002  # --  Non-standard filesystem format
-WCOMPAT_GCKSUM  =     0x0004  # --  Global-checksum in use
-WCOMPAT_DIR     =     0x0008  # --  Directory file type in use
-WCOMPAT_GBMAP   =     0x0010  # --  Global on-disk block-map in use
-wcompat_OVERFLOW \
-                =     0x8000  # i-  Can't represent all write flags
+WCOMPAT_RDONLY      = 0x0001  # --  Writing is disallowed
+WCOMPAT_NONSTANDARD = 0x0002  # --  Non-standard filesystem format
+WCOMPAT_GCKSUM      = 0x0004  # --  Global-checksum in use
+WCOMPAT_DIR         = 0x0008  # --  Directory file type in use
+WCOMPAT_GBMAP       = 0x0010  # --  Global on-disk block-map in use
+wcompat_OVERFLOW    = 0x8000  # i-  Can't represent all write flags
 
 
 # self-parsing prefixes
