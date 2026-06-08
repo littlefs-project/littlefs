@@ -10984,7 +10984,9 @@ again:;
 
         // found a range of bad blocks (gbmap)?
         } else if (LFS3_IFDEF_GBMAP(
-                tag == LFS3_TAG_BMBAD,
+                tag == LFS3_TAG_BMBAD
+                    // don't double count bad blocks in gbmap_p
+                    && mtrv->h.mdir.mid == LFS3_MID_GBMAP,
                 false)) {
             #ifdef LFS3_GBMAP
             bptr_->d.u.disk.block = bid-(weight-1);
