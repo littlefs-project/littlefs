@@ -3990,8 +3990,8 @@ static lfs3_stag_t lfs3_rbyd_lookup(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
 
 
 // needed in lfs3_rbyd_appendrev
-static inline bool lfs3_m_isrevperturb(uint32_t flags);
-static inline bool lfs3_m_isrevnoise(uint32_t flags);
+static inline bool lfs3_rev_isperturb(uint32_t flags);
+static inline bool lfs3_rev_isnoise(uint32_t flags);
 
 // append a revision count
 //
@@ -4006,10 +4006,10 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     // perturb first bit?
     //
-    // this ensures at least one big changes in the new rbyd, and is
+    // this ensures at least one bit changes in the new rbyd, and is
     // necessary to invalidate any ecksums
     #ifdef LFS3_REVPERTURB
-    if (lfs3_m_isrevperturb(lfs3->flags)) {
+    if (lfs3_rev_isperturb(lfs3->cfg->rev_flags)) {
         uint8_t e = 0;
         int err = lfs3_bd_read(lfs3,
                 rbyd->blocks[0], 0, LFS3_BD_RELAX,
@@ -4029,7 +4029,7 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // bugs, but is otherwise unnecessary, note we really don't want
     // this enabled during testing!
     #ifdef LFS3_REVNOISE
-    if (lfs3_m_isrevnoise(lfs3->flags)) {
+    if (lfs3_rev_isnoise(lfs3->cfg->rev_flags)) {
         rev ^= ~(~((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
                     | 0xff)
                 // we need to use gcksum_p because we have be in the
@@ -8055,28 +8055,6 @@ static inline bool lfs3_m_isrdonly(uint32_t flags) {
     #endif
 }
 
-#ifdef LFS3_REVPERTURB
-static inline bool lfs3_m_isrevperturb(uint32_t flags) {
-    (void)flags;
-    #ifdef LFS3_YES_REVPERTURB
-    return true;
-    #else
-    return flags & LFS3_M_REVPERTURB;
-    #endif
-}
-#endif
-
-#ifdef LFS3_REVNOISE
-static inline bool lfs3_m_isrevnoise(uint32_t flags) {
-    (void)flags;
-    #ifdef LFS3_YES_REVNOISE
-    return true;
-    #else
-    return flags & LFS3_M_REVNOISE;
-    #endif
-}
-#endif
-
 #ifdef LFS3_CKPROGS
 static inline bool lfs3_m_isckprogs(uint32_t flags) {
     (void)flags;
@@ -8686,6 +8664,28 @@ static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
 //                               11-11-1  - m = mdir
 //                               11---1-  - b = btree node
 //
+
+#ifdef LFS3_REVPERTURB
+static inline bool lfs3_rev_isperturb(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS3_YES_REVPERTURB
+    return true;
+    #else
+    return flags & LFS3_REV_PERTURB;
+    #endif
+}
+#endif
+
+#ifdef LFS3_REVNOISE
+static inline bool lfs3_rev_isnoise(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS3_YES_REVNOISE
+    return true;
+    #else
+    return flags & LFS3_REV_NOISE;
+    #endif
+}
+#endif
 
 #ifndef LFS3_RDONLY
 static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, uint32_t rev) {
@@ -13319,7 +13319,7 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
                 if (tag == LFS3_TAG_BMFREE
                         || LFS3_IFDEF_PREERASE(
                             tag == LFS3_TAG_BMERASED
-                                && lfs3_m_isrevperturb(lfs3->flags),
+                                && lfs3_rev_isperturb(lfs3->cfg->rev_flags),
                             false)) {
                     lfs3->gbmap.next = +d;
 
@@ -17440,8 +17440,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_M_RDONLY
                 | LFS3_M_FLUSH
                 | LFS3_M_SYNC
-                | LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, 0)
-                | LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, 0)
                 | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
@@ -18361,12 +18359,6 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_SYNC
     flags |= LFS3_M_SYNC;
     #endif
-    #ifdef LFS3_YES_REVPERTURB
-    flags |= LFS3_M_REVPERTURB;
-    #endif
-    #ifdef LFS3_YES_REVNOISE
-    flags |= LFS3_M_REVNOISE;
-    #endif
     #ifdef LFS3_YES_CKPROGS
     flags |= LFS3_M_CKPROGS;
     #endif
@@ -18386,8 +18378,6 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_M_RDONLY
                 | LFS3_M_FLUSH
                 | LFS3_M_SYNC
-                | LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, 0)
-                | LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, 0)
                 | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
@@ -18419,7 +18409,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_gc_ispreerase(flags));
+    LFS3_ASSERT(lfs3_rev_isperturb(cfg->rev_flags)
+            || !lfs3_gc_ispreerase(flags));
     #endif
 
     int err = lfs3_init(lfs3,
@@ -18428,8 +18419,6 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_M_RDONLY
                     | LFS3_M_FLUSH
                     | LFS3_M_SYNC
-                    | LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, 0)
-                    | LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, 0)
                     | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
@@ -18669,12 +18658,6 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_GBMAP
     flags |= LFS3_F_GBMAP;
     #endif
-    #ifdef LFS3_YES_REVPERTURB
-    flags |= LFS3_F_REVPERTURB;
-    #endif
-    #ifdef LFS3_YES_REVNOISE
-    flags |= LFS3_F_REVNOISE;
-    #endif
     #ifdef LFS3_YES_CKPROGS
     flags |= LFS3_F_CKPROGS;
     #endif
@@ -18692,8 +18675,6 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT((flags & ~(
             LFS3_F_RDWR
                 | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
-                | LFS3_IFDEF_REVPERTURB(LFS3_F_REVPERTURB, 0)
-                | LFS3_IFDEF_REVNOISE(LFS3_F_REVNOISE, 0)
                 | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
                 | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
                 | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
@@ -18712,15 +18693,14 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(lfs3_m_isrevperturb(flags) || !lfs3_gc_ispreerase(flags));
+    LFS3_ASSERT(lfs3_rev_isperturb(cfg->rev_flags)
+            || !lfs3_gc_ispreerase(flags));
     #endif
 
     int err = lfs3_init(lfs3,
             flags & (
                 LFS3_F_RDWR
                     | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
-                    | LFS3_IFDEF_REVPERTURB(LFS3_F_REVPERTURB, 0)
-                    | LFS3_IFDEF_REVNOISE(LFS3_F_REVNOISE, 0)
                     | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
@@ -18797,8 +18777,6 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 LFS3_I_RDONLY
                     | LFS3_I_FLUSH
                     | LFS3_I_SYNC
-                    | LFS3_IFDEF_REVPERTURB(LFS3_I_REVPERTURB, 0)
-                    | LFS3_IFDEF_REVNOISE(LFS3_I_REVNOISE, 0)
                     | LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, 0)
                     | LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, 0)
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, 0)
@@ -18972,7 +18950,7 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(lfs3_m_isrevperturb(lfs3->flags)
+    LFS3_ASSERT(lfs3_rev_isperturb(lfs3->cfg->rev_flags)
             || !lfs3_gc_ispreerase(lfs3->cfg->gc_flags));
     #endif
 
@@ -19483,7 +19461,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(lfs3_m_isrevperturb(lfs3->flags)
+    LFS3_ASSERT(lfs3_rev_isperturb(lfs3->cfg->rev_flags)
             || !lfs3_gc_ispreerase(flags));
     #endif
 

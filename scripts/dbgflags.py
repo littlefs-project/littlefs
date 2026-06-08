@@ -15,6 +15,7 @@ PREFIX_SEEK    = ['+seek']           # Filter by LFS3_SEEK_* flags
 PREFIX_A       = ['+a', '+attr']     # Filter by LFS3_A_* flags
 PREFIX_F       = ['+f', '+format']   # Filter by LFS3_F_* flags
 PREFIX_M       = ['+m', '+mount']    # Filter by LFS3_M_* flags
+PREFIX_REV     = ['+rev']            # Filter by LFS3_REV_* flags
 PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
 PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
@@ -82,8 +83,6 @@ F_MODE          =          1  # -m  Format's access mode
 F_RDWR          =          0  # -^  Format the filesystem as read and write
 F_GBMAP         = 0x01000000  # y-  Use the global on-disk block-map
 
-F_REVPERTURB    = 0x00000010  # y-  Perturb first bit in revision count
-F_REVNOISE      = 0x00000020  # y-  Add noise to revision counts
 F_CKPROGS       = 0x00001000  # y-  Check progs by reading back progged data
 F_CKFETCHES     = 0x00002000  # y-  Check block checksums before first use
 F_CKMETAPARITY  = 0x00004000  # y-  Check metadata tag parity bits
@@ -106,8 +105,6 @@ M_RDWR          =          0  # -^  Mount the filesystem as read and write
 M_RDONLY        =          1  # -^  Mount the filesystem as read only
 M_FLUSH         = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
 M_SYNC          = 0x00000080  # y-  Open all files with LFS3_O_SYNC
-M_REVPERTURB    = 0x00000010  # y-  Perturb first bit in revision count
-M_REVNOISE      = 0x00000020  # y-  Add noise to revision counts
 M_CKPROGS       = 0x00001000  # y-  Check progs by reading back progged data
 M_CKFETCHES     = 0x00002000  # y-  Check block checksums before first use
 M_CKMETAPARITY  = 0x00004000  # y-  Check metadata tag parity bits
@@ -124,14 +121,16 @@ M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data blocks
 M_CK            = 0x00300000  # a-  Alias for all check work
 M_GC            = 0x00ff0000  # a-  Alias for all gc work
 
+# Revision count flags
+REV_PERTURB     = 0x00000001  # y-  Perturb first bit in revision counts
+REV_NOISE       = 0x00000002  # y-  Add noise to revision counts
+
 # Filesystem info flags
 I_RDONLY        = 0x00000001  # --  Mounted read only
 I_GBMAP         = 0x01000000  # --  Global on-disk block-map in use
 
 I_FLUSH         = 0x00000040  # --  Mounted with LFS3_M_FLUSH
 I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
-I_REVPERTURB    = 0x00000010  # --  Mounted with LFS3_M_REVPERTURB
-I_REVNOISE      = 0x00000020  # --  Mounted with LFS3_M_REVNOISE
 I_CKPROGS       = 0x00001000  # --  Mounted with LFS3_M_CKPROGS
 I_CKFETCHES     = 0x00002000  # --  Mounted with LFS3_M_CKFETCHES
 I_CKMETAPARITY  = 0x00004000  # --  Mounted with LFS3_M_CKMETAPARITY

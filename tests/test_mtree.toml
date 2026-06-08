@@ -5,22 +5,17 @@ after = ['test_rbyd', 'test_btree']
 # of the disk for these tests
 defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 
-# test with normal revision counts, debug revision counts, and noisy
-# revision counts
+# test with normal revision counts, perturbing revision counts, and
+# noisy revision counts
 defines.REVPERTURB = [false, true]
 defines.REVNOISE = [false, true]
-defines.F_FLAGS = '''
-    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_F_REVPERTURB, -1) : 0)
-        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_F_REVNOISE, -1) : 0)
-'''
-defines.M_FLAGS = '''
-    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, -1) : 0)
-        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, -1) : 0)
+defines.REV_FLAGS = '''
+    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_REV_PERTURB, -1) : 0)
+        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_REV_NOISE, -1) : 0)
 '''
 if = [
     'LFS3_IFDEF_REVPERTURB(true, !REVPERTURB)',
     'LFS3_IFDEF_REVNOISE(true, !REVNOISE)',
-    '!REVPERTURB || !REVNOISE',
 ]
 
 
@@ -29,8 +24,8 @@ if = [
 [cases.test_mtree_mroot]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_unmount(&lfs3) => 0;
 '''
 
@@ -40,8 +35,8 @@ defines.N = [1, 3]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -64,7 +59,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     for (lfs3_size_t i = 0; i < N; i++) {
         lfs3_data_t data;
@@ -84,8 +79,8 @@ defines.N = [1, 3]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -111,7 +106,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     for (lfs3_size_t i = 0; i < N; i++) {
         lfs3_data_t data;
@@ -131,8 +126,8 @@ defines.N = [5, 5000]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -160,7 +155,7 @@ code = '''
 
 
     // check things stay sane after remount
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     lfs3_mdir_lookup(&lfs3, &lfs3.mroot, LFS3_TAG_ATTR(1),
             &data) => LFS3_TAG_ATTR(1);
@@ -180,8 +175,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -235,7 +230,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined
     assert(lfs3.mtree.weight == (1 << lfs3.mbits));
@@ -269,8 +264,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -332,7 +327,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.weight == (2 << lfs3.mbits));
@@ -368,8 +363,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -466,7 +461,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.weight == (3 << lfs3.mbits));
@@ -516,8 +511,8 @@ defines.FORCE_COMPACTION = [false, true]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // create entries
@@ -573,7 +568,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
@@ -607,8 +602,8 @@ fuzz = 'SEED'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     bool sim[N];
@@ -683,7 +678,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
@@ -720,8 +715,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -790,7 +785,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfs3.mtree.weight == (1 << lfs3.mbits));
@@ -819,8 +814,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -891,7 +886,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfs3.mtree.weight == (1 << lfs3.mbits));
@@ -920,8 +915,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -976,7 +971,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfs3.mtree.weight == (1 << lfs3.mbits));
@@ -1000,8 +995,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -1090,7 +1085,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert split/drop worked out
     assert(lfs3.mtree.weight == (2 << lfs3.mbits));
@@ -1126,8 +1121,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -1216,7 +1211,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert split/drop worked out
     assert(lfs3.mtree.weight == (2 << lfs3.mbits));
@@ -1254,8 +1249,8 @@ fuzz = 'SEED'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     bool sim[N];
@@ -1357,7 +1352,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
@@ -1396,8 +1391,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -1484,7 +1479,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined
     assert(lfs3.mtree.weight == (1 << lfs3.mbits));
@@ -1532,8 +1527,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -1630,7 +1625,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.weight == (2 << lfs3.mbits));
@@ -1680,8 +1675,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -1778,7 +1773,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.weight == (2 << lfs3.mbits));
@@ -1828,8 +1823,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -1882,7 +1877,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert that our rattr is still in the mroot
     lfs3_mtree_lookup(&lfs3, (0 << lfs3.mbits)+1, &mdir) => 0;
@@ -1916,8 +1911,8 @@ defines.PROG_SIZE = 'BLOCK_SIZE'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -2016,7 +2011,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert that our rattr is still in the mroot
     lfs3_mtree_lookup(&lfs3, (0 << lfs3.mbits)+1, &mdir) => 0;
@@ -2067,8 +2062,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -2146,7 +2141,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert that our rattr is still in the mroot
     lfs3_mtree_lookup(&lfs3, (0 << lfs3.mbits)+1, &mdir) => 0;
@@ -2187,8 +2182,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -2290,7 +2285,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.weight == (2 << lfs3.mbits));
@@ -2340,8 +2335,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -2456,7 +2451,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.weight == (3 << lfs3.mbits));
@@ -2511,8 +2506,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -2594,7 +2589,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdir was dropped
     assert(lfs3.mtree.weight == (1 << lfs3.mbits));
@@ -2625,8 +2620,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // force mroot to compact once, so the second compact below will
@@ -2689,7 +2684,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined
     assert(lfs3.mtree.weight == (1 << lfs3.mbits));
@@ -2725,8 +2720,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // force mroot to compact once, so the second compact below will
@@ -2797,7 +2792,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.weight == (2 << lfs3.mbits));
@@ -2837,8 +2832,8 @@ fuzz = 'SEED'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     bool sim[N];
@@ -2974,7 +2969,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
@@ -3008,8 +3003,8 @@ code = '''
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3080,8 +3075,8 @@ code = '''
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3139,8 +3134,8 @@ code = '''
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3200,8 +3195,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3288,8 +3283,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3392,8 +3387,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3460,8 +3455,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3572,8 +3567,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3682,8 +3677,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3807,8 +3802,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // setup our neighbors
@@ -3925,8 +3920,8 @@ defines.CKMETA = [false, true]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // insert at least one entry
@@ -4015,7 +4010,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert that our entry is still in the mtree
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
@@ -4035,8 +4030,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -4150,7 +4145,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined
     assert(lfs3.mtree.weight == (1 << lfs3.mbits));
@@ -4180,8 +4175,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -4303,7 +4298,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdirs were unininlined and split
     assert(lfs3.mtree.weight == (2 << lfs3.mbits));
@@ -4335,8 +4330,8 @@ defines.SIZE = 'BLOCK_SIZE / 4'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -4486,7 +4481,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert mdir was split correctly
     assert(lfs3.mtree.weight == (3 << lfs3.mbits));
@@ -4525,8 +4520,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // insert at least one entry
@@ -4629,7 +4624,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // assert that our entry is still in the mtree
     lfs3_mtree_namelookup(&lfs3, 0, "a", 1,
@@ -4650,8 +4645,8 @@ defines.FORCE_COMPACTION = [false, true]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     // create entries
@@ -4772,7 +4767,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
@@ -4806,8 +4801,8 @@ fuzz = 'SEED'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     bool sim[N];
@@ -4948,7 +4943,7 @@ code = '''
 
     // check things stay sane after remount
     lfs3_unmount(&lfs3) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // try looking up each entry
     lfs3_mtree_lookup(&lfs3, 0, &mdir) => 0;
@@ -4983,8 +4978,8 @@ code = '''
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
 
     lfs3_mdir_commit(&lfs3, &lfs3.mroot, (const lfs3_rattr_t[]){
@@ -5083,7 +5078,7 @@ code = '''
 
     // try to mount, this should fail
     lfs3_t lfs3;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => LFS3_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_CORRUPT;
 '''
 
 [cases.test_mtree_truncated_cksum]
@@ -5141,7 +5136,7 @@ code = '''
 
     // try to mount, this should fail
     lfs3_t lfs3;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => LFS3_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_CORRUPT;
 '''
 
 [cases.test_mtree_truncated_ecksum]
@@ -5206,7 +5201,7 @@ code = '''
 
     // try to mount, this should fail
     lfs3_t lfs3;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => LFS3_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_CORRUPT;
 '''
 
 [cases.test_mtree_truncated_gcksumdelta]
@@ -5271,7 +5266,7 @@ code = '''
 
     // try to mount, this should fail
     lfs3_t lfs3;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => LFS3_ERR_CORRUPT;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => LFS3_ERR_CORRUPT;
 '''
 
 
@@ -5281,7 +5276,7 @@ code = '''
 [cases.test_mtree_magic]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
 
     // check our magic string
     //
@@ -5303,8 +5298,8 @@ defines.BLOCK_RECYCLES = 0
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 
@@ -5366,8 +5361,8 @@ defines.PROG_SIZE = 'BLOCK_SIZE'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | F_FLAGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | M_FLAGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_alloc_ckpoint(&lfs3);
     lfs3_data_t data;
 

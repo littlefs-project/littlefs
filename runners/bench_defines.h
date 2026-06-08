@@ -36,6 +36,7 @@
     BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                  )
     BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
     BENCH_DEFINE(EVICTQUEUE_COUNT,      2                                   )
+    BENCH_DEFINE(REV_FLAGS,             0                                   )
     BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                          )
     BENCH_DEFINE(GC_STEPS,              0                                   )
     BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   -1                                  )
@@ -168,6 +169,7 @@
         #ifdef LFS3_EVICT
         .evictqueue_count               = EVICTQUEUE_COUNT,
         #endif
+        .rev_flags                      = REV_FLAGS,
         #ifdef LFS3_GC
         .gc_flags                       = GC_FLAGS,
         .gc_steps                       = GC_STEPS,

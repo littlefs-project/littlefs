@@ -931,6 +931,10 @@ defines.GC_FLAGS = '''
 '''
 defines.GC_STEPS = -1
 defines.GC_PREERASE_COUNT = ['0', '4', 'COUNT/2', 'COUNT-4', '-1']
+# note preerasing needs revperturb
+defines.REV_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+'''
 # test with a number of different erase values
 defines.ERASE_VALUE = [0xff, 0x00, -1]
 ifdef = 'LFS3_GC'
@@ -948,21 +952,8 @@ code = '''
     cfg.block_count = COUNT;
     lfs3_t lfs3;
     // note the gbmap flag
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                // note preerasing needs revperturb
-                | ((PREERASE)
-                    ? LFS3_IFDEF_PREERASE(LFS3_F_REVPERTURB, -1)
-                    : 0)
-                | LFS3_F_GBMAP,
-            &cfg) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                // note preerasing needs revperturb
-                | ((PREERASE)
-                    ? LFS3_IFDEF_PREERASE(LFS3_M_REVPERTURB, -1)
-                    : 0),
-            &cfg) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, &cfg) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
     // check that we were formatted with the gbmap
     struct lfs3_fsinfo fsinfo;

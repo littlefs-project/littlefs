@@ -36,6 +36,10 @@ defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.REV_FLAGS = '''
+    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_REV_PERTURB, -1) : 0)
+        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_REV_NOISE, -1) : 0)
+'''
 if = [
     'LFS3_IFYES_REVPERTURB(REVPERTURB, true, !REVPERTURB)',
     'LFS3_IFYES_REVNOISE(REVNOISE, true, !REVNOISE)',
@@ -61,10 +65,6 @@ code = '''
             ((RDONLY) ? LFS3_M_RDONLY : LFS3_M_RDWR)
                 | ((FLUSH) ? LFS3_M_FLUSH : 0)
                 | ((SYNC) ? LFS3_M_SYNC : 0)
-                | ((REVPERTURB)
-                    ? LFS3_IFDEF_REVPERTURB(LFS3_M_REVPERTURB, -1)
-                    : 0)
-                | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_M_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1) : 0)
                 | ((CKMETAPARITY)
@@ -88,10 +88,6 @@ code = '''
             ((RDONLY) ? LFS3_I_RDONLY : 0)
                 | ((FLUSH) ? LFS3_I_FLUSH : 0)
                 | ((SYNC) ? LFS3_I_SYNC : 0)
-                | ((REVPERTURB)
-                    ? LFS3_IFDEF_REVPERTURB(LFS3_I_REVPERTURB, -1)
-                    : 0)
-                | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_I_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, -1) : 0)
                 | ((CKMETAPARITY)
@@ -132,6 +128,10 @@ defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.REV_FLAGS = '''
+    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_REV_PERTURB, -1) : 0)
+        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_REV_NOISE, -1) : 0)
+'''
 if = [
     'LFS3_IFYES_REVPERTURB(REVPERTURB, true, !REVPERTURB)',
     'LFS3_IFYES_REVNOISE(REVNOISE, true, !REVNOISE)',
@@ -147,10 +147,6 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((REVPERTURB)
-                    ? LFS3_IFDEF_REVPERTURB(LFS3_F_REVPERTURB, -1)
-                    : 0)
-                | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_F_REVNOISE, -1) : 0)
                 | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
                 | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, -1) : 0)
                 | ((CKMETAPARITY)
@@ -173,9 +169,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | ((!GBMAP || (PREERASE && !LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
@@ -209,9 +203,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -229,9 +221,7 @@ code = '''
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -266,9 +256,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -290,9 +278,7 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -310,9 +296,7 @@ code = '''
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -336,6 +320,8 @@ defines.SIZE = [
 # REMOUNT=1 => remount with preerase
 # REMOUNT=2 => remount without preerase
 defines.REMOUNT = [0, 1, 2]
+# note preerasing needs revperturb
+defines.REV_FLAGS = 'LFS3_REV_PERTURB'
 # test with a number of different erase values
 defines.ERASE_VALUE = [0xff, 0x00, -1]
 ifdef = ['LFS3_GBMAP', 'LFS3_REVPERTURB', 'LFS3_PREERASE']
@@ -344,25 +330,17 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                // note preerasing needs revperturb
-                | LFS3_F_REVPERTURB
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
 
     uint32_t prng = 42;
 
     // by default, we don't preerase
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                // note preerasing needs revperturb
-                | LFS3_M_REVPERTURB,
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_REVPERTURB
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | LFS3_I_PREERASE
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -374,16 +352,12 @@ code = '''
     // blocks
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
-                // note preerasing needs revperturb
-                | LFS3_M_REVPERTURB
                 | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
                 | LFS3_M_PREERASE,
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_REVPERTURB
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -398,16 +372,12 @@ code = '''
         lfs3_unmount(&lfs3) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
-                    // note preerasing needs revperturb
-                    | LFS3_M_REVPERTURB
                     | ((REMOUNT == 1 && LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
                     | ((REMOUNT == 1) ? LFS3_M_PREERASE : 0),
                 CFG) => 0;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.flags == (
-                LFS3_I_REVPERTURB
-                    | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                    | LFS3_I_MKCONSISTENT
+                LFS3_I_MKCONSISTENT
                     | ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                     | ((REMOUNT != 1) ? LFS3_I_PREERASE : 0)
                     | LFS3_I_COMPACTMETA
@@ -480,9 +450,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | ((!GBMAP || SIZE >= BLOCK_SIZE/4)
                     ? LFS3_I_LOOKAHEAD
                     : 0)
@@ -503,9 +471,7 @@ code = '''
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | ((!LOOKAHEAD && (!GBMAP || SIZE >= BLOCK_SIZE/4))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
@@ -597,9 +563,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | LFS3_I_MKCONSISTENT
+            LFS3_I_MKCONSISTENT
                 | ((!GBMAP || ORPHANS >= 100)
                     ? LFS3_I_LOOKAHEAD
                     : 0)
@@ -621,9 +585,7 @@ code = '''
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFYES_REVPERTURB(LFS3_I_REVPERTURB, 0, 0)
-                | LFS3_IFYES_REVNOISE(LFS3_I_REVNOISE, 0, 0)
-                | ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
+            ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)

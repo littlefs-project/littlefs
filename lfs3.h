@@ -192,13 +192,6 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_F_GBMAP    0x01000000  // Use the global on-disk block-map
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
-#define LFS3_F_REVPERTURB \
-                        0x00000010  // Perturb first bit in revision count
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
-#define LFS3_F_REVNOISE 0x00000020  // Add noise to revision counts
-#endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_CKPROGS)
 #define LFS3_F_CKPROGS  0x00001000  // Check progs by reading back progged data
 #endif
@@ -266,13 +259,6 @@ enum lfs3_type {
 #define LFS3_M_RDONLY            1  // Mount the filesystem as read only
 #define LFS3_M_FLUSH    0x00000040  // Open all files with LFS3_O_FLUSH
 #define LFS3_M_SYNC     0x00000080  // Open all files with LFS3_O_SYNC
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
-#define LFS3_M_REVPERTURB \
-                        0x00000010  // Add debug info to revision counts
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
-#define LFS3_M_REVNOISE 0x00000020  // Add noise to revision counts
-#endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_CKPROGS)
 #define LFS3_M_CKPROGS  0x00001000  // Check progs by reading back progged data
 #endif
@@ -328,6 +314,15 @@ enum lfs3_type {
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
 
+// Revision count flags
+#if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
+#define LFS3_REV_PERTURB \
+                        0x00000001  // Perturb first bit in revision counts
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
+#define LFS3_REV_NOISE  0x00000002  // Add noise to revision counts
+#endif
+
 // Filesystem info flags
 #define LFS3_I_RDONLY   0x00000001  // Mounted read only
 #ifdef LFS3_GBMAP
@@ -335,13 +330,6 @@ enum lfs3_type {
 #endif
 #define LFS3_I_FLUSH    0x00000040  // Mounted with LFS3_M_FLUSH
 #define LFS3_I_SYNC     0x00000080  // Mounted with LFS3_M_SYNC
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
-#define LFS3_I_REVPERTURB \
-                        0x00000010  // Mounted with LFS3_M_REVPERTURB
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
-#define LFS3_I_REVNOISE 0x00000020  // Mounted with LFS3_M_REVNOISE
-#endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_CKPROGS)
 #define LFS3_I_CKPROGS  0x00001000  // Mounted with LFS3_M_CKPROGS
 #endif
@@ -539,7 +527,7 @@ struct lfs3_cfg {
     int (*sync)(const struct lfs3_cfg *c);
     #endif
 
-#ifdef LFS3_THREADSAFE
+    #ifdef LFS3_THREADSAFE
     // Lock the underlying block device. Negative error codes
     // are propagated to the user.
     int (*lock)(const struct lfs3_cfg *c);
@@ -547,7 +535,7 @@ struct lfs3_cfg {
     // Unlock the underlying block device. Negative error codes
     // are propagated to the user.
     int (*unlock)(const struct lfs3_cfg *c);
-#endif
+    #endif
 
     // Minimum size of a read in bytes. All read operations will be a
     // multiple of this value.
@@ -627,6 +615,9 @@ struct lfs3_cfg {
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     lfs3_size_t evictqueue_count;
     #endif
+
+    // Flags for additional revision count features.
+    uint32_t rev_flags;
 
     // Flags indicating what gc work to do during lfs3_gc calls.
     #ifdef LFS3_GC
