@@ -107,7 +107,7 @@ static inline bool lfs3_repair_iscondemned(uint32_t flags) {
 #endif
 
 // eviction stuff
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 #define LFS3_EVICT_ISBAD 0x80000000
 #endif
 
@@ -115,7 +115,7 @@ static inline bool lfs3_repair_iscondemned(uint32_t flags) {
 #define LFS3_EVICT_ISDATA 0x80000000
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 static inline bool lfs3_evict_isbad(const lfs3_evict_t *evict) {
     return evict->block & LFS3_EVICT_ISBAD;
 }
@@ -123,7 +123,7 @@ static inline bool lfs3_evict_isbad(const lfs3_evict_t *evict) {
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static inline lfs3_block_t lfs3_evict_block(const lfs3_evict_t *evict) {
-    #ifdef LFS3_GBMAP
+    #ifdef LFS3_CONDEMN
     return evict->block & ~LFS3_EVICT_ISBAD;
     #else
     return evict->block;
@@ -170,7 +170,7 @@ static inline bool lfs3_evict_needseviction(const lfs3_t *lfs3,
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 static inline bool lfs3_evict_needscondemnation(const lfs3_t *lfs3,
         lfs3_block_t block) {
     const lfs3_evict_t *evict = lfs3_evict_eviction((lfs3_t*)lfs3, block);
@@ -179,14 +179,14 @@ static inline bool lfs3_evict_needscondemnation(const lfs3_t *lfs3,
 #endif
 
 // some block eviction flags used in lfs3_evict_push
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 #define LFS3_EVICT_BAD  0x80000000 // Block is bad
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 #define LFS3_EVICT_DATA 0x40000000 // Block is definitely data
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 static inline bool lfs3_evict_isbad_(uint32_t flags) {
     return flags & LFS3_EVICT_BAD;
 }
@@ -248,7 +248,7 @@ found:;
     // traversals, so we don't need to set traversals' damaged flag here
 
     // or bad bits
-    #ifdef LFS3_GBMAP
+    #ifdef LFS3_CONDEMN
     evict->block |= (flags & LFS3_EVICT_BAD) << 0;
     #endif
     // or data bits
@@ -332,9 +332,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         }
         // bad? push onto our evictqueue as a block to avoid
         if (err == LFS3_ERR_BAD) {
-            #if !defined(LFS3_RDONLY) \
-                    && defined(LFS3_REPAIR) \
-                    && defined(LFS3_GBMAP)
+            #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
             if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
                 lfs3_evict_push(lfs3, block,
                         LFS3_EVICT_BAD | (flags & LFS3_BD_DATA));
@@ -347,11 +345,11 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     // condemned?
-    if (LFS3_IFDEF_GBMAP(
+    if (LFS3_IFDEF_CONDEMN(
             err == LFS3_ERR_CONDEMNED
                 && lfs3_f_isgbmap(lfs3->flags),
             false)) {
-        #ifdef LFS3_GBMAP
+        #ifdef LFS3_CONDEMN
         if (!lfs3_bd_isrelax(flags)) {
             // try not to spam condemned warnings
             lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, block);
@@ -436,7 +434,7 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         // condemned/bad? push onto our evictqueue as a block to avoid
         if (err == LFS3_ERR_CONDEMNED
                 || err == LFS3_ERR_BAD) {
-            #if defined(LFS3_REPAIR) && defined(LFS3_GBMAP)
+            #ifdef LFS3_CONDEMN
             if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
                 // note we treat all bad progs/erases as metadata, we
                 // abandon these so it doesn't really matter
@@ -498,7 +496,7 @@ static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block,
         // condemned/bad? push onto our evictqueue as a block to avoid
         if (err == LFS3_ERR_CONDEMNED
                 || err == LFS3_ERR_BAD) {
-            #if defined(LFS3_REPAIR) && defined(LFS3_GBMAP)
+            #ifdef LFS3_CONDEMN
             if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
                 // note we treat all bad progs/erases as metadata, we
                 // abandon these so it doesn't really matter
@@ -2864,7 +2862,7 @@ static inline bool lfs3_evict_needsevictionbptr(const lfs3_t *lfs3,
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 static inline bool lfs3_evict_needscondemnationbptr(const lfs3_t *lfs3,
         const lfs3_bptr_t *bptr) {
     return lfs3_evict_needscondemnation(lfs3, lfs3_bptr_block(bptr));
@@ -3325,7 +3323,7 @@ static inline bool lfs3_evict_needsevictionrbyd(const lfs3_t *lfs3,
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 static inline bool lfs3_evict_needscondemnationrbyd(const lfs3_t *lfs3,
         const lfs3_rbyd_t *rbyd) {
     return lfs3_evict_needscondemnation(lfs3, rbyd->blocks[0]);
@@ -7875,7 +7873,7 @@ static inline bool lfs3_evict_needsevictionmptr(const lfs3_t *lfs3,
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 static inline bool lfs3_evict_needscondemnationmptr(const lfs3_t *lfs3,
         const lfs3_block_t mptr[static 2]) {
     return lfs3_evict_needscondemnation(lfs3, mptr[0])
@@ -8763,7 +8761,7 @@ static inline bool lfs3_evict_needsevictionmdir(const lfs3_t *lfs3,
 }
 #endif
 
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT) && defined(LFS3_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 static inline bool lfs3_evict_needscondemnationmdir(const lfs3_t *lfs3,
         const lfs3_mdir_t *mdir) {
     return lfs3_evict_needscondemnationmptr(lfs3, mdir->r.blocks);
@@ -8845,7 +8843,7 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     lfs3_repair_iscondemned(lfs3->repair_flags)
                         && lfs3_f_isgbmap(lfs3->flags),
                     false)) {
-                #ifdef LFS3_GBMAP
+                #ifdef LFS3_CONDEMN
                 // try not to spam condemned warnings
                 lfs3_evict_t *evict = lfs3_evict_evictionrbyd(lfs3, &mdir->r);
                 if (!evict || !lfs3_evict_isbad(evict)) {
@@ -9812,12 +9810,10 @@ compact:;
                 err == LFS3_ERR_NOSPC
                     && overrecyclable
                     // so maybe don't overrecycle if we're condemned
-                    && !LFS3_IFDEF_EVICT(
-                        LFS3_IFDEF_GBMAP(
-                            lfs3_f_isgbmap(lfs3->flags)
-                                && lfs3_evict_needscondemnationmdir(lfs3,
-                                    mdir),
-                            false),
+                    && !LFS3_IFDEF_CONDEMN(
+                        lfs3_f_isgbmap(lfs3->flags)
+                            && lfs3_evict_needscondemnationmdir(lfs3,
+                                mdir),
                         false))) {
             return err;
         }
@@ -11324,7 +11320,7 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     } else if (LFS3_IFDEF_GBMAP(
             mgc->t.h.mdir.mid == LFS3_MID_GBMAP,
             false)) {
-    #ifdef LFS3_GBMAP
+        #ifdef LFS3_GBMAP
         if (LFS3_IFDEF_EVICT(
                 lfs3_evict_needsevictionrbyd(lfs3, rbyd),
                 false)) {
@@ -11369,13 +11365,13 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // we may need to rewalk the current btree trunk, but this at
         // least avoids O(n^2) behavior
         lfs3_btrv_seek(&mgc->t.u.btrv, bid);
-    #endif
+        #endif
 
     // in gbmap_p?
     } else if (LFS3_IFDEF_GBMAP(
             mgc->t.h.mdir.mid == LFS3_MID_GBMAP_P,
             false)) {
-    #ifdef LFS3_GBMAP
+        #ifdef LFS3_GBMAP
         // if we're in gbmap_p, just force sync the gbmap to
         // disk, we can't mutate gbmap_p as it's in the past,
         // and there's no real reason to keep it around
@@ -11387,7 +11383,7 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         }
 
         // _don't_ resume btrv here, the gbmap_p is no more
-    #endif
+        #endif
 
     // in a file?
     } else {
@@ -11715,7 +11711,7 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static int lfs3_mtree_condemnevicted(lfs3_t *lfs3, uint32_t flags) {
-    #if defined(LFS3_REPAIR) && defined(LFS3_GBMAP)
+    #if defined(LFS3_CONDEMN)
     // checkpoint the lookahead buffer, but avoid repopulating
     // the gbmap, when repairing blocks we _really_ don't want
     // to write more than is necessary
@@ -18040,8 +18036,8 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
         }
     }
 
-    #ifdef LFS3_GBMAP
     // using the gbmap?
+    #ifdef LFS3_GBMAP
     if (lfs3_compat_isgbmap(compat)) {
         lfs3->flags |= LFS3_I_GBMAP;
     }
@@ -18857,7 +18853,8 @@ lfs3_sblock_t lfs3_fs_usage(lfs3_t *lfs3) {
             return tag;
         }
 
-        // count the number of blocks we see, yes this may result in duplicates
+        // count the number of blocks we see, yes this may result in
+        // duplicates
         if (tag == LFS3_TAG_MDIR) {
             count += 2;
 

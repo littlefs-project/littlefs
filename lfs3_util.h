@@ -60,6 +60,9 @@
 #ifndef LFS3_REPAIR
 #define LFS3_REPAIR
 #endif
+#ifndef LFS3_CONDEMN
+#define LFS3_CONDEMN
+#endif
 #endif
 
 // LFS3_YES_* variants imply the relevant LFS3_* macro
@@ -116,6 +119,11 @@
 #if defined(LFS3_REPAIR) \
         && !defined(LFS3_EVICT)
 #error "LFS3_REPAIR requires LFS3_EVICT"
+#endif
+
+#if defined(LFS3_CONDEMN) \
+        && (!defined(LFS3_GBMAP) || !defined(LFS3_REPAIR))
+#error "LFS3_CONDEMN requires LFS3_GBMAP and LFS3_REPAIR"
 #endif
 
 
@@ -344,6 +352,12 @@
 #define LFS3_IFDEF_REPAIR(a, b) (a)
 #else
 #define LFS3_IFDEF_REPAIR(a, b) (b)
+#endif
+
+#ifdef LFS3_CONDEMN
+#define LFS3_IFDEF_CONDEMN(a, b) (a)
+#else
+#define LFS3_IFDEF_CONDEMN(a, b) (b)
 #endif
 
 

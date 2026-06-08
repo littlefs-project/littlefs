@@ -82,7 +82,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'LFS3_IFDEF_GC(true, !GC)',
 ]
 code = '''
@@ -355,7 +355,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'LFS3_IFDEF_GC(true, !GC)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
@@ -697,7 +697,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'LFS3_IFDEF_GC(true, !GC)',
     'CHUNK <= SIZE',
     # this just saves testing time
@@ -950,7 +950,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'LFS3_IFDEF_GC(true, !GC)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
@@ -1515,7 +1515,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'LFS3_IFDEF_GC(true, !GC)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]

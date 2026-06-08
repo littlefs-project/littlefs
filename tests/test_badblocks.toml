@@ -72,7 +72,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     # don't bother testing low-level btree logic with more complicated
     # block allocators
     '!GBMAP',
@@ -218,7 +218,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     // test all possible bad blocks
@@ -370,7 +370,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     // test all possible bad blocks
@@ -596,7 +596,7 @@ defines.SIZE = [
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 32',
 ]
 code = '''
@@ -742,7 +742,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -1029,7 +1029,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -1228,7 +1228,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -1716,7 +1716,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -2298,7 +2298,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     # don't bother testing low-level btree logic with more complicated
     # block allocators
     '!GBMAP',
@@ -2441,7 +2441,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     // test a large region of bad blocks
@@ -2594,7 +2594,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     // test a large region of bad blocks
@@ -2821,7 +2821,7 @@ defines.SIZE = [
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 32',
 ]
 code = '''
@@ -2968,7 +2968,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -3256,7 +3256,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -3456,7 +3456,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -3945,7 +3945,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -4527,7 +4527,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     # don't bother testing low-level btree logic with more complicated
     # block allocators
     '!GBMAP',
@@ -4670,7 +4670,7 @@ defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     // test a large region of bad blocks
@@ -4823,7 +4823,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     // test a large region of bad blocks
@@ -5050,7 +5050,7 @@ defines.SIZE = [
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 32',
 ]
 code = '''
@@ -5197,7 +5197,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -5485,7 +5485,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*FRAGMENT_SIZE',
@@ -5683,7 +5683,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
@@ -6172,7 +6172,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    'GBMAP || !CONDEMN',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     '(SIZE*N)/BLOCK_SIZE <= 16',
 ]
 code = '''
