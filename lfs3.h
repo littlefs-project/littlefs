@@ -407,12 +407,16 @@ enum lfs3_type {
 
 // Block types
 enum lfs3_btype {
-    LFS3_BTYPE_MDIR  = 1,
-    LFS3_BTYPE_BTREE = 2,
-    LFS3_BTYPE_DATA  = 3,
+    LFS3_BTYPE_MDIR    = 1, // An mdir (metadata log)
+    LFS3_BTYPE_BTREE   = 2, // A btree node
+    LFS3_BTYPE_DATA    = 3, // A raw data block
+    LFS3_BTYPE_FREE    = 4, // Known free, safe to alloc
+    LFS3_BTYPE_INUSE   = 5, // Known in-use, type unknown
     #ifdef LFS3_GBMAP
-    LFS3_BTYPE_BAD   = 4,
+    LFS3_BTYPE_ERASED  = 6, // Known erased, probably (requires ecksum proof)
+    LFS3_BTYPE_BAD     = 7, // Known bad, do not alloc
     #endif
+    LFS3_BTYPE_UNKNOWN = 8, // Unknown block status
 };
 
 // Traversal flags
@@ -521,10 +525,21 @@ enum lfs3_btype {
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
 
-// Mkbad flags
+// Block eviction flags
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_MKBAD_EVICT \
+#define LFS3_EVICT_EVICT \
                         0x00000010  // Delete all references to this block
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+#define LFS3_EVICT_BAD  0x80000000  // Mark this block as bad, do not alloc
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+#define LFS3_EVICT_GOOD 0x20000000  // Mark this block as good, do alloc
+#endif
+
+// internally used flags, don't use these
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#define LFS3_evict_DATA 0x40000000  // Block is definitely data
 #endif
 
 
@@ -839,7 +854,7 @@ struct lfs3_fsinfo {
 };
 
 // Traversal info structure
-struct lfs3_tinfo {
+struct lfs3_binfo {
     // Type of the block
     uint8_t btype;
 
@@ -1843,12 +1858,12 @@ int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv);
 
 // Progress the traversal and read an entry
 //
-// Fills out the tinfo structure.
+// Fills out the binfo structure.
 //
 // Returns 0 on success, LFS3_ERR_NOENT at the end of traversal, or a
 // negative error code on failure.
 int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
-        struct lfs3_tinfo *tinfo);
+        struct lfs3_binfo *binfo);
 
 // Reset the traversal
 //
@@ -2033,13 +2048,25 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3);
 int lfs3_fs_rmgbmap(lfs3_t *lfs3);
 #endif
 
-// Mark a block as bad, and/or evict from the filesystem
+// Evict a block from the filesystem, and/or mark it as good/bad
 //
 // Returns 0 if all flags are satisfied, or a negative error code on
 // failure.
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags);
+int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags);
 #endif
+
+// Find info about littlefs's knowledge of a specific block
+//
+// Note littlefs generally knowns very little, and will return
+// LFS3_BTYPE_UNKNOWN for most blocks. lfs3_trv_t can be used figure out
+// more info, but at a runtime cost.
+//
+// Fills out the binfo structure using lookahead and gbmap information.
+//
+// Returns a negative error code on failure.
+int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
+        struct lfs3_binfo *binfo);
 
 
 #endif

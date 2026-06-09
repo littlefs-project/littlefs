@@ -237,8 +237,8 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 lfs3_trv_close(&lfs3, &trv) => 0;
@@ -248,18 +248,18 @@ code = '''
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS3_BTYPE_MDIR
-                    || tinfo.btype == LFS3_BTYPE_BTREE) {
+            if (binfo.btype == LFS3_BTYPE_MDIR
+                    || binfo.btype == LFS3_BTYPE_BTREE) {
                 if (k == i || k == i+1) {
                     // clobber this block
-                    printf("clobbering 0x%x\n", tinfo.block);
+                    printf("clobbering 0x%x\n", binfo.block);
                     uint8_t clobber_buf[BLOCK_SIZE];
                     memset(clobber_buf, 0xcc, BLOCK_SIZE);
-                    CFG->erase(CFG, tinfo.block) => 0;
-                    CFG->prog(CFG, tinfo.block, 0,
+                    CFG->erase(CFG, binfo.block) => 0;
+                    CFG->prog(CFG, binfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                    if (binfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (binfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
                         lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
@@ -289,8 +289,8 @@ code = '''
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     break;
@@ -391,8 +391,8 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 lfs3_trv_close(&lfs3, &trv) => 0;
@@ -402,19 +402,19 @@ code = '''
 
             // this gets a bit tricky be cause we need to clobber both
             // blocks in mdir pairs
-            if (tinfo.btype == LFS3_BTYPE_MDIR
-                    || tinfo.btype == LFS3_BTYPE_BTREE
-                    || tinfo.btype == LFS3_BTYPE_DATA) {
+            if (binfo.btype == LFS3_BTYPE_MDIR
+                    || binfo.btype == LFS3_BTYPE_BTREE
+                    || binfo.btype == LFS3_BTYPE_DATA) {
                 if (k == i || k == i+1) {
                     // clobber this block
-                    printf("clobbering 0x%x\n", tinfo.block);
+                    printf("clobbering 0x%x\n", binfo.block);
                     uint8_t clobber_buf[BLOCK_SIZE];
                     memset(clobber_buf, 0xcc, BLOCK_SIZE);
-                    CFG->erase(CFG, tinfo.block) => 0;
-                    CFG->prog(CFG, tinfo.block, 0,
+                    CFG->erase(CFG, binfo.block) => 0;
+                    CFG->prog(CFG, binfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
-                    if (tinfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
-                        i += (tinfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
+                    if (binfo.btype != LFS3_BTYPE_MDIR || k == i+1) {
+                        i += (binfo.btype == LFS3_BTYPE_MDIR) ? 2 : 1;
                         lfs3_trv_close(&lfs3, &trv) => 0;
                         goto clobbered;
                     }
@@ -444,8 +444,8 @@ code = '''
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_CORRUPT);
                 if (err == LFS3_ERR_CORRUPT) {
                     break;
@@ -551,8 +551,8 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 lfs3_trv_close(&lfs3, &trv) => 0;
@@ -560,11 +560,11 @@ code = '''
                 goto done;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_MDIR
-                    || tinfo.btype == LFS3_BTYPE_BTREE) {
+            if (binfo.btype == LFS3_BTYPE_MDIR
+                    || binfo.btype == LFS3_BTYPE_BTREE) {
                 // found an interesting block?
                 if (k == i) {
-                    badblock = tinfo.block;
+                    badblock = binfo.block;
                     lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobber;
                 }
@@ -614,8 +614,8 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    struct lfs3_binfo binfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -828,8 +828,8 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 lfs3_trv_close(&lfs3, &trv) => 0;
@@ -837,12 +837,12 @@ code = '''
                 goto done;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_MDIR
-                    || tinfo.btype == LFS3_BTYPE_BTREE
-                    || tinfo.btype == LFS3_BTYPE_DATA) {
+            if (binfo.btype == LFS3_BTYPE_MDIR
+                    || binfo.btype == LFS3_BTYPE_BTREE
+                    || binfo.btype == LFS3_BTYPE_DATA) {
                 // found an interesting block?
                 if (k == i) {
-                    badblock = tinfo.block;
+                    badblock = binfo.block;
                     lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobber;
                 }
@@ -892,8 +892,8 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    struct lfs3_binfo binfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -1092,8 +1092,8 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 lfs3_trv_close(&lfs3, &trv) => 0;
@@ -1102,15 +1102,15 @@ code = '''
                 goto done;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE
+            if (binfo.btype == LFS3_BTYPE_BTREE
                     && trv.t.h.mdir.mid != LFS3_MID_GBMAP) {
                 if (k == i) {
                     // clobber this block
-                    printf("clobbering 0x%x\n", tinfo.block);
+                    printf("clobbering 0x%x\n", binfo.block);
                     uint8_t clobber_buf[BLOCK_SIZE];
                     memset(clobber_buf, 0xcc, BLOCK_SIZE);
-                    CFG->erase(CFG, tinfo.block) => 0;
-                    CFG->prog(CFG, tinfo.block, 0,
+                    CFG->erase(CFG, binfo.block) => 0;
+                    CFG->prog(CFG, binfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
                     lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
@@ -1191,8 +1191,8 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 lfs3_trv_close(&lfs3, &trv) => 0;
@@ -1201,16 +1201,16 @@ code = '''
                 goto done;
             }
 
-            if ((tinfo.btype == LFS3_BTYPE_BTREE
-                        || tinfo.btype == LFS3_BTYPE_DATA)
+            if ((binfo.btype == LFS3_BTYPE_BTREE
+                        || binfo.btype == LFS3_BTYPE_DATA)
                     && trv.t.h.mdir.mid != LFS3_MID_GBMAP) {
                 if (k == i) {
                     // clobber this block
-                    printf("clobbering 0x%x\n", tinfo.block);
+                    printf("clobbering 0x%x\n", binfo.block);
                     uint8_t clobber_buf[BLOCK_SIZE];
                     memset(clobber_buf, 0xcc, BLOCK_SIZE);
-                    CFG->erase(CFG, tinfo.block) => 0;
-                    CFG->prog(CFG, tinfo.block, 0,
+                    CFG->erase(CFG, binfo.block) => 0;
+                    CFG->prog(CFG, binfo.block, 0,
                             clobber_buf, BLOCK_SIZE) => 0;
                     lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobbered;
@@ -1298,8 +1298,8 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 lfs3_trv_close(&lfs3, &trv) => 0;
@@ -1308,11 +1308,11 @@ code = '''
                 goto done;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE
+            if (binfo.btype == LFS3_BTYPE_BTREE
                     && trv.t.h.mdir.mid != LFS3_MID_GBMAP) {
                 // found an interesting block?
                 if (k == i) {
-                    badblock = tinfo.block;
+                    badblock = binfo.block;
                     lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobber;
                 }
@@ -1448,8 +1448,8 @@ code = '''
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 lfs3_trv_close(&lfs3, &trv) => 0;
@@ -1458,12 +1458,12 @@ code = '''
                 goto done;
             }
 
-            if ((tinfo.btype == LFS3_BTYPE_BTREE
-                        || tinfo.btype == LFS3_BTYPE_DATA)
+            if ((binfo.btype == LFS3_BTYPE_BTREE
+                        || binfo.btype == LFS3_BTYPE_DATA)
                     && trv.t.h.mdir.mid != LFS3_MID_GBMAP) {
                 // found an interesting block?
                 if (k == i) {
-                    badblock = tinfo.block;
+                    badblock = binfo.block;
                     lfs3_trv_close(&lfs3, &trv) => 0;
                     goto clobber;
                 }
@@ -1668,10 +1668,10 @@ code = '''
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
-        struct lfs3_tinfo tinfo;
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
-            badblock = tinfo.block;
+        struct lfs3_binfo binfo;
+        lfs3_trv_read(&lfs3, &trv, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_DATA) {
+            badblock = binfo.block;
             break;
         }
     }
@@ -1779,10 +1779,10 @@ code = '''
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
-        struct lfs3_tinfo tinfo;
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
-            badblock = tinfo.block;
+        struct lfs3_binfo binfo;
+        lfs3_trv_read(&lfs3, &trv, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
+            badblock = binfo.block;
             break;
         }
     }
@@ -2178,10 +2178,10 @@ code = '''
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
-        struct lfs3_tinfo tinfo;
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
-            badblock = tinfo.block;
+        struct lfs3_binfo binfo;
+        lfs3_trv_read(&lfs3, &trv, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_DATA) {
+            badblock = binfo.block;
             break;
         }
     }
@@ -2289,10 +2289,10 @@ code = '''
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
-        struct lfs3_tinfo tinfo;
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
-            badblock = tinfo.block;
+        struct lfs3_binfo binfo;
+        lfs3_trv_read(&lfs3, &trv, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
+            badblock = binfo.block;
             break;
         }
     }
@@ -2552,10 +2552,10 @@ code = '''
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
-        struct lfs3_tinfo tinfo;
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
-            badblock = tinfo.block;
+        struct lfs3_binfo binfo;
+        lfs3_trv_read(&lfs3, &trv, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
+            badblock = binfo.block;
             break;
         }
     }
@@ -2696,10 +2696,10 @@ code = '''
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
     lfs3_block_t badblock;
     while (true) {
-        struct lfs3_tinfo tinfo;
-        lfs3_trv_read(&lfs3, &trv, &tinfo) => 0;
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
-            badblock = tinfo.block;
+        struct lfs3_binfo binfo;
+        lfs3_trv_read(&lfs3, &trv, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_DATA) {
+            badblock = binfo.block;
             break;
         }
     }
@@ -2927,8 +2927,8 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    struct lfs3_binfo binfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -3245,8 +3245,8 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    struct lfs3_binfo binfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -3661,8 +3661,8 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    struct lfs3_binfo binfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -3946,8 +3946,8 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    struct lfs3_binfo binfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);
@@ -4550,8 +4550,8 @@ code = '''
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
 
-                    struct lfs3_tinfo tinfo;
-                    int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                    struct lfs3_binfo binfo;
+                    int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                     assert(!err
                             || err == LFS3_ERR_NOENT
                             || err == LFS3_ERR_CORRUPT);

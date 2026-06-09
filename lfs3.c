@@ -180,10 +180,9 @@ static inline bool lfs3_evict_needscondemnation(const lfs3_t *lfs3,
 
 // some block eviction flags used in lfs3_evict_push
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-#define LFS3_EVICT_BAD  0x80000000 // Block is bad
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_EVICT_DATA 0x40000000 // Block is definitely data
+static inline bool lfs3_evict_isevict_(uint32_t flags) {
+    return flags & LFS3_EVICT_EVICT;
+}
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
@@ -192,9 +191,15 @@ static inline bool lfs3_evict_isbad_(uint32_t flags) {
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+static inline bool lfs3_evict_isgood_(uint32_t flags) {
+    return flags & LFS3_EVICT_GOOD;
+}
+#endif
+
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static inline bool lfs3_evict_isdata_(uint32_t flags) {
-    return flags & LFS3_EVICT_DATA;
+    return flags & LFS3_evict_DATA;
 }
 #endif
 
@@ -252,9 +257,9 @@ found:;
     evict->block |= (flags & LFS3_EVICT_BAD) << 0;
     #endif
     // or data bits
-    evict->block_ |= (flags & LFS3_EVICT_DATA) << 1;
+    evict->block_ |= (flags & LFS3_evict_DATA) << 1;
     // make sure evict/repair flags are set
-    lfs3->flags |= ((flags & LFS3_EVICT_DATA)
+    lfs3->flags |= ((flags & LFS3_evict_DATA)
             ? LFS3_gc_EVICTDATA
             : LFS3_gc_EVICTMETA);
     return evict;
@@ -269,7 +274,7 @@ static void lfs3_evict_flush(lfs3_t *lfs3, uint32_t flags) {
         // this basically boils down to only keeping data evictions when
         // not evicting data
         if (lfs3_evict_isdata(&lfs3->evictqueue.queue[i])
-                && !(flags & LFS3_EVICT_DATA)) {
+                && !(flags & LFS3_evict_DATA)) {
             lfs3->evictqueue.queue[count_++] = lfs3->evictqueue.queue[i];
         }
     }
@@ -278,7 +283,7 @@ static void lfs3_evict_flush(lfs3_t *lfs3, uint32_t flags) {
     // clear the relevant evict/repair flags
     lfs3->flags &= ~(
             LFS3_gc_EVICTMETA
-                | ((flags & LFS3_EVICT_DATA) ? LFS3_gc_EVICTDATA : 0));
+                | ((flags & LFS3_evict_DATA) ? LFS3_gc_EVICTDATA : 0));
 }
 #endif
 
@@ -8274,13 +8279,6 @@ static inline bool lfs3_gc_isevictdataing(uint32_t flags) {
 }
 #endif
 
-// mkbad flags
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_mkbad_isevict(uint32_t flags) {
-    return flags & LFS3_MKBAD_EVICT;
-}
-#endif
-
 
 
 /// Handles - opened mdir things ///
@@ -11745,7 +11743,7 @@ static int lfs3_mtree_condemnevicted(lfs3_t *lfs3, uint32_t flags) {
     for (lfs3_size_t i = 0; i < lfs3->evictqueue.count; i++) {
         if (lfs3_evict_isbad(&lfs3->evictqueue.queue[i])
                 && (!lfs3_evict_isdata(&lfs3->evictqueue.queue[i])
-                    || (flags & LFS3_EVICT_DATA))) {
+                    || (flags & LFS3_evict_DATA))) {
             // make sure there's no lingering bad blocks in our
             // lookahead buffer
             lfs3_alloc_setinuse(lfs3,
@@ -12072,7 +12070,7 @@ eot:;
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mtree_condemnevicted(lfs3,
                 (lfs3_gc_isevictdataing(mgc->t.h.flags))
-                    ? LFS3_EVICT_DATA
+                    ? LFS3_evict_DATA
                     : 0);
         if (err) {
             return err;
@@ -13326,7 +13324,8 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
     while (true) {
         // known block in our gbmap?
         if (LFS3_IFDEF_GBMAP(
-                lfs3_f_isgbmap(lfs3->flags) && lfs3->gbmap.known > 0,
+                lfs3_f_isgbmap(lfs3->flags)
+                    && lfs3->gbmap.known > 0,
                 false)) {
             #ifdef LFS3_GBMAP
             // need to look up known block info
@@ -19287,9 +19286,9 @@ int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
 #endif
 
 
-// mark a block as bad, and/or evict from the filesystem
+// evict a block from the filesystem, and/or mark it as good/bad
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
+int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
     // Note we do _not_ call lfs3_fs_mkconsistent here.
     //
     // We should be ok not calling lfs3_fs_mkconsistent as long as we
@@ -19299,9 +19298,18 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
     // generally want to avoid unnecessary work in functions that can be
     // used to rescue a filesystem.
 
-    // unknown mkbad flags?
+    // unknown eviction flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_MKBAD_EVICT)) == 0);
+            LFS3_EVICT_EVICT
+                | LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, 0)
+                | LFS3_IFDEF_CONDEMN(LFS3_EVICT_GOOD, 0))) == 0);
+    #ifdef LFS3_CONDEMN
+    // mark both good and bad? what are you doing?
+    LFS3_ASSERT(!(lfs3_evict_isbad_(flags) && lfs3_evict_isgood_(flags)));
+    // we can't track bad blocks without a gbmap
+    LFS3_ASSERT(lfs3_f_isgbmap(lfs3->flags)
+            || !(lfs3_evict_isbad_(flags) || lfs3_evict_isgood_(flags)));
+    #endif
 
     // out-of-bounds?
     if (block >= lfs3->block_count) {
@@ -19310,7 +19318,7 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
 
     // evict?
     int err;
-    if (lfs3_mkbad_isevict(flags)) {
+    if (lfs3_evict_isevict_(flags)) {
         // littlefs can't function without blocks 0x{0,1}, so reject
         // these
         if (block == 0 || block == 1) {
@@ -19321,9 +19329,9 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
 
         // repair any known damage first, we need the evict queue
         #ifdef LFS3_REPAIR
-        int err = lfs3_fs_mkrepaired(lfs3);
+        err = lfs3_fs_mkrepaired(lfs3);
         if (err) {
-            return err;
+            goto failed;
         }
         #endif
         // eviction queue should be empty now
@@ -19331,7 +19339,7 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
 
         // put our block on the evict queue, this sidechannel tells the
         // rest of the filesystem what blocks to avoid
-        lfs3_evict_push(lfs3, block, LFS3_EVICT_DATA);
+        lfs3_evict_push(lfs3, block, LFS3_evict_DATA);
 
         // run gc to evict the block
         //
@@ -19343,10 +19351,45 @@ int lfs3_fs_mkbad(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
         if (steps < 0) {
             lfs3_handle_close(lfs3, &mgc.t.h);
-            return steps;
+            err = steps;
+            goto failed;
         }
         lfs3_handle_close(lfs3, &mgc.t.h);
     }
+
+    // mark good/bad?
+    #ifdef LFS3_CONDEMN
+    if (lfs3_evict_isbad_(flags)
+            || lfs3_evict_isgood_(flags)) {
+        // checkpoint the lookahead buffer, but avoid repopulating the
+        // gbmap
+        lfs3_alloc_ckpoint_(lfs3);
+
+        // make sure there's no lingering bad blocks in our
+        // lookahead buffer
+        if (lfs3_evict_isbad_(flags)) {
+            lfs3_alloc_setinuse(lfs3, block);
+        }
+
+        // mark good/bad in gbmap
+        err = lfs3_gbmap_set(lfs3, &lfs3->gbmap.b,
+                block,
+                (lfs3_evict_isbad_(flags))
+                    ? LFS3_TAG_BMBAD
+                    // don't mark as free here, we don't know if the
+                    // block is actually free
+                    : LFS3_TAG_BMINUSE, NULL);
+        if (err) {
+            goto failed;
+        }
+
+        // commit the gbmap to disk
+        err = lfs3_alloc_syncgbmap(lfs3);
+        if (err) {
+            goto failed;
+        }
+    }
+    #endif
 
     return 0;
 
@@ -19356,6 +19399,65 @@ failed:;
     return err;
 }
 #endif
+
+// find info about littlefs's knowledge of a specific block
+int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
+        struct lfs3_binfo *binfo) {
+    // out-of-bounds?
+    if (block >= lfs3->block_count) {
+        return LFS3_ERR_NOENT;
+    }
+
+    #ifdef LFS3_GBMAP
+    if (lfs3_f_isgbmap(lfs3->flags)) {
+        // lookup block in gbmap
+        //
+        // we do this unconditional in case the block is bad, bad blocks
+        // don't care about the known window
+        lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, &lfs3->gbmap.b,
+                block,
+                NULL, NULL, NULL);
+        if (tag < 0) {
+            return tag;
+        }
+
+        // translate to gbmap relative
+        lfs3_block_t block_
+                = (block + lfs3->block_count - lfs3->gbmap.window)
+                % lfs3->block_count;
+        // known block in our gbmap?
+        if (block_ < lfs3->gbmap.known
+                // bad blocks are always known
+                || tag == LFS3_TAG_BMBAD) {
+            // get the btype from the tag
+            binfo->btype = LFS3_BTYPE_FREE + lfs3_tag_redund(tag);
+            binfo->block = block;
+            return 0;
+        }
+    }
+    #endif
+
+    // translate to lookahead relative
+    lfs3_block_t block_
+            = (block + lfs3->block_count - lfs3->lookahead.window)
+            % lfs3->block_count;
+    // known block in our lookahead buffer?
+    if (block_ < lfs3->lookahead.known) {
+        binfo->btype = (lfs3->lookahead.buffer[
+                        ((lfs3->lookahead.off + block_) / 8)
+                            % lfs3->cfg->lookahead_size]
+                    & (1 << ((lfs3->lookahead.off + block_) % 8)))
+                ? LFS3_BTYPE_INUSE
+                : LFS3_BTYPE_FREE;
+        binfo->block = block;
+        return 0;
+    }
+
+    // I guess we known nothing about this block
+    binfo->btype = LFS3_BTYPE_UNKNOWN;
+    binfo->block = block;
+    return 0;
+}
 
 
 
@@ -19393,7 +19495,7 @@ int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv) {
 }
 
 int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
-        struct lfs3_tinfo *tinfo) {
+        struct lfs3_binfo *binfo) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->t.h));
 
     // filesystem modified? excl? terminate early
@@ -19413,8 +19515,8 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         // some redund blocks left over?
         if (trv->blocks[0] != -1) {
             // write our traversal info
-            tinfo->btype = lfs3_t_btype(trv->t.h.flags);
-            tinfo->block = trv->blocks[0];
+            binfo->btype = lfs3_t_btype(trv->t.h.flags);
+            binfo->block = trv->blocks[0];
 
             // special behavior for gbmap ranges
             if (LFS3_IFDEF_GBMAP(

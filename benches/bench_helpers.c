@@ -42,14 +42,14 @@ uintmax_t bench_helpers_usage(lfs3_t *lfs3) {
     lfs3_trv_t trv;
     lfs3_trv_open(lfs3, &trv, 0) => 0;
     while (true) {
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        usage_bmap[tinfo.block/8] |= 1 << (tinfo.block % 8);
+        usage_bmap[binfo.block/8] |= 1 << (binfo.block % 8);
     }
     lfs3_trv_close(lfs3, &trv) => 0;
 

@@ -225,18 +225,17 @@ gc_TRV          = 0x60000000  # i^  Type = traversal
 gc_GC           = 0x70000000  # i^  Type = gc
 gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
 
-# Mkbad flags
-MKBAD_EVICT     = 0x00000010  # --  Delete all references to this block
+# Block eviction flags
+EVICT_EVICT     = 0x00000010  # -- Delete all references to this block
+EVICT_BAD       = 0x80000000  # -- Mark this block as bad, do not alloc
+EVICT_GOOD      = 0x20000000  # -- Mark this block as good, do alloc
+evict_DATA      = 0x40000000  # i- Block is definitely data
 
 # Internal bd-level flags
 BD_RELAX        = 0x00000001  # i-  Don't evict corrupt data
 BD_DATA         = 0x40000000  # i-  A hint that we're reading data
 BD_ALIGN        = 0x00000002  # i-  Align cksums to prog boundaries
 BD_PERTURB      = 0x80000000  # i-  Perturb valid bit in tags
-
-# Internal block eviction flags
-EVICT_BAD       = 0x80000000  # i-  Block is bad
-EVICT_DATA      = 0x40000000  # i-  Block is definitely data
 
 # Internal block repair flags
 REPAIR_DAMAGED        = 0x01  # i-  Bd read was damaged

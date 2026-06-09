@@ -23,8 +23,10 @@ if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
 [cases.test_evict_t_mdir_mroot]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
+defines.CONDEMN = [false, true]
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -56,7 +58,11 @@ code = '''
     lfs3_block_t victim = file.h.mdir.r.blocks[SIBLING];
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(file.h.mdir.r.blocks[0] != victim);
@@ -66,19 +72,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -103,6 +128,8 @@ code = '''
 [cases.test_evict_t_mrootanchor]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
+defines.CONDEMN = [false, true]
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -130,7 +157,11 @@ code = '''
     // try evicting
     //
     // we can't evict the mrootanchor, so this should error
-    int err = lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT);
+    int err = lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0));
     assert(err == LFS3_ERR_BUSY);
 
     // check we can still read the file
@@ -153,9 +184,12 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+# test out-of-bound eviction
 [cases.test_evict_t_oob]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1, 2, 3, 4, 5]
+defines.CONDEMN = [false, true]
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -183,8 +217,189 @@ code = '''
     // try evicting
     //
     // we can't evict out-of-bound blocks, so this should error
-    int err = lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT);
+    int err = lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0));
     assert(err == LFS3_ERR_NOENT);
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        uint8_t rbuf[SIZE];
+        lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test we can make a block bad without evicting
+[cases.test_evict_t_bad_noevict]
+defines.SIZE = 'FCACHE_SIZE/2'
+defines.SIBLING = [0, 1]
+defines.CONDEMN = [true]
+# force early relocations, this will cause the mroot anchor to extend
+defines.BLOCK_RECYCLES = 0
+if = 'GBMAP'
+ifdef = 'LFS3_CONDEMN'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // write to our mroot until it's not the mrootanchor
+    //
+    // we can't evict the mrootanchor
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    while (file.h.mdir.r.blocks[0] == 0
+            || file.h.mdir.r.blocks[0] == 1) {
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_sync(&lfs3, &file) => 0;
+    }
+
+    // get a block to evict
+    lfs3_block_t victim = file.h.mdir.r.blocks[SIBLING];
+
+    // mark as bad, but don't evict
+    lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_BAD) => 0;
+
+    // evicted block should still be in use
+    assert(file.h.mdir.r.blocks[SIBLING] == victim);
+
+    // but block should be marked as bad
+    struct lfs3_binfo binfo;
+    lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+    assert(binfo.btype == LFS3_BTYPE_BAD);
+    assert(binfo.block == victim);
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        uint8_t rbuf[SIZE];
+        lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+        assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test making a block bad and good again
+[cases.test_evict_t_bad_good]
+defines.SIZE = 'FCACHE_SIZE/2'
+defines.SIBLING = [0, 1]
+defines.CONDEMN = [true]
+# force early relocations, this will cause the mroot anchor to extend
+defines.BLOCK_RECYCLES = 0
+if = 'GBMAP'
+ifdef = 'LFS3_CONDEMN'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // write to our mroot until it's not the mrootanchor
+    //
+    // we can't evict the mrootanchor
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    while (file.h.mdir.r.blocks[0] == 0
+            || file.h.mdir.r.blocks[0] == 1) {
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_sync(&lfs3, &file) => 0;
+    }
+
+    // get a block to evict
+    lfs3_block_t victim = file.h.mdir.r.blocks[SIBLING];
+
+    // try evicting
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT | LFS3_EVICT_BAD) => 0;
+
+    // evicted block should no longer be in use
+    assert(file.h.mdir.r.blocks[0] != victim);
+    assert(file.h.mdir.r.blocks[1] != victim);
+
+    // evicted block should no longer be in use, anywhere in the
+    // filesystem
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+
+        assert(binfo.block != victim);
+    }
+    assert(found_bad);
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // evicted block should be marked as bad
+    struct lfs3_binfo binfo;
+    lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+    assert(binfo.btype == LFS3_BTYPE_BAD);
+    assert(binfo.block == victim);
+
+    // now mark as good
+    lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_GOOD) => 0;
+
+    // evicted block should be marked as good
+    lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+    assert(binfo.btype == LFS3_BTYPE_UNKNOWN);
+    assert(binfo.block == victim);
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -209,8 +424,10 @@ code = '''
 [cases.test_evict_t_mdir_mroot_extend]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
+defines.CONDEMN = [false, true]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -256,7 +473,11 @@ code = '''
         victim = file.h.mdir.r.blocks[SIBLING];
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim,
+                LFS3_EVICT_EVICT
+                    | ((CONDEMN)
+                        ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                        : 0)) => 0;
 
         // evicted block should no longer be in use
         assert(file.h.mdir.r.blocks[0] != victim);
@@ -267,19 +488,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -304,8 +544,10 @@ code = '''
 [cases.test_evict_t_mdir_mroot_chain]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
+defines.CONDEMN = [false, true]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -351,7 +593,11 @@ code = '''
         victim = file.h.mdir.r.blocks[SIBLING];
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim,
+                LFS3_EVICT_EVICT
+                    | ((CONDEMN)
+                        ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                        : 0)) => 0;
 
         // evicted block should no longer be in use
         assert(file.h.mdir.r.blocks[0] != victim);
@@ -365,39 +611,62 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         if (i == 2 + SIBLING) {
-            victim = tinfo.block;
+            victim = binfo.block;
             break;
         }
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
     
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -422,8 +691,10 @@ code = '''
 [cases.test_evict_t_mdir_mroot_split]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1, 2, 3]
+defines.CONDEMN = [false, true]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -499,7 +770,11 @@ code = '''
             : file2.h.mdir.r.blocks[SIBLING % 2];
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(file1.h.mdir.r.blocks[0] != victim);
@@ -511,19 +786,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -555,6 +849,8 @@ code = '''
 [cases.test_evict_t_mdir_mtree]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1, 2, 3, 4, 5]
+defines.CONDEMN = [false, true]
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -629,7 +925,11 @@ code = '''
                 : file3.h.mdir.r.blocks[SIBLING % 2];
     
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(file1.h.mdir.r.blocks[0] != victim);
@@ -643,19 +943,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -694,6 +1013,7 @@ code = '''
 [cases.test_evict_t_mdir_mtree_split]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1, 2, 3, 4, 5, 6, 7]
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -806,7 +1126,11 @@ code = '''
                 : file4.h.mdir.r.blocks[SIBLING % 2];
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(file1.h.mdir.r.blocks[0] != victim);
@@ -866,6 +1190,7 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -916,7 +1241,11 @@ code = '''
     lfs3_block_t victim = lfs3.mtree.blocks[0];
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(lfs3.mtree.blocks[0] != victim);
@@ -925,19 +1254,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -970,8 +1318,10 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SMACK = 20
 defines.SIBLING = [0, 1, 2]
+defines.CONDEMN = [false, true]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -1012,14 +1362,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            if (binfo.btype == LFS3_BTYPE_BTREE) {
                 count += 1;
             }
         }
@@ -1047,13 +1397,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -1063,24 +1413,47 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -1114,8 +1487,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 defines.SIBLING = [0]
+defines.CONDEMN = [false, true]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -1158,7 +1533,11 @@ code = '''
     lfs3_block_t victim = file.bshrub.blocks[0];
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // reopen if necessary
     if (CLOSE) {
@@ -1172,19 +1551,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -1218,8 +1616,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 defines.SIBLING = [0, 1, 2]
+defines.CONDEMN = [false, true]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -1247,14 +1647,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -1288,13 +1688,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -1304,7 +1704,11 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // reopen if necessary
     if (CLOSE) {
@@ -1314,19 +1718,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -1360,8 +1783,10 @@ defines.CHUNK = 'BLOCK_SIZE/8'
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 defines.SIBLING = [0, 1, 2]
+defines.CONDEMN = [false, true]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -1389,14 +1814,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -1430,13 +1855,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -1446,7 +1871,11 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // reopen if necessary
     if (CLOSE) {
@@ -1456,19 +1885,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -1501,8 +1949,10 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE/8'
 defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0]
+defines.CONDEMN = [false, true]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -1559,7 +2009,11 @@ code = '''
     lfs3_block_t victim = file.bshrub.blocks[0];
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(file.bshrub.blocks[0] != victim);
@@ -1568,19 +2022,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     if (HANDLESET & 0x1) {
         // file_mutated should still be a different bshrub
@@ -1686,8 +2159,10 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE/8'
 defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2]
+defines.CONDEMN = [false, true]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -1715,14 +2190,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -1771,13 +2246,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -1787,24 +2262,47 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     if (HANDLESET & 0x1) {
         // file_mutated should still be a different bshrub
@@ -1910,8 +2408,10 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE/8'
 defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2]
+defines.CONDEMN = [false, true]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -1939,14 +2439,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -1995,13 +2495,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -2011,24 +2511,47 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     if (HANDLESET & 0x1) {
         // file_mutated should still be a different bshrub
@@ -2134,7 +2657,11 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 defines.SYNC = [false, true]
-if = 'GBMAP'
+defines.CONDEMN = [false, true]
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 ifdef = 'LFS3_GBMAP'
 code = '''
     lfs3_t lfs3;
@@ -2175,7 +2702,11 @@ code = '''
     lfs3_block_t victim = lfs3.gbmap.b.blocks[0];
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(lfs3.gbmap.b.blocks[0] != victim);
@@ -2184,19 +2715,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -2276,7 +2826,11 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SYNC = [false, true]
 defines.SIBLING = [0, 1, 2]
-if = 'GBMAP'
+defines.CONDEMN = [false, true]
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 ifdef = 'LFS3_GBMAP'
 in = 'lfs3.c'
 code = '''
@@ -2303,14 +2857,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE
+            if (binfo.btype == LFS3_BTYPE_BTREE
                     // bit of a hack
                     && trv.t.h.mdir.mid == LFS3_MID_GBMAP) {
                 count += 1;
@@ -2346,15 +2900,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE
+        if (binfo.btype == LFS3_BTYPE_BTREE
                 // bit of a hack
                 && trv.t.h.mdir.mid == LFS3_MID_GBMAP) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -2364,24 +2918,47 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -2460,9 +3037,13 @@ code = '''
 [cases.test_evict_t_btree_gbmap_p]
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
+defines.CONDEMN = [false, true]
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = 0
-if = 'GBMAP'
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 ifdef = 'LFS3_GBMAP'
 code = '''
     lfs3_t lfs3;
@@ -2548,31 +3129,54 @@ code = '''
     lfs3_block_t victim = lfs3.gbmap.b_p.blocks[0];
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(lfs3.gbmap.b_p.blocks[0] != victim);
+
+    // gbmap_p should have been discarded, so these should be the same
+    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // gbmap_p should have been discarded, so these should be the same
-    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -2645,9 +3249,13 @@ code = '''
 [cases.test_evict_t_btree_gbmap_p_gbmap_p]
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SIBLING = [0, 1, 2]
+defines.CONDEMN = [false, true]
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = 0
-if = 'GBMAP'
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 ifdef = 'LFS3_GBMAP'
 in = 'lfs3.c'
 code = '''
@@ -2674,14 +3282,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE
+            if (binfo.btype == LFS3_BTYPE_BTREE
                     // bit of a hack
                     && trv.t.h.mdir.mid == LFS3_MID_GBMAP) {
                 count += 1;
@@ -2762,15 +3370,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE
+        if (binfo.btype == LFS3_BTYPE_BTREE
                 // bit of a hack
                 && trv.t.h.mdir.mid == LFS3_MID_GBMAP_P) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -2780,27 +3388,50 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
+
+    // gbmap_p should have been discarded, so these should be the same
+    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // gbmap_p should have been discarded, so these should be the same
-    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -2876,6 +3507,8 @@ code = '''
 [cases.test_evict_t_bptr]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
+defines.CONDEMN = [false, true]
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -2918,19 +3551,23 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (binfo.block == victim) {
+            assert(binfo.btype == LFS3_BTYPE_DATA);
             break;
         }
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // reopen if necessary
     if (CLOSE) {
@@ -2943,19 +3580,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -2989,6 +3645,7 @@ defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # encourage a btree
 defines.SHRUB_SIZE = 0
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3016,14 +3673,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -3059,19 +3716,23 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (binfo.block == victim) {
+            assert(binfo.btype == LFS3_BTYPE_DATA);
             break;
         }
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // reopen if necessary
     if (CLOSE) {
@@ -3084,19 +3745,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -3128,6 +3808,8 @@ code = '''
 [cases.test_evict_t_bptr_bshrub]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
+defines.CONDEMN = [false, true]
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3155,14 +3837,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -3198,19 +3880,23 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (binfo.block == victim) {
+            assert(binfo.btype == LFS3_BTYPE_DATA);
             break;
         }
     }
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // reopen if necessary
     if (CLOSE) {
@@ -3223,19 +3909,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -3268,6 +3973,8 @@ code = '''
 [cases.test_evict_t_bptr_dag]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
+defines.CONDEMN = [false, true]
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3322,15 +4029,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
-            assert(tinfo.block == victim);
+        if (binfo.btype == LFS3_BTYPE_DATA) {
+            assert(binfo.block == victim);
             count += 1;
         }
     }
@@ -3338,7 +4045,11 @@ code = '''
     assert(count == 2);
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // reopen if necessary
     if (CLOSE) {
@@ -3351,19 +4062,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // but we should still only have one block in use, twice, because
     // it's a dag
@@ -3373,15 +4103,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
-            assert(!block || tinfo.block == block);
+        if (binfo.btype == LFS3_BTYPE_DATA) {
+            assert(!block || binfo.block == block);
             count += 1;
         }
     }
@@ -3414,8 +4144,12 @@ code = '''
 #
 [cases.test_evict_t_bptr_erased]
 defines.SYNC = [false, true]
-# is half a block prog aligned?
-if = '(BLOCK_SIZE/2) % PROG_SIZE == 0'
+defines.CONDEMN = [false, true]
+if = [
+    # is half a block prog aligned?
+    '(BLOCK_SIZE/2) % PROG_SIZE == 0',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -3453,12 +4187,12 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (binfo.block == victim) {
+            assert(binfo.btype == LFS3_BTYPE_DATA);
             break;
         }
     }
@@ -3468,7 +4202,11 @@ code = '''
     assert(lfs3_bptr_iserased(&file.leaf.bptr));
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use
     assert(file.leaf.bptr.d.u.disk.block != victim);
@@ -3476,19 +4214,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // we should no longer be marked as erased
     assert(file.leaf.bptr.d.u.disk.block == 0
@@ -3538,7 +4295,11 @@ defines.SIZE = [
 ]
 defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2, 3]
-if = 'SIBLING < SIZE/BLOCK_SIZE'
+defines.CONDEMN = [false, true]
+if = [
+    'SIBLING < SIZE/BLOCK_SIZE',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3597,13 +4358,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
+        if (binfo.btype == LFS3_BTYPE_DATA) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -3613,24 +4374,47 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     if (HANDLESET & 0x1) {
         // file_mutated should still be a different bshrub
@@ -3748,7 +4532,11 @@ defines.DELTA = [
 ]
 defines.DESYNC = [false, true]
 defines.SIBLING = [0, 1, 2, 3]
-if = 'SIBLING < SIZE/BLOCK_SIZE'
+defines.CONDEMN = [false, true]
+if = [
+    'SIBLING < SIZE/BLOCK_SIZE',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3822,13 +4610,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
+        if (binfo.btype == LFS3_BTYPE_DATA) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -3838,24 +4626,47 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     lfs3_file_rewind(&lfs3, &files[0]) => 0;
@@ -3974,8 +4785,12 @@ defines.N = 4
 defines.DELTA = ['+2*CHUNK', '+1*CHUNK', '-1*CHUNK', '-2*CHUNK']
 defines.DESYNC = [false, true]
 defines.SIBLING = [0]
-# is a chunk prog aligned?
-if = 'CHUNK % PROG_SIZE == 0'
+defines.CONDEMN = [false, true]
+if = [
+    # is a chunk prog aligned?
+    'CHUNK % PROG_SIZE == 0',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -4049,13 +4864,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
+        if (binfo.btype == LFS3_BTYPE_DATA) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -4065,24 +4880,47 @@ code = '''
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // try evicting
-    lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+    lfs3_fs_evictblock(&lfs3, victim,
+            LFS3_EVICT_EVICT
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, -1)
+                    : 0)) => 0;
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        assert(tinfo.block != victim);
+        #ifdef LFS3_GBMAP
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
+            continue;
+        }
+        #endif
+
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     lfs3_file_rewind(&lfs3, &files[0]) => 0;
@@ -4260,7 +5098,7 @@ code = '''
             lfs3_block_t victim = file.leaf.bptr.d.u.disk.block;
 
             // try evicting
-            lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+            lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
             // evicted block should no longer be in use
             assert(file.leaf.bptr.d.u.disk.block != victim);
@@ -4272,14 +5110,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
             lfs3_trv_close(&lfs3, &trv) => 0;
         }
@@ -4379,7 +5217,7 @@ code = '''
             lfs3_block_t victim = file.leaf.bptr.d.u.disk.block;
 
             // try evicting
-            lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+            lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
             // evicted block should no longer be in use
             assert(file.leaf.bptr.d.u.disk.block != victim);
@@ -4391,14 +5229,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
             lfs3_trv_close(&lfs3, &trv) => 0;
         }
@@ -4468,22 +5306,22 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
-                victim = tinfo.block;
+            if (i <= victim_i && binfo.block >= 2) {
+                victim = binfo.block;
             }
             n = i+1;
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
@@ -4491,14 +5329,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            assert(tinfo.block != victim);
+            assert(binfo.block != victim);
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
     }
@@ -4681,22 +5519,22 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
-                victim = tinfo.block;
+            if (i <= victim_i && binfo.block >= 2) {
+                victim = binfo.block;
             }
             n = i+1;
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
@@ -4704,14 +5542,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            assert(tinfo.block != victim);
+            assert(binfo.block != victim);
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
     }
@@ -4819,22 +5657,22 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
-                victim = tinfo.block;
+            if (i <= victim_i && binfo.block >= 2) {
+                victim = binfo.block;
             }
             n = i+1;
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
@@ -4842,14 +5680,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            assert(tinfo.block != victim);
+            assert(binfo.block != victim);
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
     }
@@ -5053,22 +5891,22 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
-                victim = tinfo.block;
+            if (i <= victim_i && binfo.block >= 2) {
+                victim = binfo.block;
             }
             n = i+1;
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
@@ -5076,14 +5914,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            assert(tinfo.block != victim);
+            assert(binfo.block != victim);
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
     }
@@ -5252,22 +6090,22 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
-                victim = tinfo.block;
+            if (i <= victim_i && binfo.block >= 2) {
+                victim = binfo.block;
             }
             n = i+1;
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
@@ -5275,14 +6113,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            assert(tinfo.block != victim);
+            assert(binfo.block != victim);
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
     }
@@ -5685,22 +6523,22 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
-                victim = tinfo.block;
+            if (i <= victim_i && binfo.block >= 2) {
+                victim = binfo.block;
             }
             n = i+1;
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
@@ -5708,14 +6546,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            assert(tinfo.block != victim);
+            assert(binfo.block != victim);
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
     }
@@ -6239,22 +7077,22 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (i <= victim_i && tinfo.block >= 2) {
-                victim = tinfo.block;
+            if (i <= victim_i && binfo.block >= 2) {
+                victim = binfo.block;
             }
             n = i+1;
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
 
         // try evicting
-        lfs3_fs_mkbad(&lfs3, victim, LFS3_MKBAD_EVICT) => 0;
+        lfs3_fs_evictblock(&lfs3, victim, LFS3_EVICT_EVICT) => 0;
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
@@ -6262,14 +7100,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            assert(tinfo.block != victim);
+            assert(binfo.block != victim);
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
     }
@@ -6397,7 +7235,7 @@ defines.BLOCK_RECYCLES = 0
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(true, !CONDEMN)'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -6467,25 +7305,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6514,6 +7365,7 @@ defines.SIBLING = [0, 1]
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -6602,6 +7454,7 @@ defines.BLOCK_RECYCLES = 0
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -6686,25 +7539,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6735,6 +7601,7 @@ defines.BLOCK_RECYCLES = 0
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -6822,15 +7689,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         if (i == 2 + SIBLING) {
-            victim = tinfo.block;
+            victim = binfo.block;
             break;
         }
     }
@@ -6862,25 +7729,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -6911,6 +7791,7 @@ defines.BLOCK_RECYCLES = 0
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -7026,25 +7907,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7080,6 +7974,7 @@ defines.SIBLING = [0, 2, 4]
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7196,25 +8091,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7257,6 +8165,7 @@ defines.SIBLING = [0, 2, 4, 6]
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -7461,6 +8370,7 @@ defines.BLOCK_RECYCLES = 0
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7548,25 +8458,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7605,6 +8528,7 @@ defines.BLOCK_RECYCLES = 0
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7653,14 +8577,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE) {
+            if (binfo.btype == LFS3_BTYPE_BTREE) {
                 count += 1;
             }
         }
@@ -7688,13 +8612,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -7729,25 +8653,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -7787,6 +8724,7 @@ defines.CRYSTAL_THRESH = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7871,25 +8809,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -7929,6 +8880,7 @@ defines.CRYSTAL_THRESH = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7964,14 +8916,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -8005,13 +8957,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -8051,25 +9003,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -8109,6 +9074,7 @@ defines.CRYSTAL_THRESH = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8144,14 +9110,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -8185,13 +9151,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -8231,25 +9197,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -8288,6 +9267,7 @@ defines.CRYSTAL_THRESH = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8381,25 +9361,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     if (HANDLESET & 0x1) {
         // file_mutated should still be a different bshrub
@@ -8511,6 +9504,7 @@ defines.CRYSTAL_THRESH = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8546,14 +9540,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -8602,13 +9596,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -8643,25 +9637,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     if (HANDLESET & 0x1) {
         // file_mutated should still be a different bshrub
@@ -8773,6 +9780,7 @@ defines.CRYSTAL_THRESH = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8808,14 +9816,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -8864,13 +9872,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE) {
+        if (binfo.btype == LFS3_BTYPE_BTREE) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -8905,25 +9913,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     if (HANDLESET & 0x1) {
         // file_mutated should still be a different bshrub
@@ -9032,8 +10053,11 @@ defines.SYNC = [false, true]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
-if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9113,25 +10137,38 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -9214,8 +10251,11 @@ defines.SIBLING = [0, 1, 2]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
-if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -9252,14 +10292,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE
+            if (binfo.btype == LFS3_BTYPE_BTREE
                     // bit of a hack
                     && trv.t.h.mdir.mid == LFS3_MID_GBMAP) {
                 count += 1;
@@ -9295,15 +10335,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE
+        if (binfo.btype == LFS3_BTYPE_BTREE
                 // bit of a hack
                 && trv.t.h.mdir.mid == LFS3_MID_GBMAP) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -9338,25 +10378,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -9440,8 +10493,11 @@ defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
-if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9562,32 +10618,45 @@ code = '''
     // evicted block should no longer be in use
     assert(lfs3.gbmap.b_p.blocks[0] != victim);
 
+    // gbmap_p should have been discarded, so these should be the same
+    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
+
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // gbmap_p should have been discarded, so these should be the same
-    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -9665,8 +10734,11 @@ defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
-if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -9703,14 +10775,14 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
-            if (tinfo.btype == LFS3_BTYPE_BTREE
+            if (binfo.btype == LFS3_BTYPE_BTREE
                     // bit of a hack
                     && trv.t.h.mdir.mid == LFS3_MID_GBMAP) {
                 count += 1;
@@ -9791,15 +10863,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_BTREE
+        if (binfo.btype == LFS3_BTYPE_BTREE
                 // bit of a hack
                 && trv.t.h.mdir.mid == LFS3_MID_GBMAP_P) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -9831,31 +10903,44 @@ code = '''
     }
     lfs3_gc_close(&lfs3, &gc) => 0;
 
+    // gbmap_p should have been discarded, so these should be the same
+    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
+
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
-    // gbmap_p should have been discarded, so these should be the same
-    assert(lfs3.gbmap.b_p.blocks[0] == lfs3.gbmap.b.blocks[0]);
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     lfs3_file_rewind(&lfs3, &file) => 0;
@@ -9935,6 +11020,7 @@ defines.CLOSE = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9985,12 +11071,12 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (binfo.block == victim) {
+            assert(binfo.btype == LFS3_BTYPE_DATA);
             break;
         }
     }
@@ -10030,25 +11116,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -10086,6 +11185,7 @@ defines.SHRUB_SIZE = 0
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10121,14 +11221,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -10164,12 +11264,12 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (binfo.block == victim) {
+            assert(binfo.btype == LFS3_BTYPE_DATA);
             break;
         }
     }
@@ -10209,25 +11309,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -10263,6 +11376,7 @@ defines.CLOSE = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10298,14 +11412,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                if (tinfo.btype == LFS3_BTYPE_BTREE) {
+                if (binfo.btype == LFS3_BTYPE_BTREE) {
                     count += 1;
                 }
             }
@@ -10341,12 +11455,12 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (binfo.block == victim) {
+            assert(binfo.btype == LFS3_BTYPE_DATA);
             break;
         }
     }
@@ -10386,25 +11500,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -10441,6 +11568,7 @@ defines.CLOSE = [false, true]
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10503,15 +11631,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
-            assert(tinfo.block == victim);
+        if (binfo.btype == LFS3_BTYPE_DATA) {
+            assert(binfo.block == victim);
             count += 1;
         }
     }
@@ -10552,25 +11680,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // but we should still only have one block in use, twice, because
     // it's a dag
@@ -10580,15 +11721,15 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
-            assert(!block || tinfo.block == block);
+        if (binfo.btype == LFS3_BTYPE_DATA) {
+            assert(!block || binfo.block == block);
             count += 1;
         }
     }
@@ -10624,9 +11765,12 @@ defines.SYNC = [false, true]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
-# is half a block prog aligned?
-if = '(BLOCK_SIZE/2) % PROG_SIZE == 0'
 ifdef = 'LFS3_REPAIR'
+if = [
+    # is half a block prog aligned?
+    '(BLOCK_SIZE/2) % PROG_SIZE == 0',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -10672,12 +11816,12 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.block == victim) {
-            assert(tinfo.btype == LFS3_BTYPE_DATA);
+        if (binfo.block == victim) {
+            assert(binfo.btype == LFS3_BTYPE_DATA);
             break;
         }
     }
@@ -10715,25 +11859,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // we should no longer be marked as erased
     assert(file.leaf.bptr.d.u.disk.block == 0
@@ -10786,8 +11943,11 @@ defines.SIBLING = [0, 1, 2, 3]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
-if = 'SIBLING < SIZE/BLOCK_SIZE'
 ifdef = 'LFS3_REPAIR'
+if = [
+    'SIBLING < SIZE/BLOCK_SIZE',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10854,13 +12014,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
+        if (binfo.btype == LFS3_BTYPE_DATA) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -10895,25 +12055,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     if (HANDLESET & 0x1) {
         // file_mutated should still be a different bshrub
@@ -11034,8 +12207,11 @@ defines.SIBLING = [0, 1, 2, 3]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
-if = 'SIBLING < SIZE/BLOCK_SIZE'
 ifdef = 'LFS3_REPAIR'
+if = [
+    'SIBLING < SIZE/BLOCK_SIZE',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -11117,13 +12293,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
+        if (binfo.btype == LFS3_BTYPE_DATA) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -11158,25 +12334,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     lfs3_file_rewind(&lfs3, &files[0]) => 0;
@@ -11298,9 +12487,12 @@ defines.SIBLING = [0]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
-# is a chunk prog aligned?
-if = 'CHUNK % PROG_SIZE == 0'
 ifdef = 'LFS3_REPAIR'
+if = [
+    # is a chunk prog aligned?
+    'CHUNK % PROG_SIZE == 0',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -11382,13 +12574,13 @@ code = '''
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err);
 
-        if (tinfo.btype == LFS3_BTYPE_DATA) {
+        if (binfo.btype == LFS3_BTYPE_DATA) {
             if (count == SIBLING) {
-                victim = tinfo.block;
+                victim = binfo.block;
                 break;
             }
 
@@ -11423,25 +12615,38 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
-        struct lfs3_tinfo tinfo;
-        int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
         assert(!err || err == LFS3_ERR_NOENT);
         if (err == LFS3_ERR_NOENT) {
             break;
         }
 
         #ifdef LFS3_GBMAP
-        if (tinfo.btype == LFS3_BTYPE_BAD) {
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            found_bad = true;
             continue;
         }
         #endif
 
-        assert(tinfo.block != victim);
+        assert(binfo.block != victim);
     }
+    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // if bad, evicted block should be marked as bad
+    #ifdef LFS3_GBMAP
+    if (CONDEMN) {
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
+        assert(binfo.btype == LFS3_BTYPE_BAD);
+        assert(binfo.block == victim);
+    }
+    #endif
 
     // check we can still read the files
     lfs3_file_rewind(&lfs3, &files[0]) => 0;
@@ -11661,14 +12866,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
             lfs3_trv_close(&lfs3, &trv) => 0;
         }
@@ -11810,14 +13015,14 @@ code = '''
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
-                struct lfs3_tinfo tinfo;
-                int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+                struct lfs3_binfo binfo;
+                int err = lfs3_trv_read(&lfs3, &trv, &binfo);
                 assert(!err || err == LFS3_ERR_NOENT);
                 if (err == LFS3_ERR_NOENT) {
                     break;
                 }
 
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
             lfs3_trv_close(&lfs3, &trv) => 0;
         }
@@ -11889,15 +13094,15 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
             if (i <= victim_i) {
-                victim = tinfo.block;
+                victim = binfo.block;
             }
             n = i+1;
         }
@@ -11935,8 +13140,8 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -11944,13 +13149,13 @@ code = '''
 
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
-            if (tinfo.block != 0
-                    && tinfo.block != 1
+            if (binfo.block != 0
+                    && binfo.block != 1
                     // hmm, and the mdir's spare blocks, these don't
                     // actually store anything at rest
-                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && !(binfo.btype == LFS3_BTYPE_MDIR
                         && trv.blocks[0] == -1)) {
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
@@ -12136,15 +13341,15 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
             if (i <= victim_i) {
-                victim = tinfo.block;
+                victim = binfo.block;
             }
             n = i+1;
         }
@@ -12182,8 +13387,8 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -12191,13 +13396,13 @@ code = '''
 
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
-            if (tinfo.block != 0
-                    && tinfo.block != 1
+            if (binfo.block != 0
+                    && binfo.block != 1
                     // hmm, and the mdir's spare blocks, these don't
                     // actually store anything at rest
-                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && !(binfo.btype == LFS3_BTYPE_MDIR
                         && trv.blocks[0] == -1)) {
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
@@ -12308,15 +13513,15 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
             if (i <= victim_i) {
-                victim = tinfo.block;
+                victim = binfo.block;
             }
             n = i+1;
         }
@@ -12354,8 +13559,8 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -12363,13 +13568,13 @@ code = '''
 
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
-            if (tinfo.block != 0
-                    && tinfo.block != 1
+            if (binfo.block != 0
+                    && binfo.block != 1
                     // hmm, and the mdir's spare blocks, these don't
                     // actually store anything at rest
-                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && !(binfo.btype == LFS3_BTYPE_MDIR
                         && trv.blocks[0] == -1)) {
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
@@ -12576,15 +13781,15 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
             if (i <= victim_i) {
-                victim = tinfo.block;
+                victim = binfo.block;
             }
             n = i+1;
         }
@@ -12622,8 +13827,8 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -12631,13 +13836,13 @@ code = '''
 
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
-            if (tinfo.block != 0
-                    && tinfo.block != 1
+            if (binfo.block != 0
+                    && binfo.block != 1
                     // hmm, and the mdir's spare blocks, these don't
                     // actually store anything at rest
-                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && !(binfo.btype == LFS3_BTYPE_MDIR
                         && trv.blocks[0] == -1)) {
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
@@ -12809,15 +14014,15 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
             if (i <= victim_i) {
-                victim = tinfo.block;
+                victim = binfo.block;
             }
             n = i+1;
         }
@@ -12855,8 +14060,8 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -12864,13 +14069,13 @@ code = '''
 
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
-            if (tinfo.block != 0
-                    && tinfo.block != 1
+            if (binfo.block != 0
+                    && binfo.block != 1
                     // hmm, and the mdir's spare blocks, these don't
                     // actually store anything at rest
-                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && !(binfo.btype == LFS3_BTYPE_MDIR
                         && trv.blocks[0] == -1)) {
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
@@ -13276,15 +14481,15 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
             if (i <= victim_i) {
-                victim = tinfo.block;
+                victim = binfo.block;
             }
             n = i+1;
         }
@@ -13322,8 +14527,8 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -13331,13 +14536,13 @@ code = '''
 
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
-            if (tinfo.block != 0
-                    && tinfo.block != 1
+            if (binfo.block != 0
+                    && binfo.block != 1
                     // hmm, and the mdir's spare blocks, these don't
                     // actually store anything at rest
-                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && !(binfo.btype == LFS3_BTYPE_MDIR
                         && trv.blocks[0] == -1)) {
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
@@ -13864,15 +15069,15 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
             }
 
             if (i <= victim_i) {
-                victim = tinfo.block;
+                victim = binfo.block;
             }
             n = i+1;
         }
@@ -13910,8 +15115,8 @@ code = '''
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
-            struct lfs3_tinfo tinfo;
-            int err = lfs3_trv_read(&lfs3, &trv, &tinfo);
+            struct lfs3_binfo binfo;
+            int err = lfs3_trv_read(&lfs3, &trv, &binfo);
             assert(!err || err == LFS3_ERR_NOENT);
             if (err == LFS3_ERR_NOENT) {
                 break;
@@ -13919,13 +15124,13 @@ code = '''
 
             // hmm, ignore the mrootanchor, which we _can_ repair, but
             // not evict
-            if (tinfo.block != 0
-                    && tinfo.block != 1
+            if (binfo.block != 0
+                    && binfo.block != 1
                     // hmm, and the mdir's spare blocks, these don't
                     // actually store anything at rest
-                    && !(tinfo.btype == LFS3_BTYPE_MDIR
+                    && !(binfo.btype == LFS3_BTYPE_MDIR
                         && trv.blocks[0] == -1)) {
-                assert(tinfo.block != victim);
+                assert(binfo.block != victim);
             }
         }
         lfs3_trv_close(&lfs3, &trv) => 0;
