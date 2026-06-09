@@ -87,6 +87,10 @@ F_CKPROGS       = 0x00001000  # y-  Check progs by reading back progged data
 F_CKFETCHES     = 0x00002000  # y-  Check block checksums before first use
 F_CKMETAPARITY  = 0x00004000  # y-  Check metadata tag parity bits
 F_CKDATACKSUMS  = 0x00008000  # y-  Check data checksums on reads
+F_REPAIRMETADAMAGE \
+                = 0x00000010  # y-  Repair metadata damage when found
+F_REPAIRDATADAMAGE \
+                = 0x00000020  # y-  Repair metadata + data damage when found
 
 F_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 F_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
@@ -94,8 +98,8 @@ F_PREERASE      = 0x00040000  # --  Try to pre-erase free blocks
 F_COMPACTMETA   = 0x00080000  # --  Compact metadata logs
 F_CKMETA        = 0x00100000  # --  Check metadata checksums
 F_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-F_REPAIRMETA    = 0x00400000  # --  Repair metadata blocks
-F_REPAIRDATA    = 0x00800000  # --  Repair metadata + data blocks
+F_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
+F_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
 F_CK            = 0x00300000  # a-  Alias for all check work
 F_GC            = 0x00ff0000  # a-  Alias for all gc work
 
@@ -109,6 +113,10 @@ M_CKPROGS       = 0x00001000  # y-  Check progs by reading back progged data
 M_CKFETCHES     = 0x00002000  # y-  Check block checksums before first use
 M_CKMETAPARITY  = 0x00004000  # y-  Check metadata tag parity bits
 M_CKDATACKSUMS  = 0x00008000  # y-  Check data checksums on reads
+M_REPAIRMETADAMAGE \
+                = 0x00000010  # y-  Repair metadata damage when found
+M_REPAIRDATADAMAGE \
+                = 0x00000020  # y-  Repair metadata + data damage when found
 
 M_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 M_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
@@ -116,8 +124,8 @@ M_PREERASE      = 0x00040000  # --  Try to pre-erase free blocks
 M_COMPACTMETA   = 0x00080000  # --  Compact metadata logs
 M_CKMETA        = 0x00100000  # --  Check metadata checksums
 M_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-M_REPAIRMETA    = 0x00400000  # --  Repair metadata blocks
-M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data blocks
+M_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
+M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
 M_CK            = 0x00300000  # a-  Alias for all check work
 M_GC            = 0x00ff0000  # a-  Alias for all gc work
 
@@ -135,6 +143,10 @@ I_CKPROGS       = 0x00001000  # --  Mounted with LFS3_M_CKPROGS
 I_CKFETCHES     = 0x00002000  # --  Mounted with LFS3_M_CKFETCHES
 I_CKMETAPARITY  = 0x00004000  # --  Mounted with LFS3_M_CKMETAPARITY
 I_CKDATACKSUMS  = 0x00008000  # --  Mounted with LFS3_M_CKDATACKSUMS
+I_REPAIRMETADAMAGE \
+                = 0x00000010  # --  Mounted with LFS3_M_REPAIRMETADAMAGE
+I_REPAIRDATADAMAGE \
+                = 0x00000020  # --  Mounted with LFS3_M_REPAIRDATADAMAGE
 
 I_MKCONSISTENT  = 0x00010000  # --  Filesystem needs mkconsistent to write
 I_LOOKAHEAD     = 0x00020000  # --  Lookahead buffer is not full
@@ -183,8 +195,8 @@ GC_PREERASE     = 0x00040000  # --  Try to pre-erase free blocks
 GC_COMPACTMETA  = 0x00080000  # --  Compact metadata logs
 GC_CKMETA       = 0x00100000  # --  Check metadata checksums
 GC_CKDATA       = 0x00200000  # --  Check metadata + data checksums
-GC_REPAIRMETA   = 0x00400000  # --  Repair metadata blocks
-GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data blocks
+GC_REPAIRMETA   = 0x00400000  # --  Repair metadata damage
+GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data damage
 GC_CK           = 0x00300000  # a-  Alias for all check work
 GC_GC           = 0x00ff0000  # a-  Alias for all gc work
 

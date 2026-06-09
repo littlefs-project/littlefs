@@ -207,6 +207,14 @@ enum lfs3_type {
 #define LFS3_F_CKDATACKSUMS \
                         0x00008000  // Check data checksums on reads
 #endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_F_REPAIRMETADAMAGE \
+                        0x00000010  // Repair metadata damage when found
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_F_REPAIRDATADAMAGE \
+                        0x00000020  // Repair metadata + data damage when found
+#endif
 #ifndef LFS3_RDONLY
 #define LFS3_F_MKCONSISTENT \
                         0x00010000  // Make the filesystem consistent
@@ -230,11 +238,11 @@ enum lfs3_type {
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_F_REPAIRMETA \
-                        0x00400000  // Repair metadata blocks
+                        0x00400000  // Repair metadata damage
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_F_REPAIRDATA \
-                        0x00800000  // Repair metadata + data blocks
+                        0x00800000  // Repair metadata + data damage
 #endif
 
 // an alias for all check work
@@ -274,6 +282,14 @@ enum lfs3_type {
 #define LFS3_M_CKDATACKSUMS \
                         0x00008000  // Check data checksums on reads
 #endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_M_REPAIRMETADAMAGE \
+                        0x00000010  // Repair metadata damage when found
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_M_REPAIRDATADAMAGE \
+                        0x00000020  // Repair metadata + data damage when found
+#endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_MKCONSISTENT \
                         0x00010000  // Make the filesystem consistent
@@ -293,11 +309,11 @@ enum lfs3_type {
 #define LFS3_M_CKDATA   0x00200000  // Check metadata + data checksums
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_M_REPAIRMETA \
-                        0x00400000  // Repair metadata blocks
+                        0x00400000  // Repair metadata damage
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_M_REPAIRDATA \
-                        0x00800000  // Repair metadata + data blocks
+                        0x00800000  // Repair metadata + data damage
 #endif
 
 // an alias for all check work
@@ -344,6 +360,14 @@ enum lfs3_type {
 #ifdef LFS3_CKDATACKSUMS
 #define LFS3_I_CKDATACKSUMS \
                         0x00008000  // Mounted with LFS3_M_CKDATACKSUMS
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_I_REPAIRMETADAMAGE \
+                        0x00000010  // Mounted with LFS3_M_REPAIRMETADAMAGE
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_I_REPAIRDATADAMAGE \
+                        0x00000020  // Mounted with LFS3_M_REPAIRDATADAMAGE
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_MKCONSISTENT \
@@ -428,11 +452,11 @@ enum lfs3_btype {
 #define LFS3_GC_CKDATA  0x00200000  // Check metadata + data checksums
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_GC_REPAIRMETA \
-                        0x00400000  // Repair metadata blocks
+                        0x00400000  // Repair metadata damage
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_GC_REPAIRDATA \
-                        0x00800000  // Repair metadata + data blocks
+                        0x00800000  // Repair metadata + data damage
 #endif
 
 // internally used flags, don't use these

@@ -107,11 +107,23 @@ code = '''
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
                     | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
+                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
+                        : 0),
                 &cfg) => 0;
 
         // set up a simulation to compare against
@@ -381,11 +393,23 @@ code = '''
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
                     | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
+                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
+                        : 0),
                 &cfg) => 0;
 
         // set up a simulation to compare against
@@ -725,11 +749,23 @@ code = '''
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
                     | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
+                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
+                        : 0),
                 &cfg) => 0;
 
         // create a file
@@ -976,11 +1012,23 @@ code = '''
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
                     | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
+                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
+                        : 0),
                 &cfg) => 0;
 
         // set up a simulation to compare against
@@ -1541,11 +1589,23 @@ code = '''
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
                     | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
+                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0),
+                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
+                        : 0)
+                    | ((REPAIR)
+                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
+                        : 0),
                 &cfg) => 0;
 
         // set up a simulation to compare against
