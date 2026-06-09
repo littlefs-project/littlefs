@@ -8932,7 +8932,7 @@ static lfs3_tag_t lfs3_mdir_nametag(const lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     // in-sync file handles to decide if it really exists
     } else if (tag == LFS3_TAG_STICKYNOTE
             && !lfs3_mid_isopen(lfs3, mid,
-                ~LFS3_o_ZOMBIE & ~LFS3_O_DESYNC)) {
+                ~(LFS3_o_ZOMBIE | LFS3_O_DESYNC))) {
         return LFS3_tag_ORPHAN;
 
     // map unknown types -> LFS3_tag_UNKNOWN, this simplifies higher
@@ -11861,7 +11861,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
             }
 
             // keep our own ckpointed flag clear
-            mgc->t.h.flags &= ~LFS3_t_CKPOINTED & ~LFS3_t_DIRTY;
+            mgc->t.h.flags &= ~(LFS3_t_CKPOINTED | LFS3_t_DIRTY);
         }
         #endif
     }
@@ -14808,7 +14808,7 @@ static inline void lfs3_file_discardcache(lfs3_file_t *file) {
 }
 
 static inline void lfs3_file_discardleaf(lfs3_file_t *file) {
-    file->h.flags &= ~LFS3_o_NEEDSCRYST & ~LFS3_o_NEEDSGRAFT;
+    file->h.flags &= ~(LFS3_o_NEEDSCRYST | LFS3_o_NEEDSGRAFT);
     file->leaf.pos = 0;
     lfs3_bptr_discard(&file->leaf.bptr);
 }
@@ -16835,10 +16835,11 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
             // update synced files
             } else {
                 // update flags
-                file_->h.flags &= ~LFS3_o_NEEDSSYNC
-                        & ~LFS3_o_NEEDSFLUSH
-                        & ~LFS3_o_NEEDSCRYST
-                        & ~LFS3_o_NEEDSGRAFT;
+                file_->h.flags &= ~(
+                        LFS3_o_NEEDSSYNC
+                            | LFS3_o_NEEDSFLUSH
+                            | LFS3_o_NEEDSCRYST
+                            | LFS3_o_NEEDSGRAFT);
                 // update shrubs
                 file_->bshrub = file->bshrub;
                 // update leaves
@@ -16893,11 +16894,12 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
     }
 
     // mark as synced
-    file->h.flags &= ~LFS3_o_NEEDSCREAT
-            & ~LFS3_o_NEEDSSYNC
-            & ~LFS3_o_NEEDSFLUSH
-            & ~LFS3_o_NEEDSCRYST
-            & ~LFS3_o_NEEDSGRAFT;
+    file->h.flags &= ~(
+            LFS3_o_NEEDSCREAT
+                | LFS3_o_NEEDSSYNC
+                | LFS3_o_NEEDSFLUSH
+                | LFS3_o_NEEDSCRYST
+                | LFS3_o_NEEDSGRAFT);
     return 0;
 }
 #endif
