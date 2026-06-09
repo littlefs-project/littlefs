@@ -83,10 +83,8 @@ enum lfs3_err {
 
     // bd errors
     LFS3_ERR_IO          = -5,   // Error during device operation
-    LFS3_ERR_DAMAGED     = -82,  // Data is ok, but needs repair
-    LFS3_ERR_CONDEMNED   = -83,  // Data is ok, but block is bad
+    LFS3_ERR_DAMAGED     = -83,  // Data is ok, but needs repair
     LFS3_ERR_CORRUPT     = -84,  // Data is corrupt
-    LFS3_ERR_BAD         = -85,  // Data is corrupt, block is bad
 
     // filesystem errors
     LFS3_ERR_NOENT       = -2,   // No directory entry
@@ -215,6 +213,10 @@ enum lfs3_type {
 #define LFS3_F_REPAIRDATADAMAGE \
                         0x00000020  // Repair metadata + data damage when found
 #endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+#define LFS3_F_CONDEMNDAMAGE \
+                        0x08000000  // Mark any damaged blocks as bad
+#endif
 #ifndef LFS3_RDONLY
 #define LFS3_F_MKCONSISTENT \
                         0x00010000  // Make the filesystem consistent
@@ -289,6 +291,10 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_M_REPAIRDATADAMAGE \
                         0x00000020  // Repair metadata + data damage when found
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+#define LFS3_M_CONDEMNDAMAGE \
+                        0x08000000  // Mark any damaged blocks as bad
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_MKCONSISTENT \
@@ -368,6 +374,10 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_I_REPAIRDATADAMAGE \
                         0x00000020  // Mounted with LFS3_M_REPAIRDATADAMAGE
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+#define LFS3_I_CONDEMNDAMAGE \
+                        0x08000000  // Mounted with LFS3_M_CONDEMNDAMAGE
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_MKCONSISTENT \

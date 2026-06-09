@@ -91,6 +91,7 @@ F_REPAIRMETADAMAGE \
                 = 0x00000010  # y-  Repair metadata damage when found
 F_REPAIRDATADAMAGE \
                 = 0x00000020  # y-  Repair metadata + data damage when found
+F_CONDEMNDAMAGE = 0x08000000  # y-  Mark any damaged blocks as bad
 
 F_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 F_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
@@ -117,6 +118,7 @@ M_REPAIRMETADAMAGE \
                 = 0x00000010  # y-  Repair metadata damage when found
 M_REPAIRDATADAMAGE \
                 = 0x00000020  # y-  Repair metadata + data damage when found
+M_CONDEMNDAMAGE = 0x08000000  # y-  Mark any damaged blocks as bad
 
 M_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 M_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
@@ -147,6 +149,7 @@ I_REPAIRMETADAMAGE \
                 = 0x00000010  # --  Mounted with LFS3_M_REPAIRMETADAMAGE
 I_REPAIRDATADAMAGE \
                 = 0x00000020  # --  Mounted with LFS3_M_REPAIRDATADAMAGE
+I_CONDEMNDAMAGE = 0x08000000  # --  Mounted with LFS3_M_CONDEMNDAMAGE
 
 I_MKCONSISTENT  = 0x00010000  # --  Filesystem needs mkconsistent to write
 I_LOOKAHEAD     = 0x00020000  # --  Lookahead buffer is not full

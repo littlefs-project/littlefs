@@ -34,32 +34,23 @@
 // Note these are ordered roughly by difficulty
 typedef enum lfs3_emubd_badblockbehavior {
     LFS3_EMUBD_BADBLOCK_ERASEDAMAGED    = 0,  // Erase returns DAMAGED
-    LFS3_EMUBD_BADBLOCK_ERASECONDEMNED  = 1,  // Erase returns CONDEMNED
-    LFS3_EMUBD_BADBLOCK_ERASECORRUPT    = 2,  // Erase returns CORRUPT
-    LFS3_EMUBD_BADBLOCK_ERASEBAD        = 3,  // Erase returns BAD
-    LFS3_EMUBD_BADBLOCK_ERASENOOP       = 4,  // Erase does nothing silently
+    LFS3_EMUBD_BADBLOCK_ERASECORRUPT    = 1,  // Erase returns CORRUPT
+    LFS3_EMUBD_BADBLOCK_ERASENOOP       = 2,  // Erase does nothing silently
 
-    LFS3_EMUBD_BADBLOCK_PROGDAMAGED     = 5,  // Prog returns DAMAGED
-    LFS3_EMUBD_BADBLOCK_PROGCONDEMNED   = 6,  // Prog returns CONDEMNED
-    LFS3_EMUBD_BADBLOCK_PROGCORRUPT     = 7,  // Prog returns CORRUPT
-    LFS3_EMUBD_BADBLOCK_PROGBAD         = 8,  // Prog returns BAD
-    LFS3_EMUBD_BADBLOCK_PROGNOOP        = 9,  // Prog does nothing silently
-    LFS3_EMUBD_BADBLOCK_PROGFLIP        = 10, // Prog flips a bit
+    LFS3_EMUBD_BADBLOCK_PROGDAMAGED     = 3,  // Prog returns DAMAGED
+    LFS3_EMUBD_BADBLOCK_PROGCORRUPT     = 4,  // Prog returns CORRUPT
+    LFS3_EMUBD_BADBLOCK_PROGNOOP        = 5,  // Prog does nothing silently
+    LFS3_EMUBD_BADBLOCK_PROGFLIP        = 6,  // Prog flips a bit
 
-    LFS3_EMUBD_BADBLOCK_READDAMAGED     = 11, // Read returns DAMAGED
-    LFS3_EMUBD_BADBLOCK_READCONDEMNED   = 12, // Read returns CONDEMNED
-    LFS3_EMUBD_BADBLOCK_READCORRUPT     = 13, // Read returns CORRUPT
-    LFS3_EMUBD_BADBLOCK_READBAD         = 14, // Read returns BAD
+    LFS3_EMUBD_BADBLOCK_READDAMAGED     = 7,  // Read returns DAMAGED
+    LFS3_EMUBD_BADBLOCK_READCORRUPT     = 8,  // Read returns CORRUPT
     LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
-                                        = 15, // Read sometimes DAMAGED
-    LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
-                                        = 16, // Read sometimes CONDEMNED
+                                        = 9,  // Read sometimes DAMAGED
     LFS3_EMUBD_BADBLOCK_READQUASICORRUPT
-                                        = 17, // Read sometimes CORRUPT
-    LFS3_EMUBD_BADBLOCK_READQUASIBAD    = 18, // Read sometimes BAD
-    LFS3_EMUBD_BADBLOCK_READQUASIFLIP   = 19, // Read flips a bit sometimes
+                                        = 10, // Read sometimes CORRUPT
+    LFS3_EMUBD_BADBLOCK_READQUASIFLIP   = 11, // Read flips a bit sometimes
 
-    LFS3_EMUBD_BADBLOCK_MANUAL          = 20, // Bits require manual flipping
+    LFS3_EMUBD_BADBLOCK_MANUAL          = 12, // Bits require manual flipping
 } lfs3_emubd_badblockbehavior_t;
 
 // Mode determining how powerloss behaves during testing.

@@ -6394,18 +6394,25 @@ defines.SIBLING = [0]
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(true, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6504,18 +6511,24 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6586,18 +6599,24 @@ defines.SIBLING = [0]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6713,18 +6732,24 @@ defines.SIBLING = [0]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -6883,19 +6908,25 @@ defines.SIBLING = [0, 2]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7046,18 +7077,24 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7217,19 +7254,25 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4, 6]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7415,18 +7458,24 @@ defines.SIZE = 'FCACHE_SIZE/2'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7553,18 +7602,24 @@ defines.SIBLING = [0, 1, 2]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7729,18 +7784,24 @@ defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -7865,18 +7926,24 @@ defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8039,18 +8106,24 @@ defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8212,18 +8285,24 @@ defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8429,18 +8508,24 @@ defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8685,18 +8770,24 @@ defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -8939,16 +9030,25 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 defines.SYNC = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | LFS3_F_GBMAP
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -9112,17 +9212,26 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SYNC = [false, true]
 defines.SIBLING = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | LFS3_F_GBMAP
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -9329,16 +9438,25 @@ defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | LFS3_F_GBMAP
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -9545,17 +9663,26 @@ defines.SIBLING = [0, 1, 2]
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 if = 'GBMAP'
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | LFS3_F_GBMAP
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -9805,18 +9932,24 @@ code = '''
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | LFS3_F_GBMAP
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -9950,18 +10083,24 @@ defines.CLOSE = [false, true]
 # encourage a btree
 defines.SHRUB_SIZE = 0
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -10121,18 +10260,24 @@ code = '''
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -10293,18 +10438,24 @@ code = '''
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -10471,10 +10622,8 @@ code = '''
 [cases.test_evict_repair_t_bptr_erased]
 defines.SYNC = [false, true]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 # is half a block prog aligned?
 if = '(BLOCK_SIZE/2) % PROG_SIZE == 0'
 ifdef = 'LFS3_REPAIR'
@@ -10483,9 +10632,17 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -10627,19 +10784,25 @@ defines.SIZE = [
 defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2, 3]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 if = 'SIBLING < SIZE/BLOCK_SIZE'
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -10869,19 +11032,25 @@ defines.DELTA = [
 defines.DESYNC = [false, true]
 defines.SIBLING = [0, 1, 2, 3]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 if = 'SIBLING < SIZE/BLOCK_SIZE'
 ifdef = 'LFS3_REPAIR'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 
@@ -11127,10 +11296,8 @@ defines.DELTA = ['+2*CHUNK', '+1*CHUNK', '-1*CHUNK', '-2*CHUNK']
 defines.DESYNC = [false, true]
 defines.SIBLING = [0]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = [
-    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
-    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
-]
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
 # is a chunk prog aligned?
 if = 'CHUNK % PROG_SIZE == 0'
 ifdef = 'LFS3_REPAIR'
@@ -11138,9 +11305,17 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0)
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_F_CONDEMNDAMAGE, -1)
+                    : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0),
+            CFG) => 0;
 
     uint32_t prng = 42;
 

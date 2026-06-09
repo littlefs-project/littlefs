@@ -32,6 +32,7 @@ defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
 defines.REPAIRMETADAMAGE = [false, true]
 defines.REPAIRDATADAMAGE = [false, true]
+defines.CONDEMNDAMAGE = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
@@ -49,10 +50,12 @@ if = [
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
-    'LFS3_IFDEF_REPAIR(true, !REPAIRDATADAMAGE)',
-    '!RDONLY || !REPAIRDATADAMAGE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETADAMAGE)',
     '!RDONLY || !REPAIRMETADAMAGE',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRDATADAMAGE)',
+    '!RDONLY || !REPAIRDATADAMAGE',
+    'LFS3_IFDEF_REPAIR(true, !CONDEMNDAMAGE)',
+    '!RDONLY || !CONDEMNDAMAGE',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
@@ -85,6 +88,9 @@ code = '''
                 | ((REPAIRDATADAMAGE)
                     ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
                     : 0)
+                | ((CONDEMNDAMAGE)
+                    ? LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, -1)
+                    : 0)
                 | ((MKCONSISTENT) ? LFS3_M_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
                 | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, -1) : 0)
@@ -113,6 +119,9 @@ code = '''
                     : 0)
                 | ((REPAIRDATADAMAGE)
                     ? LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATADAMAGE, -1)
+                    : 0)
+                | ((CONDEMNDAMAGE)
+                    ? LFS3_IFDEF_REPAIR(LFS3_I_CONDEMNDAMAGE, -1)
                     : 0)
                 | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                 | ((!LOOKAHEAD && (!GBMAP || PREERASE))
@@ -143,6 +152,7 @@ defines.CKDATACKSUMS = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.REPAIRMETADAMAGE = [false, true]
 defines.REPAIRDATADAMAGE = [false, true]
+defines.CONDEMNDAMAGE = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
@@ -159,8 +169,9 @@ if = [
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
-    'LFS3_IFDEF_REPAIR(true, !REPAIRDATADAMAGE)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETADAMAGE)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRDATADAMAGE)',
+    'LFS3_IFDEF_REPAIR(true, !CONDEMNDAMAGE)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'REVPERTURB || !PREERASE',
@@ -182,6 +193,9 @@ code = '''
                     : 0)
                 | ((REPAIRDATADAMAGE)
                     ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
+                    : 0)
+                | ((CONDEMNDAMAGE)
+                    ? LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, -1)
                     : 0)
                 | ((MKCONSISTENT) ? LFS3_F_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_F_LOOKAHEAD : 0)

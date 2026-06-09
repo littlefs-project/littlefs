@@ -418,14 +418,6 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
                         && (lfs3_emubd_prng_(&bd->prng) & 1))) {
                 LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_CORRUPT);
                 return LFS3_ERR_CORRUPT;
-
-            } else if (bd->cfg->badblock_behavior
-                        == LFS3_EMUBD_BADBLOCK_READBAD
-                    || (bd->cfg->badblock_behavior
-                            == LFS3_EMUBD_BADBLOCK_READQUASIBAD
-                        && (lfs3_emubd_prng_(&bd->prng) & 1))) {
-                LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_BAD);
-                return LFS3_ERR_BAD;
             }
         }
 
@@ -479,14 +471,6 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
                     && (lfs3_emubd_prng_(&bd->prng) & 1))) {
             LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
-
-        } else if (bd->cfg->badblock_behavior
-                    == LFS3_EMUBD_BADBLOCK_READCONDEMNED
-                || (bd->cfg->badblock_behavior
-                        == LFS3_EMUBD_BADBLOCK_READQUASICONDEMNED
-                    && (lfs3_emubd_prng_(&bd->prng) & 1))) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_CONDEMNED);
-            return LFS3_ERR_CONDEMNED;
         }
     }
     LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", 0);
@@ -731,11 +715,6 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
             LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_CORRUPT);
             return LFS3_ERR_CORRUPT;
 
-        } else if (bd->cfg->badblock_behavior
-                == LFS3_EMUBD_BADBLOCK_PROGBAD) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_BAD);
-            return LFS3_ERR_BAD;
-
         // noop progs? skip
         } else if (bd->cfg->badblock_behavior
                     == LFS3_EMUBD_BADBLOCK_PROGNOOP
@@ -819,11 +798,6 @@ progged:;
                 == LFS3_EMUBD_BADBLOCK_PROGDAMAGED) {
             LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
-
-        } else if (bd->cfg->badblock_behavior
-                == LFS3_EMUBD_BADBLOCK_PROGCONDEMNED) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_CONDEMNED);
-            return LFS3_ERR_CONDEMNED;
         }
     }
     LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", 0);
@@ -1063,11 +1037,6 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
             LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_CORRUPT);
             return LFS3_ERR_CORRUPT;
 
-        } else if (bd->cfg->badblock_behavior
-                == LFS3_EMUBD_BADBLOCK_ERASEBAD) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_BAD);
-            return LFS3_ERR_BAD;
-
         // noop erases? skip
         } else if (bd->cfg->badblock_behavior
                 == LFS3_EMUBD_BADBLOCK_ERASENOOP) {
@@ -1138,11 +1107,6 @@ erased:;
                 == LFS3_EMUBD_BADBLOCK_ERASEDAMAGED) {
             LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
-
-        } else if (bd->cfg->badblock_behavior
-                == LFS3_EMUBD_BADBLOCK_ERASECONDEMNED) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_CONDEMNED);
-            return LFS3_ERR_CONDEMNED;
         }
     }
     LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", 0);

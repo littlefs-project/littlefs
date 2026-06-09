@@ -312,6 +312,7 @@ static inline bool lfs3_bd_perturb(uint32_t flags) {
 
 // needed in lfs3_bd_read__
 static inline bool lfs3_f_isgbmap(uint32_t flags);
+static inline bool lfs3_m_iscondemndamage(uint32_t flags);
 
 static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         void *buffer, lfs3_size_t size, uint32_t flags) {
@@ -324,21 +325,22 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     // read from disk
     int err = lfs3_bd_read___(lfs3, block, off, buffer, size);
-    if (err && err != LFS3_ERR_DAMAGED
-            && err != LFS3_ERR_CONDEMNED) {
+    if (err && err != LFS3_ERR_DAMAGED) {
         if (!lfs3_bd_isrelax(flags)) {
             LFS3_INFO("Bad read 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
                     block, off, size, err);
         }
         // bad? push onto our evictqueue as a block to avoid
-        if (err == LFS3_ERR_BAD) {
+        if (LFS3_IFDEF_CONDEMN(
+                err == LFS3_ERR_CORRUPT
+                    && lfs3_f_isgbmap(lfs3->flags)
+                    && lfs3_m_iscondemndamage(lfs3->flags)
+                    && !lfs3_bd_isrelax(flags),
+                false)) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-            if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
-                lfs3_evict_push(lfs3, block,
-                        LFS3_EVICT_BAD | (flags & LFS3_BD_DATA));
-            }
+            lfs3_evict_push(lfs3, block,
+                    LFS3_EVICT_BAD | (flags & LFS3_BD_DATA));
             #endif
-            return LFS3_ERR_CORRUPT;
         }
         return err;
     }
@@ -346,8 +348,9 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     // condemned?
     if (LFS3_IFDEF_CONDEMN(
-            err == LFS3_ERR_CONDEMNED
-                && lfs3_f_isgbmap(lfs3->flags),
+            err == LFS3_ERR_DAMAGED
+                && lfs3_f_isgbmap(lfs3->flags)
+                && lfs3_m_iscondemndamage(lfs3->flags),
             false)) {
         #ifdef LFS3_CONDEMN
         if (!lfs3_bd_isrelax(flags)) {
@@ -372,8 +375,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         #endif
 
     // damaged?
-    } else if (err == LFS3_ERR_DAMAGED
-            || err == LFS3_ERR_CONDEMNED) {
+    } else if (err == LFS3_ERR_DAMAGED) {
         if (!lfs3_bd_isrelax(flags)) {
             // try not to spam damaged warnings
             lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, block);
@@ -424,24 +426,24 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
             LFS3_INFO("Bad prog 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
                     block, off, size, err);
         }
-        // damaged/condemned vs corrupt/bad are two subtly different
-        // situations (for damaged/condemned the prog succeeded), but
-        // either way we don't trust the data at this point so we treat
-        // them the same
+        // damaged vs corrupt are two subtly different situations (for
+        // damaged the prog succeeded), but either way we don't trust
+        // the data at this point so we treat them the same
         if (err == LFS3_ERR_DAMAGED) {
-            return LFS3_ERR_CORRUPT;
+            err = LFS3_ERR_CORRUPT;
         }
-        // condemned/bad? push onto our evictqueue as a block to avoid
-        if (err == LFS3_ERR_CONDEMNED
-                || err == LFS3_ERR_BAD) {
+        // bad? push onto our evictqueue as a block to avoid
+        if (LFS3_IFDEF_CONDEMN(
+                err == LFS3_ERR_CORRUPT
+                    && lfs3_f_isgbmap(lfs3->flags)
+                    && lfs3_m_iscondemndamage(lfs3->flags)
+                    && !lfs3_bd_isrelax(flags),
+                false)) {
             #ifdef LFS3_CONDEMN
-            if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
-                // note we treat all bad progs/erases as metadata, we
-                // abandon these so it doesn't really matter
-                lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
-            }
+            // note we treat all bad progs/erases as metadata, we
+            // abandon these so it doesn't really matter
+            lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
             #endif
-            return LFS3_ERR_CORRUPT;
         }
         return err;
     }
@@ -486,24 +488,24 @@ static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block,
             LFS3_INFO("Bad erase 0x%"PRIx32" (%d)",
                     block, err);
         }
-        // damaged/condemned vs corrupt/bad are two subtly different
-        // situations (for damaged/condemned the erase succeeded), but
-        // either way we don't trust the data at this point so we treat
-        // them the same
+        // damaged vs corrupt are two subtly different situations (for
+        // damaged the prog succeeded), but either way we don't trust
+        // the data at this point so we treat them the same
         if (err == LFS3_ERR_DAMAGED) {
-            return LFS3_ERR_CORRUPT;
+            err = LFS3_ERR_CORRUPT;
         }
-        // condemned/bad? push onto our evictqueue as a block to avoid
-        if (err == LFS3_ERR_CONDEMNED
-                || err == LFS3_ERR_BAD) {
+        // bad? push onto our evictqueue as a block to avoid
+        if (LFS3_IFDEF_CONDEMN(
+                err == LFS3_ERR_CORRUPT
+                    && lfs3_f_isgbmap(lfs3->flags)
+                    && lfs3_m_iscondemndamage(lfs3->flags)
+                    && !lfs3_bd_isrelax(flags),
+                false)) {
             #ifdef LFS3_CONDEMN
-            if (!lfs3_bd_isrelax(flags) && lfs3_f_isgbmap(lfs3->flags)) {
-                // note we treat all bad progs/erases as metadata, we
-                // abandon these so it doesn't really matter
-                lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
-            }
+            // note we treat all bad progs/erases as metadata, we
+            // abandon these so it doesn't really matter
+            lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
             #endif
-            return LFS3_ERR_CORRUPT;
         }
         return err;
     }
@@ -3460,10 +3462,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_ssize_t d = lfs3_bd_readtag(lfs3, block, off_, -1, flags,
                 &tag, &weight, &size,
                 (lfs3_rbyd_isquickfetch(flags)) ? NULL : &cksum__);
-        if (d < 0 && LFS3_IFDEF_EVICT(
-                d != LFS3_ERR_DAMAGED
-                    && d != LFS3_ERR_CONDEMNED,
-                true)) {
+        if (d < 0) {
             if (d == LFS3_ERR_CORRUPT) {
                 break;
             }
@@ -5206,11 +5205,7 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         int err = lfs3_bd_read(lfs3,
                 rbyd->blocks[0], off_, lfs3->cfg->prog_size,
                 &e, 1, LFS3_BD_RELAX);
-        if (err && err != LFS3_ERR_CORRUPT
-                && LFS3_IFDEF_EVICT(
-                    err != LFS3_ERR_DAMAGED
-                        && err != LFS3_ERR_CONDEMNED,
-                    true)) {
+        if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
 
@@ -5225,11 +5220,7 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 rbyd->blocks[0], off_, lfs3->cfg->prog_size,
                 LFS3_BD_RELAX,
                 &ecksum);
-        if (err && err != LFS3_ERR_CORRUPT
-                && LFS3_IFDEF_EVICT(
-                    err != LFS3_ERR_DAMAGED
-                        && err != LFS3_ERR_CONDEMNED,
-                    true)) {
+        if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
 
@@ -8117,6 +8108,17 @@ static inline bool lfs3_m_isrepairdatadamage(uint32_t flags) {
     return true;
     #else
     return flags & LFS3_M_REPAIRDATADAMAGE;
+    #endif
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+static inline bool lfs3_m_iscondemndamage(uint32_t flags) {
+    (void)flags;
+    #ifdef LFS3_YES_CONDEMNDAMAGE
+    return true;
+    #else
+    return flags & LFS3_M_CONDEMNDAMAGE;
     #endif
 }
 #endif
@@ -17475,6 +17477,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
                 | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, 0)
                 | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0)
+                | LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, 0)
                 | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0))) == 0);
     // TODO this all needs to be cleaned up
     lfs3->cfg = cfg;
@@ -18408,6 +18411,9 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_REPAIRDATADAMAGE
     flags |= LFS3_M_REPAIRDATADAMAGE
     #endif
+    #ifdef LFS3_YES_CONDEMNDAMAGE
+    flags |= LFS3_M_CONDEMNDAMAGE
+    #endif
 
     // unknown flags?
     LFS3_ASSERT((flags & ~(
@@ -18423,6 +18429,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
@@ -18438,6 +18446,9 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_m_isrepairmetadamage(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_m_isrepairdatadamage(flags));
+    #endif
+    #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+    LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_m_iscondemndamage(flags));
     #endif
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_ismkconsistent(flags));
     LFS3_ASSERT(!lfs3_m_isrdonly(flags) || !lfs3_gc_islookahead(flags));
@@ -18469,7 +18480,9 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, 0))
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0))),
+                        LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, 0))),
             cfg);
     if (err) {
         return err;
@@ -18723,6 +18736,9 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_YES_REPAIRDATADAMAGE
     flags |= LFS3_F_REPAIRDATADAMAGE
     #endif
+    #ifdef LFS3_YES_CONDEMNDAMAGE
+    flags |= LFS3_F_CONDEMNDAMAGE
+    #endif
 
     // unknown flags?
     LFS3_ASSERT((flags & ~(
@@ -18734,6 +18750,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, 0)
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, 0)
+                | LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, 0)
                 | LFS3_F_MKCONSISTENT
                 | LFS3_F_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)
@@ -18758,7 +18775,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
                     | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
                     | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, 0)
-                    | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0)),
+                    | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0)
+                    | LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, 0)),
             cfg);
     if (err) {
         return err;
@@ -18833,6 +18851,8 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                         LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETADAMAGE, 0))
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATADAMAGE, 0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(LFS3_I_CONDEMNDAMAGE, 0))
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
