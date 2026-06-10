@@ -4412,8 +4412,8 @@ def main(disk, output, mroots=None, *,
         no_javascript = True
 
     if block_ratio is None:
-        # golden ratio
-        block_ratio = 1 / ((1 + mt.sqrt(5))/2)
+        # default to A4 ratio
+        block_ratio = 1 / mt.sqrt(2)
 
     if padding is None:
         padding = 1
@@ -5599,7 +5599,7 @@ if __name__ == "__main__":
             type=lambda x: (
                 (lambda a, b: a / b)(*(float(v) for v in x.split(':', 1)))
                     if ':' in x else float(x)),
-            help="Target ratio for block sizes. Defaults to the golden ratio.")
+            help="Target ratio for block sizes. Defaults to A4.")
     parser.add_argument(
             '--no-header',
             action='store_true',
