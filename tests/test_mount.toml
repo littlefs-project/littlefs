@@ -700,7 +700,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -792,7 +792,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);

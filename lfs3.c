@@ -12124,8 +12124,7 @@ static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
     // mkconsistencing, most other operations need to be tracked to
     // catch dirty/ckpointed bits
     lfs3_mgc_t mgc;
-    lfs3_mgc_init(&mgc,
-            LFS3_GC_WRONLY | LFS3_T_MTREEONLY | LFS3_gc_MKCONSISTENTING);
+    lfs3_mgc_init(&mgc, LFS3_T_MTREEONLY | LFS3_gc_MKCONSISTENTING);
     while (true) {
         int err = lfs3_mtree_gc(lfs3, &mgc);
         if (err) {
@@ -12984,7 +12983,7 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
         // in-use in the next lookahead window
         //
         lfs3_mtrv_t mtrv;
-        lfs3_mtrv_init(&mtrv, LFS3_T_RDONLY | LFS3_gc_LOOKAHEADING);
+        lfs3_mtrv_init(&mtrv, LFS3_gc_LOOKAHEADING);
         while (true) {
             lfs3_bptr_t bptr;
             lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
@@ -13172,7 +13171,7 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
     // traverse the filesystem, building up knowledge of what blocks are
     // in-use
     lfs3_mtrv_t mtrv;
-    lfs3_mtrv_init(&mtrv, LFS3_T_RDONLY);
+    lfs3_mtrv_init(&mtrv, 0);
     while (true) {
         lfs3_bptr_t bptr;
         lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
@@ -17724,7 +17723,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     // mdirs are valid if we haven't checked the btree inner nodes at
     // least once?
     lfs3_mtrv_t mtrv;
-    lfs3_mtrv_init(&mtrv, LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA);
+    lfs3_mtrv_init(&mtrv, LFS3_T_MTREEONLY | LFS3_T_CKMETA);
     while (true) {
         lfs3_bptr_t bptr;
         lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
@@ -18436,7 +18435,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
 lfs3_sblock_t lfs3_fs_usage(lfs3_t *lfs3) {
     lfs3_block_t count = 0;
     lfs3_mtrv_t mtrv;
-    lfs3_mtrv_init(&mtrv, LFS3_T_RDONLY);
+    lfs3_mtrv_init(&mtrv, 0);
     while (true) {
         lfs3_bptr_t bptr;
         lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
@@ -19011,12 +19010,9 @@ int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
 int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     // already open?
     LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &trv->t.h));
-    // only rdonly is allowed here
-    LFS3_ASSERT((flags & LFS3_O_MODE) == LFS3_T_RDONLY);
     // unknown flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_T_RDONLY
-                | LFS3_T_MTREEONLY
+            LFS3_T_MTREEONLY
                 | LFS3_T_EXCL
                 | LFS3_T_CKMETA
                 | LFS3_T_CKDATA)) == 0);
@@ -19145,12 +19141,9 @@ int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv) {
 int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     // already open?
     LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &gc->gc.t.h));
-    // only wronly is allowed here
-    LFS3_ASSERT((flags & LFS3_O_MODE) == LFS3_GC_WRONLY);
     // unknown flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_GC_WRONLY
-                | LFS3_GC_EXCL
+            LFS3_GC_EXCL
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,

@@ -3942,8 +3942,7 @@ code = '''
 
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv,
-            LFS3_T_RDONLY
-                | LFS3_T_MTREEONLY
+            LFS3_T_MTREEONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -4069,8 +4068,7 @@ code = '''
 
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv,
-            LFS3_T_RDONLY
-                | LFS3_T_MTREEONLY
+            LFS3_T_MTREEONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -4220,8 +4218,7 @@ code = '''
 
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv,
-            LFS3_T_RDONLY
-                | LFS3_T_MTREEONLY
+            LFS3_T_MTREEONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -4396,8 +4393,7 @@ code = '''
 
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv,
-            LFS3_T_RDONLY
-                | LFS3_T_MTREEONLY
+            LFS3_T_MTREEONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -4553,8 +4549,7 @@ code = '''
 
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv,
-            LFS3_T_RDONLY
-                | LFS3_T_MTREEONLY
+            LFS3_T_MTREEONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -4683,8 +4678,7 @@ code = '''
 
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv,
-            LFS3_T_RDONLY
-                | LFS3_T_MTREEONLY
+            LFS3_T_MTREEONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -4857,8 +4851,7 @@ code = '''
 
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv,
-            LFS3_T_RDONLY
-                | LFS3_T_MTREEONLY
+            LFS3_T_MTREEONLY
                 | ((CKMETA) ? LFS3_T_CKMETA : 0));
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
@@ -4989,8 +4982,7 @@ code = '''
 
     // technically, cycle detection only needs to work when we're validating
     lfs3_mtrv_t mtrv;
-    lfs3_mtrv_init(&mtrv,
-            LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA);
+    lfs3_mtrv_init(&mtrv, LFS3_T_MTREEONLY | LFS3_T_CKMETA);
     for (lfs3_block_t i = 0;; i++) {
         // assert that we detect the cycle in a reasonable number of iterations
         assert(i < 2*BLOCK_COUNT);

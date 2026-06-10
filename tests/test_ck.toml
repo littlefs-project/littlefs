@@ -232,7 +232,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -284,7 +284,7 @@ code = '''
         // find clobbered blocks with lfs3_trv_read
         } else if (METHOD == 2) {
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_CKMETA) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -301,7 +301,7 @@ code = '''
         // find clobbered blocks with lfs3_gc_write
         } else if (METHOD == 3) {
             lfs3_gc_t gc;
-            lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKMETA) => 0;
+            lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -386,7 +386,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -439,7 +439,7 @@ code = '''
         // find clobbered blocks with lfs3_trv_read
         } else if (METHOD == 2) {
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
+            lfs3_trv_open(&lfs3, &trv, LFS3_T_CKDATA) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -456,7 +456,7 @@ code = '''
         // find clobbered blocks with lfs3_gc_write
         } else if (METHOD == 3) {
             lfs3_gc_t gc;
-            lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKDATA) => 0;
+            lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -545,7 +545,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         lfs3_block_t badblock;
         for (lfs3_block_t j = 0;; j++) {
@@ -608,8 +608,7 @@ code = '''
             // find clobbered blocks with lfs3_trv_read
             } else if (METHOD == 2) {
                 lfs3_trv_t trv;
-                lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDONLY | LFS3_T_CKMETA) => 0;
+                lfs3_trv_open(&lfs3, &trv, LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -632,8 +631,7 @@ code = '''
             // find clobbered blocks with lfs3_gc_write
             } else if (METHOD == 3) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_CKMETA) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -822,7 +820,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         lfs3_block_t badblock;
         for (lfs3_block_t j = 0;; j++) {
@@ -886,8 +884,7 @@ code = '''
             // find clobbered blocks with lfs3_trv_read
             } else if (METHOD == 2) {
                 lfs3_trv_t trv;
-                lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDONLY | LFS3_T_CKDATA) => 0;
+                lfs3_trv_open(&lfs3, &trv, LFS3_T_CKDATA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -910,8 +907,7 @@ code = '''
             // find clobbered blocks with lfs3_gc_write
             } else if (METHOD == 3) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_CKDATA) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -1087,7 +1083,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1186,7 +1182,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -1292,7 +1288,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         lfs3_block_t badblock;
         for (lfs3_block_t j = 0;; j++) {
@@ -1442,7 +1438,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         lfs3_block_t badblock;
         for (lfs3_block_t j = 0;; j++) {
@@ -1665,7 +1661,7 @@ code = '''
 
     // find the data block
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_binfo binfo;
@@ -1776,7 +1772,7 @@ code = '''
 
     // find the btree block
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_binfo binfo;
@@ -2175,7 +2171,7 @@ code = '''
 
     // find the data block
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_binfo binfo;
@@ -2286,7 +2282,7 @@ code = '''
 
     // find the btree block
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_binfo binfo;
@@ -2549,7 +2545,7 @@ code = '''
 
     // find the btree block
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_binfo binfo;
@@ -2693,7 +2689,7 @@ code = '''
 
     // find the data block
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     lfs3_block_t badblock;
     while (true) {
         struct lfs3_binfo binfo;
@@ -2922,7 +2918,7 @@ code = '''
                 // need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
+                        LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -3240,7 +3236,7 @@ code = '''
                 // need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
+                        LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -3656,7 +3652,7 @@ code = '''
                 // need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
+                        LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -3941,7 +3937,7 @@ code = '''
                 // need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
+                        LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);
@@ -4545,7 +4541,7 @@ code = '''
                 // need an explicit traversal for this
                 lfs3_trv_t trv;
                 lfs3_trv_open(&lfs3, &trv,
-                        LFS3_T_RDONLY | LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
+                        LFS3_T_MTREEONLY | LFS3_T_CKMETA) => 0;
                 for (lfs3_block_t i = 0;; i++) {
                     // a bit hacky, but this catches infinite loops
                     LFS3_ASSERT(i < 2*BLOCK_COUNT);

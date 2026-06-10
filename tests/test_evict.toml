@@ -71,7 +71,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -365,7 +365,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -487,7 +487,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -607,7 +607,7 @@ code = '''
     // now we want to evict the mdir in our mroot chain, that is neither
     // the active mroot, nor the mrootanchor
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -634,7 +634,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -785,7 +785,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -942,7 +942,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -1253,7 +1253,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -1358,7 +1358,7 @@ code = '''
     while (true) {
         lfs3_size_t count = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -1393,7 +1393,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -1421,7 +1421,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -1550,7 +1550,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -1643,7 +1643,7 @@ code = '''
         if (!(file.bshrub.trunk & 0x80000000)) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -1684,7 +1684,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -1717,7 +1717,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -1810,7 +1810,7 @@ code = '''
         if (file.bshrub.trunk & 0x80000000) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -1851,7 +1851,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -1884,7 +1884,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -2021,7 +2021,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -2186,7 +2186,7 @@ code = '''
         if (!(file.bshrub.trunk & 0x80000000)) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -2242,7 +2242,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2270,7 +2270,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -2435,7 +2435,7 @@ code = '''
         if (file.bshrub.trunk & 0x80000000) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -2491,7 +2491,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2519,7 +2519,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -2714,7 +2714,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -2853,7 +2853,7 @@ code = '''
     while (true) {
         lfs3_size_t count = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -2896,7 +2896,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2926,7 +2926,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -3144,7 +3144,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -3278,7 +3278,7 @@ code = '''
     while (true) {
         lfs3_size_t count = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -3366,7 +3366,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3399,7 +3399,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -3547,7 +3547,7 @@ code = '''
 
     // this block should be in use
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3579,7 +3579,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -3669,7 +3669,7 @@ code = '''
         if (!(file.bshrub.trunk & 0x80000000)) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -3712,7 +3712,7 @@ code = '''
 
     // this block should be in use
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3744,7 +3744,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -3833,7 +3833,7 @@ code = '''
         if (file.bshrub.trunk & 0x80000000) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -3876,7 +3876,7 @@ code = '''
 
     // this block should be in use
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3908,7 +3908,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -4025,7 +4025,7 @@ code = '''
     // this block should be in use, twice! because it's a dag
     lfs3_trv_t trv;
     lfs3_size_t count = 0;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4061,7 +4061,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -4099,7 +4099,7 @@ code = '''
     // it's a dag
     lfs3_block_t block = 0;
     count = 0;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4183,7 +4183,7 @@ code = '''
 
     // this block should be in use
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4213,7 +4213,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -4354,7 +4354,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4382,7 +4382,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -4606,7 +4606,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4634,7 +4634,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -4860,7 +4860,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4888,7 +4888,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -5106,7 +5106,7 @@ code = '''
             // evicted block should no longer be in use, anywhere in the
             // filesystem
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -5225,7 +5225,7 @@ code = '''
             // evicted block should no longer be in use, anywhere in the
             // filesystem
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -5302,7 +5302,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -5325,7 +5325,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -5515,7 +5515,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -5538,7 +5538,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -5653,7 +5653,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -5676,7 +5676,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -5887,7 +5887,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -5910,7 +5910,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -6086,7 +6086,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -6109,7 +6109,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -6519,7 +6519,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -6542,7 +6542,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -7073,7 +7073,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 2;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -7096,7 +7096,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -7281,10 +7281,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -7304,7 +7301,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -7405,10 +7402,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -7514,10 +7508,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKMETA
-                    | LFS3_GC_REPAIRMETA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -7538,7 +7529,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -7661,10 +7652,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKMETA
-                    | LFS3_GC_REPAIRMETA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -7685,7 +7673,7 @@ code = '''
     // now we want to evict the mdir in our mroot chain, that is neither
     // the active mroot, nor the mrootanchor
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -7710,10 +7698,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -7728,7 +7713,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -7881,10 +7866,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -7906,7 +7888,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -8063,10 +8045,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -8090,7 +8069,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -8292,10 +8271,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -8435,10 +8411,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -8457,7 +8430,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -8573,7 +8546,7 @@ code = '''
     while (true) {
         lfs3_size_t count = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -8608,7 +8581,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8634,10 +8607,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -8652,7 +8622,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -8781,10 +8751,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -8808,7 +8775,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -8912,7 +8879,7 @@ code = '''
         if (!(file.bshrub.trunk & 0x80000000)) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -8953,7 +8920,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8979,10 +8946,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -9002,7 +8966,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -9106,7 +9070,7 @@ code = '''
         if (file.bshrub.trunk & 0x80000000) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -9147,7 +9111,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9173,10 +9137,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -9196,7 +9157,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -9338,10 +9299,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -9360,7 +9318,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -9536,7 +9494,7 @@ code = '''
         if (!(file.bshrub.trunk & 0x80000000)) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -9592,7 +9550,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9618,10 +9576,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -9636,7 +9591,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -9812,7 +9767,7 @@ code = '''
         if (file.bshrub.trunk & 0x80000000) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -9868,7 +9823,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9894,10 +9849,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -9912,7 +9864,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -10114,10 +10066,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -10136,7 +10085,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -10288,7 +10237,7 @@ code = '''
     while (true) {
         lfs3_size_t count = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -10331,7 +10280,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -10359,10 +10308,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -10377,7 +10323,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -10599,10 +10545,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -10624,7 +10567,7 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -10771,7 +10714,7 @@ code = '''
     while (true) {
         lfs3_size_t count = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -10859,7 +10802,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -10887,10 +10830,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKMETA
-                | LFS3_GC_REPAIRMETA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -10908,7 +10848,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -11067,7 +11007,7 @@ code = '''
 
     // this block should be in use
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11089,10 +11029,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKDATA
-                | LFS3_GC_REPAIRDATA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -11115,7 +11052,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -11217,7 +11154,7 @@ code = '''
         if (!(file.bshrub.trunk & 0x80000000)) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -11260,7 +11197,7 @@ code = '''
 
     // this block should be in use
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11282,10 +11219,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKDATA
-                | LFS3_GC_REPAIRDATA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -11308,7 +11242,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -11408,7 +11342,7 @@ code = '''
         if (file.bshrub.trunk & 0x80000000) {
             lfs3_size_t count = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -11451,7 +11385,7 @@ code = '''
 
     // this block should be in use
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11473,10 +11407,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKDATA
-                | LFS3_GC_REPAIRDATA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -11499,7 +11430,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -11627,7 +11558,7 @@ code = '''
     // this block should be in use, twice! because it's a dag
     lfs3_trv_t trv;
     lfs3_size_t count = 0;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11653,10 +11584,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKDATA
-                | LFS3_GC_REPAIRDATA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -11679,7 +11607,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -11717,7 +11645,7 @@ code = '''
     // it's a dag
     lfs3_block_t block = 0;
     count = 0;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11812,7 +11740,7 @@ code = '''
 
     // this block should be in use
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11837,10 +11765,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKDATA
-                | LFS3_GC_REPAIRDATA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -11858,7 +11783,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -12010,7 +11935,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -12036,10 +11961,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKDATA
-                | LFS3_GC_REPAIRDATA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -12054,7 +11976,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -12289,7 +12211,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -12315,10 +12237,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKDATA
-                | LFS3_GC_REPAIRDATA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -12333,7 +12252,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -12570,7 +12489,7 @@ code = '''
     lfs3_block_t victim = 0;
     lfs3_size_t count = 0;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -12596,10 +12515,7 @@ code = '''
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
-    lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_CKDATA
-                | LFS3_GC_REPAIRDATA) => 0;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
     for (lfs3_block_t i = 0;; i++) {
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
@@ -12614,7 +12530,7 @@ code = '''
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
@@ -12833,10 +12749,7 @@ code = '''
 
             // run gc to repair bad blocks
             lfs3_gc_t gc;
-            lfs3_gc_open(&lfs3, &gc,
-                    LFS3_GC_WRONLY
-                        | LFS3_GC_CKDATA
-                        | LFS3_GC_REPAIRDATA) => 0;
+            lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 //
@@ -12862,7 +12775,7 @@ code = '''
             // evicted block should no longer be in use, anywhere in the
             // filesystem
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -12982,10 +12895,7 @@ code = '''
 
             // run gc to repair bad blocks
             lfs3_gc_t gc;
-            lfs3_gc_open(&lfs3, &gc,
-                    LFS3_GC_WRONLY
-                        | LFS3_GC_CKDATA
-                        | LFS3_GC_REPAIRDATA) => 0;
+            lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 // a bit hacky, but this catches infinite loops
                 //
@@ -13011,7 +12921,7 @@ code = '''
             // evicted block should no longer be in use, anywhere in the
             // filesystem
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -13090,7 +13000,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -13115,10 +13025,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKDATA
-                    | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -13136,7 +13043,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -13337,7 +13244,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -13362,10 +13269,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKDATA
-                    | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -13383,7 +13287,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -13509,7 +13413,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -13534,10 +13438,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKDATA
-                    | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -13555,7 +13456,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -13777,7 +13678,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -13802,10 +13703,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKDATA
-                    | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -13823,7 +13721,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -14010,7 +13908,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -14035,10 +13933,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKDATA
-                    | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -14056,7 +13951,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -14477,7 +14372,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -14502,10 +14397,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKDATA
-                    | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -14523,7 +14415,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -15065,7 +14957,7 @@ code = '''
         lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
         lfs3_block_t victim = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -15090,10 +14982,7 @@ code = '''
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc,
-                LFS3_GC_WRONLY
-                    | LFS3_GC_CKDATA
-                    | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -15111,7 +15000,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 

@@ -415,8 +415,6 @@ enum lfs3_btype {
 };
 
 // Traversal flags
-#define LFS3_T_MODE              3  // The traversal's access mode
-#define LFS3_T_RDONLY            0  // Open traversal as read only
 #define LFS3_T_MTREEONLY \
                         0x00000004  // Only traverse the mtree
 #define LFS3_T_EXCL     0x00000008  // Error if filesystem modified
@@ -436,8 +434,6 @@ enum lfs3_btype {
 #define LFS3_T_CK (LFS3_T_CKMETA | LFS3_T_CKDATA)
 
 // GC traversal flags - only used in lfs3_gc_open
-#define LFS3_GC_MODE             3  // The gc's access mode
-#define LFS3_GC_WRONLY           1  // Open gc as write only
 #define LFS3_GC_EXCL    0x00000008  // Error if filesystem modified
 
 // GC flags

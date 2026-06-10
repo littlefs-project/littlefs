@@ -161,8 +161,6 @@ I_REPAIRMETA    = 0x00400000  # --  Metadata blocks need repair
 I_REPAIRDATA    = 0x00800000  # --  Data blocks need repair
 
 # Traversal flags
-T_MODE          =          3  # -m  The traversal's access mode
-T_RDONLY        =          0  # -^  Open traversal as read only
 T_MTREEONLY     = 0x00000004  # --  Only traverse the mtree
 T_EXCL          = 0x00000008  # --  Error if filesystem modified
 T_CKMETA        = 0x00100000  # --  Check metadata checksums
@@ -188,8 +186,6 @@ t_STALE         = 0x02000000  # i-  Block queue probably out-of-date
 t_DAMAGED       = 0x01000000  # i-  Filesystem damaged during traversal
 
 # GC flags
-GC_MODE         =          3  # -m  The gc's access mode
-GC_WRONLY       =          1  # -^  Open gc as write only
 GC_EXCL         = 0x00000008  # --  Error if filesystem modified
 
 GC_MKCONSISTENT = 0x00010000  # --  Make the filesystem consistent

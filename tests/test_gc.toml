@@ -42,8 +42,7 @@ code = '''
     // try gcing
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+            ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -81,8 +80,7 @@ code = '''
     // try gcing
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
+            ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -128,7 +126,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -163,7 +161,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKMETA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -227,7 +225,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -262,7 +260,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKMETA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -325,7 +323,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -363,7 +361,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKMETA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -411,7 +409,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -444,7 +442,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKMETA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -508,7 +506,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -541,7 +539,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKMETA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -604,7 +602,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -640,7 +638,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKMETA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -688,7 +686,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -721,7 +719,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -785,7 +783,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -818,7 +816,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -881,7 +879,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -917,7 +915,7 @@ code = '''
     clobbered:;
         // try gc, we should detect the clobbered metadata
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | LFS3_GC_CKDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA) => 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
 
@@ -1000,8 +998,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1127,8 +1124,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1256,8 +1252,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1367,8 +1362,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1502,8 +1496,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1692,8 +1685,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1888,8 +1880,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -2043,8 +2034,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -2157,7 +2147,7 @@ code = '''
         // >2 btree nodes >gc_compact_thresh full?
         lfs3_size_t full = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -2207,8 +2197,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -2226,7 +2215,7 @@ code = '''
 
     // mtree should have been compacted
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2353,8 +2342,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -2459,7 +2447,7 @@ code = '''
         // >2 btree nodes >gc_compact_thresh full?
         lfs3_size_t full = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -2514,8 +2502,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -2538,7 +2525,7 @@ code = '''
 
     // btree should have been compacted
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2640,7 +2627,7 @@ code = '''
             // >1 btree nodes >gc_compact_thresh full?
             lfs3_size_t full = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -2696,8 +2683,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -2720,7 +2706,7 @@ code = '''
 
     // btree should have been compacted
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2861,8 +2847,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -3045,7 +3030,7 @@ code = '''
         // >2 btree nodes >gc_compact_thresh full?
         lfs3_size_t full = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -3115,8 +3100,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -3134,7 +3118,7 @@ code = '''
 
     // _all_ btrees should have been compacted
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3308,7 +3292,7 @@ code = '''
             // >1 btree nodes >gc_compact_thresh full?
             lfs3_size_t full = 0;
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+            lfs3_trv_open(&lfs3, &trv, 0) => 0;
             for (lfs3_block_t i = 0;; i++) {
                 assert(i < 2*BLOCK_COUNT);
 
@@ -3379,8 +3363,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -3398,7 +3381,7 @@ code = '''
 
     // _all_ btrees should have been compacted
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 4*BLOCK_COUNT);
 
@@ -3595,8 +3578,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -3740,7 +3722,7 @@ code = '''
         // >2 btree nodes >gc_compact_thresh full?
         lfs3_size_t full = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -3795,8 +3777,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -3814,7 +3795,7 @@ code = '''
 
     // gbmap should have been compacted
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4041,8 +4022,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -4184,7 +4164,7 @@ code = '''
         // >2 btree nodes >gc_compact_thresh full?
         lfs3_size_t full = 0;
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -4294,8 +4274,7 @@ code = '''
     // try gcing and compacting
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_COMPACTMETA
+            LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -4313,7 +4292,7 @@ code = '''
 
     // gbmap_p should have been compacted
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4492,8 +4471,7 @@ code = '''
     // try gcing with mkconsistent
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_MKCONSISTENT
+            LFS3_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -4612,8 +4590,7 @@ code = '''
     // try gcing with mkconsistent
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_MKCONSISTENT
+            LFS3_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -4787,8 +4764,7 @@ code = '''
     // try gcing with mkconsistent
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_MKCONSISTENT
+            LFS3_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -4931,8 +4907,7 @@ code = '''
     // try gcing with mkconsistent
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_MKCONSISTENT
+            LFS3_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -5076,8 +5051,7 @@ code = '''
     // try gcing with mkconsistent
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_MKCONSISTENT
+            LFS3_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -5221,8 +5195,7 @@ code = '''
     // try gcing with mkconsistent
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_MKCONSISTENT
+            LFS3_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -5388,8 +5361,7 @@ code = '''
     // try gcing with mkconsistent
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_MKCONSISTENT
+            LFS3_GC_MKCONSISTENT
                 | LFS3_GC_COMPACTMETA
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -5537,8 +5509,7 @@ code = '''
     // try gcing with mkconsistent
     lfs3_gc_t gc;
     lfs3_gc_open(&lfs3, &gc,
-            LFS3_GC_WRONLY
-                | LFS3_GC_MKCONSISTENT
+            LFS3_GC_MKCONSISTENT
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -7422,7 +7393,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -7525,7 +7496,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -7630,7 +7601,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -7720,7 +7691,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -7845,7 +7816,7 @@ code = '''
         // run lfs3_trv_t
         } else if (AFTER == 2) {
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | GC_FLAGS) => 0;
+            lfs3_trv_open(&lfs3, &trv, GC_FLAGS) => 0;
             while (true) {
                 struct lfs3_binfo binfo;
                 int err = lfs3_trv_read(&lfs3, &trv, &binfo);
@@ -7859,7 +7830,7 @@ code = '''
         // run lfs3_gc_t
         } else if (AFTER == 3) {
             lfs3_gc_t gc;
-            lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
+            lfs3_gc_open(&lfs3, &gc, GC_FLAGS) => 0;
             while (true) {
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
                 assert(steps >= 0);
@@ -7892,7 +7863,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -8027,7 +7998,7 @@ code = '''
         // run lfs3_trv_t
         } else if (AFTER == 2) {
             lfs3_trv_t trv;
-            lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY | GC_FLAGS) => 0;
+            lfs3_trv_open(&lfs3, &trv, GC_FLAGS) => 0;
             while (true) {
                 struct lfs3_binfo binfo;
                 int err = lfs3_trv_read(&lfs3, &trv, &binfo);
@@ -8041,7 +8012,7 @@ code = '''
         // run lfs3_gc_t
         } else if (AFTER == 3) {
             lfs3_gc_t gc;
-            lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
+            lfs3_gc_open(&lfs3, &gc, GC_FLAGS) => 0;
             while (true) {
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
                 assert(steps >= 0);
@@ -8074,7 +8045,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -8180,7 +8151,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8285,7 +8256,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8383,7 +8354,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8479,7 +8450,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8572,7 +8543,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8691,7 +8662,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8805,7 +8776,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8935,7 +8906,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9061,7 +9032,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9160,7 +9131,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9254,7 +9225,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9367,7 +9338,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9476,7 +9447,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9601,7 +9572,7 @@ code = '''
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
     lfs3_trv_t trv;
-    lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9733,7 +9704,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -9787,7 +9758,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -9876,7 +9847,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -9931,7 +9902,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -10023,7 +9994,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -10068,7 +10039,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -10155,7 +10126,7 @@ code = '''
 
         // traverse to find blocks
         lfs3_trv_t trv;
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         lfs3_block_t k = 0;
         for (lfs3_block_t j = 0;; j++) {
             assert(j < 2*BLOCK_COUNT);
@@ -10199,7 +10170,7 @@ code = '''
 
         // evicted block should no longer be in use, anywhere in the
         // filesystem
-        lfs3_trv_open(&lfs3, &trv, LFS3_T_RDONLY) => 0;
+        lfs3_trv_open(&lfs3, &trv, 0) => 0;
         for (lfs3_block_t i = 0;; i++) {
             assert(i < 2*BLOCK_COUNT);
 
@@ -10349,7 +10320,7 @@ code = '''
     // run lfs3_gc_t
     } else if (AFTER == 1) {
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
+        lfs3_gc_open(&lfs3, &gc, GC_FLAGS) => 0;
         while (true) {
             lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps >= 0);
@@ -10390,8 +10361,7 @@ code = '''
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_LOOKAHEAD) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
@@ -10400,8 +10370,7 @@ code = '''
             #ifdef LFS3_PREERASE
             if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_PREERASE) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
@@ -10410,8 +10379,7 @@ code = '''
 
             if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_COMPACTMETA) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
@@ -10577,7 +10545,7 @@ code = '''
     // run lfs3_gc_t
     } else if (AFTER == 1) {
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
+        lfs3_gc_open(&lfs3, &gc, GC_FLAGS) => 0;
         while (true) {
             lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps >= 0);
@@ -10618,8 +10586,7 @@ code = '''
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_LOOKAHEAD) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
@@ -10628,8 +10595,7 @@ code = '''
             #ifdef LFS3_PREERASE
             if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_PREERASE) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
@@ -10638,8 +10604,7 @@ code = '''
 
             if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_COMPACTMETA) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
@@ -10730,7 +10695,7 @@ code = '''
     // run lfs3_gc_t
     } else if (AFTER == 1) {
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_WRONLY | GC_FLAGS) => 0;
+        lfs3_gc_open(&lfs3, &gc, GC_FLAGS) => 0;
         while (true) {
             lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
             assert(steps >= 0);
@@ -10771,8 +10736,7 @@ code = '''
 
             if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_LOOKAHEAD) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_LOOKAHEAD) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
@@ -10781,8 +10745,7 @@ code = '''
             #ifdef LFS3_PREERASE
             if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_PREERASE) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_PREERASE) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
@@ -10791,8 +10754,7 @@ code = '''
 
             if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
                 lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc,
-                        LFS3_GC_WRONLY | LFS3_GC_COMPACTMETA) => 0;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_COMPACTMETA) => 0;
                 lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
