@@ -59,11 +59,11 @@ o_TRV           = 0x60000000  # i^  Type = traversal
 o_GC            = 0x70000000  # i^  Type = gc
 o_UNKNOWN       = 0x80000000  # i^  Type = unknown
 o_ZOMBIE        = 0x08000000  # i-  File has been removed
-o_NEEDSCREAT    = 0x04000000  # i-  File does not exist yet
-o_NEEDSSYNC     = 0x01000000  # i-  File's metadata does not match disk
-o_NEEDSCRYST    = 0x00040000  # i-  File's leaf not fully crystallized
-o_NEEDSGRAFT    = 0x00020000  # i-  File's leaf does not match disk
-o_NEEDSFLUSH    = 0x00010000  # i-  File's cache does not match disk
+o_UNCREAT       = 0x04000000  # i-  File does not exist yet
+o_UNSYNC        = 0x01000000  # i-  File's metadata does not match disk
+o_UNCRYST       = 0x00040000  # i-  File's leaf not fully crystallized
+o_UNGRAFT       = 0x00020000  # i-  File's leaf does not match disk
+o_UNFLUSH       = 0x00010000  # i-  File's cache does not match disk
 
 # File seek flags
 SEEK_MODE       = 0xffffffff  # -m  Seek mode

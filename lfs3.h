@@ -150,16 +150,11 @@ enum lfs3_type {
 #define LFS3_o_SET      0x00008000  // Atomically write file
 #define LFS3_o_TYPE     0xf0000000  // The file's type
 #define LFS3_o_ZOMBIE   0x08000000  // File has been removed
-#define LFS3_o_NEEDSCREAT \
-                        0x04000000  // File does not exist yet
-#define LFS3_o_NEEDSSYNC \
-                        0x01000000  // File's metadata does not match disk
-#define LFS3_o_NEEDSCRYST \
-                        0x00040000  // File's leaf not fully crystallized
-#define LFS3_o_NEEDSGRAFT \
-                        0x00020000  // File's leaf does not match disk
-#define LFS3_o_NEEDSFLUSH \
-                        0x00010000  // File's cache does not match disk
+#define LFS3_o_UNCREAT  0x04000000  // File does not exist yet
+#define LFS3_o_UNSYNC   0x01000000  // File's metadata does not match disk
+#define LFS3_o_UNCRYST  0x00040000  // File's leaf not fully crystallized
+#define LFS3_o_UNGRAFT  0x00020000  // File's leaf does not match disk
+#define LFS3_o_UNFLUSH  0x00010000  // File's cache does not match disk
 
 // an alias for all check work
 #define LFS3_O_CK (LFS3_O_CKMETA | LFS3_O_CKDATA)
