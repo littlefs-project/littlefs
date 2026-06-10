@@ -10664,8 +10664,7 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
     // we also compare mdir checksums with any open mdirs to try to
     // avoid traversing any outdated bshrubs/btrees
     if (tag == LFS3_TAG_MDIR
-            && ((mtrv->h.flags & LFS3_T_CKMETA)
-                || (mtrv->h.flags & LFS3_T_CKDATA))) {
+            && (mtrv->h.flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
 
         // check cksum matches our mroot
@@ -10707,8 +10706,7 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
     // is enabled, but we need to revalidate cached btree nodes or
     // we risk missing errors in ckmeta scans
     if (tag == LFS3_TAG_BRANCH
-            && ((mtrv->h.flags & LFS3_T_CKMETA)
-                || (mtrv->h.flags & LFS3_T_CKDATA))) {
+            && (mtrv->h.flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))) {
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
         int err = lfs3_rbyd_ckfetch(lfs3, rbyd,
                 rbyd->blocks[0], rbyd->trunk,
@@ -10731,8 +10729,7 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
 
 eot:;
     // compare gcksum with in-RAM gcksum
-    if (((mtrv->h.flags & LFS3_T_CKMETA)
-                || (mtrv->h.flags & LFS3_T_CKDATA))
+    if ((mtrv->h.flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))
             && !(mtrv->h.flags & LFS3_t_CKPOINTED)
             && mtrv->gcksum != lfs3->gcksum) {
         LFS3_ERROR("Found gcksum mismatch, cksum %08"PRIx32" (!= %08"PRIx32")",
@@ -10743,8 +10740,7 @@ eot:;
 
     // was ckmeta/ckdata successful? we only consider our filesystem
     // checked if we weren't mutated
-    if (((mtrv->h.flags & LFS3_T_CKMETA)
-                || (mtrv->h.flags & LFS3_T_CKDATA))
+    if ((mtrv->h.flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))
             && !(mtrv->h.flags & LFS3_T_MTREEONLY)
             && !(mtrv->h.flags & LFS3_t_CKPOINTED)) {
         lfs3->flags &= ~LFS3_I_CKMETA;
@@ -11435,8 +11431,8 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // evicting mdirs?
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if (tag == LFS3_TAG_MDIR
-            && ((mgc->t.h.flags & LFS3_gc_EVICTMETAING)
-                || (mgc->t.h.flags & LFS3_gc_EVICTDATAING))
+            && (mgc->t.h.flags & (
+                LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
             && lfs3_evict_needsevictionmdir(lfs3,
                 (lfs3_mdir_t*)bptr.d.u.buffer)) {
         // this takes the same code path as mdir compaction, with
@@ -11458,8 +11454,8 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // evicting btree nodes?
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if (tag == LFS3_TAG_BRANCH
-            && ((mgc->t.h.flags & LFS3_gc_EVICTMETAING)
-                || (mgc->t.h.flags & LFS3_gc_EVICTDATAING))
+            && (mgc->t.h.flags & (
+                LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
             && lfs3_evict_needsevictionrbyd(lfs3,
                 (lfs3_rbyd_t*)bptr.d.u.buffer)) {
         // this is humorously the same operation btree compaction
@@ -11607,8 +11603,7 @@ eot:;
     //
     // note this can trigger a lookahead ckpoint
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-    if (((mgc->t.h.flags & LFS3_gc_EVICTMETAING)
-                || (mgc->t.h.flags & LFS3_gc_EVICTDATAING))
+    if ((mgc->t.h.flags & (LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
             && !(mgc->t.h.flags & LFS3_t_DIRTY)
             && !LFS3_IFDEF_REPAIR(
                 mgc->t.h.flags & LFS3_t_DAMAGED,
@@ -11721,8 +11716,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // we want to trust the filesystem as little as possible in this
         // state
         #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-        if ((t & LFS3_gc_EVICTMETAING)
-                || (t & LFS3_gc_EVICTDATAING)) {
+        if (t & (LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING)) {
             t &= ~(LFS3_gc_MKCONSISTENTING
                     | LFS3_gc_LOOKAHEADING
                     | LFS3_gc_COMPACTMETAING
@@ -11918,8 +11912,8 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             // we don't support btree evict?
                             || (mgc->t.h.flags & LFS3_GC_COMPACTMETA)
                             || LFS3_IFDEF_EVICT(
-                                (mgc->t.h.flags & LFS3_gc_EVICTMETA)
-                                    || (mgc->t.h.flags & LFS3_gc_EVICTDATA),
+                                (mgc->t.h.flags & (
+                                    LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA)),
                                 false))
                         && lfs3_alloc_cansyncgbmap(lfs3),
                     false))) {
@@ -14651,13 +14645,9 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     lfs3_handle_open(lfs3, &file->h);
 
     // check metadata/data for errors?
-    if (file->h.flags & (
-            LFS3_O_CKMETA
-                | LFS3_O_CKDATA)) {
+    if (file->h.flags & (LFS3_O_CKMETA | LFS3_O_CKDATA)) {
         err = lfs3_file_ck(lfs3, file,
-                file->h.flags & (
-                    LFS3_O_CKMETA
-                        | LFS3_O_CKDATA));
+                file->h.flags & (LFS3_O_CKMETA | LFS3_O_CKDATA));
         if (err) {
             goto failed;
         }
@@ -16867,8 +16857,7 @@ static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
         // this may end up revalidating some btree nodes when ckfetches
         // is enabled, but we need to revalidate cached btree nodes or
         // we risk missing errors in ckmeta scans
-        if (((flags & LFS3_T_CKMETA)
-                    || (flags & LFS3_T_CKDATA))
+        if ((flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))
                 && tag == LFS3_TAG_BRANCH) {
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
             int err = lfs3_rbyd_ckfetch(lfs3, rbyd,
@@ -18865,7 +18854,7 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
     LFS3_ASSERT(!((flags & LFS3_EVICT_BAD) && (flags & LFS3_EVICT_GOOD)));
     // we can't track bad blocks without a gbmap
     LFS3_ASSERT((lfs3->flags & LFS3_I_GBMAP)
-            || !((flags & LFS3_EVICT_BAD) || (flags & LFS3_EVICT_GOOD)));
+            || !(flags & (LFS3_EVICT_BAD | LFS3_EVICT_GOOD)));
     #endif
 
     // out-of-bounds?
@@ -18916,8 +18905,7 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
 
     // mark good/bad?
     #ifdef LFS3_CONDEMN
-    if ((flags & LFS3_EVICT_BAD)
-            || (flags & LFS3_EVICT_GOOD)) {
+    if (flags & (LFS3_EVICT_BAD | LFS3_EVICT_GOOD)) {
         // checkpoint the lookahead buffer, but avoid repopulating the
         // gbmap
         lfs3_alloc_ckpoint_(lfs3);
