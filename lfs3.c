@@ -17581,11 +17581,14 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     lfs3_compat_t compat_ = lfs3_fs_compat(lfs3);
     lfs3_compat_t rmask_ = lfs3_fs_rmask(lfs3);
     if ((compat & rmask_) != (compat_ & rmask_)) {
-        LFS3_ERROR("Incompatible rcompat flags r%"PRIx32" "
-                    "(!= r%"PRIx32" & 0x%"PRIx32")",
+        LFS3_ERROR("Incompatible rcompat flags cx%"PRIx32".%"PRIx32" "
+                    "(!= cx%"PRIx32".%"PRIx32" & 0x%"PRIx32".%"PRIx32")",
                 lfs3_compat_rcompat(compat),
+                lfs3_compat_wcompat(compat),
                 lfs3_compat_rcompat(compat_),
-                rmask_);
+                lfs3_compat_wcompat(compat_),
+                lfs3_compat_rcompat(rmask_),
+                lfs3_compat_wcompat(rmask_));
         return LFS3_ERR_NOTSUP;
     }
 
@@ -17594,11 +17597,14 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     if (!(lfs3->flags & LFS3_M_RDONLY)) {
         lfs3_compat_t wmask_ = lfs3_fs_wmask(lfs3);
         if ((compat & wmask_) != (compat_ & wmask_)) {
-            LFS3_ERROR("Incompatible wcompat flags w%"PRIx32" "
-                        "(!= w%"PRIx32" & 0x%"PRIx32")",
+            LFS3_ERROR("Incompatible wcompat flags cx%"PRIx32".%"PRIx32" "
+                        "(!= cx%"PRIx32".%"PRIx32" & 0x%"PRIx32".%"PRIx32")",
+                    lfs3_compat_rcompat(compat),
                     lfs3_compat_wcompat(compat),
+                    lfs3_compat_rcompat(compat_),
                     lfs3_compat_wcompat(compat_),
-                    wmask_);
+                    lfs3_compat_rcompat(wmask_),
+                    lfs3_compat_wcompat(wmask_));
             return LFS3_ERR_NOTSUP;
         }
     }

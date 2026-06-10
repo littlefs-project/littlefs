@@ -2637,7 +2637,7 @@ class Config:
             self.wcompat, d_ = fromleb128(self.data, d); d += d_
 
         def repr(self):
-            return 'compat r%x w%x' % (self.rcompat, self.wcompat)
+            return 'compat cx%x.%x' % (self.rcompat, self.wcompat)
 
     # block device geometry
     class Geometry(Config):
@@ -3777,7 +3777,7 @@ class Lfs3:
 
         def repr(self):
             return 'dir %s%s' % (
-                    '0x%x' % self.did
+                    'dx%x' % self.did
                         if self.did is not None else '?',
                     ', %s' % self.structrepr()
                         if self.struct is not None
@@ -3822,7 +3822,7 @@ class Lfs3:
 
         def repr(self):
             return 'bookmark %s%s' % (
-                    '0x%x' % self.name.did
+                    'dx%x' % self.name.did
                         if self.name.did is not None else '?',
                     ', %s' % self.structrepr()
                         if self.struct is not None else '')
