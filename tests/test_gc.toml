@@ -6142,7 +6142,7 @@ defines.GC_FLAGS = '''
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # note preerasing needs revperturb
-defines.REV_FLAGS = 'LFS3_REV_PERTURB'
+defines.CFG_FLAGS = 'LFS3_CFG_REVPERTURB'
 defines.SIZE = [
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
@@ -6268,7 +6268,7 @@ defines.GC_FLAGS = '''
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # note preerasing needs revperturb
-defines.REV_FLAGS = 'LFS3_REV_PERTURB'
+defines.CFG_FLAGS = 'LFS3_CFG_REVPERTURB'
 defines.SIZE = 'BLOCK_SIZE'
 # test with a number of different erase values
 defines.ERASE_VALUE = [0xff, 0x00, -1]
@@ -6380,7 +6380,7 @@ defines.GC_FLAGS = '''
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # note preerasing needs revperturb
-defines.REV_FLAGS = 'LFS3_REV_PERTURB'
+defines.CFG_FLAGS = 'LFS3_CFG_REVPERTURB'
 defines.SIZE = 'BLOCK_SIZE'
 if = 'GBMAP'
 ifdef = ['LFS3_GC', 'LFS3_GBMAP', 'LFS3_REVPERTURB', 'LFS3_PREERASE']
@@ -10243,8 +10243,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -10468,8 +10468,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -10836,8 +10836,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -10923,8 +10923,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -11014,8 +11014,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.SIZE = 'BLOCK_SIZE'
 if = [
@@ -11133,8 +11133,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
@@ -11255,8 +11255,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
@@ -11448,8 +11448,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -11564,8 +11564,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
@@ -11819,8 +11819,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 defines.OPS = 20
 defines.SIZE = [
@@ -11992,8 +11992,8 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 # you probably need to flush if you expect errors
 defines.FLUSH = false

@@ -13,17 +13,16 @@ import math as mt
 PREFIX_O       = ['+o', '+open']     # Filter by LFS3_O_* flags
 PREFIX_SEEK    = ['+seek']           # Filter by LFS3_SEEK_* flags
 PREFIX_A       = ['+a', '+attr']     # Filter by LFS3_A_* flags
+PREFIX_CFG     = ['+cfg']            # Filter by LFS3_CFG_* flags
+PREFIX_FILECFG = ['+filecfg']        # Filter by LFS3_FILECFG_* flags
 PREFIX_F       = ['+f', '+format']   # Filter by LFS3_F_* flags
 PREFIX_M       = ['+m', '+mount']    # Filter by LFS3_M_* flags
-PREFIX_REV     = ['+rev']            # Filter by LFS3_REV_* flags
 PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
 PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
-PREFIX_MKBAD   = ['+mkbad']          # Filter by LFS3_MKBAD_* flags
+PREFIX_EVICT   = ['+evict']          # Filter by LFS3_EVICT_* flags
 PREFIX_BD      = ['+bd']             # Filter by LFS3_BD_* flags
 PREFIX_ALLOC   = ['+alloc']          # Filter by LFS3_ALLOC_* flags
-PREFIX_EVICT   = ['+evict']          # Filter by LFS3_EVICT_* flags
-PREFIX_REPAIR  = ['+repair']         # Filter by LFS3_REPAIR_* flags
 PREFIX_RBYD    = ['+rbyd']           # Filter by LFS3_RBYD_* flags
 PREFIX_RCOMPAT = ['+r', '+rc', '+rcompat'] \
                                      # Filter by on-disk LFS3_RCOMPAT_* flags
@@ -65,6 +64,10 @@ o_UNCRYST       = 0x00040000  # i-  File's leaf not fully crystallized
 o_UNGRAFT       = 0x00020000  # i-  File's leaf does not match disk
 o_UNFLUSH       = 0x00010000  # i-  File's cache does not match disk
 
+# Additional file config flags
+FILECFG_FLUSH   = 0x00000040  # y-  Flush data on every write
+FILECFG_SYNC    = 0x00000080  # y-  Sync metadata on every write
+
 # File seek flags
 SEEK_MODE       = 0xffffffff  # -m  Seek mode
 SEEK_SET        =          0  # -^  Seek relative to an absolute position
@@ -81,17 +84,7 @@ A_LAZY          =       0x04  # --  Only write attr if file changed
 # Filesystem format flags
 F_MODE          =          1  # -m  Format's access mode
 F_RDWR          =          0  # -^  Format the filesystem as read and write
-F_GBMAP         = 0x01000000  # y-  Use the global on-disk block-map
-
-F_CKPROGS       = 0x00001000  # y-  Check progs by reading back progged data
-F_CKFETCHES     = 0x00002000  # y-  Check block checksums before first use
-F_CKMETAPARITY  = 0x00004000  # y-  Check metadata tag parity bits
-F_CKDATACKSUMS  = 0x00008000  # y-  Check data checksums on reads
-F_REPAIRMETADAMAGE \
-                = 0x00000010  # y-  Repair metadata damage when found
-F_REPAIRDATADAMAGE \
-                = 0x00000020  # y-  Repair metadata + data damage when found
-F_CONDEMNDAMAGE = 0x08000000  # y-  Mark any damaged blocks as bad
+F_GBMAP         = 0x00000008  # y-  Use the global on-disk block-map
 
 F_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 F_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
@@ -110,15 +103,6 @@ M_RDWR          =          0  # -^  Mount the filesystem as read and write
 M_RDONLY        =          1  # -^  Mount the filesystem as read only
 M_FLUSH         = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
 M_SYNC          = 0x00000080  # y-  Open all files with LFS3_O_SYNC
-M_CKPROGS       = 0x00001000  # y-  Check progs by reading back progged data
-M_CKFETCHES     = 0x00002000  # y-  Check block checksums before first use
-M_CKMETAPARITY  = 0x00004000  # y-  Check metadata tag parity bits
-M_CKDATACKSUMS  = 0x00008000  # y-  Check data checksums on reads
-M_REPAIRMETADAMAGE \
-                = 0x00000010  # y-  Repair metadata damage when found
-M_REPAIRDATADAMAGE \
-                = 0x00000020  # y-  Repair metadata + data damage when found
-M_CONDEMNDAMAGE = 0x08000000  # y-  Mark any damaged blocks as bad
 
 M_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 M_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
@@ -131,25 +115,34 @@ M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
 M_CK            = 0x00300000  # a-  Alias for all check work
 M_GC            = 0x00ff0000  # a-  Alias for all gc work
 
-# Revision count flags
-REV_PERTURB     = 0x00000001  # y-  Perturb first bit in revision counts
-REV_NOISE       = 0x00000002  # y-  Add noise to revision counts
+# Additional filesystem config flags
+CFG_MODE        =          1  # -m  Filesystem's access mode
+CFG_RDWR        =          0  # -^  Mount the filesystem as read and write
+CFG_RDONLY      =          1  # -^  Mount the filesystem as read only
+CFG_GBMAP       = 0x00000008  # y-  Use the global on-disk block-map
+CFG_FLUSH       = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
+CFG_SYNC        = 0x00000080  # y-  Open all files with LFS3_O_SYNC
+
+CFG_REVPERTURB  = 0x00010000  # y-  Perturb first bit in revision counts
+CFG_REVNOISE    = 0x00020000  # y-  Add noise to revision counts
+CFG_CKPROGS     = 0x00100000  # y-  Check progs by reading back progged data
+CFG_CKFETCHES   = 0x00200000  # y-  Check block checksums before first use
+CFG_CKMETAPARITY \
+                = 0x00400000  # y-  Check metadata tag parity bits
+CFG_CKDATACKSUMS \
+                = 0x01000000  # y-  Check data checksums on reads
+CFG_REPAIRMETADAMAGE \
+                = 0x10000000  # y-  Repair metadata damage when found
+CFG_REPAIRDATADAMAGE \
+                = 0x20000000  # y-  Repair metadata + data damage when found
+CFG_CONDEMNDAMAGE \
+                = 0x40000000  # y-  Mark any damaged blocks as bad
 
 # Filesystem info flags
 I_RDONLY        = 0x00000001  # --  Mounted read only
-I_GBMAP         = 0x01000000  # --  Global on-disk block-map in use
-
+I_GBMAP         = 0x00000008  # --  Global on-disk block-map in use
 I_FLUSH         = 0x00000040  # --  Mounted with LFS3_M_FLUSH
 I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
-I_CKPROGS       = 0x00001000  # --  Mounted with LFS3_M_CKPROGS
-I_CKFETCHES     = 0x00002000  # --  Mounted with LFS3_M_CKFETCHES
-I_CKMETAPARITY  = 0x00004000  # --  Mounted with LFS3_M_CKMETAPARITY
-I_CKDATACKSUMS  = 0x00008000  # --  Mounted with LFS3_M_CKDATACKSUMS
-I_REPAIRMETADAMAGE \
-                = 0x00000010  # --  Mounted with LFS3_M_REPAIRMETADAMAGE
-I_REPAIRDATADAMAGE \
-                = 0x00000020  # --  Mounted with LFS3_M_REPAIRDATADAMAGE
-I_CONDEMNDAMAGE = 0x08000000  # --  Mounted with LFS3_M_CONDEMNDAMAGE
 
 I_MKCONSISTENT  = 0x00010000  # --  Filesystem needs mkconsistent to write
 I_LOOKAHEAD     = 0x00020000  # --  Lookahead buffer is not full
@@ -159,6 +152,9 @@ I_CKMETA        = 0x00100000  # --  Metadata checksums not checked recently
 I_CKDATA        = 0x00200000  # --  Data checksums not checked recently
 I_REPAIRMETA    = 0x00400000  # --  Metadata blocks need repair
 I_REPAIRDATA    = 0x00800000  # --  Data blocks need repair
+
+i_DAMAGED       = 0x10000000  # i-  Bd read was damaged
+i_CONDEMNED     = 0x20000000  # i-  Bd read was condemned
 
 # Traversal flags
 T_MTREEONLY     = 0x00000004  # --  Only traverse the mtree
@@ -222,7 +218,7 @@ gc_GC           = 0x70000000  # i^  Type = gc
 gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
 
 # Block eviction flags
-EVICT_EVICT     = 0x00000010  # -- Delete all references to this block
+EVICT_EVICT     = 0x00000001  # -- Delete all references to this block
 EVICT_BAD       = 0x80000000  # -- Mark this block as bad, do not alloc
 EVICT_GOOD      = 0x20000000  # -- Mark this block as good, do alloc
 evict_DATA      = 0x40000000  # i- Block is definitely data
@@ -233,15 +229,11 @@ BD_DATA         = 0x40000000  # i-  A hint that we're reading data
 BD_ALIGN        = 0x00000002  # i-  Align cksums to prog boundaries
 BD_PERTURB      = 0x80000000  # i-  Perturb valid bit in tags
 
-# Internal block repair flags
-REPAIR_DAMAGED        = 0x01  # i-  Bd read was damaged
-REPAIR_CONDEMNED      = 0x02  # i-  Bd read was condemned
-
-# Block allocator flags
+# Internal block allocator flags
 ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
 ALLOC_CLAIM     = 0x00000002  # i-  Claim erased state
 
-# Rbyd fetch flags
+# Internal rbyd fetch flags
 RBYD_RELAX      = 0x00000001  # i-  Don't evict corrupt data
 RBYD_QUICKFETCH = 0x00000004  # i-  Only fetch one trunk
 

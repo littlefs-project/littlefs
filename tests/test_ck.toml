@@ -1554,6 +1554,7 @@ done:;
 defines.BADBLOCK = [0, 1]
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_PROGFLIP'
+defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
 ifdef = 'LFS3_CKPROGS'
@@ -1571,12 +1572,12 @@ code = '''
 
         // formatting the filesystem may already find the bit error
         lfs3_t lfs3;
-        int err = lfs3_format(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG);
+        int err = lfs3_format(&lfs3, LFS3_M_RDWR, CFG);
         assert(!err || err == LFS3_ERR_CORRUPT);
         if (err == LFS3_ERR_CORRUPT) {
             goto corrupt;
         }
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create a file
@@ -1610,7 +1611,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+                    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
                 }
 
                 lfs3_file_open(&lfs3, &file, "physalia", LFS3_O_RDONLY) => 0;
@@ -1634,6 +1635,7 @@ code = '''
 [cases.test_ck_ckprogs_data]
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_PROGFLIP'
+defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
 ifdef = 'LFS3_CKPROGS'
@@ -1644,8 +1646,8 @@ code = '''
 
     // format
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKPROGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -1688,8 +1690,8 @@ code = '''
 
         // format
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKPROGS, CFG) => 0;
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create a file
@@ -1719,7 +1721,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+                    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
                 }
 
                 lfs3_file_open(&lfs3, &file, "physalia", LFS3_O_RDONLY) => 0;
@@ -1742,6 +1744,7 @@ code = '''
 [cases.test_ck_ckprogs_btree]
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_PROGFLIP'
+defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
 # force the file to create a btree
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
@@ -1755,8 +1758,8 @@ code = '''
 
     // format
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKPROGS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -1799,8 +1802,8 @@ code = '''
 
         // format
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKPROGS, CFG) => 0;
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create a file
@@ -1830,7 +1833,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+                    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
                 }
 
                 lfs3_file_open(&lfs3, &file, "physalia", LFS3_O_RDONLY) => 0;
@@ -1860,6 +1863,7 @@ defines.BADBLOCK_ = '(BADBLOCK+1) % 2'
 defines.BADBIT_ = -1
 defines.M = 4000
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_PROGFLIP'
+defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/64'
 defines.N = 4
@@ -1900,12 +1904,12 @@ code = '''
 
         // formatting the filesystem may already find the bit error
         lfs3_t lfs3;
-        int err = lfs3_format(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG);
+        int err = lfs3_format(&lfs3, LFS3_M_RDWR, CFG);
         assert(!err || err == LFS3_ERR_CORRUPT);
         if (err == LFS3_ERR_CORRUPT) {
             goto corrupt;
         }
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create some files
@@ -2020,7 +2024,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKPROGS, CFG) => 0;
+                    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
                 }
 
                 wprng = 42+1;
@@ -2067,6 +2071,7 @@ code = '''
 [cases.test_ck_ckfetches_mroot]
 defines.BADBLOCK = [0, 1]
 defines.BADBIT = -1
+defines.CFG_FLAGS = 'LFS3_CFG_CKFETCHES'
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
 ifdef = 'LFS3_CKFETCHES'
@@ -2081,8 +2086,8 @@ code = '''
 
         // format
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKFETCHES, CFG) => 0;
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKFETCHES, CFG) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create a file
@@ -2106,8 +2111,7 @@ code = '''
                     // flip our badbit
                     lfs3_emubd_flipbit(CFG, BADBLOCK, badbit) => 0;
 
-                    int err = lfs3_mount(&lfs3,
-                            LFS3_M_RDWR | LFS3_M_CKFETCHES, CFG);
+                    int err = lfs3_mount(&lfs3, LFS3_M_RDWR, CFG);
                     assert(!err || err == LFS3_ERR_CORRUPT);
                     if (err == LFS3_ERR_CORRUPT) {
                         goto corrupt;
@@ -2144,6 +2148,7 @@ code = '''
 # test every single-bit error in a file's data block
 [cases.test_ck_ckfetches_data]
 defines.BADBIT = -1
+defines.CFG_FLAGS = 'LFS3_CFG_CKFETCHES'
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
 ifdef = 'LFS3_CKFETCHES'
@@ -2154,8 +2159,8 @@ code = '''
 
     // format
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKFETCHES, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKFETCHES, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -2195,8 +2200,8 @@ code = '''
 
         // format
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKFETCHES, CFG) => 0;
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKFETCHES, CFG) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create a file
@@ -2219,7 +2224,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKFETCHES, CFG) => 0;
+                    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
                 }
 
                 // yes reads can fail here
@@ -2252,6 +2257,7 @@ code = '''
 # test every single-bit error in a file's btree node
 [cases.test_ck_ckfetches_btree]
 defines.BADBIT = -1
+defines.CFG_FLAGS = 'LFS3_CFG_CKFETCHES'
 # force the file to create a btree
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
@@ -2265,8 +2271,8 @@ code = '''
 
     // format
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKFETCHES, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKFETCHES, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -2306,8 +2312,8 @@ code = '''
 
         // format
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKFETCHES, CFG) => 0;
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKFETCHES, CFG) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create a file
@@ -2330,7 +2336,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKFETCHES, CFG) => 0;
+                    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
                 }
 
                 // yes reads can fail here
@@ -2397,6 +2403,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
     'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
+defines.CFG_FLAGS = 'LFS3_CFG_CKMETAPARITY'
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
 ifdef = 'LFS3_CKMETAPARITY'
@@ -2428,12 +2435,12 @@ code = '''
 
         // format
         lfs3_t lfs3;
-        int err = lfs3_format(&lfs3, LFS3_M_RDWR | LFS3_M_CKMETAPARITY, CFG);
+        int err = lfs3_format(&lfs3, LFS3_M_RDWR, CFG);
         assert(!err || err == LFS3_ERR_CORRUPT);
         if (err == LFS3_ERR_CORRUPT) {
             goto corrupt;
         }
-        err = lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKMETAPARITY, CFG);
+        err = lfs3_mount(&lfs3, LFS3_M_RDWR, CFG);
         assert(!err || err == LFS3_ERR_CORRUPT);
         if (err == LFS3_ERR_CORRUPT) {
             goto corrupt;
@@ -2469,8 +2476,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    err = lfs3_mount(&lfs3,
-                            LFS3_M_RDWR | LFS3_M_CKMETAPARITY, CFG);
+                    err = lfs3_mount(&lfs3, LFS3_M_RDWR, CFG);
                     if (err == LFS3_ERR_CORRUPT) {
                         goto corrupt;
                     }
@@ -2515,6 +2521,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
     'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
+defines.CFG_FLAGS = 'LFS3_CFG_CKMETAPARITY'
 # force the file to create a btree
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
@@ -2528,8 +2535,8 @@ code = '''
 
     // format
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKMETAPARITY, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKMETAPARITY, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -2586,8 +2593,8 @@ code = '''
 
         // format
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKMETAPARITY, CFG) => 0;
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKMETAPARITY, CFG) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create a file
@@ -2615,9 +2622,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    lfs3_mount(&lfs3,
-                            LFS3_M_RDWR | LFS3_M_CKMETAPARITY,
-                            CFG) => 0;
+                    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
                 }
 
                 // yes reads can fail here
@@ -2662,6 +2667,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
     'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
+defines.CFG_FLAGS = 'LFS3_CFG_CKDATACKSUMS'
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
 ifdef = 'LFS3_CKDATACKSUMS'
@@ -2672,8 +2678,8 @@ code = '''
 
     // format
     lfs3_t lfs3;
-    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKDATACKSUMS, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKDATACKSUMS, CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -2723,8 +2729,8 @@ code = '''
 
         // format
         lfs3_t lfs3;
-        lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_CKDATACKSUMS, CFG) => 0;
-        lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_CKDATACKSUMS, CFG) => 0;
+        lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         {
             // create a file
@@ -2752,9 +2758,7 @@ code = '''
                 // remount?
                 if (remount) {
                     lfs3_unmount(&lfs3) => 0;
-                    lfs3_mount(&lfs3,
-                            LFS3_M_RDWR | LFS3_M_CKDATACKSUMS,
-                            CFG) => 0;
+                    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
                 }
 
                 // yes reads can fail here
@@ -2823,8 +2827,18 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = 'METHOD == 2'
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKMETAPARITY      = false
+defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+        | ((CKMETAPARITY)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            : 0)
+        | ((CKDATACKSUMS)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            : 0)
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.SEED = 'range(10)'
 fuzz = 'SEED'
@@ -2849,28 +2863,8 @@ code = '''
 
     // test fuzz with dirs
     lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -3039,23 +3033,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((CKFETCHES)
-                            ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1)
-                            : 0)
-                        | ((CKMETAPARITY)
-                            ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
-                            : 0)
-                        | ((CKDATACKSUMS)
-                            ? LFS3_IFDEF_CKDATACKSUMS(
-                                LFS3_M_CKDATACKSUMS,
-                                -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -3130,8 +3108,18 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = 'METHOD == 2'
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKMETAPARITY      = false
+defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+        | ((CKMETAPARITY)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            : 0)
+        | ((CKDATACKSUMS)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            : 0)
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -3166,28 +3154,8 @@ code = '''
 
     // test fuzz with files
     lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -3403,23 +3371,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((CKFETCHES)
-                            ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1)
-                            : 0)
-                        | ((CKMETAPARITY)
-                            ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
-                            : 0)
-                        | ((CKDATACKSUMS)
-                            ? LFS3_IFDEF_CKDATACKSUMS(
-                                LFS3_M_CKDATACKSUMS,
-                                -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our files match our simulation
@@ -3517,8 +3469,18 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKMETAPARITY      = false
+defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+        | ((CKMETAPARITY)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            : 0)
+        | ((CKDATACKSUMS)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            : 0)
+'''
 defines.SIZE = [
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
@@ -3560,28 +3522,8 @@ code = '''
 
     // test with complex file writes
     lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -3724,23 +3666,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((CKFETCHES)
-                            ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1)
-                            : 0)
-                        | ((CKMETAPARITY)
-                            ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
-                            : 0)
-                        | ((CKDATACKSUMS)
-                            ? LFS3_IFDEF_CKDATACKSUMS(
-                                LFS3_M_CKDATACKSUMS,
-                                -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -3818,8 +3744,18 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKMETAPARITY      = false
+defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+        | ((CKMETAPARITY)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            : 0)
+        | ((CKDATACKSUMS)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            : 0)
+'''
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -3856,28 +3792,8 @@ code = '''
 
     // test with uncreats, zombies, etc
     lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -4421,8 +4337,18 @@ defines.CKDATA        = 'METHOD == 1'
 defines.MTREEONLY     = false
 defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
-defines.CKMETAPARITY      = false
+defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+        | ((CKMETAPARITY)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            : 0)
+        | ((CKDATACKSUMS)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            : 0)
+'''
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -4459,28 +4385,8 @@ code = '''
 
     // test with uncreats, zombies, dirs, etc
     lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, -1) : 0)
-                | ((CKMETAPARITY)
-                    ? LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, -1)
-                    : 0)
-                | ((CKDATACKSUMS)
-                    ? LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));

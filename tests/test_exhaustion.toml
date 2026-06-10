@@ -54,6 +54,19 @@ defines.REPAIR = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+# we need the gbmap to track bad blocks
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+'''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
 # we need gc work to detect read errors
 defines.GC = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
@@ -75,8 +88,7 @@ fuzz = 'SEED'
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
-    # we need the gbmap to track bad blocks
-    'GBMAP || !REPAIR',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
     'LFS3_IFDEF_GC(true, !GC)',
 ]
 code = '''
@@ -100,34 +112,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, -1)
-                        : 0),
-                &cfg) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
         // set up a simulation to compare against
         lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -340,6 +327,12 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
 # we need gc work to detect read errors
 defines.GC = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
@@ -395,31 +388,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, -1)
-                        : 0),
-                &cfg) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
         // set up a simulation to compare against
         lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -695,6 +666,12 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
 # we need gc work to detect read errors
 defines.GC = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
@@ -757,31 +734,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, -1)
-                        : 0),
-                &cfg) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
         // create a file
         lfs3_file_t file;
@@ -969,6 +924,12 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
 # we need gc work to detect read errors
 defines.GC = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
@@ -1026,31 +987,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, -1)
-                        : 0),
-                &cfg) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
         // set up a simulation to compare against
         lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -1552,6 +1491,12 @@ defines.CONDEMN = '''
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
 # we need gc work to detect read errors
 defines.GC = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
@@ -1609,31 +1554,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 &cfg) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, -1)
-                        : 0),
-                &cfg) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, &cfg) => 0;
 
         // set up a simulation to compare against
         lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));

@@ -232,6 +232,18 @@
 #define LFS3_IFDEF_RDONLY(a, b) (b)
 #endif
 
+#ifdef LFS3_YES_FLUSH
+#define LFS3_IFYES_FLUSH(a, b) (a)
+#else
+#define LFS3_IFYES_FLUSH(a, b) (b)
+#endif
+
+#ifdef LFS3_YES_SYNC
+#define LFS3_IFYES_SYNC(a, b) (a)
+#else
+#define LFS3_IFYES_SYNC(a, b) (b)
+#endif
+
 #ifdef LFS3_REVPERTURB
 #define LFS3_IFDEF_REVPERTURB(a, b) (a)
 #else
@@ -354,11 +366,36 @@
 #define LFS3_IFDEF_REPAIR(a, b) (b)
 #endif
 
+#if defined(LFS3_REPAIR) && defined(LFS3_YES_REPAIRMETADAMAGE)
+#define LFS3_IFYES_REPAIRMETADAMAGE(a, b, c) (a)
+#elif defined(LFS3_REPAIR)
+#define LFS3_IFYES_REPAIRMETADAMAGE(a, b, c) (b)
+#else
+#define LFS3_IFYES_REPAIRMETADAMAGE(a, b, c) (c)
+#endif
+
+#if defined(LFS3_REPAIR) && defined(LFS3_YES_REPAIRDATADAMAGE)
+#define LFS3_IFYES_REPAIRDATADAMAGE(a, b, c) (a)
+#elif defined(LFS3_REPAIR)
+#define LFS3_IFYES_REPAIRDATADAMAGE(a, b, c) (b)
+#else
+#define LFS3_IFYES_REPAIRDATADAMAGE(a, b, c) (c)
+#endif
+
 #ifdef LFS3_CONDEMN
 #define LFS3_IFDEF_CONDEMN(a, b) (a)
 #else
 #define LFS3_IFDEF_CONDEMN(a, b) (b)
 #endif
+
+#if defined(LFS3_CONDEMN) && defined(LFS3_YES_CONDEMNDAMAGE)
+#define LFS3_IFYES_CONDEMNDAMAGE(a, b, c) (a)
+#elif defined(LFS3_CONDEMN)
+#define LFS3_IFYES_CONDEMNDAMAGE(a, b, c) (b)
+#else
+#define LFS3_IFYES_CONDEMNDAMAGE(a, b, c) (c)
+#endif
+
 
 
 // Some function attributes, no way around these

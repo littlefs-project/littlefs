@@ -48,6 +48,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
 defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
@@ -73,16 +78,7 @@ code = '''
 
         // test creating a btree
         lfs3_t lfs3;
-        lfs3_init(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0),
-                CFG) => 0;
+        lfs3_init(&lfs3, LFS3_M_RDWR, CFG) => 0;
         // create free lookahead
         memset(lfs3.lookahead.buffer, 0, CFG->lookahead_size);
         lfs3.lookahead.window = 2;
@@ -187,6 +183,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 if = [
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
@@ -206,25 +207,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0),
-                CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // make this many directories
         for (lfs3_size_t i = 0; i < N; i++) {
@@ -238,18 +223,7 @@ code = '''
             // remount?
             if (remount) {
                 lfs3_unmount(&lfs3) => 0;
-                lfs3_mount(&lfs3,
-                        LFS3_M_RDWR
-                            | ((CKPROGS)
-                                ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                                : 0),
-                        CFG) => 0;
+                lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
             }
 
             // grm should be zero here
@@ -337,6 +311,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
 defines.SEED = 42
@@ -359,25 +338,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0),
-                CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // set up a simulation to compare against
         lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -471,18 +434,7 @@ code = '''
             // remount?
             if (remount) {
                 lfs3_unmount(&lfs3) => 0;
-                lfs3_mount(&lfs3,
-                        LFS3_M_RDWR
-                            | ((CKPROGS)
-                                ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                                : 0),
-                        CFG) => 0;
+                lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
             }
 
             // grm should be zero here
@@ -558,6 +510,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -587,25 +544,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0),
-                CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create this many files
         uint32_t prng = 42;
@@ -629,18 +570,7 @@ code = '''
             // remount?
             if (remount) {
                 lfs3_unmount(&lfs3) => 0;
-                lfs3_mount(&lfs3,
-                        LFS3_M_RDWR
-                            | ((CKPROGS)
-                                ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                                : 0),
-                        CFG) => 0;
+                lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
             }
 
             // check that our writes worked
@@ -702,6 +632,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
 defines.SIZE = [
@@ -734,25 +669,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0),
-                CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // set up a simulation to compare against
         lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -883,18 +802,7 @@ code = '''
             // remount?
             if (remount) {
                 lfs3_unmount(&lfs3) => 0;
-                lfs3_mount(&lfs3,
-                        LFS3_M_RDWR
-                            | ((CKPROGS)
-                                ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                                : 0),
-                        CFG) => 0;
+                lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
             }
 
             // check that our files match our simulation
@@ -985,6 +893,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.OPS = 20
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -1024,25 +937,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0),
-                CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // create a file
         lfs3_file_t file;
@@ -1104,18 +1001,7 @@ code = '''
             // remount?
             if (remount) {
                 lfs3_unmount(&lfs3) => 0;
-                lfs3_mount(&lfs3,
-                        LFS3_M_RDWR
-                            | ((CKPROGS)
-                                ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                                : 0)
-                            | ((REPAIR)
-                                ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                                : 0),
-                        CFG) => 0;
+                lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
             }
 
             // check our file with stat
@@ -1188,6 +1074,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1222,25 +1113,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0),
-                CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // set up a simulation to compare against
         lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -1671,6 +1546,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 # you probably need to flush if you expect errors
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1705,25 +1585,9 @@ code = '''
         lfs3_t lfs3;
         lfs3_format(&lfs3,
                 LFS3_F_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                        : 0)
                     | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
                 CFG) => 0;
-        lfs3_mount(&lfs3,
-                LFS3_M_RDWR
-                    | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                        : 0)
-                    | ((REPAIR)
-                        ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                        : 0),
-                CFG) => 0;
+        lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
         // set up a simulation to compare against
         lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -2257,6 +2121,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
@@ -2284,16 +2153,7 @@ code = '''
 
     // test creating a btree
     lfs3_t lfs3;
-    lfs3_init(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_init(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // create free lookahead
     memset(lfs3.lookahead.buffer, 0, CFG->lookahead_size);
     lfs3.lookahead.window = 2;
@@ -2393,6 +2253,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
@@ -2418,25 +2283,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // make this many directories
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -2450,18 +2299,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -2544,6 +2382,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
@@ -2572,25 +2415,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -2684,18 +2511,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -2766,6 +2582,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -2801,25 +2622,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create this many files
     uint32_t prng = 42;
@@ -2843,18 +2648,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our writes worked
@@ -2911,6 +2705,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
@@ -2949,25 +2748,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -3098,18 +2881,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our files match our simulation
@@ -3195,6 +2967,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.OPS = 20
 defines.SIZE = [
@@ -3240,25 +3017,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -3320,18 +3081,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -3399,6 +3149,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -3439,25 +3194,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -3883,6 +3622,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -3923,25 +3667,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -4470,6 +4198,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # maximize lookahead buffer to avoid alloc scans
@@ -4497,16 +4230,7 @@ code = '''
 
     // test creating a btree
     lfs3_t lfs3;
-    lfs3_init(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_init(&lfs3, LFS3_M_RDWR, CFG) => 0;
     // create free lookahead
     memset(lfs3.lookahead.buffer, 0, CFG->lookahead_size);
     lfs3.lookahead.window = 2;
@@ -4606,6 +4330,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
@@ -4631,25 +4360,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // make this many directories
     for (lfs3_size_t i = 0; i < N; i++) {
@@ -4663,18 +4376,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -4757,6 +4459,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = '2*N'
@@ -4785,25 +4492,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -4897,18 +4588,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // grm should be zero here
@@ -4979,6 +4659,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
@@ -5014,25 +4699,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create this many files
     uint32_t prng = 42;
@@ -5056,18 +4725,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our writes worked
@@ -5124,6 +4782,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = '2*N'
@@ -5162,25 +4825,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -5311,18 +4958,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check that our files match our simulation
@@ -5408,6 +5044,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 defines.OPS = 20
 defines.SIZE = [
@@ -5453,25 +5094,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // create a file
     lfs3_file_t file;
@@ -5531,18 +5156,7 @@ code = '''
         // remount?
         if (remount) {
             lfs3_unmount(&lfs3) => 0;
-            lfs3_mount(&lfs3,
-                    LFS3_M_RDWR
-                        | ((CKPROGS)
-                            ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                            : 0)
-                        | ((REPAIR)
-                            ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                            : 0),
-                    CFG) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
         }
 
         // check our file with stat
@@ -5610,6 +5224,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -5650,25 +5269,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -6094,6 +5697,11 @@ defines.REPAIR = '''
     BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
         || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
 '''
+defines.CFG_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
+        | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
+'''
 defines.MIRROR = [false, true]
 # you probably need to flush if you expect errors
 defines.FLUSH = true
@@ -6134,25 +5742,9 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, -1)
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, -1)
-                    : 0)
-                | ((REPAIR)
-                    ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, -1)
-                    : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // set up a simulation to compare against
     lfs3_size_t *sim = malloc(N*sizeof(lfs3_size_t));
@@ -6660,6 +6252,7 @@ defines.BADBLOCKS = [0x1, 0x2, 0x3]
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
@@ -6689,6 +6282,7 @@ defines.BADBLOCKS = [0x1, 0x2]
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READCORRUPT',
     'LFS3_EMUBD_BADBLOCK_PROGNOOP',
     'LFS3_EMUBD_BADBLOCK_ERASENOOP',
@@ -6704,7 +6298,6 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, -1) : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
             CFG) => 0;
 
@@ -6715,10 +6308,7 @@ code = '''
         lfs3_emubd_mkbad(CFG, 1) => 0;
     }
 
-    lfs3_mount(&lfs3,
-            LFS3_M_RDWR
-                | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, -1) : 0),
-            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     for (lfs3_size_t i = 0;; i++) {
         // this should eventually fail

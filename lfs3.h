@@ -159,6 +159,12 @@ enum lfs3_type {
 // an alias for all check work
 #define LFS3_O_CK (LFS3_O_CKMETA | LFS3_O_CKDATA)
 
+// Additional file config flags
+#define LFS3_FILECFG_FLUSH \
+                        0x00000040  // Flush data on every write
+#define LFS3_FILECFG_SYNC \
+                        0x00000080  // Sync metadata on every write
+
 // File seek flags
 #define LFS3_SEEK_SET 0  // Seek relative to an absolute position
 #define LFS3_SEEK_CUR 1  // Seek relative to the current file position
@@ -183,34 +189,7 @@ enum lfs3_type {
 #define LFS3_F_RDWR              0  // Format the filesystem as read and write
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-#define LFS3_F_GBMAP    0x01000000  // Use the global on-disk block-map
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CKPROGS)
-#define LFS3_F_CKPROGS  0x00001000  // Check progs by reading back progged data
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CKFETCHES)
-#define LFS3_F_CKFETCHES \
-                        0x00002000  // Check block checksums before first use
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CKMETAPARITY)
-#define LFS3_F_CKMETAPARITY \
-                        0x00004000  // Check metadata tag parity bits
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CKDATACKSUMS)
-#define LFS3_F_CKDATACKSUMS \
-                        0x00008000  // Check data checksums on reads
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_F_REPAIRMETADAMAGE \
-                        0x00000010  // Repair metadata damage when found
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_F_REPAIRDATADAMAGE \
-                        0x00000020  // Repair metadata + data damage when found
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-#define LFS3_F_CONDEMNDAMAGE \
-                        0x08000000  // Mark any damaged blocks as bad
+#define LFS3_F_GBMAP    0x00000008  // Use the global on-disk block-map
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_F_MKCONSISTENT \
@@ -264,33 +243,6 @@ enum lfs3_type {
 #define LFS3_M_RDONLY            1  // Mount the filesystem as read only
 #define LFS3_M_FLUSH    0x00000040  // Open all files with LFS3_O_FLUSH
 #define LFS3_M_SYNC     0x00000080  // Open all files with LFS3_O_SYNC
-#if !defined(LFS3_RDONLY) && defined(LFS3_CKPROGS)
-#define LFS3_M_CKPROGS  0x00001000  // Check progs by reading back progged data
-#endif
-#ifdef LFS3_CKFETCHES
-#define LFS3_M_CKFETCHES \
-                        0x00002000  // Check block checksums before first use
-#endif
-#ifdef LFS3_CKMETAPARITY
-#define LFS3_M_CKMETAPARITY \
-                        0x00004000  // Check metadata tag parity bits
-#endif
-#ifdef LFS3_CKDATACKSUMS
-#define LFS3_M_CKDATACKSUMS \
-                        0x00008000  // Check data checksums on reads
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_M_REPAIRMETADAMAGE \
-                        0x00000010  // Repair metadata damage when found
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_M_REPAIRDATADAMAGE \
-                        0x00000020  // Repair metadata + data damage when found
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-#define LFS3_M_CONDEMNDAMAGE \
-                        0x08000000  // Mark any damaged blocks as bad
-#endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_MKCONSISTENT \
                         0x00010000  // Make the filesystem consistent
@@ -331,49 +283,61 @@ enum lfs3_type {
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
 
-// Revision count flags
+// Additional filesystem config flags
+#define LFS3_CFG_MODE            1  // Filesystem's access mode
+#ifndef LFS3_RDONLY
+#define LFS3_CFG_RDWR            0  // Mount the filesystem as read and write
+#endif
+#define LFS3_CFG_RDONLY          1  // Mount the filesystem as read only
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+#define LFS3_CFG_GBMAP  0x00000008  // Use the global on-disk block-map
+#endif
+#define LFS3_CFG_FLUSH  0x00000040  // Open all files with LFS3_O_FLUSH
+#define LFS3_CFG_SYNC   0x00000080  // Open all files with LFS3_O_SYNC
 #if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
-#define LFS3_REV_PERTURB \
-                        0x00000001  // Perturb first bit in revision counts
+#define LFS3_CFG_REVPERTURB \
+                        0x00010000  // Perturb first bit in revision counts
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REVNOISE)
-#define LFS3_REV_NOISE  0x00000002  // Add noise to revision counts
+#define LFS3_CFG_REVNOISE \
+                        0x00020000  // Add noise to revision counts
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_CKPROGS)
+#define LFS3_CFG_CKPROGS \
+                        0x00100000  // Check progs by reading back progged data
+#endif
+#ifdef LFS3_CKFETCHES
+#define LFS3_CFG_CKFETCHES \
+                        0x00200000  // Check block checksums before first use
+#endif
+#ifdef LFS3_CKMETAPARITY
+#define LFS3_CFG_CKMETAPARITY \
+                        0x00400000  // Check metadata tag parity bits
+#endif
+#ifdef LFS3_CKDATACKSUMS
+#define LFS3_CFG_CKDATACKSUMS \
+                        0x01000000  // Check data checksums on reads
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_CFG_REPAIRMETADAMAGE \
+                        0x10000000  // Repair metadata damage when found
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_CFG_REPAIRDATADAMAGE \
+                        0x20000000  // Repair metadata + data damage when found
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+#define LFS3_CFG_CONDEMNDAMAGE \
+                        0x40000000  // Mark any damaged blocks as bad
 #endif
 
 // Filesystem info flags
 #define LFS3_I_RDONLY   0x00000001  // Mounted read only
 #ifdef LFS3_GBMAP
-#define LFS3_I_GBMAP    0x01000000  // Global on-disk block-map in use
+#define LFS3_I_GBMAP    0x00000008  // Global on-disk block-map in use
 #endif
 #define LFS3_I_FLUSH    0x00000040  // Mounted with LFS3_M_FLUSH
 #define LFS3_I_SYNC     0x00000080  // Mounted with LFS3_M_SYNC
-#if !defined(LFS3_RDONLY) && defined(LFS3_CKPROGS)
-#define LFS3_I_CKPROGS  0x00001000  // Mounted with LFS3_M_CKPROGS
-#endif
-#ifdef LFS3_CKFETCHES
-#define LFS3_I_CKFETCHES \
-                        0x00002000  // Mounted with LFS3_M_CKFETCHES
-#endif
-#ifdef LFS3_CKMETAPARITY
-#define LFS3_I_CKMETAPARITY \
-                        0x00004000  // Mounted with LFS3_M_CKMETAPARITY
-#endif
-#ifdef LFS3_CKDATACKSUMS
-#define LFS3_I_CKDATACKSUMS \
-                        0x00008000  // Mounted with LFS3_M_CKDATACKSUMS
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_I_REPAIRMETADAMAGE \
-                        0x00000010  // Mounted with LFS3_M_REPAIRMETADAMAGE
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_I_REPAIRDATADAMAGE \
-                        0x00000020  // Mounted with LFS3_M_REPAIRDATADAMAGE
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-#define LFS3_I_CONDEMNDAMAGE \
-                        0x08000000  // Mounted with LFS3_M_CONDEMNDAMAGE
-#endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_MKCONSISTENT \
                         0x00010000  // Filesystem needs mkconsistent to write
@@ -399,6 +363,11 @@ enum lfs3_type {
 #define LFS3_I_REPAIRDATA \
                         0x00800000  // Data blocks need repair
 #endif
+
+// internally used flags, don't use these
+#define LFS3_i_DAMAGED  0x10000000  // Bd read was damaged
+#define LFS3_i_CONDEMNED \
+                        0x20000000  // Bd read was condemned
 
 // Block types
 enum lfs3_btype {
@@ -519,7 +488,7 @@ enum lfs3_btype {
 // Block eviction flags
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 #define LFS3_EVICT_EVICT \
-                        0x00000010  // Delete all references to this block
+                        0x00000001  // Delete all references to this block
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 #define LFS3_EVICT_BAD  0x80000000  // Mark this block as bad, do not alloc
@@ -536,6 +505,10 @@ enum lfs3_btype {
 
 // Configuration provided during initialization of the littlefs
 struct lfs3_cfg {
+    // Additional filesystem config flags. Bitwise-ored with
+    // mount/format flags when relevant.
+    uint32_t flags;
+
     // Opaque user provided context that can be used to pass
     // information to the block device operations
     void *context;
@@ -655,9 +628,6 @@ struct lfs3_cfg {
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     lfs3_size_t evictqueue_count;
     #endif
-
-    // Flags for additional revision count features.
-    uint32_t rev_flags;
 
     // Flags indicating what gc work to do during lfs3_gc calls.
     #ifdef LFS3_GC
@@ -882,6 +852,10 @@ struct lfs3_attr {
 
 // Optional configuration provided during lfs3_file_opencfg
 struct lfs3_file_cfg {
+    // Additional file config flags. Bitwise-ored with open flags when
+    // relevant.
+    uint32_t flags;
+
     // Optional statically allocated file cache buffer. Must be fcache_size.
     // By default lfs3_malloc is used to allocate this buffer.
     void *fcache_buffer;
@@ -1395,8 +1369,8 @@ typedef struct lfs3_gbmap lfs3_gbmap_t;
 
 // The littlefs filesystem type
 typedef struct lfs3 {
-    const struct lfs3_cfg *cfg;
     uint32_t flags;
+    const struct lfs3_cfg *cfg;
     lfs3_block_t block_count;
     lfs3_size_t name_limit;
     lfs3_off_t file_limit;
@@ -1491,9 +1465,6 @@ typedef struct lfs3 {
         lfs3_evict_t *queue;
         lfs3_size_t count;
     } evictqueue;
-    #endif
-    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-    uint8_t repair_flags;
     #endif
 
     // optional incremental gc state
@@ -1618,9 +1589,6 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type);
 
 // Open a file
 //
-// The mode that the file is opened in is determined by the flags, which
-// are values from the enum lfs3_open_flags that are bitwise-ored together.
-//
 // Returns a negative error code on failure.
 #ifndef LFS3_NO_MALLOC
 int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
@@ -1628,9 +1596,6 @@ int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
 #endif
 
 // Open a file with extra configuration
-//
-// The mode that the file is opened in is determined by the flags, which
-// are values from the enum lfs3_open_flags that are bitwise-ored together.
 //
 // The config struct provides additional config options per file as described
 // above. The config struct must remain allocated while the file is open, and

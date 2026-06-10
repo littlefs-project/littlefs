@@ -9,9 +9,9 @@ defines.LOOKAHEAD_SIZE = '(BLOCK_COUNT+8-1) / 8'
 # noisy revision counts
 defines.REVPERTURB = [false, true]
 defines.REVNOISE = [false, true]
-defines.REV_FLAGS = '''
-    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_REV_PERTURB, -1) : 0)
-        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_REV_NOISE, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_CFG_REVPERTURB, -1) : 0)
+        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_CFG_REVNOISE, -1) : 0)
 '''
 if = [
     'LFS3_IFDEF_REVPERTURB(true, !REVPERTURB)',

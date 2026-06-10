@@ -28,6 +28,66 @@ typedef int lfs3_scmp_t;
 typedef int lfs3_sbool_t;
 
 
+/// Config flag macros ///
+
+// TODO should these be moved to lfs3_cfg.h? along with other cfg
+// macros? this feels like the wrong place for these
+
+#define LFS3_CFG_ISREVPERTURB(cfg) \
+    LFS3_IFYES_REVPERTURB( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_REVPERTURB), \
+        false)
+
+#define LFS3_CFG_ISREVNOISE(cfg) \
+    LFS3_IFYES_REVNOISE( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_REVNOISE), \
+        false)
+
+#define LFS3_CFG_ISCKPROGS(cfg) \
+    LFS3_IFYES_CKPROGS( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_CKPROGS), \
+        false)
+
+#define LFS3_CFG_ISCKFETCHES(cfg) \
+    LFS3_IFYES_CKFETCHES( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_CKFETCHES), \
+        false)
+
+#define LFS3_CFG_ISCKMETAPARITY(cfg) \
+    LFS3_IFYES_CKMETAPARITY( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_CKMETAPARITY), \
+        false)
+
+#define LFS3_CFG_ISCKDATACKSUMS(cfg) \
+    LFS3_IFYES_CKDATACKSUMS( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_CKDATACKSUMS), \
+        false)
+
+#define LFS3_CFG_ISREPAIRMETADAMAGE(cfg) \
+    LFS3_IFYES_REPAIRMETADAMAGE( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_REPAIRMETADAMAGE), \
+        false)
+
+#define LFS3_CFG_ISREPAIRDATADAMAGE(cfg) \
+    LFS3_IFYES_REPAIRDATADAMAGE( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_REPAIRDATADAMAGE), \
+        false)
+
+#define LFS3_CFG_ISCONDEMNDAMAGE(cfg) \
+    LFS3_IFYES_CONDEMNDAMAGE( \
+        true, \
+        (bool)((cfg)->flags & LFS3_CFG_CONDEMNDAMAGE), \
+        false)
+
+
 /// Simple bd wrappers (asserts go here) ///
 
 static int lfs3_bd_read___(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
@@ -85,14 +145,6 @@ static int lfs3_bd_sync___(lfs3_t *lfs3) {
 
 
 /// Some eviction stuff we need for bd operations ///
-
-// sticky block repair flags
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_REPAIR_DAMAGED   0x01  // Bd read was damaged
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-#define LFS3_REPAIR_CONDEMNED 0x02  // Bd read was condemned
-#endif
 
 // eviction stuff
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
@@ -282,7 +334,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         if (LFS3_IFDEF_CONDEMN(
                 err == LFS3_ERR_CORRUPT
                     && (lfs3->flags & LFS3_I_GBMAP)
-                    && (lfs3->flags & LFS3_M_CONDEMNDAMAGE)
+                    && LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
                     && !(flags & LFS3_BD_RELAX),
                 false)) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
@@ -298,7 +350,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     if (LFS3_IFDEF_CONDEMN(
             err == LFS3_ERR_DAMAGED
                 && (lfs3->flags & LFS3_I_GBMAP)
-                && (lfs3->flags & LFS3_M_CONDEMNDAMAGE),
+                && LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg),
             false)) {
         #ifdef LFS3_CONDEMN
         if (!(flags & LFS3_BD_RELAX)) {
@@ -319,7 +371,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         //
         // these flags are useful for upper layers, especially when
         // relaxed
-        lfs3->repair_flags |= LFS3_REPAIR_CONDEMNED | LFS3_REPAIR_DAMAGED;
+        lfs3->flags |= LFS3_i_CONDEMNED | LFS3_i_DAMAGED;
         #endif
 
     // damaged?
@@ -341,7 +393,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         //
         // these flags are useful for upper layers, especially when
         // relaxed
-        lfs3->repair_flags |= LFS3_REPAIR_DAMAGED;
+        lfs3->flags |= LFS3_i_DAMAGED;
     }
     #endif
 
@@ -349,6 +401,7 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 }
 
 // needed in lfs3_bd_prog__ for prog validation
+static inline void lfs3_bd_droprcache(lfs3_t *lfs3);
 static lfs3_scmp_t lfs3_bd_cmp(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         const void *buffer, lfs3_size_t size, uint32_t flags);
@@ -381,7 +434,7 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         if (LFS3_IFDEF_CONDEMN(
                 err == LFS3_ERR_CORRUPT
                     && (lfs3->flags & LFS3_I_GBMAP)
-                    && (lfs3->flags & LFS3_M_CONDEMNDAMAGE)
+                    && LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
                     && !(flags & LFS3_BD_RELAX),
                 false)) {
             #ifdef LFS3_CONDEMN
@@ -395,7 +448,7 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     // checking progs?
     #ifdef LFS3_CKPROGS
-    if (lfs3->flags & LFS3_M_CKPROGS) {
+    if (LFS3_CFG_ISCKPROGS(lfs3->cfg)) {
         // pcache should have been dropped at this point
         LFS3_ASSERT(lfs3->pcache.size == 0);
 
@@ -403,7 +456,7 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         lfs3_bd_droprcache(lfs3);
 
         lfs3_scmp_t cmp = lfs3_bd_cmp(lfs3, block, off, 0,
-                buffer, size);
+                buffer, size, flags);
         if (cmp < 0) {
             return cmp;
         }
@@ -443,7 +496,7 @@ static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block,
         if (LFS3_IFDEF_CONDEMN(
                 err == LFS3_ERR_CORRUPT
                     && (lfs3->flags & LFS3_I_GBMAP)
-                    && (lfs3->flags & LFS3_M_CONDEMNDAMAGE)
+                    && LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
                     && !(flags & LFS3_BD_RELAX),
                 false)) {
             #ifdef LFS3_CONDEMN
@@ -1767,7 +1820,7 @@ static lfs3_ssize_t lfs3_bd_readtag(lfs3_t *lfs3,
     // this requires reading all of the data as well, but with any luck
     // the data will stick around in the cache
     #ifdef LFS3_CKMETAPARITY
-    if ((lfs3->flags & LFS3_M_CKMETAPARITY)
+    if (LFS3_CFG_ISCKMETAPARITY(lfs3->cfg)
             // don't bother checking parity if we're already calculating
             // a checksum
             && !cksum) {
@@ -2040,7 +2093,7 @@ static lfs3_ssize_t lfs3_data_read(lfs3_t *lfs3, lfs3_data_t *data,
     if (lfs3_data_ondisk(data)) {
         // validating data cksums?
         if (LFS3_IFDEF_CKDATACKSUMS(
-                (lfs3->flags & LFS3_M_CKDATACKSUMS)
+                LFS3_CFG_ISCKDATACKSUMS(lfs3->cfg)
                     && lfs3_data_isbptr(data),
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
@@ -2153,7 +2206,7 @@ static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
     if (lfs3_data_ondisk(data)) {
         // validating data cksums?
         if (LFS3_IFDEF_CKDATACKSUMS(
-                (lfs3->flags & LFS3_M_CKDATACKSUMS)
+                LFS3_CFG_ISCKDATACKSUMS(lfs3->cfg)
                     && lfs3_data_isbptr(data),
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
@@ -2235,7 +2288,7 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
     if (lfs3_data_ondisk(data)) {
         // validating data cksums?
         if (LFS3_IFDEF_CKDATACKSUMS(
-                (lfs3->flags & LFS3_M_CKDATACKSUMS)
+                LFS3_CFG_ISCKDATACKSUMS(lfs3->cfg)
                     && lfs3_data_isbptr(data),
                 false)) {
             #ifdef LFS3_CKDATACKSUMS
@@ -2914,7 +2967,7 @@ static int lfs3_data_fetchbptr(lfs3_t *lfs3, lfs3_data_t *data,
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
-    if (lfs3->flags & LFS3_M_CKFETCHES) {
+    if (LFS3_CFG_ISCKFETCHES(lfs3->cfg)) {
         err = lfs3_bptr_ck(lfs3, bptr);
         if (err) {
             return err;
@@ -3339,7 +3392,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     bool perturb = false;
     // and damaged/condemned bits, if repairing
     #if !defined(LF33_RDONLY) && defined(LFS3_REPAIR)
-    uint8_t repair_flags = lfs3->repair_flags;
+    uint32_t damage = lfs3->flags;
     #endif
 
     // checksum the revision count to get the cksum started
@@ -3482,7 +3535,7 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
                 // update damaged/condemned bits
                 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-                repair_flags |= lfs3->repair_flags;
+                damage |= lfs3->flags;
                 #endif
 
                 #ifndef LFS3_RDONLY
@@ -3571,7 +3624,8 @@ static int lfs3_rbyd_fetch_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     // revert damaged/condemned flags to last valid commit
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-    lfs3->repair_flags = repair_flags;
+    lfs3->flags = (lfs3->flags & ~(LFS3_i_CONDEMNED | LFS3_i_DAMAGED))
+            | (damage & (LFS3_i_CONDEMNED | LFS3_i_DAMAGED));
     #endif
 
     #ifdef LFS3_DBGRBYDFETCHES
@@ -3725,7 +3779,7 @@ static int lfs3_rbyd_ckfetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 //
 // this does one of the following:
 // 1. nothing, if already fetched
-// 2. ckfetch, if checking fetches (LFS3_M_CKFETCHES)
+// 2. ckfetch, if checking fetches (LFS3_CFG_CKFETCHES)
 // 3. quickfetch, so we have enough info to mutate
 static int lfs3_rbyd_mkfetched(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     // why would you try to fetch a shrub?
@@ -3736,9 +3790,7 @@ static int lfs3_rbyd_mkfetched(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
         return 0;
 
     // checking fetches?
-    } else if (LFS3_IFDEF_CKFETCHES(
-            lfs3->flags & LFS3_M_CKFETCHES,
-            false)) {
+    } else if (LFS3_CFG_ISCKFETCHES(lfs3->cfg)) {
     #ifdef LFS3_CKFETCHES
         return lfs3_rbyd_ckfetch(lfs3, rbyd,
                 rbyd->blocks[0], lfs3_rbyd_trunk(rbyd),
@@ -3920,7 +3972,7 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // this ensures at least one bit changes in the new rbyd, and is
     // necessary to invalidate any ecksums
     #ifdef LFS3_REVPERTURB
-    if (lfs3->cfg->rev_flags & LFS3_REV_PERTURB) {
+    if (LFS3_CFG_ISREVPERTURB(lfs3->cfg)) {
         uint8_t e = 0;
         int err = lfs3_bd_read(lfs3,
                 rbyd->blocks[0], 0, LFS3_BD_RELAX,
@@ -3940,7 +3992,7 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // bugs, but is otherwise unnecessary, note we really don't want
     // this enabled during testing!
     #ifdef LFS3_REVNOISE
-    if (lfs3->cfg->rev_flags & LFS3_REV_NOISE) {
+    if (LFS3_CFG_ISREVNOISE(lfs3->cfg)) {
         rev ^= ~(~((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
                     | 0xff)
                 // we need to use gcksum_p because we have be in the
@@ -5927,7 +5979,7 @@ static int lfs3_data_fetchbranch(lfs3_t *lfs3,
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
-    if (lfs3->flags & LFS3_M_CKFETCHES) {
+    if (LFS3_CFG_ISCKFETCHES(lfs3->cfg)) {
         int err = lfs3_rbyd_ckfetch(lfs3, branch,
                 branch->blocks[0], lfs3_rbyd_trunk(branch),
                 branch->cksum);
@@ -5993,7 +6045,7 @@ static int lfs3_data_fetchbtree(lfs3_t *lfs3, lfs3_data_t *data,
 
     // checking fetches?
     #ifdef LFS3_CKFETCHES
-    if (lfs3->flags & LFS3_M_CKFETCHES) {
+    if (LFS3_CFG_ISCKFETCHES(lfs3->cfg)) {
         lfs3_bid_t weight = btree->weight;
         int err = lfs3_rbyd_ckfetch(lfs3, btree,
                 btree->blocks[0], lfs3_rbyd_trunk(btree),
@@ -8376,7 +8428,7 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     for (int i = 0; i < 2; i++) {
         // reset damaged/condemned bits
         #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-        lfs3->repair_flags = 0;
+        lfs3->flags &= ~(LFS3_i_CONDEMNED | LFS3_i_DAMAGED);
         #endif
 
         // try to fetch
@@ -8410,8 +8462,8 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
             // lfs3_rbyd_fetch_ + bd operations
             #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
             if (LFS3_IFDEF_GBMAP(
-                    (lfs3->repair_flags & LFS3_REPAIR_CONDEMNED)
-                        && (lfs3->flags & LFS3_I_GBMAP),
+                    (lfs3->flags & LFS3_I_GBMAP)
+                        && (lfs3->flags & LFS3_i_CONDEMNED),
                     false)) {
                 #ifdef LFS3_CONDEMN
                 // try not to spam condemned warnings
@@ -8426,7 +8478,7 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 lfs3_evict_push(lfs3, mdir->r.blocks[0], LFS3_EVICT_BAD);
                 #endif
 
-            } else if (lfs3->repair_flags & LFS3_REPAIR_DAMAGED) {
+            } else if (lfs3->flags & LFS3_i_DAMAGED) {
                 // try not to spam damaged warnings
                 lfs3_evict_t *evict = lfs3_evict_evictionrbyd(lfs3, &mdir->r);
                 if (!evict) {
@@ -10568,7 +10620,7 @@ again:;
     // yes this grows potentially O(n^2) in-ram, but do we care?
     //
     // note we can skip this when rdonly, which saves a bit of code
-    if (!(lfs3->flags & LFS3_M_RDONLY)) {
+    if (!(lfs3->flags & LFS3_I_RDONLY)) {
         for (lfs3_handle_t *h = mtrv->h.next; h; h = h->next) {
             // found one?
             if (h->mdir.mid == mtrv->h.mdir.mid
@@ -11974,24 +12026,26 @@ static int lfs3_fs_gc_(lfs3_t *lfs3, uint32_t flags) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 static int lfs3_fs_mkrepaired(lfs3_t *lfs3) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
-
-    uint32_t r = ((lfs3->flags
-                    // repairdatadamage implies repairmetadamage
-                    | ((lfs3->flags & LFS3_M_REPAIRDATADAMAGE) >> 1))
-                << 18)
-            // mask with pending flags
-            & lfs3->flags
-            & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA);
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
     // nothing to repair?
-    if (!r) {
+    if (!((LFS3_CFG_ISREPAIRMETADAMAGE(lfs3->cfg)
+                && (lfs3->flags & LFS3_I_REPAIRMETA))
+            || (LFS3_CFG_ISREPAIRDATADAMAGE(lfs3->cfg)
+                && (lfs3->flags & (
+                    LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))))) {
         return 0;
     }
 
     // traverse and evict to repair any known damage, this also
     // writes any condemned blocks into the gbmap
-    return lfs3_fs_gc_(lfs3, r);
+    return lfs3_fs_gc_(lfs3,
+            ((LFS3_CFG_ISREPAIRMETADAMAGE(lfs3->cfg))
+                    ? LFS3_GC_REPAIRMETA
+                    : 0)
+                | ((LFS3_CFG_ISREPAIRDATADAMAGE(lfs3->cfg))
+                    ? LFS3_GC_REPAIRDATA
+                    : 0));
 }
 #endif
 
@@ -11999,7 +12053,7 @@ static int lfs3_fs_mkrepaired(lfs3_t *lfs3) {
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
     if (lfs3_grm_count(&lfs3->grm) == 2) {
         LFS3_INFO("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
@@ -12046,7 +12100,7 @@ static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_fixorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // grm queue should be flushed before calling
     // lfs3_mtree_fixorphansmdir
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
@@ -12114,7 +12168,7 @@ failed:;
 #ifndef LFS3_RDONLY
 static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // grm queue should be flushed before calling lfs3_mtree_fixorphans
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
@@ -12143,7 +12197,7 @@ static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
 #ifndef LFS3_RDONLY
 int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
     // repair any known damage
     #ifdef LFS3_REPAIR
@@ -12888,7 +12942,7 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
                 if (tag == LFS3_TAG_BMFREE
                         || LFS3_IFDEF_PREERASE(
                             tag == LFS3_TAG_BMERASED
-                                && (lfs3->cfg->rev_flags & LFS3_REV_PERTURB),
+                                && LFS3_CFG_ISREVPERTURB(lfs3->cfg),
                             false)) {
                     lfs3->gbmap.next = +d;
 
@@ -14479,10 +14533,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     #endif
 
     // setup file state
-    lfs3_file_init(file,
-            // mounted with LFS3_M_FLUSH/SYNC? implies LFS3_O_FLUSH/SYNC
-            flags | (lfs3->flags & (LFS3_M_FLUSH | LFS3_M_SYNC)),
-            cfg);
+    lfs3_file_init(file, flags, cfg);
 
     // allocate cache if necessary
     //
@@ -14681,8 +14732,16 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
                 | LFS3_O_DESYNC
                 | LFS3_O_CKMETA
                 | LFS3_O_CKDATA)) == 0);
+    // or-in relevant mount/cfg/yes flags
+    flags |= lfs3->flags & (
+            LFS3_O_FLUSH
+                | LFS3_O_SYNC);
+    // or-in relevant filecfg flags
+    flags |= cfg->flags & (
+            LFS3_O_FLUSH
+                | LFS3_O_SYNC);
     // writeable files require a writeable filesystem
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY) || lfs3_o_isrdonly(flags));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY) || lfs3_o_isrdonly(flags));
     // these flags require a readable file
     LFS3_ASSERT(!lfs3_o_iswronly(flags) || !(flags & LFS3_T_CKMETA));
     LFS3_ASSERT(!lfs3_o_iswronly(flags) || !(flags & LFS3_T_CKDATA));
@@ -14732,7 +14791,7 @@ static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
     if ((file->h.flags & LFS3_o_UNCREAT)
             && !lfs3_mid_isopen(lfs3, file->h.mdir.mid, -1)) {
         // this can only happen in a rdwr filesystem
-        LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+        LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
         // this gets a bit messy, since we're not able to write to the
         // filesystem if we're rdonly or desynced, fortunately we have
@@ -17004,50 +17063,56 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT((flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_M_RDWR)
                 | LFS3_M_RDONLY
+                | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
                 | LFS3_M_FLUSH
-                | LFS3_M_SYNC
-                | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
-                | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
-                | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
-                | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, 0)
-                | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0)
-                | LFS3_IFDEF_CONDEMN(LFS3_M_CONDEMNDAMAGE, 0)
-                | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0))) == 0);
-    // TODO this all needs to be cleaned up
-    lfs3->cfg = cfg;
-    int err = 0;
+                | LFS3_M_SYNC)) == 0);
+    // unknown cfg flags?
+    LFS3_ASSERT((cfg->flags & ~(
+            LFS3_IFDEF_RDONLY(0, LFS3_CFG_RDWR)
+                | LFS3_CFG_RDONLY
+                | LFS3_IFDEF_GBMAP(LFS3_CFG_GBMAP, 0)
+                | LFS3_CFG_FLUSH
+                | LFS3_CFG_SYNC
+                | LFS3_IFDEF_REVPERTURB(LFS3_CFG_REVPERTURB, 0)
+                | LFS3_IFDEF_REVNOISE(LFS3_CFG_REVNOISE, 0)
+                | LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, 0)
+                | LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, 0)
+                | LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, 0)
+                | LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, 0)
+                | LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, 0)
+                | LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, 0)
+                | LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, 0))) == 0);
 
     // validate that the lfs3-cfg sizes were initiated properly before
     // performing any arithmetic logics with them
-    LFS3_ASSERT(lfs3->cfg->read_size != 0);
+    LFS3_ASSERT(cfg->read_size != 0);
     #ifndef LFS3_RDONLY
-    LFS3_ASSERT(lfs3->cfg->prog_size != 0);
+    LFS3_ASSERT(cfg->prog_size != 0);
     #endif
-    LFS3_ASSERT(lfs3->cfg->rcache_size != 0);
+    LFS3_ASSERT(cfg->rcache_size != 0);
     #ifndef LFS3_RDONLY
-    LFS3_ASSERT(lfs3->cfg->pcache_size != 0);
+    LFS3_ASSERT(cfg->pcache_size != 0);
     #endif
 
     // cache sizes must be a multiple of their operation sizes
-    LFS3_ASSERT(lfs3->cfg->rcache_size % lfs3->cfg->read_size == 0);
+    LFS3_ASSERT(cfg->rcache_size % cfg->read_size == 0);
     #ifndef LFS3_RDONLY
-    LFS3_ASSERT(lfs3->cfg->pcache_size % lfs3->cfg->prog_size == 0);
+    LFS3_ASSERT(cfg->pcache_size % cfg->prog_size == 0);
     #endif
 
     // block_size must be a multiple of both prog/read size
-    LFS3_ASSERT(lfs3->cfg->block_size % lfs3->cfg->read_size == 0);
+    LFS3_ASSERT(cfg->block_size % cfg->read_size == 0);
     #ifndef LFS3_RDONLY
-    LFS3_ASSERT(lfs3->cfg->block_size % lfs3->cfg->prog_size == 0);
+    LFS3_ASSERT(cfg->block_size % cfg->prog_size == 0);
     #endif
 
     // block_size is currently limited to 28-bits
-    LFS3_ASSERT(lfs3->cfg->block_size <= 0x0fffffff);
+    LFS3_ASSERT(cfg->block_size <= 0x0fffffff);
 
     // check gc stuff
     #ifdef LFS3_GC
     // unknown gc flags?
-    LFS3_ASSERT((lfs3->cfg->gc_flags & ~(
+    LFS3_ASSERT((cfg->gc_flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
@@ -17064,20 +17129,23 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     //
     // metadata can't be compacted below block_size/2, and metadata can't
     // exceed a block
-    LFS3_ASSERT(lfs3->cfg->gc_compactmeta_thresh == 0
-            || lfs3->cfg->gc_compactmeta_thresh >= lfs3->cfg->block_size/2);
-    LFS3_ASSERT(lfs3->cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
-            || lfs3->cfg->gc_compactmeta_thresh <= lfs3->cfg->block_size);
+    LFS3_ASSERT(cfg->gc_compactmeta_thresh == 0
+            || cfg->gc_compactmeta_thresh >= cfg->block_size/2);
+    LFS3_ASSERT(cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
+            || cfg->gc_compactmeta_thresh <= cfg->block_size);
     #endif
 
     #ifndef LFS3_RDONLY
     // shrub_size must be <= block_size/8
-    LFS3_ASSERT(lfs3->cfg->shrub_size <= lfs3->cfg->block_size/8);
+    LFS3_ASSERT(cfg->shrub_size <= cfg->block_size/8);
     // fragment_size must be <= block_size/4
-    LFS3_ASSERT(lfs3->cfg->fragment_size <= lfs3->cfg->block_size/4);
+    LFS3_ASSERT(cfg->fragment_size <= cfg->block_size/4);
     #endif
 
-    // TODO move this to mount?
+    // looks correct? start putting the system together
+
+    // setup config
+    lfs3->cfg = cfg;
     // setup flags
     lfs3->flags = flags
             // assume we contain orphans until proven otherwise
@@ -17091,6 +17159,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
             // default to needing a ckmeta/ckdata scan
             | LFS3_I_CKMETA
             | LFS3_I_CKDATA;
+    int err;
 
     // copy block_count so we can mutate it
     lfs3->block_count = lfs3->cfg->block_count;
@@ -17594,7 +17663,7 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     // check wcompat flags - we must understand these to write to the
     // filesystem
-    if (!(lfs3->flags & LFS3_M_RDONLY)) {
+    if (!(lfs3->flags & LFS3_I_RDONLY)) {
         lfs3_compat_t wmask_ = lfs3_fs_wmask(lfs3);
         if ((compat & wmask_) != (compat_ & wmask_)) {
             LFS3_ERROR("Incompatible wcompat flags cx%"PRIx32".%"PRIx32" "
@@ -17920,58 +17989,14 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     return 0;
 }
 
-// needed in lfs3_mount
-static int lfs3_fs_gc_(lfs3_t *lfs3, uint32_t flags);
-
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_cfg *cfg) {
-    #ifdef LFS3_YES_RDONLY
-    flags |= LFS3_M_RDONLY;
-    #endif
-    #ifdef LFS3_YES_FLUSH
-    flags |= LFS3_M_FLUSH;
-    #endif
-    #ifdef LFS3_YES_SYNC
-    flags |= LFS3_M_SYNC;
-    #endif
-    #ifdef LFS3_YES_CKPROGS
-    flags |= LFS3_M_CKPROGS;
-    #endif
-    #ifdef LFS3_YES_CKFETCHES
-    flags |= LFS3_M_CKFETCHES;
-    #endif
-    #ifdef LFS3_YES_CKMETAPARITY
-    flags |= LFS3_M_CKMETAPARITY;
-    #endif
-    #ifdef LFS3_YES_CKDATACKSUMS
-    flags |= LFS3_M_CKDATACKSUMS;
-    #endif
-    #ifdef LFS3_YES_REPAIRMETADAMAGE
-    flags |= LFS3_M_REPAIRMETADAMAGE
-    #endif
-    #ifdef LFS3_YES_REPAIRDATADAMAGE
-    flags |= LFS3_M_REPAIRDATADAMAGE
-    #endif
-    #ifdef LFS3_YES_CONDEMNDAMAGE
-    flags |= LFS3_M_CONDEMNDAMAGE
-    #endif
-
     // unknown flags?
     LFS3_ASSERT((flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_M_RDWR)
                 | LFS3_M_RDONLY
                 | LFS3_M_FLUSH
                 | LFS3_M_SYNC
-                | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
-                | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
-                | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, 0))
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0))
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, 0))
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
@@ -17983,38 +18008,37 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))) == 0);
+    // or-in relevant yes flags
+    flags |= LFS3_IFDEF_RDONLY(LFS3_M_RDONLY, 0)
+            | LFS3_IFYES_FLUSH(LFS3_M_FLUSH, 0)
+            | LFS3_IFYES_SYNC(LFS3_M_SYNC, 0);
+    // or-in relevant cfg flags
+    flags |= cfg->flags & (
+            LFS3_M_RDONLY
+                | LFS3_M_FLUSH
+                | LFS3_M_SYNC);
     // these flags require a writable filesystem
-    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_M_REPAIRMETADAMAGE));
-    LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_M_REPAIRDATADAMAGE));
-    #endif
-    #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-    LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_M_CONDEMNDAMAGE));
-    #endif
-    LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_GC_MKCONSISTENT));
+            || !(flags & LFS3_M_MKCONSISTENT));
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY) 
-            || !(flags & LFS3_GC_LOOKAHEAD));
+            || !(flags & LFS3_M_LOOKAHEAD));
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_GC_PREERASE));
+            || !(flags & LFS3_M_PREERASE));
     #endif
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_GC_COMPACTMETA));
+            || !(flags & LFS3_M_COMPACTMETA));
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_GC_REPAIRMETA));
+            || !(flags & LFS3_M_REPAIRMETA));
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_GC_REPAIRDATA));
+            || !(flags & LFS3_M_REPAIRDATA));
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT((cfg->rev_flags & LFS3_REV_PERTURB)
-            || !(flags & LFS3_GC_PREERASE));
+    LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(cfg)
+            || !(flags & LFS3_M_PREERASE));
     #endif
 
     int err = lfs3_init(lfs3,
@@ -18022,17 +18046,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 LFS3_IFDEF_RDONLY(0, LFS3_M_RDWR)
                     | LFS3_M_RDONLY
                     | LFS3_M_FLUSH
-                    | LFS3_M_SYNC
-                    | LFS3_IFDEF_CKPROGS(LFS3_M_CKPROGS, 0)
-                    | LFS3_IFDEF_CKFETCHES(LFS3_M_CKFETCHES, 0)
-                    | LFS3_IFDEF_CKMETAPARITY(LFS3_M_CKMETAPARITY, 0)
-                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_M_CKDATACKSUMS, 0)
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, 0))
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0))
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, 0))),
+                    | LFS3_M_SYNC),
             cfg);
     if (err) {
         return err;
@@ -18045,29 +18059,29 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
 
     // run gc if requested
     if (flags & (
-            LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+            LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA
+                    LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0))
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA)
+                | LFS3_M_CKMETA
+                | LFS3_M_CKDATA
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
+                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) {
+                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))) {
         err = lfs3_fs_gc_(lfs3, flags & (
-                LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                    | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+                LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                    | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                    | LFS3_GC_CKMETA
-                    | LFS3_GC_CKDATA
+                        LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0))
+                    | LFS3_IFDEF_RDONLY(0, LFS3_M_COMPACTMETA)
+                    | LFS3_M_CKMETA
+                    | LFS3_M_CKDATA
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
+                        LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0))
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))));
+                        LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0))));
         if (err) {
             goto failed;
         }
@@ -18265,42 +18279,10 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
 #ifndef LFS3_RDONLY
 int lfs3_format(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_cfg *cfg) {
-    #ifdef LFS3_YES_GBMAP
-    flags |= LFS3_F_GBMAP;
-    #endif
-    #ifdef LFS3_YES_CKPROGS
-    flags |= LFS3_F_CKPROGS;
-    #endif
-    #ifdef LFS3_YES_CKFETCHES
-    flags |= LFS3_F_CKFETCHES;
-    #endif
-    #ifdef LFS3_YES_CKMETAPARITY
-    flags |= LFS3_F_CKMETAPARITY;
-    #endif
-    #ifdef LFS3_YES_CKDATACKSUMS
-    flags |= LFS3_F_CKDATACKSUMS;
-    #endif
-    #ifdef LFS3_YES_REPAIRMETADAMAGE
-    flags |= LFS3_F_REPAIRMETADAMAGE
-    #endif
-    #ifdef LFS3_YES_REPAIRDATADAMAGE
-    flags |= LFS3_F_REPAIRDATADAMAGE
-    #endif
-    #ifdef LFS3_YES_CONDEMNDAMAGE
-    flags |= LFS3_F_CONDEMNDAMAGE
-    #endif
-
     // unknown flags?
     LFS3_ASSERT((flags & ~(
             LFS3_F_RDWR
                 | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
-                | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
-                | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
-                | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
-                | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
-                | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETADAMAGE, 0)
-                | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATADAMAGE, 0)
-                | LFS3_IFDEF_REPAIR(LFS3_F_CONDEMNDAMAGE, 0)
                 | LFS3_F_MKCONSISTENT
                 | LFS3_F_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)
@@ -18309,24 +18291,22 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_F_CKDATA
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0))) == 0);
+    // or-in relevant yes flags
+    flags |= LFS3_IFYES_GBMAP(LFS3_F_GBMAP, 0, 0);
+    // or-in relevant cfg flags
+    flags |= cfg->flags & (
+            LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0));
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT((cfg->rev_flags & LFS3_REV_PERTURB)
+    LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(cfg)
             || !(flags & LFS3_GC_PREERASE));
     #endif
 
     int err = lfs3_init(lfs3,
             flags & (
                 LFS3_F_RDWR
-                    | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
-                    | LFS3_IFDEF_CKPROGS(LFS3_F_CKPROGS, 0)
-                    | LFS3_IFDEF_CKFETCHES(LFS3_F_CKFETCHES, 0)
-                    | LFS3_IFDEF_CKMETAPARITY(LFS3_F_CKMETAPARITY, 0)
-                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_F_CKDATACKSUMS, 0)
-                    | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETADAMAGE, 0)
-                    | LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATADAMAGE, 0)
-                    | LFS3_IFDEF_REPAIR(LFS3_M_CONDEMNDAMAGE, 0)),
+                    | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)),
             cfg);
     if (err) {
         return err;
@@ -18351,23 +18331,23 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
 
     // run gc if requested
     if (flags & (
-            LFS3_GC_MKCONSISTENT
-                | LFS3_GC_LOOKAHEAD
-                | LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)
-                | LFS3_GC_COMPACTMETA
-                | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA
-                | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)
-                | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))) {
+            LFS3_F_MKCONSISTENT
+                | LFS3_F_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)
+                | LFS3_F_COMPACTMETA
+                | LFS3_F_CKMETA
+                | LFS3_F_CKDATA
+                | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)
+                | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0))) {
         err = lfs3_fs_gc_(lfs3, flags & (
-                LFS3_GC_MKCONSISTENT
-                    | LFS3_GC_LOOKAHEAD
-                    | LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)
-                    | LFS3_GC_COMPACTMETA
-                    | LFS3_GC_CKMETA
-                    | LFS3_GC_CKDATA
-                    | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)
-                    | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)));
+                LFS3_F_MKCONSISTENT
+                    | LFS3_F_LOOKAHEAD
+                    | LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)
+                    | LFS3_F_COMPACTMETA
+                    | LFS3_F_CKMETA
+                    | LFS3_F_CKDATA
+                    | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)
+                    | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)));
         if (err) {
             goto failed;
         }
@@ -18391,18 +18371,9 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     // return various filesystem flags
     fsinfo->flags = (lfs3->flags & (
                 LFS3_I_RDONLY
+                    | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)
                     | LFS3_I_FLUSH
                     | LFS3_I_SYNC
-                    | LFS3_IFDEF_CKPROGS(LFS3_I_CKPROGS, 0)
-                    | LFS3_IFDEF_CKFETCHES(LFS3_I_CKFETCHES, 0)
-                    | LFS3_IFDEF_CKMETAPARITY(LFS3_I_CKMETAPARITY, 0)
-                    | LFS3_IFDEF_CKDATACKSUMS(LFS3_I_CKDATACKSUMS, 0)
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETADAMAGE, 0))
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATADAMAGE, 0))
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_I_CONDEMNDAMAGE, 0))
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
@@ -18411,8 +18382,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETA, 0))
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, 0))
-                    | LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, 0)))
+                        LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, 0))))
             // LFS3_I_MKCONSISTENT is a bit of a special case,
             // internally it strictly indicates untracked orphans, but
             // externally it also includes any pending grms
@@ -18427,7 +18397,8 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 LFS3_IFDEF_PREERASE(
                     (lfs3_alloc_canpreerase(lfs3))
                         ? LFS3_I_PREERASE
-                        : 0, 0));
+                        : 0,
+                    0));
 
     // return filesystem config, this may come from disk
     fsinfo->block_size = lfs3->cfg->block_size;
@@ -18498,7 +18469,7 @@ int lfs3_fs_ckdata(lfs3_t *lfs3) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 int lfs3_fs_repairmeta(lfs3_t *lfs3) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
     return lfs3_fs_gc_(lfs3, LFS3_GC_REPAIRMETA);
 }
@@ -18507,7 +18478,7 @@ int lfs3_fs_repairmeta(lfs3_t *lfs3) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 int lfs3_fs_repairdata(lfs3_t *lfs3) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
     return lfs3_fs_gc_(lfs3, LFS3_GC_REPAIRDATA);
 }
@@ -18516,7 +18487,7 @@ int lfs3_fs_repairdata(lfs3_t *lfs3) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 int lfs3_fs_ckrepairmeta(lfs3_t *lfs3) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
     return lfs3_fs_gc_(lfs3, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA);
 }
@@ -18525,7 +18496,7 @@ int lfs3_fs_ckrepairmeta(lfs3_t *lfs3) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 int lfs3_fs_ckrepairdata(lfs3_t *lfs3) {
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
     return lfs3_fs_gc_(lfs3, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA);
 }
@@ -18553,26 +18524,26 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     //
     // we don't check this in lfs3_init to avoid cfg headache when
     // mounting rdonly
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(lfs3->cfg->gc_flags & LFS3_GC_MKCONSISTENT));
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(lfs3->cfg->gc_flags & LFS3_GC_LOOKAHEAD));
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(lfs3->cfg->gc_flags & LFS3_GC_PREERASE));
     #endif
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(lfs3->cfg->gc_flags & LFS3_GC_COMPACTMETA));
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(lfs3->cfg->gc_flags & LFS3_GC_REPAIRMETA));
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(lfs3->cfg->gc_flags & LFS3_GC_REPAIRDATA));
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT((lfs3->cfg->rev_flags & LFS3_REV_PERTURB)
+    LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(lfs3->cfg)
             || !(lfs3->cfg->gc_flags & LFS3_GC_PREERASE));
     #endif
 
@@ -18634,7 +18605,7 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
     // used to rescue a filesystem.
 
     // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY));
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // shrinking the filesystem is not supported
     LFS3_ASSERT(block_count_ >= lfs3->block_count);
 
@@ -19163,27 +19134,27 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     #ifndef LFS3_RDONLY
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_MKCONSISTENT));
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_LOOKAHEAD));
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_PREERASE));
     #endif
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_COMPACTMETA));
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_REPAIRMETA));
-    LFS3_ASSERT(!(lfs3->flags & LFS3_M_RDONLY)
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_REPAIRDATA));
     #endif
     #endif
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
-    LFS3_ASSERT((lfs3->cfg->rev_flags & LFS3_REV_PERTURB)
+    LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(lfs3->cfg)
             || !(flags & LFS3_GC_PREERASE));
     #endif
 

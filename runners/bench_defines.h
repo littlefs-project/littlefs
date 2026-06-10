@@ -18,6 +18,7 @@
 // preconfigured defines that control how benches run
 #ifdef BENCH_DEFINE
     //           name                   value (overridable)
+    BENCH_DEFINE(CFG_FLAGS,             0                                   )
     BENCH_DEFINE(DISK_SIZE,             128*1024*1024                       )
     BENCH_DEFINE(DISK_GEOMETRY,         0                                   )
     // simulation mode
@@ -36,7 +37,6 @@
     BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                  )
     BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
     BENCH_DEFINE(EVICTQUEUE_COUNT,      2                                   )
-    BENCH_DEFINE(REV_FLAGS,             0                                   )
     BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                          )
     BENCH_DEFINE(GC_STEPS,              0                                   )
     BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   -1                                  )
@@ -147,6 +147,7 @@
 // struct lfs3_cfg definition
 #ifdef BENCH_CFG
     struct lfs3_cfg _cfg = {
+        .flags                          = CFG_FLAGS,
         #ifdef BENCH_CFG_CFG
         BENCH_CFG_CFG
         #endif
@@ -169,7 +170,6 @@
         #ifdef LFS3_EVICT
         .evictqueue_count               = EVICTQUEUE_COUNT,
         #endif
-        .rev_flags                      = REV_FLAGS,
         #ifdef LFS3_GC
         .gc_flags                       = GC_FLAGS,
         .gc_steps                       = GC_STEPS,

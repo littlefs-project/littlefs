@@ -932,8 +932,8 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = -1
 defines.GC_PREERASE_COUNT = ['0', '4', 'COUNT/2', 'COUNT-4', '-1']
 # note preerasing needs revperturb
-defines.REV_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_PERTURB, -1) : 0)
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 # test with a number of different erase values
 defines.ERASE_VALUE = [0xff, 0x00, -1]
