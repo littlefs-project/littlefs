@@ -12050,18 +12050,6 @@ static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
-    if (lfs3_grm_count(&lfs3->grm) == 2) {
-        LFS3_INFO("Fixing grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
-                lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
-                lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]),
-                lfs3_dbgmbid(lfs3, lfs3->grm.queue[1]),
-                lfs3_dbgmrid(lfs3, lfs3->grm.queue[1]));
-    } else if (lfs3_grm_count(&lfs3->grm) == 1) {
-        LFS3_INFO("Fixing grm %"PRId32".%"PRId32,
-                lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
-                lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]));
-    }
-
     while (lfs3_grm_count(&lfs3->grm) > 0) {
         // find our mdir
         lfs3_mdir_t mdir;
@@ -12132,7 +12120,7 @@ static int lfs3_mtree_fixmdirorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
         }
 
         // we found an orphaned stickynote, remove
-        LFS3_INFO("Fixing orphaned stickynote %"PRId32".%"PRId32,
+        LFS3_INFO("Found orphaned stickynote %"PRId32".%"PRId32,
                 lfs3_dbgmbid(lfs3, mdir->mid),
                 lfs3_dbgmrid(lfs3, mdir->mid));
 
@@ -17932,13 +17920,14 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 
     // found pending grms? this should only happen if we lost power
     if (lfs3_grm_count(&lfs3->grm) == 2) {
-        LFS3_INFO("Found pending grm %"PRId32".%"PRId32" %"PRId32".%"PRId32,
+        LFS3_INFO("Found pending grm "
+                    "[%"PRId32".%"PRId32", %"PRId32".%"PRId32"]",
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[1]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[1]));
     } else if (lfs3_grm_count(&lfs3->grm) == 1) {
-        LFS3_INFO("Found pending grm %"PRId32".%"PRId32,
+        LFS3_INFO("Found pending grm [%"PRId32".%"PRId32"]",
                 lfs3_dbgmbid(lfs3, lfs3->grm.queue[0]),
                 lfs3_dbgmrid(lfs3, lfs3->grm.queue[0]));
     }
