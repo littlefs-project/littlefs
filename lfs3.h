@@ -1004,6 +1004,9 @@ enum lfs3_tag {
 #define LFS3_RCOMPAT_STICKYNOTE      0x0008 // Stickynote file type in use
 // internally used flags
 #define LFS3_rcompat_OVERFLOW        0x8000 // Can't represent all flags
+// mask of features we care about when mounting
+#define LFS3_rcompat_MASK \
+    (0xffff)
 
 // On-disk write-compat flags - Must understand to write to the filesystem
 #define LFS3_WCOMPAT_RDONLY          0x0001 // Writing is disallowed
@@ -1013,6 +1016,10 @@ enum lfs3_tag {
 #define LFS3_WCOMPAT_GBMAP           0x0010 // Global on-disk block-map in use
 // internally used flags
 #define LFS3_wcompat_OVERFLOW        0x8000 // Can't represent all flags
+// mask of features we care about when mounting
+#define LFS3_wcompat_MASK \
+    (0xffff & ~( \
+        LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0)))
 
 
 // On-disk encodings/decodings

@@ -17440,6 +17440,9 @@ static int lfs3_deinit(lfs3_t *lfs3) {
 #define LFS3_COMPAT(rcompat, wcompat) \
     (((wcompat) << 16) | (rcompat))
 
+#define LFS3_COMPAT_RMASK LFS3_COMPAT(LFS3_rcompat_MASK, 0)
+#define LFS3_COMPAT_WMASK LFS3_COMPAT(0, LFS3_wcompat_MASK)
+
 static inline lfs3_compat_t lfs3_compat_rcompat(lfs3_compat_t compat) {
     return 0xffff & compat;
 }
@@ -17465,22 +17468,6 @@ static inline lfs3_compat_t lfs3_fs_compat(const lfs3_t *lfs3) {
                         ? LFS3_WCOMPAT_GBMAP
                         : 0,
                     0));
-}
-
-static inline lfs3_compat_t lfs3_fs_rmask(const lfs3_t *lfs3) {
-    (void)lfs3;
-    return LFS3_COMPAT(
-            0xffff,
-            0);
-}
-
-static inline lfs3_compat_t lfs3_fs_wmask(const lfs3_t *lfs3) {
-    (void)lfs3;
-    return LFS3_COMPAT(
-            0,
-            0xffff & ~(
-                // we can ignore the gbmap flag if we support both modes
-                LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0)));
 }
 
 // compat flags on-disk encoding
@@ -17643,32 +17630,30 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
     // check rcompat flags - we must understand these to read the
     // filesystem
     lfs3_compat_t compat_ = lfs3_fs_compat(lfs3);
-    lfs3_compat_t rmask_ = lfs3_fs_rmask(lfs3);
-    if ((compat & rmask_) != (compat_ & rmask_)) {
+    if ((compat & LFS3_COMPAT_RMASK) != (compat_ & LFS3_COMPAT_RMASK)) {
         LFS3_ERROR("Incompatible rcompat flags cx%"PRIx32".%"PRIx32" "
                     "(!= cx%"PRIx32".%"PRIx32" & 0x%"PRIx32".%"PRIx32")",
                 lfs3_compat_rcompat(compat),
                 lfs3_compat_wcompat(compat),
                 lfs3_compat_rcompat(compat_),
                 lfs3_compat_wcompat(compat_),
-                lfs3_compat_rcompat(rmask_),
-                lfs3_compat_wcompat(rmask_));
+                lfs3_compat_rcompat(LFS3_COMPAT_RMASK),
+                lfs3_compat_wcompat(LFS3_COMPAT_RMASK));
         return LFS3_ERR_NOTSUP;
     }
 
     // check wcompat flags - we must understand these to write to the
     // filesystem
     if (!(lfs3->flags & LFS3_I_RDONLY)) {
-        lfs3_compat_t wmask_ = lfs3_fs_wmask(lfs3);
-        if ((compat & wmask_) != (compat_ & wmask_)) {
+        if ((compat & LFS3_COMPAT_WMASK) != (compat_ & LFS3_COMPAT_WMASK)) {
             LFS3_ERROR("Incompatible wcompat flags cx%"PRIx32".%"PRIx32" "
                         "(!= cx%"PRIx32".%"PRIx32" & 0x%"PRIx32".%"PRIx32")",
                     lfs3_compat_rcompat(compat),
                     lfs3_compat_wcompat(compat),
                     lfs3_compat_rcompat(compat_),
                     lfs3_compat_wcompat(compat_),
-                    lfs3_compat_rcompat(wmask_),
-                    lfs3_compat_wcompat(wmask_));
+                    lfs3_compat_rcompat(LFS3_COMPAT_WMASK),
+                    lfs3_compat_wcompat(LFS3_COMPAT_WMASK));
             return LFS3_ERR_NOTSUP;
         }
     }
