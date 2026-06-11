@@ -13691,14 +13691,23 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
         }
     }
 
-    // we need to clean up any pending grms/damage, so call
-    // lfs3_fs_mkconsistent again
-    err = lfs3_fs_mkconsistent(lfs3);
+    // if we created any grms, we need to clean them up
+    err = lfs3_mtree_mknogrm(lfs3);
     if (err) {
         // we did complete the remove, so we shouldn't error here, best
         // we can do is log this
-        LFS3_WARN("Failed to clean up after remove (%d)", err);
+        LFS3_WARN("Failed to clean up grm (%d)", err);
     }
+
+    // if we encountered any damage, try to repair it
+    #ifdef LFS3_REPAIR
+    err = lfs3_fs_mkrepaired(lfs3);
+    if (err) {
+        // if we failed to repair damage, best we can do is log this
+        LFS3_WARN("Failed to repair damage (%d)", err);
+    }
+    #endif
+
 
     return 0;
 
@@ -13883,14 +13892,22 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         }
     }
 
-    // we need to clean up any pending grms/damage, so call
-    // lfs3_fs_mkconsistent again
-    err = lfs3_fs_mkconsistent(lfs3);
+    // if we created any grms, we need to clean them up
+    err = lfs3_mtree_mknogrm(lfs3);
     if (err) {
         // we did complete the rename, so we shouldn't error here, best
         // we can do is log this
-        LFS3_WARN("Failed to clean up after rename (%d)", err);
+        LFS3_WARN("Failed to clean up grm (%d)", err);
     }
+
+    // if we encountered any damage, try to repair it
+    #ifdef LFS3_REPAIR
+    err = lfs3_fs_mkrepaired(lfs3);
+    if (err) {
+        // if we failed to repair damage, best we can do is log this
+        LFS3_WARN("Failed to repair damage (%d)", err);
+    }
+    #endif
 
     return 0;
 
