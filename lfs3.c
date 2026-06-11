@@ -11357,7 +11357,7 @@ static int lfs3_mtree_condemnevicted(lfs3_t *lfs3, uint32_t flags) {
 
 
 // needed in lfs3_mtree_gc
-static int lfs3_mtree_fixorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir);
+static int lfs3_mtree_fixmdirorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
 static inline void lfs3_alloc_discard_(lfs3_t *lfs3);
@@ -11549,7 +11549,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
         uint32_t dirty = mgc->t.h.flags;
         // fix any orphans in the mdir
-        int err = lfs3_mtree_fixorphansmdir(lfs3, mdir);
+        int err = lfs3_mtree_fixmdirorphans(lfs3, mdir);
         if (err) {
             return err;
         }
@@ -12092,12 +12092,14 @@ static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
 }
 #endif
 
+// avoid renaming this into the lfs3_mdir_ namespace, no other
+// lfs3_mdir_ function ckpoints allocators
 #ifndef LFS3_RDONLY
-static int lfs3_mtree_fixorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
+static int lfs3_mtree_fixmdirorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // grm queue should be flushed before calling
-    // lfs3_mtree_fixorphansmdir
+    // lfs3_mtree_fixmdirorphans
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
     // save the current mid
     lfs3_mid_t mid = mdir->mid;
