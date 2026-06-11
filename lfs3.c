@@ -7785,9 +7785,6 @@ static inline lfs3_srid_t lfs3_dbgmrid(const lfs3_t *lfs3, lfs3_smid_t mid) {
 
 /// Metadata-pointer things ///
 
-// the mroot anchor, mdir 0x{0,1} is the entry point into the filesystem
-#define LFS3_MPTR_MROOTANCHOR() ((const lfs3_block_t[2]){0, 1})
-
 static inline int lfs3_mptr_cmp(
         const lfs3_block_t a[static 2],
         const lfs3_block_t b[static 2]) {
@@ -9473,9 +9470,7 @@ static int lfs3_mroot_parent(lfs3_t *lfs3, const lfs3_block_t mptr[static 2],
     LFS3_ASSERT(!lfs3_mptr_ismrootanchor(mptr));
 
     // scan list of mroots for our requested pair
-    lfs3_block_t mptr_[2] = {
-            LFS3_MPTR_MROOTANCHOR()[0],
-            LFS3_MPTR_MROOTANCHOR()[1]};
+    lfs3_block_t mptr_[2] = {0, 1};
     while (true) {
         // fetch next possible superblock
         lfs3_mdir_t mdir;
@@ -10446,7 +10441,7 @@ again:;
         // fetch mroot anchor (mdir 0x{0,1})?
         if (mtrv->h.mdir.mid == LFS3_MID_MROOTANCHOR) {
             int err = lfs3_mdir_fetch(lfs3, &mtrv->h.mdir,
-                    LFS3_MID_MTREE, LFS3_MPTR_MROOTANCHOR());
+                    LFS3_MID_MTREE, (const lfs3_block_t[]){0, 1});
             if (err) {
                 return err;
             }
