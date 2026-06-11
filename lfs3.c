@@ -11357,7 +11357,7 @@ static int lfs3_mtree_condemnevicted(lfs3_t *lfs3, uint32_t flags) {
 
 
 // needed in lfs3_mtree_gc
-static int lfs3_mtree_fixmdirorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir);
+static int lfs3_mtree_mkmdirnoorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
 static inline void lfs3_alloc_discard_(lfs3_t *lfs3);
@@ -11472,7 +11472,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     // | 1. evict/repair before anything else!
     // | 2. mkconsistent
     // | 3. compactmeta (after mkconsistent)
-    // v 4. lookahead (no reason to do earlier)
+    // v 4. lookahead (useless to do earlier)
     //
 
     // evicting mdirs?
@@ -11549,7 +11549,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
         uint32_t dirty = mgc->t.h.flags;
         // fix any orphans in the mdir
-        int err = lfs3_mtree_fixmdirorphans(lfs3, mdir);
+        int err = lfs3_mtree_mkmdirnoorphans(lfs3, mdir);
         if (err) {
             return err;
         }
@@ -11712,7 +11712,7 @@ eot:;
 }
 
 // needed in lfs3_mgc_gc
-static int lfs3_mtree_fixgrm(lfs3_t *lfs3);
+static int lfs3_mtree_mknogrm(lfs3_t *lfs3);
 static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3);
 static int lfs3_alloc_preerase(lfs3_t *lfs3);
 
@@ -11914,7 +11914,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             #ifndef LFS3_RDONLY
             // fix pending grms
             uint32_t dirty = mgc->t.h.flags;
-            int err = lfs3_mtree_fixgrm(lfs3);
+            int err = lfs3_mtree_mknogrm(lfs3);
             if (err) {
                 return err;
             }
@@ -12044,9 +12044,8 @@ static int lfs3_fs_mkrepaired(lfs3_t *lfs3) {
 }
 #endif
 
-
 #ifndef LFS3_RDONLY
-static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
+static int lfs3_mtree_mknogrm(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
@@ -12083,11 +12082,11 @@ static int lfs3_mtree_fixgrm(lfs3_t *lfs3) {
 // avoid renaming this into the lfs3_mdir_ namespace, no other
 // lfs3_mdir_ function ckpoints allocators
 #ifndef LFS3_RDONLY
-static int lfs3_mtree_fixmdirorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
+static int lfs3_mtree_mkmdirnoorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // grm queue should be flushed before calling
-    // lfs3_mtree_fixmdirorphans
+    // lfs3_mtree_mkmdirnoorphans
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
     // save the current mid
     lfs3_mid_t mid = mdir->mid;
@@ -12151,11 +12150,16 @@ failed:;
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_mtree_fixorphans(lfs3_t *lfs3) {
+static int lfs3_mtree_mknoorphans(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
-    // grm queue should be flushed before calling lfs3_mtree_fixorphans
+    // grm queue should be flushed before calling lfs3_mtree_mknoorphans
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
+
+    // already proven no orphans?
+    if (!(lfs3->flags & LFS3_GC_MKCONSISTENT)) {
+        return 0;
+    }
 
     // LFS3_gc_MKCONSISTENTING really just removes orphans
     //
@@ -12185,31 +12189,28 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
     // repair any known damage
+    int err;
     #ifdef LFS3_REPAIR
-    int err = lfs3_fs_mkrepaired(lfs3);
+    err = lfs3_fs_mkrepaired(lfs3);
     if (err) {
         return err;
     }
     #endif
 
     // fix pending grms
-    if (lfs3_grm_count(&lfs3->grm) > 0) {
-        int err = lfs3_mtree_fixgrm(lfs3);
-        if (err) {
-            return err;
-        }
+    err = lfs3_mtree_mknogrm(lfs3);
+    if (err) {
+        return err;
     }
 
     // fix orphaned stickynotes
     //
-    // this must happen after fixgrm, since removing orphaned
+    // this must happen after mknogrm, since removing orphaned
     // stickynotes risks outdating the grm
     //
-    if (lfs3->flags & LFS3_GC_MKCONSISTENT) {
-        int err = lfs3_mtree_fixorphans(lfs3);
-        if (err) {
-            return err;
-        }
+    err = lfs3_mtree_mknoorphans(lfs3);
+    if (err) {
+        return err;
     }
 
     return 0;
