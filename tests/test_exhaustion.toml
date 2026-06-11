@@ -65,7 +65,7 @@ defines.CFG_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
-        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
 '''
 # we need gc work to detect read errors
 defines.GC = '''
@@ -331,7 +331,7 @@ defines.CFG_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
-        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
 '''
 # we need gc work to detect read errors
 defines.GC = '''
@@ -670,7 +670,7 @@ defines.CFG_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
-        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
 '''
 # we need gc work to detect read errors
 defines.GC = '''
@@ -928,7 +928,7 @@ defines.CFG_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
-        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
 '''
 # we need gc work to detect read errors
 defines.GC = '''
@@ -1495,7 +1495,7 @@ defines.CFG_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1) : 0)
         | ((REPAIR) ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1) : 0)
-        | ((CONDEMN) ? LFS3_IFDEF_REPAIR(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+        | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
 '''
 # we need gc work to detect read errors
 defines.GC = '''
