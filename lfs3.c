@@ -256,11 +256,18 @@ static lfs3_evict_t *lfs3_evict_push(lfs3_t *lfs3,
 
     // quietly discard blocks if evictqueue is full
     //
-    // or, uh, loudly, if you have logging statements enabled
-    LFS3_WARN("Evict queue overflowed 0x%"PRIx32" (%"PRIu32" > %"PRIu32")",
-            block,
-            lfs3->evictqueue.count+1,
-            lfs3->cfg->evictqueue_count);
+    // or, uh, loudly, if you have warnings enabled
+    //
+    // try to avoid spamming overflow warnings
+    if (!(lfs3->flags & LFS3_I_EVICTOVERFLOW)) {
+        LFS3_WARN("Evict queue overflowed 0x%"PRIx32" "
+                    "(%"PRIu32" > %"PRIu32")",
+                block,
+                lfs3->evictqueue.count+1,
+                lfs3->cfg->evictqueue_count);
+    }
+
+    lfs3->flags |= LFS3_I_EVICTOVERFLOW;
     return NULL;
 
 found:;
@@ -354,9 +361,10 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
             false)) {
         #ifdef LFS3_CONDEMN
         if (!(flags & LFS3_BD_RELAX)) {
-            // try not to spam condemned warnings
+            // try to avoid spamming condemned warnings
             lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, block);
-            if (!evict || !lfs3_evict_isbad(evict)) {
+            if ((!evict || !lfs3_evict_isbad(evict))
+                    && !(lfs3->flags & LFS3_I_EVICTOVERFLOW)) {
                 LFS3_INFO("Condemned read "
                             "0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
                         block, off, size, err);
@@ -377,9 +385,9 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     // damaged?
     } else if (err == LFS3_ERR_DAMAGED) {
         if (!(flags & LFS3_BD_RELAX)) {
-            // try not to spam damaged warnings
+            // try to avoid spamming damaged warnings
             lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, block);
-            if (!evict) {
+            if (!evict && !(lfs3->flags & LFS3_I_EVICTOVERFLOW)) {
                 LFS3_INFO("Damaged read "
                             "0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
                         block, off, size, err);
@@ -8463,9 +8471,10 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                         && (lfs3->flags & LFS3_i_CONDEMNED),
                     false)) {
                 #ifdef LFS3_CONDEMN
-                // try not to spam condemned warnings
+                // try to avoid spamming condemned warnings
                 lfs3_evict_t *evict = lfs3_rbyd_eviction(lfs3, &mdir->r);
-                if (!evict || !lfs3_evict_isbad(evict)) {
+                if ((!evict || !lfs3_evict_isbad(evict))
+                        && !(lfs3->flags & LFS3_I_EVICTOVERFLOW)) {
                     LFS3_INFO("Condemned mdir %"PRId32" "
                                 "0x{%"PRIx32",%"PRIx32"}",
                             lfs3_dbgmbid(lfs3, mdir->mid),
@@ -8476,9 +8485,9 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                 #endif
 
             } else if (lfs3->flags & LFS3_i_DAMAGED) {
-                // try not to spam damaged warnings
+                // try to avoid spamming damaged warnings
                 lfs3_evict_t *evict = lfs3_rbyd_eviction(lfs3, &mdir->r);
-                if (!evict) {
+                if (!evict && !(lfs3->flags & LFS3_I_EVICTOVERFLOW)) {
                     LFS3_INFO("Damaged mdir %"PRId32" "
                                 "0x{%"PRIx32",%"PRIx32"}",
                             lfs3_dbgmbid(lfs3, mdir->mid),
@@ -14814,8 +14823,20 @@ static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
             lfs3_grm_push(&lfs3->grm, file->h.mdir.mid);
 
         // fallback to just marking the filesystem as inconsistent
+        // + grmoverflowed, this will trigger a filesystem scan for
+        // orphans on next mutation
         } else {
-            lfs3->flags |= LFS3_I_MKCONSISTENT;
+            // try to avoid spamming overflow warnings
+            if (!(lfs3->flags & LFS3_I_GRMOVERFLOW)) {
+                LFS3_INFO("Grm overflowed %"PRId32".%"PRId32" "
+                            "(%"PRIu32" > %"PRIu32")",
+                        lfs3_dbgmbid(lfs3, file->h.mdir.mid),
+                        lfs3_dbgmrid(lfs3, file->h.mdir.mid),
+                        lfs3_grm_count(&lfs3->grm)+1,
+                        2);
+            }
+
+            lfs3->flags |= LFS3_I_MKCONSISTENT | LFS3_I_GRMOVERFLOW;
         }
     }
     #endif
