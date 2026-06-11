@@ -13518,11 +13518,11 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
         }
     }
 
-    // try to repair any damage
+    // if we encountered any damage, try to repair it
     #ifdef LFS3_REPAIR
     err = lfs3_fs_mkrepaired(lfs3);
     if (err) {
-        // we shouldn't error if we can't, but at least log this
+        // if we failed to repair damage, best we can do is log this
         LFS3_WARN("Failed to repair damage (%d)", err);
     }
     #endif
@@ -14304,11 +14304,11 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
         }
     }
 
-    // try to repair any damage
+    // if we encountered any damage, try to repair it
     #ifdef LFS3_REPAIR
     err = lfs3_fs_mkrepaired(lfs3);
     if (err) {
-        // we shouldn't error if we can't, but at least log this
+        // if we failed to repair damage, best we can do is log this
         LFS3_WARN("Failed to repair damage (%d)", err);
     }
     #endif
@@ -14368,11 +14368,11 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
         }
     }
 
-    // try to repair any damage
+    // if we encountered any damage, try to repair it
     #ifdef LFS3_REPAIR
     err = lfs3_fs_mkrepaired(lfs3);
     if (err) {
-        // we shouldn't error if we can't, but at least log this
+        // if we failed to repair damage, best we can do is log this
         LFS3_WARN("Failed to repair damage (%d)", err);
     }
     #endif
@@ -16545,11 +16545,11 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
         goto failed;
     }
 
-    // try to repair any damage
+    // if we encountered any damage, try to repair it
     #ifdef LFS3_REPAIR
     err = lfs3_fs_mkrepaired(lfs3);
     if (err) {
-        // we shouldn't error if we can't, but at least log this
+        // if we failed to repair damage, best we can do is log this
         LFS3_WARN("Failed to repair damage (%d)", err);
     }
     #endif
