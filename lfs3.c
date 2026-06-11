@@ -2831,21 +2831,21 @@ static inline uint32_t lfs3_bptr_cksum(const lfs3_bptr_t *bptr) {
 }
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline lfs3_evict_t *lfs3_evict_evictionbptr(lfs3_t *lfs3,
+static inline lfs3_evict_t *lfs3_bptr_eviction(lfs3_t *lfs3,
         const lfs3_bptr_t *bptr) {
     return lfs3_evict_eviction(lfs3, lfs3_bptr_block(bptr));
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionbptr(const lfs3_t *lfs3,
+static inline bool lfs3_bptr_needseviction(const lfs3_t *lfs3,
         const lfs3_bptr_t *bptr) {
     return lfs3_evict_needseviction(lfs3, lfs3_bptr_block(bptr));
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-static inline bool lfs3_evict_needscondemnationbptr(const lfs3_t *lfs3,
+static inline bool lfs3_bptr_needscondemnation(const lfs3_t *lfs3,
         const lfs3_bptr_t *bptr) {
     return lfs3_evict_needscondemnation(lfs3, lfs3_bptr_block(bptr));
 }
@@ -3289,21 +3289,21 @@ static inline int lfs3_rbyd_cmp(
 }
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline lfs3_evict_t *lfs3_evict_evictionrbyd(lfs3_t *lfs3,
+static inline lfs3_evict_t *lfs3_rbyd_eviction(lfs3_t *lfs3,
         const lfs3_rbyd_t *rbyd) {
     return lfs3_evict_eviction(lfs3, rbyd->blocks[0]);
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionrbyd(const lfs3_t *lfs3,
+static inline bool lfs3_rbyd_needseviction(const lfs3_t *lfs3,
         const lfs3_rbyd_t *rbyd) {
     return lfs3_evict_needseviction(lfs3, rbyd->blocks[0]);
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-static inline bool lfs3_evict_needscondemnationrbyd(const lfs3_t *lfs3,
+static inline bool lfs3_rbyd_needscondemnation(const lfs3_t *lfs3,
         const lfs3_rbyd_t *rbyd) {
     return lfs3_evict_needscondemnation(lfs3, rbyd->blocks[0]);
 }
@@ -7804,7 +7804,7 @@ static inline bool lfs3_mptr_ismrootanchor(
 }
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline lfs3_evict_t *lfs3_evict_evictionmptr(lfs3_t *lfs3,
+static inline lfs3_evict_t *lfs3_mptr_eviction(lfs3_t *lfs3,
         const lfs3_block_t mptr[static 2]) {
     for (lfs3_size_t i = 0; i < 2; i++) {
         lfs3_evict_t *evict = lfs3_evict_eviction(lfs3, mptr[i]);
@@ -7817,7 +7817,7 @@ static inline lfs3_evict_t *lfs3_evict_evictionmptr(lfs3_t *lfs3,
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionmptr(const lfs3_t *lfs3,
+static inline bool lfs3_mptr_needseviction(const lfs3_t *lfs3,
         const lfs3_block_t mptr[static 2]) {
     return lfs3_evict_needseviction(lfs3, mptr[0])
             || lfs3_evict_needseviction(lfs3, mptr[1]);
@@ -7825,7 +7825,7 @@ static inline bool lfs3_evict_needsevictionmptr(const lfs3_t *lfs3,
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-static inline bool lfs3_evict_needscondemnationmptr(const lfs3_t *lfs3,
+static inline bool lfs3_mptr_needscondemnation(const lfs3_t *lfs3,
         const lfs3_block_t mptr[static 2]) {
     return lfs3_evict_needscondemnation(lfs3, mptr[0])
             || lfs3_evict_needscondemnation(lfs3, mptr[1]);
@@ -8367,23 +8367,23 @@ static inline bool lfs3_mdir_ismrootanchor(const lfs3_mdir_t *mdir) {
 }
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline lfs3_evict_t *lfs3_evict_evictionmdir(lfs3_t *lfs3,
+static inline lfs3_evict_t *lfs3_mdir_eviction(lfs3_t *lfs3,
         const lfs3_mdir_t *mdir) {
-    return lfs3_evict_evictionmptr(lfs3, mdir->r.blocks);
+    return lfs3_mptr_eviction(lfs3, mdir->r.blocks);
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-static inline bool lfs3_evict_needsevictionmdir(const lfs3_t *lfs3,
+static inline bool lfs3_mdir_needseviction(const lfs3_t *lfs3,
         const lfs3_mdir_t *mdir) {
-    return lfs3_evict_needsevictionmptr(lfs3, mdir->r.blocks);
+    return lfs3_mptr_needseviction(lfs3, mdir->r.blocks);
 }
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
-static inline bool lfs3_evict_needscondemnationmdir(const lfs3_t *lfs3,
+static inline bool lfs3_mdir_needscondemnation(const lfs3_t *lfs3,
         const lfs3_mdir_t *mdir) {
-    return lfs3_evict_needscondemnationmptr(lfs3, mdir->r.blocks);
+    return lfs3_mptr_needscondemnation(lfs3, mdir->r.blocks);
 }
 #endif
 
@@ -8464,7 +8464,7 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     false)) {
                 #ifdef LFS3_CONDEMN
                 // try not to spam condemned warnings
-                lfs3_evict_t *evict = lfs3_evict_evictionrbyd(lfs3, &mdir->r);
+                lfs3_evict_t *evict = lfs3_rbyd_eviction(lfs3, &mdir->r);
                 if (!evict || !lfs3_evict_isbad(evict)) {
                     LFS3_INFO("Condemned mdir %"PRId32" "
                                 "0x{%"PRIx32",%"PRIx32"}",
@@ -8477,7 +8477,7 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
             } else if (lfs3->flags & LFS3_i_DAMAGED) {
                 // try not to spam damaged warnings
-                lfs3_evict_t *evict = lfs3_evict_evictionrbyd(lfs3, &mdir->r);
+                lfs3_evict_t *evict = lfs3_rbyd_eviction(lfs3, &mdir->r);
                 if (!evict) {
                     LFS3_INFO("Damaged mdir %"PRId32" "
                                 "0x{%"PRIx32",%"PRIx32"}",
@@ -9353,7 +9353,7 @@ compact:;
     // are we being evicted? definitely shouldn't try compacting, jump
     // straight to relocating
     #ifdef LFS3_EVICT
-    if (lfs3_evict_needsevictionmdir(lfs3, mdir)
+    if (lfs3_mdir_needseviction(lfs3, mdir)
             // well, not if we're the mroot anchor, evicting the mroot
             // anchor doesn't accomplish anything, but we can at least
             // compact
@@ -9431,7 +9431,7 @@ compact:;
                     // so maybe don't overrecycle if we're condemned
                     && !LFS3_IFDEF_CONDEMN(
                         (lfs3->flags & LFS3_I_GBMAP)
-                            && lfs3_evict_needscondemnationmdir(lfs3,
+                            && lfs3_mdir_needscondemnation(lfs3,
                                 mdir),
                         false))) {
             return err;
@@ -10823,7 +10823,7 @@ static int lfs3_mtree_compactmdir(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     lfs3_alloc_ckpoint_(lfs3);
 
     if (LFS3_IFDEF_EVICT(
-            lfs3_evict_needsevictionmdir(lfs3, mdir),
+            lfs3_mdir_needseviction(lfs3, mdir),
             false)) {
         LFS3_INFO("Evicting mdir %"PRId32" 0x{%"PRIx32",%"PRIx32"}",
                 lfs3_dbgmbid(lfs3, mdir->mid),
@@ -10879,7 +10879,7 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // mtree?
     if (mgc->t.h.mdir.mid == LFS3_MID_MTREE) {
         if (LFS3_IFDEF_EVICT(
-                lfs3_evict_needsevictionrbyd(lfs3, rbyd),
+                lfs3_rbyd_needseviction(lfs3, rbyd),
                 false)) {
             LFS3_INFO("Evicting mtree rbyd 0x%"PRIx32".%"PRIx32,
                     rbyd->blocks[0],
@@ -10935,7 +10935,7 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             false)) {
         #ifdef LFS3_GBMAP
         if (LFS3_IFDEF_EVICT(
-                lfs3_evict_needsevictionrbyd(lfs3, rbyd),
+                lfs3_rbyd_needseviction(lfs3, rbyd),
                 false)) {
             LFS3_INFO("Evicting gbmap rbyd 0x%"PRIx32".%"PRIx32,
                     rbyd->blocks[0],
@@ -11001,7 +11001,7 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // in a file?
     } else {
         if (LFS3_IFDEF_EVICT(
-                lfs3_evict_needsevictionrbyd(lfs3, rbyd),
+                lfs3_rbyd_needseviction(lfs3, rbyd),
                 false)) {
             if (lfs3_bshrub_isbshrub(&mgc->t.btree)) {
                 LFS3_INFO("Evicting bshrub rbyd 0x%"PRIx32".%"PRIx32,
@@ -11156,7 +11156,7 @@ static int lfs3_mtree_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
     // did we already allocate a new block for this block? try to
     // deduplicate dags
-    lfs3_evict_t *evict = lfs3_evict_evictionbptr(lfs3, bptr);
+    lfs3_evict_t *evict = lfs3_bptr_eviction(lfs3, bptr);
     if (!lfs3_evict_block_(evict)) {
         // allocate + evict the bptr
         int err = lfs3_bptr_evict(lfs3, &mgc->t.h.mdir, bptr);
@@ -11480,7 +11480,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     if (tag == LFS3_TAG_MDIR
             && (mgc->t.h.flags & (
                 LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
-            && lfs3_evict_needsevictionmdir(lfs3,
+            && lfs3_mdir_needseviction(lfs3,
                 (lfs3_mdir_t*)bptr.d.u.buffer)) {
         // this takes the same code path as mdir compaction, with
         // lfs3_mdir_commit_ changing behavior if it's in the eviction
@@ -11503,7 +11503,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     if (tag == LFS3_TAG_BRANCH
             && (mgc->t.h.flags & (
                 LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
-            && lfs3_evict_needsevictionrbyd(lfs3,
+            && lfs3_rbyd_needseviction(lfs3,
                 (lfs3_rbyd_t*)bptr.d.u.buffer)) {
         // this is humorously the same operation btree compaction
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
@@ -11524,7 +11524,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if (tag == LFS3_TAG_BLOCK
             && (mgc->t.h.flags & LFS3_gc_EVICTDATAING)
-            && lfs3_evict_needsevictionbptr(lfs3, &bptr)) {
+            && lfs3_bptr_needseviction(lfs3, &bptr)) {
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mtree_evictbptr(lfs3, mgc, &bptr);
         if (err) {
