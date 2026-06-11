@@ -13518,6 +13518,15 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
         }
     }
 
+    // try to repair any damage
+    #ifdef LFS3_REPAIR
+    err = lfs3_fs_mkrepaired(lfs3);
+    if (err) {
+        // we shouldn't error if we can't, but at least log this
+        LFS3_WARN("Failed to repair damage (%d)", err);
+    }
+    #endif
+
     return 0;
 }
 #endif
