@@ -95,7 +95,8 @@ code = '''
         if (MASK & 0x04) {
             BENCH_START("fetch");
             lfs3_rbyd_t rbyd_;
-            lfs3_rbyd_fetch(&lfs3, &rbyd_, rbyd.blocks[0], -1) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd_, rbyd.blocks[0], -1,
+                    LFS3_RBYD_RELAX) => 0;
             BENCH_STOP("fetch", n+STEP);
         }
 
@@ -209,7 +210,8 @@ code = '''
         if (MASK & 0x04) {
             BENCH_START("fetch");
             lfs3_rbyd_t rbyd_;
-            lfs3_rbyd_fetch(&lfs3, &rbyd_, rbyd.blocks[0], -1) => 0;
+            lfs3_rbyd_fetch(&lfs3, &rbyd_, rbyd.blocks[0], -1,
+                    LFS3_RBYD_RELAX) => 0;
             assert(rbyd_.weight == rbyd.weight);
             BENCH_STOP("fetch", n+STEP);
         }

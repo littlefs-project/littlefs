@@ -153,11 +153,10 @@ I_CKDATA        = 0x00200000  # --  Data checksums not checked recently
 I_REPAIRMETA    = 0x00400000  # --  Metadata blocks need repair
 I_REPAIRDATA    = 0x00800000  # --  Data blocks need repair
 
+I_DAMAGED       = 0x10000000  # --  Found damaged data
+I_CONDEMNED     = 0x20000000  # --  Found condemned blocks
 I_GRMOVERFLOW   = 0x40000000  # --  Global remove queue overflowed
 I_EVICTOVERFLOW = 0x80000000  # --  Evict queue overflowed
-
-i_DAMAGED       = 0x10000000  # i-  Bd read was damaged
-i_CONDEMNED     = 0x20000000  # i-  Bd read was condemned
 
 # Traversal flags
 T_MTREEONLY     = 0x00000004  # --  Only traverse the mtree
@@ -221,15 +220,16 @@ gc_GC           = 0x70000000  # i^  Type = gc
 gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
 
 # Block eviction flags
-EVICT_EVICT     = 0x00000001  # -- Delete all references to this block
-EVICT_BAD       = 0x80000000  # -- Mark this block as bad, do not alloc
-EVICT_GOOD      = 0x20000000  # -- Mark this block as good, do alloc
-evict_DATA      = 0x40000000  # i- Block is definitely data
+EVICT_EVICT     = 0x00000001  # --  Delete all references to this block
+EVICT_BAD       = 0x80000000  # --  Mark this block as bad, do not alloc
+EVICT_GOOD      = 0x20000000  # --  Mark this block as good, do alloc
+evict_DATA      = 0x40000000  # i-  Block is definitely data
 
 # Internal bd-level flags
-BD_RELAX        = 0x00000001  # i-  Don't evict corrupt data
+BD_RELAX        = 0x00000001  # i-  Don't evict damaged blocks
+BD_QUERY        = 0x00000002  # i-  Still update damage flags
 BD_DATA         = 0x40000000  # i-  A hint that we're reading data
-BD_ALIGN        = 0x00000002  # i-  Align cksums to prog boundaries
+BD_ALIGN        = 0x00000004  # i-  Align cksums to prog boundaries
 BD_PERTURB      = 0x80000000  # i-  Perturb valid bit in tags
 
 # Internal block allocator flags
@@ -237,8 +237,9 @@ ALLOC_ERASE     = 0x00000001  # i-  Please erase the block
 ALLOC_CLAIM     = 0x00000002  # i-  Claim erased state
 
 # Internal rbyd fetch flags
-RBYD_RELAX      = 0x00000001  # i-  Don't evict corrupt data
-RBYD_QUICKFETCH = 0x00000004  # i-  Only fetch one trunk
+RBYD_RELAX      = 0x00000001  # i-  Don't evict damaged blocks
+RBYD_QUERY      = 0x00000002  # i-  Still update damage flags
+RBYD_QUICKFETCH = 0x00000010  # i-  Only fetch one trunk
 
 # On-disk read-compat flags - Must understand to read the filesystem
 RCOMPAT_WRONLY      = 0x0001  # --  Reading is disallowed

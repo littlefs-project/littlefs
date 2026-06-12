@@ -363,18 +363,15 @@ enum lfs3_type {
 #define LFS3_I_REPAIRDATA \
                         0x00800000  // Data blocks need repair
 #endif
-
+#define LFS3_I_DAMAGED  0x10000000  // Found damaged data
+#define LFS3_I_CONDEMNED \
+                        0x20000000  // Found condemned blocks
 #define LFS3_I_GRMOVERFLOW \
                         0x40000000  // Global remove queue overflowed
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_I_EVICTOVERFLOW \
                         0x80000000  // Evict queue overflowed
 #endif
-
-// internally used flags, don't use these
-#define LFS3_i_DAMAGED  0x10000000  // Bd read was damaged
-#define LFS3_i_CONDEMNED \
-                        0x20000000  // Bd read was condemned
 
 // Block types
 enum lfs3_btype {
