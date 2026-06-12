@@ -4480,7 +4480,8 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // try gcing with mkconsistent
     lfs3_gc_t gc;
@@ -4522,7 +4523,8 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -4670,7 +4672,8 @@ code = '''
                 | ((!CKDATA || GBMAP || ORPHANS > 0)
                     ? LFS3_I_CKDATA
                     : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -4773,7 +4776,8 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // try gcing with mkconsistent
     lfs3_gc_t gc;
@@ -4813,7 +4817,8 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -4916,7 +4921,8 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // try gcing with mkconsistent
     lfs3_gc_t gc;
@@ -4956,7 +4962,8 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5060,7 +5067,8 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // try gcing with mkconsistent
     lfs3_gc_t gc;
@@ -5100,7 +5108,8 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5204,7 +5213,8 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // try gcing with mkconsistent
     lfs3_gc_t gc;
@@ -5244,7 +5254,8 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5370,7 +5381,8 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // try gcing with mkconsistent
     lfs3_gc_t gc;
@@ -5414,7 +5426,8 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {
@@ -5591,7 +5604,8 @@ code = '''
                 | ((!CKDATA || GBMAP || ORPHANS > 0)
                     ? LFS3_I_CKDATA
                     : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
     for (int remount = 0; remount < 2; remount++) {

@@ -18481,7 +18481,12 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETA, 0))
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, 0))))
+                        LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, 0))
+                    | LFS3_I_DAMAGED
+                    | LFS3_I_CONDEMNED
+                    | LFS3_I_GRMOVERFLOW
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(LFS3_I_EVICTOVERFLOW, 0))))
             // LFS3_I_MKCONSISTENT is a bit of a special case,
             // internally it strictly indicates untracked orphans, but
             // externally it also includes any pending grms
