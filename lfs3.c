@@ -245,8 +245,7 @@ static lfs3_evict_t *lfs3_evict_push(lfs3_t *lfs3,
         // note this also avoids marking traversals as damaged while
         // they are attempting repairs
         for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-            if (lfs3_o_type(h->flags) == LFS3_type_TRV
-                    || lfs3_o_type(h->flags) == LFS3_type_GC) {
+            if (lfs3_o_type(h->flags) >= LFS3_type_TRV) {
                 lfs3_mtrv_damage((lfs3_mtrv_t*)h);
             }
         }
@@ -12615,8 +12614,7 @@ static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3) {
     // ckpoint traversals, marking them as ckpointed + dirty and
     // resetting any btrv state
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_type(h->flags) == LFS3_type_TRV
-                || lfs3_o_type(h->flags) == LFS3_type_GC) {
+        if (lfs3_o_type(h->flags) >= LFS3_type_TRV) {
             lfs3_mtrv_ckpoint((lfs3_mtrv_t*)h);
         }
     }
@@ -18596,8 +18594,7 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
     // lfs3_fs_gc will terminate early if it discovers it can no longer
     // make progress
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (lfs3_o_type(h->flags) == LFS3_type_TRV
-                || lfs3_o_type(h->flags) == LFS3_type_GC) {
+        if (lfs3_o_type(h->flags) >= LFS3_type_TRV) {
             h->flags |= LFS3_t_CKPOINTED | LFS3_t_DIRTY;
         }
     }
