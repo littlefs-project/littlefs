@@ -76,8 +76,8 @@ defines.GC_FLAGS = '''
     LFS3_IFDEF_GC(
         LFS3_GC_CKMETA
             | LFS3_GC_CKDATA
-            | LFS3_GC_REPAIRMETA
-            | LFS3_GC_REPAIRDATA,
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0),
         -1),
 '''
 # this speeds up testing time _significantly_
@@ -342,8 +342,8 @@ defines.GC_FLAGS = '''
     LFS3_IFDEF_GC(
         LFS3_GC_CKMETA
             | LFS3_GC_CKDATA
-            | LFS3_GC_REPAIRMETA
-            | LFS3_GC_REPAIRDATA,
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0),
         -1),
 '''
 # this speeds up testing time _significantly_
@@ -681,8 +681,8 @@ defines.GC_FLAGS = '''
     LFS3_IFDEF_GC(
         LFS3_GC_CKMETA
             | LFS3_GC_CKDATA
-            | LFS3_GC_REPAIRMETA
-            | LFS3_GC_REPAIRDATA,
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0),
         -1),
 '''
 # this speeds up testing time _significantly_
@@ -811,6 +811,7 @@ code = '''
 
                 // if we're not syncing, we never give littlefs a chance
                 // to fix damage, so let's do that with an explicit call
+                #ifdef LFS3_REPAIR
                 if (!SYNC) {
                     // this should noop if there's no damage
                     int err = lfs3_fs_repairdata(&lfs3);
@@ -820,6 +821,7 @@ code = '''
                         goto dead;
                     }
                 }
+                #endif
             }
             #endif
 
@@ -939,8 +941,8 @@ defines.GC_FLAGS = '''
     LFS3_IFDEF_GC(
         LFS3_GC_CKMETA
             | LFS3_GC_CKDATA
-            | LFS3_GC_REPAIRMETA
-            | LFS3_GC_REPAIRDATA,
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0),
         -1),
 '''
 # this speeds up testing time _significantly_
@@ -1506,8 +1508,8 @@ defines.GC_FLAGS = '''
     LFS3_IFDEF_GC(
         LFS3_GC_CKMETA
             | LFS3_GC_CKDATA
-            | LFS3_GC_REPAIRMETA
-            | LFS3_GC_REPAIRDATA,
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)
+            | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0),
         -1),
 '''
 # this speeds up testing time _significantly_
