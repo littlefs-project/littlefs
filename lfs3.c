@@ -316,12 +316,14 @@ static void lfs3_evict_flush(lfs3_t *lfs3, uint32_t flags) {
 // bd-level flags
 #define LFS3_BD_RELAX   0x00000001 // Don't evict damaged blocks
 #define LFS3_BD_QUERY   0x00000002 // Still update damage flags
+#define LFS3_BD_CAREFUL 0x00000004 // Report damage as corrupt
 #define LFS3_BD_DATA    0x40000000 // A hint that we're reading data
-#define LFS3_BD_ALIGN   0x00000004 // Align cksums to prog boundaries
+#define LFS3_BD_ALIGN   0x00000008 // Align cksums to prog boundaries
 #define LFS3_BD_PERTURB 0x80000000 // Perturb valid bit in tags
 
 static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         void *buffer, lfs3_size_t size, uint32_t flags) {
+    (void)flags;
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count);
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
@@ -331,19 +333,33 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
 
     // read from disk
     int err = lfs3_bd_read___(lfs3, block, off, buffer, size);
-    if (err && err != LFS3_ERR_DAMAGED) {
-        if (!(flags & LFS3_BD_RELAX)) {
-            LFS3_INFO("Bad read 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
-                    block, off, size, err);
+    if (err && (
+            err != LFS3_ERR_DAMAGED
+                || LFS3_IFDEF_CKPROGS(flags & LFS3_BD_CAREFUL, false))) {
+        LFS3_INFO("Bad read 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
+                block, off, size, err);
+        // if we're strict, treat damaged vs corrupt the same
+        if (err == LFS3_ERR_DAMAGED) {
+            err = LFS3_ERR_CORRUPT;
         }
         // bad? push onto our evictqueue as a block to avoid
         #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
         if (err == LFS3_ERR_CORRUPT
                 && LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
-                && (lfs3->flags & LFS3_I_GBMAP)
-                && !(flags & LFS3_BD_RELAX)) {
-            lfs3_evict_push(lfs3, block,
-                    LFS3_EVICT_BAD | (flags & LFS3_BD_DATA));
+                && (lfs3->flags & LFS3_I_GBMAP)) {
+            // note we treat all bad progs/erases as metadata, we
+            // abandon these so it doesn't really matter
+            if (!(flags & LFS3_BD_RELAX)) {
+                lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
+            }
+
+            // set the sticky condemned flag
+            //
+            // these flags are useful for upper layers, especially when
+            // relaxed
+            if (!(flags & LFS3_BD_RELAX) || (flags & LFS3_BD_QUERY)) {
+                lfs3->flags |= LFS3_I_DAMAGED | LFS3_I_CONDEMNED;
+            }
         }
         #endif
         return err;
@@ -443,11 +459,9 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         if (err == LFS3_ERR_CORRUPT
                 && LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
                 && (lfs3->flags & LFS3_I_GBMAP)) {
+            // note we treat all bad progs/erases as metadata, we
+            // abandon these so it doesn't really matter
             if (!(flags & LFS3_BD_RELAX)) {
-                // push onto our evictqueue as a block to avoid
-                //
-                // note we treat all bad progs/erases as metadata, we
-                // abandon these so it doesn't really matter
                 lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
             }
 
@@ -472,16 +486,14 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         // invalidate rcache, we're going to clobber it anyways
         lfs3_bd_droprcache(lfs3);
 
-        // save damage state
-        #ifdef LFS3_CONDEMN
-        uint32_t damage = lfs3->flags;
-        lfs3->flags &= ~(LFS3_I_CONDEMNED | LFS3_I_DAMAGED);
-        #endif
-
+        // check the prog
         lfs3_scmp_t cmp = lfs3_bd_cmp(lfs3, block, off, 0,
-                // note we need to relax here
-                buffer, size, flags | LFS3_BD_RELAX | LFS3_BD_QUERY);
-        if (cmp < 0) {
+                buffer, size,
+                // these flags are important for dealing with damaged
+                // reads, we want to avoid damaged blocks, but not set
+                // the damaged flag to match normal prog failures
+                LFS3_BD_RELAX | LFS3_BD_CAREFUL);
+        if (cmp < 0 && cmp != LFS3_ERR_CORRUPT) {
             return cmp;
         }
 
@@ -490,14 +502,11 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
                     block, off, size);
             #ifdef LFS3_CONDEMN
             // bad? push onto our evictqueue as a block to avoid
-            if ((lfs3->flags & LFS3_I_CONDEMNED)
-                    && LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
+            if (LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
                     && (lfs3->flags & LFS3_I_GBMAP)) {
+                // note we treat all bad progs/erases as metadata, we
+                // abandon these so it doesn't really matter
                 if (!(flags & LFS3_BD_RELAX)) {
-                    // push onto our evictqueue as a block to avoid
-                    //
-                    // note we treat all bad progs/erases as metadata, we
-                    // abandon these so it doesn't really matter
                     lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
                 }
 
@@ -506,24 +515,12 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
                 // these flags are useful for upper layers, especially when
                 // relaxed
                 if (!(flags & LFS3_BD_RELAX) || (flags & LFS3_BD_QUERY)) {
-                    damage |= LFS3_I_CONDEMNED;
+                    lfs3->flags |= LFS3_I_CONDEMNED;
                 }
             }
             #endif
-
-            // restore damage flags
-            #ifdef LFS3_CONDEMN
-            lfs3->flags = (lfs3->flags & ~(LFS3_I_CONDEMNED | LFS3_I_DAMAGED))
-                    | (damage & (LFS3_I_CONDEMNED | LFS3_I_DAMAGED));
-            #endif
             return LFS3_ERR_CORRUPT;
         }
-
-        // restore damage flags
-        #ifdef LFS3_CONDEMN
-        lfs3->flags = (lfs3->flags & ~(LFS3_I_CONDEMNED | LFS3_I_DAMAGED))
-                | (damage & (LFS3_I_CONDEMNED | LFS3_I_DAMAGED));
-        #endif
     }
     #endif
 
@@ -554,11 +551,9 @@ static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block,
         if (err == LFS3_ERR_CORRUPT
                 && LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
                 && (lfs3->flags & LFS3_I_GBMAP)) {
+            // note we treat all bad progs/erases as metadata, we
+            // abandon these so it doesn't really matter
             if (!(flags & LFS3_BD_RELAX)) {
-                // push onto our evictqueue as a block to avoid
-                //
-                // note we treat all bad progs/erases as metadata, we
-                // abandon these so it doesn't really matter
                 lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
             }
 

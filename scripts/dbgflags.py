@@ -228,8 +228,9 @@ evict_DATA      = 0x40000000  # i-  Block is definitely data
 # Internal bd-level flags
 BD_RELAX        = 0x00000001  # i-  Don't evict damaged blocks
 BD_QUERY        = 0x00000002  # i-  Still update damage flags
+BD_CAREFUL      = 0x00000004  # i-  Report damage as corrupt
 BD_DATA         = 0x40000000  # i-  A hint that we're reading data
-BD_ALIGN        = 0x00000004  # i-  Align cksums to prog boundaries
+BD_ALIGN        = 0x00000008  # i-  Align cksums to prog boundaries
 BD_PERTURB      = 0x80000000  # i-  Perturb valid bit in tags
 
 # Internal block allocator flags
