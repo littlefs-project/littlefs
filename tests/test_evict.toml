@@ -16766,7 +16766,7 @@ code = '''
                 | LFS3_I_REPAIRMETA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -16799,7 +16799,7 @@ code = '''
                 // repairmeta cleared!
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -16935,7 +16935,7 @@ code = '''
                 | LFS3_I_REPAIRDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -16967,7 +16967,7 @@ code = '''
                 // repairdata cleared!
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -17109,7 +17109,7 @@ code = '''
                 | LFS3_I_REPAIRMETA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // evictqueue overflowed!
@@ -17144,7 +17144,7 @@ code = '''
                 // repairmeta cleared!
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // evictqueue overflowed!
@@ -17282,7 +17282,7 @@ code = '''
                 | LFS3_I_REPAIRDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // evictqueue overflowed!
@@ -17316,7 +17316,7 @@ code = '''
                 // repairdata cleared!
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // evictqueue overflowed!
@@ -17454,7 +17454,7 @@ code = '''
                 | LFS3_I_REPAIRMETA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -17488,7 +17488,7 @@ code = '''
                 // repairmeta cleared!
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -17614,7 +17614,7 @@ code = '''
                 | LFS3_I_REPAIRDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -17648,7 +17648,7 @@ code = '''
                 // repairdata cleared!
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -17779,7 +17779,7 @@ code = '''
                 | LFS3_I_REPAIRMETA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // evictqueue overflowed!
@@ -17815,7 +17815,7 @@ code = '''
                 // repairmeta cleared!
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // evictqueue overflowed!
@@ -17943,7 +17943,7 @@ code = '''
                 | LFS3_I_REPAIRDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // evictqueue overflowed!
@@ -17979,7 +17979,7 @@ code = '''
                 // repairdata cleared!
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
-                | LFS3_I_DAMAGED
+                | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // evictqueue overflowed!
@@ -18100,7 +18100,8 @@ code = '''
                 // ok, so we do set LFS3_I_REPAIRMETA, but only if condemned
                 | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
-                // damaged _not_ set!
+                // damaged set!
+                | LFS3_I_DAMAGEDPROG
                 // but we do set condemned! well, if we're condemning
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -18219,7 +18220,8 @@ code = '''
                 // ok, so we do set LFS3_I_REPAIRMETA, but only if condemned
                 | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
-                // damaged _not_ set!
+                // damaged set!
+                | LFS3_I_DAMAGEDPROG
                 // but we do set condemned! well, if we're condemning
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // only set LFS3_I_EVICTOVERFLOW if condemning!
@@ -18340,7 +18342,8 @@ code = '''
                 // this is not a typo! we always treat progs as metadata
                 | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
-                // damaged _not_ set!
+                // damaged set!
+                | LFS3_I_DAMAGEDPROG
                 // but we do set condemned! well, if we're condemning
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
 
@@ -18459,7 +18462,8 @@ code = '''
                 // this is not a typo! we always treat progs as metadata
                 | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
-                // damaged _not_ set!
+                // damaged set!
+                | LFS3_I_DAMAGEDPROG
                 // but we do set condemned! well, if we're condemning
                 | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
                 // only set LFS3_I_EVICTOVERFLOW if condemning!
@@ -18491,3 +18495,4 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
     lfs3_unmount(&lfs3) => 0;
 '''
+

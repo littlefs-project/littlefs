@@ -153,9 +153,10 @@ I_CKDATA        = 0x00200000  # --  Data checksums not checked recently
 I_REPAIRMETA    = 0x00400000  # --  Metadata blocks need repair
 I_REPAIRDATA    = 0x00800000  # --  Data blocks need repair
 
-I_DAMAGED       = 0x10000000  # --  Found damaged data
-I_CONDEMNED     = 0x20000000  # --  Found condemned blocks
-I_GRMOVERFLOW   = 0x40000000  # --  Global remove queue overflowed
+I_GRMOVERFLOW   = 0x08000000  # --  Global remove queue overflowed
+I_DAMAGEDPROG   = 0x10000000  # --  Found damage during prog
+I_DAMAGEDREAD   = 0x20000000  # --  Found damage during read
+I_CONDEMNED     = 0x40000000  # --  Found condemned blocks
 I_EVICTOVERFLOW = 0x80000000  # --  Evict queue overflowed
 
 # Traversal flags
