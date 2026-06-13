@@ -241,6 +241,7 @@ ALLOC_CLAIM     = 0x00000002  # i-  Claim erased state
 RBYD_RELAX      = 0x00000001  # i-  Don't evict damaged blocks
 RBYD_QUERY      = 0x00000002  # i-  Still update damage flags
 RBYD_QUICKFETCH = 0x00000010  # i-  Only fetch one trunk
+RBYD_MDIRFETCH  = 0x00000020  # i-  Fetching an mdir
 
 # On-disk read-compat flags - Must understand to read the filesystem
 RCOMPAT_WRONLY      = 0x0001  # --  Reading is disallowed
