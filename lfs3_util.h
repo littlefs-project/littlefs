@@ -477,6 +477,14 @@ static inline int32_t lfs3_sssub(int32_t a, int32_t b) {
         *b = t; \
     } while (0)
 
+// Offset of a field in a struct
+#if !defined(LFS3_NO_BUILTINS) && (defined(__GNUC__) || defined(__CC_ARM))
+#define LFS3_OFFSETOF(_s, _f) __builtin_offsetof(_s, _f)
+#else
+#define LFS3_OFFSETOF(_s, _f) \
+        ((uint8_t*)&((_s*)NULL)->_f - (uint8_t*)((_s*)NULL))
+#endif
+
 // Align to nearest multiple of a size
 static inline uint32_t lfs3_aligndown(uint32_t a, uint32_t alignment) {
     return a - (a % alignment);

@@ -3341,9 +3341,8 @@ static inline lfs3_size_t lfs3_rbyd_eoff(const lfs3_rbyd_t *rbyd) {
 #endif
 
 static inline lfs3_mdir_t *lfs3_rbyd_mdir(lfs3_rbyd_t *rbyd) {
-    lfs3_mdir_t mdir;
-    return (lfs3_mdir_t*)((uint8_t*)rbyd
-            - ((uint8_t*)&mdir.r - (uint8_t*)&mdir));
+    return (lfs3_mdir_t*)(
+            (uint8_t*)rbyd - LFS3_OFFSETOF(lfs3_mdir_t, r));
 }
 
 static inline int lfs3_rbyd_cmp(
@@ -7279,9 +7278,8 @@ static inline bool lfs3_shrub_isfetched(const lfs3_shrub_t *shrub) {
 #endif
 
 static inline lfs3_file_t *lfs3_shrub_file(lfs3_shrub_t *shrub) {
-    lfs3_file_t f;
-    return (lfs3_file_t*)((uint8_t*)shrub
-            - ((uint8_t*)&f.bshrub - (uint8_t*)&f));
+    return (lfs3_file_t*)(
+            (uint8_t*)shrub - LFS3_OFFSETOF(lfs3_file_t, bshrub));
 }
 
 static inline int lfs3_shrub_cmp(
