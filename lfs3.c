@@ -3699,8 +3699,10 @@ static int lfs3_rbyd_fetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 
     // revert damaged/condemned flags to last valid commit
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-    lfs3->flags = (lfs3->flags & ~(LFS3_I_CONDEMNED | LFS3_I_DAMAGED))
-            | (damage & (LFS3_I_CONDEMNED | LFS3_I_DAMAGED));
+    lfs3->flags = (lfs3->flags & ~(
+                LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0) | LFS3_I_DAMAGED))
+            | (damage & (
+                LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0) | LFS3_I_DAMAGED));
     #endif
 
     #ifdef LFS3_DBGRBYDFETCHES
@@ -8489,7 +8491,8 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     for (int i = 0; i < 2; i++) {
         // reset damaged/condemned flags
         #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-        lfs3->flags &= ~(LFS3_I_CONDEMNED | LFS3_I_DAMAGED);
+        lfs3->flags &= ~(
+                LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0) | LFS3_I_DAMAGED);
         #endif
 
         // try to fetch
@@ -8563,8 +8566,12 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 
             // restore damage flags
             #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-            lfs3->flags = (lfs3->flags & ~(LFS3_I_CONDEMNED | LFS3_I_DAMAGED))
-                    | (damage & (LFS3_I_CONDEMNED | LFS3_I_DAMAGED));
+            lfs3->flags = (lfs3->flags & ~(
+                        LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0)
+                            | LFS3_I_DAMAGED))
+                    | (damage & (
+                        LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0)
+                            | LFS3_I_DAMAGED));
             #endif
             return 0;
         }
@@ -8580,8 +8587,10 @@ static int lfs3_mdir_fetch(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 failed:;
     // restore damage flags
     #ifdef LFS3_REPAIR
-    lfs3->flags = (lfs3->flags & ~(LFS3_I_CONDEMNED | LFS3_I_DAMAGED))
-            | (damage & (LFS3_I_CONDEMNED | LFS3_I_DAMAGED));
+    lfs3->flags = (lfs3->flags & ~(
+                LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0) | LFS3_I_DAMAGED))
+            | (damage & (
+                LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0) | LFS3_I_DAMAGED));
     #endif
     return err;
 }
@@ -18475,9 +18484,12 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                         LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETA, 0))
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, 0))
-                    | LFS3_I_DAMAGED
-                    | LFS3_I_CONDEMNED
-                    | LFS3_I_GRMOVERFLOW
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(LFS3_I_DAMAGED, 0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_I_GRMOVERFLOW)
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(LFS3_I_EVICTOVERFLOW, 0))))
             // LFS3_I_MKCONSISTENT is a bit of a special case,
