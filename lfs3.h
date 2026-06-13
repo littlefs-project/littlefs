@@ -367,7 +367,7 @@ enum lfs3_type {
 #define LFS3_I_GRMOVERFLOW \
                         0x08000000  // Global remove queue overflowed
 #endif
-#ifdef LFS3_REPAIR
+#ifndef LFS3_RDONLY
 #define LFS3_I_DAMAGEDPROG \
                         0x10000000  // Found damage during prog
 #endif
