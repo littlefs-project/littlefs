@@ -18919,8 +18919,9 @@ int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
 
 
 // evict a block from the filesystem, and/or mark it as good/bad
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && (defined(LFS3_EVICT) || defined(LFS3_GBMAP))
 int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
+    (void)flags;
     // Note we do _not_ call lfs3_fs_mkconsistent here.
     //
     // We should be ok not calling lfs3_fs_mkconsistent as long as we
@@ -18932,10 +18933,10 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
 
     // unknown eviction flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_EVICT_EVICT
-                | LFS3_IFDEF_CONDEMN(LFS3_EVICT_BAD, 0)
-                | LFS3_IFDEF_CONDEMN(LFS3_EVICT_GOOD, 0))) == 0);
-    #ifdef LFS3_CONDEMN
+            LFS3_IFDEF_EVICT(LFS3_EVICT_EVICT, 0)
+                | LFS3_IFDEF_GBMAP(LFS3_EVICT_BAD, 0)
+                | LFS3_IFDEF_GBMAP(LFS3_EVICT_GOOD, 0))) == 0);
+    #ifdef LFS3_GBMAP
     // mark both good and bad? what are you doing?
     LFS3_ASSERT(!((flags & LFS3_EVICT_BAD) && (flags & LFS3_EVICT_GOOD)));
     // we can't track bad blocks without a gbmap
@@ -18950,6 +18951,7 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
 
     // evict?
     int err;
+    #ifdef LFS3_EVICT
     if (flags & LFS3_EVICT_EVICT) {
         // littlefs can't function without blocks 0x{0,1}, so reject
         // these
@@ -18988,9 +18990,10 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         }
         lfs3_handle_close(lfs3, &mgc.t.h);
     }
+    #endif
 
     // mark good/bad?
-    #ifdef LFS3_CONDEMN
+    #ifdef LFS3_GBMAP
     if (flags & (LFS3_EVICT_BAD | LFS3_EVICT_GOOD)) {
         // checkpoint the lookahead buffer, but avoid repopulating the
         // gbmap
@@ -19026,7 +19029,9 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
 
 failed:;
     // make sure eviction queue is null
+    #ifdef LFS3_EVICT
     lfs3_evict_discard(lfs3);
+    #endif
     return err;
 }
 #endif

@@ -505,10 +505,10 @@ enum lfs3_btype {
 #define LFS3_EVICT_EVICT \
                         0x00000001  // Delete all references to this block
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_EVICT_BAD  0x80000000  // Mark this block as bad, do not alloc
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_EVICT_GOOD 0x20000000  // Mark this block as good, do alloc
 #endif
 
@@ -2030,7 +2030,7 @@ int lfs3_fs_rmgbmap(lfs3_t *lfs3);
 //
 // Returns 0 if all flags are satisfied, or a negative error code on
 // failure.
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#if !defined(LFS3_RDONLY) && (defined(LFS3_EVICT) || defined(LFS3_GBMAP))
 int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags);
 #endif
 
