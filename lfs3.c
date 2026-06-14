@@ -12063,16 +12063,15 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         } else if (LFS3_IFDEF_RDONLY(
                 false,
                 LFS3_IFDEF_GBMAP(
+                    // but only if we're doing gbmap relevant work
+                    //
+                    // note repair work is not a concern, because we
+                    // syncgbmap in the traversal if any damage is
+                    // found in gbmap_p (and damage in gbmap is not
+                    // really on-disk yet)
                     ((mgc->t.h.flags & LFS3_GC_LOOKAHEAD)
                             || LFS3_IFDEF_PREERASE(
                                 mgc->t.h.flags & LFS3_GC_PREERASE,
-                                false)
-                            // TODO do we still want this iscompactmeta if
-                            // we don't support btree evict?
-                            || (mgc->t.h.flags & LFS3_GC_COMPACTMETA)
-                            || LFS3_IFDEF_EVICT(
-                                (mgc->t.h.flags & (
-                                    LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA)),
                                 false))
                         && lfs3_alloc_cansyncgbmap(lfs3),
                     false))) {
