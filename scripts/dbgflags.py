@@ -94,8 +94,9 @@ F_CKMETA        = 0x00100000  # --  Check metadata checksums
 F_CKDATA        = 0x00200000  # --  Check metadata + data checksums
 F_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
 F_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
+F_SYNCMETA      = 0x01000000  # --  Write lazy metadata to disk
 F_CK            = 0x00300000  # a-  Alias for all check work
-F_GC            = 0x00ff0000  # a-  Alias for all gc work
+F_GC            = 0x01ff0000  # a-  Alias for all gc work
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -112,8 +113,9 @@ M_CKMETA        = 0x00100000  # --  Check metadata checksums
 M_CKDATA        = 0x00200000  # --  Check metadata + data checksums
 M_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
 M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
+M_SYNCMETA      = 0x01000000  # --  Write lazy metadata to disk
 M_CK            = 0x00300000  # a-  Alias for all check work
-M_GC            = 0x00ff0000  # a-  Alias for all gc work
+M_GC            = 0x01ff0000  # a-  Alias for all gc work
 
 # Additional filesystem config flags
 CFG_MODE        =          1  # -m  Filesystem's access mode
@@ -152,6 +154,7 @@ I_CKMETA        = 0x00100000  # --  Metadata checksums not checked recently
 I_CKDATA        = 0x00200000  # --  Data checksums not checked recently
 I_REPAIRMETA    = 0x00400000  # --  Metadata blocks need repair
 I_REPAIRDATA    = 0x00800000  # --  Data blocks need repair
+I_SYNCMETA      = 0x01000000  # --  Lazy metadata does not match disk
 
 I_GRMOVERFLOW   = 0x08000000  # --  Global remove queue overflowed
 I_DAMAGEDPROG   = 0x10000000  # --  Found damage during prog
@@ -175,14 +178,15 @@ t_ORPHAN        = 0x50000000  # i^  Type = orphan
 t_TRV           = 0x60000000  # i^  Type = traversal
 t_GC            = 0x70000000  # i^  Type = gc
 t_UNKNOWN       = 0x80000000  # i^  Type = unknown
-t_BTYPE         = 0x000f0000  # im  The current block type
-t_MDIR          = 0x00010000  # i^  Btype = mdir
-t_BTREE         = 0x00020000  # i^  Btype = btree
-t_DATA          = 0x00030000  # i^  Btype = data
+t_BTYPE         = 0x00000070  # im  The current block type
+t_MDIR          = 0x00000010  # i^  Btype = mdir
+t_BTREE         = 0x00000020  # i^  Btype = btree
+t_DATA          = 0x00000030  # i^  Btype = data
+t_BAD           = 0x00000070  # i^  Btype = bad
 t_CKPOINTED     = 0x08000000  # i-  Filesystem ckpointed during traversal
 t_DIRTY         = 0x04000000  # i-  Filesystem ckpointed outside traversal
-t_STALE         = 0x02000000  # i-  Block queue probably out-of-date
-t_DAMAGED       = 0x01000000  # i-  Filesystem damaged during traversal
+t_STALE         = 0x00000080  # i-  Block queue probably out-of-date
+t_DAMAGED       = 0x02000000  # i-  Filesystem damaged during traversal
 
 # GC flags
 GC_EXCL         = 0x00000008  # --  Error if filesystem modified
@@ -195,15 +199,15 @@ GC_CKMETA       = 0x00100000  # --  Check metadata checksums
 GC_CKDATA       = 0x00200000  # --  Check metadata + data checksums
 GC_REPAIRMETA   = 0x00400000  # --  Repair metadata damage
 GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data damage
+GC_SYNCMETA     = 0x01000000  # --  Write lazy metadata to disk
 GC_CK           = 0x00300000  # a-  Alias for all check work
-GC_GC           = 0x00ff0000  # a-  Alias for all gc work
+GC_GC           = 0x01ff0000  # a-  Alias for all gc work
 
 gc_EVICTMETA    = 0x00400000  # i-  Evict metadata blocks
 gc_EVICTDATA    = 0x00800000  # i-  Evict metadata + data blocks
 gc_MKCONSISTENTING \
                 = 0x00000100  # i-  Working on LFS3_GC_MKCONSISTENT
 gc_LOOKAHEADING = 0x00000200  # i-  Working on LFS3_GC_LOOKAHEAD
-gc_PPREERASEING = 0x00000400  # i-  Working on LFS3_GC_PREERASE
 gc_COMPACTMETAING \
                 = 0x00000800  # i-  Working on LFS3_GC_COMPACTMETA
 gc_CKMETAING    = 0x00001000  # i-  Working on LFS3_GC_CKMETA

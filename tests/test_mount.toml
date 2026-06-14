@@ -24,62 +24,30 @@ code = '''
 defines.RDONLY = [false, true]
 defines.FLUSH = [false, true]
 defines.SYNC = [false, true]
-defines.REVPERTURB = [false, true]
-defines.REVNOISE = [false, true]
-defines.CKPROGS = [false, true]
-defines.CKFETCHES = [false, true]
-defines.CKMETAPARITY = [false, true]
-defines.CKDATACKSUMS = [false, true]
-defines.REPAIRMETADAMAGE = [false, true]
-defines.REPAIRDATADAMAGE = [false, true]
-defines.CONDEMNDAMAGE = [false, true]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.REPAIRMETA = [false, true]
+defines.REPAIRDATA = [false, true]
+defines.SYNCMETA = [false, true]
+# note preerasing needs revperturb
 defines.CFG_FLAGS = '''
-    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_CFG_REVPERTURB, -1) : 0)
-        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_CFG_REVNOISE, -1) : 0)
-        | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
-        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
-        | ((CKMETAPARITY)
-            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
-            : 0)
-        | ((CKDATACKSUMS)
-            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
-            : 0)
-        | ((REPAIRMETADAMAGE)
-            ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1)
-            : 0)
-        | ((REPAIRDATADAMAGE)
-            ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1)
-            : 0)
-        | ((CONDEMNDAMAGE)
-            ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1)
-            : 0)
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
 '''
 if = [
-    'LFS3_IFYES_REVPERTURB(REVPERTURB, true, !REVPERTURB)',
-    'LFS3_IFYES_REVNOISE(REVNOISE, true, !REVNOISE)',
-    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
-    'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
-    'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
-    'LFS3_IFDEF_REPAIR(true, !REPAIRMETADAMAGE)',
-    '!RDONLY || !REPAIRMETADAMAGE',
-    'LFS3_IFDEF_REPAIR(true, !REPAIRDATADAMAGE)',
-    '!RDONLY || !REPAIRDATADAMAGE',
-    'LFS3_IFDEF_CONDEMN(true, !CONDEMNDAMAGE)',
-    '!RDONLY || !CONDEMNDAMAGE',
     '!RDONLY || !MKCONSISTENT',
     '!RDONLY || !LOOKAHEAD',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
-    'GBMAP || !PREERASE',
-    'REVPERTURB || !PREERASE',
     '!RDONLY || !PREERASE',
     '!RDONLY || !COMPACTMETA',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
+    '!RDONLY || !REPAIRMETA',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
+    '!RDONLY || !REPAIRDATA',
+    '!RDONLY || !SYNCMETA',
 ]
 code = '''
     lfs3_t lfs3;
@@ -96,7 +64,10 @@ code = '''
                 | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, -1) : 0)
                 | ((COMPACTMETA) ? LFS3_M_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
-                | ((CKDATA) ? LFS3_M_CKDATA : 0),
+                | ((CKDATA) ? LFS3_M_CKDATA : 0)
+                | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, -1) : 0)
+                | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, -1) : 0)
+                | ((SYNCMETA) ? LFS3_M_SYNCMETA : 0),
             CFG) => 0;
 
     // lfs3_fs_stat only returns some flags
@@ -117,6 +88,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((GBMAP && PREERASE && !SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
@@ -126,23 +98,82 @@ code = '''
 # 
 # these end up passed to mount internally
 [cases.test_mount_format_flags]
+defines.MKCONSISTENT = [false, true]
+defines.LOOKAHEAD = [false, true]
+defines.PREERASE = [false, true]
+defines.COMPACTMETA = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.REPAIRMETA = [false, true]
+defines.REPAIRDATA = [false, true]
+defines.SYNCMETA = [false, true]
+# note preerasing needs revperturb
+defines.CFG_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
+'''
+if = [
+    'LFS3_IFDEF_PREERASE(true, !PREERASE)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
+]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((MKCONSISTENT) ? LFS3_F_MKCONSISTENT : 0)
+                | ((LOOKAHEAD) ? LFS3_F_LOOKAHEAD : 0)
+                | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, -1) : 0)
+                | ((COMPACTMETA) ? LFS3_F_COMPACTMETA : 0)
+                | ((CKMETA) ? LFS3_F_CKMETA : 0)
+                | ((CKDATA) ? LFS3_F_CKDATA : 0)
+                | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, -1) : 0)
+                | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, -1) : 0)
+                | ((SYNCMETA) ? LFS3_F_SYNCMETA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // test that format-only flags are read correctly
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_MKCONSISTENT
+                | ((!GBMAP
+                        || (PREERASE
+                            && !LOOKAHEAD
+                            && (COMPACTMETA || SYNCMETA)))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that various cfg flags don't assert or anything
+#
+# this is a separate test to minimize combinatorial explosion
+[cases.test_mount_cfg_flags]
+defines.RDONLY = [false, true]
+defines.FLUSH = [false, true]
+defines.SYNC = [false, true]
 defines.REVPERTURB = [false, true]
 defines.REVNOISE = [false, true]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKMETAPARITY = [false, true]
 defines.CKDATACKSUMS = [false, true]
-defines.MKCONSISTENT = [false, true]
 defines.REPAIRMETADAMAGE = [false, true]
 defines.REPAIRDATADAMAGE = [false, true]
 defines.CONDEMNDAMAGE = [false, true]
-defines.LOOKAHEAD = [false, true]
-defines.PREERASE = [false, true]
-defines.COMPACTMETA = [false, true]
-defines.CKMETA = [false, true]
-defines.CKDATA = [false, true]
 defines.CFG_FLAGS = '''
-    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_CFG_REVPERTURB, -1) : 0)
+    ((RDONLY) ? LFS3_CFG_RDONLY : 0)
+        | ((FLUSH) ? LFS3_CFG_FLUSH : 0)
+        | ((SYNC) ? LFS3_CFG_SYNC : 0)
+        | ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_CFG_REVPERTURB, -1) : 0)
         | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_CFG_REVNOISE, -1) : 0)
         | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
         | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
@@ -161,6 +192,9 @@ defines.CFG_FLAGS = '''
         | ((CONDEMNDAMAGE)
             ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1)
             : 0)
+        | ((GBMAP)
+            ? LFS3_IFDEF_GBMAP(LFS3_CFG_GBMAP, -1)
+            : 0)
 '''
 if = [
     'LFS3_IFYES_REVPERTURB(REVPERTURB, true, !REVPERTURB)',
@@ -172,36 +206,33 @@ if = [
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETADAMAGE)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATADAMAGE)',
     'LFS3_IFDEF_CONDEMN(true, !CONDEMNDAMAGE)',
-    'LFS3_IFDEF_PREERASE(true, !PREERASE)',
-    'GBMAP || !PREERASE',
-    'REVPERTURB || !PREERASE',
 ]
 code = '''
     lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((MKCONSISTENT) ? LFS3_F_MKCONSISTENT : 0)
-                | ((LOOKAHEAD) ? LFS3_F_LOOKAHEAD : 0)
-                | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, -1) : 0)
-                | ((COMPACTMETA) ? LFS3_F_COMPACTMETA : 0)
-                | ((CKMETA) ? LFS3_F_CKMETA : 0)
-                | ((CKDATA) ? LFS3_F_CKDATA : 0)
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
-            CFG) => 0;
+    // note for this test gbmap is included in cfg flags, so we
+    // shouldn't need it here
+    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
-    // test that format-only flags are read correctly
+    // lfs3_fs_stat only returns some flags
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (PREERASE && !LOOKAHEAD))
+            ((RDONLY) ? LFS3_I_RDONLY : 0)
+                | ((FLUSH) ? LFS3_I_FLUSH : 0)
+                | ((SYNC) ? LFS3_I_SYNC : 0)
+                | ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
+                | ((!LOOKAHEAD && (!GBMAP || PREERASE))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
-                | LFS3_I_COMPACTMETA
-                | LFS3_I_CKMETA
-                | LFS3_I_CKDATA
+                | LFS3_IFDEF_PREERASE(
+                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    0)
+                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((SYNCMETA) ? LFS3_M_SYNCMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
@@ -259,6 +290,7 @@ code = '''
 [cases.test_mount_t_lookgbmap]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.SYNCMETA = [false, true]
 defines.SIZE = [
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
@@ -312,12 +344,13 @@ code = '''
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     lfs3_unmount(&lfs3) => 0;
 
-    // with LFS3_M_LOOKAHEAD, mount rebuild the gbmap
+    // with LFS3_M_LOOKAHEAD, mount rebuilds the gbmap
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
                 | LFS3_M_LOOKAHEAD
                 | ((CKMETA) ? LFS3_M_CKMETA : 0)
-                | ((CKDATA) ? LFS3_M_CKDATA : 0),
+                | ((CKDATA) ? LFS3_M_CKDATA : 0)
+                | ((SYNCMETA) ? LFS3_M_SYNCMETA : 0),
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
@@ -327,6 +360,7 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((!SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -335,6 +369,7 @@ code = '''
 defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+defines.SYNCMETA = [false, true]
 defines.SIZE = [
     'BLOCK_SIZE/2',
     'BLOCK_SIZE',
@@ -350,7 +385,11 @@ defines.CFG_FLAGS = 'LFS3_CFG_REVPERTURB'
 # test with a number of different erase values
 defines.ERASE_VALUE = [0xff, 0x00, -1]
 ifdef = ['LFS3_GBMAP', 'LFS3_REVPERTURB', 'LFS3_PREERASE']
-if = 'GBMAP'
+if = [
+    'GBMAP',
+    # needs SYNCMETA to survive remounting
+    'SYNCMETA || !REMOUNT',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -378,7 +417,8 @@ code = '''
     lfs3_mount(&lfs3,
             LFS3_M_RDWR
                 | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
-                | LFS3_M_PREERASE,
+                | LFS3_M_PREERASE
+                | ((SYNCMETA) ? LFS3_M_SYNCMETA : 0),
             CFG) => 0;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
@@ -387,6 +427,7 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
+                | ((!SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // remount?
@@ -398,7 +439,8 @@ code = '''
         lfs3_mount(&lfs3,
                 LFS3_M_RDWR
                     | ((REMOUNT == 1 && LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
-                    | ((REMOUNT == 1) ? LFS3_M_PREERASE : 0),
+                    | ((REMOUNT == 1) ? LFS3_M_PREERASE : 0)
+                    | ((REMOUNT == 1 && SYNCMETA) ? LFS3_M_SYNCMETA : 0),
                 CFG) => 0;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.flags == (
