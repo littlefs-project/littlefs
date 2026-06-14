@@ -257,6 +257,7 @@ static lfs3_evict_t *lfs3_evict_push(lfs3_t *lfs3,
     // or, uh, loudly, if you have warnings enabled
     //
     // try to avoid spamming overflow warnings
+    #ifdef LFS3_REPAIR
     if (!(lfs3->flags & LFS3_I_EVICTOVERFLOW)) {
         LFS3_WARN("Evict queue overflowed 0x%"PRIx32" "
                     "(%"PRIu32" > %"PRIu32")",
@@ -266,6 +267,8 @@ static lfs3_evict_t *lfs3_evict_push(lfs3_t *lfs3,
     }
 
     lfs3->flags |= LFS3_I_EVICTOVERFLOW;
+    #endif
+
     return NULL;
 
 found:;
@@ -11828,17 +11831,29 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     for (; steps < 0 || i < lfs3_max(steps, 1); i = lfs3_ssadd(i, 1)) {
         // do we have any pending traversal work?
         uint32_t t = ((mgc->t.h.flags
-                        // mkconsistent implies repairmeta+repairdata
+                        // mkconsistent implies repairmeta/repairdata if
+                        // repairmetadamage/repairdatadamage is set
                         | LFS3_IFDEF_REPAIR(
-                            (mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
+                            ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
+                                    && LFS3_CFG_ISREPAIRMETADAMAGE(lfs3->cfg))
+                                ? LFS3_GC_REPAIRMETA
+                                : 0,
+                            0)
+                        | LFS3_IFDEF_REPAIR(
+                            ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
+                                    && LFS3_CFG_ISREPAIRDATADAMAGE(lfs3->cfg))
                                 ? LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA
                                 : 0,
                             0)
                         // ckdata implies ckmeta
-                        | ((mgc->t.h.flags & LFS3_GC_CKDATA) >> 1)
+                        | ((mgc->t.h.flags & LFS3_GC_CKDATA)
+                            ? LFS3_GC_CKMETA
+                            : 0)
                         // evict/repairdata implies evict/repairmeta
                         | LFS3_IFDEF_EVICT(
-                            (mgc->t.h.flags & LFS3_gc_EVICTDATA) >> 1,
+                            (mgc->t.h.flags & LFS3_gc_EVICTDATA)
+                                ? LFS3_gc_EVICTMETA
+                                : 0,
                             0))
                     // mask with pending flags
                     & lfs3->flags
@@ -12136,7 +12151,7 @@ static int lfs3_fs_mkrepaired(lfs3_t *lfs3) {
                     ? LFS3_GC_REPAIRMETA
                     : 0)
                 | ((LFS3_CFG_ISREPAIRDATADAMAGE(lfs3->cfg))
-                    ? LFS3_GC_REPAIRDATA
+                    ? LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA
                     : 0));
 }
 #endif
