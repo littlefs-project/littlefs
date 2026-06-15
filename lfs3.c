@@ -18684,23 +18684,14 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
 }
 #endif
 
-// unperform janitorial work
-int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
-    // unknown flags?
+// request janitorial work
+int lfs3_fs_requestck(lfs3_t *lfs3, uint32_t flags){
+    // unknown flags? this is limited to ck flags
     LFS3_ASSERT((flags & ~(
-            LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                | LFS3_GC_CKMETA
-                | LFS3_GC_CKDATA
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
-                | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
+            LFS3_I_CKMETA
+                | LFS3_I_CKDATA)) == 0);
 
-    // reset the requested flags
+    // request the requested flags
     lfs3->flags |= flags;
 
     // mark any ongoing traversals as dirty to avoid clearing flags
@@ -18713,6 +18704,44 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
             h->flags |= LFS3_t_CKPOINTED | LFS3_t_DIRTY;
         }
     }
+
+    return 0;
+}
+
+// clear flags/optional janitorial work
+int lfs3_fs_clearck(lfs3_t *lfs3, uint32_t flags) {
+    // unknown flags? this is limited to ck, repair, and sticky flags
+    LFS3_ASSERT((flags & ~(
+            LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, 0))
+                | LFS3_IFDEF_RDONLY(0, LFS3_I_GRMOVERFLOW)
+                | LFS3_IFDEF_RDONLY(0, LFS3_I_DAMAGEDPROG)
+                | LFS3_IFDEF_REPAIR(LFS3_I_DAMAGEDREAD, 0)
+                | LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0)
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_I_EVICTOVERFLOW, 0)))) == 0);
+
+    // if clearing repair flags, we need to remove the the evictqueue
+    #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+    if (flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
+        lfs3_evict_flush(lfs3,
+                (flags & LFS3_I_REPAIRDATA)
+                    ? LFS3_evict_DATA
+                    : 0);
+    }
+    #endif
+
+    // clear the requested flags
+    lfs3->flags &= ~flags;
+
+    // we don't need to mess with traversals here
+    //
+    // lfs3_fs_gc will terminate early if it discovers it can no longer
+    // make progress
 
     return 0;
 }

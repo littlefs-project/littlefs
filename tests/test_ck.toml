@@ -741,8 +741,8 @@ code = '''
             // unflip our bit
             lfs3_emubd_flipbit(CFG, badblock, badbit) => 0;
 
-            // clear any ck flags for gc
-            lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
+            // request any ck flags for gc
+            lfs3_fs_requestck(&lfs3, GC_FLAGS) => 0;
             continue;
 
         detected:;
@@ -754,8 +754,8 @@ code = '''
                 lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
             }
 
-            // clear any ck flags for gc
-            lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
+            // request any ck flags for gc
+            lfs3_fs_requestck(&lfs3, GC_FLAGS) => 0;
             continue;
         }
 
@@ -1017,8 +1017,8 @@ code = '''
             // unflip our bit
             lfs3_emubd_flipbit(CFG, badblock, badbit) => 0;
 
-            // clear any ck flags for gc
-            lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
+            // request any ck flags for gc
+            lfs3_fs_requestck(&lfs3, GC_FLAGS) => 0;
             continue;
 
         detected:;
@@ -1030,8 +1030,8 @@ code = '''
                 lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
             }
 
-            // clear any ck flags for gc
-            lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
+            // request any ck flags for gc
+            lfs3_fs_requestck(&lfs3, GC_FLAGS) => 0;
             continue;
         }
 

@@ -7773,8 +7773,8 @@ done:;
 '''
 
 # test we can detect fully clobbered blocks after a ck pass, if we call
-# lfs3_fs_unck
-[cases.test_gc_ckmeta_unck]
+# lfs3_fs_requestck
+[cases.test_gc_ckmeta_requestck]
 # AFTER=0 => after running lfs3_fs_gc once
 # AFTER=1 => after running lfs3_fs_gc to completion
 # AFTER=2 => after running lfs3_trv_t
@@ -7935,8 +7935,8 @@ code = '''
         }
 
     clobbered:;
-        // clear relevant ck flags
-        lfs3_fs_unck(&lfs3, LFS3_I_CKMETA) => 0;
+        // request relevant ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_I_CKMETA) => 0;
 
         // running lfs3_fs_gc should eventually find the clobbered block
         for (lfs3_block_t i = 0;; i++) {
@@ -7956,7 +7956,7 @@ code = '''
 done:;
 '''
 
-[cases.test_gc_ckdata_unck]
+[cases.test_gc_ckdata_requestck]
 # AFTER=0 => after running lfs3_fs_gc once
 # AFTER=1 => after running lfs3_fs_gc to completion
 # AFTER=2 => after running lfs3_trv_t
@@ -8118,8 +8118,8 @@ code = '''
         }
 
     clobbered:;
-        // clear relevant ck flags
-        lfs3_fs_unck(&lfs3, LFS3_I_CKDATA) => 0;
+        // request relevant ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_I_CKDATA) => 0;
 
         // running lfs3_fs_gc should eventually find the clobbered block
         //
@@ -10470,42 +10470,20 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that gc work clears flags in lfs3_fs_stat after lfs3_fs_unck
-[cases.test_gc_iflags_unck]
+# test that gc work clears flags in lfs3_fs_stat after lfs3_fs_requestck
+[cases.test_gc_iflags_requestck]
 # AFTER=0 => after running lfs3_fs_gc
 # AFTER=1 => after running lfs3_gc_t
 # AFTER=2 => after explicit operations
 # AFTER=3 => after remounting
 defines.AFTER = [0, 1, 2, 3]
-defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
-defines.PREERASE = [false, true]
-defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
-defines.REPAIRMETA = [false, true]
-defines.REPAIRDATA = [false, true]
 defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
-        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+    ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
-        | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
-        | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
 '''
 defines.GC_STEPS = -1
-# set compact thresh to minimum
-defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
-# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
-# gives ourselves a bit of wiggle room, this is a more realistic value
-# anyways
-defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
-# note preerasing needs revperturb
-defines.CFG_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
-'''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -10519,10 +10497,6 @@ defines.SIZE = [
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
     'LFS3_IFDEF_GC(true, AFTER != 0)',
-    'LFS3_IFDEF_PREERASE(true, !PREERASE)',
-    'GBMAP || !PREERASE',
-    'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
-    'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -10598,51 +10572,9 @@ code = '''
             // it may take multiple traversals to do all pending work
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                        | ((PREERASE)
-                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
-                            : 0)
-                        | ((COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
-                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS3_I_CKDATA : 0)
-                        | ((REPAIRMETA)
-                            ? LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETA, -1)
-                            : 0)
-                        | ((REPAIRDATA)
-                            ? LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, -1)
-                            : 0)))) {
+                    ((CKMETA) ? LFS3_I_CKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
-            }
-
-            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_MKCONSISTENT)) {
-                lfs3_fs_mkconsistent(&lfs3) => 0;
-            }
-
-            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_LOOKAHEAD) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
-            }
-
-            #ifdef LFS3_PREERASE
-            if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_PREERASE) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
-            }
-            #endif
-
-            if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_COMPACTMETA) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
@@ -10652,18 +10584,6 @@ code = '''
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
                 lfs3_fs_ckdata(&lfs3) => 0;
             }
-
-            #ifdef LFS3_REPAIR
-            if (REPAIRMETA && (fsinfo.flags & LFS3_I_REPAIRMETA)) {
-                lfs3_fs_repairmeta(&lfs3) => 0;
-            }
-            #endif
-
-            #ifdef LFS3_REPAIR
-            if (REPAIRDATA && (fsinfo.flags & LFS3_I_REPAIRDATA)) {
-                lfs3_fs_repairdata(&lfs3) => 0;
-            }
-            #endif
         }
 
     // remount with gc flags
@@ -10678,22 +10598,19 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD
-                        && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
+            LFS3_I_MKCONSISTENT
+                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE(
-                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
-                    0)
-                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
-    // test that we can reset flags with lfs3_fs_unck
-    lfs3_fs_unck(&lfs3, GC_FLAGS) => 0;
+    // test that we can request flags with lfs3_fs_requestck
+    lfs3_fs_requestck(&lfs3, GC_FLAGS) => 0;
 
     // check that flags were reset
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -10702,20 +10619,12 @@ code = '''
                 | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE(
-                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
-                    0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
-                // note ckdata implies ckmeta, but uncking ckdata does
-                // _not_ imply uncking ckmeta
+                // note ckdata implies ckmeta, but requestcking ckdata
+                // does _not_ imply requestcking ckmeta
                 | ((!(CKDATA && !CKMETA)) ? LFS3_I_CKMETA : 0)
                 | LFS3_I_CKDATA
-                | LFS3_IFDEF_REPAIR(
-                    (REPAIRMETA) ? LFS3_I_REPAIRMETA : 0,
-                    0)
-                | LFS3_IFDEF_REPAIR(
-                    (REPAIRDATA) ? LFS3_I_REPAIRDATA : 0,
-                    0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // run gc
@@ -10748,51 +10657,9 @@ code = '''
             // it may take multiple traversals to do all pending work
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             if (!(fsinfo.flags & (
-                    ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                        | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
-                        | ((PREERASE)
-                            ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
-                            : 0)
-                        | ((COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
-                        | ((CKMETA) ? LFS3_I_CKMETA : 0)
-                        | ((CKDATA) ? LFS3_I_CKDATA : 0)
-                        | ((REPAIRMETA)
-                            ? LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETA, -1)
-                            : 0)
-                        | ((REPAIRDATA)
-                            ? LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, -1)
-                            : 0)))) {
+                    ((CKMETA) ? LFS3_I_CKMETA : 0)
+                        | ((CKDATA) ? LFS3_I_CKDATA : 0)))) {
                 break;
-            }
-
-            if (MKCONSISTENT && (fsinfo.flags & LFS3_I_MKCONSISTENT)) {
-                lfs3_fs_mkconsistent(&lfs3) => 0;
-            }
-
-            if (LOOKAHEAD && (fsinfo.flags & LFS3_I_LOOKAHEAD)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_LOOKAHEAD) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
-            }
-
-            #ifdef LFS3_PREERASE
-            if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_PREERASE) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
-            }
-            #endif
-
-            if (COMPACTMETA && (fsinfo.flags & LFS3_I_COMPACTMETA)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_COMPACTMETA) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
@@ -10802,18 +10669,6 @@ code = '''
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
                 lfs3_fs_ckdata(&lfs3) => 0;
             }
-
-            #ifdef LFS3_REPAIR
-            if (REPAIRMETA && (fsinfo.flags & LFS3_I_REPAIRMETA)) {
-                lfs3_fs_repairmeta(&lfs3) => 0;
-            }
-            #endif
-
-            #ifdef LFS3_REPAIR
-            if (REPAIRDATA && (fsinfo.flags & LFS3_I_REPAIRDATA)) {
-                lfs3_fs_repairdata(&lfs3) => 0;
-            }
-            #endif
         }
 
     // remount with gc flags
@@ -10828,17 +10683,108 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD
-                        && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
+            LFS3_I_MKCONSISTENT
+                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
-                | LFS3_IFDEF_PREERASE(
-                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
-                    0)
-                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that we can manually clear flags with lfs3_fs_clearck
+[cases.test_gc_iflags_clearck]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.REPAIRMETA = [false, true]
+defines.REPAIRDATA = [false, true]
+defines.GC_FLAGS = '''
+    ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
+        | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
+        | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
+'''
+defines.GC_STEPS = -1
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+if = [
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+    'LFS3_IFDEF_GC(true, AFTER != 0)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
+    'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
+]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create an interesting filesystem
+    uint32_t prng = 42;
+    for (lfs3_size_t i = 0; i < N; i++) {
+        char name[256];
+        sprintf(name, "squid%03x", i);
+
+        uint8_t wbuf[SIZE];
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
+    }
+
+    // remount to reset flags
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // check that flags were reset
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_MKCONSISTENT
+                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    // clear the relevant flags
+    lfs3_fs_clearck(&lfs3, GC_FLAGS) => 0;
+
+    // did these clear the right flags?
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_MKCONSISTENT
+                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // note ckdata implies ckmeta, clearcking ckdata does
+                // _not_ imply clearcking ckmeta
+                | ((!CKMETA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
@@ -10923,103 +10869,6 @@ code = '''
         }
         lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
         lfs3_file_close(&lfs3, &file) => 0;
-
-        // gc!
-        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
-        assert(steps >= 0);
-    }
-
-    // check the file contents
-    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
-    uint8_t rbuf[SIZE];
-    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
-    assert(memcmp(rbuf, wbuf, SIZE) == 0);
-    lfs3_file_close(&lfs3, &file) => 0;
-
-    lfs3_unmount(&lfs3) => 0;
-'''
-
-# pseudo-fuzz test that spamming lfs3_fs_unck doesn't break anything
-[cases.test_gc_mutation_unck]
-defines.N = 100
-defines.MKCONSISTENT = [false, true]
-defines.LOOKAHEAD = [false, true]
-defines.PREERASE = [false, true]
-defines.COMPACTMETA = [false, true]
-defines.CKMETA = [false, true]
-defines.CKDATA = [false, true]
-defines.REPAIRMETA = [false, true]
-defines.REPAIRDATA = [false, true]
-defines.GC_FLAGS = '''
-    ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
-        | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
-        | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
-        | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
-        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
-        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
-        | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
-        | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-'''
-defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
-# set compact thresh to minimum
-defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
-# LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
-# gives ourselves a bit of wiggle room, this is a more realistic value
-# anyways
-defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
-# note preerasing needs revperturb
-defines.CFG_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
-'''
-defines.SIZE = [
-    'FCACHE_SIZE/2',
-    '2*FCACHE_SIZE',
-    'BLOCK_SIZE/2',
-    'BLOCK_SIZE',
-    '2*BLOCK_SIZE',
-    '8*BLOCK_SIZE',
-]
-if = [
-    'LFS3_IFDEF_PREERASE(true, !PREERASE)',
-    'GBMAP || !PREERASE',
-    'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
-    'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-]
-ifdef = 'LFS3_GC'
-code = '''
-    lfs3_t lfs3;
-    lfs3_format(&lfs3,
-            LFS3_F_RDWR
-                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
-            CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-
-    uint32_t prng = 42;
-
-    // create a file
-    lfs3_file_t file;
-    lfs3_file_open(&lfs3, &file, "spider",
-            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
-    uint8_t wbuf[SIZE];
-    for (lfs3_size_t j = 0; j < SIZE; j++) {
-        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-    }
-    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
-    lfs3_file_close(&lfs3, &file) => 0;
-
-    for (uint32_t i = 0; i < N; i++) {
-        // rewrite the file every gc cycle
-        lfs3_file_open(&lfs3, &file, "spider",
-                LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
-        for (lfs3_size_t j = 0; j < SIZE; j++) {
-            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
-        }
-        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
-        lfs3_file_close(&lfs3, &file) => 0;
-
-        // choose a random set of flags to unck every cycle
-        uint32_t flags = GC_FLAGS & TEST_PRNG(&prng);
-        lfs3_fs_unck(&lfs3, flags) => 0;
 
         // gc!
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
@@ -11171,7 +11020,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.UNCK = [false, true]
+defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -11221,9 +11070,9 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        // unck to keep things interesting?
-        if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+        // requestck to keep things interesting?
+        if (REQUESTCK) {
+            lfs3_fs_requestck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
@@ -11299,7 +11148,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.UNCK = [false, true]
+defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -11432,9 +11281,9 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        // unck to keep things interesting?
-        if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+        // requestck to keep things interesting?
+        if (REQUESTCK) {
+            lfs3_fs_requestck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
@@ -11498,7 +11347,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.UNCK = [false, true]
+defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -11568,9 +11417,9 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        // unck to keep things interesting?
-        if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+        // requestck to keep things interesting?
+        if (REQUESTCK) {
+            lfs3_fs_requestck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
@@ -11620,7 +11469,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.UNCK = [false, true]
+defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -11800,9 +11649,9 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        // unck to keep things interesting?
-        if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+        // requestck to keep things interesting?
+        if (REQUESTCK) {
+            lfs3_fs_requestck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
@@ -11881,7 +11730,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.UNCK = [false, true]
+defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -11995,9 +11844,9 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        // unck to keep things interesting?
-        if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+        // requestck to keep things interesting?
+        if (REQUESTCK) {
+            lfs3_fs_requestck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
@@ -12060,7 +11909,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.UNCK = [false, true]
+defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -12426,9 +12275,9 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        // unck to keep things interesting?
-        if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+        // requestck to keep things interesting?
+        if (REQUESTCK) {
+            lfs3_fs_requestck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 
@@ -12532,7 +12381,7 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.UNCK = [false, true]
+defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -12978,9 +12827,9 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        // unck to keep things interesting?
-        if (UNCK) {
-            lfs3_fs_unck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
+        // requestck to keep things interesting?
+        if (REQUESTCK) {
+            lfs3_fs_requestck(&lfs3, LFS3_I_CKMETA | LFS3_I_CKDATA) => 0;
         }
     }
 

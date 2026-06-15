@@ -7271,8 +7271,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -7387,8 +7387,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -7488,8 +7488,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -7627,8 +7627,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -7673,8 +7673,8 @@ code = '''
     
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -7836,8 +7836,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -8010,8 +8010,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -8231,8 +8231,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -8366,8 +8366,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -8557,8 +8557,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -8696,8 +8696,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -8886,8 +8886,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -9072,8 +9072,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -9229,8 +9229,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -9501,8 +9501,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -9769,8 +9769,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -9978,8 +9978,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -10212,8 +10212,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -10441,8 +10441,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -10718,8 +10718,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKMETA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKMETA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -10912,8 +10912,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -11097,8 +11097,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -11280,8 +11280,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -11452,8 +11452,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -11628,8 +11628,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -11819,8 +11819,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -12090,8 +12090,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -12363,8 +12363,8 @@ code = '''
 
     // make bad
     lfs3_emubd_mkbad(CFG, victim) => 0;
-    // reset ck flags
-    lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+    // request ck flags
+    lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
     // run gc to repair bad blocks
     lfs3_gc_t gc;
@@ -12597,8 +12597,8 @@ code = '''
 
             // make bad
             lfs3_emubd_mkbad(CFG, victim) => 0;
-            // reset ck flags
-            lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+            // request ck flags
+            lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
             // run gc to repair bad blocks
             lfs3_gc_t gc;
@@ -12743,8 +12743,8 @@ code = '''
 
             // make bad
             lfs3_emubd_mkbad(CFG, victim) => 0;
-            // reset ck flags
-            lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+            // request ck flags
+            lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
             // run gc to repair bad blocks
             lfs3_gc_t gc;
@@ -12873,8 +12873,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -13117,8 +13117,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -13286,8 +13286,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -13551,8 +13551,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -13781,8 +13781,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -14245,8 +14245,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -14830,8 +14830,8 @@ code = '''
 
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
-        // reset ck flags
-        lfs3_fs_unck(&lfs3, LFS3_GC_CKDATA) => 0;
+        // request ck flags
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
@@ -18496,3 +18496,686 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+[cases.test_evict_iflags_meta_abort]
+# also clear sticky flags
+defines.STICKY = [false, true]
+defines.SYNC = [false, true]
+defines.CLOSE = [false, true]
+defines.N = 1
+defines.SIZE = 'N*BLOCK_SIZE'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
+defines.CFG_FLAGS = '''
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
+ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file large enough for the number of blocks we need
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = SIZE;
+    uint8_t wbuf[BLOCK_SIZE];
+    for (lfs3_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, BLOCK_SIZE) => BLOCK_SIZE;
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+    }
+    if (CLOSE) {
+        lfs3_file_close(&lfs3, &file) => 0;
+    }
+
+    // damage this number of blocks
+    lfs3_size_t damaged = 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        // target btree nodes because they're a bit simpler to deal with
+        //
+        // I mean, uh, because they test a deeper level of traversal
+        // than the mtree! haha, yeah, that's it
+        if (binfo.btype == LFS3_BTYPE_BTREE
+                && damaged < N) {
+            lfs3_emubd_mkbad(CFG, binfo.block) => 0;
+            damaged += 1;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // did we damage the expected number of blocks? otherwise our test
+    // no worky
+    assert(damaged == N);
+
+    // run gc to check for meta damage
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // we should have an entry in our evictqueue
+    assert(lfs3.evictqueue.count == N);
+
+    // after finding damage, LFS3_I_REPAIRMETA should be set
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // ckmeta cleared! not ckdata
+                | LFS3_I_CKDATA
+                // repairmeta set! not repairdata
+                | LFS3_I_REPAIRMETA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                // damaged set!
+                | LFS3_I_DAMAGEDREAD
+                // maybe condemned set?
+                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+
+    // now, instead of fixing, abort the repairs
+    lfs3_fs_clearck(&lfs3,
+            LFS3_I_REPAIRMETA
+                | ((STICKY) ? LFS3_I_DAMAGEDREAD : 0)
+                | ((STICKY && CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)) => 0;
+
+    // evictqueue should have been flushed
+    assert(lfs3.evictqueue.count == 0);
+
+    // LFS3_I_REPAIRMETA should be cleared (but not fixed)
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // ckmeta cleared! not ckdata
+                | LFS3_I_CKDATA
+                // repairmeta cleared!
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                // maybe damaged set?
+                | ((!STICKY) ? LFS3_I_DAMAGEDREAD : 0)
+                // maybe condemned set?
+                | ((!STICKY && CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
+
+    // reopen if necessary
+    if (CLOSE) {
+        lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDWR) => 0;
+    }
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += BLOCK_SIZE) {
+            uint8_t wbuf[BLOCK_SIZE];
+            for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {\
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[BLOCK_SIZE];
+            lfs3_file_read(&lfs3, &file, rbuf, BLOCK_SIZE) => BLOCK_SIZE;
+            assert(memcmp(rbuf, wbuf, BLOCK_SIZE) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_evict_iflags_data_abort]
+# also clear sticky flags
+defines.STICKY = [false, true]
+defines.SYNC = [false, true]
+defines.CLOSE = [false, true]
+defines.N = 1
+defines.SIZE = 'N*BLOCK_SIZE'
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
+defines.CFG_FLAGS = '''
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
+ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file large enough for the number of blocks we need
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = SIZE;
+    uint8_t wbuf[BLOCK_SIZE];
+    for (lfs3_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, BLOCK_SIZE) => BLOCK_SIZE;
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+    }
+    if (CLOSE) {
+        lfs3_file_close(&lfs3, &file) => 0;
+    }
+
+    // damage this number of blocks
+    lfs3_size_t damaged = 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        // only target data blocks
+        if (binfo.btype == LFS3_BTYPE_DATA
+                && damaged < N) {
+            lfs3_emubd_mkbad(CFG, binfo.block) => 0;
+            damaged += 1;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // did we damage the expected number of blocks? otherwise our test
+    // no worky
+    assert(damaged == N);
+
+    // run gc to check for data damage
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // we should have an entry in our evictqueue
+    assert(lfs3.evictqueue.count == N);
+
+    // after finding damage, LFS3_I_REPAIRDATA should be set
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // both ckmeta/ckdata cleared!
+                // repairdata set! not repairmeta
+                | LFS3_I_REPAIRDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                // damaged set!
+                | LFS3_I_DAMAGEDREAD
+                // maybe condemned set?
+                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+
+    // now, instead of fixing, abort the repairs
+    lfs3_fs_clearck(&lfs3,
+            LFS3_I_REPAIRDATA
+                | ((STICKY) ? LFS3_I_DAMAGEDREAD : 0)
+                | ((STICKY && CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)) => 0;
+
+    // evictqueue should have been flushed
+    assert(lfs3.evictqueue.count == 0);
+
+    // LFS3_I_REPAIRDATA should be cleared (but not fixed)
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // both ckmeta/ckdata cleared!
+                // repairdata cleared!
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                // maybe damaged set?
+                | ((!STICKY) ? LFS3_I_DAMAGEDREAD : 0)
+                // maybe condemned set?
+                | ((!STICKY && CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
+
+    // reopen if necessary
+    if (CLOSE) {
+        lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDWR) => 0;
+    }
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += BLOCK_SIZE) {
+            uint8_t wbuf[BLOCK_SIZE];
+            for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {\
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[BLOCK_SIZE];
+            lfs3_file_read(&lfs3, &file, rbuf, BLOCK_SIZE) => BLOCK_SIZE;
+            assert(memcmp(rbuf, wbuf, BLOCK_SIZE) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_evict_iflags_meta_abort_evictoverflow]
+# also clear sticky flags
+defines.STICKY = [false, true]
+defines.SYNC = [false, true]
+defines.CLOSE = [false, true]
+defines.N = ['EVICTQUEUE_COUNT+1', 'EVICTQUEUE_COUNT*2']
+defines.SIZE = 'N*BLOCK_SIZE'
+# prevent block crystallization
+defines.CRYSTAL_THRESH = -1
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
+defines.CFG_FLAGS = '''
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
+ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file large enough for the number of blocks we need
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = SIZE;
+    uint8_t wbuf[BLOCK_SIZE];
+    for (lfs3_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, BLOCK_SIZE) => BLOCK_SIZE;
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+    }
+    if (CLOSE) {
+        lfs3_file_close(&lfs3, &file) => 0;
+    }
+
+    // damage this number of blocks
+    lfs3_size_t damaged = 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        // target btree nodes because they're a bit simpler to deal with
+        //
+        // I mean, uh, because they test a deeper level of traversal
+        // than the mtree! haha, yeah, that's it
+        if (binfo.btype == LFS3_BTYPE_BTREE
+                && damaged < N) {
+            lfs3_emubd_mkbad(CFG, binfo.block) => 0;
+            damaged += 1;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // did we damage the expected number of blocks? otherwise our test
+    // no worky
+    assert(damaged == N);
+
+    // run gc to check for meta damage
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKMETA) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // we should have overflowed our evictqueue
+    assert(lfs3.evictqueue.count >= EVICTQUEUE_COUNT);
+
+    // after finding damage, LFS3_I_REPAIRMETA should be set
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // ckmeta cleared! not ckdata
+                | LFS3_I_CKDATA
+                // repairmeta set! not repairdata
+                | LFS3_I_REPAIRMETA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                // damaged set!
+                | LFS3_I_DAMAGEDREAD
+                // maybe condemned set?
+                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                // evictqueue overflowed!
+                | LFS3_I_EVICTOVERFLOW));
+
+    // now, instead of fixing, abort the repairs
+    lfs3_fs_clearck(&lfs3,
+            LFS3_I_REPAIRMETA
+                | ((STICKY) ? LFS3_I_DAMAGEDREAD : 0)
+                | ((STICKY && CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
+                | ((STICKY) ? LFS3_I_EVICTOVERFLOW : 0)) => 0;
+
+    // evictqueue should have been flushed
+    assert(lfs3.evictqueue.count == 0);
+
+    // LFS3_I_REPAIRMETA should be cleared (but not fixed)
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // ckmeta cleared! not ckdata
+                | LFS3_I_CKDATA
+                // repairmeta cleared!
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                // maybe damaged set?
+                | ((!STICKY) ? LFS3_I_DAMAGEDREAD : 0)
+                // maybe condemned set?
+                | ((!STICKY && CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
+                // maybe evictoverflow set?
+                | ((!STICKY) ? LFS3_I_EVICTOVERFLOW : 0)));
+
+    // reopen if necessary
+    if (CLOSE) {
+        lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDWR) => 0;
+    }
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += BLOCK_SIZE) {
+            uint8_t wbuf[BLOCK_SIZE];
+            for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {\
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[BLOCK_SIZE];
+            lfs3_file_read(&lfs3, &file, rbuf, BLOCK_SIZE) => BLOCK_SIZE;
+            assert(memcmp(rbuf, wbuf, BLOCK_SIZE) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_evict_iflags_data_abort_evictoverflow]
+# also clear sticky flags
+defines.STICKY = [false, true]
+defines.SYNC = [false, true]
+defines.CLOSE = [false, true]
+defines.N = ['EVICTQUEUE_COUNT+1', 'EVICTQUEUE_COUNT*2']
+defines.SIZE = 'N*BLOCK_SIZE'
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CONDEMN = [false, true]
+defines.CFG_FLAGS = '''
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1) : 0)
+'''
+ifdef = 'LFS3_REPAIR'
+if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // create a file large enough for the number of blocks we need
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "jellyfish",
+            LFS3_O_RDWR | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint32_t wprng = prng;
+    lfs3_off_t wsize = SIZE;
+    uint8_t wbuf[BLOCK_SIZE];
+    for (lfs3_size_t i = 0; i < N; i++) {
+        for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, BLOCK_SIZE) => BLOCK_SIZE;
+        if (SYNC) {
+            lfs3_file_sync(&lfs3, &file) => 0;
+        }
+    }
+    if (CLOSE) {
+        lfs3_file_close(&lfs3, &file) => 0;
+    }
+
+    // damage this number of blocks
+    lfs3_size_t damaged = 0;
+    lfs3_trv_t trv;
+    lfs3_trv_open(&lfs3, &trv, 0) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        assert(i < 2*BLOCK_COUNT);
+
+        struct lfs3_binfo binfo;
+        int err = lfs3_trv_read(&lfs3, &trv, &binfo);
+        assert(!err || err == LFS3_ERR_NOENT);
+        if (err == LFS3_ERR_NOENT) {
+            break;
+        }
+
+        // only target data blocks
+        if (binfo.btype == LFS3_BTYPE_DATA
+                && damaged < N) {
+            lfs3_emubd_mkbad(CFG, binfo.block) => 0;
+            damaged += 1;
+        }
+    }
+    lfs3_trv_close(&lfs3, &trv) => 0;
+
+    // did we damage the expected number of blocks? otherwise our test
+    // no worky
+    assert(damaged == N);
+
+    // run gc to check for data damage
+    lfs3_gc_t gc;
+    lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA) => 0;
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        assert(i < 2*BLOCK_COUNT);
+
+        lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, 1);
+        assert(steps >= 0);
+        if (steps == 0) {
+            break;
+        }
+    }
+    lfs3_gc_close(&lfs3, &gc) => 0;
+
+    // we should have overflowed our evictqueue
+    assert(lfs3.evictqueue.count >= EVICTQUEUE_COUNT);
+
+    // after finding damage, LFS3_I_REPAIRDATA should be set
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // both ckmeta/ckdata cleared!
+                // repairdata set! not repairmeta
+                | LFS3_I_REPAIRDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                // damaged set!
+                | LFS3_I_DAMAGEDREAD
+                // maybe condemned set?
+                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                // evictqueue overflowed!
+                | LFS3_I_EVICTOVERFLOW));
+
+    // now, instead of fixing, abort the repairs
+    lfs3_fs_clearck(&lfs3,
+            LFS3_I_REPAIRDATA
+                | ((STICKY) ? LFS3_I_DAMAGEDREAD : 0)
+                | ((STICKY && CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
+                | ((STICKY) ? LFS3_I_EVICTOVERFLOW : 0)) => 0;
+
+    // evictqueue should have been flushed
+    assert(lfs3.evictqueue.count == 0);
+
+    // LFS3_I_REPAIRDATA should be cleared (but not fixed)
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // both ckmeta/ckdata cleared!
+                // repairdata cleared!
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
+                // maybe damaged set?
+                | ((!STICKY) ? LFS3_I_DAMAGEDREAD : 0)
+                // maybe condemned set?
+                | ((!STICKY && CONDEMN)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
+                // maybe evictoverflow set?
+                | ((!STICKY) ? LFS3_I_EVICTOVERFLOW : 0)));
+
+    // reopen if necessary
+    if (CLOSE) {
+        lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDWR) => 0;
+    }
+
+    // check we can still read the file
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_file_close(&lfs3, &file) => 0;
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+            lfs3_file_open(&lfs3, &file, "jellyfish", LFS3_O_RDONLY) => 0;
+        }
+
+        lfs3_file_rewind(&lfs3, &file) => 0;
+        prng = wprng;
+        for (lfs3_off_t i = 0; i < wsize; i += BLOCK_SIZE) {
+            uint8_t wbuf[BLOCK_SIZE];
+            for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {\
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+            uint8_t rbuf[BLOCK_SIZE];
+            lfs3_file_read(&lfs3, &file, rbuf, BLOCK_SIZE) => BLOCK_SIZE;
+            assert(memcmp(rbuf, wbuf, BLOCK_SIZE) == 0);
+        }
+    }
+
+    lfs3_file_close(&lfs3, &file) => 0;
+    lfs3_unmount(&lfs3) => 0;
+'''

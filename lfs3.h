@@ -1996,17 +1996,23 @@ int lfs3_fs_ckrepairdata(lfs3_t *lfs3);
 lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3);
 #endif
 
-// Mark janitorial work as incomplete
+// Request janitorial work
 //
-// Any info flags passed to lfs3_gc_unck will be reset internally,
-// forcing the work to be redone.
-//
-// This is most useful for triggering new ckmeta/ckdata scans with
+// This is mainly for triggering new ckmeta/ckdata scans with
 // LFS3_I_CKMETA and LFS3_I_CKDATA. Otherwise littlefs will perform
 // only one scan after mount.
 //
 // Returns a negative error code on failure.
-int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags);
+int lfs3_fs_requestck(lfs3_t *lfs3, uint32_t flags);
+
+// Clear flags/optional janitorial work
+//
+// This can be used to clear janitorial work that is not strictly
+// necessary, such as LFS3_I_CKMETA, LFS3_I_REPAIRMETA, etc, as well as
+// informative sticky flags such as LFS3_I_GRMOVERFLOW, etc.
+//
+// Returns a negative error code on failure.
+int lfs3_fs_clearck(lfs3_t *lfs3, uint32_t flags);
 
 // Change the number of blocks used by the filesystem
 //
