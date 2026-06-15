@@ -7674,7 +7674,7 @@ code = '''
 
     clobbered:;
         // lfs3_fs_ckmeta should find the clobbered block
-        lfs3_fs_ckmeta(&lfs3) => LFS3_ERR_CORRUPT;
+        lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => LFS3_ERR_CORRUPT;
 
         lfs3_unmount(&lfs3) => 0;
     }
@@ -7765,7 +7765,7 @@ code = '''
 
     clobbered:;
         // lfs3_fs_ckdata should find the clobbered block
-        lfs3_fs_ckdata(&lfs3) => LFS3_ERR_CORRUPT;
+        lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => LFS3_ERR_CORRUPT;
 
         lfs3_unmount(&lfs3) => 0;
     }
@@ -7877,7 +7877,7 @@ code = '''
 
         // run lfs3_fs_ckmeta
         } else if (AFTER == 4) {
-            lfs3_fs_ckmeta(&lfs3) => 0;
+            lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -8059,7 +8059,7 @@ code = '''
 
         // run lfs3_fs_ckdata
         } else if (AFTER == 4) {
-            lfs3_fs_ckdata(&lfs3) => 0;
+            lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
 
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -8349,7 +8349,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that the explicit lfs3_fs_repairmeta also works
+# test that the explicit lfs3_fs_repair also works
 [cases.test_gc_repairmeta_explicit]
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -8427,8 +8427,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_REPAIRMETA);
 
-    // call lfs3_fs_repairmeta
-    lfs3_fs_repairmeta(&lfs3) => 0;
+    // call lfs3_fs_repair
+    lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
 
     // we should have made progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -8443,7 +8443,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that the explicit lfs3_fs_repairdata also works
+# test that the explicit lfs3_fs_repair also works
 [cases.test_gc_repairdata_explicit]
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -8520,8 +8520,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_REPAIRDATA);
 
-    // call lfs3_fs_repairdata
-    lfs3_fs_repairdata(&lfs3) => 0;
+    // call lfs3_fs_repair
+    lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA) => 0;
 
     // we should have made progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -9975,7 +9975,7 @@ code = '''
 done:;
 '''
 
-# test that our explicit functions (lfs3_fs_repairmeta) work as well,
+# test that our explicit functions (lfs3_fs_repair) work as well,
 # these call the same logic internally
 #
 # these are tested more thoroughly in test_evict/test_badblocks/
@@ -10064,8 +10064,9 @@ code = '''
         }
 
     damaged:;
-        // lfs3_fs_ckrepairmeta should find and repair the clobbered block
-        lfs3_fs_ckrepairmeta(&lfs3) => 0;
+        // lfs3_fs_repair should find and repair the clobbered block
+        lfs3_fs_repair(&lfs3,
+                LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
 
         // the ck/repair flags should been clear
         struct lfs3_fsinfo fsinfo;
@@ -10195,8 +10196,9 @@ code = '''
         }
 
     damaged:;
-        // lfs3_fs_ckrepairmeta should find and repair the clobbered block
-        lfs3_fs_ckrepairdata(&lfs3) => 0;
+        // lfs3_fs_repair should find and repair the clobbered block
+        lfs3_fs_repair(&lfs3,
+                LFS3_REPAIR_CKDATA | LFS3_REPAIR_REPAIRDATA) => 0;
 
         // the ck/repair flags should been clear
         struct lfs3_fsinfo fsinfo;
@@ -10421,22 +10423,22 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ckmeta(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ckdata(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
 
             #ifdef LFS3_REPAIR
             if (REPAIRMETA && (fsinfo.flags & LFS3_I_REPAIRMETA)) {
-                lfs3_fs_repairmeta(&lfs3) => 0;
+                lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
             }
             #endif
 
             #ifdef LFS3_REPAIR
             if (REPAIRDATA && (fsinfo.flags & LFS3_I_REPAIRDATA)) {
-                lfs3_fs_repairdata(&lfs3) => 0;
+                lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA) => 0;
             }
             #endif
         }
@@ -10578,11 +10580,11 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ckmeta(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ckdata(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
         }
 
@@ -10663,11 +10665,11 @@ code = '''
             }
 
             if (CKMETA && (fsinfo.flags & LFS3_I_CKMETA)) {
-                lfs3_fs_ckmeta(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
             }
 
             if (CKDATA && (fsinfo.flags & LFS3_I_CKDATA)) {
-                lfs3_fs_ckdata(&lfs3) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
             }
         }
 

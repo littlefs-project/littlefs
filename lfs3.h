@@ -179,6 +179,36 @@ enum lfs3_type {
 #endif
 #define LFS3_A_LAZY           0x04  // Only write attr if file changed
 
+// File/filesystem check flags
+#define LFS3_CK_CKMETA  0x00100000  // Check metadata checksums
+#define LFS3_CK_CKDATA  0x00200000  // Check metadata + data checksums
+#define LFS3_CK_CK      0x00300000  // Alias for CKMETA + CKDATA
+
+// File/filesystem repair flags
+#ifndef LFS3_RDONLY
+#define LFS3_REPAIR_CKMETA \
+                        0x00100000  // Check metadata checksums
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_REPAIR_CKDATA \
+                        0x00200000  // Check metadata + data checksums
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_REPAIR_CK  0x00300000  // Alias for CKMETA + CKDATA
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_REPAIR_REPAIRMETA \
+                        0x00400000  // Repair metadata damage
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_REPAIR_REPAIRDATA \
+                        0x00800000  // Repair metadata + data damage
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_REPAIR_REPAIR \
+                        0x00c00000  // Alias for REPAIRMETA + REPAIRDATA
+#endif
+
 // Filesystem format flags
 #ifndef LFS3_RDONLY
 #define LFS3_F_MODE              1  // Format's access mode
@@ -1761,17 +1791,11 @@ int lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file);
 // Returns the size of the file, or a negative error code on failure.
 lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file);
 
-// Check a file for metadata errors
+// Check a file for damage
 //
-// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
-// error code on failure.
-int lfs3_file_ckmeta(lfs3_t *lfs3, lfs3_file_t *file);
-
-// Check a file for metadata + data errors
-//
-// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
-// error code on failure.
-int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file);
+// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a
+// negative error code on failure.
+int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
 
 
 /// Directory operations ///
@@ -1941,46 +1965,18 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum);
 int lfs3_fs_mkconsistent(lfs3_t *lfs3);
 #endif
 
-// Check the filesystem for metadata errors
+// Check the filesystem for damage
 //
-// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
-// error code on failure.
-int lfs3_fs_ckmeta(lfs3_t *lfs3);
+// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a
+// negative error code on failure.
+int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags);
 
-// Check the filesystem for metadata + data errors
+// Check and repair damage in the filesystem
 //
-// Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a negative
-// error code on failure.
-int lfs3_fs_ckdata(lfs3_t *lfs3);
-
-// Repair any known metadata errors in the filesystem
-//
-// Returns a negative error code on failure.
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-int lfs3_fs_repairmeta(lfs3_t *lfs3);
-#endif
-
-// Repair any known metadata + data errors in the filesystem
-//
-// Returns a negative error code on failure.
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-int lfs3_fs_repairdata(lfs3_t *lfs3);
-#endif
-
-// Check and repair metadata errors in the filesystem
-//
-// Returns LFS3_ERR_CORRUPT if unrecoverable errors are found, or a
+// Returns LFS3_ERR_CORRUPT if unrecoverable damage is found, or a
 // negative error code on failure.
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-int lfs3_fs_ckrepairmeta(lfs3_t *lfs3);
-#endif
-
-// Check and repair metadata + data errors in the filesystem
-//
-// Returns LFS3_ERR_CORRUPT if unrecoverable errors are found, or a
-// negative error code on failure.
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-int lfs3_fs_ckrepairdata(lfs3_t *lfs3);
+int lfs3_fs_repair(lfs3_t *lfs3, uint32_t flags);
 #endif
 
 // Perform any janitorial work that may be pending

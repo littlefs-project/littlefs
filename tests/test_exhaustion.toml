@@ -814,7 +814,7 @@ code = '''
                 #ifdef LFS3_REPAIR
                 if (!SYNC) {
                     // this should noop if there's no damage
-                    int err = lfs3_fs_repairdata(&lfs3);
+                    int err = lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA);
                     assert(!err || err == LFS3_ERR_NOSPC);
                     if (err == LFS3_ERR_NOSPC) {
                         lfs3_file_desync(&lfs3, &file) => 0;

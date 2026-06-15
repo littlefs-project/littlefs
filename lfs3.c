@@ -14636,7 +14636,6 @@ static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file);
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_rattr_t *rname);
 #endif
-static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
 
 static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
@@ -17006,19 +17005,21 @@ failed:;
 }
 #endif
 
-// common file check function
-static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
+// file check function
+int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
-    // unknown ck flags? note only some gc flags work on files
+    // unknown ck flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_O_CKMETA
-                | LFS3_O_CKDATA)) == 0);
+            LFS3_CK_CKMETA
+                | LFS3_CK_CKDATA)) == 0);
     // these flags require a readable file
-    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags) || !(flags & LFS3_T_CKMETA));
-    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags) || !(flags & LFS3_T_CKDATA));
+    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags)
+            || !(flags & LFS3_CK_CKMETA));
+    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags)
+            || !(flags & LFS3_CK_CKDATA));
 
     // validate ungrafted data block?
-    if ((flags & LFS3_T_CKDATA)
+    if ((flags & LFS3_CK_CKDATA)
             && (file->h.flags & LFS3_o_UNGRAFT)) {
         LFS3_ASSERT(lfs3_bptr_isbptr(&file->leaf.bptr));
         int err = lfs3_bptr_ck(lfs3, &file->leaf.bptr);
@@ -17046,7 +17047,7 @@ static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
         // this may end up revalidating some btree nodes when ckfetches
         // is enabled, but we need to revalidate cached btree nodes or
         // we risk missing errors in ckmeta scans
-        if ((flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))
+        if ((flags & (LFS3_CK_CKMETA | LFS3_CK_CKDATA))
                 && tag == LFS3_TAG_BRANCH) {
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
             int err = lfs3_rbyd_ckfetch(lfs3, rbyd,
@@ -17057,7 +17058,7 @@ static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
         }
 
         // validate data blocks?
-        if ((flags & LFS3_T_CKDATA)
+        if ((flags & LFS3_CK_CKDATA)
                 && tag == LFS3_TAG_BLOCK) {
             lfs3_bptr_t bptr;
             int err = lfs3_data_readbptr(lfs3, &data,
@@ -17074,22 +17075,6 @@ static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     }
 
     return 0;
-}
-
-int lfs3_file_ckmeta(lfs3_t *lfs3, lfs3_file_t *file) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
-    // can't read from writeonly files
-    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags));
-
-    return lfs3_file_ck(lfs3, file, LFS3_O_CKMETA);
-}
-
-int lfs3_file_ckdata(lfs3_t *lfs3, lfs3_file_t *file) {
-    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
-    // can't read from writeonly files
-    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags));
-
-    return lfs3_file_ck(lfs3, file, LFS3_O_CKDATA);
 }
 
 
@@ -18590,47 +18575,31 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
 
 // blocking filesystem ck/repair functions
 
-int lfs3_fs_ckmeta(lfs3_t *lfs3) {
-    return lfs3_fs_gc_(lfs3, LFS3_GC_CKMETA);
+// filesystem check function
+int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
+    // unknown ck flags?
+    LFS3_ASSERT((flags & ~(
+            LFS3_CK_CKMETA
+                | LFS3_CK_CKDATA)) == 0);
+
+    // run gc to check the filesystem
+    return lfs3_fs_gc_(lfs3, flags);
 }
 
-int lfs3_fs_ckdata(lfs3_t *lfs3) {
-    return lfs3_fs_gc_(lfs3, LFS3_GC_CKDATA);
-}
-
+// filesystem repair function
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-int lfs3_fs_repairmeta(lfs3_t *lfs3) {
+int lfs3_fs_repair(lfs3_t *lfs3, uint32_t flags) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
+    // unknown repair flags?
+    LFS3_ASSERT((flags & ~(
+            LFS3_REPAIR_CKMETA
+                | LFS3_REPAIR_CKDATA
+                | LFS3_REPAIR_REPAIRMETA
+                | LFS3_REPAIR_REPAIRDATA)) == 0);
 
-    return lfs3_fs_gc_(lfs3, LFS3_GC_REPAIRMETA);
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-int lfs3_fs_repairdata(lfs3_t *lfs3) {
-    // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
-
-    return lfs3_fs_gc_(lfs3, LFS3_GC_REPAIRDATA);
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-int lfs3_fs_ckrepairmeta(lfs3_t *lfs3) {
-    // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
-
-    return lfs3_fs_gc_(lfs3, LFS3_GC_CKMETA | LFS3_GC_REPAIRMETA);
-}
-#endif
-
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
-int lfs3_fs_ckrepairdata(lfs3_t *lfs3) {
-    // filesystem must be writeable
-    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
-
-    return lfs3_fs_gc_(lfs3, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA);
+    // run gc to repair the filesystem
+    return lfs3_fs_gc_(lfs3, flags);
 }
 #endif
 
@@ -18685,7 +18654,7 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
 #endif
 
 // request janitorial work
-int lfs3_fs_requestck(lfs3_t *lfs3, uint32_t flags){
+int lfs3_fs_requestck(lfs3_t *lfs3, uint32_t flags) {
     // unknown flags? this is limited to ck flags
     LFS3_ASSERT((flags & ~(
             LFS3_I_CKMETA

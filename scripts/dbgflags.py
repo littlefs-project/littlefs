@@ -11,12 +11,14 @@ import math as mt
 
 # Flag prefixes
 PREFIX_O       = ['+o', '+open']     # Filter by LFS3_O_* flags
+PREFIX_FILECFG = ['+filecfg']        # Filter by LFS3_FILECFG_* flags
 PREFIX_SEEK    = ['+seek']           # Filter by LFS3_SEEK_* flags
 PREFIX_A       = ['+a', '+attr']     # Filter by LFS3_A_* flags
-PREFIX_CFG     = ['+cfg']            # Filter by LFS3_CFG_* flags
-PREFIX_FILECFG = ['+filecfg']        # Filter by LFS3_FILECFG_* flags
+PREFIX_CK      = ['+ck']             # Filter by LFS3_CK_* flags
+PREFIX_REPAIR  = ['+repair']         # Filter by LFS3_REPAIR_* flags
 PREFIX_F       = ['+f', '+format']   # Filter by LFS3_F_* flags
 PREFIX_M       = ['+m', '+mount']    # Filter by LFS3_M_* flags
+PREFIX_CFG     = ['+cfg']            # Filter by LFS3_CFG_* flags
 PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
 PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
@@ -80,6 +82,21 @@ A_RDONLY        =          1  # -^  Open an attr as read only
 A_WRONLY        =          2  # -^  Open an attr as write only
 A_RDWR          =          3  # -^  Open an attr as read and write
 A_LAZY          =       0x04  # --  Only write attr if file changed
+
+# File/filesystem check flags
+CK_CKMETA       = 0x00100000  # --  Check metadata checksums
+CK_CKDATA       = 0x00200000  # --  Check metadata + data checksums
+CK_CK           = 0x00300000  # -a  Alias for CKMETA + CKDATA
+
+# File/filesystem repair flags
+REPAIR_CKMETA   = 0x00100000  # --  Check metadata checksums
+REPAIR_CKDATA   = 0x00200000  # --  Check metadata + data checksums
+REPAIR_CK       = 0x00300000  # -a  Alias for CKMETA + CKDATA
+REPAIR_REPAIRMETA \
+                = 0x00400000  # --  Repair metadata damage
+REPAIR_REPAIRDATA \
+                = 0x00800000  # --  Repair metadata + data damage
+REPAIR_REPAIR   = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
 
 # Filesystem format flags
 F_MODE          =          1  # -m  Format's access mode
