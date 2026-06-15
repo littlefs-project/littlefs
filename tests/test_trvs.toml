@@ -2437,9 +2437,6 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check the file contents
@@ -3030,9 +3027,6 @@ done:;
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_file_close(&lfs3, &file1) => 0;
@@ -3413,9 +3407,6 @@ done:;
                     ? LFS3_I_CKMETA
                     : 0)
                 | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_file_close(&lfs3, &file2) => 0;

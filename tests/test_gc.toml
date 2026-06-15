@@ -2334,14 +2334,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+            ((!GBMAP || (!SYNC && !CLOSE)) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -2498,14 +2495,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+            ((!GBMAP || (!SYNC && !CLOSE)) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -2563,9 +2557,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check we can still read the file
@@ -3106,14 +3097,13 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // try gcing and compacting
@@ -3166,9 +3156,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     if (HANDLESET & 0x1) {
@@ -3594,11 +3581,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+            ((!SYNC) ? LFS3_I_LOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // try gcing and compacting
@@ -3795,11 +3782,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+            ((!SYNC) ? LFS3_I_LOOKAHEAD : 0)
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // try gcing and compacting
@@ -3852,7 +3839,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // check we can still read the file
@@ -3985,11 +3971,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // create an unrelated file, as a side effect this commits the gbmap
@@ -4044,11 +4030,11 @@ code = '''
     // we should still be marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // try gcing and compacting
@@ -4084,7 +4070,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // check we can still read the file
@@ -4246,7 +4231,6 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // create an unrelated file, as a side effect this commits the gbmap
@@ -4300,11 +4284,11 @@ code = '''
     // we should still be marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
+            LFS3_I_LOOKAHEAD
+                | LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // try gcing and compacting
@@ -4359,7 +4343,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((fsinfo.flags & LFS3_I_SYNCMETA) ? LFS3_I_SYNCMETA : 0)
                 | LFS3_I_GBMAP));
 
     // check we can still read the file
@@ -4841,9 +4824,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
@@ -4948,9 +4928,6 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
@@ -4992,9 +4969,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
@@ -5142,9 +5116,6 @@ code = '''
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
@@ -5291,9 +5262,6 @@ code = '''
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((ORPHANS >= 3) ? LFS3_I_GRMOVERFLOW : 0)));
 
     // check we can still read the files
@@ -10292,7 +10260,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false, true]
 defines.REPAIRDATA = [false, true]
-defines.SYNCMETA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -10302,7 +10269,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = -1
 # set compact thresh to minimum
@@ -10332,7 +10298,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 code = '''
     lfs3_t lfs3;
@@ -10421,8 +10386,7 @@ code = '''
                             : 0)
                         | ((REPAIRDATA)
                             ? LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, -1)
-                            : 0)
-                        | ((SYNCMETA) ? LFS3_I_SYNCMETA : 0)))) {
+                            : 0)))) {
                 break;
             }
 
@@ -10475,14 +10439,6 @@ code = '''
                 lfs3_fs_repairdata(&lfs3) => 0;
             }
             #endif
-
-            if (SYNCMETA && (fsinfo.flags & LFS3_I_SYNCMETA)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_SYNCMETA) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
-            }
         }
 
     // remount with gc flags
@@ -10509,11 +10465,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP
-                        && (fsinfo.flags & LFS3_I_SYNCMETA)
-                        && !SYNCMETA)
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
@@ -10534,7 +10485,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false, true]
 defines.REPAIRDATA = [false, true]
-defines.SYNCMETA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -10544,7 +10494,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = -1
 # set compact thresh to minimum
@@ -10574,7 +10523,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 code = '''
     lfs3_t lfs3;
@@ -10663,8 +10611,7 @@ code = '''
                             : 0)
                         | ((REPAIRDATA)
                             ? LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, -1)
-                            : 0)
-                        | ((SYNCMETA) ? LFS3_I_SYNCMETA : 0)))) {
+                            : 0)))) {
                 break;
             }
 
@@ -10717,14 +10664,6 @@ code = '''
                 lfs3_fs_repairdata(&lfs3) => 0;
             }
             #endif
-
-            if (SYNCMETA && (fsinfo.flags & LFS3_I_SYNCMETA)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_SYNCMETA) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
-            }
         }
 
     // remount with gc flags
@@ -10751,11 +10690,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP
-                        && (fsinfo.flags & LFS3_I_SYNCMETA)
-                        && !SYNCMETA)
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // test that we can reset flags with lfs3_fs_unck
@@ -10782,11 +10716,6 @@ code = '''
                 | LFS3_IFDEF_REPAIR(
                     (REPAIRDATA) ? LFS3_I_REPAIRDATA : 0,
                     0)
-                | ((GBMAP
-                        && (fsinfo.flags & LFS3_I_SYNCMETA)
-                        && !SYNCMETA)
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // run gc
@@ -10832,8 +10761,7 @@ code = '''
                             : 0)
                         | ((REPAIRDATA)
                             ? LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, -1)
-                            : 0)
-                        | ((SYNCMETA) ? LFS3_I_SYNCMETA : 0)))) {
+                            : 0)))) {
                 break;
             }
 
@@ -10886,14 +10814,6 @@ code = '''
                 lfs3_fs_repairdata(&lfs3) => 0;
             }
             #endif
-
-            if (SYNCMETA && (fsinfo.flags & LFS3_I_SYNCMETA)) {
-                lfs3_gc_t gc;
-                lfs3_gc_open(&lfs3, &gc, LFS3_GC_SYNCMETA) => 0;
-                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
-                assert(steps >= 0);
-                lfs3_gc_close(&lfs3, &gc) => 0;
-            }
         }
 
     // remount with gc flags
@@ -10920,11 +10840,6 @@ code = '''
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
                 | ((!CKDATA) ? LFS3_I_CKDATA : 0)
-                | ((GBMAP
-                        && (fsinfo.flags & LFS3_I_SYNCMETA)
-                        && !SYNCMETA)
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     lfs3_unmount(&lfs3) => 0;
@@ -10942,7 +10857,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false, true]
 defines.REPAIRDATA = [false, true]
-defines.SYNCMETA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -10952,7 +10866,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -10978,7 +10891,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -11038,7 +10950,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false, true]
 defines.REPAIRDATA = [false, true]
-defines.SYNCMETA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -11048,7 +10959,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -11074,7 +10984,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -11137,7 +11046,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false, true]
 defines.REPAIRDATA = [false, true]
-defines.SYNCMETA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
@@ -11147,7 +11055,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 # DON'T test with GC_STEPS=-1, it may never terminate!
 defines.GC_STEPS = [1, 2, 10, 100, 1000]
@@ -11167,7 +11074,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -11265,7 +11171,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.SYNCMETA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
@@ -11276,7 +11181,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -11295,7 +11199,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -11396,7 +11299,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.SYNCMETA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
@@ -11407,7 +11309,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -11429,7 +11330,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -11598,7 +11498,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.SYNCMETA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
@@ -11609,7 +11508,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -11638,7 +11536,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -11723,7 +11620,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.SYNCMETA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
@@ -11734,7 +11630,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -11766,7 +11661,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -11987,7 +11881,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.SYNCMETA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
@@ -11998,7 +11891,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -12037,7 +11929,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -12169,7 +12060,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.SYNCMETA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
@@ -12180,7 +12070,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -12214,7 +12103,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''
@@ -12644,7 +12532,6 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false] # don't bother, doesn't test anything here
 defines.REPAIRDATA = [false]
-defines.SYNCMETA = [false, true]
 defines.UNCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
@@ -12655,7 +12542,6 @@ defines.GC_FLAGS = '''
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
         | ((REPAIRMETA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, -1) : 0)
         | ((REPAIRDATA) ? LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, -1) : 0)
-        | ((SYNCMETA) ? LFS3_GC_SYNCMETA : 0)
 '''
 defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
 # set compact thresh to minimum
@@ -12689,7 +12575,6 @@ if = [
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
     'LFS3_IFDEF_REPAIR(true, !REPAIRDATA)',
-    'GBMAP || !SYNCMETA',
 ]
 ifdef = 'LFS3_GC'
 code = '''

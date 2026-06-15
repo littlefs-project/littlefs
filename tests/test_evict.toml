@@ -16764,9 +16764,6 @@ code = '''
                 | LFS3_I_CKDATA
                 // repairmeta set! not repairdata
                 | LFS3_I_REPAIRMETA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -16800,9 +16797,6 @@ code = '''
                 // ckmeta cleared! not ckdata
                 | LFS3_I_CKDATA
                 // repairmeta cleared!
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -16939,9 +16933,6 @@ code = '''
                 // both ckmeta/ckdata cleared!
                 // repairdata set! not repairmeta
                 | LFS3_I_REPAIRDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -16974,9 +16965,6 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
                 // repairdata cleared!
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17119,9 +17107,6 @@ code = '''
                 | LFS3_I_CKDATA
                 // repairmeta set! not repairdata
                 | LFS3_I_REPAIRMETA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17157,9 +17142,6 @@ code = '''
                 // ckmeta cleared! not ckdata
                 | LFS3_I_CKDATA
                 // repairmeta cleared!
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17298,9 +17280,6 @@ code = '''
                 // both ckmeta/ckdata cleared!
                 // repairdata set! not repairmeta
                 | LFS3_I_REPAIRDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17335,9 +17314,6 @@ code = '''
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
                 // repairdata cleared!
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17476,9 +17452,6 @@ code = '''
                 | LFS3_I_CKDATA
                 // repairmeta set! not repairdata
                 | LFS3_I_REPAIRMETA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17513,9 +17486,6 @@ code = '''
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 // repairmeta cleared!
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17642,9 +17612,6 @@ code = '''
                 | LFS3_I_CKDATA
                 // repairdata set! not repairdata
                 | LFS3_I_REPAIRDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17679,9 +17646,6 @@ code = '''
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 // repairdata cleared!
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17813,9 +17777,6 @@ code = '''
                 | LFS3_I_CKDATA
                 // repairmeta set! not repairdata
                 | LFS3_I_REPAIRMETA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17852,9 +17813,6 @@ code = '''
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 // repairmeta cleared!
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -17983,9 +17941,6 @@ code = '''
                 | LFS3_I_CKDATA
                 // repairdata set! not repairdata
                 | LFS3_I_REPAIRDATA
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -18022,9 +17977,6 @@ code = '''
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 // repairdata cleared!
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
@@ -18147,9 +18099,6 @@ code = '''
                 | LFS3_I_CKDATA
                 // ok, so we do set LFS3_I_REPAIRMETA, but only if condemned
                 | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDPROG
@@ -18270,9 +18219,6 @@ code = '''
                 | LFS3_I_CKDATA
                 // ok, so we do set LFS3_I_REPAIRMETA, but only if condemned
                 | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDPROG
@@ -18395,9 +18341,6 @@ code = '''
                 //
                 // this is not a typo! we always treat progs as metadata
                 | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDPROG
@@ -18518,9 +18461,6 @@ code = '''
                 //
                 // this is not a typo! we always treat progs as metadata
                 | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_SYNCMETA))
-                    ? LFS3_I_SYNCMETA
-                    : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDPROG

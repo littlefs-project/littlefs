@@ -220,9 +220,6 @@ enum lfs3_type {
 #define LFS3_F_REPAIRDATA \
                         0x00800000  // Repair metadata + data damage
 #endif
-#ifndef LFS3_RDONLY
-#define LFS3_F_SYNCMETA 0x01000000  // Write lazy metadata to disk
-#endif
 
 // an alias for all check work
 #define LFS3_F_CK (LFS3_F_CKMETA | LFS3_F_CKDATA)
@@ -236,8 +233,7 @@ enum lfs3_type {
             | LFS3_F_CKMETA \
             | LFS3_F_CKDATA \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_F_SYNCMETA))
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)))
 
 // Filesystem mount flags
 #define LFS3_M_MODE              1  // Mount's access mode
@@ -272,9 +268,6 @@ enum lfs3_type {
 #define LFS3_M_REPAIRDATA \
                         0x00800000  // Repair metadata + data damage
 #endif
-#ifndef LFS3_RDONLY
-#define LFS3_M_SYNCMETA 0x01000000  // Write lazy metadata to disk
-#endif
 
 // an alias for all check work
 #define LFS3_M_CK (LFS3_M_CKMETA | LFS3_M_CKDATA)
@@ -288,8 +281,7 @@ enum lfs3_type {
             | LFS3_M_CKMETA \
             | LFS3_M_CKDATA \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_M_SYNCMETA))
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
 
 // Additional filesystem config flags
 #define LFS3_CFG_MODE            1  // Filesystem's access mode
@@ -391,9 +383,6 @@ enum lfs3_type {
 #define LFS3_I_EVICTOVERFLOW \
                         0x80000000  // Evict queue overflowed
 #endif
-#ifndef LFS3_RDONLY
-#define LFS3_I_SYNCMETA 0x01000000  // Lazy metadata does not match disk
-#endif
 
 // Block types
 enum lfs3_btype {
@@ -418,12 +407,12 @@ enum lfs3_btype {
 
 // internally used flags, don't use these
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
-#define LFS3_t_BTYPE    0x00000070  // The current block type
+#define LFS3_t_BTYPE    0x000000f0  // The current block type
 #define LFS3_t_CKPOINTED \
                         0x08000000  // Filesystem ckpointed during traversal
 #define LFS3_t_DIRTY    0x04000000  // Filesystem ckpointed outside traversal
-#define LFS3_t_STALE    0x00000080  // Block queue probably out-of-date
-#define LFS3_t_DAMAGED  0x02000000  // Filesystem damaged during traversal
+#define LFS3_t_STALE    0x02000000  // Block queue probably out-of-date
+#define LFS3_t_DAMAGED  0x01000000  // Filesystem damaged during traversal
 
 // an alias for all check work
 #define LFS3_T_CK (LFS3_T_CKMETA | LFS3_T_CKDATA)
@@ -457,10 +446,6 @@ enum lfs3_btype {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_GC_REPAIRDATA \
                         0x00800000  // Repair metadata + data damage
-#endif
-#ifndef LFS3_RDONLY
-#define LFS3_GC_SYNCMETA \
-                        0x01000000  // Write lazy metadata to disk
 #endif
 
 // internally used flags, don't use these
@@ -509,8 +494,7 @@ enum lfs3_btype {
             | LFS3_GC_CKMETA \
             | LFS3_GC_CKDATA \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_GC_SYNCMETA))
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
 
 // Block eviction flags
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)

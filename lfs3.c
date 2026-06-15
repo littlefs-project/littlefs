@@ -12035,8 +12035,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             #endif
 
         // lower priority, but can we preerase blocks?
-        } else if (LFS3_IFDEF_RDONLY(
-                false,
+        } else if (LFS3_IFDEF_RDONLY(false,
                 LFS3_IFDEF_PREERASE(
                     (mgc->t.h.flags & LFS3_GC_PREERASE)
                         && lfs3_alloc_canpreerase(lfs3),
@@ -12060,10 +12059,18 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 
         // if we have nothing else to do, try to commit the gbmap to
         // disk so it's recoverable if we lose power
-        } else if (LFS3_IFDEF_RDONLY(
-                false,
+        //
+        // the canonical flag for this is LFS3_GC_LOOKAHEAD (we report
+        // LFS3_I_LOOKAHEAD if gbmap not-in-sync), but try to sync the
+        // gbmap if we did any work that may have touched it
+        } else if (LFS3_IFDEF_RDONLY(false,
                 LFS3_IFDEF_GBMAP(
-                    (mgc->t.h.flags & LFS3_GC_SYNCMETA)
+                    (mgc->t.h.flags
+                            & (LFS3_GC_LOOKAHEAD
+                                | LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)
+                                | LFS3_GC_COMPACTMETA
+                                | LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETA, 0)
+                                | LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATA, 0)))
                         && lfs3_alloc_cansyncgbmap(lfs3),
                     false))) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
@@ -17246,8 +17253,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_SYNCMETA))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
 
     // check that gc_compactmeta_thresh makes sense
     //
@@ -18117,8 +18123,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_M_SYNCMETA))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))) == 0);
     // or-in relevant yes flags
     flags |= LFS3_IFDEF_RDONLY(LFS3_M_RDONLY, 0)
             | LFS3_IFYES_FLUSH(LFS3_M_FLUSH, 0)
@@ -18145,8 +18150,6 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
             || !(flags & LFS3_M_REPAIRDATA));
     #endif
-    LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_M_SYNCMETA));
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
@@ -18182,8 +18185,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_M_SYNCMETA))) {
+                    LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))) {
         err = lfs3_fs_gc_(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT)
                     | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
@@ -18195,8 +18197,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0))
                     | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0))
-                    | LFS3_IFDEF_RDONLY(0, LFS3_M_SYNCMETA)));
+                        LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0))));
         if (err) {
             goto failed;
         }
@@ -18405,8 +18406,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)
-                | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)
-                | LFS3_F_SYNCMETA)) == 0);
+                | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0))) == 0);
     // or-in relevant yes flags
     flags |= LFS3_IFYES_GBMAP(LFS3_F_GBMAP, 0, 0);
     // or-in relevant cfg flags
@@ -18454,8 +18454,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_F_CKMETA
                 | LFS3_F_CKDATA
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)
-                | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)
-                | LFS3_F_SYNCMETA)) {
+                | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0))) {
         err = lfs3_fs_gc_(lfs3, flags & (
                 LFS3_F_MKCONSISTENT
                     | LFS3_F_LOOKAHEAD
@@ -18464,8 +18463,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                     | LFS3_F_CKMETA
                     | LFS3_F_CKDATA
                     | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)
-                    | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)
-                    | LFS3_F_SYNCMETA));
+                    | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0)));
         if (err) {
             goto failed;
         }
@@ -18515,6 +18513,15 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 (lfs3_grm_count(&lfs3->grm) > 0)
                     ? LFS3_I_MKCONSISTENT
                     : 0)
+            // LFS3_I_LOOKAHEAD is automatically set by the alloc logic
+            // on block allocation, but we also want to set
+            // LFS3_I_LOOKAHEAD if the gbmap is not in-sync
+            | LFS3_IFDEF_RDONLY(0,
+                LFS3_IFDEF_GBMAP(
+                    (lfs3_alloc_cansyncgbmap(lfs3))
+                        ? LFS3_I_LOOKAHEAD
+                        : 0,
+                    0))
             // LFS3_I_PREERASE we're just lazy about, since it
             // depends on both gc_preerase_count and preerase vs free
             // known windows
@@ -18522,14 +18529,6 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                 LFS3_IFDEF_PREERASE(
                     (lfs3_alloc_canpreerase(lfs3))
                         ? LFS3_I_PREERASE
-                        : 0,
-                    0))
-            // LFS3_I_SYNCMETA too, it's easier/safer to just check the
-            // gbmap when called rather than fiddling with flags
-            | LFS3_IFDEF_RDONLY(0,
-                LFS3_IFDEF_GBMAP(
-                    (lfs3_alloc_cansyncgbmap(lfs3))
-                        ? LFS3_I_SYNCMETA
                         : 0,
                     0));
 
@@ -18652,8 +18651,7 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_SYNCMETA))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     //
     // we don't check this in lfs3_init to avoid cfg headache when
@@ -18674,8 +18672,6 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(lfs3->cfg->gc_flags & LFS3_GC_REPAIRDATA));
     #endif
-    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
-            || !(lfs3->cfg->gc_flags & LFS3_GC_SYNCMETA));
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
@@ -18702,8 +18698,7 @@ int lfs3_fs_unck(lfs3_t *lfs3, uint32_t flags) {
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_SYNCMETA))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
 
     // reset the requested flags
     lfs3->flags |= flags;
@@ -19272,8 +19267,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
-                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_SYNCMETA))) == 0);
+                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_MKCONSISTENT));
@@ -19291,8 +19285,6 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_REPAIRDATA));
     #endif
-    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
-            || !(flags & LFS3_GC_SYNCMETA));
     // we can't use preerased blocks without revperturb, so this is
     // likely a mistake
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
