@@ -32,9 +32,9 @@ PREFIX_WCOMPAT = ['+w', '+wc', '+wcompat'] \
 
 # File open flags
 O_MODE          =          3  # -m  The file's access mode
-O_RDONLY        =          0  # -^  Open a file as read only
-O_WRONLY        =          1  # -^  Open a file as write only
-O_RDWR          =          2  # -^  Open a file as read and write
+O_RDONLY        =          1  # -^  Open a file as read only
+O_WRONLY        =          2  # -^  Open a file as write only
+O_RDWR          =          3  # -^  Open a file as read and write
 O_CREAT         = 0x00000004  # --  Create a file if it does not exist
 O_EXCL          = 0x00000008  # --  Fail if a file already exists
 O_TRUNC         = 0x00000010  # --  Truncate the existing file to zero size
@@ -76,9 +76,9 @@ SEEK_END        =          2  # -^  Seek relative to the end of the file
 
 # Custom attribute flags
 A_MODE          =          3  # -m  The attr's access mode
-A_RDONLY        =          0  # -^  Open an attr as read only
-A_WRONLY        =          1  # -^  Open an attr as write only
-A_RDWR          =          2  # -^  Open an attr as read and write
+A_RDONLY        =          1  # -^  Open an attr as read only
+A_WRONLY        =          2  # -^  Open an attr as write only
+A_RDWR          =          3  # -^  Open an attr as read and write
 A_LAZY          =       0x04  # --  Only write attr if file changed
 
 # Filesystem format flags

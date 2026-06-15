@@ -121,12 +121,12 @@ enum lfs3_type {
 
 // File open flags
 #define LFS3_O_MODE              3  // The file's access mode
-#define LFS3_O_RDONLY            0  // Open a file as read only
+#define LFS3_O_RDONLY            1  // Open a file as read only
 #ifndef LFS3_RDONLY
-#define LFS3_O_WRONLY            1  // Open a file as write only
+#define LFS3_O_WRONLY            2  // Open a file as write only
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_O_RDWR              2  // Open a file as read and write
+#define LFS3_O_RDWR              3  // Open a file as read and write
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_O_CREAT    0x00000004  // Create a file if it does not exist
@@ -170,12 +170,12 @@ enum lfs3_type {
 
 // Custom attribute flags
 #define LFS3_A_MODE              3  // The attr's access mode
-#define LFS3_A_RDONLY            0  // Open an attr as read only
+#define LFS3_A_RDONLY            1  // Open an attr as read only
 #ifndef LFS3_RDONLY
-#define LFS3_A_WRONLY            1  // Open an attr as write only
+#define LFS3_A_WRONLY            2  // Open an attr as write only
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_A_RDWR              2  // Open an attr as read and write
+#define LFS3_A_RDWR              3  // Open an attr as read and write
 #endif
 #define LFS3_A_LAZY           0x04  // Only write attr if file changed
 

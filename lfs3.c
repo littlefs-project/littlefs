@@ -7940,7 +7940,7 @@ static inline bool lfs3_o_isrdonly(uint32_t flags) {
     #ifdef LFS3_RDONLY
     return true;
     #else
-    return (flags & LFS3_O_MODE) == LFS3_O_RDONLY;
+    return !(flags & LFS3_O_WRONLY);
     #endif
 }
 
@@ -7949,7 +7949,7 @@ static inline bool lfs3_o_iswronly(uint32_t flags) {
     #ifdef LFS3_RDONLY
     return false;
     #else
-    return (flags & LFS3_O_MODE) == LFS3_O_WRONLY;
+    return !(flags & LFS3_O_RDONLY);
     #endif
 }
 
@@ -14836,7 +14836,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     // already open?
     LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &file->h));
     // don't allow the forbidden mode!
-    LFS3_ASSERT((flags & LFS3_O_MODE) != 3);
+    LFS3_ASSERT((flags & LFS3_O_MODE) != 0);
     // unknown flags?
     LFS3_ASSERT((flags & ~(
             LFS3_O_RDONLY
@@ -17014,8 +17014,8 @@ static int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
             LFS3_O_CKMETA
                 | LFS3_O_CKDATA)) == 0);
     // these flags require a readable file
-    LFS3_ASSERT(!lfs3_o_iswronly(flags) || !(flags & LFS3_T_CKMETA));
-    LFS3_ASSERT(!lfs3_o_iswronly(flags) || !(flags & LFS3_T_CKDATA));
+    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags) || !(flags & LFS3_T_CKMETA));
+    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags) || !(flags & LFS3_T_CKDATA));
 
     // validate ungrafted data block?
     if ((flags & LFS3_T_CKDATA)
