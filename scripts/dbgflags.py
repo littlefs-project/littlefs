@@ -255,14 +255,14 @@ RBYD_MDIRFETCH  = 0x00000020  # i-  Fetching an mdir
 # On-disk read-compat flags - Must understand to read the filesystem
 RCOMPAT_WRONLY      = 0x0001  # --  Reading is disallowed
 RCOMPAT_NONSTANDARD = 0x0002  # --  Non-standard filesystem format
-RCOMPAT_GRM         = 0x0004  # --  Global-remove in use
+RCOMPAT_GRM         = 0x0004  # --  Global remove queue in use
 RCOMPAT_STICKYNOTE  = 0x0008  # --  Stickynote file type in use
 rcompat_OVERFLOW    = 0x8000  # i-  Can't represent all flags
 
 # On-disk write-compat flags - Must understand to write to the filesystem
 WCOMPAT_RDONLY      = 0x0001  # --  Writing is disallowed
 WCOMPAT_NONSTANDARD = 0x0002  # --  Non-standard filesystem format
-WCOMPAT_GCKSUM      = 0x0004  # --  Global-checksum in use
+WCOMPAT_GCKSUM      = 0x0004  # --  Global checksum in use
 WCOMPAT_DIR         = 0x0008  # --  Directory file type in use
 WCOMPAT_GBMAP       = 0x0010  # --  Global on-disk block-map in use
 wcompat_OVERFLOW    = 0x8000  # i-  Can't represent all write flags

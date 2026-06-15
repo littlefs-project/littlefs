@@ -1025,7 +1025,7 @@ enum lfs3_tag {
 // On-disk read-compat flags - Must understand to read the filesystem
 #define LFS3_RCOMPAT_WRONLY          0x0001 // Reading is disallowed
 #define LFS3_RCOMPAT_NONSTANDARD     0x0002 // Non-standard filesystem format
-#define LFS3_RCOMPAT_GRM             0x0004 // Global-remove in use
+#define LFS3_RCOMPAT_GRM             0x0004 // Global remove queue in use
 #define LFS3_RCOMPAT_STICKYNOTE      0x0008 // Stickynote file type in use
 // internally used flags
 #define LFS3_rcompat_OVERFLOW        0x8000 // Can't represent all flags
@@ -1036,7 +1036,7 @@ enum lfs3_tag {
 // On-disk write-compat flags - Must understand to write to the filesystem
 #define LFS3_WCOMPAT_RDONLY          0x0001 // Writing is disallowed
 #define LFS3_WCOMPAT_NONSTANDARD     0x0002 // Non-standard filesystem format
-#define LFS3_WCOMPAT_GCKSUM          0x0004 // Global-checksum in use
+#define LFS3_WCOMPAT_GCKSUM          0x0004 // Global checksum in use
 #define LFS3_WCOMPAT_DIR             0x0008 // Directory files in use
 #define LFS3_WCOMPAT_GBMAP           0x0010 // Global on-disk block-map in use
 // internally used flags
