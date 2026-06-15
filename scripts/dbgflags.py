@@ -45,7 +45,7 @@ O_DESYNC        = 0x02000000  # --  Do not sync or recieve file updates
 
 O_CKMETA        = 0x00100000  # --  Check metadata checksums
 O_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-O_CK            = 0x00300000  # a-  Alias for all check work
+O_CK            = 0x00300000  # a-  Alias for CKMETA + CKDATA
 
 o_SET           = 0x00008000  # i-  Atomically write file
 o_TYPE          = 0xf0000000  # im  The file's type
@@ -90,12 +90,14 @@ F_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 F_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
 F_PREERASE      = 0x00040000  # --  Try to pre-erase free blocks
 F_COMPACTMETA   = 0x00080000  # --  Compact metadata logs
+F_COMPACT       = 0x00080000  # -a  Alias for COMPACTMETA
 F_CKMETA        = 0x00100000  # --  Check metadata checksums
 F_CKDATA        = 0x00200000  # --  Check metadata + data checksums
+F_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
 F_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
 F_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
-F_CK            = 0x00300000  # a-  Alias for all check work
-F_GC            = 0x00ff0000  # a-  Alias for all gc work
+F_REPAIR        = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
+F_GC            = 0x00ff0000  # -a  Alias for all gc work
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -108,12 +110,14 @@ M_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 M_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
 M_PREERASE      = 0x00040000  # --  Try to pre-erase free blocks
 M_COMPACTMETA   = 0x00080000  # --  Compact metadata logs
+M_COMPACT       = 0x00080000  # -a  Alias for COMPACTMETA
 M_CKMETA        = 0x00100000  # --  Check metadata checksums
 M_CKDATA        = 0x00200000  # --  Check metadata + data checksums
+M_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
 M_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
 M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
-M_CK            = 0x00300000  # a-  Alias for all check work
-M_GC            = 0x00ff0000  # a-  Alias for all gc work
+M_REPAIR        = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
+M_GC            = 0x00ff0000  # -a  Alias for all gc work
 
 # Additional filesystem config flags
 CFG_MODE        =          1  # -m  Filesystem's access mode
@@ -135,6 +139,8 @@ CFG_REPAIRMETADAMAGE \
                 = 0x10000000  # y-  Repair metadata damage when found
 CFG_REPAIRDATADAMAGE \
                 = 0x20000000  # y-  Repair metadata + data damage when found
+CFG_REPAIRDAMAGE \
+                = 0x30000000  # ya  Alias for REPAIRMETADAMAGE + DATADAMAGE
 CFG_CONDEMNDAMAGE \
                 = 0x40000000  # y-  Mark any damaged blocks as bad
 
@@ -164,7 +170,7 @@ T_MTREEONLY     = 0x00000004  # --  Only traverse the mtree
 T_EXCL          = 0x00000008  # --  Error if filesystem modified
 T_CKMETA        = 0x00100000  # --  Check metadata checksums
 T_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-T_CK            = 0x00300000  # a-  Alias for all check work
+T_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
 
 t_TYPE          = 0xf0000000  # im  The traversal's type
 t_REG           = 0x10000000  # i^  Type = regular-file
@@ -192,12 +198,14 @@ GC_MKCONSISTENT = 0x00010000  # --  Make the filesystem consistent
 GC_LOOKAHEAD    = 0x00020000  # --  Repopulate lookahead buffer
 GC_PREERASE     = 0x00040000  # --  Try to pre-erase free blocks
 GC_COMPACTMETA  = 0x00080000  # --  Compact metadata logs
+GC_COMPACT      = 0x00080000  # -a  Alias for COMPACTMETA
 GC_CKMETA       = 0x00100000  # --  Check metadata checksums
 GC_CKDATA       = 0x00200000  # --  Check metadata + data checksums
+GC_CK           = 0x00300000  # -a  Alias for CKMETA + CKDATA
 GC_REPAIRMETA   = 0x00400000  # --  Repair metadata damage
 GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data damage
-GC_CK           = 0x00300000  # a-  Alias for all check work
-GC_GC           = 0x00ff0000  # a-  Alias for all gc work
+GC_REPAIR       = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
+GC_GC           = 0x00ff0000  # -a  Alias for all gc work
 
 gc_EVICTMETA    = 0x00400000  # i-  Evict metadata blocks
 gc_EVICTDATA    = 0x00800000  # i-  Evict metadata + data blocks

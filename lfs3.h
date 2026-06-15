@@ -145,6 +145,7 @@ enum lfs3_type {
 #define LFS3_O_DESYNC   0x02000000  // Do not sync or recieve file updates
 #define LFS3_O_CKMETA   0x00100000  // Check metadata checksums
 #define LFS3_O_CKDATA   0x00200000  // Check metadata + data checksums
+#define LFS3_O_CK       0x00300000  // Alias for CKMETA + CKDATA
 
 // internally used flags, don't use these
 #define LFS3_o_SET      0x00008000  // Atomically write file
@@ -155,9 +156,6 @@ enum lfs3_type {
 #define LFS3_o_UNCRYST  0x00040000  // File's leaf not fully crystallized
 #define LFS3_o_UNGRAFT  0x00020000  // File's leaf does not match disk
 #define LFS3_o_UNFLUSH  0x00010000  // File's cache does not match disk
-
-// an alias for all check work
-#define LFS3_O_CK (LFS3_O_CKMETA | LFS3_O_CKDATA)
 
 // Additional file config flags
 #define LFS3_FILECFG_FLUSH \
@@ -207,10 +205,16 @@ enum lfs3_type {
                         0x00080000  // Compact metadata logs
 #endif
 #ifndef LFS3_RDONLY
+#define LFS3_F_COMPACT  0x00080000  // Alias for COMPACTMETA
+#endif
+#ifndef LFS3_RDONLY
 #define LFS3_F_CKMETA   0x00100000  // Check metadata checksums
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_F_CKDATA   0x00200000  // Check metadata + data checksums
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_F_CK       0x00300000  // Alias for CKMETA + CKDATA
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_F_REPAIRMETA \
@@ -220,9 +224,9 @@ enum lfs3_type {
 #define LFS3_F_REPAIRDATA \
                         0x00800000  // Repair metadata + data damage
 #endif
-
-// an alias for all check work
-#define LFS3_F_CK (LFS3_F_CKMETA | LFS3_F_CKDATA)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_F_REPAIR   0x00c00000  // Alias for REPAIRMETA + REPAIRDATA
+#endif
 
 // an alias for all gc work
 #define LFS3_F_GC ( \
@@ -258,8 +262,12 @@ enum lfs3_type {
 #define LFS3_M_COMPACTMETA \
                         0x00080000  // Compact metadata logs
 #endif
+#ifndef LFS3_RDONLY
+#define LFS3_M_COMPACT  0x00080000  // Alias for COMPACTMETA
+#endif
 #define LFS3_M_CKMETA   0x00100000  // Check metadata checksums
 #define LFS3_M_CKDATA   0x00200000  // Check metadata + data checksums
+#define LFS3_M_CK       0x00300000  // Alias for CKMETA + CKDATA
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_M_REPAIRMETA \
                         0x00400000  // Repair metadata damage
@@ -268,9 +276,9 @@ enum lfs3_type {
 #define LFS3_M_REPAIRDATA \
                         0x00800000  // Repair metadata + data damage
 #endif
-
-// an alias for all check work
-#define LFS3_M_CK (LFS3_M_CKMETA | LFS3_M_CKDATA)
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_M_REPAIR   0x00800000  // Alias for REPAIRMETA + REPAIRDATA
+#endif
 
 // an alias for all gc work
 #define LFS3_M_GC ( \
@@ -325,6 +333,10 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_CFG_REPAIRDATADAMAGE \
                         0x20000000  // Repair metadata + data damage when found
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_CFG_REPAIRDAMAGE \
+                        0x30000000  // Alias for REPAIRMETADAMAGE + DATADAMAGE
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 #define LFS3_CFG_CONDEMNDAMAGE \
@@ -404,6 +416,7 @@ enum lfs3_btype {
 #define LFS3_T_EXCL     0x00000008  // Error if filesystem modified
 #define LFS3_T_CKMETA   0x00100000  // Check metadata checksums
 #define LFS3_T_CKDATA   0x00200000  // Check metadata + data checksums
+#define LFS3_T_CK       0x00300000  // Alias for CKMETA + CKDATA
 
 // internally used flags, don't use these
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
@@ -413,9 +426,6 @@ enum lfs3_btype {
 #define LFS3_t_DIRTY    0x04000000  // Filesystem ckpointed outside traversal
 #define LFS3_t_STALE    0x02000000  // Block queue probably out-of-date
 #define LFS3_t_DAMAGED  0x01000000  // Filesystem damaged during traversal
-
-// an alias for all check work
-#define LFS3_T_CK (LFS3_T_CKMETA | LFS3_T_CKDATA)
 
 // GC traversal flags - only used in lfs3_gc_open
 #define LFS3_GC_EXCL    0x00000008  // Error if filesystem modified
@@ -437,8 +447,12 @@ enum lfs3_btype {
 #define LFS3_GC_COMPACTMETA \
                         0x00080000  // Compact metadata logs
 #endif
+#ifndef LFS3_RDONLY
+#define LFS3_GC_COMPACT 0x00080000  // Alias for COMPACTMETA
+#endif
 #define LFS3_GC_CKMETA  0x00100000  // Check metadata checksums
 #define LFS3_GC_CKDATA  0x00200000  // Check metadata + data checksums
+#define LFS3_GC_CK      0x00300000  // Alias for CKMETA + CKDATA
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_GC_REPAIRMETA \
                         0x00400000  // Repair metadata damage
@@ -446,6 +460,9 @@ enum lfs3_btype {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_GC_REPAIRDATA \
                         0x00800000  // Repair metadata + data damage
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_GC_REPAIR  0x00c00000  // Alias for REPAIRMETA + REPAIRDATA
 #endif
 
 // internally used flags, don't use these
@@ -481,9 +498,6 @@ enum lfs3_btype {
 #define LFS3_gc_EVICTDATAING \
                         0x00008000  // Working on LFS3_gc_EVICTDATA
 #endif
-
-// an alias for all check work
-#define LFS3_GC_CK (LFS3_GC_CKMETA | LFS3_GC_CKDATA)
 
 // an alias for all gc work
 #define LFS3_GC_GC ( \

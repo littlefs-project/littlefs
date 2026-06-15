@@ -65,6 +65,12 @@
 #endif
 #endif
 
+// LFS3_YES_REPAIRDAMAGE implies REPAIRMETADAMAGE + REPAIRDATADAMAGE
+#ifdef LFS3_YES_REPAIRDAMAGE
+#define LFS3_YES_REPAIRMETADAMAGE
+#define LFS3_YES_REPAIRDATADAMAGE
+#endif
+
 // LFS3_YES_* variants imply the relevant LFS3_* macro
 #ifdef LFS3_YES_RDONLY
 #define LFS3_RDONLY
