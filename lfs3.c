@@ -10886,7 +10886,8 @@ eot:;
     }
 
     // was ckmeta/ckdata successful? we only consider our filesystem
-    // checked if we weren't mutated
+    // checked if we weren't mutated, mainly because mutation gets in
+    // the way of gcksum calculation
     if ((mtrv->h.flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))
             && !(mtrv->h.flags & LFS3_T_MTREEONLY)
             && !(mtrv->h.flags & LFS3_t_CKPOINTED)) {
@@ -11748,10 +11749,10 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 eot:;
     // was repair successful?
     //
-    // note this can trigger a lookahead ckpoint
+    // note this needs to go first because it can trigger a lookahead
+    // ckpoint
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if ((mgc->t.h.flags & (LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
-            && !(mgc->t.h.flags & LFS3_t_DIRTY)
             && !LFS3_IFDEF_REPAIR(
                 mgc->t.h.flags & LFS3_t_DAMAGED,
                 false)) {
@@ -11933,7 +11934,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                     | LFS3_gc_EVICTDATAING
                                 : 0,
                             0))
-                    // we let the other flags continue even if damaged,
+                    // we let the other flags continue even if dirty,
                     // as they can at least make incremental
                     // improvements to the filesystem state
                     )) {

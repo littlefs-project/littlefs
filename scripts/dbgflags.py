@@ -233,8 +233,8 @@ gc_COMPACTMETAING \
                 = 0x00000800  # i-  Working on LFS3_GC_COMPACTMETA
 gc_CKMETAING    = 0x00001000  # i-  Working on LFS3_GC_CKMETA
 gc_CKDATAING    = 0x00002000  # i-  Working on LFS3_GC_CKDATA
-gc_EVICTMETAING = 0x00004000  # i-  Working on LFS3_GC_REPAIRMETA
-gc_EVICTDATAING = 0x00008000  # i-  Working on LFS3_GC_REPAIRDATA
+gc_EVICTMETAING = 0x00004000  # i-  Working on LFS3_gc_EVICTMETA
+gc_EVICTDATAING = 0x00008000  # i-  Working on LFS3_gc_EVICTDATA
 gc_TYPE         = 0xf0000000  # im  The gc's type
 gc_REG          = 0x10000000  # i^  Type = regular-file
 gc_DIR          = 0x20000000  # i^  Type = directory

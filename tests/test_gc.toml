@@ -8639,9 +8639,10 @@ code = '''
         assert(steps >= 0);
     }
 
-    // we should _not_ make progress
+    // unlike other operations, repairs _do_ make progress under
+    // mutation, we can rely on our evictqueue to prevent reallocation
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_REPAIRMETA);
+    assert(!(fsinfo.flags & LFS3_I_REPAIRMETA));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
@@ -8755,9 +8756,10 @@ code = '''
         assert(steps >= 0);
     }
 
-    // we should _not_ make progress
+    // unlike other operations, repairs _do_ make progress under
+    // mutation, we can rely on our evictqueue to prevent reallocation
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_REPAIRDATA);
+    assert(!(fsinfo.flags & LFS3_I_REPAIRMETA));
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "squid", LFS3_O_RDONLY) => 0;
@@ -9313,7 +9315,7 @@ code = '''
         assert(steps >= 0);
     }
 
-    // we should _not_ make progress
+    // under mutation we _do_ progress repairs, but _not_ ck work
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_CKMETA);
 
@@ -9423,7 +9425,7 @@ code = '''
         assert(steps >= 0);
     }
 
-    // we should _not_ make progress
+    // under mutation we _do_ progress repairs, but _not_ ck work
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_CKDATA);
 

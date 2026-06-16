@@ -810,15 +810,24 @@ code = '''
                 }
 
                 // if we're not syncing, we never give littlefs a chance
-                // to fix damage, so let's do that with an explicit call
+                // to fix damage, so we need to prioritize repair work
+                // in this case
                 #ifdef LFS3_REPAIR
                 if (!SYNC) {
-                    // this should noop if there's no damage
-                    int err = lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA);
-                    assert(!err || err == LFS3_ERR_NOSPC);
-                    if (err == LFS3_ERR_NOSPC) {
-                        lfs3_file_desync(&lfs3, &file) => 0;
-                        goto dead;
+                    while (true) {
+                        struct lfs3_fsinfo fsinfo;
+                        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+                        if (!(fsinfo.flags
+                                & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))) {
+                            break;
+                        }
+
+                        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+                        assert(steps >= 0 || steps == LFS3_ERR_NOSPC);
+                        if (steps == LFS3_ERR_NOSPC) {
+                            lfs3_file_desync(&lfs3, &file) => 0;
+                            goto dead;
+                        }
                     }
                 }
                 #endif
