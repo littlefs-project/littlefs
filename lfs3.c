@@ -10828,22 +10828,6 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
             return LFS3_ERR_CORRUPT;
         }
 
-        // check cksum matches any open mdirs
-        for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-            if (lfs3_mdir_cmp(&h->mdir, mdir) == 0
-                    && h->mdir.r.cksum != mdir->r.cksum) {
-                LFS3_ERROR("Found mdir cksum mismatch %"PRId32" "
-                            "0x{%"PRIx32",%"PRIx32"}, "
-                            "cksum %08"PRIx32" (!= %08"PRIx32")",
-                        lfs3_dbgmbid(lfs3, mdir->mid),
-                        mdir->r.blocks[0],
-                        mdir->r.blocks[1],
-                        mdir->r.cksum,
-                        h->mdir.r.cksum);
-                return LFS3_ERR_CORRUPT;
-            }
-        }
-
         // recalculate gcksum
         mtrv->gcksum ^= mdir->r.cksum;
     }
