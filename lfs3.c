@@ -10790,7 +10790,7 @@ again:;
 }
 
 // needed in lfs3_mtree_traverse
-static void lfs3_alloc_lookinuse(lfs3_t *lfs3,
+static void lfs3_alloc_setlookinuse(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr);
 
 // high-level immutable traversal, handle extra features here,
@@ -11455,7 +11455,7 @@ static inline void lfs3_alloc_discard_(lfs3_t *lfs3);
 static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known);
 static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t window, lfs3_block_t known);
-static int lfs3_gbmap_look(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_setlook(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_);
 static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
@@ -11721,7 +11721,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
         // mark in-use blocks in gbmap?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
             #ifdef LFS3_GBMAP
-            int err = lfs3_gbmap_look(lfs3, &mgc->gbmap_, tag, &bptr,
+            int err = lfs3_gbmap_setlook(lfs3, &mgc->gbmap_, tag, &bptr,
                     LFS3_TAG_BMINUSE);
             if (err) {
                 return err;
@@ -11730,7 +11730,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
         // mark in-use blocks in lookahead buffer?
         } else {
-            lfs3_alloc_lookinuse(lfs3, tag, &bptr);
+            lfs3_alloc_setlookinuse(lfs3, tag, &bptr);
         }
     }
     #endif
@@ -12578,7 +12578,7 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_gbmap_look(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+static int lfs3_gbmap_setlook(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_) {
     const lfs3_block_t *blocks;
@@ -12844,7 +12844,7 @@ static void lfs3_alloc_setinuse(lfs3_t *lfs3, lfs3_block_t block) {
 
 // mark some filesystem object as in-use
 #ifndef LFS3_RDONLY
-static void lfs3_alloc_lookinuse(lfs3_t *lfs3,
+static void lfs3_alloc_setlookinuse(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr) {
     if (tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
@@ -13119,7 +13119,7 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
             }
 
             // track in-use blocks
-            lfs3_alloc_lookinuse(lfs3, tag, &bptr);
+            lfs3_alloc_setlookinuse(lfs3, tag, &bptr);
         }
 
         // mark anything not seen as free
@@ -13307,7 +13307,7 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
         }
 
         // track in-use blocks
-        err = lfs3_gbmap_look(lfs3, &gbmap_, tag, &bptr,
+        err = lfs3_gbmap_setlook(lfs3, &gbmap_, tag, &bptr,
                 LFS3_TAG_BMINUSE);
         if (err) {
             return err;
