@@ -14617,10 +14617,9 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
 
 // needed in lfs3_file_opencfg
 static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file);
-#ifndef LFS3_RDONLY
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_rattr_t *rname);
-#endif
+static int lfs3_file_gc_(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
 
 static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
@@ -14797,10 +14796,21 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     // add to tracked mdirs
     lfs3_handle_open(lfs3, &file->h);
 
-    // check metadata/data for errors?
-    if (file->h.flags & (LFS3_O_CKMETA | LFS3_O_CKDATA)) {
-        err = lfs3_file_ck(lfs3, file,
-                file->h.flags & (LFS3_O_CKMETA | LFS3_O_CKDATA));
+    // check metadata/data for damage? repair?
+    if (file->h.flags & (
+            LFS3_O_CKMETA
+                | LFS3_O_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_O_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_O_REPAIRDATA, 0)))) {
+        err = lfs3_file_gc_(lfs3, file, file->h.flags & (
+                LFS3_O_CKMETA
+                    | LFS3_O_CKDATA
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(LFS3_O_REPAIRMETA, 0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(LFS3_O_REPAIRDATA, 0))));
         if (err) {
             goto failed;
         }
@@ -14834,7 +14844,11 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
                 | LFS3_O_SYNC
                 | LFS3_O_DESYNC
                 | LFS3_O_CKMETA
-                | LFS3_O_CKDATA)) == 0);
+                | LFS3_O_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_O_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_O_REPAIRDATA, 0)))) == 0);
     // or-in relevant mount/cfg/yes flags
     flags |= lfs3->flags & (
             LFS3_O_FLUSH
@@ -14853,6 +14867,10 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_CREAT));
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_EXCL));
     LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_TRUNC));
+    #ifdef LFS3_REPAIR
+    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_REPAIRMETA));
+    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_REPAIRDATA));
+    #endif
     for (lfs3_size_t i = 0; i < cfg->attr_count; i++) {
         // these flags require a writable attr
         LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
@@ -16990,6 +17008,131 @@ failed:;
 }
 #endif
 
+// file-level gc work
+//
+// limited to some simple blocking operations
+static int lfs3_file_gc_(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
+    // This function is a bit of a lie, we don't really have a per-file
+    // repair operation.
+    //
+    // Instead, we:
+    // 1. Scan the file for damage
+    // 2. Repair any known damage in the filesystem
+    //
+    // In theory, damage should be a rare thing, so this should mostly
+    // do what the user expects. We may repair unrelated damage if it's
+    // in the evictqueue, but we'd need to flush the evictqueue to use
+    // it anyways.
+
+    // found damage to repair?
+    //
+    // we need to repair any known damage first, to make sure the
+    // evict queue is free
+    #ifdef LFS3_REPAIR
+damaged:;
+    if ((flags
+                // repairdata implies repairmeta
+                | ((flags & LFS3_REPAIR_REPAIRDATA)
+                    ? LFS3_REPAIR_REPAIRMETA
+                    : 0))
+            & lfs3->flags
+            & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
+        int err = lfs3_fs_gc_(lfs3, flags & (
+                LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA));
+        if (err) {
+            return err;
+        }
+    }
+    #endif
+
+    // validate ungrafted data block?
+    if ((flags & LFS3_CK_CKDATA)
+            && (file->h.flags & LFS3_o_UNGRAFT)) {
+        LFS3_ASSERT(lfs3_bptr_isbptr(&file->leaf.bptr));
+        int err = lfs3_bptr_ck(lfs3, &file->leaf.bptr);
+        if (err) {
+            return err;
+        }
+
+        // damaged? prioritize repairs
+        #ifdef LFS3_REPAIR
+        if ((flags
+                    // repairdata implies repairmeta
+                    | ((flags & LFS3_REPAIR_REPAIRDATA)
+                        ? LFS3_REPAIR_REPAIRMETA
+                        : 0))
+                & lfs3->flags
+                & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
+            goto damaged;
+        }
+        #endif
+    }
+
+    // traverse the file's bshrub/btree
+    if (flags & (LFS3_CK_CKMETA | LFS3_CK_CKDATA)) {
+        lfs3_btrv_t btrv;
+        lfs3_btrv_init(&btrv);
+        while (true) {
+            lfs3_data_t data;
+            lfs3_stag_t tag = lfs3_bshrub_traverse(lfs3,
+                    &file->bshrub, &btrv,
+                    NULL, NULL, &data);
+            if (tag < 0) {
+                if (tag == LFS3_ERR_NOENT) {
+                    break;
+                }
+                return tag;
+            }
+
+            // validate btree nodes?
+            //
+            // this may end up revalidating some btree nodes when
+            // ckfetches is enabled, but we need to revalidate cached
+            // btree nodes or we risk missing errors in ckmeta scans
+            if ((flags & (LFS3_CK_CKMETA | LFS3_CK_CKDATA))
+                    && tag == LFS3_TAG_BRANCH) {
+                lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
+                int err = lfs3_rbyd_ckfetch(lfs3, rbyd,
+                        rbyd->blocks[0], rbyd->trunk, rbyd->cksum, 0);
+                if (err) {
+                    return err;
+                }
+            }
+
+            // validate data blocks?
+            if ((flags & LFS3_CK_CKDATA)
+                    && tag == LFS3_TAG_BLOCK) {
+                lfs3_bptr_t bptr;
+                int err = lfs3_data_readbptr(lfs3, &data,
+                        &bptr);
+                if (err) {
+                    return err;
+                }
+
+                err = lfs3_bptr_ck(lfs3, &bptr);
+                if (err) {
+                    return err;
+                }
+            }
+
+            // damaged? prioritize repairs
+            #ifdef LFS3_REPAIR
+            if ((flags
+                        // repairdata implies repairmeta
+                        | ((flags & LFS3_REPAIR_REPAIRDATA)
+                            ? LFS3_REPAIR_REPAIRMETA
+                            : 0))
+                    & lfs3->flags
+                    & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
+                goto damaged;
+            }
+            #endif
+        }
+    }
+
+    return 0;
+}
+
 // file check function
 int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
@@ -17003,64 +17146,33 @@ int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags)
             || !(flags & LFS3_CK_CKDATA));
 
-    // validate ungrafted data block?
-    if ((flags & LFS3_CK_CKDATA)
-            && (file->h.flags & LFS3_o_UNGRAFT)) {
-        LFS3_ASSERT(lfs3_bptr_isbptr(&file->leaf.bptr));
-        int err = lfs3_bptr_ck(lfs3, &file->leaf.bptr);
-        if (err) {
-            return err;
-        }
-    }
-
-    // traverse the file's bshrub/btree
-    lfs3_btrv_t btrv;
-    lfs3_btrv_init(&btrv);
-    while (true) {
-        lfs3_data_t data;
-        lfs3_stag_t tag = lfs3_bshrub_traverse(lfs3, &file->bshrub, &btrv,
-                NULL, NULL, &data);
-        if (tag < 0) {
-            if (tag == LFS3_ERR_NOENT) {
-                break;
-            }
-            return tag;
-        }
-
-        // validate btree nodes?
-        //
-        // this may end up revalidating some btree nodes when ckfetches
-        // is enabled, but we need to revalidate cached btree nodes or
-        // we risk missing errors in ckmeta scans
-        if ((flags & (LFS3_CK_CKMETA | LFS3_CK_CKDATA))
-                && tag == LFS3_TAG_BRANCH) {
-            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-            int err = lfs3_rbyd_ckfetch(lfs3, rbyd,
-                    rbyd->blocks[0], rbyd->trunk, rbyd->cksum, 0);
-            if (err) {
-                return err;
-            }
-        }
-
-        // validate data blocks?
-        if ((flags & LFS3_CK_CKDATA)
-                && tag == LFS3_TAG_BLOCK) {
-            lfs3_bptr_t bptr;
-            int err = lfs3_data_readbptr(lfs3, &data,
-                    &bptr);
-            if (err) {
-                return err;
-            }
-
-            err = lfs3_bptr_ck(lfs3, &bptr);
-            if (err) {
-                return err;
-            }
-        }
-    }
-
-    return 0;
+    return lfs3_file_gc_(lfs3, file, flags);
 }
+
+// file repair function
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+int lfs3_file_repair(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
+    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
+    // unknown repair flags?
+    LFS3_ASSERT((flags & ~(
+            LFS3_REPAIR_CKMETA
+                | LFS3_REPAIR_CKDATA
+                | LFS3_REPAIR_REPAIRMETA
+                | LFS3_REPAIR_REPAIRDATA)) == 0);
+    // these flags require a readable file
+    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags)
+            || !(flags & LFS3_REPAIR_CKMETA));
+    LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags)
+            || !(flags & LFS3_REPAIR_CKDATA));
+    // these flags require a writable file
+    LFS3_ASSERT(!lfs3_o_isrdonly(file->h.flags)
+            || !(flags & LFS3_REPAIR_REPAIRMETA));
+    LFS3_ASSERT(!lfs3_o_isrdonly(file->h.flags)
+            || !(flags & LFS3_REPAIR_REPAIRDATA));
+
+    return lfs3_file_gc_(lfs3, file, flags);
+}
+#endif
 
 
 

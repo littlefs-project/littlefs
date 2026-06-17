@@ -146,6 +146,17 @@ enum lfs3_type {
 #define LFS3_O_CKMETA   0x00100000  // Check metadata checksums
 #define LFS3_O_CKDATA   0x00200000  // Check metadata + data checksums
 #define LFS3_O_CK       0x00300000  // Alias for CKMETA + CKDATA
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_O_REPAIRMETA \
+                        0x00400000  // Repair metadata damage
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_O_REPAIRDATA \
+                        0x00800000  // Repair metadata + data damage
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_O_REPAIR   0x00800000  // Alias for REPAIRMETA + REPAIRDATA
+#endif
 
 // internally used flags, don't use these
 #define LFS3_o_SET      0x00008000  // Atomically write file
@@ -185,15 +196,15 @@ enum lfs3_type {
 #define LFS3_CK_CK      0x00300000  // Alias for CKMETA + CKDATA
 
 // File/filesystem repair flags
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_REPAIR_CKMETA \
                         0x00100000  // Check metadata checksums
 #endif
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_REPAIR_CKDATA \
                         0x00200000  // Check metadata + data checksums
 #endif
-#ifndef LFS3_RDONLY
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_REPAIR_CK  0x00300000  // Alias for CKMETA + CKDATA
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
@@ -1796,6 +1807,14 @@ lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file);
 // Returns LFS3_ERR_CORRUPT if a checksum mismatch is found, or a
 // negative error code on failure.
 int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
+
+// Check and repair damage in a file
+//
+// Returns LFS3_ERR_CORRUPT if unrecoverable damage is found, or a
+// negative error code on failure.
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+int lfs3_file_repair(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
+#endif
 
 
 /// Directory operations ///

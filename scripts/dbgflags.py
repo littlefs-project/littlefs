@@ -47,7 +47,10 @@ O_DESYNC        = 0x02000000  # --  Do not sync or recieve file updates
 
 O_CKMETA        = 0x00100000  # --  Check metadata checksums
 O_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-O_CK            = 0x00300000  # a-  Alias for CKMETA + CKDATA
+O_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
+O_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
+O_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
+O_REPAIR        = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
 
 o_SET           = 0x00008000  # i-  Atomically write file
 o_TYPE          = 0xf0000000  # im  The file's type
