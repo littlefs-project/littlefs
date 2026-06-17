@@ -460,8 +460,6 @@ enum lfs3_btype {
 #define LFS3_T_CK       0x00300000  // Alias for CKMETA + CKDATA
 
 // internally used flags, don't use these
-#define LFS3_t_HANDLEONLY \
-                        0x00000002  // Only traverse a specific handle
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
 #define LFS3_t_BTYPE    0x000000f0  // The current block type
 #define LFS3_t_CKPOINTED \
