@@ -87,11 +87,14 @@ A_RDWR          =          3  # -^  Open an attr as read and write
 A_LAZY          =       0x04  # --  Only write attr if file changed
 
 # File/filesystem check flags
+CK_MTREEONLY    = 0x00000004  # --  Only traverse the mtree
 CK_CKMETA       = 0x00100000  # --  Check metadata checksums
 CK_CKDATA       = 0x00200000  # --  Check metadata + data checksums
 CK_CK           = 0x00300000  # -a  Alias for CKMETA + CKDATA
 
 # File/filesystem repair flags
+REPAIR_MTREEONLY \
+                = 0x00000004  # --  Only traverse the mtree
 REPAIR_CKMETA   = 0x00100000  # --  Check metadata checksums
 REPAIR_CKDATA   = 0x00200000  # --  Check metadata + data checksums
 REPAIR_CK       = 0x00300000  # -a  Alias for CKMETA + CKDATA

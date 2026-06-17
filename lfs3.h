@@ -191,11 +191,17 @@ enum lfs3_type {
 #define LFS3_A_LAZY           0x04  // Only write attr if file changed
 
 // File/filesystem check flags
+#define LFS3_CK_MTREEONLY \
+                        0x00000004  // Only traverse the mtree
 #define LFS3_CK_CKMETA  0x00100000  // Check metadata checksums
 #define LFS3_CK_CKDATA  0x00200000  // Check metadata + data checksums
 #define LFS3_CK_CK      0x00300000  // Alias for CKMETA + CKDATA
 
 // File/filesystem repair flags
+#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#define LFS3_REPAIR_MTREEONLY \
+                        0x00000004  // Only traverse the mtree
+#endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_REPAIR_CKMETA \
                         0x00100000  // Check metadata checksums

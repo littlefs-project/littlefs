@@ -12095,11 +12095,6 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 //
 // this just calls lfs3_mgc_gc with unbounded steps
 static int lfs3_fs_gc_(lfs3_t *lfs3, uint32_t flags) {
-    // if cking, set needs-ck flags, this has the side-effect of
-    // signaling ck work is incomplete if we encounter an error, which
-    // is probably a good thing
-    lfs3->flags |= flags & (LFS3_I_CKMETA | LFS3_I_CKDATA);
-
     // run lfs3_mgc_gc to completion
     lfs3_mgc_t mgc;
     lfs3_mgc_init(&mgc, flags);
@@ -14609,7 +14604,7 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
 static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file);
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_rattr_t *rname);
-static int lfs3_file_gc_(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
+static int lfs3_file_ck_(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
 
 static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
@@ -14794,7 +14789,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_IFDEF_REPAIR(LFS3_O_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_O_REPAIRDATA, 0)))) {
-        err = lfs3_file_gc_(lfs3, file, file->h.flags & (
+        err = lfs3_file_ck_(lfs3, file, file->h.flags & (
                 LFS3_O_CKMETA
                     | LFS3_O_CKDATA
                     | LFS3_IFDEF_RDONLY(0,
@@ -16998,10 +16993,8 @@ failed:;
 }
 #endif
 
-// file-level gc work
-//
-// limited to some simple blocking operations
-static int lfs3_file_gc_(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
+// common file-level ck/repair work
+static int lfs3_file_ck_(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     // This function is a bit of a lie, we don't really have a per-file
     // repair operation.
     //
@@ -17127,6 +17120,8 @@ damaged:;
 int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
     // unknown ck flags?
+    //
+    // note LFS3_CK_MTREEONLY does _not_ make sense here
     LFS3_ASSERT((flags & ~(
             LFS3_CK_CKMETA
                 | LFS3_CK_CKDATA)) == 0);
@@ -17136,7 +17131,7 @@ int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_ASSERT(!lfs3_o_iswronly(file->h.flags)
             || !(flags & LFS3_CK_CKDATA));
 
-    return lfs3_file_gc_(lfs3, file, flags);
+    return lfs3_file_ck_(lfs3, file, flags);
 }
 
 // file repair function
@@ -17144,6 +17139,8 @@ int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
 int lfs3_file_repair(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
     // unknown repair flags?
+    //
+    // note LFS3_REPAIR_MTREEONLY does _not_ make sense here
     LFS3_ASSERT((flags & ~(
             LFS3_REPAIR_CKMETA
                 | LFS3_REPAIR_CKDATA
@@ -17160,7 +17157,7 @@ int lfs3_file_repair(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_ASSERT(!lfs3_o_isrdonly(file->h.flags)
             || !(flags & LFS3_REPAIR_REPAIRDATA));
 
-    return lfs3_file_gc_(lfs3, file, flags);
+    return lfs3_file_ck_(lfs3, file, flags);
 }
 #endif
 
@@ -18662,15 +18659,76 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
 
 // blocking filesystem ck/repair functions
 
+// common filesystem ck/repair work
+static int lfs3_fs_ck_(lfs3_t *lfs3, uint32_t flags) {
+    // found damage to repair?
+    //
+    // we need to repair any known damage first, to make sure the
+    // evict queue is free
+    #ifdef LFS3_REPAIR
+damaged:;
+    if ((flags
+                // repairdata implies repairmeta
+                | ((flags & LFS3_REPAIR_REPAIRDATA)
+                    ? LFS3_REPAIR_REPAIRMETA
+                    : 0))
+            & lfs3->flags
+            & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
+        int err = lfs3_fs_gc_(lfs3, flags & (
+                LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA));
+        if (err) {
+            return err;
+        }
+    }
+    #endif
+
+    // traverse and validate blocks
+    //
+    // lfs3_mtree_traverse does most of the work here
+    if (flags & (LFS3_CK_CKMETA | LFS3_CK_CKDATA)) {
+        lfs3_mtrv_t mtrv;
+        lfs3_mtrv_init(&mtrv, flags & (
+                LFS3_T_MTREEONLY
+                    | LFS3_T_CKMETA
+                    | LFS3_T_CKDATA));
+        while (true) {
+            lfs3_bptr_t bptr;
+            lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
+                    &bptr);
+            if (tag < 0) {
+                if (tag == LFS3_ERR_NOENT) {
+                    break;
+                }
+                return tag;
+            }
+
+            // damaged? prioritize repairs
+            #ifdef LFS3_REPAIR
+            if ((flags
+                        // repairdata implies repairmeta
+                        | ((flags & LFS3_REPAIR_REPAIRDATA)
+                            ? LFS3_REPAIR_REPAIRMETA
+                            : 0))
+                    & lfs3->flags
+                    & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
+                goto damaged;
+            }
+            #endif
+        }
+    }
+
+    return 0;
+}
+
 // filesystem check function
 int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     // unknown ck flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_CK_CKMETA
+            LFS3_CK_MTREEONLY
+                | LFS3_CK_CKMETA
                 | LFS3_CK_CKDATA)) == 0);
 
-    // run gc to check the filesystem
-    return lfs3_fs_gc_(lfs3, flags);
+    return lfs3_fs_ck_(lfs3, flags);
 }
 
 // filesystem repair function
@@ -18680,13 +18738,13 @@ int lfs3_fs_repair(lfs3_t *lfs3, uint32_t flags) {
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // unknown repair flags?
     LFS3_ASSERT((flags & ~(
-            LFS3_REPAIR_CKMETA
+            LFS3_REPAIR_MTREEONLY
+                | LFS3_REPAIR_CKMETA
                 | LFS3_REPAIR_CKDATA
                 | LFS3_REPAIR_REPAIRMETA
                 | LFS3_REPAIR_REPAIRDATA)) == 0);
 
-    // run gc to repair the filesystem
-    return lfs3_fs_gc_(lfs3, flags);
+    return lfs3_fs_ck_(lfs3, flags);
 }
 #endif
 
