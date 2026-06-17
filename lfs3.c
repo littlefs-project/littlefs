@@ -11491,6 +11491,8 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
 //
 // every call to lfs3_mtree_gc represents ~1 step of gc work
 static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
+    // mgc should be tracked here
+    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &mgc->t.h));
     // start of traversal?
     if (mgc->t.h.mdir.mid == LFS3_MID_MROOTANCHOR) {
         #ifndef LFS3_RDONLY
@@ -11840,6 +11842,8 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3);
 // massive macro messes compile into small constants
 static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         lfs3_sblock_t steps) {
+    // mgc should be tracked here
+    LFS3_ASSERT(lfs3_handle_isopen(lfs3, &mgc->t.h));
     // i here is best effort, we may make multiple passes, so we
     // saturate to avoid any overflow issues
     lfs3_block_t i = 0;
@@ -12285,24 +12289,8 @@ static int lfs3_mtree_mknoorphans(lfs3_t *lfs3) {
         return 0;
     }
 
-    // LFS3_gc_MKCONSISTENTING really just removes orphans
-    //
-    // note we don't need to track this handle because we're only
-    // mkconsistencing, most other operations need to be tracked to
-    // catch dirty/ckpointed bits
-    lfs3_mgc_t mgc;
-    lfs3_mgc_init(&mgc, LFS3_T_MTREEONLY | LFS3_gc_MKCONSISTENTING);
-    while (true) {
-        int err = lfs3_mtree_gc(lfs3, &mgc);
-        if (err) {
-            if (err == LFS3_ERR_NOENT) {
-                break;
-            }
-            return err;
-        }
-    }
-
-    return 0;
+    // run gc to clean up orphans
+    return lfs3_fs_gc_(lfs3, LFS3_GC_MKCONSISTENT);
 }
 #endif
 
