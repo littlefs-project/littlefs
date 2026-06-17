@@ -192,6 +192,7 @@ T_CKMETA        = 0x00100000  # --  Check metadata checksums
 T_CKDATA        = 0x00200000  # --  Check metadata + data checksums
 T_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
 
+t_HANDLEONLY    = 0x00000002  # i-  Only traverse a specific handle
 t_TYPE          = 0xf0000000  # im  The traversal's type
 t_REG           = 0x10000000  # i^  Type = regular-file
 t_DIR           = 0x20000000  # i^  Type = directory

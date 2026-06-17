@@ -7133,6 +7133,7 @@ static void lfs3_btrv_seek(lfs3_btrv_t *btrv, lfs3_sbid_t bid) {
     btrv->rid = -1;
 }
 
+LFS3_NOINLINE
 static lfs3_stag_t lfs3_btree_traverse(lfs3_t *lfs3,
         const lfs3_btree_t *btree,
         lfs3_btrv_t *btrv,
@@ -10493,7 +10494,8 @@ enum {
 // special btree ids
 enum {
     // bids < -1 are used to encode traversal states
-    LFS3_BID_MDIR = -2,
+    LFS3_BID_MDIR   = -3,
+    LFS3_BID_HANDLE = -2,
     // bids >= -1 map to btrv steps
 };
 
@@ -10506,6 +10508,14 @@ static void lfs3_mtrv_init(lfs3_mtrv_t *mtrv, uint32_t flags) {
     mtrv->h.mdir.r.blocks[0] = -1;
     mtrv->h.mdir.r.blocks[1] = -1;
     mtrv->gcksum = 0;
+}
+
+static void lfs3_mtrv_fromhandle(lfs3_mtrv_t *mtrv, lfs3_handle_t *h,
+        uint32_t flags) {
+    lfs3_mtrv_init(mtrv, flags);
+    mtrv->h.mdir.mid = h->mdir.mid;
+    mtrv->u.btrv.bid = LFS3_BID_HANDLE;
+    mtrv->h.next = h;
 }
 
 static void lfs3_mtrv_ckpoint(lfs3_mtrv_t *mtrv) {
@@ -10661,6 +10671,26 @@ again:;
         mtrv->u.btrv.bid = -1;
     }
 
+    // in-handle btree/bshrub?
+    #ifndef LFS3_RDONLY
+    if (mtrv->u.btrv.bid == LFS3_BID_HANDLE) {
+        lfs3_file_t *file = (lfs3_file_t*)mtrv->h.next;
+        LFS3_ASSERT(file->h.mdir.mid == mtrv->h.mdir.mid);
+        LFS3_ASSERT(lfs3_o_type(file->h.flags) == LFS3_TYPE_REG);
+        mtrv->btree = file->bshrub;
+        mtrv->u.btrv.bid = -1;
+
+        // move our handle to make progress
+        lfs3_handle_seek(lfs3, &mtrv->h, &file->h.next);
+
+        // wait, do we have an ungrafted leaf?
+        if (file->h.flags & LFS3_o_UNGRAFT) {
+            *bptr_ = file->leaf.bptr;
+            return LFS3_TAG_BLOCK;
+        }
+    }
+    #endif
+
     // traverse any btrees/bshrubs we find
     LFS3_ASSERT(mtrv->u.btrv.bid >= -1);
     while (true) {
@@ -10710,41 +10740,36 @@ again:;
         }
     }
 
+    // only traversing one handle?
+    if (mtrv->h.flags & LFS3_t_HANDLEONLY) {
+        return LFS3_ERR_NOENT;
+    }
+
     // done with this btree/bshrub? search our opened handle list
     // for any unsynced bshrubs/btrees related to this mid
     //
     // yes this grows potentially O(n^2) in-ram, but do we care?
     //
     // note we can skip this when rdonly, which saves a bit of code
-    if (!(lfs3->flags & LFS3_I_RDONLY)) {
-        for (lfs3_handle_t *h = mtrv->h.next; h; h = h->next) {
-            // found one?
-            if (h->mdir.mid == mtrv->h.mdir.mid
-                    && lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                    && (h->flags & LFS3_o_UNSYNC)) {
-                // found one!
-                const lfs3_file_t *file = (const lfs3_file_t*)h;
-                mtrv->btree = file->bshrub;
-                mtrv->u.btrv.bid = -1;
-
-                // move our handle to make progress
-                //
-                // this looks scary with lfs3_handle_seek running in
-                // O(n), but, because we only visit each unique mid +
-                // handle once, in total this should still run O(n^2)
-                // in-ram
-                lfs3_handle_seek(lfs3, &mtrv->h, &h->next);
-
-                // wait, do we have an ungrafted leaf?
-                if (file->h.flags & LFS3_o_UNGRAFT) {
-                    *bptr_ = file->leaf.bptr;
-                    return LFS3_TAG_BLOCK;
-                }
-
-                goto again;
+    #ifndef LFS3_RDONLY
+    for (lfs3_handle_t **h = &mtrv->h.next; *h; h = &(*h)->next) {
+        // found one?
+        if ((*h)->mdir.mid == mtrv->h.mdir.mid
+                && lfs3_o_type((*h)->flags) == LFS3_TYPE_REG
+                && ((*h)->flags & LFS3_o_UNSYNC)) {
+            // found one! move to this handle and start traversing
+            //
+            // this looks scary with lfs3_handle_seek running in O(n),
+            // but, because we only visit each unique mid + handle once,
+            // in total this should still run O(n^2) in-ram
+            if (h != &mtrv->h.next) {
+                lfs3_handle_seek(lfs3, &mtrv->h, h);
             }
+            mtrv->u.btrv.bid = LFS3_BID_HANDLE;
+            goto again;
         }
     }
+    #endif
 
     // done with mtree? exit early to avoid mid overflow
     if (mtrv->h.mdir.mid >= (lfs3_smid_t)lfs3_mtree_weight(lfs3)) {
@@ -10861,7 +10886,9 @@ static lfs3_stag_t lfs3_mtree_traverse(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
 eot:;
     // compare gcksum with in-RAM gcksum
     if ((mtrv->h.flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))
-            && !(mtrv->h.flags & LFS3_t_CKPOINTED)
+            && !(mtrv->h.flags & (
+                LFS3_t_HANDLEONLY
+                    | LFS3_t_CKPOINTED))
             && mtrv->gcksum != lfs3->gcksum) {
         LFS3_ERROR("Found gcksum mismatch, cksum %08"PRIx32" (!= %08"PRIx32")",
                 mtrv->gcksum,
@@ -10873,13 +10900,17 @@ eot:;
     // checked if we weren't mutated, mainly because mutation gets in
     // the way of gcksum calculation
     if ((mtrv->h.flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))
-            && !(mtrv->h.flags & LFS3_T_MTREEONLY)
-            && !(mtrv->h.flags & LFS3_t_CKPOINTED)) {
+            && !(mtrv->h.flags & (
+                LFS3_t_HANDLEONLY
+                    | LFS3_T_MTREEONLY
+                    | LFS3_t_CKPOINTED))) {
         lfs3->flags &= ~LFS3_I_CKMETA;
     }
     if ((mtrv->h.flags & LFS3_T_CKDATA)
-            && !(mtrv->h.flags & LFS3_T_MTREEONLY)
-            && !(mtrv->h.flags & LFS3_t_CKPOINTED)) {
+            && !(mtrv->h.flags & (
+                LFS3_t_HANDLEONLY
+                    | LFS3_T_MTREEONLY
+                    | LFS3_t_CKPOINTED))) {
         lfs3->flags &= ~LFS3_I_CKDATA;
     }
 
@@ -11737,9 +11768,7 @@ eot:;
     // ckpoint
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if ((mgc->t.h.flags & (LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
-            && !LFS3_IFDEF_REPAIR(
-                mgc->t.h.flags & LFS3_t_DAMAGED,
-                false)) {
+            && !(mgc->t.h.flags & LFS3_IFDEF_REPAIR(LFS3_t_DAMAGED, 0))) {
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mtree_condemnevicted(lfs3,
                 (mgc->t.h.flags & LFS3_gc_EVICTDATAING)
@@ -11774,8 +11803,9 @@ eot:;
     // was lookahead scan successful?
     #ifndef LFS3_RDONLY
     if ((mgc->t.h.flags & LFS3_gc_LOOKAHEADING)
-            && !(mgc->t.h.flags & LFS3_T_MTREEONLY)
-            && !(mgc->t.h.flags & LFS3_t_CKPOINTED)) {
+            && !(mgc->t.h.flags & (
+                LFS3_T_MTREEONLY
+                    | LFS3_t_CKPOINTED))) {
         // was gbmap scan successful?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
             #ifdef LFS3_GBMAP
@@ -17045,74 +17075,21 @@ damaged:;
     }
     #endif
 
-    // validate ungrafted data block?
-    if ((flags & LFS3_CK_CKDATA)
-            && (file->h.flags & LFS3_o_UNGRAFT)) {
-        LFS3_ASSERT(lfs3_bptr_isbptr(&file->leaf.bptr));
-        int err = lfs3_bptr_ck(lfs3, &file->leaf.bptr);
-        if (err) {
-            return err;
-        }
-
-        // damaged? prioritize repairs
-        #ifdef LFS3_REPAIR
-        if ((flags
-                    // repairdata implies repairmeta
-                    | ((flags & LFS3_REPAIR_REPAIRDATA)
-                        ? LFS3_REPAIR_REPAIRMETA
-                        : 0))
-                & lfs3->flags
-                & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
-            goto damaged;
-        }
-        #endif
-    }
-
-    // traverse the file's bshrub/btree
+    // traverse and check the file
     if (flags & (LFS3_CK_CKMETA | LFS3_CK_CKDATA)) {
-        lfs3_btrv_t btrv;
-        lfs3_btrv_init(&btrv);
+        lfs3_mtrv_t mtrv;
+        lfs3_mtrv_fromhandle(&mtrv, &file->h,
+                (flags & (LFS3_T_CKMETA | LFS3_T_CKDATA))
+                    | LFS3_t_HANDLEONLY);
         while (true) {
-            lfs3_data_t data;
-            lfs3_stag_t tag = lfs3_bshrub_traverse(lfs3,
-                    &file->bshrub, &btrv,
-                    NULL, NULL, &data);
+            lfs3_bptr_t bptr;
+            lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
+                &bptr);
             if (tag < 0) {
                 if (tag == LFS3_ERR_NOENT) {
                     break;
                 }
                 return tag;
-            }
-
-            // validate btree nodes?
-            //
-            // this may end up revalidating some btree nodes when
-            // ckfetches is enabled, but we need to revalidate cached
-            // btree nodes or we risk missing errors in ckmeta scans
-            if ((flags & (LFS3_CK_CKMETA | LFS3_CK_CKDATA))
-                    && tag == LFS3_TAG_BRANCH) {
-                lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)data.u.buffer;
-                int err = lfs3_rbyd_ckfetch(lfs3, rbyd,
-                        rbyd->blocks[0], rbyd->trunk, rbyd->cksum, 0);
-                if (err) {
-                    return err;
-                }
-            }
-
-            // validate data blocks?
-            if ((flags & LFS3_CK_CKDATA)
-                    && tag == LFS3_TAG_BLOCK) {
-                lfs3_bptr_t bptr;
-                int err = lfs3_data_readbptr(lfs3, &data,
-                        &bptr);
-                if (err) {
-                    return err;
-                }
-
-                err = lfs3_bptr_ck(lfs3, &bptr);
-                if (err) {
-                    return err;
-                }
             }
 
             // damaged? prioritize repairs
