@@ -12527,8 +12527,12 @@ code = '''
 
 # some alternative API tests
 
-# test explicit lfs3_fs_repair
+# test explicit lfs3_fs_ck/repair calls
 [cases.test_evict_repair_t_explicit_btree]
+# CALLS=0 => lfs3_fs_repair
+# CALLS=1 => lfs3_fs_ck     + lfs3_fs_repair
+# CALLS=2 => lfs3_fs_repair + lfs3_fs_repair
+defines.CALLS = [0, 1, 2]
 defines.CHUNK = 'BLOCK_SIZE/8'
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
@@ -12589,7 +12593,96 @@ code = '''
     // note we don't need to request ck flags!
 
     // call lfs3_fs_repair to repair bad blocks
-    lfs3_fs_repair(&lfs3, LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+    if (CALLS == 0) {
+        lfs3_fs_repair(&lfs3,
+                LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+
+    // call lfs3_fs_ck to find, and lfs3_fs_repair to repair bad blocks
+    } else if (CALLS == 1) {
+        // calling ck with no flags should noop
+        lfs3_fs_ck(&lfs3, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.bshrub.blocks[0] == victim);
+        }
+
+        // calling repair on its own should do nothing
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.bshrub.blocks[0] == victim);
+        }
+
+        // calling ck should find the damage, but not repair it
+        lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRMETA);
+        assert(lfs3.evictqueue.count == 1);
+        if (!CLOSE) {
+            assert(file.bshrub.blocks[0] == victim);
+        }
+
+        // calling repair should now fix it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.bshrub.blocks[0] != victim);
+        }
+
+    // call lfs3_fs_repair to find, and lfs3_fs_repair to repair bad blocks
+    } else if (CALLS == 2) {
+        // calling repair with no flags should noop
+        lfs3_fs_repair(&lfs3, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.bshrub.blocks[0] == victim);
+        }
+
+        // calling repair on its own should do nothing
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.bshrub.blocks[0] == victim);
+        }
+
+        // calling repair with ck should find the damage, but not repair it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_CKMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRMETA);
+        assert(lfs3.evictqueue.count == 1);
+        if (!CLOSE) {
+            assert(file.bshrub.blocks[0] == victim);
+        }
+
+        // calling repair should now fix it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.bshrub.blocks[0] != victim);
+        }
+    }
 
     // reopen if necessary
     if (CLOSE) {
@@ -12664,6 +12757,10 @@ code = '''
 '''
 
 [cases.test_evict_repair_t_explicit_bshrub]
+# CALLS=0 => lfs3_fs_repair
+# CALLS=1 => lfs3_fs_ck     + lfs3_fs_repair
+# CALLS=2 => lfs3_fs_repair + lfs3_fs_repair
+defines.CALLS = [0, 1, 2]
 defines.CHUNK = 'BLOCK_SIZE/8'
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
@@ -12766,7 +12863,72 @@ code = '''
     // note we don't need to request ck flags!
 
     // call lfs3_fs_repair to repair bad blocks
-    lfs3_fs_repair(&lfs3, LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+    if (CALLS == 0) {
+        lfs3_fs_repair(&lfs3,
+                LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+
+    // call lfs3_fs_ck to find, and lfs3_fs_repair to repair bad blocks
+    } else if (CALLS == 1) {
+        // calling ck with no flags should noop
+        lfs3_fs_ck(&lfs3, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+        // calling repair on its own should do nothing
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+        // calling ck should find the damage, but not repair it
+        lfs3_fs_ck(&lfs3, LFS3_CK_CKMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRMETA);
+        assert(lfs3.evictqueue.count == 1);
+
+        // calling repair should now fix it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+    // call lfs3_fs_repair to find, and lfs3_fs_repair to repair bad blocks
+    } else if (CALLS == 2) {
+        // calling repair with no flags should noop
+        lfs3_fs_repair(&lfs3, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+        // calling repair on its own should do nothing
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+        // calling repair with ck should find the damage, but not repair it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_CKMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRMETA);
+        assert(lfs3.evictqueue.count == 1);
+
+        // calling repair should now fix it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+    }
 
     // reopen if necessary
     if (CLOSE) {
@@ -12837,6 +12999,10 @@ code = '''
 '''
 
 [cases.test_evict_repair_t_explicit_bptr]
+# CALLS=0 => lfs3_fs_repair
+# CALLS=1 => lfs3_fs_ck     + lfs3_fs_repair
+# CALLS=2 => lfs3_fs_repair + lfs3_fs_repair
+defines.CALLS = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # report as damaged to request repairs
@@ -12905,7 +13071,96 @@ code = '''
     // note we don't need to request ck flags!
 
     // call lfs3_fs_repair to repair bad blocks
-    lfs3_fs_repair(&lfs3, LFS3_REPAIR_CKDATA | LFS3_REPAIR_REPAIRDATA) => 0;
+    if (CALLS == 0) {
+        lfs3_fs_repair(&lfs3,
+                LFS3_REPAIR_CKDATA | LFS3_REPAIR_REPAIRDATA) => 0;
+
+    // call lfs3_fs_ck to find, and lfs3_fs_repair to repair bad blocks
+    } else if (CALLS == 1) {
+        // calling ck with no flags should noop
+        lfs3_fs_ck(&lfs3, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.leaf.bptr.d.u.disk.block == victim);
+        }
+
+        // calling repair on its own should do nothing
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.leaf.bptr.d.u.disk.block == victim);
+        }
+
+        // calling ck should find the damage, but not repair it
+        lfs3_fs_ck(&lfs3, LFS3_CK_CKDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRDATA);
+        assert(lfs3.evictqueue.count == 1);
+        if (!CLOSE) {
+            assert(file.leaf.bptr.d.u.disk.block == victim);
+        }
+
+        // calling repair should now fix it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.leaf.bptr.d.u.disk.block != victim);
+        }
+
+    // call lfs3_fs_repair to find, and lfs3_fs_repair to repair bad blocks
+    } else if (CALLS == 2) {
+        // calling repair with no flags should noop
+        lfs3_fs_repair(&lfs3, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.leaf.bptr.d.u.disk.block == victim);
+        }
+
+        // calling repair on its own should do nothing
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.leaf.bptr.d.u.disk.block == victim);
+        }
+
+        // calling repair with ck should find the damage, but not repair it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_CKDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRDATA);
+        assert(lfs3.evictqueue.count == 1);
+        if (!CLOSE) {
+            assert(file.leaf.bptr.d.u.disk.block == victim);
+        }
+
+        // calling repair should now fix it
+        lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        if (!CLOSE) {
+            assert(file.leaf.bptr.d.u.disk.block != victim);
+        }
+    }
 
     // reopen if necessary
     if (CLOSE) {
@@ -12978,8 +13233,12 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test explicit lfs3_file_repair
+# test explicit lfs3_file_ck/repair calls
 [cases.test_evict_repair_t_file_explicit_btree]
+# CALLS=0 => lfs3_file_repair
+# CALLS=1 => lfs3_file_ck     + lfs3_file_repair
+# CALLS=2 => lfs3_file_repair + lfs3_file_repair
+defines.CALLS = [0, 1, 2]
 defines.CHUNK = 'BLOCK_SIZE/8'
 defines.SYNC = [false, true]
 defines.SIBLING = [0]
@@ -13033,8 +13292,80 @@ code = '''
     // note we don't need to request ck flags!
 
     // call lfs3_file_repair to repair bad blocks
-    lfs3_file_repair(&lfs3, &file,
-            LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+    if (CALLS == 0) {
+        lfs3_file_repair(&lfs3, &file,
+                LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+
+    // call lfs3_file_ck to find, and lfs3_file_repair to repair bad blocks
+    } else if (CALLS == 1) {
+        // calling ck with no flags should noop
+        lfs3_file_ck(&lfs3, &file, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.bshrub.blocks[0] == victim);
+
+        // calling repair on its own should do nothing
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.bshrub.blocks[0] == victim);
+
+        // calling ck should find the damage, but not repair it
+        lfs3_file_ck(&lfs3, &file, LFS3_CK_CKMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRMETA);
+        assert(lfs3.evictqueue.count == 1);
+        assert(file.bshrub.blocks[0] == victim);
+
+        // calling repair should now fix it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.bshrub.blocks[0] != victim);
+
+    // call lfs3_file_repair to find, and lfs3_file_repair to repair bad blocks
+    } else if (CALLS == 2) {
+        // calling repair with no flags should noop
+        lfs3_file_repair(&lfs3, &file, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.bshrub.blocks[0] == victim);
+
+        // calling repair on its own should do nothing
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.bshrub.blocks[0] == victim);
+
+        // calling repair with ck should find the damage, but not repair it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_CKMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRMETA);
+        assert(lfs3.evictqueue.count == 1);
+        assert(file.bshrub.blocks[0] == victim);
+
+        // calling repair should now fix it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.bshrub.blocks[0] != victim);
+    }
 
     // evicted block should no longer be in use
     assert(file.bshrub.blocks[0] != victim);
@@ -13104,6 +13435,10 @@ code = '''
 '''
 
 [cases.test_evict_repair_t_file_explicit_bshrub]
+# CALLS=0 => lfs3_file_repair
+# CALLS=1 => lfs3_file_ck     + lfs3_file_repair
+# CALLS=2 => lfs3_file_repair + lfs3_file_repair
+defines.CALLS = [0, 1, 2]
 defines.CHUNK = 'BLOCK_SIZE/8'
 defines.SYNC = [false, true]
 defines.SIBLING = [0, 1, 2]
@@ -13204,8 +13539,72 @@ code = '''
     // note we don't need to request ck flags!
 
     // call lfs3_file_repair to repair bad blocks
-    lfs3_file_repair(&lfs3, &file,
-            LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+    if (CALLS == 0) {
+        lfs3_file_repair(&lfs3, &file,
+                LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+
+    // call lfs3_file_ck to find, and lfs3_file_repair to repair bad blocks
+    } else if (CALLS == 1) {
+        // calling ck with no flags should noop
+        lfs3_file_ck(&lfs3, &file, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+        // calling repair on its own should do nothing
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+        // calling ck should find the damage, but not repair it
+        lfs3_file_ck(&lfs3, &file, LFS3_CK_CKMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRMETA);
+        assert(lfs3.evictqueue.count == 1);
+
+        // calling repair should now fix it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+    // call lfs3_file_repair to find, and lfs3_file_repair to repair bad blocks
+    } else if (CALLS == 2) {
+        // calling repair with no flags should noop
+        lfs3_file_repair(&lfs3, &file, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+        // calling repair on its own should do nothing
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+
+        // calling repair with ck should find the damage, but not repair it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_CKMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRMETA);
+        assert(lfs3.evictqueue.count == 1);
+
+        // calling repair should now fix it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRMETA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+    }
 
     // evicted block should no longer be in use, anywhere in the
     // filesystem
@@ -13271,6 +13670,10 @@ code = '''
 '''
 
 [cases.test_evict_repair_t_file_explicit_bptr]
+# CALLS=0 => lfs3_file_repair
+# CALLS=1 => lfs3_file_ck     + lfs3_file_repair
+# CALLS=2 => lfs3_file_repair + lfs3_file_repair
+defines.CALLS = [0, 1, 2]
 defines.SYNC = [false, true]
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
@@ -13332,8 +13735,80 @@ code = '''
     // note we don't need to request ck flags!
 
     // call lfs3_file_repair to repair bad blocks
-    lfs3_file_repair(&lfs3, &file,
-            LFS3_REPAIR_CKDATA | LFS3_REPAIR_REPAIRDATA) => 0;
+    if (CALLS == 0) {
+        lfs3_file_repair(&lfs3, &file,
+                LFS3_REPAIR_CKDATA | LFS3_REPAIR_REPAIRDATA) => 0;
+
+    // call lfs3_file_ck to find, and lfs3_file_repair to repair bad blocks
+    } else if (CALLS == 1) {
+        // calling ck with no flags should noop
+        lfs3_file_ck(&lfs3, &file, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.leaf.bptr.d.u.disk.block == victim);
+
+        // calling repair on its own should do nothing
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.leaf.bptr.d.u.disk.block == victim);
+
+        // calling ck should find the damage, but not repair it
+        lfs3_file_ck(&lfs3, &file, LFS3_CK_CKDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRDATA);
+        assert(lfs3.evictqueue.count == 1);
+        assert(file.leaf.bptr.d.u.disk.block == victim);
+
+        // calling repair should now fix it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.leaf.bptr.d.u.disk.block != victim);
+
+    // call lfs3_file_repair to find, and lfs3_file_repair to repair bad blocks
+    } else if (CALLS == 2) {
+        // calling repair with no flags should noop
+        lfs3_file_repair(&lfs3, &file, 0) => 0;
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.leaf.bptr.d.u.disk.block == victim);
+
+        // calling repair on its own should do nothing
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.leaf.bptr.d.u.disk.block == victim);
+
+        // calling repair with ck should find the damage, but not repair it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_CKDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == LFS3_I_REPAIRDATA);
+        assert(lfs3.evictqueue.count == 1);
+        assert(file.leaf.bptr.d.u.disk.block == victim);
+
+        // calling repair should now fix it
+        lfs3_file_repair(&lfs3, &file, LFS3_REPAIR_REPAIRDATA) => 0;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        assert((fsinfo.flags & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA))
+                == 0);
+        assert(lfs3.evictqueue.count == 0);
+        assert(file.leaf.bptr.d.u.disk.block != victim);
+    }
 
     // evicted block should no longer be in use
     assert(file.leaf.bptr.d.u.disk.block != victim);
