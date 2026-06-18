@@ -462,7 +462,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_sblock_t count = lfs3_fs_usage(&lfs3);
+        lfs3_sblock_t count = lfs3_fs_size(&lfs3);
         assert(count >= 0);
         if (count >= 6) {
             assert(count == 6 || count == 7); // maybe gbmap
@@ -582,7 +582,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_sblock_t count = lfs3_fs_usage(&lfs3);
+        lfs3_sblock_t count = lfs3_fs_size(&lfs3);
         assert(count >= 0);
         if (count >= 6) {
             assert(count == 6 || count == 7); // maybe gbmap
@@ -7476,7 +7476,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_sblock_t count = lfs3_fs_usage(&lfs3);
+        lfs3_sblock_t count = lfs3_fs_size(&lfs3);
         assert(count >= 0);
         if (count >= 6) {
             assert(count == 6 || count == 7); // maybe gbmap
@@ -7615,7 +7615,7 @@ code = '''
         // a bit hacky, but this catches infinite loops
         assert(i < 2*BLOCK_COUNT);
 
-        lfs3_sblock_t count = lfs3_fs_usage(&lfs3);
+        lfs3_sblock_t count = lfs3_fs_size(&lfs3);
         assert(count >= 0);
         if (count >= 6) {
             assert(count == 6 || count == 7); // maybe gbmap

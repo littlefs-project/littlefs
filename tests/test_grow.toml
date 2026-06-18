@@ -492,7 +492,7 @@ code = '''
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
+        lfs3_ssize_t used = lfs3_fs_size(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
@@ -730,7 +730,7 @@ code = '''
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
+        lfs3_ssize_t used = lfs3_fs_size(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
@@ -892,7 +892,7 @@ code = '''
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
+        lfs3_ssize_t used = lfs3_fs_size(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
@@ -1160,7 +1160,7 @@ code = '''
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
+        lfs3_ssize_t used = lfs3_fs_size(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
@@ -1647,7 +1647,7 @@ code = '''
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
+        lfs3_ssize_t used = lfs3_fs_size(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
@@ -2237,7 +2237,7 @@ code = '''
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
+        lfs3_ssize_t used = lfs3_fs_size(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
@@ -2602,7 +2602,7 @@ code = '''
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
+        lfs3_ssize_t used = lfs3_fs_size(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck
@@ -3044,7 +3044,7 @@ code = '''
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert(fsinfo.block_count >= FORMAT_BLOCK_COUNT);
         assert(fsinfo.block_count <= BLOCK_COUNT);
-        lfs3_ssize_t used = lfs3_fs_usage(&lfs3);
+        lfs3_ssize_t used = lfs3_fs_size(&lfs3);
         assert(used >= 0);
 
         // we may need to grow multiple blocks before the system gets unstuck

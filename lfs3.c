@@ -18622,7 +18622,8 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     return 0;
 }
 
-lfs3_sblock_t lfs3_fs_usage(lfs3_t *lfs3) {
+// find the number of blocks in use by the filesystem
+lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3) {
     lfs3_block_t count = 0;
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv, 0);

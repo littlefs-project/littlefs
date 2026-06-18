@@ -1968,13 +1968,13 @@ lfs3_sblock_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc, lfs3_sblock_t steps);
 // Returns a negative error code on failure.
 int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo);
 
-// Finds the number of blocks in use by the filesystem
+// Find the number of blocks in use by the filesystem
 //
-// Note: Result is best effort. If files share COW structures, the returned
-// usage may be larger than the filesystem actually is.
+// Note: Result is best effort. If files share CoW structures, the returned
+// size may be larger than the filesystem actually is.
 //
 // Returns the number of allocated blocks, or a negative error code on failure.
-lfs3_sblock_t lfs3_fs_usage(lfs3_t *lfs3);
+lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3);
 
 // Get the current filesystem checksum
 //

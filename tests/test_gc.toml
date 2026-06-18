@@ -8181,7 +8181,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -8286,7 +8286,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -8384,7 +8384,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -8480,7 +8480,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -8573,7 +8573,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file_) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -8693,7 +8693,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file_) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -8808,7 +8808,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -8938,7 +8938,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -9064,7 +9064,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -9163,7 +9163,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -9257,7 +9257,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file_) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -9370,7 +9370,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file_) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -9479,7 +9479,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
@@ -9604,7 +9604,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // damage a random block
-    lfs3_ssize_t n = lfs3_fs_usage(&lfs3);
+    lfs3_ssize_t n = lfs3_fs_size(&lfs3);
     assert(n >= 0);
     lfs3_block_t victim_i = lfs3_emubd_prng(CFG) % lfs3_max(n, 1);
     lfs3_block_t victim = -1;
