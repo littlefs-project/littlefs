@@ -5330,9 +5330,13 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     //
     // somewhere, an rbyd can be compacted
     if (lfs3_rbyd_eoff(rbyd)
-            > ((lfs3->cfg->gc_compactmeta_thresh)
-                ? lfs3->cfg->gc_compactmeta_thresh
-                : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
+            > lfs3_min(
+                (lfs3->cfg->gc_compactbtree_thresh)
+                    ? lfs3->cfg->gc_compactbtree_thresh
+                    : (lfs3_size_t)-1,
+                (lfs3->cfg->gc_compactmeta_thresh)
+                    ? lfs3->cfg->gc_compactmeta_thresh
+                    : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
         lfs3->flags |= LFS3_I_COMPACTMETA;
     }
 
@@ -10983,10 +10987,12 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                     (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
                         ? -1
                         : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
-                    (lfs3->cfg->gc_compactmeta_thresh)
-                        ? lfs3->cfg->gc_compactmeta_thresh
-                        : lfs3->cfg->block_size
-                            - lfs3->cfg->block_size/8);
+                    (lfs3->cfg->gc_compactbtree_thresh)
+                            ? lfs3->cfg->gc_compactbtree_thresh
+                        : (lfs3->cfg->gc_compactmeta_thresh)
+                            ? lfs3->cfg->gc_compactmeta_thresh
+                            : lfs3->cfg->block_size
+                                - lfs3->cfg->block_size/8);
         }
 
         // lfs3_bshrub_compact_ mutates the rbyd, which may point at
@@ -11039,10 +11045,12 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                     (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
                         ? -1
                         : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
-                    (lfs3->cfg->gc_compactmeta_thresh)
-                        ? lfs3->cfg->gc_compactmeta_thresh
-                        : lfs3->cfg->block_size
-                            - lfs3->cfg->block_size/8);
+                    (lfs3->cfg->gc_compactbtree_thresh)
+                            ? lfs3->cfg->gc_compactbtree_thresh
+                        : (lfs3->cfg->gc_compactmeta_thresh)
+                            ? lfs3->cfg->gc_compactmeta_thresh
+                            : lfs3->cfg->block_size
+                                - lfs3->cfg->block_size/8);
         }
 
         // lfs3_bshrub_compact_ mutates the rbyd, which may point at
@@ -11113,10 +11121,12 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
                             ? -1
                             : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
-                        (lfs3->cfg->gc_compactmeta_thresh)
-                            ? lfs3->cfg->gc_compactmeta_thresh
-                            : lfs3->cfg->block_size
-                                - lfs3->cfg->block_size/8);
+                        (lfs3->cfg->gc_compactbtree_thresh)
+                                ? lfs3->cfg->gc_compactbtree_thresh
+                            : (lfs3->cfg->gc_compactmeta_thresh)
+                                ? lfs3->cfg->gc_compactmeta_thresh
+                                : lfs3->cfg->block_size
+                                    - lfs3->cfg->block_size/8);
             } else {
                 LFS3_INFO("Compacting btree rbyd "
                             "0x%"PRIx32".%"PRIx32" "
@@ -11126,10 +11136,12 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         (lfs3_rbyd_eoff(rbyd) >= lfs3->cfg->block_size)
                             ? -1
                             : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
-                        (lfs3->cfg->gc_compactmeta_thresh)
-                            ? lfs3->cfg->gc_compactmeta_thresh
-                            : lfs3->cfg->block_size
-                                - lfs3->cfg->block_size/8);
+                        (lfs3->cfg->gc_compactbtree_thresh)
+                                ? lfs3->cfg->gc_compactbtree_thresh
+                            : (lfs3->cfg->gc_compactmeta_thresh)
+                                ? lfs3->cfg->gc_compactmeta_thresh
+                                : lfs3->cfg->block_size
+                                    - lfs3->cfg->block_size/8);
             }
         }
 
@@ -11696,9 +11708,11 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
         // exceeds compaction threshold?
         if (lfs3_rbyd_eoff((lfs3_rbyd_t*)bptr.d.u.buffer)
-                > ((lfs3->cfg->gc_compactmeta_thresh)
-                    ? lfs3->cfg->gc_compactmeta_thresh
-                    : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
+                > ((lfs3->cfg->gc_compactbtree_thresh)
+                        ? lfs3->cfg->gc_compactbtree_thresh
+                    : (lfs3->cfg->gc_compactmeta_thresh)
+                        ? lfs3->cfg->gc_compactmeta_thresh
+                        : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
             uint32_t dirty = mgc->t.h.flags;
             int err = lfs3_mtree_compactbtree(lfs3, mgc, rbyd);

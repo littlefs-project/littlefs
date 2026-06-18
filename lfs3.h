@@ -777,6 +777,20 @@ struct lfs3_cfg {
     lfs3_size_t gc_compactmeta_thresh;
     #endif
 
+    // Threshold for btree node compaction during gc in bytes.
+    //
+    // This allows a separate compaction threshold for btree nodes,
+    // which are usually less critical than mdirs.
+    //
+    // Note this only affects explicit gc operations. During normal
+    // operations metadata is only compacted when full.
+    //
+    // Set to -1 to disable btree compaction during gc. Defaults to
+    // gc_compactmeta_thresh when zero.
+    #ifndef LFS3_RDONLY
+    lfs3_size_t gc_compactbtree_thresh;
+    #endif
+
     // Optional statically allocated rcache buffer. Must be rcache_size. By
     // default lfs3_malloc is used to allocate this buffer.
     void *rcache_buffer;
