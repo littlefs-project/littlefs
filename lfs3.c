@@ -102,6 +102,9 @@ static int lfs3_bd_read___(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     // bd read
     int err = lfs3->cfg->read(lfs3->cfg, block, off, buffer, size);
     LFS3_ASSERT(err <= 0);
+    if (err > 0) {
+        LFS3_UNREACHABLE();
+    }
     return err;
 }
 
@@ -118,6 +121,9 @@ static int lfs3_bd_prog___(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     // bd prog
     int err = lfs3->cfg->prog(lfs3->cfg, block, off, buffer, size);
     LFS3_ASSERT(err <= 0);
+    if (err > 0) {
+        LFS3_UNREACHABLE();
+    }
     return err;
 }
 #endif
@@ -130,6 +136,9 @@ static int lfs3_bd_erase___(lfs3_t *lfs3, lfs3_block_t block) {
     // bd erase
     int err = lfs3->cfg->erase(lfs3->cfg, block);
     LFS3_ASSERT(err <= 0);
+    if (err > 0) {
+        LFS3_UNREACHABLE();
+    }
     return err;
 }
 #endif
@@ -139,6 +148,9 @@ static int lfs3_bd_sync___(lfs3_t *lfs3) {
     // bd sync
     int err = lfs3->cfg->sync(lfs3->cfg);
     LFS3_ASSERT(err <= 0);
+    if (err > 0) {
+        LFS3_UNREACHABLE();
+    }
     return err;
 }
 #endif
