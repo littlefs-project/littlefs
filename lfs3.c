@@ -5807,17 +5807,6 @@ static lfs3_scmp_t lfs3_rbyd_namelookup(lfs3_t *lfs3, const lfs3_rbyd_t *rbyd,
         return LFS3_ERR_NOENT;
     }
 
-    // compiler needs this to be happy about initialization in callers
-    if (rid_) {
-        *rid_ = 0;
-    }
-    if (tag_) {
-        *tag_ = 0;
-    }
-    if (weight_) {
-        *weight_ = 0;
-    }
-
     // binary search for our name
     lfs3_srid_t lower_rid = 0;
     lfs3_srid_t upper_rid = rbyd->weight;
@@ -7034,20 +7023,6 @@ static lfs3_scmp_t lfs3_btree_namelookup_(lfs3_t *lfs3,
         return LFS3_ERR_NOENT;
     }
 
-    // compiler needs this to be happy about initialization in callers
-    if (bid_) {
-        *bid_ = 0;
-    }
-    if (rid_) {
-        *rid_ = 0;
-    }
-    if (tag_) {
-        *tag_ = 0;
-    }
-    if (weight_) {
-        *weight_ = 0;
-    }
-
     // descend down the btree looking for our name
     lfs3_bid_t bid__ = btree->weight-1;
     *rbyd_ = *btree;
@@ -7085,6 +7060,10 @@ static lfs3_scmp_t lfs3_btree_namelookup_(lfs3_t *lfs3,
             int err = lfs3_data_fetchbranch(lfs3, &data__, weight__,
                     rbyd_);
             if (err) {
+                // gcc needs this to be happy
+                if (err > 0) {
+                    LFS3_UNREACHABLE();
+                }
                 return err;
             }
 
