@@ -11966,8 +11966,6 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             // do we really need a full traversal?
             if (!(mgc->t.h.flags
                     & (LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
-                        // TODO probably not compactmeta if we don't
-                        // support eviction in the future
                         | LFS3_gc_COMPACTMETAING
                         | LFS3_gc_CKMETAING
                         | LFS3_gc_CKDATAING
