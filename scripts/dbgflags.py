@@ -22,6 +22,7 @@ PREFIX_CFG     = ['+cfg']            # Filter by LFS3_CFG_* flags
 PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
 PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
+PREFIX_GROW    = ['+grow']           # Filter by LFS3_GROW_* flags
 PREFIX_EVICT   = ['+evict']          # Filter by LFS3_EVICT_* flags
 PREFIX_BD      = ['+bd']             # Filter by LFS3_BD_* flags
 PREFIX_ALLOC   = ['+alloc']          # Filter by LFS3_ALLOC_* flags
@@ -188,6 +189,8 @@ I_DAMAGEDREAD   = 0x20000000  # --  Found damage during read
 I_CONDEMNED     = 0x40000000  # --  Found condemned blocks
 I_EVICTOVERFLOW = 0x80000000  # --  Evict queue overflowed
 
+i_SHRINKING     = 0x04000000  # i-  Filesystem is being shrunk
+
 # Traversal flags
 T_MTREEONLY     = 0x00000004  # --  Only traverse the mtree
 T_EXCL          = 0x00000008  # --  Error if filesystem modified
@@ -230,8 +233,6 @@ GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data damage
 GC_REPAIR       = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
 GC_GC           = 0x00ff0000  # -a  Alias for all gc work
 
-gc_EVICTMETA    = 0x00400000  # i-  Evict metadata blocks
-gc_EVICTDATA    = 0x00800000  # i-  Evict metadata + data blocks
 gc_MKCONSISTENTING \
                 = 0x00000100  # i-  Working on LFS3_GC_MKCONSISTENT
 gc_LOOKAHEADING = 0x00000200  # i-  Working on LFS3_GC_LOOKAHEAD
@@ -251,8 +252,13 @@ gc_TRV          = 0x60000000  # i^  Type = traversal
 gc_GC           = 0x70000000  # i^  Type = gc
 gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
 
+# Filesystem grow flags
+GROW_GROW       = 0x00000001  # --  Potentially grow the filesystem
+GROW_SHRINK     = 0x00000002  # --  Potentially shrink the filesystem
+GROW_EVICT      = 0x00000004  # --  Evict blocks needed to shrink
+
 # Block eviction flags
-EVICT_EVICT     = 0x00000001  # --  Delete all references to this block
+EVICT_EVICT     = 0x00000004  # --  Delete all references to this block
 EVICT_BAD       = 0x80000000  # --  Mark this block as bad, do not alloc
 EVICT_GOOD      = 0x20000000  # --  Mark this block as good, do alloc
 evict_DATA      = 0x40000000  # i-  Block is definitely data

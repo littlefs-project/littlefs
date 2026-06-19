@@ -438,9 +438,15 @@ enum lfs3_type {
 #define LFS3_I_CONDEMNED \
                         0x40000000  // Found condemned blocks
 #endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 #define LFS3_I_EVICTOVERFLOW \
                         0x80000000  // Evict queue overflowed
+#endif
+
+// internally used flags, don't use these
+#if !defined(LFS3_RDONLY) && defined(LFS3_SHRINK)
+#define LFS3_i_SHRINKING \
+                        0x04000000  // Filesystem is being shrunk
 #endif
 
 // Block types
@@ -513,14 +519,6 @@ enum lfs3_btype {
 #endif
 
 // internally used flags, don't use these
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_gc_EVICTMETA \
-                        0x00400000  // Evict metadata blocks
-#endif
-#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_gc_EVICTDATA \
-                        0x00800000  // Evict metadata + data blocks
-#endif
 #ifndef LFS3_RDONLY
 #define LFS3_gc_MKCONSISTENTING \
                         0x00000100  // Working on LFS3_GC_MKCONSISTENT
@@ -557,10 +555,22 @@ enum lfs3_btype {
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
 
+// Filesystem grow flags
+#ifndef LFS3_RDONLY
+#define LFS3_GROW_GROW  0x00000001  // Potentially grow the filesystem
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_SHRINK)
+#define LFS3_GROW_SHRINK \
+                        0x00000002  // Potentially shrink the filesystem
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_SHRINK)
+#define LFS3_GROW_EVICT 0x00000004  // Evict blocks needed to shrink
+#endif
+
 // Block eviction flags
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 #define LFS3_EVICT_EVICT \
-                        0x00000001  // Delete all references to this block
+                        0x00000004  // Delete all references to this block
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_EVICT_BAD  0x80000000  // Mark this block as bad, do not alloc
@@ -2058,7 +2068,7 @@ int lfs3_fs_clearck(lfs3_t *lfs3, uint32_t flags);
 //
 // Returns a negative error code on failure.
 #ifndef LFS3_RDONLY
-int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count);
+int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count, uint32_t flags);
 #endif
 
 // Enable the global on-disk block-map

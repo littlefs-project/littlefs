@@ -93,7 +93,8 @@ typedef int lfs3_sbool_t;
 static int lfs3_bd_read___(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         void *buffer, lfs3_size_t size) {
     // must be in-bounds
-    LFS3_ASSERT(block < lfs3->block_count);
+    LFS3_ASSERT(block < lfs3->block_count
+            || LFS3_IFDEF_SHRINK(lfs3->flags & LFS3_i_SHRINKING, false));
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
     // must be read aligned
     LFS3_ASSERT(off % lfs3->cfg->read_size == 0);
@@ -214,10 +215,19 @@ static lfs3_evict_t *lfs3_evict_eviction(lfs3_t *lfs3,
 }
 #endif
 
-// returns a bool, but also takes const
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 static inline bool lfs3_evict_needseviction(const lfs3_t *lfs3,
         lfs3_block_t block) {
+    // in shrink region?
+    #ifdef LFS3_SHRINK
+    if (block >= lfs3->block_count) {
+        // this should only happen if we're shrinking
+        LFS3_ASSERT(lfs3->flags & LFS3_i_SHRINKING);
+        return true;
+    }
+    #endif
+
+    // being evicted?
     return lfs3_evict_eviction((lfs3_t*)lfs3, block);
 }
 #endif
@@ -225,6 +235,7 @@ static inline bool lfs3_evict_needseviction(const lfs3_t *lfs3,
 #if !defined(LFS3_RDONLY) && defined(LFS3_CONDEMN)
 static inline bool lfs3_evict_needscondemnation(const lfs3_t *lfs3,
         lfs3_block_t block) {
+    // being evicted and marked as bad?
     const lfs3_evict_t *evict = lfs3_evict_eviction((lfs3_t*)lfs3, block);
     return evict && lfs3_evict_isbad(evict);
 }
@@ -269,7 +280,6 @@ static lfs3_evict_t *lfs3_evict_push(lfs3_t *lfs3,
     // or, uh, loudly, if you have warnings enabled
     //
     // try to avoid spamming overflow warnings
-    #ifdef LFS3_REPAIR
     if (!(lfs3->flags & LFS3_I_EVICTOVERFLOW)) {
         LFS3_WARN("Evict queue overflowed 0x%"PRIx32" "
                     "(%"PRIu32" > %"PRIu32")",
@@ -279,8 +289,6 @@ static lfs3_evict_t *lfs3_evict_push(lfs3_t *lfs3,
     }
 
     lfs3->flags |= LFS3_I_EVICTOVERFLOW;
-    #endif
-
     return NULL;
 
 found:;
@@ -293,10 +301,12 @@ found:;
     #endif
     // or data bits
     evict->block_ |= (flags & LFS3_evict_DATA) << 1;
-    // make sure evict/repair flags are set
+    // make sure repair flags are set
+    #ifdef LFS3_REPAIR
     lfs3->flags |= ((flags & LFS3_evict_DATA)
-            ? LFS3_gc_EVICTDATA
-            : LFS3_gc_EVICTMETA);
+            ? LFS3_GC_REPAIRDATA
+            : LFS3_GC_REPAIRMETA);
+    #endif
     return evict;
 }
 #endif
@@ -315,10 +325,12 @@ static void lfs3_evict_flush(lfs3_t *lfs3, uint32_t flags) {
     }
     lfs3->evictqueue.count = count_;
 
-    // clear the relevant evict/repair flags
+    // clear the relevant repair flags
+    #ifdef LFS3_REPAIR
     lfs3->flags &= ~(
-            LFS3_gc_EVICTMETA
-                | ((flags & LFS3_evict_DATA) ? LFS3_gc_EVICTDATA : 0));
+            LFS3_GC_REPAIRMETA
+                | ((flags & LFS3_evict_DATA) ? LFS3_GC_REPAIRDATA : 0));
+    #endif
 }
 #endif
 
@@ -340,7 +352,8 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         void *buffer, lfs3_size_t size, uint32_t flags) {
     (void)flags;
     // must be in-bounds
-    LFS3_ASSERT(block < lfs3->block_count);
+    LFS3_ASSERT(block < lfs3->block_count
+            || LFS3_IFDEF_SHRINK(lfs3->flags & LFS3_i_SHRINKING, false));
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
     // must be read aligned
     LFS3_ASSERT(off % lfs3->cfg->read_size == 0);
@@ -616,7 +629,8 @@ static int lfs3_bd_readnext(lfs3_t *lfs3,
         lfs3_size_t size, uint32_t flags,
         const uint8_t **buffer_, lfs3_size_t *size_) {
     // must be in-bounds
-    LFS3_ASSERT(block < lfs3->block_count);
+    LFS3_ASSERT(block < lfs3->block_count
+            || LFS3_IFDEF_SHRINK(lfs3->flags & LFS3_i_SHRINKING, false));
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
 
     lfs3_size_t hint_ = lfs3_max(hint, size); // make sure hint >= size
@@ -688,7 +702,8 @@ static int lfs3_bd_read(lfs3_t *lfs3,
         lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint,
         void *buffer, lfs3_size_t size, uint32_t flags) {
     // must be in-bounds
-    LFS3_ASSERT(block < lfs3->block_count);
+    LFS3_ASSERT(block < lfs3->block_count
+            || LFS3_IFDEF_SHRINK(lfs3->flags & LFS3_i_SHRINKING, false));
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
 
     lfs3_size_t off_ = off;
@@ -1048,7 +1063,8 @@ static int lfs3_bd_cksum(lfs3_t *lfs3,
         lfs3_size_t size, uint32_t flags,
         uint32_t *cksum) {
     // must be in-bounds
-    LFS3_ASSERT(block < lfs3->block_count);
+    LFS3_ASSERT(block < lfs3->block_count
+            || LFS3_IFDEF_SHRINK(lfs3->flags & LFS3_i_SHRINKING, false));
     LFS3_ASSERT(off+size <= lfs3->cfg->block_size);
 
     lfs3_size_t off_ = off;
@@ -1116,7 +1132,8 @@ static int lfs3_bd_cpy(lfs3_t *lfs3,
     // must be in-bounds
     LFS3_ASSERT(dst_block < lfs3->block_count);
     LFS3_ASSERT(dst_off+size <= lfs3->cfg->block_size);
-    LFS3_ASSERT(src_block < lfs3->block_count);
+    LFS3_ASSERT(src_block < lfs3->block_count
+            || LFS3_IFDEF_SHRINK(lfs3->flags & LFS3_i_SHRINKING, false));
     LFS3_ASSERT(src_off+size <= lfs3->cfg->block_size);
 
     lfs3_size_t dst_off_ = dst_off;
@@ -9536,8 +9553,12 @@ compact:;
                     // so maybe don't overrecycle if we're condemned
                     && !LFS3_IFDEF_CONDEMN(
                         (lfs3->flags & LFS3_I_GBMAP)
-                            && lfs3_mdir_needscondemnation(lfs3,
-                                mdir),
+                            && lfs3_mdir_needscondemnation(lfs3, mdir),
+                        false)
+                    // or in a shrink region
+                    && !LFS3_IFDEF_SHRINK(
+                        (lfs3->flags & LFS3_i_SHRINKING)
+                            && lfs3_mdir_needseviction(lfs3, mdir),
                         false))) {
             return err;
         }
@@ -11248,9 +11269,20 @@ static int lfs3_mtree_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     // to write more than is necessary
     lfs3_alloc_ckpoint_(lfs3);
 
+    // make sure bptr has an eviction entry
+    lfs3_evict_t *evict = lfs3_bptr_eviction(lfs3, bptr);
+    #ifdef LFS3_SHRINK
+    if (!evict) {
+        LFS3_ASSERT(lfs3->flags & LFS3_i_SHRINKING);
+        evict = lfs3_evict_push(lfs3, lfs3_bptr_block(bptr),
+                LFS3_evict_DATA);
+        // you should not call this if we can't make an eviction entry
+        LFS3_ASSERT(evict);
+    }
+    #endif
+
     // did we already allocate a new block for this block? try to
     // deduplicate dags
-    lfs3_evict_t *evict = lfs3_bptr_eviction(lfs3, bptr);
     if (!lfs3_evict_block_(evict)) {
         // allocate + evict the bptr
         int err = lfs3_bptr_evict(lfs3, &mgc->t.h.mdir, bptr);
@@ -11468,7 +11500,8 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
 // mutation here
 //
 // every call to lfs3_mtree_gc represents ~1 step of gc work
-static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
+static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
+        lfs3_bptr_t *bptr_) {
     // mgc should be tracked here
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &mgc->t.h));
     // start of traversal?
@@ -11551,10 +11584,10 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
         #endif
     }
 
+again:;
     // traverse!
-    lfs3_bptr_t bptr;
     lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mgc->t,
-            &bptr);
+            bptr_);
     if (tag < 0) {
         // end of traversal?
         if (tag == LFS3_ERR_NOENT) {
@@ -11577,11 +11610,11 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
             && (mgc->t.h.flags & (
                 LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
             && lfs3_mdir_needseviction(lfs3,
-                (lfs3_mdir_t*)bptr.d.u.buffer)) {
+                (lfs3_mdir_t*)bptr_->d.u.buffer)) {
         // this takes the same code path as mdir compaction, with
         // lfs3_mdir_commit_ changing behavior if it's in the eviction
         // window
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mtree_compactmdir(lfs3, mgc, mdir);
         if (err) {
@@ -11600,9 +11633,9 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
             && (mgc->t.h.flags & (
                 LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
             && lfs3_rbyd_needseviction(lfs3,
-                (lfs3_rbyd_t*)bptr.d.u.buffer)) {
+                (lfs3_rbyd_t*)bptr_->d.u.buffer)) {
         // this is humorously the same operation btree compaction
-        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
+        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mtree_compactbtree(lfs3, mgc, rbyd);
         if (err) {
@@ -11612,7 +11645,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
         // reset dirty/damaged flags
         mgc->t.h.flags &= ~(LFS3_t_DIRTY | LFS3_t_DAMAGED) | dirty;
         // we mutated, so rewind traversal to btree root
-        return 0;
+        goto again;
     }
     #endif
 
@@ -11620,9 +11653,17 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if (tag == LFS3_TAG_BLOCK
             && (mgc->t.h.flags & LFS3_gc_EVICTDATAING)
-            && lfs3_bptr_needseviction(lfs3, &bptr)) {
+            && lfs3_bptr_needseviction(lfs3, bptr_)
+            // if we're shrinking, we need to make sure we can actually
+            // evict before evicting, metadata is fine, but data blocks
+            // need an eviction entry to avoid dag explosion
+            && LFS3_IFDEF_SHRINK(
+                !(lfs3->flags & LFS3_i_SHRINKING)
+                    || lfs3_bptr_eviction(lfs3, bptr_)
+                    || lfs3->evictqueue.count < lfs3->cfg->evictqueue_count,
+                true)) {
         uint32_t dirty = mgc->t.h.flags;
-        int err = lfs3_mtree_evictbptr(lfs3, mgc, &bptr);
+        int err = lfs3_mtree_evictbptr(lfs3, mgc, bptr_);
         if (err) {
             return err;
         }
@@ -11630,7 +11671,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
         // reset dirty/damaged flags
         mgc->t.h.flags &= ~(LFS3_t_DIRTY | LFS3_t_DAMAGED) | dirty;
         // we mutated, so rewind traversal to btree root
-        return 0;
+        goto again;
     }
     #endif
 
@@ -11639,7 +11680,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     if (tag == LFS3_TAG_MDIR
             && (mgc->t.h.flags & LFS3_gc_MKCONSISTENTING)
             && (lfs3->flags & LFS3_GC_MKCONSISTENT)) {
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         // grm queue should be flushed before calling lfs3_mtree_gc
         LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
@@ -11659,7 +11700,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
             mgc->t.h.mdir.mid -= 1;
             mgc->t.u.btrv.bid = LFS3_BID_MDIR;
             // we mutated, so rewind traversal to mtree root
-            return 0;
+            goto again;
         }
         // we don't need to rewind with mdirs
     }
@@ -11670,11 +11711,11 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     if (tag == LFS3_TAG_MDIR
             && (mgc->t.h.flags & LFS3_gc_COMPACTMETAING)
             // exceed compaction threshold?
-            && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr.d.u.buffer)->r)
+            && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr_->d.u.buffer)->r)
                 > ((lfs3->cfg->gc_compactmeta_thresh)
                     ? lfs3->cfg->gc_compactmeta_thresh
                     : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mtree_compactmdir(lfs3, mgc, mdir);
         if (err) {
@@ -11692,19 +11733,19 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
     if (tag == LFS3_TAG_BRANCH
             && (mgc->t.h.flags & LFS3_gc_COMPACTMETAING)) {
         // need to fetch
-        int err = lfs3_rbyd_mkfetched(lfs3, (lfs3_rbyd_t*)bptr.d.u.buffer);
+        int err = lfs3_rbyd_mkfetched(lfs3, (lfs3_rbyd_t*)bptr_->d.u.buffer);
         if (err) {
             return err;
         }
 
         // exceeds compaction threshold?
-        if (lfs3_rbyd_eoff((lfs3_rbyd_t*)bptr.d.u.buffer)
+        if (lfs3_rbyd_eoff((lfs3_rbyd_t*)bptr_->d.u.buffer)
                 > ((lfs3->cfg->gc_compactbtree_thresh)
                         ? lfs3->cfg->gc_compactbtree_thresh
                     : (lfs3->cfg->gc_compactmeta_thresh)
                         ? lfs3->cfg->gc_compactmeta_thresh
                         : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
-            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
+            lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
             uint32_t dirty = mgc->t.h.flags;
             int err = lfs3_mtree_compactbtree(lfs3, mgc, rbyd);
             if (err) {
@@ -11714,7 +11755,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
             // reset dirty flag
             mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
             // we mutated, so rewind traversal to btree root
-            return 0;
+            goto again;
         }
     }
     #endif
@@ -11726,7 +11767,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
         // mark in-use blocks in gbmap?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
             #ifdef LFS3_GBMAP
-            int err = lfs3_gbmap_setlook(lfs3, &mgc->gbmap_, tag, &bptr,
+            int err = lfs3_gbmap_setlook(lfs3, &mgc->gbmap_, tag, bptr_,
                     LFS3_TAG_BMINUSE);
             if (err) {
                 return err;
@@ -11735,12 +11776,12 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc) {
 
         // mark in-use blocks in lookahead buffer?
         } else {
-            lfs3_alloc_setlookinuse(lfs3, tag, &bptr);
+            lfs3_alloc_setlookinuse(lfs3, tag, bptr_);
         }
     }
     #endif
 
-    return 0;
+    return tag;
 
 eot:;
     // was repair successful?
@@ -11829,28 +11870,33 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         uint32_t t = ((mgc->t.h.flags
                         // mkconsistent implies repairmeta/repairdata if
                         // repairmetadamage/repairdatadamage is set
-                        | LFS3_IFDEF_REPAIR(
-                            ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
-                                    && LFS3_CFG_ISREPAIRMETADAMAGE(lfs3->cfg))
-                                ? LFS3_GC_REPAIRMETA
-                                : 0,
-                            0)
-                        | LFS3_IFDEF_REPAIR(
-                            ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
-                                    && LFS3_CFG_ISREPAIRDATADAMAGE(lfs3->cfg))
-                                ? LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA
-                                : 0,
-                            0)
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_REPAIR(
+                                ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
+                                        && LFS3_CFG_ISREPAIRMETADAMAGE(
+                                            lfs3->cfg))
+                                    ? LFS3_GC_REPAIRMETA
+                                    : 0,
+                                0))
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_REPAIR(
+                                ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
+                                        && LFS3_CFG_ISREPAIRDATADAMAGE(
+                                            lfs3->cfg))
+                                    ? LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA
+                                    : 0,
+                                0))
                         // ckdata implies ckmeta
                         | ((mgc->t.h.flags & LFS3_GC_CKDATA)
                             ? LFS3_GC_CKMETA
                             : 0)
-                        // evict/repairdata implies evict/repairmeta
-                        | LFS3_IFDEF_EVICT(
-                            (mgc->t.h.flags & LFS3_gc_EVICTDATA)
-                                ? LFS3_gc_EVICTMETA
-                                : 0,
-                            0))
+                        // repairdata implies repairmeta
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_REPAIR(
+                                (mgc->t.h.flags & LFS3_GC_REPAIRDATA)
+                                    ? LFS3_GC_REPAIRMETA
+                                    : 0,
+                                0)))
                     // mask with pending flags
                     & lfs3->flags
                     & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
@@ -11859,9 +11905,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         | LFS3_GC_CKMETA
                         | LFS3_GC_CKDATA
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETA, 0))
+                            LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATA, 0))))
+                            LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
                 // this weird shift is to let us mask out any
                 // flags that change
                 >> 8;
@@ -11982,8 +12028,10 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             }
 
             // progress gc
-            int err = lfs3_mtree_gc(lfs3, mgc);
-            if (err && err != LFS3_ERR_NOENT) {
+            lfs3_bptr_t bptr;
+            lfs3_stag_t tag = lfs3_mtree_gc(lfs3, mgc,
+                    &bptr);
+            if (tag < 0 && tag != LFS3_ERR_NOENT) {
                 // reset traversal if we run into any errors
                 mgc->t.h.flags
                         &= ~(LFS3_IFDEF_RDONLY(0, LFS3_gc_MKCONSISTENTING)
@@ -11995,11 +12043,11 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                 LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
                             | LFS3_IFDEF_RDONLY(0,
                                 LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0)));
-                return err;
+                return tag;
             }
 
             // end of traversal?
-            if (err == LFS3_ERR_NOENT) {
+            if (tag == LFS3_ERR_NOENT) {
                 mgc->t.h.flags
                         &= ~(LFS3_IFDEF_RDONLY(0, LFS3_gc_MKCONSISTENTING)
                             | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
@@ -12063,8 +12111,8 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             & (LFS3_GC_LOOKAHEAD
                                 | LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)
                                 | LFS3_GC_COMPACTMETA
-                                | LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETA, 0)
-                                | LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATA, 0)))
+                                | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)
+                                | LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))
                         && lfs3_alloc_cansyncgbmap(lfs3),
                     false))) {
             #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
@@ -12670,6 +12718,73 @@ static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+// note this is not at all atomic! needs to be reverted to gbmap_p on
+// failure
+static int lfs3_gbmap_grow(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_block_t block_count_) {
+    // growing?
+    if (block_count_ > gbmap->weight) {
+        // if the last range is free, we can extend it, otherwise we
+        // need a new range
+        lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, gbmap,
+                gbmap->weight-1,
+                NULL, NULL, NULL);
+        if (tag < 0) {
+            LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+            return tag;
+        }
+
+        int err = lfs3_gbmap_commit(lfs3, gbmap,
+                (tag == LFS3_TAG_BMFREE) ? gbmap->weight-1 : gbmap->weight,
+                (const lfs3_rattr_t[]){
+                    (tag == LFS3_TAG_BMFREE)
+                        ? LFS3_RATTR(LFS3_tag_GROW, -2, 0)
+                        : LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
+                    LFS3_RATTR_WEIGHT(+(block_count_ - gbmap->weight)),
+                    LFS3_RATTR_NULL});
+        if (err) {
+            return err;
+        }
+
+    // shrinking?
+    } else if (block_count_ < gbmap->weight) {
+        #ifdef LFS3_SHRINK
+        // just delete ranges from the end of the gbmap until we're the
+        // right size
+        while (gbmap->weight > block_count_) {
+            lfs3_bid_t weight;
+            lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, gbmap,
+                    gbmap->weight-1,
+                    NULL, &weight, NULL);
+            if (tag < 0) {
+                LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+                return tag;
+            }
+
+            int err = lfs3_gbmap_commit(lfs3, gbmap,
+                    gbmap->weight-1,
+                    (const lfs3_rattr_t[]){
+                        (weight < gbmap->weight - block_count_)
+                            ? LFS3_RATTR(LFS3_tag_RM, -2, 0)
+                            : LFS3_RATTR(LFS3_tag_GROW, -2, 0),
+                        LFS3_RATTR_WEIGHT(-lfs3_min(
+                            gbmap->weight - block_count_,
+                            weight)),
+                        LFS3_RATTR_NULL});
+            if (err) {
+                return err;
+            }
+        }
+        #else
+        LFS3_UNREACHABLE();
+        #endif
+    }
+
+    return 0;
+}
+#endif
+
 
 
 /// Block allocator ///
@@ -12825,6 +12940,16 @@ static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
 // mark a block as in-use
 #ifndef LFS3_RDONLY
 static void lfs3_alloc_setinuse(lfs3_t *lfs3, lfs3_block_t block) {
+    // must be in-bounds
+    LFS3_ASSERT(block < lfs3->block_count
+            || LFS3_IFDEF_SHRINK(lfs3->flags & LFS3_i_SHRINKING, false));
+    // ignore out-of-bounds blocks if shrinking
+    #ifdef LFS3_SHRINK
+    if (block >= lfs3->block_count) {
+        return;
+    }
+    #endif
+
     // translate to lookahead-relative
     lfs3_block_t block_
             = (block + lfs3->block_count - lfs3->lookahead.window)
@@ -18867,7 +18992,8 @@ int lfs3_fs_clearck(lfs3_t *lfs3, uint32_t flags) {
 
 // attempt to grow the filesystem
 #ifndef LFS3_RDONLY
-int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
+int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count_, uint32_t flags) {
+    (void)flags;
     // Note we do _not_ call lfs3_fs_mkconsistent here, or we risk
     // locking up our filesystem trying to fix grms/orphans when we
     // could grow.
@@ -18884,58 +19010,174 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_size_t block_count_) {
 
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
-    // shrinking the filesystem is not supported
-    LFS3_ASSERT(block_count_ >= lfs3->block_count);
+    // growing the filesystem requires LFS3_GROW_GROW
+    LFS3_ASSERT((flags & LFS3_GROW_GROW)
+            || block_count_ <= lfs3->block_count);
+    // shrinking the filesystem requires LFS3_GROW_SHRINK
+    LFS3_ASSERT(LFS3_IFDEF_SHRINK(flags & LFS3_GROW_SHRINK, false)
+            || block_count_ >= lfs3->block_count);
 
     // do nothing if block_count doesn't change
     if (block_count_ == lfs3->block_count) {
         return 0;
     }
 
-    LFS3_INFO("Growing littlefs %"PRId32"x%"PRId32" -> %"PRId32"x%"PRId32,
-            lfs3->cfg->block_size, lfs3->block_count,
-            lfs3->cfg->block_size, block_count_);
+    // littlefs can't function without blocks 0x{0,1}, so no go
+    #ifdef LFS3_SHRINK
+    if (block_count_ < 2) {
+        return (flags & LFS3_GROW_EVICT) ? LFS3_ERR_NOSPC : LFS3_ERR_BUSY;
+    }
+    #endif
+
+    // if we're shrinking, we need to repair any known damage first
+    //
+    // we do this even if not evict-shrinking to avoid outdated
+    // blocks in the evictqueue
+    //
+    // we do _not_ do this when growing, because we may be growing
+    // in order to get block eviction to succeed!
+    #ifdef LFS3_SHRINK
+    if (block_count_ < lfs3->block_count) {
+        #ifdef LFS3_REPAIR
+        int err = lfs3_fs_mkrepaired(lfs3);
+        if (err) {
+            return err;
+        }
+        #endif
+        // eviction queue should be empty now
+        LFS3_ASSERT(lfs3->evictqueue.count == 0);
+    }
+    #endif
+
+    if (block_count_ > lfs3->block_count) {
+        LFS3_INFO("Growing littlefs %"PRId32"x%"PRId32" "
+                    "-> %"PRId32"x%"PRId32,
+                lfs3->cfg->block_size, lfs3->block_count,
+                lfs3->cfg->block_size, block_count_);
+    } else {
+        #ifdef LFS3_SHRINK
+        LFS3_INFO("Shrinking littlefs %"PRId32"x%"PRId32" "
+                    "-> %"PRId32"x%"PRId32,
+                lfs3->cfg->block_size, lfs3->block_count,
+                lfs3->cfg->block_size, block_count_);
+        #endif
+    }
 
     // keep track of our current block_count in case we fail
-    lfs3_size_t block_count = lfs3->block_count;
+    lfs3_block_t block_count = lfs3->block_count;
 
     // we can use the new blocks immediately as long as the commit
     // with the new block_count is atomic
     lfs3->block_count = block_count_;
+    // if shrinking, set the shrinking flag so the system knows the
+    // wacky block count is probably ok
+    #ifdef LFS3_SHRINK
+    if (block_count_ < block_count) {
+        lfs3->flags |= LFS3_i_SHRINKING;
+    }
+    #endif
     // discard stale lookahead buffer/gbmap
     lfs3_alloc_discard(lfs3);
+    // if we're shrinking we need to go a step further and force the
+    // lookahead/gbmap windows into the new filesystem size
+    #ifdef LFS3_SHRINK
+    if (block_count_ < block_count) {
+        lfs3->lookahead.window = lfs3->lookahead.window % block_count_;
+        #ifdef LFS3_GBMAP
+        if (lfs3->flags & LFS3_I_GBMAP) {
+            lfs3->gbmap.window = lfs3->gbmap.window % block_count_;
+        }
+        #endif
+    }
+    #endif
     int err;
 
     // checkpoint the lookahead buffer, but _not_ the gbmap, we
     // can't repopulate the gbmap until we've resized it
     lfs3_alloc_ckpoint_(lfs3);
 
-    // grow the gbmap if we have one
+    // here is our main shrink loop, we repeatedly evict until no blocks
+    // remain in the shrink region
+    //
+    // this is pretty terrible in terms of performance, but it's the
+    // best we can do with dags in the system
+    #ifdef LFS3_SHRINK
+    if (block_count_ < block_count) {
+        bool shrunk = false;
+        while (!shrunk) {
+            // try to evict, or at least check there are no blocks in
+            // our evict region
+            lfs3_mgc_t mgc;
+            lfs3_mgc_init(&mgc,
+                    (flags & LFS3_GROW_EVICT)
+                        ? (LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING)
+                        : 0);
+            lfs3_handle_open(lfs3, &mgc.t.h);
+            // assume shrunk unless we find blocks in our shrink region
+            //
+            // lfs3_mtree_gc only returns blocks it can't evict
+            shrunk = true;
+            while (true) {
+                lfs3_bptr_t bptr;
+                lfs3_stag_t tag = lfs3_mtree_gc(lfs3, &mgc,
+                        &bptr);
+                if (tag < 0) {
+                    if (tag == LFS3_ERR_NOENT) {
+                        break;
+                    }
+                    err = tag;
+                    lfs3_handle_close(lfs3, &mgc.t.h);
+                    goto failed;
+                }
+
+                // found a block in our shrink region? mark as
+                // not-yet-shrunk, but keep evicting
+                if (tag == LFS3_TAG_MDIR) {
+                    lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
+                    if (mdir->r.blocks[0] >= block_count_
+                            || mdir->r.blocks[1] >= block_count_) {
+                        shrunk = false;
+                    }
+
+                } else if (tag == LFS3_TAG_BRANCH) {
+                    lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
+                    if (rbyd->blocks[0] >= block_count_) {
+                        shrunk = false;
+                    }
+
+                } else if (tag == LFS3_TAG_BLOCK) {
+                    if (lfs3_bptr_block(&bptr) >= block_count_) {
+                        shrunk = false;
+                    }
+
+                } else if (LFS3_IFDEF_GBMAP(
+                        tag == LFS3_TAG_BMBAD,
+                        false)) {
+                    // well, if we're shrinking, bad blocks are
+                    // someone elses problem now :)
+
+                } else {
+                    LFS3_UNREACHABLE();
+                }
+
+                // or fail immediately if we're not able to evict
+                if (!shrunk && !(flags & LFS3_GROW_EVICT)) {
+                    err = LFS3_ERR_BUSY;
+                    lfs3_handle_close(lfs3, &mgc.t.h);
+                    goto failed;
+                }
+            }
+            lfs3_handle_close(lfs3, &mgc.t.h);
+        }
+    }
+    #endif
+
+    // grow/shrink the gbmap if we have one
     //
     // note this won't actually be committed to disk until mdir commit
     #ifdef LFS3_GBMAP
     if (lfs3->flags & LFS3_I_GBMAP) {
-        // if the last range is free, we can extend it, otherwise we
-        // need a new range
-        lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, &lfs3->gbmap.b,
-                block_count-1,
-                NULL, NULL, NULL);
-        if (tag < 0) {
-            LFS3_ASSERT(tag != LFS3_ERR_NOENT);
-            err = tag;
-            goto failed;
-        }
-
-        // we don't need a copy because this is atomic, and mdir commit
-        // reverts to the on-disk state if it fails
-        err = lfs3_gbmap_commit(lfs3, &lfs3->gbmap.b,
-                (tag == LFS3_TAG_BMFREE) ? block_count-1 : block_count,
-                (const lfs3_rattr_t[]){
-                    (tag == LFS3_TAG_BMFREE)
-                        ? LFS3_RATTR(LFS3_tag_GROW, -2, 0)
-                        : LFS3_RATTR(LFS3_TAG_BMFREE, -2, 0),
-                    LFS3_RATTR_WEIGHT(+(block_count_ - block_count)),
-                    LFS3_RATTR_NULL});
+        err = lfs3_gbmap_grow(lfs3, &lfs3->gbmap.b, block_count_);
         if (err) {
             goto failed;
         }
@@ -18964,6 +19206,12 @@ failed:;
     #ifdef LFS3_GBMAP
     if (lfs3->flags & LFS3_I_GBMAP) {
         lfs3->gbmap.b = lfs3->gbmap.b_p;
+    }
+    #endif
+    // if shrinking, make sure eviction queue is null
+    #ifdef LFS3_SHRINK
+    if (block_count_ < block_count) {
+        lfs3_evict_discard(lfs3);
     }
     #endif
 
@@ -19148,13 +19396,20 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         // the allocator is also aware of the evict window, so we can
         // always do this in one pass
         lfs3_mgc_t mgc;
-        lfs3_mgc_init(&mgc, LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA);
+        lfs3_mgc_init(&mgc, LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING);
         lfs3_handle_open(lfs3, &mgc.t.h);
-        lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
-        if (steps < 0) {
-            lfs3_handle_close(lfs3, &mgc.t.h);
-            err = steps;
-            goto failed;
+        while (true) {
+            lfs3_bptr_t bptr;
+            lfs3_stag_t tag = lfs3_mtree_gc(lfs3, &mgc,
+                    &bptr);
+            if (tag < 0) {
+                if (tag == LFS3_ERR_NOENT) {
+                    break;
+                }
+                err = tag;
+                lfs3_handle_close(lfs3, &mgc.t.h);
+                goto failed;
+            }
         }
         lfs3_handle_close(lfs3, &mgc.t.h);
     }
@@ -19180,7 +19435,8 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
                     ? LFS3_TAG_BMBAD
                     // don't mark as free here, we don't know if the
                     // block is actually free
-                    : LFS3_TAG_BMINUSE, NULL);
+                    : LFS3_TAG_BMINUSE,
+                NULL);
         if (err) {
             goto failed;
         }

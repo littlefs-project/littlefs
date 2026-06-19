@@ -63,6 +63,9 @@
 #ifndef LFS3_CONDEMN
 #define LFS3_CONDEMN
 #endif
+#ifndef LFS3_SHRINK
+#define LFS3_SHRINK
+#endif
 #endif
 
 // LFS3_YES_REPAIRDAMAGE implies REPAIRMETADAMAGE + REPAIRDATADAMAGE
@@ -130,6 +133,11 @@
 #if defined(LFS3_CONDEMN) \
         && (!defined(LFS3_GBMAP) || !defined(LFS3_REPAIR))
 #error "LFS3_CONDEMN requires LFS3_GBMAP and LFS3_REPAIR"
+#endif
+
+#if defined(LFS3_SHRINK) \
+        && !defined(LFS3_EVICT)
+#error "LFS3_SHRINK requires LFS3_EVICT"
 #endif
 
 
@@ -400,6 +408,12 @@
 #define LFS3_IFYES_CONDEMNDAMAGE(a, b, c) (b)
 #else
 #define LFS3_IFYES_CONDEMNDAMAGE(a, b, c) (c)
+#endif
+
+#ifdef LFS3_SHRINK
+#define LFS3_IFDEF_SHRINK(a, b) (a)
+#else
+#define LFS3_IFDEF_SHRINK(a, b) (b)
 #endif
 
 
