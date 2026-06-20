@@ -64,7 +64,9 @@ COLORS = {
     'data':     '#80be8e', # was '#55a868bf', # green
     'corrupt':  '#d37a7d', # was '#c44e52bf', # red
     'conflict': '#d37a7d', # was '#c44e52bf', # red
-    'unused':   '#e5e5e5', # light gray
+    'bad':      '#e5e5e5 background crosshatch',       # light gray
+    'erased':   '#e5e5e5 background north-east-lines', # light gray
+    'unused':   '#e5e5e5 background',                  # light gray
 }
 COLORS_DARK = {
     'mdir':     '#bfbe7a', # was '#fffea3bf', # yellow
@@ -72,8 +74,12 @@ COLORS_DARK = {
     'data':     '#6aac79', # was '#8de5a1bf', # green
     'corrupt':  '#bf7774', # was '#ff9f9bbf', # red
     'conflict': '#bf7774', # was '#ff9f9bbf', # red
-    'unused':   '#333333', # dark gray
+    'bad':      '#333333 background crosshatch',       # dark gray
+    'erased':   '#333333 background north-east-lines', # dark gray
+    'unused':   '#333333 background',                  # dark gray
 }
+COLOR_PATTERNS = {'north-east-lines', 'north-west-lines', 'crosshatch'}
+COLOR_MODIFIERS = {'background'} | COLOR_PATTERNS
 
 WIDTH = 750
 HEIGHT = 350
@@ -1334,7 +1340,7 @@ class Btree:
             r = self.lookupnext_(bid,
                     path=path,
                     depth=depth)
-            if r:
+            if path:
                 bid, rbyd, rid, name, path_ = r
             else:
                 bid, rbyd, rid, name = r 
@@ -4312,9 +4318,9 @@ class BmapBlock:
                     self.value.cksize,
                     self.value.cksum)
         elif self.type != 'unused':
-            return '%s\n%s' % (
+            return '%s 0x%x' % (
                     self.type,
-                    '0x%x' % self.block)
+                    self.block)
         else:
             return ''
 
@@ -4369,6 +4375,7 @@ def main(disk, output, mroots=None, *,
         no_ckmeta=False,
         no_ckdata=False,
         mtree_only=False,
+        no_gbmap=False,
         quiet=False,
         labels=[],
         colors=[],
@@ -4595,6 +4602,45 @@ def main(disk, output, mroots=None, *,
                                 b_ for b_ in child.blocks
                                     if b_ in bmap)
 
+        # if we have a gbmap, traverse it and add in erased/bad info
+        erased_count = 0
+        bad_count = 0
+        if not no_gbmap and lfs.gstate.gbmap is not None:
+            for bid, rattr, path in lfs.gstate.gbmap.btree.rattrs(path=True):
+                # erased blocks?
+                if rattr.tag == TAG_BMERASED:
+                    for b in range(bid-(rattr.weight-1), bid+1):
+                        # erased blocks only count if they're in the
+                        # known window
+                        if ((((b + block_count_ - lfs.gstate.gbmap.window)
+                                        % block_count_)
+                                    < lfs.gstate.gbmap.known)
+                                and b in bmap
+                                and bmap[b].type == 'unused'):
+                            bmap[b] = BmapBlock(b, 'erased',
+                                    None, range(block_size_))
+                            erased_count += 1
+                            # update parents with children
+                            if path:
+                                parent = path[-1][1]
+                                for b_ in parent.blocks:
+                                    if b_ in bmap:
+                                        bmap[b_].children.add(b)
+
+                # bad blocks? these are always known
+                elif rattr.tag == TAG_BMBAD:
+                    for b in range(bid-(rattr.weight-1), bid+1):
+                        if b in bmap and bmap[b].type == 'unused':
+                            bmap[b] = BmapBlock(b, 'bad',
+                                    None, range(block_size_))
+                            bad_count += 1
+                            # update parents with children
+                            if path:
+                                parent = path[-1][1]
+                                for b_ in parent.blocks:
+                                    if b_ in bmap:
+                                        bmap[b_].children.add(b)
+
         # one last thing, build a title
         if title:
             title_ = punescape(title, {
@@ -4630,6 +4676,10 @@ def main(disk, output, mroots=None, *,
                 'btree_percent': 100*btree_count / max(len(bmap), 1),
                 'data': data_count,
                 'data_percent': 100*data_count / max(len(bmap), 1),
+                'erased': erased_count,
+                'erased_percent': 100*erased_count / max(len(bmap), 1),
+                'bad': bad_count,
+                'bad_percent': 100*bad_count / max(len(bmap), 1),
             })
         elif not title_usage:
             title_ = ('littlefs%s v%s.%s %sx%s %s w%s.%s, '
@@ -4787,6 +4837,66 @@ def main(disk, output, mroots=None, *,
                     background=background_,
                     user_select='none' if not no_javascript else 'auto'))
 
+        # some patterns blocks can use
+        if any('north-east-lines' in b.color for b in bmap.values()):
+            f.write('<defs>')
+            f.write('<pattern '
+                    'id="north-east-lines" '
+                    'width="4" '
+                    'height="4" '
+                    'patternUnits="userSpaceOnUse" '
+                    'patternTransform="rotate(45)">')
+            f.write('<line '
+                    'x1="0" y1="0" x2="0" y2="4" '
+                    'stroke="%(color)s" '
+                    'stroke-opacity="0.7" '
+                    'stroke-linecap="butt">' % dict(
+                        color='#000000' if dark else '#555555'))
+            f.write('</line>')
+            f.write('</pattern>')
+            f.write('</defs>')
+        if any('north-west-lines' in b.color for b in bmap.values()):
+            f.write('<defs>')
+            f.write('<pattern '
+                    'id="north-west-lines" '
+                    'width="4" '
+                    'height="4" '
+                    'patternUnits="userSpaceOnUse" '
+                    'patternTransform="rotate(-45)">')
+            f.write('<line '
+                    'x1="0" y1="0" x2="0" y2="4" '
+                    'stroke="%(color)s" '
+                    'stroke-opacity="0.7" '
+                    'stroke-linecap="butt">' % dict(
+                        color='#000000' if dark else '#555555'))
+            f.write('</line>')
+            f.write('</pattern>')
+            f.write('</defs>')
+        if any('crosshatch' in b.color for b in bmap.values()):
+            f.write('<defs>')
+            f.write('<pattern '
+                    'id="crosshatch" '
+                    'width="4" '
+                    'height="4" '
+                    'patternUnits="userSpaceOnUse" '
+                    'patternTransform="rotate(-45)">')
+            f.write('<line '
+                    'x1="0" y1="0" x2="0" y2="4" '
+                    'stroke="%(color)s" '
+                    'stroke-opacity="0.7" '
+                    'stroke-linecap="butt">' % dict(
+                        color='#000000' if dark else '#555555'))
+            f.write('</line>')
+            f.write('<line '
+                    'x1="0" y1="0" x2="4" y2="0" '
+                    'stroke="%(color)s" '
+                    'stroke-opacity="0.7" '
+                    'stroke-linecap="butt">' % dict(
+                        color='#000000' if dark else '#555555'))
+            f.write('</line>')
+            f.write('</pattern>')
+            f.write('</defs>')
+
         # create header
         if not no_header:
             f.write('<g '
@@ -4831,6 +4941,23 @@ def main(disk, output, mroots=None, *,
             if b.width == 0 or b.height == 0:
                 continue
 
+            # background tile rect?
+            if 'background' in b.color:
+                f.write('<rect '
+                        'transform="translate(%(x)d,%(y)d)" '
+                        'fill="%(color)s" '
+                        'width="%(width)d" '
+                        'height="%(height)d">' % dict(
+                            x=b.x,
+                            y=b.y,
+                            color=' '.join(c
+                                for c in b.color.split()
+                                if c not in COLOR_MODIFIERS),
+                            width=b.width,
+                            height=b.height))
+                f.write('</rect>')
+
+            # foreground tile group
             f.write('<g '
                     'id="b-%(block)d" '
                     'class="block %(type)s" '
@@ -4873,10 +5000,25 @@ def main(disk, output, mroots=None, *,
                     'width="%(width)d" '
                     'height="%(height)d">' % dict(
                         block=b.block,
-                        color=b.color,
+                        color=' '.join(c
+                                for c in b.color.split()
+                                if c not in COLOR_MODIFIERS)
+                            if 'background' not in b.color
+                            else 'none',
                         width=b.width,
                         height=b.height))
             f.write('</rect>')
+            # add a pattern? yes this needs to be a separate rect
+            for p in sorted(COLOR_PATTERNS):
+                if p in b.color:
+                    f.write('<rect '
+                            'fill="url(#%(pattern)s)" '
+                            'width="%(width)d" '
+                            'height="%(height)d">' % dict(
+                                pattern=p,
+                                width=b.width,
+                                height=b.height))
+                    f.write('</rect>')
             if not no_label:
                 f.write('<clipPath id="b-clip-%d">' % b.block)
                 f.write('<use href="#b-tile-%d">' % b.block)
@@ -4956,8 +5098,7 @@ def main(disk, output, mroots=None, *,
             # our main drawing functions
             f.write('function draw_unfocus() {')
                         # lower opacity of unfocused tiles
-            f.write(    'for (let b of document.querySelectorAll('
-                                '".block:not(.unused)")) {')
+            f.write(    'for (let b of document.querySelectorAll(".block")) {')
             f.write(        'b.setAttribute("fill-opacity", 0.5);')
             f.write(    '}')
             f.write('}')
@@ -5293,8 +5434,7 @@ def main(disk, output, mroots=None, *,
             f.write(        'arrow.remove();')
             f.write(    '}')
                         # revert opacity
-            f.write(    'for (let b of document.querySelectorAll('
-                                '".block:not(.unused)")) {')
+            f.write(    'for (let b of document.querySelectorAll(".block")) {')
             f.write(        'b.setAttribute("fill-opacity", 1);')
             f.write(    '}')
             f.write('}')
@@ -5546,6 +5686,10 @@ if __name__ == "__main__":
             '--mtree-only',
             action='store_true',
             help="Only traverse the mtree.")
+    parser.add_argument(
+            '--no-gbmap',
+            action='store_true',
+            help="Don't traverse the gbmap for erased/bad blocks.")
     parser.add_argument(
             '-q', '--quiet',
             action='store_true',

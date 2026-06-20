@@ -1184,7 +1184,7 @@ class Btree:
             r = self.lookupnext_(bid,
                     path=path,
                     depth=depth)
-            if r:
+            if path:
                 bid, rbyd, rid, name, path_ = r
             else:
                 bid, rbyd, rid, name = r 

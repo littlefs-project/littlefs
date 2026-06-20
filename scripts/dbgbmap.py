@@ -36,6 +36,8 @@ CHARS = {
     'data':     'd',
     'corrupt':  '!',
     'conflict': '!',
+    'bad':      'x',
+    'erased':   '+',
     'unused':   '-',
 }
 COLORS = {
@@ -44,11 +46,22 @@ COLORS = {
     'data':     '32',    # green
     'corrupt':  '31',    # red
     'conflict': '30;41', # background red
+    'bad':      '1;30',  # bold gray
+    'erased':   '1;30',  # bold gray
     'unused':   '1;30',  # bold gray
 }
 
 # give more interesting objects a higher priority
-Z_ORDER = ['corrupt', 'conflict', 'mdir', 'btree', 'data', 'unused']
+Z_ORDER = [
+    'corrupt',
+    'conflict',
+    'mdir',
+    'btree',
+    'data',
+    'bad',
+    'erased',
+    'unused',
+]
 
 CHARS_DOTS = " .':"
 CHARS_BRAILLE = (
@@ -1304,7 +1317,7 @@ class Btree:
             r = self.lookupnext_(bid,
                     path=path,
                     depth=depth)
-            if r:
+            if path:
                 bid, rbyd, rid, name, path_ = r
             else:
                 bid, rbyd, rid, name = r 
@@ -4687,6 +4700,7 @@ def main_(ring, disk, mroots=None, *,
         no_ckmeta=False,
         no_ckdata=False,
         mtree_only=False,
+        no_gbmap=False,
         chars=[],
         colors=[],
         color='auto',
@@ -4895,6 +4909,33 @@ def main_(ring, disk, mroots=None, *,
                 else:
                     bmap[b] = BmapBlock(b, type, child, usage)
 
+        # if we have a gbmap, traverse it and add in erased/bad info
+        erased_count = 0
+        bad_count = 0
+        if not no_gbmap and lfs.gstate.gbmap is not None:
+            for bid, rattr in lfs.gstate.gbmap.btree.rattrs():
+                # erased blocks?
+                if rattr.tag == TAG_BMERASED:
+                    for b in range(bid-(rattr.weight-1), bid+1):
+                        # erased blocks only count if they're in the
+                        # known window
+                        if ((((b + block_count_ - lfs.gstate.gbmap.window)
+                                        % block_count_)
+                                    < lfs.gstate.gbmap.known)
+                                and b in bmap
+                                and bmap[b].type == 'unused'):
+                            bmap[b] = BmapBlock(b, 'erased',
+                                    None, range(block_size_))
+                            erased_count += 1
+
+                # bad blocks? these are always known
+                elif rattr.tag == TAG_BMBAD:
+                    for b in range(bid-(rattr.weight-1), bid+1):
+                        if b in bmap and bmap[b].type == 'unused':
+                            bmap[b] = BmapBlock(b, 'bad',
+                                    None, range(block_size_))
+                            bad_count += 1
+
         # one last thing, build a title
         if title:
             title_ = punescape(title, {
@@ -4930,6 +4971,10 @@ def main_(ring, disk, mroots=None, *,
                 'btree_percent': 100*btree_count / max(len(bmap), 1),
                 'data': data_count,
                 'data_percent': 100*data_count / max(len(bmap), 1),
+                'erased': erased_count,
+                'erased_percent': 100*erased_count / max(len(bmap), 1),
+                'bad': bad_count,
+                'bad_percent': 100*bad_count / max(len(bmap), 1),
             })
         elif title_littlefs:
             title_ = ('littlefs%s v%s.%s %sx%s %s w%s.%s, '
@@ -5073,7 +5118,7 @@ def main_(ring, disk, mroots=None, *,
     # interesting blocks
     for type in reversed(Z_ORDER):
         # don't render unused blocks in braille/dots mode
-        if (braille or dots) and type == 'unused':
+        if (braille or dots) and type in {'unused', 'erased'}:
             continue
 
         for b in bmap.values():
@@ -5296,6 +5341,10 @@ if __name__ == "__main__":
             '--mtree-only',
             action='store_true',
             help="Only traverse the mtree.")
+    parser.add_argument(
+            '--no-gbmap',
+            action='store_true',
+            help="Don't traverse the gbmap for erased/bad blocks.")
     # need a special Action here because this % causes problems
     class StoreTrueUsage(argparse._StoreTrueAction):
         def format_usage(self):
