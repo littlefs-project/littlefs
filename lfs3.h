@@ -1138,12 +1138,6 @@ enum lfs3_tag {
 // '---+- -+- -+- -+- -'                    .
 #define LFS3_LEB128_DSIZE                   5
 
-// lleb128 encoding:  word: 1 leb128  <=4 bytes
-// .---+- -+- -+- -.                    .
-// | lleb128       |                    .
-// '---+- -+- -+- -'                    .
-#define LFS3_LLEB128_DSIZE              4
-
 // compat encoding:  rcompat: 1 leb128  <=1 bytes
 // .- -+- -.         wcompat: 1 leb128  <=1 bytes
 // | r | w |                              .

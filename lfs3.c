@@ -1549,27 +1549,6 @@ static lfs3_ssize_t lfs3_bd_readleb128(lfs3_t *lfs3,
     return d;
 }
 
-// a little-leb128 in our system is truncated to align nicely
-//
-// for 32-bit words, little-leb128s are truncated to 28-bits, so the
-// resulting leb128 encoding fits nicely in 4-bytes
-static lfs3_ssize_t lfs3_bd_readlleb128(lfs3_t *lfs3,
-        lfs3_block_t block, lfs3_size_t off, lfs3_size_t hint, uint32_t flags,
-        uint32_t *word_) {
-    // just call readleb128 here
-    lfs3_ssize_t d = lfs3_bd_readleb128(lfs3, block, off, hint, flags,
-            word_);
-    if (d < 0) {
-        return d;
-    }
-    // little-leb128s should be limited to 28-bits
-    if (*word_ > 0x0fffffff) {
-        return LFS3_ERR_CORRUPT;
-    }
-
-    return d;
-}
-
 
 
 /// Tags - lfs3_tag_t stuff ///
@@ -2263,25 +2242,6 @@ static int lfs3_data_readleb128(lfs3_t *lfs3, lfs3_data_t *data,
     return 0;
 }
 
-// a little-leb128 in our system is truncated to align nicely
-//
-// for 32-bit words, little-leb128s are truncated to 28-bits, so the
-// resulting leb128 encoding fits nicely in 4-bytes
-static int lfs3_data_readlleb128(lfs3_t *lfs3, lfs3_data_t *data,
-        uint32_t *word_) {
-    // just call readleb128 here
-    int err = lfs3_data_readleb128(lfs3, data, word_);
-    if (err) {
-        return err;
-    }
-    // little-leb128s should be limited to 28-bits
-    if (*word_ > 0x0fffffff) {
-        return LFS3_ERR_CORRUPT;
-    }
-
-    return 0;
-}
-
 static lfs3_scmp_t lfs3_data_cmp(lfs3_t *lfs3, const lfs3_data_t *data,
         const void *buffer, lfs3_size_t size) {
     // we shouldn't end up with holes here
@@ -2422,8 +2382,7 @@ static int lfs3_bd_progdata(lfs3_t *lfs3,
 #endif
 
 
-// macros for le32/leb128/lleb128 encoding, these are useful for
-// building rattrs
+// macros for le32/leb128 encoding, these are useful for building rattrs
 
 #ifndef LFS3_RDONLY
 static inline lfs3_data_t lfs3_data_fromle32(uint32_t word,
@@ -2440,21 +2399,6 @@ static inline lfs3_data_t lfs3_data_fromleb128(uint32_t word,
     LFS3_ASSERT(word <= 0x7fffffff);
 
     lfs3_ssize_t d = lfs3_toleb128(word, buffer, LFS3_LEB128_DSIZE);
-    if (d < 0) {
-        LFS3_UNREACHABLE();
-    }
-
-    return LFS3_DATA_BUF(buffer, d);
-}
-#endif
-
-#ifndef LFS3_RDONLY
-static inline lfs3_data_t lfs3_data_fromlleb128(uint32_t word,
-        uint8_t buffer[static LFS3_LLEB128_DSIZE]) {
-    // little-leb128s should not exceed 28-bits
-    LFS3_ASSERT(word <= 0x0fffffff);
-
-    lfs3_ssize_t d = lfs3_toleb128(word, buffer, LFS3_LLEB128_DSIZE);
     if (d < 0) {
         LFS3_UNREACHABLE();
     }
@@ -2503,16 +2447,15 @@ enum lfs3_from {
 
     LFS3_FROM_LE32      = 0x30c, // 11 ---- 11++
     LFS3_FROM_LEB128    = 0x310, // 11 ---1 --++
-    LFS3_FROM_LLEB128   = 0x314, // 11 ---1 -1++
 
-    LFS3_FROM_ECKSUM    = 0x318, // 11 ---1 1-++
-    LFS3_FROM_BRANCH    = 0x31c, // 11 ---1 11++
-    LFS3_FROM_BTREE     = 0x320, // 11 --1- --++
-    LFS3_FROM_SHRUB     = 0x324, // 11 --1- -1++
-    LFS3_FROM_MPTR      = 0x328, // 11 --1- 1-++
-    LFS3_FROM_BPTR      = 0x32c, // 11 --1- 11++
-    LFS3_FROM_COMPAT    = 0x330, // 11 --11 --++
-    LFS3_FROM_GEOMETRY  = 0x334, // 11 --11 -1++
+    LFS3_FROM_ECKSUM    = 0x314, // 11 ---1 -1++
+    LFS3_FROM_BRANCH    = 0x318, // 11 ---1 1-++
+    LFS3_FROM_BTREE     = 0x31c, // 11 ---1 11++
+    LFS3_FROM_SHRUB     = 0x320, // 11 --1- --++
+    LFS3_FROM_MPTR      = 0x324, // 11 --1- -1++
+    LFS3_FROM_BPTR      = 0x328, // 11 --1- 1-++
+    LFS3_FROM_COMPAT    = 0x32c, // 11 --1- 11++
+    LFS3_FROM_GEOMETRY  = 0x330, // 11 --11 --++
 };
 
 typedef uint16_t lfs3_from_t;
@@ -3003,7 +2946,7 @@ static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
 static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_bptr_t *bptr) {
     // read the block, offset, size
-    int err = lfs3_data_readlleb128(lfs3, data, &bptr->d.weight);
+    int err = lfs3_data_readleb128(lfs3, data, &bptr->d.weight);
     if (err) {
         return err;
     }
@@ -3013,13 +2956,13 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
         return err;
     }
 
-    err = lfs3_data_readlleb128(lfs3, data, &bptr->d.off);
+    err = lfs3_data_readleb128(lfs3, data, &bptr->d.off);
     if (err) {
         return err;
     }
 
     // read the cksize, cksum
-    err = lfs3_data_readlleb128(lfs3, data,
+    err = lfs3_data_readleb128(lfs3, data,
             LFS3_IFDEF_CKDATACKSUMS(
                 &bptr->d.u.disk.cksize,
                 &bptr->cksize));
@@ -3272,7 +3215,7 @@ static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
 #ifndef LFS3_RDONLY
 static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_ecksum_t *ecksum) {
-    int err = lfs3_data_readlleb128(lfs3, data, (lfs3_size_t*)&ecksum->cksize);
+    int err = lfs3_data_readleb128(lfs3, data, (lfs3_size_t*)&ecksum->cksize);
     if (err) {
         return err;
     }
@@ -4197,10 +4140,6 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
                 lfs3_data_t data;
                 uint8_t buf[LFS3_LEB128_DSIZE];
             } leb128;
-            struct {
-                lfs3_data_t data;
-                uint8_t buf[LFS3_LLEB128_DSIZE];
-            } lleb128;
 
             struct {
                 lfs3_data_t data;
@@ -4283,14 +4222,10 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
             datas = &ctx.u.le32.data;
             data_count = 1;
 
-        // leb128? little-leb128?
-        } else if (lfs3_from_from2(from) == LFS3_FROM_LEB128
-                || lfs3_from_from2(from) == LFS3_FROM_LLEB128) {
+        // leb128?
+        } else if (lfs3_from_from2(from) == LFS3_FROM_LEB128) {
             // leb128s should not exceed 31-bits
             LFS3_ASSERT(args[0] <= 0x7fffffff);
-            // little-leb128s should not exceed 28-bits
-            LFS3_ASSERT(lfs3_from_from2(from) != LFS3_FROM_LLEB128
-                    || args[0] <= 0x0fffffff);
             ctx.u.leb128.data = lfs3_data_fromleb128(args[0],
                     ctx.u.leb128.buf);
             datas = &ctx.u.leb128.data;
@@ -6036,7 +5971,7 @@ static int lfs3_data_readbranch(lfs3_t *lfs3, lfs3_data_t *data,
         return err;
     }
 
-    err = lfs3_data_readlleb128(lfs3, data, &branch->trunk);
+    err = lfs3_data_readleb128(lfs3, data, &branch->trunk);
     if (err) {
         return err;
     }
@@ -7350,7 +7285,7 @@ static int lfs3_data_readshrub(lfs3_t *lfs3,
         return err;
     }
 
-    err = lfs3_data_readlleb128(lfs3, data, &shrub->trunk);
+    err = lfs3_data_readleb128(lfs3, data, &shrub->trunk);
     if (err) {
         return err;
     }
@@ -17435,6 +17370,9 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #endif
 
     // block_size is currently limited to 28-bits
+    //
+    // this results in a much nicer leb128 encoding, and we rely on it
+    // in at least lfs3_data_t to encode additional states
     LFS3_ASSERT(cfg->block_size <= 0x0fffffff);
 
     // check gc stuff
@@ -17904,7 +17842,7 @@ static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
 
 static int lfs3_data_readgeometry(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_geometry_t *geometry) {
-    int err = lfs3_data_readlleb128(lfs3, data, &geometry->block_size);
+    int err = lfs3_data_readleb128(lfs3, data, &geometry->block_size);
     if (err) {
         return err;
     }
@@ -18542,7 +18480,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                     LFS3_RATTR_ARG((&(const lfs3_geometry_t){
                         lfs3->cfg->block_size,
                         lfs3->cfg->block_count})),
-                    LFS3_RATTR(LFS3_TAG_NAMELIMIT, 0, 1, LFS3_FROM_LLEB128),
+                    LFS3_RATTR(LFS3_TAG_NAMELIMIT, 0, 1, LFS3_FROM_LEB128),
                     LFS3_RATTR_ARG(lfs3->name_limit),
                     LFS3_RATTR(LFS3_TAG_FILELIMIT, 0, 1, LFS3_FROM_LEB128),
                     LFS3_RATTR_ARG(lfs3->file_limit),

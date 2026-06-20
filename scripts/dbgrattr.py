@@ -121,15 +121,14 @@ FROM_GRAFT      = 0x304     # 11 ---- -1cc
 FROM_DATA       = 0x308     # 11 ---- 1-cc
 FROM_LE32       = 0x30c     # 11 ---- 11++
 FROM_LEB128     = 0x310     # 11 ---1 --++
-FROM_LLEB128    = 0x314     # 11 ---1 -1++
-FROM_ECKSUM     = 0x318     # 11 ---1 1-++
-FROM_BRANCH     = 0x31c     # 11 ---1 11++
-FROM_BTREE      = 0x320     # 11 --1- --++
-FROM_SHRUB      = 0x324     # 11 --1- -1++
-FROM_MPTR       = 0x328     # 11 --1- 1-++
-FROM_BPTR       = 0x32c     # 11 --1- 11++
-FROM_COMPAT     = 0x330     # 11 --11 --++
-FROM_GEOMETRY   = 0x334     # 11 --11 -1++
+FROM_ECKSUM     = 0x314     # 11 ---1 -1++
+FROM_BRANCH     = 0x318     # 11 ---1 1-++
+FROM_BTREE      = 0x31c     # 11 ---1 11++
+FROM_SHRUB      = 0x320     # 11 --1- --++
+FROM_MPTR       = 0x324     # 11 --1- -1++
+FROM_BPTR       = 0x328     # 11 --1- 1-++
+FROM_COMPAT     = 0x32c     # 11 --1- 11++
+FROM_GEOMETRY   = 0x330     # 11 --11 -1++
 
 
 # self-parsing tag repr
