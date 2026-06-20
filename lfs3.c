@@ -10550,58 +10550,6 @@ static void lfs3_mtrv_damage(lfs3_mtrv_t *mtrv) {
     mtrv->h.flags |= LFS3_t_DAMAGED;
 }
 
-// some helpers for mtrv block access, note this takes the returned
-// tag + bptr, not the mtrv struct itself
-static lfs3_block_t lfs3_mtrv_block(
-        lfs3_tag_t tag, const lfs3_bptr_t *bptr,
-        lfs3_size_t i) {
-    if (tag == LFS3_TAG_MDIR) {
-        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
-        return mdir->r.blocks[i];
-
-    } else if (tag == LFS3_TAG_BRANCH) {
-        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->d.u.buffer;
-        return rbyd->blocks[0];
-
-    } else if (tag == LFS3_TAG_BLOCK) {
-        return lfs3_bptr_block(bptr);
-
-    } else if (LFS3_IFDEF_GBMAP(
-            tag == LFS3_TAG_BMBAD,
-            false)) {
-        #ifdef LFS3_GBMAP
-        return lfs3_bptr_block(bptr) + i;
-        #endif
-
-    } else {
-        LFS3_UNREACHABLE();
-    }
-}
-
-static lfs3_block_t lfs3_mtrv_blockcount(
-        lfs3_tag_t tag, const lfs3_bptr_t *bptr) {
-    (void)bptr;
-    if (tag == LFS3_TAG_MDIR) {
-        return 2;
-
-    } else if (tag == LFS3_TAG_BRANCH) {
-        return 1;
-
-    } else if (tag == LFS3_TAG_BLOCK) {
-        return 1;
-
-    } else if (LFS3_IFDEF_GBMAP(
-            tag == LFS3_TAG_BMBAD,
-            false)) {
-        #ifdef LFS3_GBMAP
-        return bptr->d.weight;
-        #endif
-
-    } else {
-        LFS3_UNREACHABLE();
-    }
-}
-
 // low-level traversal _only_ finds blocks
 static lfs3_stag_t lfs3_mtree_traverse_(lfs3_t *lfs3, lfs3_mtrv_t *mtrv,
         lfs3_bptr_t *bptr_) {
@@ -10856,6 +10804,10 @@ again:;
 
     goto again;
 }
+
+// needed in lfs3_mtree_traverse
+static void lfs3_alloc_setmtrvinuse(lfs3_t *lfs3,
+        lfs3_tag_t tag, const lfs3_bptr_t *bptr);
 
 // high-level immutable traversal, handle extra features here,
 // but no mutation! (we're called in lfs3_alloc, so things would end up
@@ -11538,6 +11490,9 @@ static inline void lfs3_alloc_discard_(lfs3_t *lfs3);
 static void lfs3_alloc_adopt(lfs3_t *lfs3, lfs3_block_t known);
 static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t window, lfs3_block_t known);
+static int lfs3_gbmap_setmtrv(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_tag_t tag, const lfs3_bptr_t *bptr,
+        lfs3_tag_t tag_);
 static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
         const lfs3_btree_t *gbmap, lfs3_block_t known);
 
@@ -11812,25 +11767,16 @@ again:;
         // mark in-use blocks in gbmap?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
             #ifdef LFS3_GBMAP
-            for (lfs3_block_t i = 0;
-                    i < lfs3_mtrv_blockcount(tag, bptr_)
-                        // ignore these (bad blocks are already tracked!)
-                        && tag != LFS3_TAG_BMBAD;
-                    i++) {
-                lfs3_gbmap_set(lfs3, &mgc->gbmap_,
-                        lfs3_mtrv_block(tag, bptr_, i),
-                        LFS3_TAG_BMINUSE, NULL);
+            int err = lfs3_gbmap_setmtrv(lfs3, &mgc->gbmap_, tag, bptr_,
+                    LFS3_TAG_BMINUSE);
+            if (err) {
+                return err;
             }
             #endif
 
         // mark in-use blocks in lookahead buffer?
         } else {
-            for (lfs3_block_t i = 0;
-                    i < lfs3_mtrv_blockcount(tag, bptr_);
-                    i++) {
-                lfs3_alloc_setinuse(lfs3,
-                        lfs3_mtrv_block(tag, bptr_, i));
-            }
+            lfs3_alloc_setmtrvinuse(lfs3, tag, bptr_);
         }
     }
     #endif
@@ -12678,6 +12624,45 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static int lfs3_gbmap_setmtrv(lfs3_t *lfs3, lfs3_btree_t *gbmap,
+        lfs3_tag_t tag, const lfs3_bptr_t *bptr,
+        lfs3_tag_t tag_) {
+    const lfs3_block_t *blocks;
+    lfs3_size_t block_count;
+    if (tag == LFS3_TAG_MDIR) {
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
+        blocks = mdir->r.blocks;
+        block_count = 2;
+
+    } else if (tag == LFS3_TAG_BRANCH) {
+        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->d.u.buffer;
+        blocks = rbyd->blocks;
+        block_count = 1;
+
+    } else if (tag == LFS3_TAG_BLOCK) {
+        blocks = &bptr->d.u.disk.block;
+        block_count = 1;
+
+    } else if (tag == LFS3_TAG_BMBAD) {
+        // ignore these (bad blocks are already tracked!)
+        block_count = 0;
+
+    } else {
+        LFS3_UNREACHABLE();
+    }
+
+    for (lfs3_size_t i = 0; i < block_count; i++) {
+        int err = lfs3_gbmap_set(lfs3, gbmap, blocks[i], tag_, NULL);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
+}
+#endif
+
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 // note this is not completely atomic, but worst case we just end up with
 // only some ranges zeroed
 static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
@@ -12980,6 +12965,37 @@ static void lfs3_alloc_setinuse(lfs3_t *lfs3, lfs3_block_t block) {
 }
 #endif
 
+// mark some filesystem object as in-use
+#ifndef LFS3_RDONLY
+static void lfs3_alloc_setmtrvinuse(lfs3_t *lfs3,
+        lfs3_tag_t tag, const lfs3_bptr_t *bptr) {
+    if (tag == LFS3_TAG_MDIR) {
+        lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
+        lfs3_alloc_setinuse(lfs3, mdir->r.blocks[0]);
+        lfs3_alloc_setinuse(lfs3, mdir->r.blocks[1]);
+
+    } else if (tag == LFS3_TAG_BRANCH) {
+        lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->d.u.buffer;
+        lfs3_alloc_setinuse(lfs3, rbyd->blocks[0]);
+
+    } else if (tag == LFS3_TAG_BLOCK) {
+        lfs3_alloc_setinuse(lfs3, lfs3_bptr_block(bptr));
+
+    } else if (LFS3_IFDEF_GBMAP(
+            tag == LFS3_TAG_BMBAD,
+            false)) {
+        #ifdef LFS3_GBMAP
+        for (lfs3_block_t i = 0; i < bptr->d.weight; i++) {
+            lfs3_alloc_setinuse(lfs3, lfs3_bptr_block(bptr) + i);
+        }
+        #endif
+
+    } else {
+        LFS3_UNREACHABLE();
+    }
+}
+#endif
+
 // needed in lfs3_alloc_adopt
 #ifndef LFS3_RDONLY
 static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
@@ -13226,12 +13242,7 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
             }
 
             // track in-use blocks
-            for (lfs3_block_t i = 0;
-                    i < lfs3_mtrv_blockcount(tag, &bptr);
-                    i++) {
-                lfs3_alloc_setinuse(lfs3,
-                        lfs3_mtrv_block(tag, &bptr, i));
-            }
+            lfs3_alloc_setmtrvinuse(lfs3, tag, &bptr);
         }
 
         // mark anything not seen as free
@@ -13419,14 +13430,10 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
         }
 
         // track in-use blocks
-        for (lfs3_block_t i = 0;
-                i < lfs3_mtrv_blockcount(tag, &bptr)
-                    // ignore these (bad blocks are already tracked!)
-                    && tag != LFS3_TAG_BMBAD;
-                i++) {
-            lfs3_gbmap_set(lfs3, &gbmap_,
-                    lfs3_mtrv_block(tag, &bptr, i),
-                    LFS3_TAG_BMINUSE, NULL);
+        err = lfs3_gbmap_setmtrv(lfs3, &gbmap_, tag, &bptr,
+                LFS3_TAG_BMINUSE);
+        if (err) {
+            return err;
         }
     }
 
@@ -18749,7 +18756,25 @@ lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3) {
 
         // count the number of blocks we see, yes this may result in
         // duplicates
-        count += lfs3_mtrv_blockcount(tag, &bptr);
+        if (tag == LFS3_TAG_MDIR) {
+            count += 2;
+
+        } else if (tag == LFS3_TAG_BRANCH) {
+            count += 1;
+
+        } else if (tag == LFS3_TAG_BLOCK) {
+            count += 1;
+
+        } else if (LFS3_IFDEF_GBMAP(
+                tag == LFS3_TAG_BMBAD,
+                false)) {
+            #ifdef LFS3_GBMAP
+            count += bptr.d.weight;
+            #endif
+
+        } else {
+            LFS3_UNREACHABLE();
+        }
     }
 
     return count;
@@ -19107,23 +19132,39 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count_, uint32_t flags) {
 
                 // found a block in our shrink region? mark as
                 // not-yet-shrunk, but keep evicting
-                for (lfs3_block_t i = 0;
-                        i < lfs3_mtrv_blockcount(tag, &bptr)
-                            // well, if we're shrinking, bad blocks are
-                            // someone elses problem now :)
-                            && LFS3_IFDEF_GBMAP(
-                                tag != LFS3_TAG_BMBAD,
-                                true);
-                        i++) {
-                    if (lfs3_mtrv_block(tag, &bptr, i) >= block_count_) {
-                        // or fail immediately if we're not able to evict
-                        if (!(flags & LFS3_GROW_EVICT)) {
-                            err = LFS3_ERR_BUSY;
-                            lfs3_handle_close(lfs3, &mgc.t.h);
-                            goto failed;
-                        }
+                if (tag == LFS3_TAG_MDIR) {
+                    lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr.d.u.buffer;
+                    if (mdir->r.blocks[0] >= block_count_
+                            || mdir->r.blocks[1] >= block_count_) {
                         shrunk = false;
                     }
+
+                } else if (tag == LFS3_TAG_BRANCH) {
+                    lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr.d.u.buffer;
+                    if (rbyd->blocks[0] >= block_count_) {
+                        shrunk = false;
+                    }
+
+                } else if (tag == LFS3_TAG_BLOCK) {
+                    if (lfs3_bptr_block(&bptr) >= block_count_) {
+                        shrunk = false;
+                    }
+
+                } else if (LFS3_IFDEF_GBMAP(
+                        tag == LFS3_TAG_BMBAD,
+                        false)) {
+                    // well, if we're shrinking, bad blocks are
+                    // someone elses problem now :)
+
+                } else {
+                    LFS3_UNREACHABLE();
+                }
+
+                // or fail immediately if we're not able to evict
+                if (!shrunk && !(flags & LFS3_GROW_EVICT)) {
+                    err = LFS3_ERR_BUSY;
+                    lfs3_handle_close(lfs3, &mgc.t.h);
+                    goto failed;
                 }
             }
             lfs3_handle_close(lfs3, &mgc.t.h);
