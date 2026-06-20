@@ -11492,7 +11492,7 @@ static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t window, lfs3_block_t known);
 static int lfs3_gbmap_setmtrv(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
-        lfs3_tag_t tag_);
+        lfs3_tag_t tag_, const lfs3_ecksum_t *ecksum_);
 static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
         const lfs3_btree_t *gbmap, lfs3_block_t known);
 
@@ -11768,7 +11768,7 @@ again:;
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
             #ifdef LFS3_GBMAP
             int err = lfs3_gbmap_setmtrv(lfs3, &mgc->gbmap_, tag, bptr_,
-                    LFS3_TAG_BMINUSE);
+                    LFS3_TAG_BMINUSE, NULL);
             if (err) {
                 return err;
             }
@@ -12626,36 +12626,37 @@ static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_gbmap_setmtrv(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
-        lfs3_tag_t tag_) {
-    const lfs3_block_t *blocks;
-    lfs3_size_t block_count;
+        lfs3_tag_t tag_, const lfs3_ecksum_t *ecksum_) {
     if (tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
-        blocks = mdir->r.blocks;
-        block_count = 2;
+        for (lfs3_size_t i = 0; i < 2; i++) {
+            int err = lfs3_gbmap_set(lfs3, gbmap, mdir->r.blocks[i],
+                    tag_, ecksum_);
+            if (err) {
+                return err;
+            }
+        }
 
     } else if (tag == LFS3_TAG_BRANCH) {
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->d.u.buffer;
-        blocks = rbyd->blocks;
-        block_count = 1;
-
-    } else if (tag == LFS3_TAG_BLOCK) {
-        blocks = &bptr->d.u.disk.block;
-        block_count = 1;
-
-    } else if (tag == LFS3_TAG_BMBAD) {
-        // ignore these (bad blocks are already tracked!)
-        block_count = 0;
-
-    } else {
-        LFS3_UNREACHABLE();
-    }
-
-    for (lfs3_size_t i = 0; i < block_count; i++) {
-        int err = lfs3_gbmap_set(lfs3, gbmap, blocks[i], tag_, NULL);
+        int err = lfs3_gbmap_set(lfs3, gbmap, rbyd->blocks[0],
+                tag_, ecksum_);
         if (err) {
             return err;
         }
+
+    } else if (tag == LFS3_TAG_BLOCK) {
+        int err = lfs3_gbmap_set(lfs3, gbmap, bptr->d.u.disk.block,
+                tag_, ecksum_);
+        if (err) {
+            return err;
+        }
+
+    } else if (tag == LFS3_TAG_BMBAD) {
+        // ignore these (bad blocks are already tracked!)
+
+    } else {
+        LFS3_UNREACHABLE();
     }
 
     return 0;
@@ -13431,7 +13432,7 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
 
         // track in-use blocks
         err = lfs3_gbmap_setmtrv(lfs3, &gbmap_, tag, &bptr,
-                LFS3_TAG_BMINUSE);
+                LFS3_TAG_BMINUSE, NULL);
         if (err) {
             return err;
         }
