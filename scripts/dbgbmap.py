@@ -94,16 +94,16 @@ SI2_PREFIXES = {
 }
 
 
-RCOMPAT_WRONLY      =     0x0001 # Reading is disallowed
-RCOMPAT_NONSTANDARD =     0x0002 # Non-standard filesystem format
-RCOMPAT_GRM         =     0x0004 # Global-remove in use
-RCOMPAT_STICKYNOTE  =     0x0008 # Stickynote file type in use
+RCOMPAT_WRONLY       = 0x0001 # Reading is disallowed
+RCOMPAT_EXPERIMENTAL = 0x0002 # Experimental
+RCOMPAT_GRM          = 0x0004 # Global-remove in use
+RCOMPAT_STICKYNOTE   = 0x0008 # Stickynote file type in use
 
-WCOMPAT_RDONLY      =     0x0001 # Writing is disallowed
-WCOMPAT_NONSTANDARD =     0x0002 # Non-standard filesystem format
-WCOMPAT_GCKSUM      =     0x0004 # Global-checksum in use
-WCOMPAT_DIR         =     0x0008 # Directory file types in use
-WCOMPAT_GBMAP       =     0x0010 # Global on-disk block-map in use
+WCOMPAT_RDONLY       = 0x0001 # Writing is disallowed
+WCOMPAT_EXPERIMENTAL = 0x0002 # Experimental
+WCOMPAT_GCKSUM       = 0x0004 # Global-checksum in use
+WCOMPAT_DIR          = 0x0008 # Directory file types in use
+WCOMPAT_GBMAP        = 0x0010 # Global on-disk block-map in use
 
 TAG_NULL        = 0x0000    ##  v--- ---- ++++ ++++
 TAG_INTERNAL    = 0x0100    ##  v--- ---1 +ttt tttt

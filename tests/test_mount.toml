@@ -990,7 +990,7 @@ code = '''
             LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_COMPAT),
             LFS3_RATTR_ARG(
                 lfs3_fs_compat(&lfs3)
-                    | LFS3_COMPAT(LFS3_RCOMPAT_NONSTANDARD, 0)),
+                    | LFS3_COMPAT(LFS3_RCOMPAT_EXPERIMENTAL, 0)),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
@@ -1020,7 +1020,7 @@ code = '''
             LFS3_RATTR(LFS3_TAG_COMPAT, 0, 1, LFS3_FROM_COMPAT),
             LFS3_RATTR_ARG(
                 lfs3_fs_compat(&lfs3)
-                    | LFS3_COMPAT(0, LFS3_WCOMPAT_NONSTANDARD)),
+                    | LFS3_COMPAT(0, LFS3_WCOMPAT_EXPERIMENTAL)),
             LFS3_RATTR_NULL}) => 0;
     lfs3_unmount(&lfs3) => 0;
 
