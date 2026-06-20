@@ -2944,19 +2944,19 @@ static lfs3_data_t lfs3_data_frombptr(const lfs3_bptr_t *bptr,
 #endif
 
 static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_bptr_t *bptr) {
+        lfs3_bptr_t *bptr_) {
     // read the block, offset, size
-    int err = lfs3_data_readleb128(lfs3, data, &bptr->d.weight);
+    int err = lfs3_data_readleb128(lfs3, data, &bptr_->d.weight);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &bptr->d.u.disk.block);
+    err = lfs3_data_readleb128(lfs3, data, &bptr_->d.u.disk.block);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &bptr->d.off);
+    err = lfs3_data_readleb128(lfs3, data, &bptr_->d.off);
     if (err) {
         return err;
     }
@@ -2964,22 +2964,22 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
     // read the cksize, cksum
     err = lfs3_data_readleb128(lfs3, data,
             LFS3_IFDEF_CKDATACKSUMS(
-                &bptr->d.u.disk.cksize,
-                &bptr->cksize));
+                &bptr_->d.u.disk.cksize,
+                &bptr_->cksize));
     if (err) {
         return err;
     }
 
     err = lfs3_data_readle32(lfs3, data,
             LFS3_IFDEF_CKDATACKSUMS(
-                &bptr->d.u.disk.cksum,
-                &bptr->cksum));
+                &bptr_->d.u.disk.cksum,
+                &bptr_->cksum));
     if (err) {
         return err;
     }
 
     // mark as on-disk + cksum
-    bptr->d.off |= LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR;
+    bptr_->d.off |= LFS3_DATA_ONDISK | LFS3_DATA_ISBPTR;
     return 0;
 }
 
@@ -2987,10 +2987,10 @@ static int lfs3_data_readbptr(lfs3_t *lfs3, lfs3_data_t *data,
 static int lfs3_bptr_ck(lfs3_t *lfs3, const lfs3_bptr_t *bptr);
 
 static int lfs3_data_fetchbptr(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_bptr_t *bptr) {
+        lfs3_bptr_t *bptr_) {
     // decode bptr and fetch
     int err = lfs3_data_readbptr(lfs3, data,
-            bptr);
+            bptr_);
     if (err) {
         return err;
     }
@@ -2998,7 +2998,7 @@ static int lfs3_data_fetchbptr(lfs3_t *lfs3, lfs3_data_t *data,
     // checking fetches?
     #ifdef LFS3_CKFETCHES
     if (LFS3_CFG_ISCKFETCHES(lfs3->cfg)) {
-        err = lfs3_bptr_ck(lfs3, bptr);
+        err = lfs3_bptr_ck(lfs3, bptr_);
         if (err) {
             return err;
         }
@@ -3214,13 +3214,14 @@ static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
 
 #ifndef LFS3_RDONLY
 static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_ecksum_t *ecksum) {
-    int err = lfs3_data_readleb128(lfs3, data, (lfs3_size_t*)&ecksum->cksize);
+        lfs3_ecksum_t *ecksum_) {
+    int err = lfs3_data_readleb128(lfs3, data,
+            (lfs3_size_t*)&ecksum_->cksize);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readle32(lfs3, data, &ecksum->cksum);
+    err = lfs3_data_readle32(lfs3, data, &ecksum_->cksum);
     if (err) {
         return err;
     }
@@ -5957,26 +5958,26 @@ static lfs3_data_t lfs3_data_frombranch(const lfs3_rbyd_t *branch,
 
 static int lfs3_data_readbranch(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_bid_t weight,
-        lfs3_rbyd_t *branch) {
+        lfs3_rbyd_t *branch_) {
     // setting eoff to 0 here will trigger asserts if we try to append
     // without fetching first
     #ifndef LFS3_RDONLY
-    branch->eoff = 0;
+    branch_->eoff = 0;
     #endif
 
-    branch->weight = weight;
+    branch_->weight = weight;
 
-    int err = lfs3_data_readleb128(lfs3, data, &branch->blocks[0]);
+    int err = lfs3_data_readleb128(lfs3, data, &branch_->blocks[0]);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &branch->trunk);
+    err = lfs3_data_readleb128(lfs3, data, &branch_->trunk);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readle32(lfs3, data, &branch->cksum);
+    err = lfs3_data_readle32(lfs3, data, &branch_->cksum);
     if (err) {
         return err;
     }
@@ -5986,10 +5987,10 @@ static int lfs3_data_readbranch(lfs3_t *lfs3, lfs3_data_t *data,
 
 static int lfs3_data_fetchbranch(lfs3_t *lfs3,
         lfs3_data_t *data, lfs3_bid_t weight,
-        lfs3_rbyd_t *branch) {
+        lfs3_rbyd_t *branch_) {
     // decode branch and fetch
     int err = lfs3_data_readbranch(lfs3, data, weight,
-            branch);
+            branch_);
     if (err) {
         return err;
     }
@@ -5997,12 +5998,13 @@ static int lfs3_data_fetchbranch(lfs3_t *lfs3,
     // checking fetches?
     #ifdef LFS3_CKFETCHES
     if (LFS3_CFG_ISCKFETCHES(lfs3->cfg)) {
-        int err = lfs3_rbyd_ckfetch(lfs3, branch,
-                branch->blocks[0], lfs3_rbyd_trunk(branch), branch->cksum, 0);
+        int err = lfs3_rbyd_ckfetch(lfs3, branch_,
+                branch_->blocks[0], lfs3_rbyd_trunk(branch_),
+                branch_->cksum, 0);
         if (err) {
             return err;
         }
-        LFS3_ASSERT(branch->weight == weight);
+        LFS3_ASSERT(branch_->weight == weight);
     }
     #endif
 
@@ -6035,14 +6037,14 @@ static lfs3_data_t lfs3_data_frombtree(const lfs3_btree_t *btree,
 #endif
 
 static int lfs3_data_readbtree(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_btree_t *btree) {
+        lfs3_btree_t *btree_) {
     lfs3_bid_t weight;
     int err = lfs3_data_readleb128(lfs3, data, &weight);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readbranch(lfs3, data, weight, btree);
+    err = lfs3_data_readbranch(lfs3, data, weight, btree_);
     if (err) {
         return err;
     }
@@ -6051,10 +6053,10 @@ static int lfs3_data_readbtree(lfs3_t *lfs3, lfs3_data_t *data,
 }
 
 static int lfs3_data_fetchbtree(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_btree_t *btree) {
+        lfs3_btree_t *btree_) {
     // decode btree and fetch
     int err = lfs3_data_readbtree(lfs3, data,
-            btree);
+            btree_);
     if (err) {
         return err;
     }
@@ -6062,23 +6064,24 @@ static int lfs3_data_fetchbtree(lfs3_t *lfs3, lfs3_data_t *data,
     // checking fetches?
     #ifdef LFS3_CKFETCHES
     if (LFS3_CFG_ISCKFETCHES(lfs3->cfg)) {
-        lfs3_bid_t weight = btree->weight;
+        lfs3_bid_t weight = btree_->weight;
         (void)weight;
-        int err = lfs3_rbyd_ckfetch(lfs3, btree,
-                btree->blocks[0], lfs3_rbyd_trunk(btree), btree->cksum, 0);
+        int err = lfs3_rbyd_ckfetch(lfs3, btree_,
+                btree_->blocks[0], lfs3_rbyd_trunk(btree_),
+                btree_->cksum, 0);
         if (err) {
             return err;
         }
-        LFS3_ASSERT(btree->weight == weight);
+        LFS3_ASSERT(btree_->weight == weight);
     }
     #endif
 
     #ifdef LFS3_DBGBTREEFETCHES
     LFS3_DEBUG("Fetched btree 0x%"PRIx32".%"PRIx32" w%"PRId32", "
                 "cksum %"PRIx32,
-            btree->blocks[0], lfs3_rbyd_trunk(btree),
-            btree->weight,
-            btree->cksum);
+            btree_->blocks[0], lfs3_rbyd_trunk(btree_),
+            btree_->weight,
+            btree_->cksum);
     #endif
     return 0;
 }
@@ -7273,27 +7276,27 @@ static lfs3_data_t lfs3_data_fromshrub(const lfs3_shrub_t *shrub,
 
 static int lfs3_data_readshrub(lfs3_t *lfs3,
         const lfs3_mdir_t *mdir, lfs3_data_t *data,
-        lfs3_shrub_t *shrub) {
+        lfs3_shrub_t *shrub_) {
     // copy the mdir block
-    shrub->blocks[0] = mdir->r.blocks[0];
+    shrub_->blocks[0] = mdir->r.blocks[0];
     #ifndef LFS3_RDONLY
-    shrub->eoff = 0;
+    shrub_->eoff = 0;
     #endif
 
-    int err = lfs3_data_readleb128(lfs3, data, &shrub->weight);
+    int err = lfs3_data_readleb128(lfs3, data, &shrub_->weight);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &shrub->trunk);
+    err = lfs3_data_readleb128(lfs3, data, &shrub_->trunk);
     if (err) {
         return err;
     }
     // shrub trunks should never be null
-    LFS3_ASSERT(lfs3_shrub_trunk(shrub));
+    LFS3_ASSERT(lfs3_shrub_trunk(shrub_));
 
     // set the shrub bit in our trunk
-    shrub->trunk |= LFS3_RBYD_ISSHRUB;
+    shrub_->trunk |= LFS3_RBYD_ISSHRUB;
     return 0;
 }
 
@@ -7864,9 +7867,9 @@ static lfs3_data_t lfs3_data_frommptr(const lfs3_block_t mptr[static 2],
 #endif
 
 static int lfs3_data_readmptr(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_block_t mptr[static 2]) {
+        lfs3_block_t mptr_[static 2]) {
     for (int i = 0; i < 2; i++) {
-        int err = lfs3_data_readleb128(lfs3, data, &mptr[i]);
+        int err = lfs3_data_readleb128(lfs3, data, &mptr_[i]);
         if (err) {
             return err;
         }
@@ -8053,10 +8056,10 @@ static lfs3_data_t lfs3_data_fromgrm(const lfs3_grm_t *grm,
 static inline lfs3_mid_t lfs3_mtree_weight(lfs3_t *lfs3);
 
 static int lfs3_data_readgrm(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_grm_t *grm) {
+        lfs3_grm_t *grm_) {
     // clear first
-    grm->queue[0] = 0;
-    grm->queue[1] = 0;
+    grm_->queue[0] = 0;
+    grm_->queue[1] = 0;
 
     // decode grms, these are terminated by either a null (mid=0) or the
     // size of the grm buffer
@@ -8074,7 +8077,7 @@ static int lfs3_data_readgrm(lfs3_t *lfs3, lfs3_data_t *data,
 
         // grm inside mtree?
         LFS3_ASSERT(mid < lfs3_mtree_weight(lfs3));
-        grm->queue[i] = mid;
+        grm_->queue[i] = mid;
     }
 
     return 0;
@@ -8087,7 +8090,7 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_gbmap_t *gbmap,
 #endif
 #ifdef LFS3_GBMAP
 static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_gbmap_t *gbmap);
+        lfs3_gbmap_t *gbmap_);
 #endif
 
 
@@ -8555,15 +8558,15 @@ failed:;
 
 static int lfs3_data_fetchmdir(lfs3_t *lfs3,
         lfs3_data_t *data, lfs3_smid_t mid,
-        lfs3_mdir_t *mdir) {
+        lfs3_mdir_t *mdir_) {
     // decode mptr and fetch
     int err = lfs3_data_readmptr(lfs3, data,
-            mdir->r.blocks);
+            mdir_->r.blocks);
     if (err) {
         return err;
     }
 
-    return lfs3_mdir_fetch(lfs3, mdir, mid, mdir->r.blocks);
+    return lfs3_mdir_fetch(lfs3, mdir_, mid, mdir_->r.blocks);
 }
 
 static lfs3_tag_t lfs3_mdir_nametag(const lfs3_t *lfs3, const lfs3_mdir_t *mdir,
@@ -12337,27 +12340,27 @@ static lfs3_data_t lfs3_data_fromgbmap(const lfs3_gbmap_t *gbmap,
 
 #ifdef LFS3_GBMAP
 static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_gbmap_t *gbmap) {
-    int err = lfs3_data_readleb128(lfs3, data, &gbmap->window);
+        lfs3_gbmap_t *gbmap_) {
+    int err = lfs3_data_readleb128(lfs3, data, &gbmap_->window);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &gbmap->known);
+    err = lfs3_data_readleb128(lfs3, data, &gbmap_->known);
     if (err) {
         return err;
     }
 
     err = lfs3_data_readbranch(lfs3, data, lfs3->block_count,
-            &gbmap->b);
+            &gbmap_->b);
     if (err) {
         return err;
     }
 
     // we don't save free, so assume zero at first
-    gbmap->next = 0;
+    gbmap_->next = 0;
     // keep track of the committed gbmap for traversals
-    gbmap->b_p = gbmap->b;
+    gbmap_->b_p = gbmap_->b;
     return 0;
 }
 #endif
@@ -17768,7 +17771,7 @@ static lfs3_data_t lfs3_data_fromcompat(lfs3_compat_t compat,
 #endif
 
 static int lfs3_data_readcompat(lfs3_t *lfs3, lfs3_data_t *data,
-        uint32_t *compat) {
+        uint32_t *compat_) {
     // try to read compat flags, not we may:
     // - fail to read flags, but set LFS3_*_OVERFLOW
     // - not read wcompat, but set LFS3_rcompat_OVERFLOW
@@ -17810,7 +17813,7 @@ static int lfs3_data_readcompat(lfs3_t *lfs3, lfs3_data_t *data,
     }
 
 done:;
-    *compat = LFS3_COMPAT(rcompat, wcompat);
+    *compat_ = LFS3_COMPAT(rcompat, wcompat);
     return 0;
 }
 
@@ -17841,19 +17844,19 @@ static lfs3_data_t lfs3_data_fromgeometry(const lfs3_geometry_t *geometry,
 #endif
 
 static int lfs3_data_readgeometry(lfs3_t *lfs3, lfs3_data_t *data,
-        lfs3_geometry_t *geometry) {
-    int err = lfs3_data_readleb128(lfs3, data, &geometry->block_size);
+        lfs3_geometry_t *geometry_) {
+    int err = lfs3_data_readleb128(lfs3, data, &geometry_->block_size);
     if (err) {
         return err;
     }
 
-    err = lfs3_data_readleb128(lfs3, data, &geometry->block_count);
+    err = lfs3_data_readleb128(lfs3, data, &geometry_->block_count);
     if (err) {
         return err;
     }
 
-    geometry->block_size += 1;
-    geometry->block_count += 1;
+    geometry_->block_size += 1;
+    geometry_->block_count += 1;
     return 0;
 }
 
