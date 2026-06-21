@@ -72,7 +72,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -83,16 +82,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -366,7 +357,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -377,14 +367,8 @@ code = '''
             break;
         }
 
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-
         assert(binfo.block != victim);
     }
-    assert(found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // evicted block should be marked as bad
@@ -488,7 +472,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -499,16 +482,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -635,7 +610,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -646,16 +620,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -786,7 +752,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -797,16 +762,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -943,7 +900,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -954,16 +910,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -1254,7 +1202,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -1265,16 +1212,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -1422,7 +1361,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -1433,16 +1371,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -1551,7 +1481,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -1562,16 +1491,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -1718,7 +1639,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -1729,16 +1649,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -1885,7 +1797,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -1896,16 +1807,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -2022,7 +1925,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2033,16 +1935,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -2271,7 +2165,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2282,16 +2175,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -2520,7 +2405,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2531,16 +2415,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -2715,7 +2591,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2726,16 +2601,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -2927,7 +2794,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -2938,16 +2804,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -3145,7 +3003,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3156,16 +3013,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -3400,7 +3249,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3411,16 +3259,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -3580,7 +3420,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3591,16 +3430,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -3745,7 +3576,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3756,16 +3586,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -3909,7 +3731,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -3920,16 +3741,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -4062,7 +3875,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4073,16 +3885,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -4214,7 +4018,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4225,16 +4028,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -4383,7 +4178,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4394,16 +4188,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -4635,7 +4421,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4646,16 +4431,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -4889,7 +4666,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -4900,16 +4676,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -7297,7 +7065,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -7308,16 +7075,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -7515,7 +7274,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -7526,16 +7284,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -7694,7 +7444,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -7705,16 +7454,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -7864,7 +7605,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -7875,16 +7615,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -8040,7 +7772,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8051,16 +7782,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -8391,7 +8114,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8402,16 +8124,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -8578,7 +8292,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8589,16 +8302,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -8726,7 +8431,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8737,16 +8441,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -8912,7 +8608,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -8923,16 +8618,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -9098,7 +8785,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9109,16 +8795,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -9254,7 +8932,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9265,16 +8942,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -9522,7 +9191,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9533,16 +9201,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -9790,7 +9450,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -9801,16 +9460,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -10003,7 +9654,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -10014,16 +9664,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -10233,7 +9875,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -10244,16 +9885,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -10469,7 +10102,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -10480,16 +10112,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -10742,7 +10366,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -10753,16 +10376,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -10941,7 +10556,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -10952,16 +10566,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -11126,7 +10732,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11137,16 +10742,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -11309,7 +10906,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11320,16 +10916,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -11481,7 +11069,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11492,16 +11079,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -11652,7 +11231,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11663,16 +11241,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -11840,7 +11410,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -11851,16 +11420,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -12111,7 +11672,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -12122,16 +11682,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -12384,7 +11936,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -12395,16 +11946,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -12743,7 +12286,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -12754,16 +12296,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -12984,7 +12518,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -12995,16 +12528,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -13240,7 +12765,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -13251,16 +12775,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -13515,7 +13031,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -13526,16 +13041,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -13716,7 +13223,6 @@ code = '''
     // filesystem
     lfs3_trv_t trv;
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -13727,16 +13233,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -13951,7 +13449,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -13962,16 +13459,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad
@@ -14174,7 +13663,6 @@ code = '''
     // evicted block should no longer be in use, anywhere in the
     // filesystem
     lfs3_trv_open(&lfs3, &trv, 0) => 0;
-    bool found_bad = false;
     for (lfs3_block_t i = 0;; i++) {
         assert(i < 2*BLOCK_COUNT);
 
@@ -14185,16 +13673,8 @@ code = '''
             break;
         }
 
-        #ifdef LFS3_GBMAP
-        if (binfo.btype == LFS3_BTYPE_BAD) {
-            found_bad = true;
-            continue;
-        }
-        #endif
-
         assert(binfo.block != victim);
     }
-    assert((CONDEMN) ? found_bad : !found_bad);
     lfs3_trv_close(&lfs3, &trv) => 0;
 
     // if bad, evicted block should be marked as bad

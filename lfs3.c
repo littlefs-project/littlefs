@@ -18710,9 +18710,8 @@ lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3) {
         } else if (LFS3_IFDEF_GBMAP(
                 tag == LFS3_TAG_BMBAD,
                 false)) {
-            #ifdef LFS3_GBMAP
-            count += bptr.d.weight;
-            #endif
+            // ignore bad blocks in lfs3_trv_t/lfs3_fs_size, the user
+            // can always call lfs3_fs_statblock to find these
 
         } else {
             LFS3_UNREACHABLE();
@@ -19517,18 +19516,8 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
             binfo->btype = lfs3_o_btype(trv->t.h.flags);
             binfo->block = trv->blocks[0];
 
-            // special behavior for gbmap ranges
-            if (LFS3_IFDEF_GBMAP(
-                    trv->blocks[1] < -1,
-                    false)) {
-                #ifdef LFS3_GBMAP
-                trv->blocks[1] += 1;
-                #endif
-            // otherwise just shift redund blocks over
-            } else {
-                trv->blocks[0] = trv->blocks[1];
-                trv->blocks[1] = -1;
-            }
+            trv->blocks[0] = trv->blocks[1];
+            trv->blocks[1] = -1;
             return 0;
         }
 
@@ -19567,12 +19556,8 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         } else if (LFS3_IFDEF_GBMAP(
                 tag == LFS3_TAG_BMBAD,
                 false)) {
-            #ifdef LFS3_GBMAP
-            trv->t.h.flags = (trv->t.h.flags & ~LFS3_t_BTYPE)
-                    | (LFS3_BTYPE_BAD << 4);
-            trv->blocks[0] = lfs3_bptr_block(&bptr);
-            trv->blocks[1] = -bptr.d.weight;
-            #endif
+            // ignore bad blocks in lfs3_trv_t/lfs3_fs_size, the user
+            // can always call lfs3_fs_statblock to find these
 
         } else {
             LFS3_UNREACHABLE();

@@ -454,6 +454,7 @@ enum lfs3_btype {
     LFS3_BTYPE_MDIR    = 1, // An mdir (metadata log)
     LFS3_BTYPE_BTREE   = 2, // A btree node
     LFS3_BTYPE_DATA    = 3, // A raw data block
+
     LFS3_BTYPE_FREE    = 4, // Known free, safe to alloc
     LFS3_BTYPE_INUSE   = 5, // Known in-use, type unknown
     #ifdef LFS3_GBMAP
