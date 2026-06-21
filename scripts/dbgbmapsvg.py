@@ -3377,7 +3377,7 @@ class Lfs3:
             mtree_only=False,
             gstate=True,
             shrubs=False,
-            fragments=False,
+            grains=False,
             path=False):
         # traverse the mtree
         for r in self.mtree.traverse(
@@ -3416,7 +3416,7 @@ class Lfs3:
 
                         # inlined data? we usually ignore these
                         if isinstance(data, Rattr):
-                            if fragments:
+                            if grains:
                                 if path:
                                     yield data, path_+path__
                                 else:

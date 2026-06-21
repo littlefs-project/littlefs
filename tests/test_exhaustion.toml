@@ -711,7 +711,7 @@ if = [
     'LFS3_IFDEF_GC(true, !GC)',
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     // run our test twice, once with 1/2 the storage, once with 2/2 the

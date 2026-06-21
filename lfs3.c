@@ -2071,7 +2071,7 @@ static inline bool lfs3_data_ishole(const lfs3_data_t *data) {
             == LFS3_DATA_ISHOLE;
 }
 
-static inline bool lfs3_data_isfragment(const lfs3_data_t *data) {
+static inline bool lfs3_data_isgrain(const lfs3_data_t *data) {
     return !(data->off & LFS3_DATA_ISBPTR);
 }
 
@@ -2082,8 +2082,8 @@ static inline bool lfs3_data_isbptr(const lfs3_data_t *data) {
 
 static inline uint32_t lfs3_data_flags(const lfs3_data_t *data) {
     // the data -> bd flags mapping is pretty simple:
-    // - isfragment => metadata
-    // - isbptr     => data
+    // - isgrain => metadata
+    // - isbptr  => data
     // and wow, they're even the same bit, what a coincidence
     return data->off & LFS3_DATA_ISBPTR;
 }
@@ -2795,8 +2795,8 @@ static inline bool lfs3_bptr_ishole(const lfs3_bptr_t *bptr) {
     return lfs3_data_ishole(&bptr->d);
 }
 
-static inline bool lfs3_bptr_isfragment(const lfs3_bptr_t *bptr) {
-    return lfs3_data_isfragment(&bptr->d);
+static inline bool lfs3_bptr_isgrain(const lfs3_bptr_t *bptr) {
+    return lfs3_data_isgrain(&bptr->d);
 }
 
 static inline bool lfs3_bptr_isbptr(const lfs3_bptr_t *bptr) {
@@ -2820,7 +2820,7 @@ static inline lfs3_size_t lfs3_bptr_size(const lfs3_bptr_t *bptr) {
 static inline lfs3_size_t lfs3_bptr_estimate(const lfs3_bptr_t *bptr) {
     if (lfs3_bptr_ishole(bptr)) {
         return 0;
-    } else if (lfs3_bptr_isfragment(bptr)) {
+    } else if (lfs3_bptr_isgrain(bptr)) {
         return lfs3_bptr_size(bptr);
     } else {
         return LFS3_BPTR_DSIZE;
@@ -11171,8 +11171,8 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         || h->next == &mgc->t.h)) {
                 ((lfs3_file_t*)h)->bshrub = mgc->t.btree;
 
-                // we also need to discard any fragments that
-                // may be in our btree/bshrub
+                // we also need to discard any grains that may be in our
+                // btree/bshrub
                 if (!lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr)) {
                     lfs3_file_discardleaf((lfs3_file_t*)h);
                 }
@@ -11328,8 +11328,8 @@ static int lfs3_mtree_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         || h->next == &mgc->t.h)) {
                 ((lfs3_file_t*)h)->bshrub = mgc->t.btree;
 
-                // we also need to discard any fragments that
-                // may be in our btree/bshrub
+                // we also need to discard any grains that may be in our
+                // btree/bshrub
                 if (!lfs3_bptr_isbptr(&((lfs3_file_t*)h)->leaf.bptr)) {
                     lfs3_file_discardleaf((lfs3_file_t*)h);
                 }
@@ -14797,7 +14797,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         // commit? currently this is only possible via lfs3_set
         if ((file->h.flags & LFS3_o_SET)
                 && file->cache.size <= lfs3->cfg->shrub_size
-                && file->cache.size <= lfs3->cfg->fragment_size
+                && file->cache.size <= lfs3->cfg->grain_size
                 && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
             // we need to mark as unsync for sync to do anything
             file->h.flags |= LFS3_o_UNSYNC;
@@ -15031,7 +15031,7 @@ static int lfs3_file_lookupnext_(lfs3_t *lfs3, const lfs3_file_t *file,
     if (tag == LFS3_TAG_HOLE) {
         bptr_->d = LFS3_DATA_HOLE(weight);
 
-    // fragment? (inlined data)
+    // grain? (inlined data)
     } else if (tag == LFS3_TAG_DATA) {
         bptr_->d = data;
 
@@ -15257,7 +15257,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
 
 // low-level file writing
 
-// graft bptr/fragments into our bshrub/btree
+// graft bptr/grains into our bshrub/btree
 #ifndef LFS3_RDONLY
 static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, lfs3_off_t cut, const lfs3_bptr_t *bptr) {
@@ -15369,13 +15369,13 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     dgrow += l_slice;
                     snip = true;
 
-                // can we merge a fragment?
-                } else if (lfs3_bptr_isfragment(&bptr_)
-                        && lfs3_bptr_isfragment(&bptr__)
+                // can we merge a grain?
+                } else if (lfs3_bptr_isgrain(&bptr_)
+                        && lfs3_bptr_isgrain(&bptr__)
                         // not if there's a hole!
                         && bid__+1 >= pos_
-                        // or if we're already a full fragment
-                        && l_slice < lfs3->cfg->fragment_size) {
+                        // or if we're already a full grain
+                        && l_slice < lfs3->cfg->grain_size) {
                     pos_ -= l_slice;
                     l_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             -1,
@@ -15404,13 +15404,13 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                     dgrow += r_slice;
                     snip = true;
 
-                // can we merge a fragment?
-                } else if (lfs3_bptr_isfragment(&bptr_)
-                        && lfs3_bptr_isfragment(&bptr__)
+                // can we merge a grain?
+                } else if (lfs3_bptr_isgrain(&bptr_)
+                        && lfs3_bptr_isgrain(&bptr__)
                         // unlike left sibling, we don't bother merging if
-                        // things won't fit in a single fragment
+                        // things won't fit in a single grain
                         && dgrow + (bid__+1 - (pos_+cut_))
-                            <= lfs3->cfg->fragment_size) {
+                            <= lfs3->cfg->grain_size) {
                     r_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             lfs3_data_size(&bptr__.d) - r_slice,
                             -1);
@@ -15445,18 +15445,17 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             // can't commit to multiple leaves simultaneously, so this
             // is the best we can do
             //
-            // As a consequence, we will never merge fragments across
-            // leaf rbyds, but this is actually a good thing! Otherwise
-            // we'd have to worry about the underlying blocks being
+            // As a consequence, we will never merge grain across leaf
+            // rbyds, but this is actually a good thing! Otherwise we'd
+            // have to worry about the underlying blocks being
             // reallocated before the graft finishes (consider rbyds
-            // with single fragments). I don't think it's possible to
-            // merge cross-rbyd fragments atomically.
+            // with single grains). I don't think it's possible to merge
+            // cross-rbyd grains atomically.
             //
             // The staging shrub doesn't help here as we need it to
             // restart commits during mdir compactions, etc. If we
-            // wanted to track everything for cross-rbyd fragment
-            // merging, I think we'd need either 3 shrubs or some
-            // other hack.
+            // wanted to track everything for cross-rbyd grain merging,
+            // I think we'd need either 3 shrubs or some other hack.
             //
             // Note this is not a problem for bptrs because we
             // explicitly track crystallizing blocks in file->leaf.
@@ -15480,11 +15479,11 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
             poke = bid__ + 1;
         }
 
-        // limit fragment data to:
-        // 1. fragment size
+        // limit grain data to:
+        // 1. grain size
         // 2. cut size, to avoid overflow issues
-        if (lfs3_bptr_isfragment(&bptr_)) {
-            dgrow = lfs3_min(dgrow, lfs3->cfg->fragment_size);
+        if (lfs3_bptr_isgrain(&bptr_)) {
+            dgrow = lfs3_min(dgrow, lfs3->cfg->grain_size);
         }
 
         // build graft commit
@@ -15504,8 +15503,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 *r++ = LFS3_RATTR(LFS3_TAG_HOLE, -2, 0);
                 *r++ = LFS3_RATTR_WEIGHT(+l_bptr.d.weight);
 
-            // left fragment?
-            } else if (lfs3_bptr_isfragment(&l_bptr)) {
+            // left grain?
+            } else if (lfs3_bptr_isgrain(&l_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_DATA);
                 *r++ = LFS3_RATTR_WEIGHT(+l_bptr.d.weight);
                 *r++ = LFS3_RATTR_ARG(&l_bptr);
@@ -15527,8 +15526,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 *r++ = LFS3_RATTR_WEIGHT(+dgrow);
                 shestimate += lfs3->rattr_estimate;
 
-            // graft fragment?
-            } else if (lfs3_bptr_isfragment(&bptr_)) {
+            // graft grain?
+            } else if (lfs3_bptr_isgrain(&bptr_)) {
                 lfs3_size_t count
                         = ((lfs3_soff_t)l_bptr.d.weight < 0)
                         + 1
@@ -15540,7 +15539,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 // merge and slice data
                 //
                 // note we don't need to worry about: (1) left data,
-                // because we only merge left if left < fragment size,
+                // because we only merge left if left < grain size,
                 // and (2) right data, because we only merge right if
                 // everything would fit
                 lfs3_data_t *d = (lfs3_data_t*)r;
@@ -15569,7 +15568,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                                 ? lfs3_data_size(&((lfs3_data_t*)r)[2])
                                 : 0)
                         == dgrow);
-                LFS3_ASSERT(dgrow <= lfs3->cfg->fragment_size);
+                LFS3_ASSERT(dgrow <= lfs3->cfg->grain_size);
                 r += 3*count;
                 shestimate += lfs3->rattr_estimate + dgrow;
 
@@ -15589,8 +15588,8 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                 *r++ = LFS3_RATTR(LFS3_TAG_HOLE, -2, 0);
                 *r++ = LFS3_RATTR_WEIGHT(+r_bptr.d.weight);
 
-            // right fragment?
-            } else if (lfs3_bptr_isfragment(&r_bptr)) {
+            // right grain?
+            } else if (lfs3_bptr_isgrain(&r_bptr)) {
                 *r++ = LFS3_RATTR(LFS3_TAG_DATA, -2, 1, LFS3_FROM_DATA);
                 *r++ = LFS3_RATTR_WEIGHT(+r_bptr.d.weight);
                 *r++ = LFS3_RATTR_ARG(&r_bptr);
@@ -15907,7 +15906,7 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file) {
 #ifndef LFS3_RDONLY
 static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
-    // we may need to graft multiple blocks/fragments
+    // we may need to graft multiple blocks/grains
     lfs3_off_t pos_ = pos;
     const uint8_t *buffer_ = buffer;
     lfs3_size_t size_ = size;
@@ -15916,9 +15915,9 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
     // previous iteration, we already do way too many btree lookups
     bool aligned_ = false;
 
-    // if crystallization is disabled, just skip to writing fragments
+    // if crystallization is disabled, just skip to writing grains
     if (lfs3->cfg->crystal_thresh > lfs3->cfg->block_size) {
-        goto fragment;
+        goto grain;
     }
 
     // iteratively write blocks
@@ -15973,7 +15972,7 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // before we can start writing, we need to figure out if we have
-        // enough fragments to start crystallizing
+        // enough grains to start crystallizing
         //
         // we do this heuristically, by looking up our worst-case
         // crystal neighbors and using them as bounds for our current
@@ -16006,13 +16005,13 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
                 return err;
             }
 
-            // if left crystal neighbor is a fragment and there is no
+            // if left crystal neighbor is a grain and there is no
             // obvious hole between our own crystal and our neighbor,
             // include as a part of our crystal
             //
             // holes can be quite large and shouldn't trigger
             // crystallization
-            if (lfs3_bptr_isfragment(&bptr)) {
+            if (lfs3_bptr_isgrain(&bptr)) {
                 crystal_start = bid-(bptr.d.weight-1);
 
             // otherwise our neighbor determines our crystal boundary
@@ -16037,9 +16036,9 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
                 return err;
             }
 
-            // if right crystal neighbor is a fragment, include as a
-            // part of our crystal
-            if (lfs3_bptr_isfragment(&bptr)) {
+            // if right crystal neighbor is a grain, include as a part
+            // of our crystal
+            if (lfs3_bptr_isgrain(&bptr)) {
                 crystal_end = lfs3_max(
                         bid+1,
                         crystal_end);
@@ -16055,18 +16054,18 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         // now that we have our crystal guess, we need to decide how to
         // write to the file
 
-        // below our crystallization threshold? fallback to writing fragments
+        // below our crystallization threshold? fallback to writing grains
         //
         // note as long as crystal_thresh >= prog_size, this also ensures we
         // have enough for prog alignment
         if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh) {
-            goto fragment;
+            goto grain;
         }
 
         // exceeded crystallization threshold? we need to allocate a
         // new block
 
-        // can we resume crystallizing with the fragments on disk?
+        // can we resume crystallizing with the grains on disk?
         block_start = file->leaf.pos
                 - lfs3_bptr_off(&file->leaf.bptr);
         block_end = file->leaf.pos
@@ -16152,8 +16151,8 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
                                 ? lfs3_bptr_off(&bptr)
                                 : 0))
                         < 2*lfs3->cfg->block_size) {
-                // this should not be possible for fragments, because
-                // fragment_size < block_size
+                // this should not be possible for grains, because
+                // grain_size < block_size
                 LFS3_ASSERT(lfs3_bptr_isbptr(&bptr));
                 // align to block alignment
                 crystal_start = bid-(bptr.d.weight-1)
@@ -16185,13 +16184,13 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
 
     return 0;
 
-fragment:;
-    // crystals should be grafted before we write any fragments
+grain:;
+    // crystals should be grafted before we write any grains
     LFS3_ASSERT(!(file->h.flags & LFS3_o_UNGRAFT));
 
     // do we need to discard our leaf?
     //
-    // - we need to discard fragments in case the underlying rbyd
+    // - we need to discard grains in case the underlying rbyd
     //   compacts
     // - we need to discard overwritten blocks
     // - but we really want to keep non-overwritten blocks in case
@@ -16200,16 +16199,15 @@ fragment:;
     // note we need to discard before attempting to graft since a
     // single graft may be split up into multiple commits
     //
-    // unfortunately we don't know where our fragment will end up
-    // until after the commit, so we can't track it in our leaf
-    // quite yet
+    // unfortunately we don't know where our grain will end up until
+    // after the commit, so we can't track it in our leaf quite yet
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
             || (pos_ < file->leaf.pos + file->leaf.bptr.d.weight
                 && pos_ + size_ > file->leaf.pos)) {
         lfs3_file_discardleaf(file);
     }
 
-    // graft fragments into tree
+    // graft grains into tree
     lfs3_bptr_t bptr_;
     bptr_.d = LFS3_DATA_BUF(buffer_, size_);
     return lfs3_file_graft__(lfs3, file,
@@ -16702,7 +16700,7 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     int err;
     if (file->cache.size == lfs3_file_size_(file)
             && file->cache.size <= lfs3->cfg->shrub_size
-            && file->cache.size <= lfs3->cfg->fragment_size
+            && file->cache.size <= lfs3->cfg->grain_size
             && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
         // discard any overwritten leaves, this also clears the
         // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
@@ -16922,8 +16920,8 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
         lfs3_bptr_claim(&file->leaf.bptr);
         file->h.flags &= ~LFS3_o_UNCRYST;
     }
-    // discard if our leaf is a fragment or completely truncated, we
-    // can't rely on any in-bshrub/btree state
+    // discard if our leaf is a grain or completely truncated, we can't
+    // rely on any in-bshrub/btree state
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
             || lfs3_bptr_size(&file->leaf.bptr) == 0) {
         lfs3_file_discardleaf(file);
@@ -17007,8 +17005,8 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
     file->leaf.pos -= lfs3_smin(
             size - size_,
             file->leaf.pos);
-    // discard if our leaf is a fragment or completely truncated, we
-    // can't rely on any in-bshrub/btree state
+    // discard if our leaf is a grain or completely truncated, we can't
+    // rely on any in-bshrub/btree state
     if (!lfs3_bptr_isbptr(&file->leaf.bptr)
             || lfs3_bptr_size(&file->leaf.bptr) == 0) {
         lfs3_file_discardleaf(file);
@@ -17407,8 +17405,8 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #ifndef LFS3_RDONLY
     // shrub_size must be <= block_size/8
     LFS3_ASSERT(cfg->shrub_size <= cfg->block_size/8);
-    // fragment_size must be <= block_size/4
-    LFS3_ASSERT(cfg->fragment_size <= cfg->block_size/4);
+    // grain_size must be <= block_size/4
+    LFS3_ASSERT(cfg->grain_size <= cfg->block_size/4);
     #endif
 
     // looks correct? start putting the system together

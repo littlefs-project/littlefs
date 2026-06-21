@@ -856,22 +856,22 @@ struct lfs3_cfg {
     // make small random-writes cheaper, but increase metadata overhead. Must
     // be <= block_size/4.
     #ifndef LFS3_RDONLY
-    lfs3_size_t fragment_size;
+    lfs3_size_t grain_size;
     #endif
 
     // TODO crystal_thresh=0 really just means crystal_thresh=1, should we
     // allow crystal_thresh=0? crystal_thresh=0 => block_size/16 or
     // block_size/8 is probably a better default. need to benchmark.
 
-    // TODO we should probably just assert if crystal_thresh < fragment_size,
+    // TODO we should probably just assert if crystal_thresh < grain_size,
     // or if crystal_thresh < prog_size, these aren't really valid cases
 
-    // Threshold for compacting multiple fragments into a block. Smaller
+    // Threshold for compacting multiple grains into a block. Smaller
     // values will crystallize more eagerly, reducing disk usage, but
     // increasing the cost of random-writes.
     //
     // 0 tries to only writes blocks, minimizing disk usage, while -1 or
-    // any value > block_size only writes fragments, minimizing
+    // any value > block_size only writes grains, minimizing
     // random-write cost.
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
@@ -1273,7 +1273,7 @@ typedef struct lfs3_data {
 typedef struct lfs3_bptr {
     // sign2(off)=0b00 => in-RAM buffer
     // sign2(off)=0b01 => hole (unreadable)
-    // sign2(off)=0b10 => on-disk fragment
+    // sign2(off)=0b10 => on-disk grain 
     // sign2(off)=0b11 => on-disk bptr
     lfs3_data_t d;
     #ifndef LFS3_CKDATACKSUMS

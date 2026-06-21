@@ -5782,7 +5782,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     // test with complex file writes
@@ -14878,7 +14878,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 ifdef = 'LFS3_REPAIR'
 code = '''
@@ -16761,7 +16761,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 ifdef = 'LFS3_REPAIR'
 code = '''

@@ -921,7 +921,7 @@ if = [
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     // test all possible bad blocks
@@ -2996,7 +2996,7 @@ if = [
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     // test a large region of bad blocks
@@ -5073,7 +5073,7 @@ if = [
     'LFS3_IFDEF_REPAIR(true, !REPAIR)',
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     // test a large region of bad blocks

@@ -1,9 +1,9 @@
 # More extensive file writing tests
 after = 'test_files'
 
-# TODO should fragment_size accept 0?
-# test with different fragment sizes
-defines.FRAGMENT_SIZE = [1, 16, 64]
+# TODO should grain_size accept 0?
+# test with different grain sizes
+defines.GRAIN_SIZE = [1, 16, 64]
 
 # test with different crystallization thresholds
 defines.CRYSTAL_THRESH = [512]
@@ -26,7 +26,7 @@ defines.SIZE = [
 defines.SYNC = [false, true]
 if = [
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -98,10 +98,10 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that simple fragment-aligned writes are optimal
-[cases.test_fwrite_simple_litmus_fragments]
+# test that simple grain-aligned writes are optimal
+[cases.test_fwrite_simple_litmus_grains]
 defines.N = [0, 1, 2, 3, 4]
-defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.SIZE = 'N*GRAIN_SIZE'
 # force a btree node
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
@@ -174,10 +174,10 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // here's our main test, do we end up with the expected
-        // number of fragments? we need our internal btree traversal
+        // number of grains? we need our internal btree traversal
         // API to check this
         //
-        lfs3_size_t fragments = 0;
+        lfs3_size_t grains = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         lfs3_btrv_t btrv;
@@ -212,8 +212,8 @@ code = '''
                         weight,
                         lfs3_data_size(&data));
 
-                // keep track of how many fragments we've seen
-                fragments += 1;
+                // keep track of how many grains we've seen
+                grains += 1;
 
             } else if (tag == LFS3_TAG_BLOCK) {
                 lfs3_bptr_t bptr;
@@ -242,8 +242,8 @@ code = '''
         }
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // correct number of fragments?
-        assert(fragments == N);
+        // correct number of grains?
+        assert(grains == N);
     }
 
     lfs3_unmount(&lfs3) => 0;
@@ -361,7 +361,7 @@ code = '''
                         lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
-                // left with any inlined data fragments
+                // left with any inlined data grains
                 assert(false);
 
             } else if (tag == LFS3_TAG_BLOCK) {
@@ -414,7 +414,7 @@ defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -497,10 +497,10 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that incremental fragment-aligned writes are optimal
-[cases.test_fwrite_incr_litmus_fragments]
+# test that incremental grain-aligned writes are optimal
+[cases.test_fwrite_incr_litmus_grains]
 defines.N = [0, 1, 2, 3, 4]
-defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.SIZE = 'N*GRAIN_SIZE'
 defines.CHUNK = [32, 8, 1]
 # force a btree node
 defines.SHRUB_SIZE = 0
@@ -588,10 +588,10 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // here's our main test, do we end up with the expected
-        // number of fragments? we need our internal btree traversal
+        // number of grains? we need our internal btree traversal
         // API to check this
         //
-        lfs3_size_t fragments = 0;
+        lfs3_size_t grains = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         lfs3_btrv_t btrv;
@@ -626,8 +626,8 @@ code = '''
                         weight,
                         lfs3_data_size(&data));
 
-                // keep track of how many fragments we've seen
-                fragments += 1;
+                // keep track of how many grains we've seen
+                grains += 1;
 
             } else if (tag == LFS3_TAG_BLOCK) {
                 lfs3_bptr_t bptr;
@@ -656,8 +656,8 @@ code = '''
         }
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // correct number of fragments?
-        assert(fragments == N);
+        // correct number of grains?
+        assert(grains == N);
     }
 
     lfs3_unmount(&lfs3) => 0;
@@ -790,7 +790,7 @@ code = '''
                         lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
-                // left with any inlined data fragments
+                // left with any inlined data grains
                 assert(false);
 
             } else if (tag == LFS3_TAG_BLOCK) {
@@ -851,7 +851,7 @@ defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -1010,10 +1010,10 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that overwriting fragment-aligned writes are optimal
-[cases.test_fwrite_overwrite_litmus_fragments]
+# test that overwriting grain-aligned writes are optimal
+[cases.test_fwrite_overwrite_litmus_grains]
 defines.N = [0, 1, 2, 3, 4]
-defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.SIZE = 'N*GRAIN_SIZE'
 defines.CHUNK = [32, 8, 1]
 # force a btree node
 defines.SHRUB_SIZE = 0
@@ -1114,10 +1114,10 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // here's our main test, do we end up with the expected
-        // number of fragments? we need our internal btree traversal
+        // number of grains? we need our internal btree traversal
         // API to check this
         //
-        lfs3_size_t fragments = 0;
+        lfs3_size_t grains = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         lfs3_btrv_t btrv;
@@ -1152,8 +1152,8 @@ code = '''
                         weight,
                         lfs3_data_size(&data));
 
-                // keep track of how many fragments we've seen
-                fragments += 1;
+                // keep track of how many grains we've seen
+                grains += 1;
 
             } else if (tag == LFS3_TAG_BLOCK) {
                 lfs3_bptr_t bptr;
@@ -1182,8 +1182,8 @@ code = '''
         }
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // correct number of fragments?
-        assert(fragments == N);
+        // correct number of grains?
+        assert(grains == N);
     }
 
     lfs3_unmount(&lfs3) => 0;
@@ -1329,7 +1329,7 @@ code = '''
                         lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
-                // left with any inlined data fragments
+                // left with any inlined data grains
                 assert(false);
 
             } else if (tag == LFS3_TAG_BLOCK) {
@@ -1388,7 +1388,7 @@ defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -1564,7 +1564,7 @@ defines.CLIP = [
 ]
 if = [
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 in = 'lfs3.c'
 code = '''
@@ -1720,7 +1720,7 @@ defines.CLIP = [
 ]
 if = [
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 in = 'lfs3.c'
 code = '''
@@ -1877,7 +1877,7 @@ defines.CLIP = [
 ]
 if = [
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 in = 'lfs3.c'
 code = '''
@@ -2053,8 +2053,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     # this just saves testing time
-    'FROM / FRAGMENT_SIZE <= 4096',
-    'TO / FRAGMENT_SIZE <= 4096',
+    'FROM / GRAIN_SIZE <= 4096',
+    'TO / GRAIN_SIZE <= 4096',
 ]
 code = '''
     lfs3_t lfs3;
@@ -2177,9 +2177,9 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     # this just saves testing time
-    'FROM / FRAGMENT_SIZE <= 4096',
-    'AND / FRAGMENT_SIZE <= 4096',
-    'TO / FRAGMENT_SIZE <= 4096',
+    'FROM / GRAIN_SIZE <= 4096',
+    'AND / GRAIN_SIZE <= 4096',
+    'TO / GRAIN_SIZE <= 4096',
 ]
 code = '''
     lfs3_t lfs3;
@@ -2311,8 +2311,8 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     # this just saves testing time
-    'FROM / FRAGMENT_SIZE <= 4096',
-    'TO / FRAGMENT_SIZE <= 4096',
+    'FROM / GRAIN_SIZE <= 4096',
+    'TO / GRAIN_SIZE <= 4096',
 ]
 code = '''
     lfs3_t lfs3;
@@ -2439,9 +2439,9 @@ defines.SYNC = [false, true]
 defines.REMOUNT = [false, true]
 if = [
     # this just saves testing time
-    'FROM / FRAGMENT_SIZE <= 4096',
-    'AND / FRAGMENT_SIZE <= 4096',
-    'TO / FRAGMENT_SIZE <= 4096',
+    'FROM / GRAIN_SIZE <= 4096',
+    'AND / GRAIN_SIZE <= 4096',
+    'TO / GRAIN_SIZE <= 4096',
 ]
 code = '''
     lfs3_t lfs3;
@@ -2834,13 +2834,13 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that carving to fragment_size breaks blocks into fragments
-[cases.test_fwrite_truncate_litmus_fragment]
+# test that carving to grain_size breaks blocks into grains
+[cases.test_fwrite_truncate_litmus_grain]
 defines.N = [1, 2, 8]
 defines.SIZE = 'N*BLOCK_SIZE'
-# currently we only support fragmenting blocks <= 1 fragment
-defines.FRAGMENTS = [1]
-defines.TSIZE = 'FRAGMENTS*FRAGMENT_SIZE'
+# currently we only support fragmenting blocks <= 1 grain
+defines.GRAINS = [1]
+defines.TSIZE = 'GRAINS*GRAIN_SIZE'
 defines.SYNC = [false, true]
 # TODO drop this test?
 #
@@ -2919,10 +2919,10 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // here's our main test, do we end up with the expected
-        // number of fragments? we need our internal btree traversal
+        // number of grains? we need our internal btree traversal
         // API to check this
         //
-        lfs3_size_t fragments = 0;
+        lfs3_size_t grains = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         lfs3_btrv_t btrv;
@@ -2957,8 +2957,8 @@ code = '''
                         weight,
                         lfs3_data_size(&data));
 
-                // keep track of how many fragments we've seen
-                fragments += 1;
+                // keep track of how many grains we've seen
+                grains += 1;
 
             } else if (tag == LFS3_TAG_BLOCK) {
                 lfs3_bptr_t bptr;
@@ -2972,7 +2972,7 @@ code = '''
                         lfs3_bptr_off(&bptr),
                         lfs3_bptr_size(&bptr));
 
-                // all blocks should have been fragmented
+                // all blocks should have been grained
                 assert(false);
 
             } else {
@@ -2986,19 +2986,19 @@ code = '''
         }
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // correct number of fragments?
-        assert(fragments == FRAGMENTS);
+        // correct number of grains?
+        assert(grains == GRAINS);
     }
 
     lfs3_unmount(&lfs3) => 0;
 '''
 
-[cases.test_fwrite_fruncate_litmus_fragment]
+[cases.test_fwrite_fruncate_litmus_grain]
 defines.N = [1, 2, 8]
 defines.SIZE = 'N*BLOCK_SIZE'
-# currently we only support fragmenting blocks <= 1 fragment
-defines.FRAGMENTS = [1]
-defines.TSIZE = 'FRAGMENTS*FRAGMENT_SIZE'
+# currently we only support fragmenting blocks <= 1 grain
+defines.GRAINS = [1]
+defines.TSIZE = 'GRAINS*GRAIN_SIZE'
 defines.SYNC = [false, true]
 # TODO drop this test?
 #
@@ -3077,10 +3077,10 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // here's our main test, do we end up with the expected
-        // number of fragments? we need our internal btree traversal
+        // number of grains? we need our internal btree traversal
         // API to check this
         //
-        lfs3_size_t fragments = 0;
+        lfs3_size_t grains = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         lfs3_btrv_t btrv;
@@ -3115,8 +3115,8 @@ code = '''
                         weight,
                         lfs3_data_size(&data));
 
-                // keep track of how many fragments we've seen
-                fragments += 1;
+                // keep track of how many grains we've seen
+                grains += 1;
 
             } else if (tag == LFS3_TAG_BLOCK) {
                 lfs3_bptr_t bptr;
@@ -3130,7 +3130,7 @@ code = '''
                         lfs3_bptr_off(&bptr),
                         lfs3_bptr_size(&bptr));
 
-                // all blocks should have been fragmented
+                // all blocks should have been grained
                 assert(false);
 
             } else {
@@ -3144,8 +3144,8 @@ code = '''
         }
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // correct number of fragments?
-        assert(fragments == FRAGMENTS);
+        // correct number of grains?
+        assert(grains == GRAINS);
     }
 
     lfs3_unmount(&lfs3) => 0;
@@ -3171,7 +3171,7 @@ defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
     # writing backwards is expected to be a bit slow
     'SIZE <= 4*1024*CHUNK',
 ]
@@ -3281,10 +3281,10 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that reversed fragment-aligned writes are optimal
-[cases.test_fwrite_reversed_litmus_fragments]
+# test that reversed grain-aligned writes are optimal
+[cases.test_fwrite_reversed_litmus_grains]
 defines.N = [0, 1, 2, 3, 4]
-defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.SIZE = 'N*GRAIN_SIZE'
 defines.CHUNK = [32, 8, 1]
 # force a btree node
 defines.SHRUB_SIZE = 0
@@ -3376,10 +3376,10 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // here's our main test, do we end up with the expected
-        // number of fragments? we need our internal btree traversal
+        // number of grains? we need our internal btree traversal
         // API to check this
         //
-        lfs3_size_t fragments = 0;
+        lfs3_size_t grains = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         lfs3_btrv_t btrv;
@@ -3414,8 +3414,8 @@ code = '''
                         weight,
                         lfs3_data_size(&data));
 
-                // keep track of how many fragments we've seen
-                fragments += 1;
+                // keep track of how many grains we've seen
+                grains += 1;
 
             } else if (tag == LFS3_TAG_BLOCK) {
                 lfs3_bptr_t bptr;
@@ -3444,8 +3444,8 @@ code = '''
         }
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // correct number of fragments?
-        assert(fragments == N);
+        // correct number of grains?
+        assert(grains == N);
     }
 
     lfs3_unmount(&lfs3) => 0;
@@ -3582,7 +3582,7 @@ code = '''
                         lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
-                // left with any inlined data fragments
+                // left with any inlined data grains
                 assert(false);
 
             } else if (tag == LFS3_TAG_BLOCK) {
@@ -3618,10 +3618,10 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that reversed overwriting fragment-aligned writes are optimal
-[cases.test_fwrite_reversed_overwrite_litmus_fragments]
+# test that reversed overwriting grain-aligned writes are optimal
+[cases.test_fwrite_reversed_overwrite_litmus_grains]
 defines.N = [0, 1, 2, 3, 4]
-defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.SIZE = 'N*GRAIN_SIZE'
 defines.CHUNK = [32, 8, 1]
 # force a btree node
 defines.SHRUB_SIZE = 0
@@ -3727,10 +3727,10 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // here's our main test, do we end up with the expected
-        // number of fragments? we need our internal btree traversal
+        // number of grains? we need our internal btree traversal
         // API to check this
         //
-        lfs3_size_t fragments = 0;
+        lfs3_size_t grains = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         lfs3_btrv_t btrv;
@@ -3765,8 +3765,8 @@ code = '''
                         weight,
                         lfs3_data_size(&data));
 
-                // keep track of how many fragments we've seen
-                fragments += 1;
+                // keep track of how many grains we've seen
+                grains += 1;
 
             } else if (tag == LFS3_TAG_BLOCK) {
                 lfs3_bptr_t bptr;
@@ -3795,8 +3795,8 @@ code = '''
         }
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // correct number of fragments?
-        assert(fragments == N);
+        // correct number of grains?
+        assert(grains == N);
     }
 
     lfs3_unmount(&lfs3) => 0;
@@ -3832,7 +3832,7 @@ if = [
     # Our crystallization heuristic will do up to two lookups a
     # crystal_thresh away, and guess this crystal, recrystallizing
     # prematurely. It never actually looks up the block neighbor, so it
-    # has no way of knowing if it's a block or fragment:
+    # has no way of knowing if it's a block or grain:
     #
     #                                  crystal guess
     #                                   .----'-----.
@@ -3844,13 +3844,13 @@ if = [
     #                                        v
     #   [0           block0        4095][4096        block1        8191]
     #
-    # But the next write results in an unaligned fragment:
+    # But the next write results in an unaligned grain:
     #
     #                                      writing
     #                                     <---|
     #   [0           block0        4095][ b1 ][f][4576     b1      8191]
     #
-    # Eventually we'll have enough fragments to recrystallize again, but
+    # Eventually we'll have enough grains to recrystallize again, but
     # note we'll be overlapping block 0:
     #
     #                             writing
@@ -3860,16 +3860,16 @@ if = [
     #   [            block0            ][            block1            ]
     #
     # Block alignment forces recrystallization of block 0, leaving
-    # block 1 with fragments that may never be cleaned up:
+    # block 1 with grains that may never be cleaned up:
     #
     #                                | recrystallization
     #                                v
     #   [0           block0        4095][f][f][f][4576     b1      8191]
     #                                   '---.---'
-    #                               leftover fragments :(
+    #                               leftover grains :(
     #
-    # Some of the problem is the initial fragment looks identical to
-    # this common pattern when overwriting sequentially:
+    # Some of the problem is the initial grain looks identical to this
+    # common pattern when overwriting sequentially:
     #
     #                                           writing
     #                                              |--->
@@ -3884,8 +3884,8 @@ if = [
     # 1. Reversed writes are rare, inefficiencies should be expected if
     #    you write to files backwards.
     #
-    # 2. The downside is ~1 crystal worth of fragments per block, which
-    #    is not the end of the world.
+    # 2. The downside is ~1 crystal worth of grains per block, which is
+    #    not the end of the world.
     #
     # 3. Reversed writes with either a hole or fruncate are still
     #    efficient, since there's no block to recrystallize early.
@@ -4025,7 +4025,7 @@ code = '''
                         lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
-                // left with any inlined data fragments
+                // left with any inlined data grains
                 assert(false);
 
             } else if (tag == LFS3_TAG_BLOCK) {
@@ -4077,7 +4077,7 @@ defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
     # writing backwards is expected to be a bit slow
     'SIZE <= 4*1024*CHUNK',
 ]
@@ -4180,10 +4180,10 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that reversed fragment-aligned writes are optimal
-[cases.test_fwrite_freversed_litmus_fragments]
+# test that reversed grain-aligned writes are optimal
+[cases.test_fwrite_freversed_litmus_grains]
 defines.N = [0, 1, 2, 3, 4]
-defines.SIZE = 'N*FRAGMENT_SIZE'
+defines.SIZE = 'N*GRAIN_SIZE'
 defines.CHUNK = [32, 8, 1]
 # force a btree node
 defines.SHRUB_SIZE = 0
@@ -4279,10 +4279,10 @@ code = '''
         lfs3_file_close(&lfs3, &file) => 0;
 
         // here's our main test, do we end up with the expected
-        // number of fragments? we need our internal btree traversal
+        // number of grains? we need our internal btree traversal
         // API to check this
         //
-        lfs3_size_t fragments = 0;
+        lfs3_size_t grains = 0;
 
         lfs3_file_open(&lfs3, &file, "hello", LFS3_O_RDONLY) => 0;
         lfs3_btrv_t btrv;
@@ -4317,8 +4317,8 @@ code = '''
                         weight,
                         lfs3_data_size(&data));
 
-                // keep track of how many fragments we've seen
-                fragments += 1;
+                // keep track of how many grains we've seen
+                grains += 1;
 
             } else if (tag == LFS3_TAG_BLOCK) {
                 lfs3_bptr_t bptr;
@@ -4347,8 +4347,8 @@ code = '''
         }
         lfs3_file_close(&lfs3, &file) => 0;
 
-        // correct number of fragments?
-        assert(fragments == N);
+        // correct number of grains?
+        assert(grains == N);
     }
 
     lfs3_unmount(&lfs3) => 0;
@@ -4489,7 +4489,7 @@ code = '''
                         lfs3_data_size(&data));
 
                 // if block crystallization is working we shouldn't be
-                // left with any inlined data fragments
+                // left with any inlined data grains
                 assert(false);
 
             } else if (tag == LFS3_TAG_BLOCK) {
@@ -4553,7 +4553,7 @@ defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -4744,7 +4744,7 @@ defines.REMOUNT = [false, true]
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -4935,7 +4935,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -5079,7 +5079,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -5223,7 +5223,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -5307,7 +5307,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -5454,7 +5454,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -5621,7 +5621,7 @@ defines.INIT = [0, 1, 2]
 defines.MODE = ['LFS3_O_RDONLY', 'LFS3_O_WRONLY', 'LFS3_O_RDWR']
 if = [
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -5729,7 +5729,7 @@ defines.INIT = [0, 1, 2]
 defines.MODE = ['LFS3_O_WRONLY', 'LFS3_O_RDWR']
 if = [
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -5837,7 +5837,7 @@ defines.INIT = [0, 1, 2]
 defines.MODE = ['LFS3_O_WRONLY', 'LFS3_O_RDWR']
 if = [
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -5938,7 +5938,7 @@ defines.INIT = [0, 1, 2]
 defines.MODE = ['LFS3_O_WRONLY', 'LFS3_O_RDWR']
 if = [
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;
@@ -6047,7 +6047,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     lfs3_t lfs3;

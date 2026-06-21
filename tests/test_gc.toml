@@ -4716,8 +4716,8 @@ defines.CKDATA = [false, true]
 # limit files to very simple btrees
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
-defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
-defines.SIZE = '2*FRAGMENT_SIZE'
+defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
+defines.SIZE = '2*GRAIN_SIZE'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
@@ -4861,8 +4861,8 @@ defines.CKDATA = [false, true]
 # limit files to very simple btrees
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
-defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
-defines.SIZE = '2*FRAGMENT_SIZE'
+defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
+defines.SIZE = '2*GRAIN_SIZE'
 # <=2 => grm-able
 #  >2 => requires orphans
 defines.ORPHANS = [0, 1, 2, 3, 100]
@@ -5007,7 +5007,7 @@ defines.CKDATA = [false, true]
 # a bit delicate
 defines.SHRUB_SIZE = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
-defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
+defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = 'BLOCK_SIZE'
 # <=2 => grm-able
 #  >2 => requires orphans
@@ -5153,7 +5153,7 @@ defines.CKDATA = [false, true]
 # a bit delicate
 defines.SHRUB_SIZE = 'BLOCK_SIZE/8'
 defines.CRYSTAL_THRESH = -1
-defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
+defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = 'BLOCK_SIZE'
 # <=2 => grm-able
 #  >2 => requires orphans
@@ -11777,7 +11777,7 @@ fuzz = 'SEED'
 if = [
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',

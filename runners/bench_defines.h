@@ -46,7 +46,7 @@
     BENCH_DEFINE(GC_COMPACTBTREE_THRESH,
                                         0                                   )
     BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/8                        )
-    BENCH_DEFINE(FRAGMENT_SIZE,         LFS3_MIN(BLOCK_SIZE/16, 512)        )
+    BENCH_DEFINE(GRAIN_SIZE,            LFS3_MIN(BLOCK_SIZE/16, 512)        )
     BENCH_DEFINE(CRYSTAL_THRESH,        BLOCK_SIZE/16                       )
     // don't bother simulating erases, this may be less realistic, but
     // it's certainly faster!
@@ -180,7 +180,7 @@
         .gc_compactmeta_thresh          = GC_COMPACTMETA_THRESH,
         .gc_compactbtree_thresh         = GC_COMPACTBTREE_THRESH,
         .shrub_size                     = SHRUB_SIZE,
-        .fragment_size                  = FRAGMENT_SIZE,
+        .grain_size                     = GRAIN_SIZE,
         .crystal_thresh                 = CRYSTAL_THRESH,
     };
     struct lfs3_cfg *BENCH_CFG = &_cfg;

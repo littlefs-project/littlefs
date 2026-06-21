@@ -1748,8 +1748,8 @@ defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
 # force the file to create a btree
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
-defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
-defines.SIZE = '2*FRAGMENT_SIZE'
+defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
+defines.SIZE = '2*GRAIN_SIZE'
 ifdef = 'LFS3_CKPROGS'
 code = '''
     // first we need to figure out where the btree block will actually
@@ -2261,8 +2261,8 @@ defines.CFG_FLAGS = 'LFS3_CFG_CKFETCHES'
 # force the file to create a btree
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
-defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
-defines.SIZE = '2*FRAGMENT_SIZE'
+defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
+defines.SIZE = '2*GRAIN_SIZE'
 ifdef = 'LFS3_CKFETCHES'
 code = '''
     // first we need to figure out where the btree block will actually
@@ -2525,8 +2525,8 @@ defines.CFG_FLAGS = 'LFS3_CFG_CKMETAPARITY'
 # force the file to create a btree
 defines.SHRUB_SIZE = 0
 defines.CRYSTAL_THRESH = -1
-defines.FRAGMENT_SIZE = 'BLOCK_SIZE/8'
-defines.SIZE = '2*FRAGMENT_SIZE'
+defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
+defines.SIZE = '2*GRAIN_SIZE'
 ifdef = 'LFS3_CKMETAPARITY'
 code = '''
     // first we need to figure out where the btree block will actually
@@ -3505,7 +3505,7 @@ if = [
     'LFS3_IFDEF_CKDATACKSUMS(true, !CKDATACKSUMS)',
     'CHUNK <= SIZE',
     # this just saves testing time
-    'SIZE <= 4*1024*FRAGMENT_SIZE',
+    'SIZE <= 4*1024*GRAIN_SIZE',
 ]
 code = '''
     // seed our block device with our seed so we have different error
