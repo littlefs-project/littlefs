@@ -788,13 +788,13 @@ struct lfs3_cfg {
     // will attempt to compact metadata logs that exceed this threshold
     // during gc operations.
     //
-    // Defaults to ~88% block_size when zero, though this default may
-    // change in the future.
-    //
     // Note this only affects explicit gc operations. During normal
     // operations metadata is only compacted when full.
     //
-    // Set to -1 to disable metadata compaction during gc.
+    // Suggested values are around ~88% block_size (bs-bs/8).
+    //
+    // Set to -1 to disable metadata compaction during gc. Must be
+    // >= block_size/2 to avoid balance issues. 0 is reserved.
     #ifndef LFS3_RDONLY
     lfs3_size_t gc_compactmeta_thresh;
     #endif
@@ -810,7 +810,8 @@ struct lfs3_cfg {
     // Note this only affects explicit gc operations. During normal
     // operations metadata is only compacted when full.
     //
-    // Set to -1 to disable btree compaction during gc. Defaults to
+    // Set to -1 to disable btree compaction during gc. Must be
+    // >= block_size/2 to avoid balance issues. Defaults to
     // gc_compactmeta_thresh when zero.
     #ifndef LFS3_RDONLY
     lfs3_size_t gc_compactbtree_thresh;
@@ -859,14 +860,13 @@ struct lfs3_cfg {
     lfs3_off_t file_limit;
     #endif
 
-    // TODO these are pretty low-level details, should we have reasonable
-    // defaults? need to benchmark.
-
     // Maximum size of inlined B-tree roots (shrubs) in bytes. Shrubs
     // reduce B-tree overhead and improve write performance, but may
     // add pressure to metadata-related operations.
     //
-    // Must be <= block_size/8. 0 disables shrubs.
+    // Suggested values are around ~block_size/8.
+    //
+    // Must be <= block_size/8. -1 disables shrubs. 0 is reserved.
     #ifndef LFS3_RDONLY
     lfs3_size_t shrub_size;
     #endif
@@ -875,14 +875,13 @@ struct lfs3_cfg {
     // values may speed up small random writes, but increases metadata
     // overhead.
     //
-    // Must be <= block_size/4.
+    // Suggested values are around ~min(block_size/16, 512).
+    //
+    // Must be <= block_size/4. -1 disables grains, but requires
+    // crystal_thresh=1. 0 is reserved.
     #ifndef LFS3_RDONLY
     lfs3_size_t grain_size;
     #endif
-
-    // TODO crystal_thresh=0 really just means crystal_thresh=1, should we
-    // allow crystal_thresh=0? crystal_thresh=0 => block_size/16 or
-    // block_size/8 is probably a better default. need to benchmark.
 
     // Threshold for compacting multiple grains into a data block.
     // Smaller values will crystallize more eagerly, reducing random
@@ -891,9 +890,12 @@ struct lfs3_cfg {
     // Ideally >= prog_size to avoid prog padding, but <= prog_size is
     // supported for when prog_size ~= block_size.
     //
-    // 0 only writes blocks, while -1 or any value > block_size only
-    // writes grains. Grain-only files may be useful for optimizing
-    // random-write-heavy workloads, but increase disk usage by ~4x.
+    // Suggested values are around ~block_size/16.
+    //
+    // 1 only writes blocks, while -1 or any value > block_size only
+    // writes grains. 0 is reserved. Grain-only files may be useful for
+    // optimizing random-write-heavy workloads, but increase disk usage
+    // by ~4x.
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
     #endif

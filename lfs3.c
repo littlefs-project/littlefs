@@ -5298,10 +5298,8 @@ static int lfs3_rbyd_appendcksum_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
             > lfs3_min(
                 (lfs3->cfg->gc_compactbtree_thresh)
                     ? lfs3->cfg->gc_compactbtree_thresh
-                    : (lfs3_size_t)-1,
-                (lfs3->cfg->gc_compactmeta_thresh)
-                    ? lfs3->cfg->gc_compactmeta_thresh
-                    : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
+                    : lfs3->cfg->gc_compactmeta_thresh,
+                lfs3->cfg->gc_compactmeta_thresh)) {
         lfs3->flags |= LFS3_I_COMPACTMETA;
     }
 
@@ -7602,7 +7600,8 @@ static int lfs3_bshrub_commitroot_(lfs3_t *lfs3, lfs3_bshrub_t *bshrub,
                 ? file->bshrub.eoff
                 : 0));
     // uh oh, too big?
-    if (lfs3_sadd(shestimate, bcommit->shestimate) > lfs3->cfg->shrub_size) {
+    if ((lfs3_ssize_t)lfs3_sadd(shestimate, bcommit->shestimate)
+            > (lfs3_ssize_t)lfs3->cfg->shrub_size) {
         return LFS3_ERR_RANGE;
     }
 
@@ -10879,10 +10878,7 @@ static int lfs3_mtree_compactmdir(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 lfs3_dbgmbid(lfs3, mdir->mid),
                 mdir->r.blocks[0], mdir->r.blocks[1],
                 lfs3_rbyd_eoff(&mdir->r),
-                (lfs3->cfg->gc_compactmeta_thresh)
-                    ? lfs3->cfg->gc_compactmeta_thresh
-                    : lfs3->cfg->block_size
-                        - lfs3->cfg->block_size/8);
+                lfs3->cfg->gc_compactmeta_thresh);
     }
 
     // compact/evict the mdir
@@ -10938,11 +10934,8 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         ? -1
                         : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
                     (lfs3->cfg->gc_compactbtree_thresh)
-                            ? lfs3->cfg->gc_compactbtree_thresh
-                        : (lfs3->cfg->gc_compactmeta_thresh)
-                            ? lfs3->cfg->gc_compactmeta_thresh
-                            : lfs3->cfg->block_size
-                                - lfs3->cfg->block_size/8);
+                        ? lfs3->cfg->gc_compactbtree_thresh
+                        : lfs3->cfg->gc_compactmeta_thresh);
         }
 
         // lfs3_bshrub_compact_ mutates the rbyd, which may point at
@@ -10996,11 +10989,8 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         ? -1
                         : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
                     (lfs3->cfg->gc_compactbtree_thresh)
-                            ? lfs3->cfg->gc_compactbtree_thresh
-                        : (lfs3->cfg->gc_compactmeta_thresh)
-                            ? lfs3->cfg->gc_compactmeta_thresh
-                            : lfs3->cfg->block_size
-                                - lfs3->cfg->block_size/8);
+                        ? lfs3->cfg->gc_compactbtree_thresh
+                        : lfs3->cfg->gc_compactmeta_thresh);
         }
 
         // lfs3_bshrub_compact_ mutates the rbyd, which may point at
@@ -11072,11 +11062,8 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             ? -1
                             : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
                         (lfs3->cfg->gc_compactbtree_thresh)
-                                ? lfs3->cfg->gc_compactbtree_thresh
-                            : (lfs3->cfg->gc_compactmeta_thresh)
-                                ? lfs3->cfg->gc_compactmeta_thresh
-                                : lfs3->cfg->block_size
-                                    - lfs3->cfg->block_size/8);
+                            ? lfs3->cfg->gc_compactbtree_thresh
+                            : lfs3->cfg->gc_compactmeta_thresh);
             } else {
                 LFS3_INFO("Compacting btree rbyd "
                             "0x%"PRIx32".%"PRIx32" "
@@ -11087,11 +11074,8 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             ? -1
                             : (lfs3_ssize_t)lfs3_rbyd_eoff(rbyd),
                         (lfs3->cfg->gc_compactbtree_thresh)
-                                ? lfs3->cfg->gc_compactbtree_thresh
-                            : (lfs3->cfg->gc_compactmeta_thresh)
-                                ? lfs3->cfg->gc_compactmeta_thresh
-                                : lfs3->cfg->block_size
-                                    - lfs3->cfg->block_size/8);
+                            ? lfs3->cfg->gc_compactbtree_thresh
+                            : lfs3->cfg->gc_compactmeta_thresh);
             }
         }
 
@@ -11650,9 +11634,7 @@ again:;
             && (mgc->t.h.flags & LFS3_gc_COMPACTMETAING)
             // exceed compaction threshold?
             && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr_->d.u.buffer)->r)
-                > ((lfs3->cfg->gc_compactmeta_thresh)
-                    ? lfs3->cfg->gc_compactmeta_thresh
-                    : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
+                > lfs3->cfg->gc_compactmeta_thresh) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mtree_compactmdir(lfs3, mgc, mdir);
@@ -11679,10 +11661,8 @@ again:;
         // exceeds compaction threshold?
         if (lfs3_rbyd_eoff((lfs3_rbyd_t*)bptr_->d.u.buffer)
                 > ((lfs3->cfg->gc_compactbtree_thresh)
-                        ? lfs3->cfg->gc_compactbtree_thresh
-                    : (lfs3->cfg->gc_compactmeta_thresh)
-                        ? lfs3->cfg->gc_compactmeta_thresh
-                        : lfs3->cfg->block_size - lfs3->cfg->block_size/8)) {
+                    ? lfs3->cfg->gc_compactbtree_thresh
+                    : lfs3->cfg->gc_compactmeta_thresh)) {
             lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr_->d.u.buffer;
             uint32_t dirty = mgc->t.h.flags;
             int err = lfs3_mtree_compactbtree(lfs3, mgc, rbyd);
@@ -14796,9 +14776,10 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         // small file set? can we atomically commit everything in one
         // commit? currently this is only possible via lfs3_set
         if ((file->h.flags & LFS3_o_SET)
-                && file->cache.size <= lfs3->cfg->shrub_size
+                && (lfs3_ssize_t)file->cache.size
+                    <= (lfs3_ssize_t)lfs3->cfg->shrub_size
                 && file->cache.size <= lfs3->cfg->grain_size
-                && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
+                && file->cache.size < lfs3->cfg->crystal_thresh) {
             // we need to mark as unsync for sync to do anything
             file->h.flags |= LFS3_o_UNSYNC;
 
@@ -15678,7 +15659,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     (lfs3_off_t)crystal_max,
                     lfs3_min(
                         lfs3->cfg->prog_size,
-                        lfs3_max(lfs3->cfg->crystal_thresh, 1))),
+                        lfs3->cfg->crystal_thresh)),
                 lfs3->cfg->block_size),
             lfs3_max(
                 buffer_pos + buffer_size,
@@ -15819,7 +15800,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         // crystal_thresh < prog_size, it's a weird case, but this is
         // useful for small blocks
         lfs3_size_t d = (pos_ - block_pos) % lfs3->cfg->prog_size;
-        if (d < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
+        if (d < lfs3->cfg->crystal_thresh) {
             lfs3->pcache.size -= d;
             pos_ -= d;
         }
@@ -15937,7 +15918,7 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
                 && pos_ < block_start + lfs3->cfg->block_size
                 // if we're more than a crystal away, graft and check crystal
                 // heuristic before resuming
-                && pos_ - block_end < lfs3_max(lfs3->cfg->crystal_thresh, 1)
+                && pos_ - block_end < lfs3->cfg->crystal_thresh
                 // need to bail if we can't meet prog alignment
                 && (pos_ + size_) - block_end >= lfs3_min(
                     lfs3->cfg->prog_size,
@@ -16699,9 +16680,10 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     // if the file is small enough to fit in the cache
     int err;
     if (file->cache.size == lfs3_file_size_(file)
-            && file->cache.size <= lfs3->cfg->shrub_size
+            && (lfs3_ssize_t)file->cache.size
+                <= (lfs3_ssize_t)lfs3->cfg->shrub_size
             && file->cache.size <= lfs3->cfg->grain_size
-            && file->cache.size < lfs3_max(lfs3->cfg->crystal_thresh, 1)) {
+            && file->cache.size < lfs3->cfg->crystal_thresh) {
         // discard any overwritten leaves, this also clears the
         // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
         lfs3_file_discardleaf(file);
@@ -17373,8 +17355,25 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     // block_size is currently limited to 28-bits
     //
     // this results in a much nicer leb128 encoding, and we rely on it
-    // in at least lfs3_data_t to encode additional states
+    // in at least lfs3_data_t to encode additional states in a word
     LFS3_ASSERT(cfg->block_size <= 0x0fffffff);
+
+    #ifndef LFS3_RDONLY
+    // shrub_size must be <= block_size/8, and 0 is reserved
+    LFS3_ASSERT(cfg->shrub_size != 0);
+    LFS3_ASSERT(cfg->shrub_size == (lfs3_size_t)-1
+            || cfg->shrub_size <= cfg->block_size/8);
+    // grain_size must be <= block_size/4, and 0 is reserved
+    LFS3_ASSERT(cfg->grain_size != 0);
+    LFS3_ASSERT(cfg->grain_size == (lfs3_size_t)-1
+            || cfg->grain_size <= cfg->block_size/4);
+    // crystal_thresh=0 is reserved
+    LFS3_ASSERT(cfg->crystal_thresh != 0);
+    // grain_size=-1 requires crystal_thresh=1, which does most of the
+    // work, this is just useful for this assert
+    LFS3_ASSERT(cfg->grain_size != (lfs3_size_t)-1
+            || cfg->crystal_thresh == 1);
+    #endif
 
     // check gc stuff
     #ifdef LFS3_GC
@@ -17394,19 +17393,20 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     // check that gc_compactmeta_thresh makes sense
     //
-    // metadata can't be compacted below block_size/2, and metadata can't
-    // exceed a block
-    LFS3_ASSERT(cfg->gc_compactmeta_thresh == 0
-            || cfg->gc_compactmeta_thresh >= cfg->block_size/2);
+    // metadata can't be compacted below block_size/2 for balance
+    // reasons, metadata can't exceed exceed a block, and 0 is reserved
+    LFS3_ASSERT(cfg->gc_compactmeta_thresh != 0);
+    LFS3_ASSERT(cfg->gc_compactmeta_thresh >= cfg->block_size/2);
     LFS3_ASSERT(cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
             || cfg->gc_compactmeta_thresh <= cfg->block_size);
-    #endif
 
-    #ifndef LFS3_RDONLY
-    // shrub_size must be <= block_size/8
-    LFS3_ASSERT(cfg->shrub_size <= cfg->block_size/8);
-    // grain_size must be <= block_size/4
-    LFS3_ASSERT(cfg->grain_size <= cfg->block_size/4);
+    // same for gc_compactbtree_thresh
+    //
+    // but 0 defaults to gc_compactmeta_thresh
+    LFS3_ASSERT(cfg->gc_compactbtree_thresh == 0
+            || cfg->gc_compactbtree_thresh >= cfg->block_size/2);
+    LFS3_ASSERT(cfg->gc_compactbtree_thresh == (lfs3_size_t)-1
+            || cfg->gc_compactbtree_thresh <= cfg->block_size);
     #endif
 
     // looks correct? start putting the system together

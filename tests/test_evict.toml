@@ -2897,7 +2897,7 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 defines.CONDEMN = [false, true]
 # need to disable shrubs to avoid accidental gbmap syncs
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 if = [
     'GBMAP',
     'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
@@ -3100,7 +3100,7 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SIBLING = [0, 1, 2]
 defines.CONDEMN = [false, true]
 # need to disable shrubs to avoid accidental gbmap syncs
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 if = [
     'GBMAP',
     'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
@@ -3475,7 +3475,7 @@ code = '''
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # encourage a btree
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
 code = '''
     lfs3_t lfs3;
@@ -9977,7 +9977,7 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 # need to disable shrubs to avoid accidental gbmap syncs
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
@@ -10198,7 +10198,7 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SIBLING = [0, 1, 2]
 # need to disable shrubs to avoid accidental gbmap syncs
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]
@@ -10611,7 +10611,7 @@ code = '''
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # encourage a btree
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
 defines.CONDEMN = [false, true]

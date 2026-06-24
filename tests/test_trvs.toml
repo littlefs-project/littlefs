@@ -2570,7 +2570,7 @@ defines.EXCL = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 defines.TRUNC = [false, true]
 code = '''
     lfs3_t lfs3;
@@ -2923,7 +2923,7 @@ defines.EXCL = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -3296,7 +3296,7 @@ defines.EXCL = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.SIZE = '2*BLOCK_SIZE'
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 defines.DESYNC = [false, true]
 code = '''
     lfs3_t lfs3;

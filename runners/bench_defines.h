@@ -42,7 +42,7 @@
     BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   -1                                  )
     BENCH_DEFINE(GC_LOOKGBMAP_THRESH,   -1                                  )
     BENCH_DEFINE(GC_PREERASE_COUNT,     -1                                  )
-    BENCH_DEFINE(GC_COMPACTMETA_THRESH, 0                                   )
+    BENCH_DEFINE(GC_COMPACTMETA_THRESH, BLOCK_SIZE - BLOCK_SIZE/8           )
     BENCH_DEFINE(GC_COMPACTBTREE_THRESH,
                                         0                                   )
     BENCH_DEFINE(SHRUB_SIZE,            BLOCK_SIZE/8                        )

@@ -3927,7 +3927,7 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # need to disable shrubs to avoid accidental gbmap syncs
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 if = 'GBMAP'
 ifdef = 'LFS3_GBMAP'
 code = '''
@@ -4152,7 +4152,7 @@ defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # anyways
 defines.GC_LOOKGBMAP_THRESH = '(BLOCK_COUNT*3)/4'
 # need to disable shrubs to avoid accidental gbmap syncs
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 if = 'GBMAP'
 ifdef = 'LFS3_GBMAP'
 in = 'lfs3.c'
@@ -4714,7 +4714,7 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # limit files to very simple btrees
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 defines.CRYSTAL_THRESH = -1
 defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*GRAIN_SIZE'
@@ -4859,7 +4859,7 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 # limit files to very simple btrees
-defines.SHRUB_SIZE = 0
+defines.SHRUB_SIZE = -1
 defines.CRYSTAL_THRESH = -1
 defines.GRAIN_SIZE = 'BLOCK_SIZE/8'
 defines.SIZE = '2*GRAIN_SIZE'
