@@ -55,16 +55,16 @@ typedef int32_t  lfs3_smid_t;
 typedef uint32_t lfs3_did_t;
 typedef int32_t  lfs3_sdid_t;
 
-// Maximum name size in bytes, may be redefined to reduce the size of the
-// info struct. Limited to <= 1022. Stored in superblock and must be
-// respected by other littlefs drivers.
+// Maximum name size in bytes, may be redefined to reduce the size of
+// the info struct. Limited to <= block_size/8. Stored on-disk and must
+// be respected by other littlefs drivers.
 #ifndef LFS3_NAME_MAX
 #define LFS3_NAME_MAX 255
 #endif
 
-// Maximum size of a file in bytes, may be redefined to limit to support other
-// drivers. Limited on disk to <= 2147483647. Stored in superblock and must be
-// respected by other littlefs drivers.
+// Maximum size of a file in bytes, may be redefined to limit to support
+// other drivers. Limited on disk to <= (2^31)-1. Stored on-disk and
+// must be respected by other littlefs drivers.
 #ifndef LFS3_FILE_MAX
 #define LFS3_FILE_MAX 2147483647
 #endif
@@ -592,18 +592,23 @@ struct lfs3_cfg {
     // mount/format flags when relevant.
     uint32_t flags;
 
-    // Opaque user provided context that can be used to pass
-    // information to the block device operations
+    // Opaque user provided context that can be used to pass information
+    // to the block device operations
     void *context;
 
-    // Read a region in a block. Negative error codes are propagated
-    // to the user.
+    // Read a region in a block. Negative error codes are propagated to
+    // the user.
+    //
+    // May return LFS3_ERR_CORRUPT if the block is unreadable, or
+    // LFS3_ERR_DAMAGED if the block is readable but needs repairs.
     int (*read)(const struct lfs3_cfg *c, lfs3_block_t block,
             lfs3_off_t off, void *buffer, lfs3_size_t size);
 
-    // Program a region in a block. The block must have previously
-    // been erased. Negative error codes are propagated to the user.
-    // May return LFS3_ERR_CORRUPT if the block should be considered bad.
+    // Program a region in a block. The block must have previously been
+    // erased. Negative error codes are propagated to the user.
+    //
+    // May return LFS3_ERR_CORRUPT or LFS3_ERR_DAMAGED if the block will
+    // be unreadable.
     #ifndef LFS3_RDONLY
     int (*prog)(const struct lfs3_cfg *c, lfs3_block_t block,
             lfs3_off_t off, const void *buffer, lfs3_size_t size);
@@ -612,65 +617,72 @@ struct lfs3_cfg {
     // Erase a block. A block must be erased before being programmed.
     // The state of an erased block is undefined. Negative error codes
     // are propagated to the user.
-    // May return LFS3_ERR_CORRUPT if the block should be considered bad.
+    //
+    // May return LFS3_ERR_CORRUPT or LFS3_ERR_DAMAGED if the block will
+    // be unreadable.
     #ifndef LFS3_RDONLY
     int (*erase)(const struct lfs3_cfg *c, lfs3_block_t block);
     #endif
 
-    // Sync the state of the underlying block device. Negative error codes
-    // are propagated to the user.
+    // Sync the state of the underlying block device. Negative error
+    // codes are propagated to the user.
     #ifndef LFS3_RDONLY
     int (*sync)(const struct lfs3_cfg *c);
     #endif
 
+    // Lock the underlying block device. Negative error codes are
+    // propagated to the user.
     #ifdef LFS3_THREADSAFE
-    // Lock the underlying block device. Negative error codes
-    // are propagated to the user.
     int (*lock)(const struct lfs3_cfg *c);
+    #endif
 
-    // Unlock the underlying block device. Negative error codes
-    // are propagated to the user.
+    // Unlock the underlying block device. Negative error codes are
+    // propagated to the user.
+    #ifdef LFS3_THREADSAFE
     int (*unlock)(const struct lfs3_cfg *c);
     #endif
 
     // Minimum size of a read in bytes. All read operations will be a
-    // multiple of this value.
+    // multiple (>=) of this value.
     lfs3_size_t read_size;
 
-    // Minimum size of a program in bytes. All program operations will be a
-    // multiple of this value.
+    // Minimum size of a program in bytes. All program operations will
+    // be a multiple (>=) of this value.
     #ifndef LFS3_RDONLY
     lfs3_size_t prog_size;
     #endif
 
-    // Size of an erasable block in bytes. This does not impact ram consumption
-    // and may be larger than the physical erase size. Must be a multiple of
-    // the read and program sizes.
+    // Size of an erasable block in bytes. This does not impact RAM
+    // consumption and may be larger than the physical erase size. Must
+    // be a multiple (>=) of the read and program sizes.
     lfs3_size_t block_size;
 
     // Number of erasable blocks on the device.
     lfs3_block_t block_count;
 
     // Number of erase cycles before metadata blocks are relocated for
-    // wear-leveling. Suggested values are in the range 16-1024. Larger values
-    // relocate less frequently, improving average performance, at the cost
-    // of worse wear distribution. Note this ends up rounded down to a
+    // wear-leveling.
+    //
+    // Suggested values are in the range 16-1024. Larger values relocate
+    // less frequently, improving average performance, at the cost of
+    // worse wear distribution. Note this ends up rounded down to a
     // power-of-2.
     //
-    // 0 results in pure copy-on-write, which may be counter-productive. Set
-    // to -1 to disable block-level wear-leveling.
+    // 0 results in pure copy-on-write, which may be counter-productive
+    // due to write amplification. Set to -1 to disable block-level
+    // wear-leveling.
     #ifndef LFS3_RDONLY
     int32_t block_recycles;
     #endif
 
     // Size of the read cache in bytes. Larger caches can improve
     // performance by storing more data and reducing the number of disk
-    // accesses. Must be a multiple of the read size.
+    // accesses. Must be a multiple (>=) of the read size.
     lfs3_size_t rcache_size;
 
     // Size of the program cache in bytes. Larger caches can improve
     // performance by storing more data and reducing the number of disk
-    // accesses. Must be a multiple of the program size.
+    // accesses. Must be a multiple (>=) of the program size.
     #ifndef LFS3_RDONLY
     lfs3_size_t pcache_size;
     #endif
@@ -681,9 +693,9 @@ struct lfs3_cfg {
     lfs3_size_t fcache_size;
 
     // Size of the lookahead buffer in bytes. A larger lookahead buffer
-    // increases the number of blocks found during an allocation scan. The
-    // lookahead buffer is stored as a compact bitmap, so each byte of RAM
-    // can track 8 blocks.
+    // increases the number of blocks found during an allocation scan.
+    // The lookahead buffer is stored as a compact bitmap, so each byte
+    // of RAM can track 8 blocks.
     #ifndef LFS3_RDONLY
     lfs3_size_t lookahead_size;
     #endif
@@ -697,36 +709,35 @@ struct lfs3_cfg {
     // to the slower lookahead allocator when empty.
     //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
-    // repops at the risk of large latency spikes.
+    // repopulations at the risk of large latency spikes.
     #ifdef LFS3_GBMAP
     lfs3_block_t lookgbmap_thresh;
     #endif
 
-    // Size of the optional evict queue in lfs3_evict_t. A larger evict
-    // queue can track more evicted/damaged/bad blocks during evictions,
-    // repairs and readonly operations. If the evict queue overflows,
-    // damaged/bad blocks are quietly forgotten until the next bd error.
+    // Size of the optional evict queue in lfs3_evict_t structs. A
+    // larger evict queue can track more evicted/damaged blocks during
+    // evictions/repairs/read-only operations. If the evict queue
+    // overflows, damaged blocks are quietly forgotten until a
+    // successful repair.
     //
-    // A suggested value is 2.
+    // A suggested value is 2. Finding damage is normally a rare event.
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     lfs3_size_t evictqueue_count;
     #endif
 
-    // Flags indicating what gc work to do during lfs3_gc calls.
+    // Flags indicating what gc work to do during lfs3_fs_gc calls.
     #ifdef LFS3_GC
     uint32_t gc_flags;
     #endif
 
-    // Number of gc steps to perform in each call to lfs3_gc, with each
-    // step being ~1 block of work.
+    // Number of gc steps to perform in each call to lfs3_fs_gc, with
+    // each step representing ~1 block of work. More steps per call will
+    // make more progress if interleaved with other filesystem
+    // operations, but may also introduce more latency.
     //
-    // More steps per call will make more progress if interleaved with
-    // other filesystem operations, but may also introduce more latency.
     // steps=1 or 0 will do the minimum amount of work to make progress,
     // and steps=-1 will not return until all pending janitorial work
-    // has been completed.
-    //
-    // Defaults to steps=1 when zero.
+    // has been completed. Defaults to steps=1 when zero.
     #ifdef LFS3_GC
     lfs3_sblock_t gc_steps;
     #endif
@@ -753,32 +764,32 @@ struct lfs3_cfg {
     // operations gbmap repopulations are controlled by
     // lookgbmap_thresh.
     //
-    // Any value <= lookgbmap_thresh repopulates the gbmap when below
-    // lookgbmap_thresh, while -1 or any value >= block_count
+    // 0 or any value <= lookgbmap_thresh repopulates the gbmap when
+    // below lookgbmap_thresh, while -1 or any value >= block_count
     // repopulates the lookahead buffer after any block allocation.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t gc_lookgbmap_thresh;
     #endif
 
-    // Number of blocks to try to pre-erase during gc. When erase is
-    // expensive (flash), pre-erasing blocks can help reduce the latency
-    // of block allocation.
+    // Number of blocks to try to pre-erase during gc. This can help
+    // reduce the latency of block allocation when erasing is expensive.
     //
     // Requires the gbmap to track pre-erased blocks.
     //
-    // 0 only erases blocks immediately before prog, while -1 or any
-    // value >= block_count attempts to pre-erase all known free blocks
-    // during gc.
-    //
+    // 0 disables pre-erasing, while -1 or any value >= block_count
+    // attempts to pre-erase all known free blocks during gc. When
+    // disabled, littlefs erases blocks immediately before the first
+    // prog operation.
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     lfs3_block_t gc_preerase_count;
     #endif
 
-    // Threshold for metadata compaction during gc in bytes.
+    // Threshold for metadata compaction during gc in bytes. littlefs
+    // will attempt to compact metadata logs that exceed this threshold
+    // during gc operations.
     //
-    // Metadata logs that exceed this threshold will be compacted during
-    // gc operations. Defaults to ~88% block_size when zero, though this
-    // default may change in the future.
+    // Defaults to ~88% block_size when zero, though this default may
+    // change in the future.
     //
     // Note this only affects explicit gc operations. During normal
     // operations metadata is only compacted when full.
@@ -788,10 +799,13 @@ struct lfs3_cfg {
     lfs3_size_t gc_compactmeta_thresh;
     #endif
 
-    // Threshold for btree node compaction during gc in bytes.
+    // Threshold for btree node compaction during gc in bytes. littlefs
+    // will attempt to compact btree nodes that exceed this threshold
+    // during gc operations.
     //
     // This allows a separate compaction threshold for btree nodes,
-    // which are usually less critical than mdirs.
+    // which are usually less critical and more susceptible to write
+    // amplification than mdirs.
     //
     // Note this only affects explicit gc operations. During normal
     // operations metadata is only compacted when full.
@@ -802,18 +816,19 @@ struct lfs3_cfg {
     lfs3_size_t gc_compactbtree_thresh;
     #endif
 
-    // Optional statically allocated rcache buffer. Must be rcache_size. By
-    // default lfs3_malloc is used to allocate this buffer.
+    // Optional statically allocated rcache buffer. Must be rcache_size.
+    // By default lfs3_malloc is used to allocate this buffer.
     void *rcache_buffer;
 
-    // Optional statically allocated pcache buffer. Must be pcache_size. By
-    // default lfs3_malloc is used to allocate this buffer.
+    // Optional statically allocated pcache buffer. Must be pcache_size.
+    // By default lfs3_malloc is used to allocate this buffer.
     #ifndef LFS3_RDONLY
     void *pcache_buffer;
     #endif
 
-    // Optional statically allocated lookahead buffer. Must be lookahead_size.
-    // By default lfs3_malloc is used to allocate this buffer.
+    // Optional statically allocated lookahead buffer. Must be
+    // lookahead_size. By default lfs3_malloc is used to allocate this
+    // buffer.
     #ifndef LFS3_RDONLY
     void *lookahead_buffer;
     #endif
@@ -825,17 +840,21 @@ struct lfs3_cfg {
     struct lfs3_evict *evictqueue_array;
     #endif
 
-    // Optional upper limit on length of file names in bytes. No downside for
-    // larger names except the size of the info struct which is controlled by
-    // the LFS3_NAME_MAX define. Defaults to LFS3_NAME_MAX when zero. Stored in
-    // superblock and must be respected by other littlefs drivers.
+    // Optional upper limit on length of file names in bytes. No
+    // downside for larger names except the size of the info struct
+    // which is controlled by LFS3_NAME_MAX.
+    //
+    // Defaults to LFS3_NAME_MAX when zero. Stored on-disk and must be
+    // respected by other littlefs drivers.
     #ifndef LFS3_RDONLY
     lfs3_size_t name_limit;
     #endif
 
-    // Optional upper limit on files in bytes. No downside for larger files
-    // but must be <= LFS3_FILE_MAX. Defaults to LFS3_FILE_MAX when zero. Stored
-    // in superblock and must be respected by other littlefs drivers.
+    // Optional upper limit on files in bytes. No downside for larger
+    // files but must be <= LFS3_FILE_MAX.
+    //
+    // Defaults to LFS3_FILE_MAX when zero. Stored on-disk and must be
+    // respected by other littlefs drivers.
     #ifndef LFS3_RDONLY
     lfs3_off_t file_limit;
     #endif
@@ -843,18 +862,20 @@ struct lfs3_cfg {
     // TODO these are pretty low-level details, should we have reasonable
     // defaults? need to benchmark.
 
-    // Maximum size of inlined trees (shrubs) in bytes. Shrubs reduce B-tree
-    // root overhead, but may impact metadata-related performance. Must be
-    // <= blocksize/8.
+    // Maximum size of inlined B-tree roots (shrubs) in bytes. Shrubs
+    // reduce B-tree overhead and improve write performance, but may
+    // add pressure to metadata-related operations.
     //
-    // 0 disables shrubs.
+    // Must be <= block_size/8. 0 disables shrubs.
     #ifndef LFS3_RDONLY
     lfs3_size_t shrub_size;
     #endif
 
-    // Maximum size of a non-block B-tree leaf in bytes. Smaller values may
-    // make small random-writes cheaper, but increase metadata overhead. Must
-    // be <= block_size/4.
+    // Maximum size of inlined B-tree leaves (grains) in bytes. Smaller
+    // values may speed up small random writes, but increases metadata
+    // overhead.
+    //
+    // Must be <= block_size/4.
     #ifndef LFS3_RDONLY
     lfs3_size_t grain_size;
     #endif
@@ -863,16 +884,16 @@ struct lfs3_cfg {
     // allow crystal_thresh=0? crystal_thresh=0 => block_size/16 or
     // block_size/8 is probably a better default. need to benchmark.
 
-    // TODO we should probably just assert if crystal_thresh < grain_size,
-    // or if crystal_thresh < prog_size, these aren't really valid cases
-
-    // Threshold for compacting multiple grains into a block. Smaller
-    // values will crystallize more eagerly, reducing disk usage, but
-    // increasing the cost of random-writes.
+    // Threshold for compacting multiple grains into a data block.
+    // Smaller values will crystallize more eagerly, reducing random
+    // write fragmentation at the cost of random write performance.
     //
-    // 0 tries to only writes blocks, minimizing disk usage, while -1 or
-    // any value > block_size only writes grains, minimizing
-    // random-write cost.
+    // Ideally >= prog_size to avoid prog padding, but <= prog_size is
+    // supported for when prog_size ~= block_size.
+    //
+    // 0 only writes blocks, while -1 or any value > block_size only
+    // writes grains. Grain-only files may be useful for optimizing
+    // random-write-heavy workloads, but increase disk usage by ~4x.
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
     #endif
@@ -887,8 +908,8 @@ struct lfs3_info {
     lfs3_size_t size;
 
     // Name of the file stored as a null-terminated string. Limited to
-    // LFS3_NAME_MAX+1, which can be changed by redefining LFS3_NAME_MAX to
-    // reduce RAM. LFS3_NAME_MAX is stored in superblock and must be
+    // LFS3_NAME_MAX+1, which can be changed by redefining LFS3_NAME_MAX
+    // to reduce RAM. LFS3_NAME_MAX is stored in superblock and must be
     // respected by other littlefs drivers.
     char name[LFS3_NAME_MAX+1];
 };
@@ -953,8 +974,9 @@ struct lfs3_file_cfg {
     // relevant.
     uint32_t flags;
 
-    // Optional statically allocated file cache buffer. Must be fcache_size.
-    // By default lfs3_malloc is used to allocate this buffer.
+    // Optional statically allocated file cache buffer. Must be
+    // fcache_size. By default lfs3_malloc is used to allocate this
+    // buffer.
     void *fcache_buffer;
 
     // Size of the file cache in bytes. In addition to filesystem-wide
@@ -962,10 +984,10 @@ struct lfs3_file_cfg {
     // accesses. Defaults to fcache_size if fcache_buffer is NULL.
     lfs3_size_t fcache_size;
 
-    // Optional list of custom attributes attached to the file. If readable,
-    // these attributes will be kept up to date with the attributes on-disk.
-    // If writeable, these attributes will be written to disk atomically on
-    // every file sync or close.
+    // Optional list of custom attributes attached to the file. If
+    // readable, these attributes will be kept up to date with the
+    // attributes on-disk. If writeable, these attributes will be
+    // written to disk atomically on every file sync or close.
     struct lfs3_attr *attrs;
 
     // Number of custom attributes in the list
@@ -1950,14 +1972,16 @@ int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc);
 
 // Progress the gc and perform any janitorial work that may be pending
 //
-// The exact janitorial work depends on the configured flags.
+// The exact janitorial work depends on the flags in cfg.gc_flags.
 //
 // The steps field controls how much work is done during each call, with
 // each step being ~1 block of work. More steps per call will make more
 // progress if interleaved with other filesystem operations, but may
-// also introduce more latency. steps=1 or 0 will do the minimum amount
-// of work to make progress, and steps=-1 will not return until all
-// pending janitorial work has been completed.
+// also introduce more latency.
+//
+// steps=1 or 0 will do the minimum amount of work to make progress, and
+// steps=-1 will not return until all pending janitorial work has been
+// completed.
 //
 // Returns the number of steps progressed on success, 0 if no work is
 // available, or a negative error code on failure.
