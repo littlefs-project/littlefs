@@ -1599,9 +1599,10 @@ typedef struct lfs3 {
 
 // Format a block device with the littlefs
 //
-// Requires a littlefs object and config struct. This clobbers the littlefs
-// object, and does not leave the filesystem mounted. The config struct must
-// be zeroed for defaults and backwards compatibility.
+// Requires a littlefs object and config struct. This clobbers the
+// littlefs object, and does not leave the filesystem mounted. The
+// config struct must be zeroed for defaults and backwards
+// compatibility.
 //
 // Returns a negative error code on failure.
 #ifndef LFS3_RDONLY
@@ -1613,8 +1614,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
 //
 // Requires a littlefs object and config struct. Multiple filesystems
 // may be mounted simultaneously with multiple littlefs objects. Both
-// lfs3 and config must be allocated while mounted. The config struct must
-// be zeroed for defaults and backwards compatibility.
+// lfs3 and config must be allocated while mounted. The config struct
+// must be zeroed for defaults and backwards compatibility.
 //
 // Returns a negative error code on failure.
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
@@ -1631,9 +1632,9 @@ int lfs3_unmount(lfs3_t *lfs3);
 
 // Get the value of a file
 //
-// Returns the number of bytes read, or a negative error code on failure.
-// Note this may be less than the on-disk file size if the buffer is not
-// large enough.
+// Returns the number of bytes read, or a negative error code on
+// failure. Note this may be less than the on-disk file size if the
+// buffer is not large enough.
 lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
         void *buffer, lfs3_size_t size);
 
@@ -1671,22 +1672,24 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path);
 
 // Find info about a file or directory
 //
-// Fills out the info structure, based on the specified file or directory.
+// Fills out the info structure, based on the specified file or
+// directory.
 //
 // Returns a negative error code on failure.
 int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info);
 
 // Get a custom attribute
 //
-// Returns the number of bytes read, or a negative error code on failure.
-// Note this may be less than the on-disk attr size if the buffer is not
-// large enough.
+// Returns the number of bytes read, or a negative error code on
+// failure. Note this may be less than the on-disk attr size if the
+// buffer is not large enough.
 lfs3_ssize_t lfs3_getattr(lfs3_t *lfs3, const char *path, uint8_t type,
         void *buffer, lfs3_size_t size);
 
 // Get a custom attribute's size
 //
-// Returns the size of the attribute, or a negative error code on failure.
+// Returns the size of the attribute, or a negative error code on
+// failure.
 lfs3_ssize_t lfs3_sizeattr(lfs3_t *lfs3, const char *path, uint8_t type);
 
 // Set a custom attributes
@@ -1717,9 +1720,10 @@ int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
 
 // Open a file with extra configuration
 //
-// The config struct provides additional config options per file as described
-// above. The config struct must remain allocated while the file is open, and
-// the config struct must be zeroed for defaults and backwards compatibility.
+// The config struct provides additional config options per file as
+// described above. The config struct must remain allocated while the
+// file is open, and the config struct must be zeroed for defaults and
+// backwards compatibility.
 //
 // Returns a negative error code on failure.
 int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
@@ -1743,32 +1747,33 @@ int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file);
 //
 // Any pending writes are written out to storage and other open files.
 //
-// If the file was desynchronized, it is now marked as synchronized. It will
-// now recieve file updates and syncs on close.
+// If the file was desynchronized, it is now marked as synchronized. It
+// will now recieve file updates and syncs on close.
 //
 // Returns a negative error code on failure.
 int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file);
 
 // Flush any buffered data
 //
-// This does not update metadata and is called implicitly by lfs3_file_sync.
-// Calling this explicitly may be useful for preventing write errors in
-// read operations.
+// This does not update metadata and is called implicitly by
+// lfs3_file_sync. Calling this explicitly may be useful for preventing
+// write errors in read operations.
 //
 // Returns a negative error code on failure.
 int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file);
 
 // Mark a file as desynchronized
 //
-// Desynchronized files do not recieve file updates and do not sync on close.
-// They effectively act as snapshots of the underlying file at that point
-// in time.
+// Desynchronized files do not recieve file updates and do not sync on
+// close. They effectively act as snapshots of the underlying file at
+// that point in time.
 //
-// If an error occurs during a write operation, the file is implicitly marked
-// as desynchronized.
+// If an error occurs during a write operation, the file is implicitly
+// marked as desynchronized.
 //
 // An explicit and successful call to either lfs3_file_sync or
-// lfs3_file_resync reverses this, marking the file as synchronized again.
+// lfs3_file_resync reverses this, marking the file as synchronized
+// again.
 //
 // Returns a negative error code on failure.
 int lfs3_file_desync(lfs3_t *lfs3, lfs3_file_t *file);
@@ -1785,16 +1790,19 @@ int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file);
 //
 // Takes a buffer and size indicating where to store the read data.
 //
-// Returns the number of bytes read, or a negative error code on failure.
+// Returns the number of bytes read, or a negative error code on
+// failure.
 lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         void *buffer, lfs3_size_t size);
 
 // Write data to file
 //
-// Takes a buffer and size indicating the data to write. The file will not
-// actually be updated on the storage until either sync or close is called.
+// Takes a buffer and size indicating the data to write. The file will
+// not actually be updated on the storage until either sync or close is
+// called.
 //
-// Returns the number of bytes written, or a negative error code on failure.
+// Returns the number of bytes written, or a negative error code on
+// failure.
 #ifndef LFS3_RDONLY
 lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         const void *buffer, lfs3_size_t size);
@@ -1804,14 +1812,15 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
 //
 // The change in position is determined by the offset and whence flag.
 //
-// Returns the new position of the file, or a negative error code on failure.
+// Returns the new position of the file, or a negative error code on
+// failure.
 lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_soff_t off, uint32_t whence);
 
 // Truncate/grow the size of the file to the specified size
 //
-// If size is larger than the current file size, a hole is created, appearing
-// as if the file was filled with zeros.
+// If size is larger than the current file size, a hole is created,
+// appearing as if the file was filled with zeros.
 //
 // Returns a negative error code on failure.
 #ifndef LFS3_RDONLY
@@ -1820,8 +1829,8 @@ int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size);
 
 // Truncate/grow the file, but from the front
 //
-// If size is larger than the current file size, a hole is created, appearing
-// as if the file was filled with zeros.
+// If size is larger than the current file size, a hole is created,
+// appearing as if the file was filled with zeros.
 //
 // Returns a negative error code on failure.
 #ifndef LFS3_RDONLY
@@ -1832,7 +1841,8 @@ int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size);
 //
 // Equivalent to lfs3_file_seek(lfs3, file, 0, LFS3_SEEK_CUR)
 //
-// Returns the position of the file, or a negative error code on failure.
+// Returns the position of the file, or a negative error code on
+// failure.
 lfs3_soff_t lfs3_file_tell(lfs3_t *lfs3, lfs3_file_t *file);
 
 // Change the position of the file to the beginning of the file
@@ -1889,7 +1899,8 @@ int lfs3_dir_close(lfs3_t *lfs3, lfs3_dir_t *dir);
 
 // Read an entry in the directory
 //
-// Fills out the info structure, based on the specified file or directory.
+// Fills out the info structure, based on the specified file or
+// directory.
 //
 // Returns 0 on success, LFS3_ERR_NOENT at the end of directory, or a
 // negative error code on failure.
@@ -1905,13 +1916,16 @@ int lfs3_dir_seek(lfs3_t *lfs3, lfs3_dir_t *dir, lfs3_soff_t off);
 
 // Return the position of the directory
 //
-// The returned offset is only meant to be consumed by seek and may not make
-// sense, but does indicate the current position in the directory iteration.
+// The returned offset is only meant to be consumed by seek and may not
+// make sense, but does indicate the current position in the directory
+// iteration.
 //
-// Returns the position of the directory, or a negative error code on failure.
+// Returns the position of the directory, or a negative error code on
+// failure.
 lfs3_soff_t lfs3_dir_tell(lfs3_t *lfs3, lfs3_dir_t *dir);
 
-// Change the position of the directory to the beginning of the directory
+// Change the position of the directory to the beginning of the
+// directory
 //
 // Returns a negative error code on failure.
 int lfs3_dir_rewind(lfs3_t *lfs3, lfs3_dir_t *dir);
@@ -1999,10 +2013,11 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo);
 
 // Find the number of blocks in use by the filesystem
 //
-// Note: Result is best effort. If files share CoW structures, the returned
-// size may be larger than the filesystem actually is.
+// Note: Result is best effort. If files share CoW structures, the
+// returned size may be larger than the filesystem actually is.
 //
-// Returns the number of allocated blocks, or a negative error code on failure.
+// Returns the number of allocated blocks, or a negative error code on
+// failure.
 lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3);
 
 // Get the current filesystem checksum
@@ -2024,9 +2039,9 @@ int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum);
 // Attempt to make the filesystem consistent and ready for writing
 //
 // Calling this function is not required, consistency will be implicitly
-// enforced on the first operation that writes to the filesystem, but this
-// function allows the work to be performed earlier and without other
-// filesystem changes.
+// enforced on the first operation that writes to the filesystem, but
+// this function allows the work to be performed earlier and without
+// other filesystem changes.
 //
 // Returns a negative error code on failure.
 #ifndef LFS3_RDONLY
@@ -2051,8 +2066,8 @@ int lfs3_fs_repair(lfs3_t *lfs3, uint32_t flags);
 //
 // The exact janitorial work depends on the configured flags and steps.
 //
-// Calling this function is not required, but may allow the offloading of
-// expensive janitorial work to a less time-critical code path.
+// Calling this function is not required, but may allow the offloading
+// of expensive janitorial work to a less time-critical code path.
 //
 // Returns the number of steps progressed on success, 0 if no work is
 // available, or a negative error code on failure.
