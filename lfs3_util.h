@@ -258,6 +258,12 @@
 #define LFS3_IFYES_SYNC(a, b) (b)
 #endif
 
+#ifdef LFS3_YES_GRANULAR
+#define LFS3_IFYES_GRANULAR(a, b) (a)
+#else
+#define LFS3_IFYES_GRANULAR(a, b) (b)
+#endif
+
 #ifdef LFS3_REVPERTURB
 #define LFS3_IFDEF_REVPERTURB(a, b) (a)
 #else

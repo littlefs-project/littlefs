@@ -142,6 +142,7 @@ enum lfs3_type {
 #endif
 #define LFS3_O_FLUSH    0x00000040  // Flush data on every write
 #define LFS3_O_SYNC     0x00000080  // Sync metadata on every write
+#define LFS3_O_GRANULAR 0x00000100  // Only write grains
 #define LFS3_O_DESYNC   0x02000000  // Do not sync or recieve file updates
 #define LFS3_O_CKMETA   0x00100000  // Check metadata checksums
 #define LFS3_O_CKDATA   0x00200000  // Check metadata + data checksums
@@ -294,6 +295,7 @@ enum lfs3_type {
 #define LFS3_M_RDONLY            1  // Mount the filesystem as read only
 #define LFS3_M_FLUSH    0x00000040  // Open all files with LFS3_O_FLUSH
 #define LFS3_M_SYNC     0x00000080  // Open all files with LFS3_O_SYNC
+#define LFS3_M_GRANULAR 0x00000100  // Open all files with LFS3_O_GRANULAR
 #ifndef LFS3_RDONLY
 #define LFS3_M_MKCONSISTENT \
                         0x00010000  // Make the filesystem consistent
@@ -349,6 +351,8 @@ enum lfs3_type {
 #endif
 #define LFS3_CFG_FLUSH  0x00000040  // Open all files with LFS3_O_FLUSH
 #define LFS3_CFG_SYNC   0x00000080  // Open all files with LFS3_O_SYNC
+#define LFS3_CFG_GRANULAR \
+                        0x00000100  // Open all files with LFS3_O_GRANULAR
 #if !defined(LFS3_RDONLY) && defined(LFS3_REVPERTURB)
 #define LFS3_CFG_REVPERTURB \
                         0x00010000  // Perturb first bit in revision counts
@@ -397,6 +401,7 @@ enum lfs3_type {
 #endif
 #define LFS3_I_FLUSH    0x00000040  // Mounted with LFS3_M_FLUSH
 #define LFS3_I_SYNC     0x00000080  // Mounted with LFS3_M_SYNC
+#define LFS3_I_GRANULAR 0x00000100  // Mounted with LFS3_M_GRANULAR
 #ifndef LFS3_RDONLY
 #define LFS3_I_MKCONSISTENT \
                         0x00010000  // Filesystem needs mkconsistent to write

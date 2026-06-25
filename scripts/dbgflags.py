@@ -44,6 +44,7 @@ O_TRUNC         = 0x00000010  # --  Truncate the existing file to zero size
 O_APPEND        = 0x00000020  # --  Move to end of file on every write
 O_FLUSH         = 0x00000040  # y-  Flush data on every write
 O_SYNC          = 0x00000080  # y-  Sync metadata on every write
+O_GRANULAR      = 0x00000100  # y-  Only write grains
 O_DESYNC        = 0x02000000  # --  Do not sync or recieve file updates
 
 O_CKMETA        = 0x00100000  # --  Check metadata checksums
@@ -129,6 +130,7 @@ M_RDWR          =          0  # -^  Mount the filesystem as read and write
 M_RDONLY        =          1  # -^  Mount the filesystem as read only
 M_FLUSH         = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
 M_SYNC          = 0x00000080  # y-  Open all files with LFS3_O_SYNC
+M_GRANULAR      = 0x00000100  # y-  Open all files with LFS3_O_GRANULAR
 
 M_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
 M_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
@@ -150,6 +152,7 @@ CFG_RDONLY      =          1  # -^  Mount the filesystem as read only
 CFG_GBMAP       = 0x00000008  # y-  Use the global on-disk block-map
 CFG_FLUSH       = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
 CFG_SYNC        = 0x00000080  # y-  Open all files with LFS3_O_SYNC
+CFG_GRANULAR    = 0x00000100  # y-  Open all files with LFS3_O_GRANULAR
 
 CFG_REVPERTURB  = 0x00010000  # y-  Perturb first bit in revision counts
 CFG_REVNOISE    = 0x00020000  # y-  Add noise to revision counts
@@ -173,6 +176,7 @@ I_RDONLY        = 0x00000001  # --  Mounted read only
 I_GBMAP         = 0x00000008  # --  Global on-disk block-map in use
 I_FLUSH         = 0x00000040  # --  Mounted with LFS3_M_FLUSH
 I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
+I_GRANULAR      = 0x00000100  # --  Mounted with LFS3_M_GRANULAR
 
 I_MKCONSISTENT  = 0x00010000  # --  Filesystem needs mkconsistent to write
 I_LOOKAHEAD     = 0x00020000  # --  Lookahead buffer is not full
