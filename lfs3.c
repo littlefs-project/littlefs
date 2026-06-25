@@ -14778,8 +14778,14 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         if ((file->h.flags & LFS3_o_SET)
                 && (lfs3_ssize_t)file->cache.size
                     <= (lfs3_ssize_t)lfs3->cfg->shrub_size
-                && file->cache.size <= lfs3->cfg->grain_size
-                && file->cache.size < lfs3->cfg->crystal_thresh) {
+                && file->cache.size
+                    <= ((file->cfg->grain_size)
+                        ? file->cfg->grain_size
+                        : lfs3->cfg->grain_size)
+                && file->cache.size
+                    < ((file->cfg->crystal_thresh)
+                        ? file->cfg->crystal_thresh
+                        : lfs3->cfg->crystal_thresh)) {
             // we need to mark as unsync for sync to do anything
             file->h.flags |= LFS3_o_UNSYNC;
 
@@ -14911,6 +14917,19 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
                 || !(cfg->attrs[i].flags & LFS3_O_EXCL));
     }
+    #endif
+
+    #ifndef LFS3_RDONLY
+    // grain_size must be <= block_size/4
+    LFS3_ASSERT(cfg->grain_size == 0
+            || cfg->grain_size == (lfs3_size_t)-1
+            || cfg->grain_size <= lfs3->cfg->block_size/4);
+    // grain_size=-1 requires crystal_thresh=1, which does most of the
+    // work, this is just useful for this assert
+    LFS3_ASSERT(cfg->grain_size != (lfs3_size_t)-1
+            || ((cfg->crystal_thresh)
+                ? cfg->crystal_thresh
+                : lfs3->cfg->crystal_thresh) == 1);
     #endif
 
     return lfs3_file_opencfg_(lfs3, file, path, flags,
@@ -15356,7 +15375,10 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                         // not if there's a hole!
                         && bid__+1 >= pos_
                         // or if we're already a full grain
-                        && l_slice < lfs3->cfg->grain_size) {
+                        && l_slice
+                            < ((file->cfg->grain_size)
+                                ? file->cfg->grain_size
+                                : lfs3->cfg->grain_size)) {
                     pos_ -= l_slice;
                     l_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             -1,
@@ -15391,7 +15413,9 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                         // unlike left sibling, we don't bother merging if
                         // things won't fit in a single grain
                         && dgrow + (bid__+1 - (pos_+cut_))
-                            <= lfs3->cfg->grain_size) {
+                            <= ((file->cfg->grain_size)
+                                ? file->cfg->grain_size
+                                : lfs3->cfg->grain_size)) {
                     r_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             lfs3_data_size(&bptr__.d) - r_slice,
                             -1);
@@ -15464,7 +15488,11 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         // 1. grain size
         // 2. cut size, to avoid overflow issues
         if (lfs3_bptr_isgrain(&bptr_)) {
-            dgrow = lfs3_min(dgrow, lfs3->cfg->grain_size);
+            dgrow = lfs3_min(
+                    dgrow,
+                    (file->cfg->grain_size)
+                        ? file->cfg->grain_size
+                        : lfs3->cfg->grain_size);
         }
 
         // build graft commit
@@ -15549,7 +15577,10 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                                 ? lfs3_data_size(&((lfs3_data_t*)r)[2])
                                 : 0)
                         == dgrow);
-                LFS3_ASSERT(dgrow <= lfs3->cfg->grain_size);
+                LFS3_ASSERT(dgrow
+                        <= ((file->cfg->grain_size)
+                            ? file->cfg->grain_size
+                            : lfs3->cfg->grain_size));
                 r += 3*count;
                 shestimate += lfs3->rattr_estimate + dgrow;
 
@@ -15659,7 +15690,9 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     (lfs3_off_t)crystal_max,
                     lfs3_min(
                         lfs3->cfg->prog_size,
-                        lfs3->cfg->crystal_thresh)),
+                        (file->cfg->crystal_thresh)
+                            ? file->cfg->crystal_thresh
+                            : lfs3->cfg->crystal_thresh)),
                 lfs3->cfg->block_size),
             lfs3_max(
                 buffer_pos + buffer_size,
@@ -15800,7 +15833,9 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         // crystal_thresh < prog_size, it's a weird case, but this is
         // useful for small blocks
         lfs3_size_t d = (pos_ - block_pos) % lfs3->cfg->prog_size;
-        if (d < lfs3->cfg->crystal_thresh) {
+        if (d < ((file->cfg->crystal_thresh)
+                ? file->cfg->crystal_thresh
+                : lfs3->cfg->crystal_thresh)) {
             lfs3->pcache.size -= d;
             pos_ -= d;
         }
@@ -15897,7 +15932,10 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
     bool aligned_ = false;
 
     // if crystallization is disabled, just skip to writing grains
-    if (lfs3->cfg->crystal_thresh > lfs3->cfg->block_size) {
+    if (((file->cfg->crystal_thresh)
+                ? file->cfg->crystal_thresh
+                : lfs3->cfg->crystal_thresh)
+            > lfs3->cfg->block_size) {
         goto grain;
     }
 
@@ -15918,11 +15956,16 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
                 && pos_ < block_start + lfs3->cfg->block_size
                 // if we're more than a crystal away, graft and check crystal
                 // heuristic before resuming
-                && pos_ - block_end < lfs3->cfg->crystal_thresh
+                && pos_ - block_end
+                    < ((file->cfg->crystal_thresh)
+                        ? file->cfg->crystal_thresh
+                        : lfs3->cfg->crystal_thresh)
                 // need to bail if we can't meet prog alignment
                 && (pos_ + size_) - block_end >= lfs3_min(
                     lfs3->cfg->prog_size,
-                    lfs3->cfg->crystal_thresh)) {
+                    (file->cfg->crystal_thresh)
+                        ? file->cfg->crystal_thresh
+                        : lfs3->cfg->crystal_thresh)) {
             // mark as uncrystallized to avoid allocating a new block
             file->h.flags |= LFS3_o_UNCRYST;
             // crystallize
@@ -15970,9 +16013,16 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         // if we haven't already exceeded our crystallization threshold,
         // find left crystal neighbor
         lfs3_off_t poke = lfs3_smax(
-                crystal_start - (lfs3->cfg->crystal_thresh-1),
+                crystal_start - (
+                    ((file->cfg->crystal_thresh)
+                            ? file->cfg->crystal_thresh
+                            : lfs3->cfg->crystal_thresh)
+                        - 1),
                 0);
-        if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh
+        if (crystal_end - crystal_start
+                    < ((file->cfg->crystal_thresh)
+                        ? file->cfg->crystal_thresh
+                        : lfs3->cfg->crystal_thresh)
                 && crystal_start > 0
                 && poke < file->bshrub.weight
                 // don't bother looking up left after the first block
@@ -16004,9 +16054,16 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         // if we haven't already exceeded our crystallization threshold,
         // find right crystal neighbor
         poke = lfs3_min(
-                crystal_start + (lfs3->cfg->crystal_thresh-1),
+                crystal_start + (
+                    ((file->cfg->crystal_thresh)
+                            ? file->cfg->crystal_thresh
+                            : lfs3->cfg->crystal_thresh)
+                        - 1),
                 file->bshrub.weight-1);
-        if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh
+        if (crystal_end - crystal_start
+                    < ((file->cfg->crystal_thresh)
+                        ? file->cfg->crystal_thresh
+                        : lfs3->cfg->crystal_thresh)
                 && crystal_end < file->bshrub.weight) {
             lfs3_bid_t bid;
             lfs3_bptr_t bptr;
@@ -16039,7 +16096,10 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         //
         // note as long as crystal_thresh >= prog_size, this also ensures we
         // have enough for prog alignment
-        if (crystal_end - crystal_start < lfs3->cfg->crystal_thresh) {
+        if (crystal_end - crystal_start
+                < ((file->cfg->crystal_thresh)
+                    ? file->cfg->crystal_thresh
+                    : lfs3->cfg->crystal_thresh)) {
             goto grain;
         }
 
@@ -16682,8 +16742,14 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     if (file->cache.size == lfs3_file_size_(file)
             && (lfs3_ssize_t)file->cache.size
                 <= (lfs3_ssize_t)lfs3->cfg->shrub_size
-            && file->cache.size <= lfs3->cfg->grain_size
-            && file->cache.size < lfs3->cfg->crystal_thresh) {
+            && file->cache.size
+                <= ((file->cfg->grain_size)
+                    ? file->cfg->grain_size
+                    : lfs3->cfg->grain_size)
+            && file->cache.size
+                < ((file->cfg->crystal_thresh)
+                    ? file->cfg->crystal_thresh
+                    : lfs3->cfg->crystal_thresh)) {
         // discard any overwritten leaves, this also clears the
         // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
         lfs3_file_discardleaf(file);

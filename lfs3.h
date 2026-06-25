@@ -893,9 +893,9 @@ struct lfs3_cfg {
     // Suggested values are around ~block_size/16.
     //
     // 1 only writes blocks, while -1 or any value > block_size only
-    // writes grains. 0 is reserved. Grain-only files may be useful for
-    // optimizing random-write-heavy workloads, but increase disk usage
-    // by ~4x.
+    // writes grains. Grain-only files may be useful for optimizing
+    // random-write-heavy workloads, but increase disk usage by ~4x.
+    // 0 is reserved.
     #ifndef LFS3_RDONLY
     lfs3_size_t crystal_thresh;
     #endif
@@ -994,6 +994,35 @@ struct lfs3_file_cfg {
 
     // Number of custom attributes in the list
     lfs3_size_t attr_count;
+
+    // Maximum size of inlined B-tree leaves (grains) in bytes. Smaller
+    // values may speed up small random writes, but increases metadata
+    // overhead.
+    //
+    // Suggested values are around ~min(block_size/16, 512).
+    //
+    // Must be <= block_size/4. -1 disables grains, but requires
+    // crystal_thresh=1. Defaults to cfg.grain_size when 0.
+    #ifndef LFS3_RDONLY
+    lfs3_size_t grain_size;
+    #endif
+
+    // Threshold for compacting multiple grains into a data block.
+    // Smaller values will crystallize more eagerly, reducing random
+    // write fragmentation at the cost of random write performance.
+    //
+    // Ideally >= prog_size to avoid prog padding, but <= prog_size is
+    // supported for when prog_size ~= block_size.
+    //
+    // Suggested values are around ~block_size/16.
+    //
+    // 1 only writes blocks, while -1 or any value > block_size only
+    // writes grains. Grain-only files may be useful for optimizing
+    // random-write-heavy workloads, but increase disk usage by ~4x.
+    // Defaults to cfg.crystal_thresh when zero.
+    #ifndef LFS3_RDONLY
+    lfs3_size_t crystal_thresh;
+    #endif
 };
 
 
