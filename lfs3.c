@@ -14565,14 +14565,54 @@ static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
 
 // file operations
 
-static void lfs3_file_init(lfs3_file_t *file, uint32_t flags,
-        const struct lfs3_file_cfg *cfg) {
+static void lfs3_file_init(const lfs3_t *lfs3, lfs3_file_t *file,
+        uint32_t flags, const struct lfs3_file_cfg *cfg) {
+    (void)lfs3;
+    // check custom attribute flags
+    #ifndef LFS3_RDONLY
+    for (lfs3_size_t i = 0; i < cfg->attr_count; i++) {
+        // these flags require a writable attr
+        LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
+                || !(cfg->attrs[i].flags & LFS3_O_CREAT));
+        LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
+                || !(cfg->attrs[i].flags & LFS3_O_EXCL));
+    }
+    #endif
+
+    // check file-write-related config
+    #ifndef LFS3_RDONLY
+    // grain_size must be <= block_size/4
+    LFS3_ASSERT(cfg->grain_size == 0
+            || cfg->grain_size == (lfs3_size_t)-1
+            || cfg->grain_size <= lfs3->cfg->block_size/4);
+    // grain_size=-1 requires crystal_thresh=1, which does most of the
+    // work, this is just useful for this assert
+    LFS3_ASSERT(cfg->grain_size != (lfs3_size_t)-1
+            || ((flags & LFS3_O_GRANULAR)
+                    ? (lfs3_size_t)-1
+                : (cfg->crystal_thresh)
+                    ? cfg->crystal_thresh
+                    : lfs3->cfg->crystal_thresh) == 1);
+    #endif
+
+    // looks correct? put our file together
     file->cfg = cfg;
     file->h.flags = LFS3_O(LFS3_TYPE_REG, flags);
+    #ifndef LFS3_RDONLY
+    file->grain_size = (cfg->grain_size)
+            ? cfg->grain_size
+            : lfs3->cfg->grain_size;
+    file->crystal_thresh = (flags & LFS3_O_GRANULAR)
+                ? (lfs3_size_t)-1
+            : (cfg->crystal_thresh)
+                ? cfg->crystal_thresh
+                : lfs3->cfg->crystal_thresh;
+    #endif
     file->pos = 0;
     lfs3_file_discardcache(file);
     lfs3_file_discardleaf(file);
     lfs3_file_discardbshrub(file);
+
 }
 
 static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
@@ -14656,6 +14696,57 @@ static int lfs3_file_ck_(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags);
 static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs3_file_cfg *cfg) {
+    // already open?
+    LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &file->h));
+    // don't allow the forbidden mode!
+    LFS3_ASSERT((flags & LFS3_O_MODE) != 0);
+    // unknown flags?
+    LFS3_ASSERT((flags & ~(
+            LFS3_O_RDONLY
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_WRONLY)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_RDWR)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_CREAT)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_EXCL)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_TRUNC)
+                | LFS3_IFDEF_RDONLY(0, LFS3_O_APPEND)
+                | LFS3_O_FLUSH
+                | LFS3_O_SYNC
+                | LFS3_O_GRANULAR
+                | LFS3_O_DESYNC
+                | LFS3_O_CKMETA
+                | LFS3_O_CKDATA
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_O_REPAIRMETA, 0))
+                | LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_REPAIR(LFS3_O_REPAIRDATA, 0))
+                // internal-only!
+                | LFS3_o_SET)) == 0);
+    // or-in relevant mount/cfg/yes flags
+    flags |= lfs3->flags & (
+            LFS3_O_FLUSH
+                | LFS3_O_SYNC
+                | LFS3_O_GRANULAR);
+    // or-in relevant filecfg flags
+    flags |= cfg->flags & (
+            LFS3_O_FLUSH
+                | LFS3_O_SYNC
+                | LFS3_O_GRANULAR);
+    // writeable files require a writeable filesystem
+    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY) || lfs3_o_isrdonly(flags));
+    // these flags require a readable file
+    LFS3_ASSERT(!lfs3_o_iswronly(flags) || !(flags & LFS3_T_CKMETA));
+    LFS3_ASSERT(!lfs3_o_iswronly(flags) || !(flags & LFS3_T_CKDATA));
+    // these flags require a writable file
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_CREAT));
+    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_EXCL));
+    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_TRUNC));
+    #ifdef LFS3_REPAIR
+    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_REPAIRMETA));
+    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_REPAIRDATA));
+    #endif
+    #endif
+
     #ifndef LFS3_RDONLY
     if (!lfs3_o_isrdonly(flags)) {
         // prepare our filesystem for writing
@@ -14667,7 +14758,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     #endif
 
     // setup file state
-    lfs3_file_init(file, flags, cfg);
+    lfs3_file_init(lfs3, file, flags, cfg);
 
     // allocate cache if necessary
     //
@@ -14778,16 +14869,8 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         if ((file->h.flags & LFS3_o_SET)
                 && (lfs3_ssize_t)file->cache.size
                     <= (lfs3_ssize_t)lfs3->cfg->shrub_size
-                && file->cache.size
-                    <= ((file->cfg->grain_size)
-                        ? file->cfg->grain_size
-                        : lfs3->cfg->grain_size)
-                && file->cache.size
-                    < ((file->h.flags & LFS3_O_GRANULAR)
-                            ? (lfs3_size_t)-1
-                        : (file->cfg->crystal_thresh)
-                            ? file->cfg->crystal_thresh
-                            : lfs3->cfg->crystal_thresh)) {
+                && file->cache.size <= file->grain_size
+                && file->cache.size < file->crystal_thresh) {
             // we need to mark as unsync for sync to do anything
             file->h.flags |= LFS3_o_UNSYNC;
 
@@ -14873,6 +14956,10 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     // don't allow the forbidden mode!
     LFS3_ASSERT((flags & LFS3_O_MODE) != 0);
     // unknown flags?
+    //
+    // there are more flag checks in lfs3_file_opencfg_, but
+    // lfs3_file_opencfg_ allows some internal-only flags that we want
+    // to reject here
     LFS3_ASSERT((flags & ~(
             LFS3_O_RDONLY
                 | LFS3_IFDEF_RDONLY(0, LFS3_O_WRONLY)
@@ -14891,53 +14978,6 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_IFDEF_REPAIR(LFS3_O_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_O_REPAIRDATA, 0)))) == 0);
-    // or-in relevant mount/cfg/yes flags
-    flags |= lfs3->flags & (
-            LFS3_O_FLUSH
-                | LFS3_O_SYNC
-                | LFS3_O_GRANULAR);
-    // or-in relevant filecfg flags
-    flags |= cfg->flags & (
-            LFS3_O_FLUSH
-                | LFS3_O_SYNC
-                | LFS3_O_GRANULAR);
-    // writeable files require a writeable filesystem
-    LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY) || lfs3_o_isrdonly(flags));
-    // these flags require a readable file
-    LFS3_ASSERT(!lfs3_o_iswronly(flags) || !(flags & LFS3_T_CKMETA));
-    LFS3_ASSERT(!lfs3_o_iswronly(flags) || !(flags & LFS3_T_CKDATA));
-    // these flags require a writable file
-    #ifndef LFS3_RDONLY
-    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_CREAT));
-    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_EXCL));
-    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_TRUNC));
-    #ifdef LFS3_REPAIR
-    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_REPAIRMETA));
-    LFS3_ASSERT(!lfs3_o_isrdonly(flags) || !(flags & LFS3_O_REPAIRDATA));
-    #endif
-    for (lfs3_size_t i = 0; i < cfg->attr_count; i++) {
-        // these flags require a writable attr
-        LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
-                || !(cfg->attrs[i].flags & LFS3_O_CREAT));
-        LFS3_ASSERT(!lfs3_o_isrdonly(cfg->attrs[i].flags)
-                || !(cfg->attrs[i].flags & LFS3_O_EXCL));
-    }
-    #endif
-
-    #ifndef LFS3_RDONLY
-    // grain_size must be <= block_size/4
-    LFS3_ASSERT(cfg->grain_size == 0
-            || cfg->grain_size == (lfs3_size_t)-1
-            || cfg->grain_size <= lfs3->cfg->block_size/4);
-    // grain_size=-1 requires crystal_thresh=1, which does most of the
-    // work, this is just useful for this assert
-    LFS3_ASSERT(cfg->grain_size != (lfs3_size_t)-1
-            || ((flags & LFS3_O_GRANULAR)
-                    ? (lfs3_size_t)-1
-                : (cfg->crystal_thresh)
-                    ? cfg->crystal_thresh
-                    : lfs3->cfg->crystal_thresh) == 1);
-    #endif
 
     return lfs3_file_opencfg_(lfs3, file, path, flags,
             cfg);
@@ -15382,10 +15422,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                         // not if there's a hole!
                         && bid__+1 >= pos_
                         // or if we're already a full grain
-                        && l_slice
-                            < ((file->cfg->grain_size)
-                                ? file->cfg->grain_size
-                                : lfs3->cfg->grain_size)) {
+                        && l_slice < file->grain_size) {
                     pos_ -= l_slice;
                     l_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             -1,
@@ -15420,9 +15457,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                         // unlike left sibling, we don't bother merging if
                         // things won't fit in a single grain
                         && dgrow + (bid__+1 - (pos_+cut_))
-                            <= ((file->cfg->grain_size)
-                                ? file->cfg->grain_size
-                                : lfs3->cfg->grain_size)) {
+                            <= file->grain_size) {
                     r_bptr.d = lfs3_data_fromslice(&bptr__.d,
                             lfs3_data_size(&bptr__.d) - r_slice,
                             -1);
@@ -15495,11 +15530,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
         // 1. grain size
         // 2. cut size, to avoid overflow issues
         if (lfs3_bptr_isgrain(&bptr_)) {
-            dgrow = lfs3_min(
-                    dgrow,
-                    (file->cfg->grain_size)
-                        ? file->cfg->grain_size
-                        : lfs3->cfg->grain_size);
+            dgrow = lfs3_min(dgrow, file->grain_size);
         }
 
         // build graft commit
@@ -15584,10 +15615,7 @@ static int lfs3_file_graft__(lfs3_t *lfs3, lfs3_file_t *file,
                                 ? lfs3_data_size(&((lfs3_data_t*)r)[2])
                                 : 0)
                         == dgrow);
-                LFS3_ASSERT(dgrow
-                        <= ((file->cfg->grain_size)
-                            ? file->cfg->grain_size
-                            : lfs3->cfg->grain_size));
+                LFS3_ASSERT(dgrow <= file->grain_size);
                 r += 3*count;
                 shestimate += lfs3->rattr_estimate + dgrow;
 
@@ -15697,11 +15725,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                     (lfs3_off_t)crystal_max,
                     lfs3_min(
                         lfs3->cfg->prog_size,
-                        (file->h.flags & LFS3_O_GRANULAR)
-                                ? (lfs3_size_t)-1
-                            : (file->cfg->crystal_thresh)
-                                ? file->cfg->crystal_thresh
-                                : lfs3->cfg->crystal_thresh)),
+                        file->crystal_thresh)),
                 lfs3->cfg->block_size),
             lfs3_max(
                 buffer_pos + buffer_size,
@@ -15842,11 +15866,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         // crystal_thresh < prog_size, it's a weird case, but this is
         // useful for small blocks
         lfs3_size_t d = (pos_ - block_pos) % lfs3->cfg->prog_size;
-        if (d < ((file->h.flags & LFS3_O_GRANULAR)
-                    ? (lfs3_size_t)-1
-                : (file->cfg->crystal_thresh)
-                    ? file->cfg->crystal_thresh
-                    : lfs3->cfg->crystal_thresh)) {
+        if (d < file->crystal_thresh) {
             lfs3->pcache.size -= d;
             pos_ -= d;
         }
@@ -15943,12 +15963,7 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
     bool aligned_ = false;
 
     // if crystallization is disabled, just skip to writing grains
-    if (((file->h.flags & LFS3_O_GRANULAR)
-                    ? (lfs3_size_t)-1
-                : (file->cfg->crystal_thresh)
-                    ? file->cfg->crystal_thresh
-                    : lfs3->cfg->crystal_thresh)
-            > lfs3->cfg->block_size) {
+    if (file->crystal_thresh > lfs3->cfg->block_size) {
         goto grain;
     }
 
@@ -15969,20 +15984,11 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
                 && pos_ < block_start + lfs3->cfg->block_size
                 // if we're more than a crystal away, graft and check crystal
                 // heuristic before resuming
-                && pos_ - block_end
-                    < ((file->h.flags & LFS3_O_GRANULAR)
-                            ? (lfs3_size_t)-1
-                        : (file->cfg->crystal_thresh)
-                            ? file->cfg->crystal_thresh
-                            : lfs3->cfg->crystal_thresh)
+                && pos_ - block_end < file->crystal_thresh
                 // need to bail if we can't meet prog alignment
                 && (pos_ + size_) - block_end >= lfs3_min(
                     lfs3->cfg->prog_size,
-                    (file->h.flags & LFS3_O_GRANULAR)
-                            ? (lfs3_size_t)-1
-                        : (file->cfg->crystal_thresh)
-                            ? file->cfg->crystal_thresh
-                            : lfs3->cfg->crystal_thresh)) {
+                    file->crystal_thresh)) {
             // mark as uncrystallized to avoid allocating a new block
             file->h.flags |= LFS3_o_UNCRYST;
             // crystallize
@@ -16030,20 +16036,9 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         // if we haven't already exceeded our crystallization threshold,
         // find left crystal neighbor
         lfs3_off_t poke = lfs3_smax(
-                crystal_start - (
-                    ((file->h.flags & LFS3_O_GRANULAR)
-                                ? (lfs3_size_t)-1
-                            : (file->cfg->crystal_thresh)
-                                ? file->cfg->crystal_thresh
-                                : lfs3->cfg->crystal_thresh)
-                        - 1),
+                crystal_start - (file->crystal_thresh-1),
                 0);
-        if (crystal_end - crystal_start
-                    < ((file->h.flags & LFS3_O_GRANULAR)
-                            ? (lfs3_size_t)-1
-                        : (file->cfg->crystal_thresh)
-                            ? file->cfg->crystal_thresh
-                            : lfs3->cfg->crystal_thresh)
+        if (crystal_end - crystal_start < file->crystal_thresh
                 && crystal_start > 0
                 && poke < file->bshrub.weight
                 // don't bother looking up left after the first block
@@ -16075,20 +16070,9 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         // if we haven't already exceeded our crystallization threshold,
         // find right crystal neighbor
         poke = lfs3_min(
-                crystal_start + (
-                    ((file->h.flags & LFS3_O_GRANULAR)
-                            ? (lfs3_size_t)-1
-                        : (file->cfg->crystal_thresh)
-                            ? file->cfg->crystal_thresh
-                            : lfs3->cfg->crystal_thresh)
-                        - 1),
+                crystal_start + (file->crystal_thresh-1),
                 file->bshrub.weight-1);
-        if (crystal_end - crystal_start
-                    < ((file->h.flags & LFS3_O_GRANULAR)
-                            ? (lfs3_size_t)-1
-                        : (file->cfg->crystal_thresh)
-                            ? file->cfg->crystal_thresh
-                            : lfs3->cfg->crystal_thresh)
+        if (crystal_end - crystal_start < file->crystal_thresh
                 && crystal_end < file->bshrub.weight) {
             lfs3_bid_t bid;
             lfs3_bptr_t bptr;
@@ -16121,12 +16105,7 @@ static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         //
         // note as long as crystal_thresh >= prog_size, this also ensures we
         // have enough for prog alignment
-        if (crystal_end - crystal_start
-                < ((file->h.flags & LFS3_O_GRANULAR)
-                        ? (lfs3_size_t)-1
-                    : (file->cfg->crystal_thresh)
-                        ? file->cfg->crystal_thresh
-                        : lfs3->cfg->crystal_thresh)) {
+        if (crystal_end - crystal_start < file->crystal_thresh) {
             goto grain;
         }
 
@@ -16769,16 +16748,8 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     if (file->cache.size == lfs3_file_size_(file)
             && (lfs3_ssize_t)file->cache.size
                 <= (lfs3_ssize_t)lfs3->cfg->shrub_size
-            && file->cache.size
-                <= ((file->cfg->grain_size)
-                    ? file->cfg->grain_size
-                    : lfs3->cfg->grain_size)
-            && file->cache.size
-                < ((file->h.flags & LFS3_O_GRANULAR)
-                        ? (lfs3_size_t)-1
-                    : (file->cfg->crystal_thresh)
-                        ? file->cfg->crystal_thresh
-                        : lfs3->cfg->crystal_thresh)) {
+            && file->cache.size <= file->grain_size
+            && file->cache.size < file->crystal_thresh) {
         // discard any overwritten leaves, this also clears the
         // LFS3_o_UNCRYST and LFS3_o_UNGRAFT flags
         lfs3_file_discardleaf(file);
@@ -17455,6 +17426,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     // in at least lfs3_data_t to encode additional states in a word
     LFS3_ASSERT(cfg->block_size <= 0x0fffffff);
 
+    // check file-write-related config
     #ifndef LFS3_RDONLY
     // shrub_size must be <= block_size/8, and 0 is reserved
     LFS3_ASSERT(cfg->shrub_size != 0);

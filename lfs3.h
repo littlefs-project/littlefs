@@ -1396,6 +1396,8 @@ typedef lfs3_rbyd_t lfs3_bshrub_t;
 typedef struct lfs3_file {
     lfs3_handle_t h;
     const struct lfs3_file_cfg *cfg;
+    lfs3_size_t grain_size;
+    lfs3_size_t crystal_thresh;
 
     // current file position
     lfs3_off_t pos;
