@@ -17804,8 +17804,7 @@ static inline lfs3_compat_t lfs3_fs_compat(const lfs3_t *lfs3) {
                 | LFS3_RCOMPAT_STICKYNOTE,
             LFS3_WCOMPAT_GCKSUM
                 | LFS3_WCOMPAT_DIR
-                | LFS3_IFYES_GBMAP(
-                    LFS3_WCOMPAT_GBMAP,
+                | LFS3_IFDEF_GBMAP(
                     (lfs3->flags & LFS3_I_GBMAP)
                         ? LFS3_WCOMPAT_GBMAP
                         : 0,
@@ -19234,7 +19233,7 @@ failed:;
 #endif
 
 // enable the global on-disk block-map
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
     // Note we do _not_ call lfs3_fs_mkconsistent here.
     //
@@ -19303,7 +19302,7 @@ failed:;
 #endif
 
 // disable the global on-disk block-map
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
     // Note we do _not_ call lfs3_fs_mkconsistent here.
     //

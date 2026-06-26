@@ -1174,7 +1174,7 @@ enum lfs3_tag {
 // mask of features we care about when mounting
 #define LFS3_wcompat_MASK \
     (0xffff & ~( \
-        LFS3_IFYES_GBMAP(0, LFS3_WCOMPAT_GBMAP, 0)))
+        LFS3_IFDEF_GBMAP(LFS3_WCOMPAT_GBMAP, 0)))
 
 
 // On-disk encodings/decodings
@@ -2147,7 +2147,7 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count, uint32_t flags);
 //
 // Returns 0 on success, LFS3_ERR_EXIST a gbmap already exists, or a
 // negative error code on failure.
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3);
 #endif
 
@@ -2155,7 +2155,7 @@ int lfs3_fs_mkgbmap(lfs3_t *lfs3);
 //
 // Returns 0 on success, LFS3_ERR_NOENT if no gbmap is found, or a
 // negative error code on failure.
-#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP) && !defined(LFS3_YES_GBMAP)
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3);
 #endif
 
