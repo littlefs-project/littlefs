@@ -17804,7 +17804,8 @@ static inline lfs3_compat_t lfs3_fs_compat(const lfs3_t *lfs3) {
                 | LFS3_RCOMPAT_STICKYNOTE,
             LFS3_WCOMPAT_GCKSUM
                 | LFS3_WCOMPAT_DIR
-                | LFS3_IFDEF_GBMAP(
+                | LFS3_IFYES_GBMAP(
+                    LFS3_WCOMPAT_GBMAP,
                     (lfs3->flags & LFS3_I_GBMAP)
                         ? LFS3_WCOMPAT_GBMAP
                         : 0,
