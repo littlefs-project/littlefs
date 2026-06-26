@@ -1221,10 +1221,17 @@ def main(csv_paths, output, *,
         ax = s.ax
         for name, dataset in subdatasets.items():
             dats = sorted((x,y) for x,y in dataset)
+            format_, marker_ = dataformats_[name], None
+            if '$' in format_:
+                m = re.search('\$.*?\$', format_)
+                format_, marker_ = (
+                        format_[:m.start()] + format_[m.end():],
+                        m.group())
             ax.plot([x for x,_ in dats], [y for _,y in dats],
-                    dataformats_[name],
+                    format_,
                     color=datacolors_[name],
-                    label=','.join(name))
+                    label=','.join(name),
+                    **(dict(marker=marker_) if marker_ is not None else {}))
 
         # axes scaling
         if xlog_:
