@@ -16,7 +16,7 @@ defines.SIM_TIME = '60ULL*60ULL*1000ULL*1000ULL*1000ULL' # 1 hour
 defines.SIM_SIZE = 0
 
 # set this to true to skip bench warmup
-defines.NO_WARMUP = false
+defines.SKIP_WARMUP = false
 
 # include common bench helpers
 code = '''
@@ -30,7 +30,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!NO_WARMUP) {
+    if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -108,7 +108,7 @@ code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!NO_WARMUP) {
+    if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -178,12 +178,12 @@ code = '''
 # 1. fruncate/rotations instead of rewind+truncate
 # 2. sync called on every write
 [cases.bench_wt_logging]
-defines.NO_FRUNCATE = false
+defines.FRUNCATE = true
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!NO_WARMUP) {
+    if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -224,7 +224,7 @@ code = '''
         lfs3_soff_t size = lfs3_file_size(&lfs3, &file);
         assert(size >= 0);
         if (size > SIZE) {
-            if (!NO_FRUNCATE) {
+            if (FRUNCATE) {
                 lfs3_file_fruncate(&lfs3, &file, SIZE) => 0;
             } else {
                 lfs3_file_close(&lfs3, &file) => 0;
@@ -262,12 +262,12 @@ code = '''
 
 # many small file write throughput
 [cases.bench_wt_many]
-defines.NO_SET = false
+defines.SET = true
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!NO_WARMUP) {
+    if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -301,7 +301,7 @@ code = '''
         //
         // note file == CHUNK here, the sum of all files should add up
         // roughly to the benchmark SIZE
-        if (!NO_SET) {
+        if (SET) {
             lfs3_set(&lfs3, name, wbuf, CHUNK) => 0;
         } else {
             lfs3_file_t file;

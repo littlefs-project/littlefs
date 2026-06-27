@@ -16,7 +16,7 @@ defines.SIM_TIME = '60ULL*60ULL*1000ULL*1000ULL*1000ULL' # 1 hour
 defines.SIM_SIZE = 0
 
 # set this to true to skip bench warmup
-defines.NO_WARMUP = false
+defines.SKIP_WARMUP = false
 
 # include common bench helpers
 code = '''
@@ -34,7 +34,7 @@ code = '''
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!NO_WARMUP) {
+    if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -126,7 +126,7 @@ code = '''
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!NO_WARMUP) {
+    if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -217,7 +217,7 @@ code = '''
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!NO_WARMUP) {
+    if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -300,7 +300,7 @@ code = '''
 
 # many small file read throughput
 [cases.bench_rt_many]
-defines.NO_GET = false
+defines.GET = true
 code = '''
     lfs3_t lfs3;
     BENCH_STACK_PAUSE();
@@ -309,7 +309,7 @@ code = '''
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
-    if (!NO_WARMUP) {
+    if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
@@ -364,7 +364,7 @@ code = '''
         //
         // note file == CHUNK here, the sum of all files should add up
         // roughly to the benchmark SIZE
-        if (!NO_GET) {
+        if (GET) {
             lfs3_get(&lfs3, name, rbuf, CHUNK) => CHUNK;
         } else {
             lfs3_file_t rfile;
