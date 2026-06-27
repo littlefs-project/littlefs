@@ -8,10 +8,14 @@
     // DISK_GEOMETRY controls which simulation we use
     // 0 => NOR flash (the default)
     // 1 => NAND flash
+    // 2 => SD/eMMC
+    // 3 => FRAM
     #define DISK_MAP(define) \
-            ((DISK_GEOMETRY == 0) ? NOR_##define \
-                                  : NAND_##define)
-
+            ((DISK_GEOMETRY == 0)      ? NOR_##define  \
+                : (DISK_GEOMETRY == 1) ? NAND_##define \
+                : (DISK_GEOMETRY == 2) ? EMMC_##define \
+                : (DISK_GEOMETRY == 3) ? FRAM_##define \
+                                       : 0)
     #endif
 #endif
 
@@ -88,9 +92,7 @@
     BENCH_DEFINE(NOR_READ_SIZE,         1                                   )
     BENCH_DEFINE(NOR_PROG_SIZE,         1                                   )
     BENCH_DEFINE(NOR_ERASE_SIZE,        4096                                )
-    BENCH_DEFINE(NOR_READ_WIDTH,        (DISK_SIM == 0)
-                                            ? 1
-                                            : BLOCK_SIZE                    )
+    BENCH_DEFINE(NOR_READ_WIDTH,        BLOCK_SIZE                          )
     BENCH_DEFINE(NOR_PROG_WIDTH,        (DISK_SIM == 0)
                                             ? LFS3_MIN(256, BLOCK_SIZE)
                                             : BLOCK_SIZE                    )
@@ -143,6 +145,78 @@
     BENCH_DEFINE(NAND_READED_TIMING,    (DISK_SIM == 0) ? 19  : 31          )
     BENCH_DEFINE(NAND_PROGGED_TIMING,   (DISK_SIM == 0) ? 19  : 141         )
     BENCH_DEFINE(NAND_ERASED_TIMING,    (DISK_SIM == 0) ? 0   : 15          )
+
+    // SD/eMMC (DISK_GEOMETRY=2)
+    //
+    // this just uses the above NAND flash and assumes a perfect FTL
+    //
+    // simple per-byte sim:
+    // readed=31ns/B (readed)
+    // progged=156ns/B (progged + erased)
+    // erased=0ns/B (noop)
+    //
+    // less-simple bus+buffer sim:
+    // read=31ns/B (readed)
+    // prog=156ns/B (progged + erased)
+    // erase=0ns/B (noop)
+    // readed=0ns/B (no bus cost)
+    // progged=0ns/B (no bus cost)
+    // erased=0ns/B (noop)
+    //
+    BENCH_DEFINE(EMMC_READ_SIZE,        512                                 )
+    BENCH_DEFINE(EMMC_PROG_SIZE,        512                                 )
+    BENCH_DEFINE(EMMC_ERASE_SIZE,       512                                 )
+    BENCH_DEFINE(EMMC_READ_WIDTH,       (DISK_SIM == 0)
+                                            ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
+                                            : BLOCK_SIZE                    )
+    BENCH_DEFINE(EMMC_PROG_WIDTH,       (DISK_SIM == 0)
+                                            ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
+                                            : BLOCK_SIZE                    )
+    BENCH_DEFINE(EMMC_ERASE_WIDTH,      (DISK_SIM == 0)
+                                            ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
+                                            : BLOCK_SIZE                    )
+    BENCH_DEFINE(EMMC_READ_TIMING,      (DISK_SIM == 0) ? 12  : 0           )
+    BENCH_DEFINE(EMMC_PROG_TIMING,      (DISK_SIM == 0) ? 156 : 0           )
+    BENCH_DEFINE(EMMC_ERASE_TIMING,     (DISK_SIM == 0) ? 0   : 0           )
+    BENCH_DEFINE(EMMC_READED_TIMING,    (DISK_SIM == 0) ? 0   : 12          )
+    BENCH_DEFINE(EMMC_PROGGED_TIMING,   (DISK_SIM == 0) ? 0   : 156         )
+    BENCH_DEFINE(EMMC_ERASED_TIMING,    (DISK_SIM == 0) ? 0   : 0           )
+
+    // FRAM (DISK_GEOMETRY=3)
+    //
+    // based on cy15b102qsn:
+    // https://www.infineon.com/assets/row/public/documents/10/49/
+    //         infineon-cy15b102qsn-cy15v102qsn-excelon-ultra-2-mbit-
+    //         256k-x-8-quad-spi-f-ram-datasheet-en.pdf
+    //
+    // fSCK=108MHz, quad read/write (9.3 ns * 8/4)
+    // => +~19 ns for bus
+    //
+    // simple per-byte sim:
+    // readed=19ns/B (bus)
+    // progged=19ns/B (bus)
+    // erased=0ns/B (noop)
+    //
+    // less-simple bus+buffer sim:
+    // read=0ns/B (no buffer cost)
+    // prog=0ns/B (no buffer cost)
+    // erase=0ns/B (noop)
+    // readed=19ns/B (bus)
+    // progged=19ns/B (bus)
+    // erased=0ns/B (noop)
+    //
+    BENCH_DEFINE(FRAM_READ_SIZE,        1                                   )
+    BENCH_DEFINE(FRAM_PROG_SIZE,        1                                   )
+    BENCH_DEFINE(FRAM_ERASE_SIZE,       1                                   )
+    BENCH_DEFINE(FRAM_READ_WIDTH,       BLOCK_SIZE                          )
+    BENCH_DEFINE(FRAM_PROG_WIDTH,       BLOCK_SIZE                          )
+    BENCH_DEFINE(FRAM_ERASE_WIDTH,      BLOCK_SIZE                          )
+    BENCH_DEFINE(FRAM_READ_TIMING,      (DISK_SIM == 0) ? 0   : 0           )
+    BENCH_DEFINE(FRAM_PROG_TIMING,      (DISK_SIM == 0) ? 0   : 0           )
+    BENCH_DEFINE(FRAM_ERASE_TIMING,     (DISK_SIM == 0) ? 0   : 0           )
+    BENCH_DEFINE(FRAM_READED_TIMING,    (DISK_SIM == 0) ? 19  : 19          )
+    BENCH_DEFINE(FRAM_PROGGED_TIMING,   (DISK_SIM == 0) ? 19  : 19          )
+    BENCH_DEFINE(FRAM_ERASED_TIMING,    (DISK_SIM == 0) ? 0   : 0           )
 #endif
 
 
