@@ -73,19 +73,23 @@
     //
     // note one thing unique to NOR flash is the extreme erase cost
     //
-    // FR=104 MHz, quad prog (9.6 ns * 8/4)
-    // => +~19 ns for bus (not read!)
+    // FR=104MHz, quad prog (9.6ns * 8/4)
+    // => +~19ns for bus (not read!)
+    //
+    // read cmd=8op + 6addr + 2mode + 4dummy => 380ns (20 * bus)
+    // prog cmd=8op + 24addr                 => 608ns (32 * bus)
+    // erase cmd=8op + 24addr                => 608ns (32 * bus)
     //
     // simple per-byte sim:
-    // readed=40ns/B fR=50 MHz, quad read (20 ns * 8/4)
-    // progged=1582ns/B tPP=0.4 ms, page=256 (0.4 ms / 256 + bus)
-    // erased=10986ns/B tSE=45 ms, sector=4096 (45 ms / 4096)
+    // readed=40ns/B (fR=50MHz, quad read => 20ns * 8/4)
+    // progged=1582ns/B (tPP=0.4ms, page=256 => 0.4ms/256 + bus)
+    // erased=10986ns/B (tSE=45ms, sector=4096 => 45ms/4096)
     //
     // less-simple bus+buffer sim:
-    // read=0ns/B (no transaction cost)
-    // prog=1563ns/B tPP=0.4 ms, page=256 (0.4 ms / 256)
-    // erase=10986ns/B tSE=45 ms, sector=4096 (45 ms / 4096)
-    // readed=40ns/B fR=50 MHz, quad read (20 ns * 8/4)
+    // read=380ns (cmd)
+    // prog=608ns+1563ns/B (tPP=0.4ms, page=256 => cmd + 0.4ms/256)
+    // erase=608ns+10986ns/B (tSE=45ms, sector=4096 => cmd + 45ms/4096)
+    // readed=40ns/B (fR=50MHz, quad read => 20ns * 8/4)
     // progged=19ns/B (bus)
     // erased=0ns/B (no bus cost)
     //
@@ -99,12 +103,12 @@
     BENCH_DEFINE(NOR_ERASE_WIDTH,       (DISK_SIM == 0)
                                             ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
                                             : BLOCK_SIZE                    )
-    BENCH_DEFINE(NOR_READ_TIMING,       0                                   )
+    BENCH_DEFINE(NOR_READ_TIMING,       (DISK_SIM == 0) ? 380   : 0         )
     BENCH_DEFINE(NOR_PROG_TIMING,       (DISK_SIM == 0)
-                                            ? 1563*NOR_PROG_WIDTH
+                                            ? 608 + 1563*NOR_PROG_WIDTH
                                             : 0                             )
     BENCH_DEFINE(NOR_ERASE_TIMING,      (DISK_SIM == 0)
-                                            ? 10986*NOR_ERASE_WIDTH
+                                            ? 608 + 10986*NOR_ERASE_WIDTH
                                             : 0                             )
     BENCH_DEFINE(NOR_READED_TIMING,     40                                  )
     BENCH_DEFINE(NOR_PROGGED_TIMING,    (DISK_SIM == 0) ? 19    : 1582      )
@@ -115,18 +119,26 @@
     // based on w25n01gv:
     // https://www.winbond.com/resource-files/W25N01GV%20Rev%20R%20070323.pdf
     //
-    // FR=104 MHz, quad read/prog (9.6 ns * 8/4)
-    // => +~19 ns for bus
+    // FR=104MHz, quad read/prog (9.6ns * 8/4)
+    // => +~19ns for bus
+    //
+    // read cmd
+    //   read page=8op + 8dummy + 16addr
+    //   read col=8op + 4addr + 10dummy  => 1026ns (54 * bus)
+    // prog cmd
+    //   prog col=8op + 16addr
+    //   prog page=8op + 8dummy + 16addr => 1064ns (56 * bus)
+    // erase cmd=8op + 8dummy + 16addr   => 608ns  (32 * bus)
     //
     // simple per-byte sim:
-    // readed=31ns/B tRD1=25 us, p=2048, s=512 (25 us / 2048 + bus)
-    // progged=141ns/B tPP=250 us, p=2048, s=512 (250 us / 2048 + bus)
-    // erased=15ns/B tBE=2 ms, block=131072 (2 ms / 131072)
+    // readed=31ns/B (tRD1=25us, p=2048, s=512 => 25us/2048 + bus)
+    // progged=141ns/B (tPP=250us, p=2048, s=512 => 250us/2048 + bus)
+    // erased=15ns/B (tBE=2ms, block=131072 => 2ms/131072)
     //
     // less-simple bus+buffer sim:
-    // read=12ns/B tRD1=25 us, p=2048, s=512 (25 us / 2048)
-    // prog=122ns/B tPP=250 us, p=2048, s=512 (250 us / 2048)
-    // erase=15ns/B tBE=2 ms, block=131072 (2 ms / 131072)
+    // read=1026ns+12ns/B (tRD1=25us, p=2048, s=512 => cmd + 25us/2048)
+    // prog=1064ns+122ns/B (tPP=250us, p=2048, s=512 => cmd + 250us/2048)
+    // erase=608ns+15ns/B (tBE=2ms, block=131072 => cmd + 2ms/131072)
     // readed=19ns/B (bus)
     // progged=19ns/B (bus)
     // erased=0ns/B (no bus cost)
@@ -144,13 +156,13 @@
                                             ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
                                             : BLOCK_SIZE                    )
     BENCH_DEFINE(NAND_READ_TIMING,      (DISK_SIM == 0)
-                                            ? 12*NAND_READ_WIDTH
+                                            ? 1026 + 12*NAND_READ_WIDTH
                                             : 0                             )
     BENCH_DEFINE(NAND_PROG_TIMING,      (DISK_SIM == 0)
-                                            ? 122*NAND_PROG_WIDTH
+                                            ? 1064 + 122*NAND_PROG_WIDTH
                                             : 0                             )
     BENCH_DEFINE(NAND_ERASE_TIMING,     (DISK_SIM == 0)
-                                            ? 15*NAND_ERASE_WIDTH
+                                            ? 608 + 15*NAND_ERASE_WIDTH
                                             : 0                             )
     BENCH_DEFINE(NAND_READED_TIMING,    (DISK_SIM == 0) ? 19  : 31          )
     BENCH_DEFINE(NAND_PROGGED_TIMING,   (DISK_SIM == 0) ? 19  : 141         )
@@ -161,18 +173,26 @@
     // this just uses the above NAND flash (w25n01gv) and assumes a
     // perfect FTL
     //
-    // FR=104 MHz, quad read/prog (9.6 ns * 8/4)
-    // => +~19 ns for bus
+    // FR=104MHz, quad read/prog (9.6ns * 8/4)
+    // => +~19ns for bus
+    //
+    // read cmd
+    //   read page=8op + 8dummy + 16addr
+    //   read col=8op + 4addr + 10dummy  => 1026ns (54 * bus)
+    // prog cmd
+    //   prog col=8op + 16addr
+    //   prog page=8op + 8dummy + 16addr => 1064ns (56 * bus)
+    // erase cmd=8op + 8dummy + 16addr   => 608ns  (32 * bus)
     //
     // simple per-byte sim:
-    // readed=68ns/B tRD1=25us, p=2048, s=512 (25 us / 512 + bus)
-    // progged=523ns/B tPP=250us, tBE=2ms (2 ms / 131072 + 250 us / 512 + bus)
-    // erased=0ns/B (noop)
+    // readed=68ns/B (tRD1=25us, p=2048, s=512 => 25us/512 + bus)
+    // progged=523ns/B      (tPP=250us, p=2048, s=512, tBE=2ms, block=131072)
+    // erased=0ns/B (noop)  (=> 2ms/131072 + 250us/512 + bus                )
     //
     // less-simple bus+buffer sim:
-    // read=68ns/B tRD1=25us, p=2048, s=512 (25 us / 512 + bus)
-    // prog=523ns/B tPP=250us, tBE=2ms (2 ms / 131072 + 250 us / 512 + bus)
-    // erase=0ns/B (noop)
+    // read=1026ns+68ns/B (tRD1=25us, p=2048, s=512 => cmd + 25us/512 + bus)
+    // prog=1064ns+523ns/B (tPP=250us, p=2048, s=512, tBE=2ms, block=131072)
+    // erase=0ns (noop)    (=> cmd + 2ms/131072 + 250us/512 + bus          )
     // readed=0ns/B (no bus cost)
     // progged=0ns/B (no bus cost)
     // erased=0ns/B (noop)
@@ -190,10 +210,10 @@
                                             ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
                                             : BLOCK_SIZE                    )
     BENCH_DEFINE(EMMC_READ_TIMING,      (DISK_SIM == 0)
-                                            ? 68*EMMC_READ_WIDTH
+                                            ? 1026 + 68*EMMC_READ_WIDTH
                                             : 0                             )
     BENCH_DEFINE(EMMC_PROG_TIMING,      (DISK_SIM == 0)
-                                            ? 523*EMMC_PROG_WIDTH
+                                            ? 1064 + 523*EMMC_PROG_WIDTH
                                             : 0                             )
     BENCH_DEFINE(EMMC_ERASE_TIMING,     0                                   )
     BENCH_DEFINE(EMMC_READED_TIMING,    (DISK_SIM == 0) ? 0   : 68          )
@@ -207,8 +227,12 @@
     //         infineon-cy15b102qsn-cy15v102qsn-excelon-ultra-2-mbit-
     //         256k-x-8-quad-spi-f-ram-datasheet-en.pdf
     //
-    // fSCK=108MHz, quad read/write (9.3 ns * 8/4)
+    // fSCK=108MHz, quad read/write (9.3ns * 8/4)
     // => +~19 ns for bus
+    //
+    // read cmd=8op + 6addr + 2mode + 7dummy => 285ns (15 * bus)
+    // prog cmd=8op + 6addr + 2mode          => 304ns (16 * bus)
+    // erase cmd=noop
     //
     // simple per-byte sim:
     // readed=19ns/B (bus)
@@ -216,9 +240,9 @@
     // erased=0ns/B (noop)
     //
     // less-simple bus+buffer sim:
-    // read=0ns/B (no buffer cost)
-    // prog=0ns/B (no buffer cost)
-    // erase=0ns/B (noop)
+    // read=285ns (cmd)
+    // prog=304ns (cmd)
+    // erase=0ns (noop)
     // readed=19ns/B (bus)
     // progged=19ns/B (bus)
     // erased=0ns/B (noop)
@@ -229,8 +253,8 @@
     BENCH_DEFINE(FRAM_READ_WIDTH,       BLOCK_SIZE                          )
     BENCH_DEFINE(FRAM_PROG_WIDTH,       BLOCK_SIZE                          )
     BENCH_DEFINE(FRAM_ERASE_WIDTH,      BLOCK_SIZE                          )
-    BENCH_DEFINE(FRAM_READ_TIMING,      0                                   )
-    BENCH_DEFINE(FRAM_PROG_TIMING,      0                                   )
+    BENCH_DEFINE(FRAM_READ_TIMING,      (DISK_SIM == 0) ? 285 : 0           )
+    BENCH_DEFINE(FRAM_PROG_TIMING,      (DISK_SIM == 0) ? 304 : 0           )
     BENCH_DEFINE(FRAM_ERASE_TIMING,     0                                   )
     BENCH_DEFINE(FRAM_READED_TIMING,    19                                  )
     BENCH_DEFINE(FRAM_PROGGED_TIMING,   19                                  )
