@@ -15898,7 +15898,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
                 file->leaf.bptr.d.u.disk.cksum,
                 file->leaf.bptr.cksum) = cksum_;
 
-        // if we failed to align, mark as crystallized and unerased
+        // if we failed to prog align, mark as crystallized and unerased
         if ((pos_ - block_pos) % lfs3->cfg->prog_size != 0) {
             file->h.flags &= ~LFS3_o_UNCRYST;
             LFS3_IFDEF_CKDATACKSUMS(

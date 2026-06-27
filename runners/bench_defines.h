@@ -158,16 +158,20 @@
 
     // SD/eMMC (DISK_GEOMETRY=2)
     //
-    // this just uses the above NAND flash and assumes a perfect FTL
+    // this just uses the above NAND flash (w25n01gv) and assumes a
+    // perfect FTL
+    //
+    // FR=104 MHz, quad read/prog (9.6 ns * 8/4)
+    // => +~19 ns for bus
     //
     // simple per-byte sim:
-    // readed=31ns/B (readed)
-    // progged=156ns/B (progged + erased)
+    // readed=68ns/B tRD1=25us, p=2048, s=512 (25 us / 512 + bus)
+    // progged=523ns/B tPP=250us, tBE=2ms (2 ms / 131072 + 250 us / 512 + bus)
     // erased=0ns/B (noop)
     //
     // less-simple bus+buffer sim:
-    // read=31ns/B (readed)
-    // prog=156ns/B (progged + erased)
+    // read=68ns/B tRD1=25us, p=2048, s=512 (25 us / 512 + bus)
+    // prog=523ns/B tPP=250us, tBE=2ms (2 ms / 131072 + 250 us / 512 + bus)
     // erase=0ns/B (noop)
     // readed=0ns/B (no bus cost)
     // progged=0ns/B (no bus cost)
@@ -186,14 +190,14 @@
                                             ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
                                             : BLOCK_SIZE                    )
     BENCH_DEFINE(EMMC_READ_TIMING,      (DISK_SIM == 0)
-                                            ? 12*EMMC_READ_WIDTH
+                                            ? 68*EMMC_READ_WIDTH
                                             : 0                             )
     BENCH_DEFINE(EMMC_PROG_TIMING,      (DISK_SIM == 0)
-                                            ? 156*EMMC_PROG_WIDTH
+                                            ? 523*EMMC_PROG_WIDTH
                                             : 0                             )
     BENCH_DEFINE(EMMC_ERASE_TIMING,     0                                   )
-    BENCH_DEFINE(EMMC_READED_TIMING,    (DISK_SIM == 0) ? 0   : 12          )
-    BENCH_DEFINE(EMMC_PROGGED_TIMING,   (DISK_SIM == 0) ? 0   : 156         )
+    BENCH_DEFINE(EMMC_READED_TIMING,    (DISK_SIM == 0) ? 0   : 68          )
+    BENCH_DEFINE(EMMC_PROGGED_TIMING,   (DISK_SIM == 0) ? 0   : 523         )
     BENCH_DEFINE(EMMC_ERASED_TIMING,    0                                   )
 
     // FRAM (DISK_GEOMETRY=3)
