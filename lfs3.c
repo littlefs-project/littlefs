@@ -15891,16 +15891,20 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         file->leaf.bptr.d.off = LFS3_BPTR_ONDISK | LFS3_BPTR_ISBPTR | off_;
         LFS3_IFDEF_CKDATACKSUMS(
                 file->leaf.bptr.d.u.disk.cksize,
-                file->leaf.bptr.cksize) = (
-                    // mark as erased, unless crystal_thresh prevented
-                    // prog alignment
-                    ((pos_ - block_pos) % lfs3->cfg->prog_size == 0)
-                            ? LFS3_BPTR_ISERASED
-                            : 0)
-                        | (pos_ - block_pos);
+                file->leaf.bptr.cksize)
+                    // assume erased
+                    = LFS3_BPTR_ISERASED | (pos_ - block_pos);
         LFS3_IFDEF_CKDATACKSUMS(
                 file->leaf.bptr.d.u.disk.cksum,
                 file->leaf.bptr.cksum) = cksum_;
+
+        // if we failed to align, mark as crystallized and unerased
+        if ((pos_ - block_pos) % lfs3->cfg->prog_size != 0) {
+            file->h.flags &= ~LFS3_o_UNCRYST;
+            LFS3_IFDEF_CKDATACKSUMS(
+                    file->leaf.bptr.d.u.disk.cksize,
+                    file->leaf.bptr.cksize) &= ~LFS3_BPTR_ISERASED;
+        }
 
         // mark as ungrafted
         file->h.flags |= LFS3_o_UNGRAFT;
