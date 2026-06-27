@@ -99,10 +99,14 @@
     BENCH_DEFINE(NOR_ERASE_WIDTH,       (DISK_SIM == 0)
                                             ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
                                             : BLOCK_SIZE                    )
-    BENCH_DEFINE(NOR_READ_TIMING,       (DISK_SIM == 0) ? 0     : 0         )
-    BENCH_DEFINE(NOR_PROG_TIMING,       (DISK_SIM == 0) ? 1563  : 0         )
-    BENCH_DEFINE(NOR_ERASE_TIMING,      (DISK_SIM == 0) ? 10986 : 0         )
-    BENCH_DEFINE(NOR_READED_TIMING,     (DISK_SIM == 0) ? 40    : 40        )
+    BENCH_DEFINE(NOR_READ_TIMING,       0                                   )
+    BENCH_DEFINE(NOR_PROG_TIMING,       (DISK_SIM == 0)
+                                            ? 1563*NOR_PROG_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(NOR_ERASE_TIMING,      (DISK_SIM == 0)
+                                            ? 10986*NOR_ERASE_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(NOR_READED_TIMING,     40                                  )
     BENCH_DEFINE(NOR_PROGGED_TIMING,    (DISK_SIM == 0) ? 19    : 1582      )
     BENCH_DEFINE(NOR_ERASED_TIMING,     (DISK_SIM == 0) ? 0     : 10986     )
 
@@ -139,9 +143,15 @@
     BENCH_DEFINE(NAND_ERASE_WIDTH,      (DISK_SIM == 0)
                                             ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
                                             : BLOCK_SIZE                    )
-    BENCH_DEFINE(NAND_READ_TIMING,      (DISK_SIM == 0) ? 12  : 0           )
-    BENCH_DEFINE(NAND_PROG_TIMING,      (DISK_SIM == 0) ? 122 : 0           )
-    BENCH_DEFINE(NAND_ERASE_TIMING,     (DISK_SIM == 0) ? 15  : 0           )
+    BENCH_DEFINE(NAND_READ_TIMING,      (DISK_SIM == 0)
+                                            ? 12*NAND_READ_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(NAND_PROG_TIMING,      (DISK_SIM == 0)
+                                            ? 122*NAND_PROG_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(NAND_ERASE_TIMING,     (DISK_SIM == 0)
+                                            ? 15*NAND_ERASE_WIDTH
+                                            : 0                             )
     BENCH_DEFINE(NAND_READED_TIMING,    (DISK_SIM == 0) ? 19  : 31          )
     BENCH_DEFINE(NAND_PROGGED_TIMING,   (DISK_SIM == 0) ? 19  : 141         )
     BENCH_DEFINE(NAND_ERASED_TIMING,    (DISK_SIM == 0) ? 0   : 15          )
@@ -175,12 +185,16 @@
     BENCH_DEFINE(EMMC_ERASE_WIDTH,      (DISK_SIM == 0)
                                             ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
                                             : BLOCK_SIZE                    )
-    BENCH_DEFINE(EMMC_READ_TIMING,      (DISK_SIM == 0) ? 12  : 0           )
-    BENCH_DEFINE(EMMC_PROG_TIMING,      (DISK_SIM == 0) ? 156 : 0           )
-    BENCH_DEFINE(EMMC_ERASE_TIMING,     (DISK_SIM == 0) ? 0   : 0           )
+    BENCH_DEFINE(EMMC_READ_TIMING,      (DISK_SIM == 0)
+                                            ? 12*EMMC_READ_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(EMMC_PROG_TIMING,      (DISK_SIM == 0)
+                                            ? 156*EMMC_PROG_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(EMMC_ERASE_TIMING,     0                                   )
     BENCH_DEFINE(EMMC_READED_TIMING,    (DISK_SIM == 0) ? 0   : 12          )
     BENCH_DEFINE(EMMC_PROGGED_TIMING,   (DISK_SIM == 0) ? 0   : 156         )
-    BENCH_DEFINE(EMMC_ERASED_TIMING,    (DISK_SIM == 0) ? 0   : 0           )
+    BENCH_DEFINE(EMMC_ERASED_TIMING,    0                                   )
 
     // FRAM (DISK_GEOMETRY=3)
     //
@@ -211,12 +225,12 @@
     BENCH_DEFINE(FRAM_READ_WIDTH,       BLOCK_SIZE                          )
     BENCH_DEFINE(FRAM_PROG_WIDTH,       BLOCK_SIZE                          )
     BENCH_DEFINE(FRAM_ERASE_WIDTH,      BLOCK_SIZE                          )
-    BENCH_DEFINE(FRAM_READ_TIMING,      (DISK_SIM == 0) ? 0   : 0           )
-    BENCH_DEFINE(FRAM_PROG_TIMING,      (DISK_SIM == 0) ? 0   : 0           )
-    BENCH_DEFINE(FRAM_ERASE_TIMING,     (DISK_SIM == 0) ? 0   : 0           )
-    BENCH_DEFINE(FRAM_READED_TIMING,    (DISK_SIM == 0) ? 19  : 19          )
-    BENCH_DEFINE(FRAM_PROGGED_TIMING,   (DISK_SIM == 0) ? 19  : 19          )
-    BENCH_DEFINE(FRAM_ERASED_TIMING,    (DISK_SIM == 0) ? 0   : 0           )
+    BENCH_DEFINE(FRAM_READ_TIMING,      0                                   )
+    BENCH_DEFINE(FRAM_PROG_TIMING,      0                                   )
+    BENCH_DEFINE(FRAM_ERASE_TIMING,     0                                   )
+    BENCH_DEFINE(FRAM_READED_TIMING,    19                                  )
+    BENCH_DEFINE(FRAM_PROGGED_TIMING,   19                                  )
+    BENCH_DEFINE(FRAM_ERASED_TIMING,    0                                   )
 #endif
 
 

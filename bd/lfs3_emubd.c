@@ -1148,9 +1148,9 @@ lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg) {
     }
 
     lfs3_emubd_ns_t ns
-            = (bd->cfg->read_timing * bd->reads*bd->cfg->read_width)
-            + (bd->cfg->prog_timing * bd->progs*bd->cfg->prog_width)
-            + (bd->cfg->erase_timing * bd->erases*bd->cfg->erase_width)
+            = (bd->cfg->read_timing * bd->reads)
+            + (bd->cfg->prog_timing * bd->progs)
+            + (bd->cfg->erase_timing * bd->erases)
             + (bd->cfg->readed_timing * bd->readed)
             + (bd->cfg->progged_timing * bd->progged)
             + (bd->cfg->erased_timing * bd->erased);
