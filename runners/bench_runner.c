@@ -22,6 +22,7 @@
 #include <signal.h>
 #include <time.h>
 #include <stddef.h>
+#include <math.h>
 
 
 // some helpers
@@ -901,41 +902,81 @@ int __wrap_vprintf(const char *fmt, va_list args) {
 
 
 
-// bench probe/recording state
+// simple result union for probe stuff
+typedef union bench_result {
+    uintmax_t result;
+    double fresult;
+} bench_result_t;
+
+static int bench_result_cmpresult(const void *a, const void *b) {
+    uintmax_t a_ = ((const bench_result_t*)a)->result;
+    uintmax_t b_ = ((const bench_result_t*)b)->result;
+    return (a_ < b_) ? -1 : (a_ > b_) ? +1 : 0;
+}
+
+static int bench_result_cmpfresult(const void *a, const void *b) {
+    double a_ = ((const bench_result_t*)a)->fresult;
+    double b_ = ((const bench_result_t*)b)->fresult;
+    return (a_ < b_) ? -1 : (a_ > b_) ? +1 : 0;
+}
+
+// bench probe state
+#define BENCH_PROBE_MIN         0x00000001
+#define BENCH_PROBE_MAX         0x00000002
+#define BENCH_PROBE_AVG         0x00000004
+#define BENCH_PROBE_STDDEV      0x00000008
+#define BENCH_PROBE_PERCENTILE  0x00000010
+#define BENCH_PROBE_DIRTY       0x80000000
+
 typedef struct bench_probe {
     const char *name;
-    size_t step;
-    double runfreq;
-    double simfreq;
-} bench_probe_t;
-
-#define BENCH_RECORD_IGNORED 0x01
-#define BENCH_RECORD_STARTED 0x02
-#define BENCH_RECORD_DIRTY   0x04
-#define BENCH_RECORD_RESULT  0x10
-#define BENCH_RECORD_FRESULT 0x20
-#define BENCH_RECORD_SIMTIME 0x40
-
-typedef struct bench_record {
-    const char *probe;
     uint32_t flags;
     size_t step;
     double runfreq;
     double simfreq;
-    size_t steps;
-    bench_ns_t runtime; // time of last print
-    bench_ns_t simtime;
+    double percentile;
+
+    // time of last sample
+    bench_ns_t last_runtime;
+    bench_ns_t last_simtime;
+
+    // variables for incremental calculations
+    union {
+        bench_result_t min;
+        bench_result_t max;
+        double avg;
+        struct {
+            double avg;
+            double m2;
+        } stddev;
+    } u;
+} bench_probe_t;
+
+// bench recording state
+#define BENCH_RECORD_IGNORED    0x00000001
+#define BENCH_RECORD_STARTED    0x00000002
+#define BENCH_RECORD_HISTORY    0x00000004
+#define BENCH_RECORD_RESULT     0x00000010
+#define BENCH_RECORD_FRESULT    0x00000020
+#define BENCH_RECORD_BDRESULT   0x00000040
+#define BENCH_RECORD_SIMTIME    0x00000080
+
+typedef struct bench_record {
+    // this doubles as the default probe if not probe is explicitly set
+    bench_probe_t probe;
+    uint32_t flags;
+    size_t steps; // attempted samples
 
     uintmax_t n;
-    uintmax_t result;
-    double fresult;
-    bench_io_t cumul_reads; // cumulative results
-    bench_io_t cumul_progs;
-    bench_io_t cumul_erases;
-    bench_io_t cumul_readed;
-    bench_io_t cumul_progged;
-    bench_io_t cumul_erased;
-    bench_ns_t cumul_simtime;
+    bench_result_t result; // cumulative result
+    bench_result_t last_result; // most recent result
+    bench_io_t reads; // cumulative measurements
+    bench_io_t progs;
+    bench_io_t erases;
+    bench_io_t readed;
+    bench_io_t progged;
+    bench_io_t erased;
+    bench_ns_t simtime;
     bench_io_t start_reads; // start of probe
     bench_io_t start_progs;
     bench_io_t start_erases;
@@ -943,12 +984,13 @@ typedef struct bench_record {
     bench_io_t start_progged;
     bench_io_t start_erased;
     bench_ns_t start_simtime;
-} bench_record_t;
 
-typedef struct bench_cache {
-    const char *probe;
-    size_t i;
-} bench_cache_t;
+    // history for percentile/limited measurements
+    bench_result_t *history;
+    size_t history_count;
+    size_t history_capacity;
+    size_t history_off; // this is 0 until history overflows
+} bench_record_t;
 
 bench_probe_t *bench_probes = NULL;
 size_t bench_probe_count = 0;
@@ -956,23 +998,46 @@ size_t bench_probe_capacity = 0;
 size_t bench_probe_step = 0;
 double bench_probe_runfreq = 0.0;
 double bench_probe_simfreq = 0.0;
+size_t bench_probe_window = 0;
 
 const struct lfs3_cfg *bench_cfg = NULL;
 bench_record_t *bench_records = NULL;
 size_t bench_record_count = 0;
 size_t bench_record_capacity = 0;
 
-#define BENCH_CACHE_COUNT 64
-bench_cache_t bench_cache[BENCH_CACHE_COUNT];
-
 void bench_init(const struct lfs3_cfg *cfg) {
     bench_cfg = cfg;
+
+    // clear histories, _don't_ keep memory, these can end up quite
+    // large and aren't reused if probes change between cases
+    for (size_t i = 0; i < bench_record_count; i++) {
+        bench_record_t *record = &bench_records[i];
+        free(record->history);
+        record->history = NULL;
+        record->history_count = 0;
+        record->history_capacity = 0;
+        record->history_off = 0;
+    }
+    // reset records, keep memory
     bench_record_count = 0;
-    memset(bench_cache, 0, sizeof(bench_cache));
+
+    for (size_t j = 0; j < bench_probe_count; j++) {
+        bench_probe_t *probe_ = &bench_probes[j];
+        // if no explicit timing, default to bench-wide timing
+        if (!probe_->step && !probe_->runfreq && !probe_->simfreq) {
+            probe_->step = bench_probe_step;
+            probe_->runfreq = bench_probe_runfreq;
+            probe_->simfreq = bench_probe_simfreq;
+        }
+
+        // reset timers
+        probe_->last_runtime = 0;
+        probe_->last_simtime = 0;
+    }
 }
 
 // needed in bench_deinit
-void bench_print(bench_record_t *record);
+void bench_print(bench_record_t *record, bench_probe_t *probe);
 
 void bench_deinit(const struct lfs3_cfg *cfg) {
     (void)cfg;
@@ -980,23 +1045,34 @@ void bench_deinit(const struct lfs3_cfg *cfg) {
 
     // print any dirty probes at least once at the end of the bench
     for (size_t i = 0; i < bench_record_count; i++) {
-        if (bench_records[i].flags & BENCH_RECORD_DIRTY) {
-            bench_print(&bench_records[i]);
+        bench_record_t *record = &bench_records[i];
+        for (size_t j = 0;
+                j < ((bench_probe_count) ? bench_probe_count : 1);
+                j++) {
+            bench_probe_t *probe_;
+            if (!bench_probe_count) {
+                probe_ = &record->probe;
+            } else if (strcmp(record->probe.name, bench_probes[j].name) == 0) {
+                probe_ = &bench_probes[j];
+            } else {
+                continue;
+            }
+
+            if (probe_->flags & BENCH_PROBE_DIRTY) {
+                bench_print(record, probe_);
+
+                // no longer dirty
+                probe_->flags &= ~BENCH_PROBE_DIRTY;
+            }
         }
     }
 }
 
 bench_record_t *bench_find(const char *probe) {
-    // cached?
-    bench_cache_t *cache = &bench_cache[(size_t)probe % BENCH_CACHE_COUNT];
-    if (cache->probe == probe) {
-        return &bench_records[cache->i];
-    }
-
     // find our record
     bench_record_t *record = NULL;
     for (size_t i = 0; i < bench_record_count; i++) {
-        if (strcmp(bench_records[i].probe, probe) == 0) {
+        if (strcmp(bench_records[i].probe.name, probe) == 0) {
             record = &bench_records[i];
             break;
         }
@@ -1009,143 +1085,381 @@ bench_record_t *bench_find(const char *probe) {
                 sizeof(bench_record_t),
                 &bench_record_count,
                 &bench_record_capacity);
-        record->probe = probe;
-        record->flags = 0;
-        record->step = 0;
-        record->runfreq = 0.0;
-        record->simfreq = 0.0;
-        record->steps = 0;
-        record->runtime = 0;
-        record->simtime = 0;
-        record->n = 0;
-        record->result = 0;
-        record->fresult = 0.0;
-        record->cumul_reads   = 0;
-        record->cumul_progs   = 0;
-        record->cumul_erases  = 0;
-        record->cumul_readed  = 0;
-        record->cumul_progged = 0;
-        record->cumul_erased  = 0;
-        record->cumul_simtime = 0;
+        memset(record, 0, sizeof(bench_record_t));
+        record->probe.name = probe;
 
+        // forward bench-wide probe flags, these may end up unused
+        record->probe.step = bench_probe_step;
+        record->probe.runfreq = bench_probe_runfreq;
+        record->probe.simfreq = bench_probe_simfreq;
+
+        // have probe descriptors?
         if (bench_probe_count) {
-            // find probe descriptor, if there is one
-            bench_probe_t *probe_ = NULL;
-            for (size_t i = 0; i < bench_probe_count; i++) {
-                if (strcmp(bench_probes[i].name, probe) == 0) {
-                    probe_ = &bench_probes[i];
-                    break;
+            // assume ignored unless we find a probe descriptor
+            record->flags |= BENCH_RECORD_IGNORED;
+
+            // are any probe descriptors interested in this probe?
+            for (size_t j = 0; j < bench_probe_count; j++) {
+                if (strcmp(bench_probes[j].name, probe) == 0) {
+                    bench_probe_t *probe_ = &bench_probes[j];
+                    // not ignored
+                    record->flags &= ~BENCH_RECORD_IGNORED;
+
+                    // need history?
+                    //
+                    // percentile always needs history
+                    if ((probe_->flags & BENCH_PROBE_PERCENTILE)
+                            // these don't need history, but we use
+                            // history if a window is set to keep probe
+                            // behavior consistent
+                            || ((probe_->flags & (
+                                    BENCH_PROBE_MIN
+                                        | BENCH_PROBE_MAX
+                                        | BENCH_PROBE_AVG
+                                        | BENCH_PROBE_STDDEV))
+                                && bench_probe_window)) {
+                        record->flags |= BENCH_RECORD_HISTORY;
+                    }
                 }
             }
-
-            // no matching probe descriptor?
-            if (!probe_) {
-                record->flags |= BENCH_RECORD_IGNORED;
-            } else {
-                record->step = probe_->step;
-                record->runfreq = probe_->runfreq;
-                record->simfreq = probe_->simfreq;
-            }
-        }
-
-        // fallback to default step/runfreq/simfreq
-        if (!record->step && !record->runfreq && !record->simfreq) {
-            record->step = bench_probe_step;
-            record->runfreq = bench_probe_runfreq;
-            record->simfreq = bench_probe_simfreq;
         }
     }
 
-    // add to cache
-    cache->probe = probe;
-    cache->i = record - bench_records;
     return record;
 }
 
-void bench_print(bench_record_t *record) {
-    if (record->flags & BENCH_RECORD_RESULT) {
-        printf("benched %s %jd %"PRIu64"\n",
-                record->probe,
+void bench_print(bench_record_t *record, bench_probe_t *probe_) {
+    // probably shouldn't call this if we're not dirty
+    assert(probe_->flags & BENCH_PROBE_DIRTY);
+
+    // default to printing the cumulative result
+    bench_result_t result = record->result;
+    uint32_t flags = record->flags;
+    const char *suffix = "";
+    char suffix_buf[32];
+
+    // last-minute probe calculations?
+    //
+    // this is where we do all window calculations
+    //
+    // note if window is set most of the incremental calculations are
+    // forced into window mode
+    //
+    // also note history wraps around when it overflows, we can ignore
+    // this fact for all of these calculations, but worth keeping in
+    // mind if order matters
+
+    // min?
+    if (probe_->flags & BENCH_PROBE_MIN) {
+        suffix = "+min";
+        flags = (!(record->flags & BENCH_RECORD_FRESULT))
+                ? BENCH_RECORD_RESULT
+                : BENCH_RECORD_FRESULT;
+        if (!bench_probe_window) {
+            result = probe_->u.min;
+        } else if (!(record->flags & BENCH_RECORD_FRESULT)) {
+            for (size_t i = 0; i < record->history_count; i++) {
+                if (i == 0 || record->history[i].result < result.result) {
+                    result.result = record->history[i].result;
+                }
+            }
+        } else {
+            for (size_t i = 0; i < record->history_count; i++) {
+                if (i == 0 || record->history[i].fresult < result.fresult) {
+                    result.fresult = record->history[i].fresult;
+                }
+            }
+        }
+    // max?
+    } else if (probe_->flags & BENCH_PROBE_MAX) {
+        suffix = "+max";
+        flags = (!(record->flags & BENCH_RECORD_FRESULT))
+                ? BENCH_RECORD_RESULT
+                : BENCH_RECORD_FRESULT;
+        if (!bench_probe_window) {
+            result = probe_->u.max;
+        } else if (!(record->flags & BENCH_RECORD_FRESULT)) {
+            for (size_t i = 0; i < record->history_count; i++) {
+                if (i == 0 || record->history[i].result > result.result) {
+                    result.result = record->history[i].result;
+                }
+            }
+        } else {
+            for (size_t i = 0; i < record->history_count; i++) {
+                if (i == 0 || record->history[i].fresult > result.fresult) {
+                    result.fresult = record->history[i].fresult;
+                }
+            }
+        }
+    // avg?
+    } else if (probe_->flags & BENCH_PROBE_AVG) {
+        suffix = "+avg";
+        flags = BENCH_RECORD_FRESULT;
+        if (!bench_probe_window) {
+            result.fresult = probe_->u.avg;
+        } else {
+            double avg = 0.0;
+            for (size_t i = 0; i < record->history_count; i++) {
+                double result_ = (!(record->flags & BENCH_RECORD_FRESULT))
+                        ? (double)record->history[i].result
+                        : record->history[i].fresult;
+                avg += result_;
+            }
+            result.fresult = avg / (double)record->history_count;
+        }
+    // stddev?
+    } else if (probe_->flags & BENCH_PROBE_STDDEV) {
+        suffix = "+stddev";
+        flags = BENCH_RECORD_FRESULT;
+        if (!bench_probe_window) {
+            result.fresult = sqrt(
+                    probe_->u.stddev.m2
+                        / ((double)(record->steps + 1)));
+        } else {
+            double avg = 0.0;
+            for (size_t i = 0; i < record->history_count; i++) {
+                double result_ = (!(record->flags & BENCH_RECORD_FRESULT))
+                        ? (double)record->history[i].result
+                        : record->history[i].fresult;
+                avg += result_;
+            }
+            avg /= (double)record->history_count;
+
+            double stddev = 0.0;
+            for (size_t i = 0; i < record->history_count; i++) {
+                double result_ = (!(record->flags & BENCH_RECORD_FRESULT))
+                        ? (double)record->history[i].result
+                        : record->history[i].fresult;
+                stddev += pow(result_ - avg, 2);
+            }
+            result.fresult = sqrt(stddev / (double)record->history_count);
+        }
+    // percentile?
+    } else if (probe_->flags & BENCH_PROBE_PERCENTILE) {
+        sprintf(suffix_buf, "+p%.18g", probe_->percentile);
+        suffix = suffix_buf;
+        flags = (!(record->flags & BENCH_RECORD_FRESULT))
+                ? BENCH_RECORD_RESULT
+                : BENCH_RECORD_FRESULT;
+        // first sort
+        qsort(record->history,
+                record->history_count,
+                sizeof(bench_result_t),
+                (!(record->flags & BENCH_RECORD_FRESULT))
+                    ? bench_result_cmpresult
+                    : bench_result_cmpfresult);
+        // then find kth percentile
+        ssize_t k = (ssize_t)ceil(
+                    (probe_->percentile/100.0)
+                        * (double)record->history_count)
+                - 1;
+        result = (k >= 0 && k < (ssize_t)record->history_count)
+                ? record->history[k]
+                : (bench_result_t){0};
+    }
+
+    // print result
+    //
+    // this depends on result type
+    if (flags & BENCH_RECORD_RESULT) {
+        printf("benched %s%s %jd %"PRIu64"\n",
+                probe_->name,
+                suffix,
                 record->n,
-                record->result);
-    } else if (record->flags & BENCH_RECORD_FRESULT) {
-        printf("benched %s %jd %.6f\n",
-                record->probe,
+                result.result);
+    } else if (flags & BENCH_RECORD_FRESULT) {
+        printf("benched %s%s %jd %.6f\n",
+                probe_->name,
+                suffix,
                 record->n,
-                record->fresult);
-    } else if (record->flags & BENCH_RECORD_SIMTIME) {
-        printf("benched %s %jd "
+                result.fresult);
+    } else if (flags & BENCH_RECORD_SIMTIME) {
+        printf("benched %s%s %jd "
                     "%"PRIu64" %"PRIu64" %"PRIu64" "
                     "%"PRIu64" %"PRIu64" %"PRIu64" "
                     "%"PRIu64"\n",
-                record->probe,
+                probe_->name,
+                suffix,
                 record->n,
-                record->cumul_reads,
-                record->cumul_progs,
-                record->cumul_erases,
-                record->cumul_readed,
-                record->cumul_progged,
-                record->cumul_erased,
-                record->cumul_simtime);
+                record->reads,
+                record->progs,
+                record->erases,
+                record->readed,
+                record->progged,
+                record->erased,
+                record->simtime);
     } else {
-        printf("benched %s %jd "
+        printf("benched %s%s %jd "
                     "%"PRIu64" %"PRIu64" %"PRIu64" "
                     "%"PRIu64" %"PRIu64" %"PRIu64"\n",
-                record->probe,
+                probe_->name,
+                suffix,
                 record->n,
-                record->cumul_reads,
-                record->cumul_progs,
-                record->cumul_erases,
-                record->cumul_readed,
-                record->cumul_progged,
-                record->cumul_erased);
+                record->reads,
+                record->progs,
+                record->erases,
+                record->readed,
+                record->progged,
+                record->erased);
     }
-
-    record->flags &= ~BENCH_RECORD_DIRTY;
 }
 
 void bench_sample(bench_record_t *record) {
-    // if no sample method is set, default to only printing at the end
-    // of the bench
-    if (!record->step && !record->runfreq && !record->simfreq) {
-        return;
-    }
+    // add to history, if we need history
+    if (record->flags & BENCH_RECORD_HISTORY) {
+        // limit to window?
+        if (bench_probe_window
+                && record->history_count >= bench_probe_window) {
+            bench_result_t *result = &record->history[record->history_off];
+            record->history_off = (record->history_off+1) % bench_probe_window;
+            *result = record->last_result;
 
-    // sample at a specific step?
-    if (record->step) {
-        if (record->steps % record->step != 0) {
-            record->steps += 1;
-            return;
+        // append, allocating if necessary
+        } else {
+            bench_result_t *result = mappend(
+                    (void**)&record->history,
+                    sizeof(bench_result_t),
+                    &record->history_count,
+                    &record->history_capacity);
+            *result = record->last_result;
         }
-        record->steps += 1;
     }
 
-    // sample at a specific frequency?
-    if (record->runfreq) {
-        struct timespec t;
-        clock_gettime(CLOCK_MONOTONIC, &t);
-        bench_ns_t now = (bench_ns_t)t.tv_sec*1000*1000*1000
-                + (bench_ns_t)t.tv_nsec;
-        if (now - record->runtime
-                < (bench_ns_t)((1000.0*1000.0*1000.0)
-                    / record->runfreq)) {
-            return;
+    // do any probes want to print samples?
+    //
+    // if not, default to only printing at the end of the bench
+    for (size_t j = 0;
+            j < ((bench_probe_count) ? bench_probe_count : 1);
+            j++) {
+        // if there's no explicit bench probes, default to probing all
+        // bench results
+        bench_probe_t *probe_;
+        if (!bench_probe_count) {
+            probe_ = &record->probe;
+        // matching probe?
+        } else if (strcmp(record->probe.name, bench_probes[j].name) == 0) {
+            probe_ = &bench_probes[j];
+        } else {
+            continue;
         }
-        record->runtime = now;
-    }
 
-    // sample at a specific simulated frequency?
-    if (record->simfreq) {
-        bench_sns_t now = BENCH_SIMTIME();
-        if (now - record->simtime
-                < (bench_ns_t)((1000.0*1000.0*1000.0)
-                    / record->simfreq)) {
-            return;
+        // update incremental probe calculations?
+        //
+        // note we never use incremental calculations if window is
+        // explicitly set
+
+        // min?
+        if ((probe_->flags & BENCH_PROBE_MIN)
+                && !bench_probe_window) {
+            if (!(record->flags & BENCH_RECORD_FRESULT)) {
+                if (record->steps == 0
+                        || record->last_result.result
+                            < probe_->u.min.result) {
+                    probe_->u.min.result = record->last_result.result;
+                }
+            } else {
+                if (record->steps == 0
+                        || record->last_result.fresult
+                            < probe_->u.min.fresult) {
+                    probe_->u.min.fresult = record->last_result.fresult;
+                }
+            }
+        // max?
+        } else if ((probe_->flags & BENCH_PROBE_MAX)
+                && !bench_probe_window) {
+            if (!(record->flags & BENCH_RECORD_FRESULT)) {
+                if (record->steps == 0
+                        || record->last_result.result
+                            > probe_->u.max.result) {
+                    probe_->u.max.result = record->last_result.result;
+                }
+            } else {
+                if (record->steps == 0
+                        || record->last_result.fresult
+                            > probe_->u.max.fresult) {
+                    probe_->u.max.fresult = record->last_result.fresult;
+                }
+            }
+        // avg?
+        } else if ((probe_->flags & BENCH_PROBE_AVG)
+                && !bench_probe_window) {
+            if (record->steps == 0) {
+                probe_->u.avg = 0.0;
+            }
+            double result_ = (!(record->flags & BENCH_RECORD_FRESULT))
+                    ? (double)record->last_result.result
+                    : record->last_result.fresult;
+
+            probe_->u.avg += (result_ - probe_->u.avg)
+                    / ((double)(record->steps + 1));
+
+        // stddev? this is an implementation of Welford's algorithm
+        } else if ((probe_->flags & BENCH_PROBE_STDDEV)
+                && !bench_probe_window) {
+            if (record->steps == 0) {
+                probe_->u.stddev.avg = 0.0;
+                probe_->u.stddev.m2 = 0.0;
+            }
+            double result_ = (!(record->flags & BENCH_RECORD_FRESULT))
+                    ? (double)record->last_result.result
+                    : record->last_result.fresult;
+
+            double avg_ = probe_->u.stddev.avg
+                    + ((result_ - probe_->u.stddev.avg)
+                        / ((double)(record->steps + 1)));
+            double m2_ = probe_->u.stddev.m2
+                    + ((result_ - probe_->u.stddev.avg)
+                        * (result_ - avg_));
+            probe_->u.stddev.avg = avg_;
+            probe_->u.stddev.m2 = m2_;
         }
-        record->simtime = now;
+
+        // mark as dirty
+        probe_->flags |= BENCH_PROBE_DIRTY;
+
+        // sample at a specific step?
+        bool sample = false;
+        if (probe_->step
+                && record->steps % probe_->step == 0) {
+            sample = true;
+        }
+
+        // sample at a specific frequency?
+        if (probe_->runfreq) {
+            struct timespec t;
+            clock_gettime(CLOCK_MONOTONIC, &t);
+            bench_ns_t now = (bench_ns_t)t.tv_sec*1000*1000*1000
+                    + (bench_ns_t)t.tv_nsec;
+            if (now - probe_->last_runtime
+                    >= (bench_ns_t)((1000.0*1000.0*1000.0)
+                        / probe_->runfreq)) {
+                sample = true;
+                probe_->last_runtime = now;
+            }
+        }
+
+        // sample at a specific simulated frequency?
+        if (probe_->simfreq) {
+            bench_sns_t now = BENCH_SIMTIME();
+            if (now - probe_->last_simtime
+                    >= (bench_ns_t)((1000.0*1000.0*1000.0)
+                        / probe_->simfreq)) {
+                sample = true;
+                probe_->last_simtime = now;
+            }
+        }
+
+        // print sample
+        if (sample) {
+            bench_print(record, probe_);
+
+            // no longer dirty
+            probe_->flags &= ~BENCH_PROBE_DIRTY;
+        }
     }
 
-    bench_print(record);
+    // increment record steps
+    record->steps += 1;
 }
 
 void bench_start(const char *probe) {
@@ -1158,9 +1472,15 @@ void bench_start(const char *probe) {
         goto done;
     }
 
+    if (record->flags & (BENCH_RECORD_RESULT | BENCH_RECORD_FRESULT)) {
+        fprintf(stderr, "error: probe mixing result types? (%s)\n",
+                probe);
+        assert(false);
+        exit(-1);
+    }
     if (record->flags & BENCH_RECORD_STARTED) {
-        fprintf(stderr, "error: probe double started before it was "
-                    "stopped (%s)\n",
+        fprintf(stderr, "error: probe started twice before it was "
+                    "stopped? (%s)\n",
                 probe);
         assert(false);
         exit(-1);
@@ -1199,7 +1519,7 @@ void bench_start(const char *probe) {
     bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
     #endif
 
-    record->flags |= BENCH_RECORD_STARTED;
+    record->flags |= BENCH_RECORD_STARTED | BENCH_RECORD_BDRESULT;
 
     record->start_reads   = reads;
     record->start_progs   = progs;
@@ -1225,7 +1545,7 @@ void bench_stop(const char *probe, uintmax_t n) {
     }
 
     if (!(record->flags & BENCH_RECORD_STARTED)) {
-        fprintf(stderr, "error: probe stopped before it was started (%s)\n",
+        fprintf(stderr, "error: probe stopped before it was started? (%s)\n",
                 probe);
         assert(false);
         exit(-1);
@@ -1264,10 +1584,7 @@ void bench_stop(const char *probe, uintmax_t n) {
     bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
     #endif
 
-    // mark as dirty
-    record->flags |= BENCH_RECORD_DIRTY;
-    record->flags &= ~BENCH_RECORD_RESULT;
-    record->flags &= ~BENCH_RECORD_FRESULT;
+    // mark as simtime?
     if (simtime >= 0) {
         record->flags |= BENCH_RECORD_SIMTIME;
     }
@@ -1275,13 +1592,17 @@ void bench_stop(const char *probe, uintmax_t n) {
     // update n
     record->n = n;
     // add to cumulative measurements
-    record->cumul_reads   += reads   - record->start_reads;
-    record->cumul_progs   += progs   - record->start_progs;
-    record->cumul_erases  += erases  - record->start_erases;
-    record->cumul_readed  += readed  - record->start_readed;
-    record->cumul_progged += progged - record->start_progged;
-    record->cumul_erased  += erased  - record->start_erased;
-    record->cumul_simtime += simtime - record->start_simtime;
+    record->reads   += reads   - record->start_reads;
+    record->progs   += progs   - record->start_progs;
+    record->erases  += erases  - record->start_erases;
+    record->readed  += readed  - record->start_readed;
+    record->progged += progged - record->start_progged;
+    record->erased  += erased  - record->start_erased;
+    record->simtime += simtime - record->start_simtime;
+    // update result
+    record->result.result = record->simtime;
+    // keep track of last simtime for probes
+    record->last_result.result = simtime - record->start_simtime;
 
     // report probe sample
     bench_sample(record);
@@ -1303,15 +1624,22 @@ void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
         goto done;
     }
 
-    // mark as dirty
-    record->flags |= BENCH_RECORD_DIRTY;
+    if (record->flags & (BENCH_RECORD_FRESULT | BENCH_RECORD_BDRESULT)) {
+        fprintf(stderr, "error: probe mixing result types? (%s)\n",
+                probe);
+        assert(false);
+        exit(-1);
+    }
+
+    // mark as result result
     record->flags |= BENCH_RECORD_RESULT;
-    record->flags &= ~BENCH_RECORD_FRESULT;
 
     // update n
     record->n = n;
     // update result
-    record->result = result;
+    record->result.result = result;
+    // keep track of last result for probes
+    record->last_result.result = result;
 
     // report probe sample
     bench_sample(record);
@@ -1331,15 +1659,22 @@ void bench_fresult(const char *probe, uintmax_t n, double result) {
         goto done;
     }
 
-    // mark as dirty
-    record->flags |= BENCH_RECORD_DIRTY;
-    record->flags &= ~BENCH_RECORD_RESULT;
+    if (record->flags & (BENCH_RECORD_RESULT | BENCH_RECORD_BDRESULT)) {
+        fprintf(stderr, "error: probe mixing result types? (%s)\n",
+                probe);
+        assert(false);
+        exit(-1);
+    }
+
+    // mark as fresult result
     record->flags |= BENCH_RECORD_FRESULT;
 
     // update n
     record->n = n;
     // update result
-    record->fresult = result;
+    record->result.fresult = result;
+    // keep track of last result for probes
+    record->last_result.fresult = result;
 
     // report probe sample
     bench_sample(record);
@@ -2652,19 +2987,20 @@ enum opt_flags {
     OPT_PROBE_STEP               = 'x',
     OPT_PROBE_RUNFREQ            = 12,
     OPT_PROBE_SIMFREQ            = 'X',
-    OPT_STEP                     = 13,
-    OPT_FORCE                    = 14,
-    OPT_NO_INTERNAL              = 15,
-    OPT_NO_LITMUS                = 16,
+    OPT_PROBE_WINDOW             = 13,
+    OPT_STEP                     = 14,
+    OPT_FORCE                    = 15,
+    OPT_NO_INTERNAL              = 16,
+    OPT_NO_LITMUS                = 17,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 17,
-    OPT_TRACE_STEP               = 18,
-    OPT_TRACE_RUNFREQ            = 19,
-    OPT_TRACE_SIMFREQ            = 20,
-    OPT_READ_SLEEP               = 21,
-    OPT_PROG_SLEEP               = 22,
-    OPT_ERASE_SLEEP              = 23,
+    OPT_TRACE_BACKTRACE          = 18,
+    OPT_TRACE_STEP               = 19,
+    OPT_TRACE_RUNFREQ            = 20,
+    OPT_TRACE_SIMFREQ            = 21,
+    OPT_READ_SLEEP               = 22,
+    OPT_PROG_SLEEP               = 23,
+    OPT_ERASE_SLEEP              = 24,
 };
 
 const char *short_opts = "hYlLQ:D:S:x:X:d:t:";
@@ -2696,6 +3032,7 @@ const struct option long_opts[] = {
     {"probe-step",       required_argument, NULL, OPT_PROBE_STEP},
     {"probe-runfreq",    required_argument, NULL, OPT_PROBE_RUNFREQ},
     {"probe-simfreq",    required_argument, NULL, OPT_PROBE_SIMFREQ},
+    {"probe-window",     required_argument, NULL, OPT_PROBE_WINDOW},
     {"step",             required_argument, NULL, OPT_STEP},
     {"force",            no_argument,       NULL, OPT_FORCE},
     {"no-internal",      no_argument,       NULL, OPT_NO_INTERNAL},
@@ -2734,6 +3071,7 @@ const char *const help_text[] = {
     "Sample probes every n steps.",
     "Sample probes at this frequency in hz.",
     "Sample probes at this frequency in simulated hz.",
+    "Set a limit on probe history in samples.",
     "Comma-separated range of permutations to run.",
     "Ignore bench filters.",
     "Don't run internal benches.",
@@ -3039,6 +3377,7 @@ int main(int argc, char **argv) {
                     sizeof(bench_probe_t),
                     &bench_probe_count,
                     &bench_probe_capacity);
+            memset(probe, 0, sizeof(bench_probe_t));
 
             // parse into string key/intmax_t value, cannibalizing the
             // arg in the process
@@ -3047,32 +3386,91 @@ int main(int argc, char **argv) {
             if (sep) {
                 *sep = '\0';
             }
-            probe->step = 0;
-            probe->runfreq = 0.0;
-            probe->simfreq = 0.0;
 
             if (sep) {
                 optarg = sep+1;
 
-                // parse sample rate
-                if (strstr(optarg, "rhz")) {
-                    parsed = NULL;
-                    probe->runfreq = strtod(optarg, &parsed);
-                    if (parsed == optarg) {
-                        goto invalid_probe;
+                // parse plus-separated probe options
+                while (true) {
+                    optarg += strspn(optarg, " ");
+
+                    // min?
+                    if (strncmp(optarg,
+                            "min", strlen("min")) == 0) {
+                        optarg += strlen("min");
+                        probe->flags |= BENCH_PROBE_MIN;
+                    // max?
+                    } else if (strncmp(optarg,
+                            "max", strlen("max")) == 0) {
+                        optarg += strlen("max");
+                        probe->flags |= BENCH_PROBE_MAX;
+                    // avg?
+                    } else if (strncmp(optarg,
+                            "avg", strlen("avg")) == 0) {
+                        optarg += strlen("avg");
+                        probe->flags |= BENCH_PROBE_AVG;
+                    // stddev?
+                    } else if (strncmp(optarg,
+                            "stddev", strlen("stddev")) == 0) {
+                        optarg += strlen("stddev");
+                        probe->flags |= BENCH_PROBE_STDDEV;
+                    // percentile?
+                    } else if (optarg[0] == 'p') {
+                        optarg += 1;
+                        probe->flags |= BENCH_PROBE_PERCENTILE;
+                        parsed = NULL;
+                        probe->percentile = strtod(optarg, &parsed);
+                        if (parsed == optarg) {
+                            goto invalid_probe;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+                    // try to parse an integer + suffix
+                    //
+                    // this is kinda awful, but oh well
+                    } else {
+                        // runtime sample rate
+                        if (strstr(optarg, "rhz")) {
+                            parsed = NULL;
+                            probe->runfreq = strtod(optarg, &parsed);
+                            if (parsed == optarg
+                                    || strncmp(parsed,
+                                        "rhz", strlen("rhz")) != 0) {
+                                goto invalid_probe;
+                            }
+                            optarg = parsed
+                                + strlen("rhz")
+                                + strspn(parsed, " ");
+                        // simulated sample rate?
+                        } else if (strstr(optarg, "shz")) {
+                            parsed = NULL;
+                            probe->simfreq = strtod(optarg, &parsed);
+                            if (parsed == optarg
+                                    || strncmp(parsed,
+                                        "shz", strlen("shz")) != 0) {
+                                goto invalid_probe;
+                            }
+                            optarg = parsed
+                                + strlen("shz")
+                                + strspn(parsed, " ");
+                        // default to step size
+                        } else {
+                            parsed = NULL;
+                            probe->step = strtoumax(optarg, &parsed, 0);
+                            if (parsed == optarg) {
+                                goto invalid_probe;
+                            }
+                            optarg = parsed + strspn(parsed, " ");
+                        }
                     }
-                } else if (strstr(optarg, "shz")) {
-                    parsed = NULL;
-                    probe->simfreq = strtod(optarg, &parsed);
-                    if (parsed == optarg) {
-                        goto invalid_probe;
+
+                    if (*optarg != '+') {
+                        break;
                     }
-                } else {
-                    parsed = NULL;
-                    probe->step = strtoumax(optarg, &parsed, 0);
-                    if (parsed == optarg) {
-                        goto invalid_probe;
-                    }
+                    optarg += 1;
+                }
+
+                if (*optarg != '\0') {
+                    goto invalid_probe;
                 }
             }
             break;
@@ -3104,6 +3502,15 @@ int main(int argc, char **argv) {
             bench_probe_simfreq = strtod(optarg, &parsed);
             if (parsed == optarg) {
                 fprintf(stderr, "error: invalid probe-simfreq: %s\n", optarg);
+                exit(-1);
+            }
+            break;
+
+        case OPT_PROBE_WINDOW:;
+            parsed = NULL;
+            bench_probe_window = strtoumax(optarg, &parsed, 0);
+            if (parsed == optarg) {
+                fprintf(stderr, "error: invalid probe-window: %s\n", optarg);
                 exit(-1);
             }
             break;

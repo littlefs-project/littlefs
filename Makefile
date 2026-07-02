@@ -106,6 +106,7 @@ TEST_CFLAGS += -Wno-format-overflow
 
 BENCH_CFLAGS += -Wno-unused-function
 BENCH_CFLAGS += -Wno-format-overflow
+BENCH_LFLAGS += -lm # needed for math.h
 ifndef NO_STACK
 BENCH_CFLAGS += -DBENCH_STACK
 BENCH_CFLAGS += -Wl,--wrap=printf
@@ -513,6 +514,7 @@ codemap-tiny: $(BUILDDIR)/lfs3.codemap_tiny.svg
 ## Build the test-runner
 .PHONY: test-runner build-tests
 test-runner build-tests: CFLAGS+=$(TEST_CFLAGS)
+test-runner build-tests: LFLAGS+=$(TEST_LFLAGS)
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
 test-runner build-tests: $(TEST_RUNNER)
@@ -575,6 +577,7 @@ test-bottlenecks: $(TEST_CSV)
 ## Build the bench-runner
 .PHONY: bench-runner build-benches
 bench-runner build-benches: CFLAGS+=$(BENCH_CFLAGS)
+bench-runner build-benches: LFLAGS+=$(BENCH_LFLAGS)
 # note we remove some binary dependent files during compilation,
 # otherwise it's way to easy to end up with outdated results
 bench-runner build-benches: $(BENCH_RUNNER)

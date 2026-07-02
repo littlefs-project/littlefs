@@ -831,6 +831,8 @@ def find_runner(runner, id=None, main=True, **args):
         cmd.append('--probe-runfreq=%s' % args['probe_runfreq'])
     if args.get('probe_simfreq'):
         cmd.append('-X%s' % args['probe_simfreq'])
+    if args.get('probe_window'):
+        cmd.append('--probe-window=%s' % args['probe_window'])
     if args.get('force'):
         cmd.append('--force')
     if args.get('no_internal'):
@@ -1835,6 +1837,9 @@ if __name__ == "__main__":
     bench_parser.add_argument(
             '-X', '--probe-simfreq',
             help="Sample probes at this frequency in simulated hz.")
+    bench_parser.add_argument(
+            '--probe-window',
+            help="Set a limit on probe history in samples.")
     bench_parser.add_argument(
             '--force',
             action='store_true',
