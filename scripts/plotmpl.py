@@ -58,6 +58,20 @@ COLORS_DARK = [
     '#fffea3bf', # yellow
     '#b9f2f0bf', # cyan
 ]
+COLOR_FORMATS = {
+    'b': (COLORS[0], COLORS_DARK[0]),
+    'R': (COLORS[1], COLORS_DARK[1]),
+    'g': (COLORS[2], COLORS_DARK[2]),
+    'r': (COLORS[3], COLORS_DARK[3]),
+    'm': (COLORS[4], COLORS_DARK[4]),
+    'K': (COLORS[5], COLORS_DARK[5]),
+    'M': (COLORS[6], COLORS_DARK[6]),
+    'W': (COLORS[7], COLORS_DARK[7]),
+    'y': (COLORS[8], COLORS_DARK[8]),
+    'c': (COLORS[9], COLORS_DARK[9]),
+    'k': ('#000000bf', '#ffffffbf'),
+    'w': ('#ffffffbf', '#000000bf'),
+}
 ALPHAS = [0.75]
 FORMATS = ['-']
 FORMATS_POINTS = ['.']
@@ -1221,16 +1235,22 @@ def main(csv_paths, output, *,
         ax = s.ax
         for name, dataset in subdatasets.items():
             dats = sorted((x,y) for x,y in dataset)
-            format_, marker_ = dataformats_[name], None
+            format_ = dataformats_[name]
+            marker_ = None
+            color_  = datacolors_[name]
             if '$' in format_:
                 m = re.search('\$.*?\$', format_)
                 format_, marker_ = (
                         format_[:m.start()] + format_[m.end():],
                         m.group())
+            for k, v in COLOR_FORMATS.items():
+                if k in format_:
+                    format_ = format_.replace(k, '')
+                    color_ = v[dark]
             ax.plot([x for x,_ in dats], [y for _,y in dats],
                     format_,
-                    color=datacolors_[name],
                     label=','.join(name),
+                    color=color_,
                     **(dict(marker=marker_) if marker_ is not None else {}))
 
         # axes scaling
@@ -1412,9 +1432,9 @@ def main(csv_paths, output, *,
         # append and merge identical labels
         if not label:
             continue
-        if (label, datacolors_[name], dataformats_[name]) not in legend__:
+        if (label, dataformats_[name], datacolors_[name]) not in legend__:
             legend_.append((label, legend[name_]))
-            legend__.add((label, datacolors_[name], dataformats_[name]))
+            legend__.add((label, dataformats_[name], datacolors_[name]))
     legend = legend_
 
     if legend_right:
