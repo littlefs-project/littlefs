@@ -1236,7 +1236,7 @@ void bench_print(bench_record_t *record, bench_probe_t *probe_) {
         }
     // percentile?
     } else if (probe_->flags & BENCH_PROBE_PERCENTILE) {
-        sprintf(suffix_buf, "+p%.18g", probe_->percentile);
+        sprintf(suffix_buf, "+p%.12g", probe_->percentile);
         suffix = suffix_buf;
         flags = (!(record->flags & BENCH_RECORD_FRESULT))
                 ? BENCH_RECORD_RESULT
