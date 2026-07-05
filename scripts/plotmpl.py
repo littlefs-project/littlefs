@@ -678,7 +678,7 @@ def main(csv_paths, output, *,
         plt.rc('patch', linewidth=0)
         plt.rc('axes', facecolor=foreground_, edgecolor=background_)
         plt.rc('grid', color=background_)
-        # fix the the gridlines when ggplot+xkcd
+        # fix the gridlines when ggplot+xkcd
         if xkcd:
             plt.rc('grid', linewidth=1)
             plt.rc('axes.spines', bottom=False, left=False)

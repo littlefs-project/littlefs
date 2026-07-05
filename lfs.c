@@ -4804,7 +4804,7 @@ int lfs_fs_traverse_(lfs_t *lfs,
 #ifndef LFS_READONLY
 static int lfs_fs_pred(lfs_t *lfs,
         const lfs_block_t pair[2], lfs_mdir_t *pdir) {
-    // iterate over all directory directory entries
+    // iterate over all directory entries
     pdir->tail[0] = 0;
     pdir->tail[1] = 1;
     struct lfs_tortoise_t tortoise = {
@@ -5017,7 +5017,7 @@ static int lfs_fs_deorphan(lfs_t *lfs, bool powerloss) {
         lfs_mdir_t dir;
         bool moreorphans = false;
 
-        // iterate over all directory directory entries
+        // iterate over all directory entries
         while (!lfs_pair_isnull(pdir.tail)) {
             int err = lfs_dir_fetch(lfs, &dir, pdir.tail);
             if (err) {
@@ -5635,7 +5635,7 @@ static int lfs1_moved(lfs_t *lfs, const void *e) {
         return err;
     }
 
-    // iterate over all directory directory entries
+    // iterate over all directory entries
     lfs1_entry_t entry;
     while (!lfs_pair_isnull(cwd.d.tail)) {
         err = lfs1_dir_fetch(lfs, &cwd, cwd.d.tail);
