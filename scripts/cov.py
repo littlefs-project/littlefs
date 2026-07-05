@@ -39,9 +39,9 @@ class Int(co.namedtuple('Int', 'x')):
                 x = int(x, 0)
             except ValueError:
                 # also accept +-∞ and +-inf
-                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
+                if re.match(r'^\s*\+?\s*(?:∞|inf)\s*$', x):
                     x = m.inf
-                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
+                elif re.match(r'^\s*-\s*(?:∞|inf)\s*$', x):
                     x = -m.inf
                 else:
                     raise

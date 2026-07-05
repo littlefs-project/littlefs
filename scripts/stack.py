@@ -30,9 +30,9 @@ class Int(co.namedtuple('Int', 'x')):
                 x = int(x, 0)
             except ValueError:
                 # also accept +-∞ and +-inf
-                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
+                if re.match(r'^\s*\+?\s*(?:∞|inf)\s*$', x):
                     x = m.inf
-                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
+                elif re.match(r'^\s*-\s*(?:∞|inf)\s*$', x):
                     x = -m.inf
                 else:
                     raise
@@ -134,7 +134,7 @@ def collect(ci_paths, *,
         everything=False,
         **args):
     # parse the vcg format
-    k_pattern = re.compile('([a-z]+)\s*:', re.DOTALL)
+    k_pattern = re.compile(r'([a-z]+)\s*:', re.DOTALL)
     v_pattern = re.compile('(?:"(.*?)"|([a-z]+))', re.DOTALL)
     def parse_vcg(rest):
         def parse_vcg(rest):

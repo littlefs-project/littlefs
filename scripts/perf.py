@@ -48,9 +48,9 @@ class Int(co.namedtuple('Int', 'x')):
                 x = int(x, 0)
             except ValueError:
                 # also accept +-∞ and +-inf
-                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
+                if re.match(r'^\s*\+?\s*(?:∞|inf)\s*$', x):
                     x = m.inf
-                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
+                elif re.match(r'^\s*-\s*(?:∞|inf)\s*$', x):
                     x = -m.inf
                 else:
                     raise
@@ -239,23 +239,23 @@ def collect_syms_and_lines(obj_path, *,
         **args):
     symbol_pattern = re.compile(
         '^(?P<addr>[0-9a-fA-F]+)'
-            '\s+.*'
-            '\s+(?P<size>[0-9a-fA-F]+)'
-            '\s+(?P<name>[^\s]+)\s*$')
+            r'\s+.*'
+            r'\s+(?P<size>[0-9a-fA-F]+)'
+            r'\s+(?P<name>[^\s]+)\s*$')
     line_pattern = re.compile(
-        '^\s+(?:'
+        r'^\s+(?:'
             # matches dir/file table
             '(?P<no>[0-9]+)'
-                '(?:\s+(?P<dir>[0-9]+))?'
-                '\s+.*'
-                '\s+(?P<path>[^\s]+)'
+                r'(?:\s+(?P<dir>[0-9]+))?'
+                r'\s+.*'
+                r'\s+(?P<path>[^\s]+)'
             # matches line opcodes
-            '|' '\[[^\]]*\]\s+'
+            '|' r'\[[^\]]*\]\s+'
                 '(?:'
                     '(?P<op_special>Special)'
                     '|' '(?P<op_copy>Copy)'
                     '|' '(?P<op_end>End of Sequence)'
-                    '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
+                    '|' r'File .*?to (?:entry )?(?P<op_file>\d+)'
                     '|' 'Line .*?to (?P<op_line>[0-9]+)'
                     '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
                     '|' '.' ')*'
@@ -392,15 +392,15 @@ def collect_decompressed(path, *,
         depth=1,
         **args):
     sample_pattern = re.compile(
-        '(?P<comm>\w+)'
-        '\s+(?P<pid>\w+)'
-        '\s+(?P<time>[\w.]+):'
-        '\s*(?P<period>\w+)'
-        '\s+(?P<event>[^:]+):')
+        r'(?P<comm>\w+)'
+        r'\s+(?P<pid>\w+)'
+        r'\s+(?P<time>[\w.]+):'
+        r'\s*(?P<period>\w+)'
+        r'\s+(?P<event>[^:]+):')
     frame_pattern = re.compile(
-        '\s+(?P<addr>\w+)'
-        '\s+(?P<sym>[^\s\+]+)(?:\+(?P<off>\w+))?'
-        '\s+\((?P<dso>[^\)]+)\)')
+        r'\s+(?P<addr>\w+)'
+        r'\s+(?P<sym>[^\s\+]+)(?:\+(?P<off>\w+))?'
+        r'\s+\((?P<dso>[^\)]+)\)')
     events = {
         'cycles':           'cycles',
         'branch-misses':    'bmisses',
@@ -525,7 +525,7 @@ def collect_decompressed(path, *,
                         if i > 0:
                             _, file, line = line_at[i-1]
                         else:
-                            file, line = re.sub('(\.o)?$', '.c', dso, 1), 0
+                            file, line = re.sub(r'(\.o)?$', '.c', dso, 1), 0
 
                         # ignore filtered sources
                         if sources is not None:
@@ -552,7 +552,7 @@ def collect_decompressed(path, *,
 
                         at_cache[(dso,addr)] = file, line
                 else:
-                    file, line = re.sub('(\.o)?$', '.c', dso, 1), 0
+                    file, line = re.sub(r'(\.o)?$', '.c', dso, 1), 0
 
                 last_stack.append((file, sym, line))
 
