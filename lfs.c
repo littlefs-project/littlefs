@@ -3043,10 +3043,12 @@ static int lfs_ctz_traverse(lfs_t *lfs,
         err = lfs_bd_read(lfs,
                 pcache, rcache, count*sizeof(head),
                 head, 0, &heads, count*sizeof(head));
-        heads[0] = lfs_fromle32(heads[0]);
-        heads[1] = lfs_fromle32(heads[1]);
         if (err) {
             return err;
+        }
+
+        for (int i = 0; i < count; i++) {
+            heads[i] = lfs_fromle32(heads[i]);
         }
 
         for (int i = 0; i < count-1; i++) {
