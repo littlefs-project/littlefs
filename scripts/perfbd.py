@@ -39,9 +39,9 @@ class Int(co.namedtuple('Int', 'x')):
                 x = int(x, 0)
             except ValueError:
                 # also accept +-∞ and +-inf
-                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
+                if re.match(r'^\s*\+?\s*(?:∞|inf)\s*$', x):
                     x = m.inf
-                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
+                elif re.match(r'^\s*-\s*(?:∞|inf)\s*$', x):
                     x = -m.inf
                 else:
                     raise
@@ -147,23 +147,23 @@ def collect_syms_and_lines(obj_path, *,
         **args):
     symbol_pattern = re.compile(
         '^(?P<addr>[0-9a-fA-F]+)'
-            '\s+.*'
-            '\s+(?P<size>[0-9a-fA-F]+)'
-            '\s+(?P<name>[^\s]+)\s*$')
+            r'\s+.*'
+            r'\s+(?P<size>[0-9a-fA-F]+)'
+            r'\s+(?P<name>[^\s]+)\s*$')
     line_pattern = re.compile(
-        '^\s+(?:'
+        r'^\s+(?:'
             # matches dir/file table
             '(?P<no>[0-9]+)'
-                '(?:\s+(?P<dir>[0-9]+))?'
-                '\s+.*'
-                '\s+(?P<path>[^\s]+)'
+                r'(?:\s+(?P<dir>[0-9]+))?'
+                r'\s+.*'
+                r'\s+(?P<path>[^\s]+)'
             # matches line opcodes
-            '|' '\[[^\]]*\]\s+'
+            '|' r'\[[^\]]*\]\s+'
                 '(?:'
                     '(?P<op_special>Special)'
                     '|' '(?P<op_copy>Copy)'
                     '|' '(?P<op_end>End of Sequence)'
-                    '|' 'File .*?to (?:entry )?(?P<op_file>\d+)'
+                    '|' r'File .*?to (?:entry )?(?P<op_file>\d+)'
                     '|' 'Line .*?to (?P<op_line>[0-9]+)'
                     '|' '(?:Address|PC) .*?to (?P<op_addr>[0x0-9a-fA-F]+)'
                     '|' '.' ')*'
@@ -299,25 +299,25 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
         depth=1,
         **args):
     trace_pattern = re.compile(
-        '^(?P<file>[^:]*):(?P<line>[0-9]+):trace:\s*(?P<prefix>[^\s]*?bd_)(?:'
-            '(?P<read>read)\('
-                '\s*(?P<read_ctx>\w+)' '\s*,'
-                '\s*(?P<read_block>\w+)' '\s*,'
-                '\s*(?P<read_off>\w+)' '\s*,'
-                '\s*(?P<read_buffer>\w+)' '\s*,'
-                '\s*(?P<read_size>\w+)' '\s*\)'
-            '|' '(?P<prog>prog)\('
-                '\s*(?P<prog_ctx>\w+)' '\s*,'
-                '\s*(?P<prog_block>\w+)' '\s*,'
-                '\s*(?P<prog_off>\w+)' '\s*,'
-                '\s*(?P<prog_buffer>\w+)' '\s*,'
-                '\s*(?P<prog_size>\w+)' '\s*\)'
-            '|' '(?P<erase>erase)\('
-                '\s*(?P<erase_ctx>\w+)' '\s*,'
-                '\s*(?P<erase_block>\w+)'
-                '\s*\(\s*(?P<erase_size>\w+)\s*\)' '\s*\)' ')\s*$')
+        r'^(?P<file>[^:]*):(?P<line>[0-9]+):trace:\s*(?P<prefix>[^\s]*?bd_)(?:'
+            r'(?P<read>read)\('
+                r'\s*(?P<read_ctx>\w+)' r'\s*,'
+                r'\s*(?P<read_block>\w+)' r'\s*,'
+                r'\s*(?P<read_off>\w+)' r'\s*,'
+                r'\s*(?P<read_buffer>\w+)' r'\s*,'
+                r'\s*(?P<read_size>\w+)' r'\s*\)'
+            '|' r'(?P<prog>prog)\('
+                r'\s*(?P<prog_ctx>\w+)' r'\s*,'
+                r'\s*(?P<prog_block>\w+)' r'\s*,'
+                r'\s*(?P<prog_off>\w+)' r'\s*,'
+                r'\s*(?P<prog_buffer>\w+)' r'\s*,'
+                r'\s*(?P<prog_size>\w+)' r'\s*\)'
+            '|' r'(?P<erase>erase)\('
+                r'\s*(?P<erase_ctx>\w+)' r'\s*,'
+                r'\s*(?P<erase_block>\w+)'
+                r'\s*\(\s*(?P<erase_size>\w+)\s*\)' r'\s*\)' r')\s*$')
     frame_pattern = re.compile(
-        '^\s+at (?P<addr>\w+)\s*$')
+        r'^\s+at (?P<addr>\w+)\s*$')
 
     # parse all of the trace files for read/prog/erase operations
     last_filtered = False
@@ -490,7 +490,7 @@ def collect_job(path, start, stop, syms, sym_at, lines, line_at, *,
                         elif len(last_stack) == 0:
                             file, line = last_file, last_line
                         else:
-                            file, line = re.sub('(\.o)?$', '.c', obj_path, 1), 0
+                            file, line = re.sub(r'(\.o)?$', '.c', obj_path, 1), 0
 
                         # ignore filtered sources
                         if sources is not None:

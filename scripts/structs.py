@@ -35,9 +35,9 @@ class Int(co.namedtuple('Int', 'x')):
                 x = int(x, 0)
             except ValueError:
                 # also accept +-∞ and +-inf
-                if re.match('^\s*\+?\s*(?:∞|inf)\s*$', x):
+                if re.match(r'^\s*\+?\s*(?:∞|inf)\s*$', x):
                     x = m.inf
-                elif re.match('^\s*-\s*(?:∞|inf)\s*$', x):
+                elif re.match(r'^\s*-\s*(?:∞|inf)\s*$', x):
                     x = -m.inf
                 else:
                     raise
@@ -136,15 +136,15 @@ def collect(obj_paths, *,
         internal=False,
         **args):
     line_pattern = re.compile(
-        '^\s+(?P<no>[0-9]+)'
-            '(?:\s+(?P<dir>[0-9]+))?'
-            '\s+.*'
-            '\s+(?P<path>[^\s]+)$')
+        r'^\s+(?P<no>[0-9]+)'
+            r'(?:\s+(?P<dir>[0-9]+))?'
+            r'\s+.*'
+            r'\s+(?P<path>[^\s]+)$')
     info_pattern = re.compile(
         '^(?:.*(?P<tag>DW_TAG_[a-z_]+).*'
-            '|.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
-            '|.*DW_AT_decl_file.*:\s*(?P<file>[0-9]+)\s*'
-            '|.*DW_AT_byte_size.*:\s*(?P<size>[0-9]+)\s*)$')
+            r'|.*DW_AT_name.*:\s*(?P<name>[^:\s]+)\s*'
+            r'|.*DW_AT_decl_file.*:\s*(?P<file>[0-9]+)\s*'
+            r'|.*DW_AT_byte_size.*:\s*(?P<size>[0-9]+)\s*)$')
 
     results = []
     for path in obj_paths:
