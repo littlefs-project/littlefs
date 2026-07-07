@@ -4,6 +4,8 @@ after = ['test_trvs', 'test_evict']
 # Test both with and without the gbmap if available
 defines.GBMAP = [false, true]
 if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
+# set gc_lookgbmap_thresh extremely high to stress things
+defines.GC_LOOKGBMAP_THRESH = 'BLOCK_COUNT-1'
 
 
 # This suite it sort of divided into two parts
@@ -6056,7 +6058,7 @@ code = '''
 [cases.test_gc_lookgbmap_relaxed]
 # relax our lookgbmap thresh
 defines.GC_LOOKGBMAP_THRESH = [
-    '-1',
+    'BLOCK_COUNT-1',
     'BLOCK_COUNT - (BLOCK_COUNT/4)',
     'BLOCK_COUNT - (BLOCK_COUNT/2)',
 ]

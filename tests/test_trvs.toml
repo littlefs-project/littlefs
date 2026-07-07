@@ -10,6 +10,8 @@ after = [
 # Test both with and without the gbmap if available
 defines.GBMAP = [false, true]
 if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
+# set gc_lookgbmap_thresh extremely high to stress things
+defines.GC_LOOKGBMAP_THRESH = 'BLOCK_COUNT-1'
 
 
 # a simple traversal test

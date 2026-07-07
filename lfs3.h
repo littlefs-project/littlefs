@@ -713,6 +713,10 @@ struct lfs3_cfg {
     // overall allocator throughput, at the risk of needing to fallback
     // to the slower lookahead allocator when empty.
     //
+    // Suggested values are ~25% (bs/4). Values >= block_count-1 are
+    // highly discouraged (-1 will assert), as they can result in gbmap
+    // thrashing.
+    //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
     // repopulations at the risk of large latency spikes.
     #ifdef LFS3_GBMAP
@@ -754,6 +758,10 @@ struct lfs3_cfg {
     // Note this only affects explicit gc operations. During normal
     // operations the lookahead buffer is only repopulated when empty.
     //
+    // Suggested values are ~-1. Repopulating the lookahead buffer (not
+    // gbmap) is strictly read-only, though larger values may cost gc
+    // time/power for little progress.
+    //
     // 0 only repopulates the lookahead buffer when empty, while -1 or
     // any value >= 8*lookahead_size-1 repopulates the lookahead buffer
     // after any block allocation.
@@ -769,9 +777,12 @@ struct lfs3_cfg {
     // operations gbmap repopulations are controlled by
     // lookgbmap_thresh.
     //
+    // Suggested values are ~63% (bc-3*(bc/8)). Values >= block_count-1
+    // are highly discouraged (-1 will assert), as they can result in
+    // gbmap thrashing.
+    //
     // 0 or any value <= lookgbmap_thresh repopulates the gbmap when
-    // below lookgbmap_thresh, while -1 or any value >= block_count-1
-    // repopulates the lookahead buffer after any block allocation.
+    // below lookgbmap_thresh.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t gc_lookgbmap_thresh;
     #endif
@@ -780,6 +791,8 @@ struct lfs3_cfg {
     // reduce the latency of block allocation when erasing is expensive.
     //
     // Requires the gbmap to track pre-erased blocks.
+    //
+    // Suggested values are ~-1, unless erase is a noop or volatile.
     //
     // 0 disables pre-erasing, while -1 or any value >= block_count
     // attempts to pre-erase all known free blocks during gc. When
@@ -814,6 +827,8 @@ struct lfs3_cfg {
     //
     // Note this only affects explicit gc operations. During normal
     // operations metadata is only compacted when full.
+    //
+    // Suggested values are around ~88% block_size (bs-bs/8).
     //
     // Set to -1 to disable btree compaction during gc. Must be
     // >= block_size/2 to avoid balance issues. Defaults to

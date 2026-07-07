@@ -17449,8 +17449,8 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #endif
 
     // check gc stuff
-    #ifdef LFS3_GC
     // unknown gc flags?
+    #ifdef LFS3_GC
     LFS3_ASSERT((cfg->gc_flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
@@ -17463,19 +17463,32 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
+    #endif
+
+    // disallow -1 for lookgbmap_thresh and gc_lookgbmap_thresh, this
+    // almost always leads to gbmap thrashing
+    //
+    // we still allow an explicit block_count-1 if you really want to
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+    LFS3_ASSERT(cfg->lookgbmap_thresh != (lfs3_block_t)-1);
+    LFS3_ASSERT(cfg->gc_lookgbmap_thresh != (lfs3_block_t)-1);
+    #endif
 
     // check that gc_compactmeta_thresh makes sense
     //
     // metadata can't be compacted below block_size/2 for balance
     // reasons, metadata can't exceed exceed a block, and 0 is reserved
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(cfg->gc_compactmeta_thresh != 0);
     LFS3_ASSERT(cfg->gc_compactmeta_thresh >= cfg->block_size/2);
     LFS3_ASSERT(cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
             || cfg->gc_compactmeta_thresh <= cfg->block_size);
+    #endif
 
     // same for gc_compactbtree_thresh
     //
     // but 0 defaults to gc_compactmeta_thresh
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(cfg->gc_compactbtree_thresh == 0
             || cfg->gc_compactbtree_thresh >= cfg->block_size/2);
     LFS3_ASSERT(cfg->gc_compactbtree_thresh == (lfs3_size_t)-1

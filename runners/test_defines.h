@@ -22,7 +22,7 @@
     TEST_DEFINE(GC_FLAGS,               LFS3_GC_GC                          )
     TEST_DEFINE(GC_STEPS,               0                                   )
     TEST_DEFINE(GC_LOOKAHEAD_THRESH,    -1                                  )
-    TEST_DEFINE(GC_LOOKGBMAP_THRESH,    -1                                  )
+    TEST_DEFINE(GC_LOOKGBMAP_THRESH,    BLOCK_COUNT - 3*(BLOCK_COUNT/8)     )
     TEST_DEFINE(GC_PREERASE_COUNT,      -1                                  )
     TEST_DEFINE(GC_COMPACTMETA_THRESH,  BLOCK_SIZE - BLOCK_SIZE/8           )
     TEST_DEFINE(GC_COMPACTBTREE_THRESH, 0                                   )
