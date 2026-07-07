@@ -4027,9 +4027,8 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
     // this enabled during testing!
     #ifdef LFS3_REVNOISE
     if (LFS3_CFG_ISREVNOISE(lfs3->cfg)) {
-        rev ^= ~(~((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
-                    | 0xff)
-                // we need to use gcksum_p because we have be in the
+        rev ^= (((1 << lfs3->recycle_shift)-1) & ~0xff)
+                // we need to use gcksum_p because we may be in the
                 // middle of updating the gcksum
                 & lfs3->gcksum_p;
     }
@@ -8319,40 +8318,42 @@ static int lfs3_fs_consumegdelta(lfs3_t *lfs3, const lfs3_mdir_t *mdir) {
 //
 
 #ifndef LFS3_RDONLY
-static inline uint32_t lfs3_rev_init(lfs3_t *lfs3, uint32_t rev) {
+static inline void lfs3_rev_init(lfs3_t *lfs3, uint32_t *rev, char dbg) {
     (void)lfs3;
-    // we really only care about the top revision bits here, increment
-    return (rev & ~((1 << 28)-1)) + (1 << 28);
+    // we really only care about the top revision bits here, increment,
+    // and add low-effort debug bits
+    *rev = (*rev & ~((1 << 28)-1)) + (1 << 28) + dbg;
 }
 #endif
 
 #ifndef LFS3_RDONLY
-static inline bool lfs3_rev_needsrelocation(lfs3_t *lfs3, uint32_t rev) {
-    if (lfs3->recycle_bits == -1) {
-        return false;
-    }
-
-    // does out recycle counter overflow?
-    uint32_t rev_ = rev + (2 << (28-lfs3_smax(lfs3->recycle_bits, 0)));
-    //                     ^ note the +2! this ensures we overflow after
-    //                       an odd number of recycles, otherwise we'd
-    //                       only ever relocate one block in mdirs
-    return (rev_ >> 28) != (rev >> 28);
-}
-#endif
-
-#ifndef LFS3_RDONLY
-static inline uint32_t lfs3_rev_inc(lfs3_t *lfs3, uint32_t rev) {
-    // increment recycle counter/revision
+static inline bool lfs3_rev_inc(lfs3_t *lfs3, uint32_t *rev) {
+    // will our recycle counter overflow?
     //
-    // this mess increments by 2 unless we _don't_ overflow, in effect
-    // it implements a mod (2^n)-1 counter, the goal is to avoid
-    // multiple needsrelocation triggers (see above)
-    uint32_t rev_ = rev + (2 << (28-lfs3_smax(lfs3->recycle_bits, 0)));
-    if ((rev_ >> 28) == (rev >> 28)) {
-        rev_ -= 1 << (28-lfs3_smax(lfs3->recycle_bits, 0));
+    // The >= is not a typo! This check is very nuanced and does a
+    // number of things:
+    //
+    // 1. Adds 1 for the initial erase
+    // 2. Ensures an odd number of recycles to avoid mdir aliasing,
+    //    otherwise we only ever relocate one block
+    // 3. Avoids issues with noise/dbg in the lower bits
+    //
+    // We also multiply by 2 here, because our mdirs have 2 blocks, so
+    // 2x the number of erase cycles. Is this the correct behavior? Not
+    // entirely sure, but the idea is it maps ~1 recycle to ~1 erase.
+    //
+    if (lfs3->cfg->block_recycles != -1
+            && (*rev & ((1 << 28)-1)) + (1 << lfs3->recycle_shift)
+                >= (uint32_t)(2*lfs3->cfg->block_recycles+1)
+                    << lfs3->recycle_shift) {
+        // increment relocation revision, in case we overrecycle
+        lfs3_rev_init(lfs3, rev, *rev & 0xff);
+        return true;
     }
-    return rev_;
+
+    // increment recycle counter/revision
+    *rev += 1 << lfs3->recycle_shift;
+    return false;
 }
 #endif
 
@@ -8757,7 +8758,7 @@ static int lfs3_mdir_alloc__(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         rev = 0;
     }
     // reset recycle bits in revision count, add low-effort debug bits
-    rev = lfs3_rev_init(lfs3, rev) | 'm';
+    lfs3_rev_init(lfs3, &rev, 'm');
 
 relocate:;
     // allocate another block with an erase
@@ -8805,8 +8806,10 @@ static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
         rev = 0;
     }
 
-    // decide if we need to relocate
-    if (!force && lfs3_rev_needsrelocation(lfs3, rev)) {
+    // try to increment revision count
+    bool needsrelocation = lfs3_rev_inc(lfs3, &rev);
+    // do we need to relocate?
+    if (!force && needsrelocation) {
         return LFS3_ERR_NOSPC;
     }
 
@@ -8824,9 +8827,8 @@ static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
         return err;
     }
 
-    // increment our revision count and write it to our rbyd
-    err = lfs3_rbyd_appendrev(lfs3, &mdir_->r,
-            lfs3_rev_inc(lfs3, rev));
+    // write our incremented revision count into our rbyd
+    err = lfs3_rbyd_appendrev(lfs3, &mdir_->r, rev);
     if (err) {
         return err;
     }
@@ -17588,12 +17590,21 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     }
     #endif
 
-    // TODO do we need to recalculate these after mount?
-
-    // find the number of bits to use for recycle counters
+    // figure out the number of bits to use for recycle counters
     //
-    // Add 1 for the initial erase, and multiply by 2 since we alternate
-    // which metadata block we erase each compaction.
+    // Note this is annoyingly nuanced:
+    //
+    // 1. Add 1 for the initial erase
+    // 2. Multiply by 2 because mdirs have 2 blocks, so 2x the number
+    //    of erase cycles
+    // 3. We also need this so be odd to avoid mdir aliasing, otherwise
+    //    we only ever relocate one block
+    //
+    // The 2*block_recycles+1 is, in effect, the total number of erases
+    // before relocating. Unfortunately this does make our recycle
+    // counter rarely a power-of-two, but that's ok.
+    //
+    // See lfs3_rev_inc for some more comments.
     //
     // We're currently limited to 20-bits to keep space for
     // perturb/low-effort debug bits, though this could be relaxed
@@ -17602,10 +17613,11 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     //
     #ifndef LFS3_RDONLY
     if (lfs3->cfg->block_recycles != -1) {
-        lfs3->recycle_bits = lfs3_nlog2(2*(lfs3->cfg->block_recycles+1)+1)-1;
-        LFS3_ASSERT(lfs3->recycle_bits <= 20);
+        uint8_t recycle_bits = lfs3_nlog2(2*lfs3->cfg->block_recycles+1);
+        LFS3_ASSERT(recycle_bits <= 20);
+        lfs3->recycle_shift = 28 - recycle_bits;
     } else {
-        lfs3->recycle_bits = -1;
+        lfs3->recycle_shift = 28 - 0;
     }
     #endif
 
@@ -18544,7 +18556,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
         // (rev=0), it's also useful to start with -1 and 0 in the upper
         // bits to help test overflow/sequence comparison
         uint32_t rev = (((uint32_t)i-1) << 28)
-                | (((1 << (28-lfs3_smax(lfs3->recycle_bits, 0)))-1)
+                | (((1 << lfs3->recycle_shift)-1)
                     & 0x00216968);
         err = lfs3_rbyd_appendrev(lfs3, &rbyd, rev);
         if (err) {

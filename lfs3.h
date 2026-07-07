@@ -668,10 +668,9 @@ struct lfs3_cfg {
     // Number of erase cycles before metadata blocks are relocated for
     // wear-leveling.
     //
-    // Suggested values are in the range 16-1024. Larger values relocate
-    // less frequently, improving average performance, at the cost of
-    // worse wear distribution. Note this ends up rounded down to a
-    // power-of-2.
+    // Suggested values are in the range ~100-1000. Larger values
+    // relocate less frequently, improving average performance, at the
+    // cost of worse wear distribution.
     //
     // 0 results in pure copy-on-write, which may be counter-productive
     // due to write amplification. Set to -1 to disable block-level
@@ -1550,7 +1549,7 @@ typedef struct lfs3 {
 
     uint8_t mbits;
     #ifndef LFS3_RDONLY
-    int8_t recycle_bits;
+    uint8_t recycle_shift;
     uint8_t rattr_estimate;
     uint8_t mattr_estimate;
     #endif
