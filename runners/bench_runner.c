@@ -1268,7 +1268,7 @@ void bench_print(bench_record_t *record, bench_probe_t *probe_) {
                 record->n,
                 result.result);
     } else if (flags & BENCH_RECORD_FRESULT) {
-        printf("benched %s%s %jd %.6f\n",
+        printf("benched %s%s %jd %.12g\n",
                 probe_->name,
                 suffix,
                 record->n,
