@@ -755,7 +755,7 @@ struct lfs3_cfg {
     // operations the lookahead buffer is only repopulated when empty.
     //
     // 0 only repopulates the lookahead buffer when empty, while -1 or
-    // any value >= 8*lookahead_size repopulates the lookahead buffer
+    // any value >= 8*lookahead_size-1 repopulates the lookahead buffer
     // after any block allocation.
     #ifndef LFS3_RDONLY
     lfs3_block_t gc_lookahead_thresh;
@@ -770,7 +770,7 @@ struct lfs3_cfg {
     // lookgbmap_thresh.
     //
     // 0 or any value <= lookgbmap_thresh repopulates the gbmap when
-    // below lookgbmap_thresh, while -1 or any value >= block_count
+    // below lookgbmap_thresh, while -1 or any value >= block_count-1
     // repopulates the lookahead buffer after any block allocation.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t gc_lookgbmap_thresh;
