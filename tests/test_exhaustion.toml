@@ -23,11 +23,14 @@ if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
 #
 # This gives us something concrete we can test, that doubling the size of
 # storage roughly doubles the lifetime of the storage.
+#
+# Note, though, we need to use a small block_recycles to match the small
+# erase_cycles.
 
 # test dir wear-leveling
 [cases.test_exhaustion_spam_dir_fuzz]
 defines.ERASE_CYCLES = 10
-defines.BLOCK_RECYCLES = 4
+defines.BLOCK_RECYCLES = 3
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
@@ -293,7 +296,7 @@ code = '''
 # test file wear-leveling
 [cases.test_exhaustion_spam_file_fuzz]
 defines.ERASE_CYCLES = 10
-defines.BLOCK_RECYCLES = 4
+defines.BLOCK_RECYCLES = 3
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
@@ -632,7 +635,7 @@ code = '''
 # with more complex file writes
 [cases.test_exhaustion_spam_fwrite_fuzz]
 defines.ERASE_CYCLES = 10
-defines.BLOCK_RECYCLES = 4
+defines.BLOCK_RECYCLES = 3
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
@@ -901,7 +904,7 @@ code = '''
 # with uncreats, zombies, etc
 [cases.test_exhaustion_spam_uz_fuzz]
 defines.ERASE_CYCLES = 10
-defines.BLOCK_RECYCLES = 4
+defines.BLOCK_RECYCLES = 3
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
@@ -1468,7 +1471,7 @@ code = '''
 # with uncreats, zombies, dirs, etc
 [cases.test_exhaustion_spam_uzd_fuzz]
 defines.ERASE_CYCLES = 10
-defines.BLOCK_RECYCLES = 4
+defines.BLOCK_RECYCLES = 3
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
     'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',

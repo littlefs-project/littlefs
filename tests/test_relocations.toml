@@ -13,7 +13,7 @@ after = [
 
 # dirs + relocations may create problems for gstate
 [cases.test_relocations_spam_dir_many]
-defines.BLOCK_RECYCLES = [4, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 code = '''
     lfs3_t lfs3;
@@ -92,7 +92,7 @@ code = '''
 '''
 
 [cases.test_relocations_spam_dir_fuzz]
-defines.BLOCK_RECYCLES = [4, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 defines.OPS = 1024
 defines.SEED = 'range(10)'
@@ -243,7 +243,7 @@ code = '''
 
 # files + relocations may create problems for shrubs
 [cases.test_relocations_spam_file_many]
-defines.BLOCK_RECYCLES = [4, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
     '0',
@@ -316,7 +316,7 @@ code = '''
 '''
 
 [cases.test_relocations_spam_file_fuzz]
-defines.BLOCK_RECYCLES = [4, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 1024
 defines.SIZE = [
@@ -529,7 +529,7 @@ code = '''
 
 # open files + relocations may create problems for uncreats/zombies
 [cases.test_relocations_spam_uz_fuzz]
-defines.BLOCK_RECYCLES = [4, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 # you probably need to flush if you expect errors
 defines.FLUSH = false
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -954,7 +954,7 @@ code = '''
 # open files + dirs + relocations can cause so many problems it's not worth
 # listing them
 [cases.test_relocations_spam_uzd_fuzz]
-defines.BLOCK_RECYCLES = [4, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 # you probably need to flush if you expect errors
 defines.FLUSH = false
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -1485,7 +1485,7 @@ code = '''
 # wrong.
 #
 [cases.test_relocations_spam_f_pl_fuzz]
-defines.BLOCK_RECYCLES = [4, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.OPS = 256
 defines.SIZE = [
@@ -1705,7 +1705,7 @@ code = '''
 # wrong.
 #
 [cases.test_relocations_spam_fd_pl_fuzz]
-defines.BLOCK_RECYCLES = [4, 1, 0]
+defines.BLOCK_RECYCLES = [5, 1, 0]
 # note dirs x files grows O(n^2)
 defines.N = [1, 2, 4, 8]
 defines.M = 'N'
