@@ -1004,11 +1004,11 @@ class RangeSet:
 # an abstract block representation
 class TraceBlock:
     def __init__(self, block, *,
-            readed=None, proged=None, erased=None, wear=0,
+            readed=None, progged=None, erased=None, wear=0,
             x=None, y=None, width=None, height=None):
         self.block = block
         self.readed = readed if readed is not None else RangeSet()
-        self.proged = proged if proged is not None else RangeSet()
+        self.progged = progged if progged is not None else RangeSet()
         self.erased = erased if erased is not None else RangeSet()
         self.wear = wear
         self.x = x
@@ -1069,7 +1069,7 @@ class TraceBlock:
         self.readed.add(range(off, off+size))
 
     def prog(self, off, size):
-        self.proged.add(range(off, off+size))
+        self.progged.add(range(off, off+size))
 
     def erase(self, off, size, *,
             wear=0):
@@ -1078,7 +1078,7 @@ class TraceBlock:
 
     def clear(self):
         self.readed = RangeSet()
-        self.proged = RangeSet()
+        self.progged = RangeSet()
         self.erased = RangeSet()
 
 
@@ -1194,7 +1194,7 @@ def main(path='-', *,
     bmap = None
     # keep track of some extra info
     readed = 0
-    proged = 0
+    progged = 0
     erased = 0
 
     def bmap_init(block_size__, block_count__):
@@ -1202,7 +1202,7 @@ def main(path='-', *,
         nonlocal block_count_
         nonlocal bmap
         nonlocal readed
-        nonlocal proged 
+        nonlocal progged 
         nonlocal erased
 
         # keep track of block_size/block_count
@@ -1223,7 +1223,7 @@ def main(path='-', *,
         if bmap is None or volatile:
             bmap = {b: TraceBlock(b) for b in blocks_}
             readed = 0
-            proged = 0
+            progged = 0
             erased = 0
 
         # just resize block map
@@ -1277,7 +1277,7 @@ def main(path='-', *,
 
     def trace__(line):
         nonlocal readed
-        nonlocal proged
+        nonlocal progged
         nonlocal erased
 
         # string searching is much faster than the regex here, this
@@ -1333,7 +1333,7 @@ def main(path='-', *,
                 return False
             else:
                 bmap[block].prog(off, size)
-                proged += size
+                progged += size
                 return True
 
         # bd erase?
@@ -1372,7 +1372,7 @@ def main(path='-', *,
             return
 
         # compute total ops
-        total = readed + proged + erased
+        total = readed + progged + erased
 
         # if we're showing wear, find min/max/avg/etc
         if wear:
@@ -1400,8 +1400,8 @@ def main(path='-', *,
                 'total': total,
                 'read': readed,
                 'read_percent': 100*readed / max(total, 1),
-                'prog': proged,
-                'prog_percent': 100*proged / max(total, 1),
+                'prog': progged,
+                'prog_percent': 100*progged / max(total, 1),
                 'erase': erased,
                 'erase_percent': 100*erased / max(total, 1),
                 'wear_min': wear_min if wear else '?',
@@ -1422,7 +1422,7 @@ def main(path='-', *,
                     block_size_, block_count_,
                     ', %s read' % ('%.1f%%' % (100*readed / max(total, 1)))
                         if reads else '',
-                    ', %s prog' % ('%.1f%%' % (100*proged / max(total, 1)))
+                    ', %s prog' % ('%.1f%%' % (100*progged / max(total, 1)))
                         if progs else '',
                     ', %s erase' % ('%.1f%%' % (100*erased / max(total, 1)))
                         if erases else '',
@@ -1605,7 +1605,7 @@ def main(path='-', *,
                     char__ = b.chars['read']
                     color__ = b.colors['read']
                 elif op == 'prog':
-                    ranges__ = b.proged
+                    ranges__ = b.progged
                     char__ = b.chars['prog']
                     color__ = b.colors['prog']
                 elif op == 'erase':

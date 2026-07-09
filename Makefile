@@ -163,8 +163,8 @@ TESTFLAGS  += -p$(TEST_PERF)
 BENCHFLAGS += -p$(BENCH_PERF)
 endif
 ifdef PERFBDGEN
-TESTFLAGS  += -t$(TEST_TRACE) --trace-backtrace --trace-freq=100
-BENCHFLAGS += -t$(BENCH_TRACE) --trace-backtrace --trace-freq=100
+TESTFLAGS  += -t$(TEST_TRACE) --trace-backtrace --trace-runfreq=100
+BENCHFLAGS += -t$(BENCH_TRACE) --trace-backtrace --trace-runfreq=100
 endif
 ifdef TESTMARKS
 TESTFLAGS  += -o$(TEST_CSV)

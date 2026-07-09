@@ -5,7 +5,7 @@
 #
 # Example:
 # ./scripts/bench.py -ttrace
-# ./scripts/perfbd.py trace -j -Flfs.c -Flfs_util.c -Serased -Sproged -Sreaded
+# ./scripts/perfbd.py trace -j -Flfs.c -Flfs_util.c -Serased -Sprogged -Sreaded
 #
 # Copyright (c) 2022, The littlefs authors.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -146,28 +146,28 @@ class CsvInt(co.namedtuple('CsvInt', 'a')):
 # perf results
 class PerfBdResult(co.namedtuple('PerfBdResult', [
         'z', 'file', 'function', 'line',
-        'readed', 'proged', 'erased',
+        'readed', 'progged', 'erased',
         'children'])):
     _prefix = 'perfbd_'
     _by = ['z', 'file', 'function', 'line']
-    _fields = ['readed', 'proged', 'erased']
-    _sort = ['erased', 'proged', 'readed']
-    _types = {'readed': CsvInt, 'proged': CsvInt, 'erased': CsvInt}
+    _fields = ['readed', 'progged', 'erased']
+    _sort = ['erased', 'progged', 'readed']
+    _types = {'readed': CsvInt, 'progged': CsvInt, 'erased': CsvInt}
     _z = 'z'
     _children = 'children'
 
     __slots__ = ()
     def __new__(cls, z=0, file='', function='', line=0,
-            readed=0, proged=0, erased=0,
+            readed=0, progged=0, erased=0,
             children=None):
         return super().__new__(cls, z, file, function, int(CsvInt(line)),
-                CsvInt(readed), CsvInt(proged), CsvInt(erased),
+                CsvInt(readed), CsvInt(progged), CsvInt(erased),
                 children if children is not None else [])
 
     def __add__(self, other):
         return PerfBdResult(self.z, self.file, self.function, self.line,
                 self.readed + other.readed,
-                self.proged + other.proged,
+                self.progged + other.progged,
                 self.erased + other.erased,
                 self.children + other.children)
 
@@ -527,7 +527,7 @@ def collect_job(path, start, stop, syms, lines, *,
     last_line = None
     last_sym = None
     last_readed = 0
-    last_proged = 0
+    last_progged = 0
     last_erased = 0
     last_stack = []
     last_delta = None
@@ -567,7 +567,7 @@ def collect_job(path, start, stop, syms, lines, *,
 
             results[(file, sym, line)] = (
                     last_readed,
-                    last_proged,
+                    last_progged,
                     last_erased,
                     {})
         else:
@@ -586,7 +586,7 @@ def collect_job(path, start, stop, syms, lines, *,
                         r, p, e, children = 0, 0, 0, {}
                     results_[name] = (
                             r+last_readed,
-                            p+last_proged,
+                            p+last_progged,
                             e+last_erased,
                             children)
 
@@ -625,7 +625,7 @@ def collect_job(path, start, stop, syms, lines, *,
                         last_line = int(m.group('line'), 0)
                         last_sym = m.group('prefix')
                         last_readed = 0
-                        last_proged = 0
+                        last_progged = 0
                         last_erased = 0
                         last_stack = []
                         last_delta = None
@@ -635,7 +635,7 @@ def collect_job(path, start, stop, syms, lines, *,
                             last_readed += int(m.group('read_size'))
                         elif m.group('prog'):
                             last_sym += m.group('prog')
-                            last_proged += int(m.group('prog_size'))
+                            last_progged += int(m.group('prog_size'))
                         elif m.group('erase'):
                             last_sym += m.group('erase')
                             last_erased += int(m.group('erase_size'))
@@ -1435,7 +1435,7 @@ def annotate(Result, results, *,
 
     # find maxs
     max_readed = max(it.chain((float(r.readed) for r in results), [1]))
-    max_proged = max(it.chain((float(r.proged) for r in results), [1]))
+    max_progged = max(it.chain((float(r.progged) for r in results), [1]))
     max_erased = max(it.chain((float(r.erased) for r in results), [1]))
 
     for path in co.OrderedDict.fromkeys(r.file for r in results).keys():
@@ -1450,7 +1450,7 @@ def annotate(Result, results, *,
             func = None
             for line, r in sorted(table.items()):
                 if (float(r.readed) / max_readed >= read_t0
-                        or float(r.proged) / max_proged >= prog_t0
+                        or float(r.progged) / max_progged >= prog_t0
                         or float(r.erased) / max_erased >= erase_t0):
                     if last is not None and line - last.stop <= args['context']:
                         last = range(
@@ -1489,20 +1489,20 @@ def annotate(Result, results, *,
 
                 if i+1 in table:
                     r = table[i+1]
-                    line = '%-*s // %s readed, %s proged, %s erased' % (
+                    line = '%-*s // %s readed, %s progged, %s erased' % (
                             args['width'],
                             line,
                             r.readed,
-                            r.proged,
+                            r.progged,
                             r.erased)
 
                     if args['color']:
                         if (float(r.readed) / max_readed >= read_t1
-                                or float(r.proged) / max_proged >= prog_t1
+                                or float(r.progged) / max_progged >= prog_t1
                                 or float(r.erased) / max_erased >= erase_t1):
                             line = '\x1b[1;31m%s\x1b[m' % line
                         elif (float(r.readed) / max_readed >= read_t0
-                                or float(r.proged) / max_proged >= prog_t0
+                                or float(r.progged) / max_progged >= prog_t0
                                 or float(r.erased) / max_erased >= erase_t0):
                             line = '\x1b[35m%s\x1b[m' % line
 
