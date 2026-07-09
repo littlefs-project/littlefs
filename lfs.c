@@ -937,6 +937,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
                 }
 
                 tag = (lfs_frombe32(tag) ^ ptag) | 0x80000000;
+                LFS_ASSERT(lfs_tag_type3(tag) != LFS_FROM_USERATTRS);
                 disk.block = dir->pair[0];
                 disk.off = off+sizeof(lfs_tag_t);
                 buffer = &disk;
