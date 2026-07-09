@@ -1181,8 +1181,8 @@ def run_stage(offset, name, runner, test_ids,
 
     pattern = re.compile('^(?:'
                 '(?P<op>running|finished|skipped|powerloss) '
-                    '(?P<id>(?P<case>[^:]+)[^\s]*)'
-                '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
+                    '(?P<id>(?P<case>[^:\s]+)[^\s]*)'
+                '|' '(?P<path>[^:\s]+):(?P<lineno>\d+):(?P<op_>assert):'
                     ' *(?P<message>.*)'
             ')$')
     locals = th.local()

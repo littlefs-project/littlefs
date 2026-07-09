@@ -1198,12 +1198,14 @@ def run_stage(offset, name, runner, bench_ids,
 
     pattern = re.compile('^(?:'
                 '(?P<op>running|finished|skipped)'
-                    ' (?P<id>(?P<case>[^:]+)[^\s]*)'
-                '|' '(?P<path>[^:]+):(?P<lineno>\d+):(?P<op_>assert):'
+                    ' (?P<id>(?P<case>[^:\s]+)[^\s]*)'
+                '|' '(?P<path>[^:\s]+):(?P<lineno>\d+):(?P<op_>assert):'
                     ' *(?P<message>.*)'
                 '|' '(?P<op__>benched)'
-                    ' (?P<probe>[^\s]+)'
-                    ' (?P<n>\d+)'
+                    ' (?P<probe>[^:\s]+)(?:'
+                        '(?::(?P<hits>\d+))?'
+                        ':(?P<n>\d+)' ')?'
+                    '(?: (?P<simtime>[\d\.]+))?'
                     '(?:'
                         '(?:'
                             ' (?P<reads>[\d\.]+)'
@@ -1212,7 +1214,6 @@ def run_stage(offset, name, runner, bench_ids,
                         ' (?P<readed>[\d\.]+)'
                         ' (?P<progged>[\d\.]+)'
                         ' (?P<erased>[\d\.]+)' ')?'
-                    '(?: (?P<simtime>[\d\.]+))?'
             ')$')
     locals = th.local()
     children = set()
@@ -1307,7 +1308,6 @@ def run_stage(offset, name, runner, bench_ids,
                             proc.kill()
                     elif op == 'benched':
                         probe_ = m.group('probe')
-                        n_ = int(m.group('n'))
                         # parse measurements
                         def dat(v):
                             if v is None:
@@ -1316,6 +1316,8 @@ def run_stage(offset, name, runner, bench_ids,
                                 return float(v)
                             else:
                                 return int(v)
+                        hits_    = dat(m.group('hits'))
+                        n_       = dat(m.group('n'))
                         reads_   = dat(m.group('reads'))
                         progs_   = dat(m.group('progs'))
                         erases_  = dat(m.group('erases'))
@@ -1339,6 +1341,7 @@ def run_stage(offset, name, runner, bench_ids,
                                     'case': last_case,
                                     **last_defines,
                                     'probe': probe_,
+                                    'hits': hits_,
                                     'n': n_,
                                     'bench_reads': reads_,
                                     'bench_progs': progs_,
@@ -1528,6 +1531,7 @@ def run(runner, bench_ids=[], **args):
                 ['i', 'suite', 'case'],
                 # defines go here
                 ['probe',
+                    'hits',
                     'n',
                     'bench_reads',
                     'bench_progs',
