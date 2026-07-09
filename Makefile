@@ -697,17 +697,17 @@ bench-widths: $(BENCH_CSV)
 			float(bench_readed)/float(bench_reads), \
 			max(1, $$( \
 				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
-					--query-implicit-define=READ_WIDTH)))))" \
+					--query-implicit-define=ERASE_SIZE)))))" \
 		-fprogged="avg(saturate(ffrac( \
 			float(bench_progged)/float(bench_progs), \
 			max(1, $$( \
 				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
-					--query-implicit-define=PROG_WIDTH)))))" \
+					--query-implicit-define=ERASE_SIZE)))))" \
 		-ferased="avg(saturate(ffrac( \
 			float(bench_erased)/float(bench_erases), \
 			max(1, $$( \
 				./scripts/bench.py -R$(BENCH_RUNNER) $(BENCHFLAGS) \
-					--query-implicit-define=ERASE_WIDTH)))))" \
+					--query-implicit-define=ERASE_SIZE)))))" \
 		$(SUMMARYFLAGS))
 
 ## Show heap/stack/disk usage

@@ -121,6 +121,9 @@ int lfs3_kiwibd_createcfg(const struct lfs3_cfg *cfg, const char *path,
     bd->reads = 0;
     bd->progs = 0;
     bd->erases = 0;
+    bd->wreads = 0;
+    bd->wprogs = 0;
+    bd->werases = 0;
     bd->readed = 0;
     bd->progged = 0;
     bd->erased = 0;
@@ -281,11 +284,12 @@ int lfs3_kiwibd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
 
     // track reads
     if (!bd->paused) {
-        bd->reads += (lfs3_alignup(off + size,
-                        lfs3_max(bd->cfg->read_width, 1))
-                    - lfs3_aligndown(off,
-                        lfs3_max(bd->cfg->read_width, 1)))
-                / lfs3_max(bd->cfg->read_width, 1);
+        bd->reads += 1;
+        bd->wreads += (bd->cfg->read_width)
+                ? (lfs3_alignup(off + size, bd->cfg->read_width)
+                        - lfs3_aligndown(off, bd->cfg->read_width))
+                    / bd->cfg->read_width
+                : 0;
         bd->readed += size;
     }
     if (bd->cfg->read_sleep) {
@@ -416,11 +420,12 @@ int lfs3_kiwibd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
 
     // track progs
     if (!bd->paused) {
-        bd->progs += (lfs3_alignup(off + size,
-                        lfs3_max(bd->cfg->prog_width, 1))
-                    - lfs3_aligndown(off,
-                        lfs3_max(bd->cfg->prog_width, 1)))
-                / lfs3_max(bd->cfg->prog_width, 1);
+        bd->progs += 1;
+        bd->wprogs += (bd->cfg->prog_width)
+                ? (lfs3_alignup(off + size, bd->cfg->prog_width)
+                        - lfs3_aligndown(off, bd->cfg->prog_width))
+                    / bd->cfg->prog_width
+                : 0;
         bd->progged += size;
     }
     if (bd->cfg->prog_sleep) {
@@ -484,9 +489,11 @@ int lfs3_kiwibd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
 erased:;
     // track erases
     if (!bd->paused) {
-        bd->erases += lfs3_alignup(cfg->block_size,
-                    lfs3_max(bd->cfg->erase_width, 1))
-                / lfs3_max(bd->cfg->erase_width, 1);
+        bd->erases += 1;
+        bd->werases += (bd->cfg->erase_width)
+                ? lfs3_alignup(cfg->block_size, bd->cfg->erase_width)
+                    / bd->cfg->erase_width
+                : 0;
         bd->erased += cfg->block_size;
     }
     if (bd->cfg->erase_sleep) {
@@ -532,9 +539,12 @@ lfs3_kiwibd_sns_t lfs3_kiwibd_simtime(const struct lfs3_cfg *cfg) {
     if (bd->cfg->read_timing == 0
             && bd->cfg->prog_timing == 0
             && bd->cfg->erase_timing == 0
-            && bd->cfg->readed_timing == 0
-            && bd->cfg->progged_timing == 0
-            && bd->cfg->erased_timing == 0) {
+            && bd->cfg->read_wtiming == 0
+            && bd->cfg->prog_wtiming == 0
+            && bd->cfg->erase_wtiming == 0
+            && bd->cfg->read_utiming == 0
+            && bd->cfg->prog_utiming == 0
+            && bd->cfg->erase_utiming == 0) {
         LFS3_KIWIBD_TRACE("lfs3_kiwibd_simtime -> %d", LFS3_ERR_NOTSUP);
         return LFS3_ERR_NOTSUP;
     }
@@ -543,9 +553,12 @@ lfs3_kiwibd_sns_t lfs3_kiwibd_simtime(const struct lfs3_cfg *cfg) {
             = (bd->cfg->read_timing * bd->reads)
             + (bd->cfg->prog_timing * bd->progs)
             + (bd->cfg->erase_timing * bd->erases)
-            + (bd->cfg->readed_timing * bd->readed)
-            + (bd->cfg->progged_timing * bd->progged)
-            + (bd->cfg->erased_timing * bd->erased);
+            + (bd->cfg->read_wtiming * bd->wreads)
+            + (bd->cfg->prog_wtiming * bd->wprogs)
+            + (bd->cfg->erase_wtiming * bd->werases)
+            + (bd->cfg->read_utiming * bd->readed)
+            + (bd->cfg->prog_utiming * bd->progged)
+            + (bd->cfg->erase_utiming * bd->erased);
 
     LFS3_KIWIBD_TRACE("lfs3_kiwibd_simtime -> %"PRIu64, ns);
     return ns;
@@ -557,6 +570,9 @@ int lfs3_kiwibd_simreset(const struct lfs3_cfg *cfg) {
     bd->reads = 0;
     bd->progs = 0;
     bd->erases = 0;
+    bd->wreads = 0;
+    bd->wprogs = 0;
+    bd->werases = 0;
     bd->readed = 0;
     bd->progged = 0;
     bd->erased = 0;
@@ -600,6 +616,27 @@ lfs3_kiwibd_sio_t lfs3_kiwibd_erases(const struct lfs3_cfg *cfg) {
     lfs3_kiwibd_t *bd = cfg->context;
     LFS3_KIWIBD_TRACE("lfs3_kiwibd_erases -> %"PRIu64, bd->erases);
     return bd->erases;
+}
+
+lfs3_kiwibd_sio_t lfs3_kiwibd_wreads(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_wreads(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_wreads -> %"PRIu64, bd->wreads);
+    return bd->wreads;
+}
+
+lfs3_kiwibd_sio_t lfs3_kiwibd_wprogs(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_wprogs(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_wprogs -> %"PRIu64, bd->wprogs);
+    return bd->wprogs;
+}
+
+lfs3_kiwibd_sio_t lfs3_kiwibd_werases(const struct lfs3_cfg *cfg) {
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_werases(%p)", (void*)cfg);
+    lfs3_kiwibd_t *bd = cfg->context;
+    LFS3_KIWIBD_TRACE("lfs3_kiwibd_werases -> %"PRIu64, bd->werases);
+    return bd->werases;
 }
 
 lfs3_kiwibd_sio_t lfs3_kiwibd_readed(const struct lfs3_cfg *cfg) {

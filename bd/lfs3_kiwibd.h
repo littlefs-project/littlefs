@@ -44,46 +44,58 @@ struct lfs3_kiwibd_cfg {
     int32_t erase_value;
 
     // Simulated read width, this is only used for simulated read timing
-    // and emulates the physical read hardware on the device. Defaults
-    // to 1 byte.
+    // and emulates the physical read hardware on the device.
     lfs3_size_t read_width;
 
     // Simulated prog width, this is only used for simulated prog timing
-    // and emulates the physical prog hardware on the device. Defaults
-    // to 1 byte.
+    // and emulates the physical prog hardware on the device.
     lfs3_size_t prog_width;
 
     // Simulated erase width, this is only used for simulated erase timing
-    // and emulates physical erase hardware on the device. Defaults to 1
-    // byte.
+    // and emulates physical erase hardware on the device.
     lfs3_size_t erase_width;
 
-    // Simulated per-byte read timing in nanoseconds, this is added to
-    // simtime each read call after aligning up to the necessary number
-    // of read_widths to emulate the read operation.
+    // Simulated read timing in nanoseconds, this is added to simtime each
+    // read call. This ignores read_width and can be used to emulate command
+    // timing.
     lfs3_kiwibd_ns_t read_timing;
 
-    // Simulated per-byte prog timing in nanoseconds, this is added to
-    // simtime each prog call after aligning up to the necessary number
-    // of prog_widths to emulate the prog operation.
+    // Simulated prog timing in nanoseconds, this is added to simtime each
+    // prog call. This ignores prog_width and can be used to emulate command
+    // timing.
     lfs3_kiwibd_ns_t prog_timing;
 
-    // Simulated per-byte erase timing in nanoseconds, this is added to
+    // Simulated erase timing in nanoseconds, this is added to simtime each
+    // erase call. This ignores erase_width and can be used to emulate command
+    // timing.
+    lfs3_kiwibd_ns_t erase_timing;
+
+    // Simulated per-width read timing in nanoseconds, this is added to
+    // simtime each read call after aligning up to the necessary number
+    // of read_widths to emulate the read operation.
+    lfs3_kiwibd_ns_t read_wtiming;
+
+    // Simulated per-width prog timing in nanoseconds, this is added to
+    // simtime each prog call after aligning up to the necessary number
+    // of prog_widths to emulate the prog operation.
+    lfs3_kiwibd_ns_t prog_wtiming;
+
+    // Simulated per-width erase timing in nanoseconds, this is added to
     // simtime each erase call after aligning up to the necessary number
     // of erase_widths to emulate the erase operation.
-    lfs3_kiwibd_ns_t erase_timing;
+    lfs3_kiwibd_ns_t erase_wtiming;
 
     // Simulated per-byte read timing in nanoseconds, this ignores
     // read_width and can be used to simulate relevant bus overhead.
-    lfs3_kiwibd_ns_t readed_timing;
+    lfs3_kiwibd_ns_t read_utiming;
 
     // Simulated per-byte prog timing in nanoseconds, this ignores
     // prog_width and can be used to simulate relevant bus overhead.
-    lfs3_kiwibd_ns_t progged_timing;
+    lfs3_kiwibd_ns_t prog_utiming;
 
     // Simulated per-byte erase timing in nanoseconds, this ignores
     // erase_width and can be used to simulate relevant bus overhead.
-    lfs3_kiwibd_ns_t erased_timing;
+    lfs3_kiwibd_ns_t erase_utiming;
 
     // Artificial read transaction delay in nanoseconds, there is no
     // purpose for this other than slowing down the simulation.
@@ -109,10 +121,13 @@ typedef struct lfs3_kiwibd {
 
     // sim state
     uint32_t paused;
-    // amount read/progged/erased
+    // amount readed/progged/erased
     lfs3_kiwibd_io_t reads;
     lfs3_kiwibd_io_t progs;
     lfs3_kiwibd_io_t erases;
+    lfs3_kiwibd_io_t wreads;
+    lfs3_kiwibd_io_t wprogs;
+    lfs3_kiwibd_io_t werases;
     lfs3_kiwibd_io_t readed;
     lfs3_kiwibd_io_t progged;
     lfs3_kiwibd_io_t erased;
@@ -169,14 +184,23 @@ int lfs3_kiwibd_simpause(const struct lfs3_cfg *cfg);
 // Resume simulation counters
 int lfs3_kiwibd_simresume(const struct lfs3_cfg *cfg);
 
-// Get total number of read transactions
+// Get total number of read calls
 lfs3_kiwibd_sio_t lfs3_kiwibd_reads(const struct lfs3_cfg *cfg);
 
-// Get total number of prog transactions
+// Get total number of prog calls
 lfs3_kiwibd_sio_t lfs3_kiwibd_progs(const struct lfs3_cfg *cfg);
 
-// Get total number of erase transactions
+// Get total number of erase calls
 lfs3_kiwibd_sio_t lfs3_kiwibd_erases(const struct lfs3_cfg *cfg);
+
+// Get total number of read_width transactions
+lfs3_kiwibd_sio_t lfs3_kiwibd_wreads(const struct lfs3_cfg *cfg);
+
+// Get total number of prog_width transactions
+lfs3_kiwibd_sio_t lfs3_kiwibd_wprogs(const struct lfs3_cfg *cfg);
+
+// Get total number of erase_width transactions
+lfs3_kiwibd_sio_t lfs3_kiwibd_werases(const struct lfs3_cfg *cfg);
 
 // Get total amount of bytes read
 lfs3_kiwibd_sio_t lfs3_kiwibd_readed(const struct lfs3_cfg *cfg);

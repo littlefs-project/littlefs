@@ -1210,7 +1210,11 @@ def run_stage(offset, name, runner, bench_ids,
                         '(?:'
                             ' (?P<reads>[\d\.]+)'
                             ' (?P<progs>[\d\.]+)'
-                            ' (?P<erases>[\d\.]+)' ')?'
+                            ' (?P<erases>[\d\.]+)'
+                            '(?:'
+                                ' (?P<wreads>[\d\.]+)'
+                                ' (?P<wprogs>[\d\.]+)'
+                                ' (?P<werases>[\d\.]+)' ')?' ')?'
                         ' (?P<readed>[\d\.]+)'
                         ' (?P<progged>[\d\.]+)'
                         ' (?P<erased>[\d\.]+)' ')?'
@@ -1321,6 +1325,9 @@ def run_stage(offset, name, runner, bench_ids,
                         reads_   = dat(m.group('reads'))
                         progs_   = dat(m.group('progs'))
                         erases_  = dat(m.group('erases'))
+                        wreads_  = dat(m.group('wreads'))
+                        wprogs_  = dat(m.group('wprogs'))
+                        werases_ = dat(m.group('werases'))
                         readed_  = dat(m.group('readed'))
                         progged_ = dat(m.group('progged'))
                         erased_  = dat(m.group('erased'))
@@ -1346,6 +1353,9 @@ def run_stage(offset, name, runner, bench_ids,
                                     'bench_reads': reads_,
                                     'bench_progs': progs_,
                                     'bench_erases': erases_,
+                                    'bench_wreads': wreads_,
+                                    'bench_wprogs': wprogs_,
+                                    'bench_werases': werases_,
                                     'bench_readed': readed_,
                                     'bench_progged': progged_,
                                     'bench_erased': erased_,
@@ -1536,6 +1546,9 @@ def run(runner, bench_ids=[], **args):
                     'bench_reads',
                     'bench_progs',
                     'bench_erases',
+                    'bench_wreads',
+                    'bench_wprogs',
+                    'bench_werases',
                     'bench_readed',
                     'bench_progged',
                     'bench_erased',

@@ -976,6 +976,9 @@ typedef struct bench_record {
     bench_io_t reads; // cumulative measurements
     bench_io_t progs;
     bench_io_t erases;
+    bench_io_t wreads;
+    bench_io_t wprogs;
+    bench_io_t werases;
     bench_io_t readed;
     bench_io_t progged;
     bench_io_t erased;
@@ -983,6 +986,9 @@ typedef struct bench_record {
     bench_io_t start_reads; // start of probe
     bench_io_t start_progs;
     bench_io_t start_erases;
+    bench_io_t start_wreads;
+    bench_io_t start_wprogs;
+    bench_io_t start_werases;
     bench_io_t start_readed;
     bench_io_t start_progged;
     bench_io_t start_erased;
@@ -1267,10 +1273,14 @@ void bench_print(bench_record_t *record, bench_probe_t *probe_) {
     }
     if (flags & BENCH_RECORD_BDRESULT) {
         printf(     " %"PRIu64" %"PRIu64" %"PRIu64
+                    " %"PRIu64" %"PRIu64" %"PRIu64
                     " %"PRIu64" %"PRIu64" %"PRIu64,
                 record->reads,
                 record->progs,
                 record->erases,
+                record->wreads,
+                record->wprogs,
+                record->werases,
                 record->readed,
                 record->progged,
                 record->erased);
@@ -1464,6 +1474,12 @@ void bench_start(const char *probe) {
     assert(progs >= 0);
     bench_sio_t erases = lfs3_emubd_erases(bench_cfg);
     assert(erases >= 0);
+    bench_sio_t wreads = lfs3_emubd_wreads(bench_cfg);
+    assert(wreads >= 0);
+    bench_sio_t wprogs = lfs3_emubd_wprogs(bench_cfg);
+    assert(wprogs >= 0);
+    bench_sio_t werases = lfs3_emubd_werases(bench_cfg);
+    assert(werases >= 0);
     bench_sio_t readed = lfs3_emubd_readed(bench_cfg);
     assert(readed >= 0);
     bench_sio_t progged = lfs3_emubd_progged(bench_cfg);
@@ -1479,6 +1495,12 @@ void bench_start(const char *probe) {
     assert(progs >= 0);
     bench_sio_t erases = lfs3_kiwibd_erases(bench_cfg);
     assert(erases >= 0);
+    bench_sio_t wreads = lfs3_kiwibd_wreads(bench_cfg);
+    assert(wreads >= 0);
+    bench_sio_t wprogs = lfs3_kiwibd_wprogs(bench_cfg);
+    assert(wprogs >= 0);
+    bench_sio_t werases = lfs3_kiwibd_werases(bench_cfg);
+    assert(werases >= 0);
     bench_sio_t readed = lfs3_kiwibd_readed(bench_cfg);
     assert(readed >= 0);
     bench_sio_t progged = lfs3_kiwibd_progged(bench_cfg);
@@ -1494,6 +1516,9 @@ void bench_start(const char *probe) {
     record->start_reads   = reads;
     record->start_progs   = progs;
     record->start_erases  = erases;
+    record->start_wreads  = wreads;
+    record->start_wprogs  = wprogs;
+    record->start_werases = werases;
     record->start_readed  = readed;
     record->start_progged = progged;
     record->start_erased  = erased;
@@ -1529,6 +1554,12 @@ void bench_stop(const char *probe, uintmax_t n) {
     assert(progs >= 0);
     bench_sio_t erases = lfs3_emubd_erases(bench_cfg);
     assert(erases >= 0);
+    bench_sio_t wreads = lfs3_emubd_wreads(bench_cfg);
+    assert(wreads >= 0);
+    bench_sio_t wprogs = lfs3_emubd_wprogs(bench_cfg);
+    assert(wprogs >= 0);
+    bench_sio_t werases = lfs3_emubd_werases(bench_cfg);
+    assert(werases >= 0);
     bench_sio_t readed = lfs3_emubd_readed(bench_cfg);
     assert(readed >= 0);
     bench_sio_t progged = lfs3_emubd_progged(bench_cfg);
@@ -1544,6 +1575,12 @@ void bench_stop(const char *probe, uintmax_t n) {
     assert(progs >= 0);
     bench_sio_t erases = lfs3_kiwibd_erases(bench_cfg);
     assert(erases >= 0);
+    bench_sio_t wreads = lfs3_kiwibd_wreads(bench_cfg);
+    assert(wreads >= 0);
+    bench_sio_t wprogs = lfs3_kiwibd_wprogs(bench_cfg);
+    assert(wprogs >= 0);
+    bench_sio_t werases = lfs3_kiwibd_werases(bench_cfg);
+    assert(werases >= 0);
     bench_sio_t readed = lfs3_kiwibd_readed(bench_cfg);
     assert(readed >= 0);
     bench_sio_t progged = lfs3_kiwibd_progged(bench_cfg);
@@ -1565,6 +1602,9 @@ void bench_stop(const char *probe, uintmax_t n) {
     record->reads   += reads   - record->start_reads;
     record->progs   += progs   - record->start_progs;
     record->erases  += erases  - record->start_erases;
+    record->wreads  += wreads  - record->start_wreads;
+    record->wprogs  += wprogs  - record->start_wprogs;
+    record->werases += werases - record->start_werases;
     record->readed  += readed  - record->start_readed;
     record->progged += progged - record->start_progged;
     record->erased  += erased  - record->start_erased;

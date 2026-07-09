@@ -61,9 +61,12 @@
     BENCH_DEFINE(READ_TIMING,           DISK_MAP(READ_TIMING)               )
     BENCH_DEFINE(PROG_TIMING,           DISK_MAP(PROG_TIMING)               )
     BENCH_DEFINE(ERASE_TIMING,          DISK_MAP(ERASE_TIMING)              )
-    BENCH_DEFINE(READED_TIMING,         DISK_MAP(READED_TIMING)             )
-    BENCH_DEFINE(PROGGED_TIMING,        DISK_MAP(PROGGED_TIMING)            )
-    BENCH_DEFINE(ERASED_TIMING,         DISK_MAP(ERASED_TIMING)             )
+    BENCH_DEFINE(READ_WTIMING,          DISK_MAP(READ_WTIMING)              )
+    BENCH_DEFINE(PROG_WTIMING,          DISK_MAP(PROG_WTIMING)              )
+    BENCH_DEFINE(ERASE_WTIMING,         DISK_MAP(ERASE_WTIMING)             )
+    BENCH_DEFINE(READ_UTIMING,          DISK_MAP(READ_UTIMING)              )
+    BENCH_DEFINE(PROG_UTIMING,          DISK_MAP(PROG_UTIMING)              )
+    BENCH_DEFINE(ERASE_UTIMING,         DISK_MAP(ERASE_UTIMING)             )
 
     // NOR flash (DISK_GEOMETRY=0)
     //
@@ -87,8 +90,11 @@
     //
     // less-simple bus+buffer sim:
     // read=380ns (cmd)
-    // prog=608ns+1563ns/B (tPP=0.4ms, page=256 => cmd + 0.4ms/256)
-    // erase=608ns+10986ns/B (tSE=45ms, sector=4096 => cmd + 45ms/4096)
+    // prog=608ns (cmd)
+    // erase=608ns (cmd)
+    // wread=0ns/B (no transaction cost)
+    // wprog=1563ns/B (tPP=0.4ms, page=256 => 0.4ms/256)
+    // werase=10986ns/B (tSE=45ms, sector=4096 => 45ms/4096)
     // readed=40ns/B (fR=50MHz, quad read => 20ns * 8/4)
     // progged=19ns/B (bus)
     // erased=0ns/B (no bus cost)
@@ -96,23 +102,22 @@
     BENCH_DEFINE(NOR_READ_SIZE,         1                                   )
     BENCH_DEFINE(NOR_PROG_SIZE,         1                                   )
     BENCH_DEFINE(NOR_ERASE_SIZE,        4096                                )
-    BENCH_DEFINE(NOR_READ_WIDTH,        BLOCK_SIZE                          )
-    BENCH_DEFINE(NOR_PROG_WIDTH,        (DISK_SIM == 0)
-                                            ? LFS3_MIN(256, BLOCK_SIZE)
-                                            : BLOCK_SIZE                    )
-    BENCH_DEFINE(NOR_ERASE_WIDTH,       (DISK_SIM == 0)
-                                            ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
-                                            : BLOCK_SIZE                    )
+    BENCH_DEFINE(NOR_READ_WIDTH,        0                                   )
+    BENCH_DEFINE(NOR_PROG_WIDTH,        LFS3_MIN(256, BLOCK_SIZE)           )
+    BENCH_DEFINE(NOR_ERASE_WIDTH,       LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)    )
     BENCH_DEFINE(NOR_READ_TIMING,       (DISK_SIM == 0) ? 380   : 0         )
-    BENCH_DEFINE(NOR_PROG_TIMING,       (DISK_SIM == 0)
-                                            ? 608 + 1563*NOR_PROG_WIDTH
+    BENCH_DEFINE(NOR_PROG_TIMING,       (DISK_SIM == 0) ? 608   : 0         )
+    BENCH_DEFINE(NOR_ERASE_TIMING,      (DISK_SIM == 0) ? 608   : 0         )
+    BENCH_DEFINE(NOR_READ_WTIMING,      0                                   )
+    BENCH_DEFINE(NOR_PROG_WTIMING,      (DISK_SIM == 0)
+                                            ? 1563*NOR_PROG_WIDTH
                                             : 0                             )
-    BENCH_DEFINE(NOR_ERASE_TIMING,      (DISK_SIM == 0)
-                                            ? 608 + 10986*NOR_ERASE_WIDTH
+    BENCH_DEFINE(NOR_ERASE_WTIMING,     (DISK_SIM == 0)
+                                            ? 10986*NOR_ERASE_WIDTH
                                             : 0                             )
-    BENCH_DEFINE(NOR_READED_TIMING,     40                                  )
-    BENCH_DEFINE(NOR_PROGGED_TIMING,    (DISK_SIM == 0) ? 19    : 1582      )
-    BENCH_DEFINE(NOR_ERASED_TIMING,     (DISK_SIM == 0) ? 0     : 10986     )
+    BENCH_DEFINE(NOR_READ_UTIMING,      40                                  )
+    BENCH_DEFINE(NOR_PROG_UTIMING,      (DISK_SIM == 0) ? 19    : 1582      )
+    BENCH_DEFINE(NOR_ERASE_UTIMING,     (DISK_SIM == 0) ? 0     : 10986     )
 
     // NAND flash (DISK_GEOMETRY=1)
     //
@@ -136,9 +141,12 @@
     // erased=15ns/B (tBE=2ms, block=131072 => 2ms/131072)
     //
     // less-simple bus+buffer sim:
-    // read=1026ns+12ns/B (tRD1=25us, p=2048, s=512 => cmd + 25us/2048)
-    // prog=1064ns+122ns/B (tPP=250us, p=2048, s=512 => cmd + 250us/2048)
-    // erase=608ns+15ns/B (tBE=2ms, block=131072 => cmd + 2ms/131072)
+    // read=1026ns (cmd)
+    // prog=1064ns (cmd)
+    // erase=608ns (cmd)
+    // wread=12ns/B (tRD1=25us, p=2048, s=512 => 25us/2048)
+    // wprog=122ns/B (tPP=250us, p=2048, s=512 => 250us/2048)
+    // werase=15ns/B (tBE=2ms, block=131072 => 2ms/131072)
     // readed=19ns/B (bus)
     // progged=19ns/B (bus)
     // erased=0ns/B (no bus cost)
@@ -146,27 +154,24 @@
     BENCH_DEFINE(NAND_READ_SIZE,        1                                   )
     BENCH_DEFINE(NAND_PROG_SIZE,        512                                 )
     BENCH_DEFINE(NAND_ERASE_SIZE,       131072                              )
-    BENCH_DEFINE(NAND_READ_WIDTH,       (DISK_SIM == 0)
-                                            ? LFS3_MIN(2048, BLOCK_SIZE)
-                                            : BLOCK_SIZE                    )
-    BENCH_DEFINE(NAND_PROG_WIDTH,       (DISK_SIM == 0)
-                                            ? LFS3_MIN(2048, BLOCK_SIZE)
-                                            : BLOCK_SIZE                    )
-    BENCH_DEFINE(NAND_ERASE_WIDTH,      (DISK_SIM == 0)
-                                            ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
-                                            : BLOCK_SIZE                    )
-    BENCH_DEFINE(NAND_READ_TIMING,      (DISK_SIM == 0)
-                                            ? 1026 + 12*NAND_READ_WIDTH
+    BENCH_DEFINE(NAND_READ_WIDTH,       LFS3_MIN(2048, BLOCK_SIZE)          )
+    BENCH_DEFINE(NAND_PROG_WIDTH,       LFS3_MIN(2048, BLOCK_SIZE)          )
+    BENCH_DEFINE(NAND_ERASE_WIDTH,      LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)    )
+    BENCH_DEFINE(NAND_READ_TIMING,      (DISK_SIM == 0) ? 1026  : 0         )
+    BENCH_DEFINE(NAND_PROG_TIMING,      (DISK_SIM == 0) ? 1064  : 0         )
+    BENCH_DEFINE(NAND_ERASE_TIMING,     (DISK_SIM == 0) ? 608   : 0         )
+    BENCH_DEFINE(NAND_READ_WTIMING,     (DISK_SIM == 0)
+                                            ? 12*NAND_READ_WIDTH
                                             : 0                             )
-    BENCH_DEFINE(NAND_PROG_TIMING,      (DISK_SIM == 0)
-                                            ? 1064 + 122*NAND_PROG_WIDTH
+    BENCH_DEFINE(NAND_PROG_WTIMING,     (DISK_SIM == 0)
+                                            ? 122*NAND_PROG_WIDTH
                                             : 0                             )
-    BENCH_DEFINE(NAND_ERASE_TIMING,     (DISK_SIM == 0)
-                                            ? 608 + 15*NAND_ERASE_WIDTH
+    BENCH_DEFINE(NAND_ERASE_WTIMING,    (DISK_SIM == 0)
+                                            ? 15*NAND_ERASE_WIDTH
                                             : 0                             )
-    BENCH_DEFINE(NAND_READED_TIMING,    (DISK_SIM == 0) ? 19  : 31          )
-    BENCH_DEFINE(NAND_PROGGED_TIMING,   (DISK_SIM == 0) ? 19  : 141         )
-    BENCH_DEFINE(NAND_ERASED_TIMING,    (DISK_SIM == 0) ? 0   : 15          )
+    BENCH_DEFINE(NAND_READ_UTIMING,     (DISK_SIM == 0) ? 19    : 31        )
+    BENCH_DEFINE(NAND_PROG_UTIMING,     (DISK_SIM == 0) ? 19    : 141       )
+    BENCH_DEFINE(NAND_ERASE_UTIMING,    (DISK_SIM == 0) ? 0     : 15        )
 
     // SD/eMMC (DISK_GEOMETRY=2)
     //
@@ -190,9 +195,12 @@
     // erased=0ns/B (noop)  (=> 2ms/131072 + 250us/512 + bus                )
     //
     // less-simple bus+buffer sim:
-    // read=1026ns+68ns/B (tRD1=25us, p=2048, s=512 => cmd + 25us/512 + bus)
-    // prog=1064ns+523ns/B (tPP=250us, p=2048, s=512, tBE=2ms, block=131072)
-    // erase=0ns (noop)    (=> cmd + 2ms/131072 + 250us/512 + bus          )
+    // read=1026ns (cmd)
+    // prog=1064ns (cmd)
+    // erase=0ns (noop)
+    // wread=68ns/B (tRD1=25us, p=2048, s=512 => 25us/512 + bus)
+    // wprog=523ns/B        (tPP=250us, p=2048, s=512, tBE=2ms, block=131072)
+    // werase=0ns/B (noop)  (=> 2ms/131072 + 250us/512 + bus                )
     // readed=0ns/B (no bus cost)
     // progged=0ns/B (no bus cost)
     // erased=0ns/B (noop)
@@ -200,25 +208,22 @@
     BENCH_DEFINE(EMMC_READ_SIZE,        512                                 )
     BENCH_DEFINE(EMMC_PROG_SIZE,        512                                 )
     BENCH_DEFINE(EMMC_ERASE_SIZE,       512                                 )
-    BENCH_DEFINE(EMMC_READ_WIDTH,       (DISK_SIM == 0)
-                                            ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
-                                            : BLOCK_SIZE                    )
-    BENCH_DEFINE(EMMC_PROG_WIDTH,       (DISK_SIM == 0)
-                                            ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
-                                            : BLOCK_SIZE                    )
-    BENCH_DEFINE(EMMC_ERASE_WIDTH,      (DISK_SIM == 0)
-                                            ? LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)
-                                            : BLOCK_SIZE                    )
-    BENCH_DEFINE(EMMC_READ_TIMING,      (DISK_SIM == 0)
-                                            ? 1026 + 68*EMMC_READ_WIDTH
-                                            : 0                             )
-    BENCH_DEFINE(EMMC_PROG_TIMING,      (DISK_SIM == 0)
-                                            ? 1064 + 523*EMMC_PROG_WIDTH
-                                            : 0                             )
+    BENCH_DEFINE(EMMC_READ_WIDTH,       LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)    )
+    BENCH_DEFINE(EMMC_PROG_WIDTH,       LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)    )
+    BENCH_DEFINE(EMMC_ERASE_WIDTH,      LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)    )
+    BENCH_DEFINE(EMMC_READ_TIMING,      (DISK_SIM == 0) ? 1026  : 0         )
+    BENCH_DEFINE(EMMC_PROG_TIMING,      (DISK_SIM == 0) ? 1064  : 0         )
     BENCH_DEFINE(EMMC_ERASE_TIMING,     0                                   )
-    BENCH_DEFINE(EMMC_READED_TIMING,    (DISK_SIM == 0) ? 0   : 68          )
-    BENCH_DEFINE(EMMC_PROGGED_TIMING,   (DISK_SIM == 0) ? 0   : 523         )
-    BENCH_DEFINE(EMMC_ERASED_TIMING,    0                                   )
+    BENCH_DEFINE(EMMC_READ_WTIMING,     (DISK_SIM == 0)
+                                            ? 68*EMMC_READ_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(EMMC_PROG_WTIMING,     (DISK_SIM == 0)
+                                            ? 523*EMMC_PROG_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(EMMC_ERASE_WTIMING,    0                                   )
+    BENCH_DEFINE(EMMC_READ_UTIMING,     (DISK_SIM == 0) ? 0     : 68        )
+    BENCH_DEFINE(EMMC_PROG_UTIMING,     (DISK_SIM == 0) ? 0     : 523       )
+    BENCH_DEFINE(EMMC_ERASE_UTIMING,    0                                   )
 
     // FRAM (DISK_GEOMETRY=3)
     //
@@ -243,6 +248,9 @@
     // read=285ns (cmd)
     // prog=304ns (cmd)
     // erase=0ns (noop)
+    // wread=0ns/B (no transaction cost)
+    // wprog=0ns/B (no transaction cost)
+    // werase=0ns/B (noop)
     // readed=19ns/B (bus)
     // progged=19ns/B (bus)
     // erased=0ns/B (noop)
@@ -250,15 +258,18 @@
     BENCH_DEFINE(FRAM_READ_SIZE,        1                                   )
     BENCH_DEFINE(FRAM_PROG_SIZE,        1                                   )
     BENCH_DEFINE(FRAM_ERASE_SIZE,       1                                   )
-    BENCH_DEFINE(FRAM_READ_WIDTH,       BLOCK_SIZE                          )
-    BENCH_DEFINE(FRAM_PROG_WIDTH,       BLOCK_SIZE                          )
-    BENCH_DEFINE(FRAM_ERASE_WIDTH,      BLOCK_SIZE                          )
+    BENCH_DEFINE(FRAM_READ_WIDTH,       0                                   )
+    BENCH_DEFINE(FRAM_PROG_WIDTH,       0                                   )
+    BENCH_DEFINE(FRAM_ERASE_WIDTH,      LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)    )
     BENCH_DEFINE(FRAM_READ_TIMING,      (DISK_SIM == 0) ? 285 : 0           )
     BENCH_DEFINE(FRAM_PROG_TIMING,      (DISK_SIM == 0) ? 304 : 0           )
     BENCH_DEFINE(FRAM_ERASE_TIMING,     0                                   )
-    BENCH_DEFINE(FRAM_READED_TIMING,    19                                  )
-    BENCH_DEFINE(FRAM_PROGGED_TIMING,   19                                  )
-    BENCH_DEFINE(FRAM_ERASED_TIMING,    0                                   )
+    BENCH_DEFINE(FRAM_READ_WTIMING,     0                                   )
+    BENCH_DEFINE(FRAM_PROG_WTIMING,     0                                   )
+    BENCH_DEFINE(FRAM_ERASE_WTIMING,    0                                   )
+    BENCH_DEFINE(FRAM_READ_UTIMING,     19                                  )
+    BENCH_DEFINE(FRAM_PROG_UTIMING,     19                                  )
+    BENCH_DEFINE(FRAM_ERASE_UTIMING,    0                                   )
 #endif
 
 
@@ -317,9 +328,12 @@
         .read_timing                    = READ_TIMING,
         .prog_timing                    = PROG_TIMING,
         .erase_timing                   = ERASE_TIMING,
-        .readed_timing                  = READED_TIMING,
-        .progged_timing                 = PROGGED_TIMING,
-        .erased_timing                  = ERASED_TIMING,
+        .read_wtiming                   = READ_WTIMING,
+        .prog_wtiming                   = PROG_WTIMING,
+        .erase_wtiming                  = ERASE_WTIMING,
+        .read_utiming                   = READ_UTIMING,
+        .prog_utiming                   = PROG_UTIMING,
+        .erase_utiming                  = ERASE_UTIMING,
         .erase_cycles                   = ERASE_CYCLES,
         .badblock_behavior              = BADBLOCK_BEHAVIOR,
         .powerloss_behavior             = POWERLOSS_BEHAVIOR,
@@ -338,9 +352,12 @@
         .read_timing                    = READ_TIMING,
         .prog_timing                    = PROG_TIMING,
         .erase_timing                   = ERASE_TIMING,
-        .readed_timing                  = READED_TIMING,
-        .progged_timing                 = PROGGED_TIMING,
-        .erased_timing                  = ERASED_TIMING,
+        .read_wtiming                   = READ_WTIMING,
+        .prog_wtiming                   = PROG_WTIMING,
+        .erase_wtiming                  = ERASE_WTIMING,
+        .read_utiming                   = READ_UTIMING,
+        .prog_utiming                   = PROG_UTIMING,
+        .erase_utiming                  = ERASE_UTIMING,
     };
     struct lfs3_kiwibd_cfg *BENCH_BDCFG = &_bdcfg;
     #endif
