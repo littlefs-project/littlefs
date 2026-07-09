@@ -1417,6 +1417,7 @@ static int lfs_dir_getinfo(lfs_t *lfs, lfs_mdir_t *dir,
         // special case for root
         strcpy(info->name, "/");
         info->type = LFS_TYPE_DIR;
+        info->size = 0;
         return 0;
     }
 
