@@ -3367,9 +3367,12 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
             lfs_file_t orig = {
                 .ctz.head = file->ctz.head,
                 .ctz.size = file->ctz.size,
-                .flags = LFS_O_RDONLY,
+                .flags = LFS_O_RDONLY | (
+                    (file->ctz.head == LFS_BLOCK_INLINE) ? LFS_F_INLINE : 0),
                 .pos = file->pos,
                 .cache = lfs->rcache,
+                .m = file->m,
+                .id = file->id,
             };
             lfs_cache_drop(lfs, &lfs->rcache);
 
