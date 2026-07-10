@@ -223,10 +223,12 @@ code = '''
         // fruncate or rotate if full
         lfs3_soff_t size = lfs3_file_size(&lfs3, &file);
         assert(size >= 0);
-        if (size > SIZE) {
-            if (FRUNCATE) {
+        if (FRUNCATE) {
+            if (size > SIZE) {
                 lfs3_file_fruncate(&lfs3, &file, SIZE) => 0;
-            } else {
+            }
+        } else {
+            if (size >= SIZE) {
                 lfs3_file_close(&lfs3, &file) => 0;
                 lfs3_rename(&lfs3, "bench_log", "bench_log.1") => 0;
                 lfs3_file_open(&lfs3, &file, "bench_log",
