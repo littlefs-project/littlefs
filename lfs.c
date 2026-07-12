@@ -6495,6 +6495,14 @@ int lfs_fs_mkconsistent(lfs_t *lfs) {
 
 #ifndef LFS_READONLY
 int lfs_fs_gc(lfs_t *lfs) {
+    // lfs->cfg is only assigned in lfs_init, which is only reachable via
+    // a successful lfs_mount/lfs_format. Calling lfs_fs_gc on an lfs_t
+    // that was never mounted (the common case for a statically/globally
+    // allocated lfs_t, which C zero-initializes) would otherwise deref a
+    // NULL cfg pointer below, trading a clear assertion failure for an
+    // unexplained crash.
+    LFS_ASSERT(lfs->cfg != NULL);
+
     int err = LFS_LOCK(lfs->cfg);
     if (err) {
         return err;
