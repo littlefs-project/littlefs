@@ -688,9 +688,10 @@ class CsvExpr:
                 raise CsvExpr.Error("mismatched types? %r" % self)
             return t
 
-        def fold(self, types={}):
-            f = self.a.fold(types)
-            if not all(f == v.fold(types) for v in it.islice(self, 1, None)):
+        def fold(self, types={}, default=CsvSum):
+            f = self.a.fold(types, default)
+            if not all(f == v.fold(types, default)
+                    for v in it.islice(self, 1, None)):
                 raise CsvExpr.Error("mismatched folds? %r" % self)
             return f
 
@@ -707,8 +708,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def fold(self, types={}):
-            return CsvSum
+        def fold(self, types={}, default=CsvSum):
+            return default
 
         def eval(self, fields={}, state=None):
             return self.a
@@ -720,8 +721,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvFloat
 
-        def fold(self, types={}):
-            return CsvSum
+        def fold(self, types={}, default=CsvSum):
+            return default
 
         def eval(self, fields={}, state=None):
             return self.a
@@ -736,10 +737,10 @@ class CsvExpr:
                 raise CsvExpr.Error("untyped field? %s" % self.a)
             return types[self.a]
 
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if self.a not in types:
                 raise CsvExpr.Error("unfoldable field? %s" % self.a)
-            return CsvSum
+            return default
 
         def eval(self, fields={}, state=None):
             if self.a not in fields:
@@ -825,11 +826,11 @@ class CsvExpr:
     @func('sum', 'a[, ...]')
     class Sum(Expr):
         """Find the sum of this column or fields"""
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if len(self) == 1:
                 return CsvSum
             else:
-                return self.a.fold(types)
+                return super().fold(types, default)
 
         def eval(self, fields={}, state=None):
             if len(self) == 1:
@@ -840,11 +841,11 @@ class CsvExpr:
     @func('prod', 'a[, ...]')
     class Prod(Expr):
         """Find the product of this column or fields"""
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if len(self) == 1:
                 return Prod
             else:
-                return self.a.fold(types)
+                return super().fold(types, default)
 
         def eval(self, fields={}, state=None):
             if len(self) == 1:
@@ -855,11 +856,11 @@ class CsvExpr:
     @func('min', 'a[, ...]')
     class Min(Expr):
         """Find the minimum of this column or fields"""
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if len(self) == 1:
                 return CsvMin
             else:
-                return self.a.fold(types)
+                return super().fold(types, default)
 
         def eval(self, fields={}, state=None):
             if len(self) == 1:
@@ -870,11 +871,11 @@ class CsvExpr:
     @func('max', 'a[, ...]')
     class Max(Expr):
         """Find the maximum of this column or fields"""
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if len(self) == 1:
                 return CsvMax
             else:
-                return self.a.fold(types)
+                return super().fold(types, default)
 
         def eval(self, fields={}, state=None):
             if len(self) == 1:
@@ -892,11 +893,11 @@ class CsvExpr:
             else:
                 return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if len(self) == 1:
                 return CsvAvg
             else:
-                return self.a.fold(types)
+                return super().fold(types, default)
 
         def eval(self, fields={}, state=None):
             if len(self) == 1:
@@ -914,11 +915,11 @@ class CsvExpr:
             else:
                 return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if len(self) == 1:
                 return CsvStddev
             else:
-                return self.a.fold(types)
+                return super().fold(types, default)
 
         def eval(self, fields={}, state=None):
             if len(self) == 1:
@@ -936,11 +937,11 @@ class CsvExpr:
             else:
                 return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if len(self) == 1:
                 return CsvGMean
             else:
-                return self.a.fold(types)
+                return super().fold(types, default)
 
         def eval(self, fields={}, state=None):
             if len(self) == 1:
@@ -958,11 +959,11 @@ class CsvExpr:
             else:
                 return CsvFfrac if hasattr(t, '__frac__') else CsvFloat
 
-        def fold(self, types={}):
+        def fold(self, types={}, default=CsvSum):
             if len(self) == 1:
                 return CsvGStddev
             else:
-                return self.a.fold(types)
+                return super().fold(types, default)
 
         def eval(self, fields={}, state=None):
             if len(self) == 1:
@@ -980,8 +981,8 @@ class CsvExpr:
         def type(self, types={}):
             return CsvInt
 
-        def fold(self, types={}):
-            return CsvSum
+        def fold(self, types={}, default=CsvSum):
+            return default
 
         def eval(self, fields={}, state=None):
             if state is None:
@@ -1479,9 +1480,9 @@ class CsvExpr:
                 raise CsvExpr.Error("mismatched types? %r" % self)
             return t
 
-        def fold(self, types={}):
-            f = self.b.fold(types)
-            g = self.c.fold(types)
+        def fold(self, types={}, default=CsvSum):
+            f = self.b.fold(types, default)
+            g = self.c.fold(types, default)
             if f != g:
                 raise CsvExpr.Error("mismatched folds? %r" % self)
             return f
@@ -1657,9 +1658,9 @@ class CsvExpr:
             sys.exit(3)
 
     # recursively find the fold operation
-    def fold(self, types={}):
+    def fold(self, types={}, default=CsvSum):
         try:
-            return self.tree.fold(types)
+            return self.tree.fold(types, default)
         except CsvExpr.Error as e:
             print('error: in expr: %s' % self.expr,
                     file=sys.stderr)
@@ -2005,10 +2006,16 @@ def compile(fields_, results,
     for k, expr in exprs.items():
         types___[k] = expr.type(types__)
 
-    # foldcheck field exprs
-    folds___ = {k: CsvSum for k, v in types__.items()}
+    # foldcheck field exprs, defaulting to max for by fields and sum
+    # for non-by field fields
+    #
+    # not the most intuitive behavior, but things can get very
+    # confusing if by fields are implicitly summed (usually due to
+    # overlapping by/field fields), we probably want to avoid by
+    # fields changing when only the number of rows changes
+    folds___ = {k: CsvMax if k in by else CsvSum for k, v in types__.items()}
     for k, expr in exprs.items():
-        folds___[k] = expr.fold(types__)
+        folds___[k] = expr.fold(types__, CsvMax if k in by else CsvSum)
     # instantiate folds and resolve fold types
     folds___ = {k: f() for k, f in folds___.items()}
     folds___ = {k: (f, f.type(types___[k])) for k, f in folds___.items()}
