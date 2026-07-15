@@ -2763,8 +2763,15 @@ static void query_implicit_define(void) {
 
 
 
-// bench bd wrappers for heap/stack tracking
-int bench_bd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
+// bench bd wrappers
+//
+// these are important for heap/stack tracking
+
+// optional bench hooks
+const bench_hooks_t *bench_hooks = NULL;
+
+// hookless versions
+int bench_bd_readnohooks(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, void *buffer, lfs3_size_t size) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();
@@ -2780,7 +2787,7 @@ int bench_bd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     return err;
 }
 
-int bench_bd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
+int bench_bd_prognohooks(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, const void *buffer, lfs3_size_t size) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();
@@ -2796,7 +2803,7 @@ int bench_bd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
     return err;
 }
 
-int bench_bd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
+int bench_bd_erasenohooks(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();
 
@@ -2811,7 +2818,7 @@ int bench_bd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     return err;
 }
 
-int bench_bd_sync(const struct lfs3_cfg *cfg) {
+int bench_bd_syncnohooks(const struct lfs3_cfg *cfg) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();
 
@@ -2824,6 +2831,41 @@ int bench_bd_sync(const struct lfs3_cfg *cfg) {
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
     return err;
+}
+
+// hooked versions
+int bench_bd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size) {
+    if (bench_hooks && bench_hooks->read) {
+        return bench_hooks->read(cfg, block, off, buffer, size);
+    } else {
+        return bench_bd_readnohooks(cfg, block, off, buffer, size);
+    }
+}
+
+int bench_bd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size) {
+    if (bench_hooks && bench_hooks->prog) {
+        return bench_hooks->prog(cfg, block, off, buffer, size);
+    } else {
+        return bench_bd_prognohooks(cfg, block, off, buffer, size);
+    }
+}
+
+int bench_bd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
+    if (bench_hooks && bench_hooks->erase) {
+        return bench_hooks->erase(cfg, block);
+    } else {
+        return bench_bd_erasenohooks(cfg, block);
+    }
+}
+
+int bench_bd_sync(const struct lfs3_cfg *cfg) {
+    if (bench_hooks && bench_hooks->sync) {
+        return bench_hooks->sync(cfg);
+    } else {
+        return bench_bd_syncnohooks(cfg);
+    }
 }
 
 
@@ -2856,6 +2898,9 @@ void perm_run(
         printf("\n");
         return;
     }
+
+    // setup hooks
+    bench_hooks = case_->hooks;
 
     // create block device and configuration
     #ifndef BENCH_KIWIBD
@@ -2939,6 +2984,9 @@ void perm_run(
         exit(-1);
     }
     #endif
+
+    // cleanup hooks
+    bench_hooks = NULL;
 }
 
 static void run(void) {

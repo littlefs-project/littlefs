@@ -177,6 +177,15 @@ class BenchCase:
         self.defines = defines__
         self.permutations = permutations__
 
+        # hooks are a bit easier, but we need to merge case/suite hooks
+        suite_hooks = config.pop('suite_hooks', None)
+        if suite_hooks is None:
+            suite_hooks = {}
+        hooks = config.pop('hooks', None)
+        if hooks is None:
+            hooks = {}
+        self.hooks = suite_hooks | hooks
+
         # we have the source code, so try to guess what probes are in
         # use, note this is only informative
         self.probes = list(co.OrderedDict.fromkeys(re.findall(
@@ -296,6 +305,7 @@ class BenchSuite:
 
             # a couple of these we just forward to all cases
             defines = config.pop('defines', None)
+            hooks = config.pop('hooks', None)
             internal = config.pop('internal', None)
             litmus = config.pop('litmus', None)
 
@@ -307,6 +317,7 @@ class BenchSuite:
                                 if 'lineno' in config_ else ''),
                             'suite': self.name,
                             'suite_defines': defines,
+                            'suite_hooks': hooks,
                             'suite_in': self.in_,
                             'suite_internal': internal,
                             'suite_litmus': litmus,
@@ -327,6 +338,10 @@ class BenchSuite:
             # combine per-case defines
             self.defines = set.union(set(), *(
                     set(case.defines) for case in self.cases))
+
+            # combine per-case hooks
+            self.hooks = set.union(set(), *(
+                    set(case.hooks) for case in self.cases))
 
             # combine other per-case things
             self.internal = any(case.internal for case in self.cases)
@@ -680,10 +695,17 @@ def compile(bench_paths, **args):
                             f.writeln(12*' '+'},')
                             f.writeln(12*' '+'.permutations = %d,' % (
                                     len(case.permutations)))
+                        # hook case hooks
+                        if case.hooks:
+                            f.writeln(12*' '+'.hooks'
+                                    ' = &(const bench_hooks_t){')
+                            for k, v in sorted(case.hooks.items()):
+                                f.writeln(16*' '+'.%s = %s,' % (k, v))
+                            f.writeln(12*' '+'},')
                         # list case probes
                         if case.probes:
                             f.writeln(12*' '+'.probes'
-                                    ' = (const char*[%d]){' % (
+                                    ' = (const char *const [%d]){' % (
                                         len(case.probes)))
                             for p in case.probes:
                                 f.writeln(16*' '+'"%s",' % p)

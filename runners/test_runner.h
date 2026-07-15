@@ -109,6 +109,15 @@ typedef struct test_define {
     size_t permutations;
 } test_define_t;
 
+typedef struct test_hooks {
+    int (*read)(const struct lfs3_cfg *cfg, lfs3_block_t block,
+            lfs3_off_t off, void *buffer, lfs3_size_t size);
+    int (*prog)(const struct lfs3_cfg *cfg, lfs3_block_t block,
+            lfs3_off_t off, const void *buffer, lfs3_size_t size);
+    int (*erase)(const struct lfs3_cfg *cfg, lfs3_block_t block);
+    int (*sync)(const struct lfs3_cfg *cfg);
+} test_hooks_t;
+
 struct test_case {
     const char *name;
     const char *path;
@@ -116,6 +125,8 @@ struct test_case {
 
     const test_define_t *defines;
     size_t permutations;
+
+    const test_hooks_t *hooks;
 
     bool (*if_)(void);
     void (*run)(const struct lfs3_cfg *cfg);
@@ -159,6 +170,42 @@ void test_trace_resume(void);
 
 #define TEST_TRACE_PAUSE() test_trace_pause()
 #define TEST_TRACE_RESUME() test_trace_resume()
+
+
+// test bd wrappers, but you should probably just go through the
+// cfg struct
+int test_bd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size);
+int test_bd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size);
+int test_bd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block);
+int test_bd_sync(const struct lfs3_cfg *cfg);
+
+#define TEST_BD_READ(cfg, block, off, buffer, size) \
+    test_bd_read(cfg, block, off, buffer, size)
+#define TEST_BD_PROG(cfg, block, off, buffer, size) \
+    test_bd_prog(cfg, block, off, buffer, size)
+#define TEST_BD_ERASE(cfg, block) \
+    test_bd_erase(cfg, block)
+#define TEST_BD_SYNC(cfg) \
+    test_bd_sync(cfg)
+
+// hookless versions for hooks
+int test_bd_readnohooks(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size);
+int test_bd_prognohooks(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size);
+int test_bd_erasenohooks(const struct lfs3_cfg *cfg, lfs3_block_t block);
+int test_bd_syncnohooks(const struct lfs3_cfg *cfg);
+
+#define TEST_BD_READNOHOOKS(cfg, block, off, buffer, size) \
+    test_bd_readnohooks(cfg, block, off, buffer, size)
+#define TEST_BD_PROGNOHOOKS(cfg, block, off, buffer, size) \
+    test_bd_prognohooks(cfg, block, off, buffer, size)
+#define TEST_BD_ERASENOHOOKS(cfg, block) \
+    test_bd_erasenohooks(cfg, block)
+#define TEST_BD_SYNCNOHOOKS(cfg) \
+    test_bd_syncnohooks(cfg)
 
 
 // declare implicit defines as global intmax_ts

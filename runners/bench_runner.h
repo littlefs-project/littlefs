@@ -108,6 +108,15 @@ typedef struct bench_define {
     size_t permutations;
 } bench_define_t;
 
+typedef struct bench_hooks {
+    int (*read)(const struct lfs3_cfg *cfg, lfs3_block_t block,
+            lfs3_off_t off, void *buffer, lfs3_size_t size);
+    int (*prog)(const struct lfs3_cfg *cfg, lfs3_block_t block,
+            lfs3_off_t off, const void *buffer, lfs3_size_t size);
+    int (*erase)(const struct lfs3_cfg *cfg, lfs3_block_t block);
+    int (*sync)(const struct lfs3_cfg *cfg);
+} bench_hooks_t;
+
 struct bench_case {
     const char *name;
     const char *path;
@@ -116,7 +125,9 @@ struct bench_case {
     const bench_define_t *defines;
     size_t permutations;
 
-    const char **probes;
+    const bench_hooks_t *hooks;
+
+    const char *const *probes;
     size_t probe_count;
 
     bool (*if_)(void);
@@ -236,6 +247,42 @@ void bench_heap_dec(size_t size);
 #define BENCH_HEAP_INC(size)
 #define BENCH_HEAP_DEC(size)
 #endif
+
+
+// bench bd wrappers, but you should probably just go through the
+// cfg struct
+int bench_bd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size);
+int bench_bd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size);
+int bench_bd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block);
+int bench_bd_sync(const struct lfs3_cfg *cfg);
+
+#define BENCH_BD_READ(cfg, block, off, buffer, size) \
+    bench_bd_read(cfg, block, off, buffer, size)
+#define BENCH_BD_PROG(cfg, block, off, buffer, size) \
+    bench_bd_prog(cfg, block, off, buffer, size)
+#define BENCH_BD_ERASE(cfg, block) \
+    bench_bd_erase(cfg, block)
+#define BENCH_BD_SYNC(cfg) \
+    bench_bd_sync(cfg)
+
+// hookless versions for hooks
+int bench_bd_readnohooks(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size);
+int bench_bd_prognohooks(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size);
+int bench_bd_erasenohooks(const struct lfs3_cfg *cfg, lfs3_block_t block);
+int bench_bd_syncnohooks(const struct lfs3_cfg *cfg);
+
+#define BENCH_BD_READNOHOOKS(cfg, block, off, buffer, size) \
+    bench_bd_readnohooks(cfg, block, off, buffer, size)
+#define BENCH_BD_PROGNOHOOKS(cfg, block, off, buffer, size) \
+    bench_bd_prognohooks(cfg, block, off, buffer, size)
+#define BENCH_BD_ERASENOHOOKS(cfg, block) \
+    bench_bd_erasenohooks(cfg, block)
+#define BENCH_BD_SYNCNOHOOKS(cfg) \
+    bench_bd_syncnohooks(cfg)
 
 
 // declare implicit defines as global intmax_ts

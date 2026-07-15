@@ -1533,6 +1533,82 @@ static void query_implicit_define(void) {
 
 
 
+// test bd wrappers
+
+// optional test hooks
+const test_hooks_t *test_hooks = NULL;
+
+// hookless versions
+int test_bd_readnohooks(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size) {
+    #ifdef TEST_KIWIBD
+    return lfs3_kiwibd_read(cfg, block, off, buffer, size);
+    #else
+    return lfs3_emubd_read(cfg, block, off, buffer, size);
+    #endif
+}
+
+int test_bd_prognohooks(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size) {
+    #ifdef TEST_KIWIBD
+    return lfs3_kiwibd_prog(cfg, block, off, buffer, size);
+    #else
+    return lfs3_emubd_prog(cfg, block, off, buffer, size);
+    #endif
+}
+
+int test_bd_erasenohooks(const struct lfs3_cfg *cfg, lfs3_block_t block) {
+    #ifdef TEST_KIWIBD
+    return lfs3_kiwibd_erase(cfg, block);
+    #else
+    return lfs3_emubd_erase(cfg, block);
+    #endif
+}
+
+int test_bd_syncnohooks(const struct lfs3_cfg *cfg) {
+    #ifdef TEST_KIWIBD
+    return lfs3_kiwibd_sync(cfg);
+    #else
+    return lfs3_emubd_sync(cfg);
+    #endif
+}
+
+// hooked versions
+int test_bd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, void *buffer, lfs3_size_t size) {
+    if (test_hooks && test_hooks->read) {
+        return test_hooks->read(cfg, block, off, buffer, size);
+    } else {
+        return test_bd_readnohooks(cfg, block, off, buffer, size);
+    }
+}
+
+int test_bd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
+        lfs3_off_t off, const void *buffer, lfs3_size_t size) {
+    if (test_hooks && test_hooks->prog) {
+        return test_hooks->prog(cfg, block, off, buffer, size);
+    } else {
+        return test_bd_prognohooks(cfg, block, off, buffer, size);
+    }
+}
+
+int test_bd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
+    if (test_hooks && test_hooks->erase) {
+        return test_hooks->erase(cfg, block);
+    } else {
+        return test_bd_erasenohooks(cfg, block);
+    }
+}
+
+int test_bd_sync(const struct lfs3_cfg *cfg) {
+    if (test_hooks && test_hooks->sync) {
+        return test_hooks->sync(cfg);
+    } else {
+        return test_bd_syncnohooks(cfg);
+    }
+}
+
+
 
 // scenarios to run tests under powerloss
 
@@ -1545,6 +1621,9 @@ static void run_powerloss_none(
     // zero pls
     TEST_PLS = 0;
 
+    // setup hooks
+    test_hooks = case_->hooks;
+
     // create block device and configuration
     #ifndef TEST_KIWIBD
     lfs3_emubd_t bd;
@@ -1553,21 +1632,12 @@ static void run_powerloss_none(
     #endif
 
     #define TEST_CFG CFG
-    #ifndef TEST_KIWIBD
     #define TEST_CFG_CFG \
             .context        = &bd, \
-            .read           = lfs3_emubd_read, \
-            .prog           = lfs3_emubd_prog, \
-            .erase          = lfs3_emubd_erase, \
-            .sync           = lfs3_emubd_sync,
-    #else
-    #define TEST_CFG_CFG \
-            .context        = &bd, \
-            .read           = lfs3_kiwibd_read, \
-            .prog           = lfs3_kiwibd_prog, \
-            .erase          = lfs3_kiwibd_erase, \
-            .sync           = lfs3_kiwibd_sync,
-    #endif
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
         #include TEST_STRINGIFY(TEST_DEFINES)
     #undef TEST_CFG_CFG
     #undef TEST_CFG
@@ -1622,6 +1692,9 @@ static void run_powerloss_none(
         exit(-1);
     }
     #endif
+
+    // cleanup hooks
+    test_hooks = NULL;
 }
 
 #ifndef TEST_KIWIBD
@@ -1654,6 +1727,9 @@ static void run_powerloss_linear(
     // zero pls
     TEST_PLS = 0;
 
+    // setup hooks
+    test_hooks = case_->hooks;
+
     // create block device and configuration
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
@@ -1661,10 +1737,10 @@ static void run_powerloss_linear(
     #define TEST_CFG CFG
     #define TEST_CFG_CFG \
             .context        = &bd, \
-            .read           = lfs3_emubd_read, \
-            .prog           = lfs3_emubd_prog, \
-            .erase          = lfs3_emubd_erase, \
-            .sync           = lfs3_emubd_sync,
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
         #include TEST_STRINGIFY(TEST_DEFINES)
     #undef TEST_CFG_CFG
     #undef TEST_CFG
@@ -1732,6 +1808,9 @@ static void run_powerloss_linear(
         fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
+
+    // cleanup hooks
+    test_hooks = NULL;
 }
 #endif
 
@@ -1758,6 +1837,9 @@ static void run_powerloss_log(
     // zero pls
     TEST_PLS = 0;
 
+    // setup hooks
+    test_hooks = case_->hooks;
+
     // create block device and configuration
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
@@ -1765,10 +1847,10 @@ static void run_powerloss_log(
     #define TEST_CFG CFG
     #define TEST_CFG_CFG \
             .context        = &bd, \
-            .read           = lfs3_emubd_read, \
-            .prog           = lfs3_emubd_prog, \
-            .erase          = lfs3_emubd_erase, \
-            .sync           = lfs3_emubd_sync,
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
         #include TEST_STRINGIFY(TEST_DEFINES)
     #undef TEST_CFG_CFG
     #undef TEST_CFG
@@ -1836,6 +1918,9 @@ static void run_powerloss_log(
         fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
+
+    // cleanup hooks
+    test_hooks = NULL;
 }
 #endif
 
@@ -1847,6 +1932,9 @@ static void run_powerloss_list(
     // zero pls
     TEST_PLS = 0;
 
+    // setup hooks
+    test_hooks = case_->hooks;
+
     // create block device and configuration
     lfs3_emubd_t bd;
     jmp_buf powerloss_jmp;
@@ -1854,10 +1942,10 @@ static void run_powerloss_list(
     #define TEST_CFG CFG
     #define TEST_CFG_CFG \
             .context        = &bd, \
-            .read           = lfs3_emubd_read, \
-            .prog           = lfs3_emubd_prog, \
-            .erase          = lfs3_emubd_erase, \
-            .sync           = lfs3_emubd_sync,
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
         #include TEST_STRINGIFY(TEST_DEFINES)
     #undef TEST_CFG_CFG
     #undef TEST_CFG
@@ -1921,6 +2009,9 @@ static void run_powerloss_list(
         fprintf(stderr, "error: could not destroy emubd: %d\n", err);
         exit(-1);
     }
+
+    // cleanup hooks
+    test_hooks = NULL;
 }
 #endif
 
@@ -2042,16 +2133,19 @@ static void run_powerloss_exhaustive(
         const test_powerloss_t *powerloss,
         const struct test_suite *suite,
         const struct test_case *case_) {
+    // setup hooks
+    test_hooks = case_->hooks;
+
     // create block device and configuration
     lfs3_emubd_t bd;
 
     #define TEST_CFG CFG
     #define TEST_CFG_CFG \
             .context        = &bd, \
-            .read           = lfs3_emubd_read, \
-            .prog           = lfs3_emubd_prog, \
-            .erase          = lfs3_emubd_erase, \
-            .sync           = lfs3_emubd_sync,
+            .read           = test_bd_read, \
+            .prog           = test_bd_prog, \
+            .erase          = test_bd_erase, \
+            .sync           = test_bd_sync,
         #include TEST_STRINGIFY(TEST_DEFINES)
     #undef TEST_CFG_CFG
     #undef TEST_CFG
@@ -2091,6 +2185,9 @@ static void run_powerloss_exhaustive(
     printf("finished ");
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
+
+    // cleanup hooks
+    test_hooks = NULL;
 }
 #endif
 
