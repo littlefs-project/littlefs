@@ -927,6 +927,12 @@ def main(csv_paths, output, *,
         ylim_stddev=(None,None),
         xlim_ratio=(None,None),
         ylim_ratio=(None,None),
+        xzoom=False,
+        yzoom=False,
+        xenlarge=(None,None),
+        yenlarge=(None,None),
+        xenlarge_ratio=(None,None),
+        yenlarge_ratio=(None,None),
         xlog=False,
         ylog=False,
         x2=False,
@@ -1175,6 +1181,12 @@ def main(csv_paths, output, *,
         ylim_stddev_ = s.args.get('ylim_stddev', ylim_stddev)
         xlim_ratio_ = s.args.get('xlim_ratio', xlim_ratio)
         ylim_ratio_ = s.args.get('ylim_ratio', ylim_ratio)
+        xzoom_ = s.args.get('xzoom', False) or xzoom
+        yzoom_ = s.args.get('yzoom', False) or yzoom
+        xenlarge_ = s.args.get('xenlarge', xenlarge)
+        yenlarge_ = s.args.get('yenlarge', yenlarge)
+        xenlarge_ratio_ = s.args.get('xenlarge_ratio', xenlarge_ratio)
+        yenlarge_ratio_ = s.args.get('yenlarge_ratio', yenlarge_ratio)
         xlog_ = s.args.get('xlog', False) or xlog
         ylog_ = s.args.get('ylog', False) or ylog
         x2_ = s.args.get('x2', False) or x2
@@ -1204,6 +1216,14 @@ def main(csv_paths, output, *,
             xlim_ratio_ = (None, xlim_ratio_[0])
         if len(ylim_ratio_) == 1:
             ylim_ratio_ = (None, ylim_ratio_[0])
+        if len(xenlarge_) == 1:
+            xenlarge_ = (xenlarge_[0], xenlarge_[0])
+        if len(yenlarge_) == 1:
+            yenlarge_ = (yenlarge_[0], yenlarge_[0])
+        if len(xenlarge_ratio_) == 1:
+            xenlarge_ratio_ = (xenlarge_ratio_[0], xenlarge_ratio_[0])
+        if len(yenlarge_ratio_) == 1:
+            yenlarge_ratio_ = (yenlarge_ratio_[0], yenlarge_ratio_[0])
 
         # data can be constrained by subplot-specific defines,
         # so re-extract for each plot
@@ -1261,46 +1281,60 @@ def main(csv_paths, output, *,
             ax.set_yscale('symlog')
             ax.yaxis.set_minor_locator(mpl.ticker.NullLocator())
         # axes limits
-        x__ = (lambda: it.chain([0], (x
+        x__ = (lambda: (x
                 for name, dataset in subdatasets.items()
                 if not any(all(fnmatch.fnmatchcase(k, g)
                         for k, g in zip(name, ignore))
                     for ignore in ignores_)
                 for x, y in dataset
-                if y is not None)))
-        y__ = (lambda: it.chain([0], (y
+                if y is not None))
+        y__ = (lambda: (y
                 for name, dataset in subdatasets.items()
                 if not any(all(fnmatch.fnmatchcase(k, g)
                         for k, g in zip(name, ignore))
                     for ignore in ignores_)
                 for _, y in dataset
-                if y is not None)))
-        ax.set_xlim(
-                xlim_[0] if xlim_[0] is not None
-                    else stddevlim(xlim_stddev_[0], x__())
-                    if xlim_stddev_[0] is not None
-                    else ratiolim(xlim_ratio_[0], x__())
-                    if xlim_ratio_[0] is not None
-                    else min(x__()),
-                xlim_[1] if xlim_[1] is not None
-                    else stddevlim(xlim_stddev_[1], x__())
-                    if xlim_stddev_[1] is not None
-                    else ratiolim(xlim_ratio_[1], x__())
-                    if xlim_ratio_[1] is not None
-                    else max(x__()))
-        ax.set_ylim(
-                ylim_[0] if ylim_[0] is not None
-                    else stddevlim(ylim_stddev_[0], y__())
-                    if ylim_stddev_[0] is not None
-                    else ratiolim(ylim_ratio_[0], y__())
-                    if ylim_ratio_[0] is not None
-                    else min(y__()),
-                ylim_[1] if ylim_[1] is not None
-                    else stddevlim(ylim_stddev_[1], y__())
-                    if ylim_stddev_[1] is not None
-                    else ratiolim(ylim_ratio_[1], y__())
-                    if ylim_ratio_[1] is not None
-                    else max(y__()))
+                if y is not None))
+        def xlim__(x__, i):
+            # zoom
+            if not xzoom_:
+                x__ = it.chain(x__, [0])
+            # find limit
+            if xlim_[i] is not None:
+                xlim__ = xlim_[i]
+            elif xlim_stddev_[i] is not None:
+                xlim__ = stddevlim(xlim_stddev_[i], x__)
+            elif xlim_ratio_[i] is not None:
+                xlim__ = ratiolim(xlim_ratio_[i], x__)
+            else:
+                xlim__ = (min, max)[i](x__, default=0)
+            # enlarge
+            if xenlarge_[i] is not None:
+                xlim__ = xlim__ + ((-1,+1)[i]*xenlarge_[i])
+            elif xenlarge_ratio_[i] is not None:
+                xlim__ = xlim__ + ((-1,+1)[i]*xenlarge_ratio_[i]*xlim__)
+            return xlim__
+        def ylim__(y__, i):
+            # zoom
+            if not yzoom_:
+                y__ = it.chain(y__, [0])
+            # find limit
+            if ylim_[i] is not None:
+                ylim__ = ylim_[i]
+            elif ylim_stddev_[i] is not None:
+                ylim__ = stddevlim(ylim_stddev_[i], y__)
+            elif ylim_ratio_[i] is not None:
+                ylim__ = ratiolim(ylim_ratio_[i], y__)
+            else:
+                ylim__ = (min, max)[i](y__, default=0)
+            # enlarge
+            if yenlarge_[i] is not None:
+                ylim__ = ylim__ + ((-1,+1)[i]*yenlarge_[i])
+            elif yenlarge_ratio_[i] is not None:
+                ylim__ = ylim__ + ((-1,+1)[i]*yenlarge_ratio_[i]*ylim__)
+            return ylim__
+        ax.set_xlim(xlim__(x__(), 0), xlim__(x__(), 1))
+        ax.set_ylim(ylim__(y__(), 0), ylim__(y__(), 1))
         # x-axes ticks
         if xticklabels_ and any(isinstance(l, tuple) for l in xticklabels_):
             ax.xaxis.set_major_locator(mpl.ticker.FixedLocator([
@@ -1742,6 +1776,40 @@ if __name__ == "__main__":
                     for x in x.split(',')),
             help="Range for the y-axis specified as a ratio of all data "
                 "points.")
+    parser.add_argument(
+            '--xzoom',
+            action='store_true',
+            help="Don't force x-axis to include zero.")
+    parser.add_argument(
+            '--yzoom',
+            action='store_true',
+            help="Don't force y-axis to include zero.")
+    parser.add_argument(
+            '--xenlarge',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Enlarge the x-axis by this amount.")
+    parser.add_argument(
+            '--yenlarge',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Enlarge the y-axis by this amount.")
+    parser.add_argument(
+            '--xenlarge-ratio',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Enlarge the x-axis by a ratio of the limit. Useful with "
+                "log plots.")
+    parser.add_argument(
+            '--yenlarge-ratio',
+            type=lambda x: tuple(
+                dat(x) if x.strip() else None
+                    for x in x.split(',')),
+            help="Enlarge the y-axis by a ratio of the limit. Useful with "
+                "log plots.")
     parser.add_argument(
             '--xlog',
             action='store_true',
