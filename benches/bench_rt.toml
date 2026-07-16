@@ -58,14 +58,12 @@ code = '''
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
-    BENCH_START("read");
     lfs3_file_t rfile;
     lfs3_file_open(&lfs3, &rfile, "bench_seq",
             LFS3_O_RDONLY) => 0;
     lfs3_off_t size = 0;
     lfs3_off_t readed_ = 0;
     uint64_t readed = 0;
-    BENCH_STOP("read", readed);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && readed >= (uint64_t)SIM_SIZE)
@@ -107,10 +105,7 @@ code = '''
     lfs3_file_close(&lfs3, &wfile) => 0;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
-    BENCH_START("read");
     lfs3_file_close(&lfs3, &rfile) => 0;
-    // report the amount we managed to read
-    BENCH_STOP("read", readed);
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -150,14 +145,12 @@ code = '''
                 | ((GRANULAR) ? LFS3_O_GRANULAR : 0)) => 0;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
-    BENCH_START("read");
     lfs3_file_t rfile;
     lfs3_file_open(&lfs3, &rfile, "bench_random",
             LFS3_O_RDONLY
                 | ((GRANULAR) ? LFS3_O_GRANULAR : 0)) => 0;
     lfs3_off_t size = 0;
     uint64_t readed = 0;
-    BENCH_STOP("read", readed);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && readed >= (uint64_t)SIM_SIZE)
@@ -197,10 +190,7 @@ code = '''
     lfs3_file_close(&lfs3, &wfile) => 0;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
-    BENCH_START("read");
     lfs3_file_close(&lfs3, &rfile) => 0;
-    // report the amount we managed to read
-    BENCH_STOP("read", readed);
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -240,13 +230,11 @@ code = '''
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_APPEND) => 0;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
-    BENCH_START("read");
     lfs3_file_t rfile;
     lfs3_file_open(&lfs3, &rfile, "bench_random",
             LFS3_O_RDWR) => 0;
     lfs3_off_t size = 0;
     uint64_t readed = 0;
-    BENCH_STOP("read", readed);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && readed >= (uint64_t)SIM_SIZE)
@@ -290,10 +278,7 @@ code = '''
     lfs3_file_close(&lfs3, &wfile) => 0;
     BENCH_HEAP_RESUME();
     BENCH_STACK_RESUME();
-    BENCH_START("read");
     lfs3_file_close(&lfs3, &rfile) => 0;
-    // report the amount we managed to read
-    BENCH_STOP("read", readed);
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -324,10 +309,8 @@ code = '''
     // reset our timer
     BENCH_SIMRESET();
 
-    BENCH_START("read");
     lfs3_off_t size = 0;
     uint64_t readed = 0;
-    BENCH_STOP("read", readed);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && readed >= (uint64_t)SIM_SIZE)
@@ -376,9 +359,6 @@ code = '''
         readed += CHUNK;
         BENCH_STOP("read", readed);
     }
-    BENCH_START("read");
-    // report the amount we managed to read
-    BENCH_STOP("read", readed);
 
     lfs3_unmount(&lfs3) => 0;
 '''

@@ -47,13 +47,11 @@ code = '''
     BENCH_SIMRESET();
 
     // open a file
-    BENCH_START("write");
     lfs3_file_t file;
     lfs3_file_open(&lfs3, &file, "bench_seq",
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
     lfs3_off_t size = 0;
     uint64_t written = 0;
-    BENCH_STOP("write", written);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
@@ -79,10 +77,7 @@ code = '''
         written += CHUNK;
         BENCH_STOP("write", written);
     }
-    BENCH_START("write");
     lfs3_file_close(&lfs3, &file) => 0;
-    // report the amount we managed to write
-    BENCH_STOP("write", written);
 
     // report the total stack/heap usage after the benchmark
     #ifdef BENCH_STACK
@@ -124,14 +119,12 @@ code = '''
     BENCH_SIMRESET();
 
     // open a file
-    BENCH_START("write");
     lfs3_file_t file;
     lfs3_file_open(&lfs3, &file, "bench_random",
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL
                 | ((GRANULAR) ? LFS3_O_GRANULAR : 0)) => 0;
     lfs3_off_t size = 0;
     uint64_t written = 0;
-    BENCH_STOP("write", written);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
@@ -152,10 +145,7 @@ code = '''
         written += CHUNK;
         BENCH_STOP("write", written);
     }
-    BENCH_START("write");
     lfs3_file_close(&lfs3, &file) => 0;
-    // report the amount we managed to write
-    BENCH_STOP("write", written);
 
     // report the total stack/heap usage after the benchmark
     #ifdef BENCH_STACK
@@ -199,12 +189,10 @@ code = '''
     BENCH_SIMRESET();
 
     // open a file
-    BENCH_START("write");
     lfs3_file_t file;
     lfs3_file_open(&lfs3, &file, "bench_log",
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL | LFS3_O_APPEND) => 0;
     uint64_t written = 0;
-    BENCH_STOP("write", written);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
@@ -242,10 +230,7 @@ code = '''
         written += CHUNK;
         BENCH_STOP("write", written);
     }
-    BENCH_START("write");
     lfs3_file_close(&lfs3, &file) => 0;
-    // report the amount we managed to write
-    BENCH_STOP("write", written);
 
     // report the total stack/heap usage after the benchmark
     #ifdef BENCH_STACK
@@ -284,9 +269,7 @@ code = '''
     // reset our timer
     BENCH_SIMRESET();
 
-    BENCH_START("write");
     uint64_t written = 0;
-    BENCH_STOP("write", written);
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
     while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
@@ -316,9 +299,6 @@ code = '''
         written += CHUNK;
         BENCH_STOP("write", written);
     }
-    BENCH_START("write");
-    // report the amount we managed to write
-    BENCH_STOP("write", written);
 
     // report the total stack/heap usage after the benchmark
     #ifdef BENCH_STACK
