@@ -29,7 +29,7 @@ code = '''
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_MKCONSISTENT, CFG) => 0;
     if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
@@ -102,7 +102,7 @@ defines.GRANULAR = false
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_MKCONSISTENT, CFG) => 0;
     if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
@@ -172,7 +172,7 @@ defines.FRUNCATE = true
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_MKCONSISTENT, CFG) => 0;
     if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
@@ -253,7 +253,7 @@ defines.SET = true
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
-    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR | LFS3_M_MKCONSISTENT, CFG) => 0;
     if (!SKIP_WARMUP) {
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
