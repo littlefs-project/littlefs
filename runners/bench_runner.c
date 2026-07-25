@@ -2489,9 +2489,9 @@ static void list_probes(void) {
                             &probe_count,
                             &probe_capacity);
                     *probe = bench_suites[i]->cases[j].probes[p];
-                }
 
-            next:;
+                next:;
+                }
             }
         }
     }
@@ -2551,9 +2551,9 @@ static void list_suite_probes(void) {
                             &probe_count,
                             &probe_capacity);
                     *probe = bench_suites[i]->cases[j].probes[p];
-                }
 
-            next:;
+                next:;
+                }
             }
 
             printf("%-*s  ",
