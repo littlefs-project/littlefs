@@ -220,14 +220,16 @@ endif
 # this is a bit of a hack, but we want to make sure the BUILDDIR
 # directory structure is correct before we run any commands
 ifneq ($(BUILDDIR),.)
-$(if $(findstring n,$(MAKEFLAGS)),, $(shell mkdir -p \
-	$(BUILDDIR) \
-	$(addprefix $(BUILDDIR)/,$(dir \
-		$(SRC) \
-		$(TESTS) \
-		$(TEST_SRC) \
-		$(BENCHES) \
-		$(BENCH_SRC)))))
+$(if $(findstring n,$(MAKEFLAGS)),, \
+		$(foreach d, \
+				$(BUILDDIR) \
+				$(addprefix $(BUILDDIR)/,$(dir \
+					$(SRC) \
+					$(TESTS) \
+					$(TEST_SRC) \
+					$(BENCHES) \
+					$(BENCH_SRC))), \
+			$(if $(wildcard $d),, $(shell mkdir -p $d))))
 endif
 
 
