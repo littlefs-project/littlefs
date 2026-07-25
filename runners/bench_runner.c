@@ -3472,8 +3472,14 @@ int main(int argc, char **argv) {
                 while (true) {
                     optarg += strspn(optarg, " ");
 
-                    // min?
+                    // sum? this is the default
                     if (strncmp(optarg,
+                            "sum", strlen("sum")) == 0) {
+                        optarg += strlen("sum");
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | 0;
+                    // min?
+                    } else if (strncmp(optarg,
                             "min", strlen("min")) == 0) {
                         optarg += strlen("min");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
