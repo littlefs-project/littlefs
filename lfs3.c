@@ -4871,7 +4871,7 @@ trunk:;
                 // |    <b         |     |
                 // |  .-'|         |  .--'
                 // 1  2  3      1  2  3  x
-                } else if (lfs3_tag_isred(alt_) && branch_ >= branch) {
+                } else if (lfs3_tag_isred(alt_) && branch_ > branch) {
                     branch = branch_;
                     continue;
 
