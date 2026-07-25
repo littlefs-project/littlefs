@@ -1233,7 +1233,7 @@ void bench_print(bench_record_t *record, bench_probe_t *probe_) {
                 double result_ = (!(record->flags & BENCH_RECORD_FLOAT))
                         ? (double)record->history[i].u
                         : record->history[i].f;
-                stddev += pow(result_ - avg, 2);
+                stddev += (result_ - avg)*(result_ - avg);
             }
             result.f = sqrt(stddev / (double)record->history_count);
         }
