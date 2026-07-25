@@ -12154,11 +12154,11 @@ static int lfs3_mtree_mkmdirnoorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // grm queue should be flushed before calling
     // lfs3_mtree_mkmdirnoorphans
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
+
     // save the current mid
     lfs3_mid_t mid = mdir->mid;
-
     // iterate through mids looking for orphans
-    mdir->mid = LFS3_MID(lfs3, mdir->mid, 0);
+    mdir->mid = LFS3_MID(lfs3, lfs3_smax(mdir->mid, 0), 0);
     int err;
     while (lfs3_mrid(lfs3, mdir->mid) < (lfs3_srid_t)mdir->r.weight) {
         // is this mid open? well we're not an orphan then, skip
