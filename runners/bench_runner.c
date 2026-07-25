@@ -1624,6 +1624,26 @@ done:;
     BENCH_STACK_RESUME();
 }
 
+void bench_abort(const char *probe) {
+    BENCH_STACK_PAUSE();
+    BENCH_HEAP_PAUSE();
+
+    // find our record
+    bench_record_t *record = bench_find(probe);
+    if (record->flags & BENCH_RECORD_IGNORED) {
+        goto done;
+    }
+
+    // note we do _not_ error if probe hasn't been started
+    //
+    // this is very useful for recovering from simulated powerloss
+    record->flags &= ~BENCH_RECORD_STARTED;
+
+done:;
+    BENCH_HEAP_RESUME();
+    BENCH_STACK_RESUME();
+}
+
 void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
     BENCH_STACK_PAUSE();
     BENCH_HEAP_PAUSE();

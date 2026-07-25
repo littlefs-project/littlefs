@@ -154,9 +154,11 @@ extern const size_t bench_suite_count;
 // through emubd
 void bench_start(const char *probe);
 void bench_stop(const char *probe, uintmax_t n);
+void bench_abort(const char *probe);
 
 #define BENCH_START(probe) bench_start(probe)
 #define BENCH_STOP(probe, n) bench_stop(probe, n)
+#define BENCH_ABORT(probe) bench_abort(probe)
 
 // BENCH_RESULT/BENCH_FRESULT allow for explicit non-io measurements
 void bench_result(const char *probe, uintmax_t n, uintmax_t result);
