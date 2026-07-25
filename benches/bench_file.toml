@@ -94,8 +94,12 @@ code = '''
 
         // measure disk usage
         if ((MASK & 0x4) && (i+1) % STEP == 0) {
-            uintmax_t usage = bench_helpers_usage(&lfs3);
-            BENCH_RESULT("usage", i*CHUNK+CHUNK, usage);
+            struct bench_helpers_usage usage;
+            bench_helpers_usage(&lfs3, &usage) => 0;
+            BENCH_RESULT("usage", i*CHUNK+CHUNK, usage.usage);
+            BENCH_RESULT("mdir", i*CHUNK+CHUNK, usage.mdir);
+            BENCH_RESULT("btree", i*CHUNK+CHUNK, usage.btree);
+            BENCH_RESULT("data", i*CHUNK+CHUNK, usage.data);
         }
     }
     lfs3_file_close(&lfs3, &file) => 0;

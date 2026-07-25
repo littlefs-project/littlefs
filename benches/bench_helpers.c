@@ -31,13 +31,16 @@ int bench_helpers_warmup(lfs3_t *lfs3) {
 
 
 // find tight disk usage
-uintmax_t bench_helpers_usage(lfs3_t *lfs3) {
+int bench_helpers_usage(lfs3_t *lfs3, struct bench_helpers_usage *usage) {
     // measure disk usage
     //
     // littlefs can be a dag, so build a bitmap to find the exact
     // disk usage
-    uint8_t *usage_bmap = malloc((BLOCK_COUNT+8-1)/8);
-    memset(usage_bmap, 0, (BLOCK_COUNT+8-1)/8);
+    //
+    // but also use 2 bits so we can still find mdir/btree/data specific
+    // usage
+    uint8_t *usage_bmap = malloc(((2*BLOCK_COUNT)+8-1)/8);
+    memset(usage_bmap, 0, ((2*BLOCK_COUNT)+8-1)/8);
 
     lfs3_trv_t trv;
     lfs3_trv_open(lfs3, &trv, 0) => 0;
@@ -49,19 +52,33 @@ uintmax_t bench_helpers_usage(lfs3_t *lfs3) {
             break;
         }
 
-        usage_bmap[binfo.block/8] |= 1 << (binfo.block % 8);
+        if (binfo.btype == LFS3_BTYPE_MDIR) {
+            usage_bmap[(2*binfo.block/8)] |= 1 << ((2*binfo.block) % 8);
+        } else if (binfo.btype == LFS3_BTYPE_BTREE) {
+            usage_bmap[(2*binfo.block/8)] |= 2 << ((2*binfo.block) % 8);
+        } else {
+            usage_bmap[(2*binfo.block/8)] |= 3 << ((2*binfo.block) % 8);
+        }
     }
     lfs3_trv_close(lfs3, &trv) => 0;
 
-    lfs3_size_t usage = 0;
+    memset(usage, 0, sizeof(struct bench_helpers_usage));
     for (lfs3_size_t j = 0; j < BLOCK_COUNT; j++) {
-        if (usage_bmap[j / 8] & (1 << (j % 8))) {
-            usage += 1;
+        uint8_t btype = (usage_bmap[(2*j) / 8] >> ((2*j) % 8)) & 0x3;
+        if (btype != 0) {
+            usage->usage += 1;
+            if (btype == 1) {
+                usage->mdir += 1;
+            } else if (btype == 2) {
+                usage->btree += 1;
+            } else {
+                usage->data += 1;
+            }
         }
     }
 
     free(usage_bmap);
-    return (uintmax_t)usage * (uintmax_t)BLOCK_SIZE;
+    return 0;
 }
 
 

@@ -15,8 +15,16 @@
 int bench_helpers_warmup(lfs3_t *lfs3);
 
 
+// interesting usage info
+struct bench_helpers_usage {
+    uintmax_t usage;
+    uintmax_t mdir;
+    uintmax_t btree;
+    uintmax_t data;
+};
+
 // find tight disk usage
-uintmax_t bench_helpers_usage(lfs3_t *lfs3);
+int bench_helpers_usage(lfs3_t *lfs3, struct bench_helpers_usage *usage);
 
 
 #endif

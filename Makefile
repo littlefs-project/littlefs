@@ -607,7 +607,7 @@ bench-marks: SUMMARYFLAGS+=-Si
 bench-marks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Uprobe=stack,heap,usage \
+			-Uprobe=stack,heap,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
 			-fn='max(n)' \
@@ -629,14 +629,14 @@ bench-marks-csv: $(BUILDDIR)/lfs3.bench.csv
 bench-marks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Uprobe=stack,heap,usage \
+			-Uprobe=stack,heap,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
 			-fn='max(n)' \
 			-ft='max(float(bench_simtime)/1.0e9)' \
 			-o-) \
 		-d <(./scripts/csv.py $(BUILDDIR)/lfs3.bench.csv \
-			-Uprobe=stack,heap,usage \
+			-Uprobe=stack,heap,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
 			-fn='max(n)' \
@@ -653,7 +653,7 @@ bench-bottlenecks: SUMMARYFLAGS+=-Sruntime
 bench-bottlenecks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Uprobe=stack,heap,usage \
+			-Uprobe=stack,heap,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
 			-fn='max(n)' \
@@ -672,7 +672,7 @@ bench-bottlenecks: $(BENCH_CSV)
 bench-ops: SUMMARYFLAGS+=-Si
 bench-ops: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-Uprobe=stack,heap,usage \
+		-Uprobe=stack,heap,usage,mdir,btree,data \
 		-Fi='min(i)' \
 		-bprobe='%(case)s+%(probe)s' \
 		-Hprobe=bench+probe \
@@ -689,7 +689,7 @@ bench-ops: $(BENCH_CSV)
 bench-widths: SUMMARYFLAGS+=-Si
 bench-widths: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-Uprobe=stack,heap,usage \
+		-Uprobe=stack,heap,usage,mdir,btree,data \
 		-Fi='min(i)' \
 		-bprobe='%(case)s+%(probe)s' \
 		-Hprobe=bench+probe \
@@ -710,10 +710,10 @@ bench-widths: $(BENCH_CSV)
 					--query-implicit-define=ERASE_SIZE)))))" \
 		$(SUMMARYFLAGS))
 
-## Show heap/stack/disk usage
-.PHONY: bench-ram bench-usage
-bench-ram bench-usage: SUMMARYFLAGS+=-Si
-bench-ram bench-usage: $(BENCH_CSV)
+## Show heap/stack
+.PHONY: bench-ram
+bench-ram: SUMMARYFLAGS+=-Si
+bench-ram: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
 			-Dprobe=stack \
@@ -727,16 +727,40 @@ bench-ram bench-usage: $(BENCH_CSV)
 			-bcase \
 			-fheap='max(bench_simtime)' \
 			-o-) \
-		<(./scripts/csv.py $^ \
-			-Dprobe=usage \
-			-Fi='min(i)' \
-			-bcase \
-			-fdisk='max(bench_simtime)' \
-			-o-) \
 		-bcase \
 		-fstack \
 		-fheap \
-		-fdisk \
+		-ftotal=stack+heap \
+		$(SUMMARYFLAGS))
+
+## Show disk usage
+.PHONY: bench-usage
+bench-usage: SUMMARYFLAGS+=-Si
+bench-usage: $(BENCH_CSV)
+	$(strip ./scripts/csv.py \
+		<(./scripts/csv.py $^ \
+			-Dprobe=mdir \
+			-Fi='min(i)' \
+			-bcase \
+			-fmdir='max(bench_simtime)' \
+			-o-) \
+		<(./scripts/csv.py $^ \
+			-Dprobe=btree \
+			-Fi='min(i)' \
+			-bcase \
+			-fbtree='max(bench_simtime)' \
+			-o-) \
+		<(./scripts/csv.py $^ \
+			-Dprobe=data \
+			-Fi='min(i)' \
+			-bcase \
+			-fdata='max(bench_simtime)' \
+			-o-) \
+		-bcase \
+		-fmdir \
+		-fbtree \
+		-fdata \
+		-ftotal=mdir+btree+data \
 		$(SUMMARYFLAGS))
 
 

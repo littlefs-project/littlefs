@@ -90,8 +90,12 @@ code = '''
     // find the total disk usage after the benchmark
     //
     // note this is garbage because of the above truncates!
-    uintmax_t usage = bench_helpers_usage(&lfs3);
-    BENCH_RESULT("usage", written, usage);
+    struct bench_helpers_usage usage;
+    bench_helpers_usage(&lfs3, &usage) => 0;
+    BENCH_RESULT("usage", written, usage.usage);
+    BENCH_RESULT("mdir", written, usage.mdir);
+    BENCH_RESULT("btree", written, usage.btree);
+    BENCH_RESULT("data", written, usage.data);
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -156,8 +160,12 @@ code = '''
     #endif
 
     // find the total disk usage after the benchmark
-    uintmax_t usage = bench_helpers_usage(&lfs3);
-    BENCH_RESULT("usage", written, usage);
+    struct bench_helpers_usage usage;
+    bench_helpers_usage(&lfs3, &usage) => 0;
+    BENCH_RESULT("usage", written, usage.usage);
+    BENCH_RESULT("mdir", written, usage.mdir);
+    BENCH_RESULT("btree", written, usage.btree);
+    BENCH_RESULT("data", written, usage.data);
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -241,8 +249,12 @@ code = '''
     #endif
 
     // find the total disk usage after the benchmark
-    uintmax_t usage = bench_helpers_usage(&lfs3);
-    BENCH_RESULT("usage", written, usage);
+    struct bench_helpers_usage usage;
+    bench_helpers_usage(&lfs3, &usage) => 0;
+    BENCH_RESULT("usage", written, usage.usage);
+    BENCH_RESULT("mdir", written, usage.mdir);
+    BENCH_RESULT("btree", written, usage.btree);
+    BENCH_RESULT("data", written, usage.data);
 
     lfs3_unmount(&lfs3) => 0;
 '''
@@ -309,8 +321,12 @@ code = '''
     #endif
 
     // find the total disk usage after the benchmark
-    uintmax_t usage = bench_helpers_usage(&lfs3);
-    BENCH_RESULT("usage", written, usage);
+    struct bench_helpers_usage usage;
+    bench_helpers_usage(&lfs3, &usage) => 0;
+    BENCH_RESULT("usage", written, usage.usage);
+    BENCH_RESULT("mdir", written, usage.mdir);
+    BENCH_RESULT("btree", written, usage.btree);
+    BENCH_RESULT("data", written, usage.data);
 
     lfs3_unmount(&lfs3) => 0;
 '''
