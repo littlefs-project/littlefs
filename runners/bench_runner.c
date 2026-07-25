@@ -1269,7 +1269,7 @@ void bench_print(bench_record_t *record, bench_probe_t *probe_) {
     if (!(flags & BENCH_RECORD_FLOAT)) {
         printf(" %jd", result.u);
     } else {
-        printf(" %.12g", result.f);
+        printf(" %#.12g", result.f);
     }
     if (flags & BENCH_RECORD_BDRESULT) {
         printf(     " %"PRIu64" %"PRIu64" %"PRIu64
