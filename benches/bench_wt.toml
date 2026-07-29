@@ -18,6 +18,10 @@ defines.SIM_SIZE = 0
 # set this to true to skip bench warmup
 defines.SKIP_WARMUP = false
 
+# optionally create a bunch of static files
+defines.STATIC_COUNT = 0
+defines.STATIC_SIZE = 'BLOCK_SIZE'
+
 # include common bench helpers
 code = '''
     #include "benches/bench_helpers.h"
@@ -36,6 +40,20 @@ code = '''
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
             LFS3_ERROR("Bench warmup failed: %d", err);
+            assert(!err);
+            return;
+        }
+        BENCH_HEAP_RESUME();
+        BENCH_STACK_RESUME();
+    }
+    if (STATIC_COUNT) {
+        BENCH_STACK_PAUSE();
+        BENCH_HEAP_PAUSE();
+        int err = bench_helpers_populate(&lfs3,
+                STATIC_COUNT, STATIC_SIZE);
+        if (err) {
+            LFS3_ERROR("Bench populate failed: %d", err);
+            assert(!err);
             return;
         }
         BENCH_HEAP_RESUME();
@@ -112,6 +130,21 @@ code = '''
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
+            LFS3_ERROR("Bench warmup failed: %d", err);
+            assert(!err);
+            return;
+        }
+        BENCH_HEAP_RESUME();
+        BENCH_STACK_RESUME();
+    }
+    if (STATIC_COUNT) {
+        BENCH_STACK_PAUSE();
+        BENCH_HEAP_PAUSE();
+        int err = bench_helpers_populate(&lfs3,
+                STATIC_COUNT, STATIC_SIZE);
+        if (err) {
+            LFS3_ERROR("Bench populate failed: %d", err);
+            assert(!err);
             return;
         }
         BENCH_HEAP_RESUME();
@@ -186,6 +219,21 @@ code = '''
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
+            LFS3_ERROR("Bench warmup failed: %d", err);
+            assert(!err);
+            return;
+        }
+        BENCH_HEAP_RESUME();
+        BENCH_STACK_RESUME();
+    }
+    if (STATIC_COUNT) {
+        BENCH_STACK_PAUSE();
+        BENCH_HEAP_PAUSE();
+        int err = bench_helpers_populate(&lfs3,
+                STATIC_COUNT, STATIC_SIZE);
+        if (err) {
+            LFS3_ERROR("Bench populate failed: %d", err);
+            assert(!err);
             return;
         }
         BENCH_HEAP_RESUME();
@@ -271,6 +319,21 @@ code = '''
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_warmup(&lfs3);
         if (err) {
+            LFS3_ERROR("Bench warmup failed: %d", err);
+            assert(!err);
+            return;
+        }
+        BENCH_HEAP_RESUME();
+        BENCH_STACK_RESUME();
+    }
+    if (STATIC_COUNT) {
+        BENCH_STACK_PAUSE();
+        BENCH_HEAP_PAUSE();
+        int err = bench_helpers_populate(&lfs3,
+                STATIC_COUNT, STATIC_SIZE);
+        if (err) {
+            LFS3_ERROR("Bench populate failed: %d", err);
+            assert(!err);
             return;
         }
         BENCH_HEAP_RESUME();

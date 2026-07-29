@@ -7,8 +7,8 @@
 
 // warm up the filesystem
 //
-// this writes a 1 block file 2*block_count times to get it into a good
-// state for benchmarking
+// this writes a 1 block file 2*block_count times to get things into a
+// good state for benchmarking
 int bench_helpers_warmup(lfs3_t *lfs3) {
     uint8_t *wbuf = malloc(BLOCK_SIZE);
     memset(wbuf, '1', BLOCK_SIZE);
@@ -24,6 +24,29 @@ int bench_helpers_warmup(lfs3_t *lfs3) {
     lfs3_file_close(lfs3, &file) => 0;
 
     lfs3_remove(lfs3, "warmup") => 0;
+
+    free(wbuf);
+    return 0;
+}
+
+
+// populate the filesystem with static files
+//
+// useful for static vs dynamic wear-leveling, metadata pressure, etc
+int bench_helpers_populate(lfs3_t *lfs3,
+        lfs3_off_t static_count, lfs3_off_t static_size) {
+    char nbuf[256];
+    uint8_t *wbuf = malloc(static_size);
+    memset(wbuf, 's', static_size);
+
+    for (lfs3_off_t i = 0; i < static_count; i++) {
+        lfs3_file_t file;
+        sprintf(nbuf, "static_%08x", i);
+        lfs3_file_open(lfs3, &file, nbuf,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+        lfs3_file_write(lfs3, &file, wbuf, static_size) => static_size;
+        lfs3_file_close(lfs3, &file) => 0;
+    }
 
     free(wbuf);
     return 0;
