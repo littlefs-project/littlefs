@@ -72,8 +72,8 @@ code = '''
     uint64_t written = 0;
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
-    while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
+    while ((!SIM_SIZE || written < (uint64_t)SIM_SIZE)
+            && (!SIM_TIME || BENCH_SIMTIME() < SIM_TIME)) {
         BENCH_START("write");
         // arguably we should just rewind and continue writing to the
         // front of the file when we hit the end, but this overly
@@ -164,8 +164,8 @@ code = '''
     uint64_t written = 0;
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
-    while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
+    while ((!SIM_SIZE || written < (uint64_t)SIM_SIZE)
+            && (!SIM_TIME || BENCH_SIMTIME() < SIM_TIME)) {
         BENCH_START("write");
         // seek to a random location
         lfs3_off_t pos = BENCH_PRNG(&prng) % SIZE;
@@ -251,8 +251,8 @@ code = '''
     uint64_t written = 0;
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
-    while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
+    while ((!SIM_SIZE || written < (uint64_t)SIM_SIZE)
+            && (!SIM_TIME || BENCH_SIMTIME() < SIM_TIME)) {
         BENCH_START("write");
         // append to log
         uint8_t wbuf[CHUNK];
@@ -347,8 +347,8 @@ code = '''
     uint64_t written = 0;
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
-    while (!(SIM_SIZE && written >= (uint64_t)SIM_SIZE)
-            && !(SIM_TIME && BENCH_SIMTIME() >= SIM_TIME)) {
+    while ((!SIM_SIZE || written < (uint64_t)SIM_SIZE)
+            && (!SIM_TIME || BENCH_SIMTIME() < SIM_TIME)) {
         BENCH_START("write");
         // choose a random filename
         lfs3_off_t pos = BENCH_PRNG(&prng) % ((SIZE+(CHUNK-1))/CHUNK);
