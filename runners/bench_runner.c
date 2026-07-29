@@ -2921,6 +2921,10 @@ void perm_run(
 
     // setup hooks
     bench_hooks = case_->hooks;
+    // init the bench
+    if (bench_hooks && bench_hooks->init) {
+        bench_hooks->init();
+    }
 
     // create block device and configuration
     #ifndef BENCH_KIWIBD
@@ -3005,6 +3009,10 @@ void perm_run(
     }
     #endif
 
+    // deinit the bench
+    if (bench_hooks && bench_hooks->deinit) {
+        bench_hooks->deinit();
+    }
     // cleanup hooks
     bench_hooks = NULL;
 }

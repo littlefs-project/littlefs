@@ -110,6 +110,8 @@ typedef struct test_define {
 } test_define_t;
 
 typedef struct test_hooks {
+    void (*init)(void);
+    void (*deinit)(void);
     int (*read)(const struct lfs3_cfg *cfg, lfs3_block_t block,
             lfs3_off_t off, void *buffer, lfs3_size_t size);
     int (*prog)(const struct lfs3_cfg *cfg, lfs3_block_t block,

@@ -1623,6 +1623,10 @@ static void run_powerloss_none(
 
     // setup hooks
     test_hooks = case_->hooks;
+    // init the test
+    if (test_hooks && test_hooks->init) {
+        test_hooks->init();
+    }
 
     // create block device and configuration
     #ifndef TEST_KIWIBD
@@ -1693,6 +1697,10 @@ static void run_powerloss_none(
     }
     #endif
 
+    // deinit the test
+    if (test_hooks && test_hooks->deinit) {
+        test_hooks->deinit();
+    }
     // cleanup hooks
     test_hooks = NULL;
 }
@@ -1729,6 +1737,10 @@ static void run_powerloss_linear(
 
     // setup hooks
     test_hooks = case_->hooks;
+    // init the test
+    if (test_hooks && test_hooks->init) {
+        test_hooks->init();
+    }
 
     // create block device and configuration
     lfs3_emubd_t bd;
@@ -1809,6 +1821,10 @@ static void run_powerloss_linear(
         exit(-1);
     }
 
+    // deinit the test
+    if (test_hooks && test_hooks->deinit) {
+        test_hooks->deinit();
+    }
     // cleanup hooks
     test_hooks = NULL;
 }
@@ -1839,6 +1855,10 @@ static void run_powerloss_log(
 
     // setup hooks
     test_hooks = case_->hooks;
+    // init the test
+    if (test_hooks && test_hooks->init) {
+        test_hooks->init();
+    }
 
     // create block device and configuration
     lfs3_emubd_t bd;
@@ -1919,6 +1939,10 @@ static void run_powerloss_log(
         exit(-1);
     }
 
+    // deinit the test
+    if (test_hooks && test_hooks->deinit) {
+        test_hooks->deinit();
+    }
     // cleanup hooks
     test_hooks = NULL;
 }
@@ -1934,6 +1958,10 @@ static void run_powerloss_list(
 
     // setup hooks
     test_hooks = case_->hooks;
+    // init the test
+    if (test_hooks && test_hooks->init) {
+        test_hooks->init();
+    }
 
     // create block device and configuration
     lfs3_emubd_t bd;
@@ -2010,6 +2038,10 @@ static void run_powerloss_list(
         exit(-1);
     }
 
+    // deinit the test
+    if (test_hooks && test_hooks->deinit) {
+        test_hooks->deinit();
+    }
     // cleanup hooks
     test_hooks = NULL;
 }
@@ -2135,6 +2167,10 @@ static void run_powerloss_exhaustive(
         const struct test_case *case_) {
     // setup hooks
     test_hooks = case_->hooks;
+    // init the test
+    if (test_hooks && test_hooks->init) {
+        test_hooks->init();
+    }
 
     // create block device and configuration
     lfs3_emubd_t bd;
@@ -2186,6 +2222,10 @@ static void run_powerloss_exhaustive(
     perm_printid(suite, case_, NULL, 0);
     printf("\n");
 
+    // deinit the test
+    if (test_hooks && test_hooks->deinit) {
+        test_hooks->deinit();
+    }
     // cleanup hooks
     test_hooks = NULL;
 }
