@@ -1125,6 +1125,7 @@ def list_(runner, bench_ids=[], **args):
     cmd = find_runner(runner, main=False, **args)
     cmd.extend(find_ids(runner, bench_ids, **args))
 
+    if args.get('help_probes'):      cmd.append('--help-probes')
     if args.get('summary'):          cmd.append('--summary')
     if args.get('list_suites'):      cmd.append('--list-suites')
     if args.get('list_cases'):       cmd.append('--list-cases')
@@ -1748,7 +1749,8 @@ def main(**args):
 
     if args.get('compile'):
         return compile(**args)
-    elif (args.get('summary')
+    elif (args.get('help_probes')
+            or args.get('summary')
             or args.get('list_suites')
             or args.get('list_cases')
             or args.get('list_suite_paths')
@@ -1803,6 +1805,10 @@ if __name__ == "__main__":
             default=RUNNER_PATH,
             help="Bench runner to use for benching. Defaults to "
                 "%r." % RUNNER_PATH)
+    bench_parser.add_argument(
+            '--help-probes',
+            action='store_true',
+            help="Show the available probe types.")
     bench_parser.add_argument(
             '-Y', '--summary',
             action='store_true',

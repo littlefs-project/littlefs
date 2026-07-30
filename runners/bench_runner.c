@@ -953,6 +953,30 @@ typedef struct bench_probe {
     } u;
 } bench_probe_t;
 
+const char *const bench_probe_help[][3] = {
+    {"sum",     "1", "Sum all samples (the default)."},
+    {"min",     "1", "Find the minimum of all samples."},
+    {"max",     "1", "Find the maximum of all samples."},
+    {"avg",     "1", "Find the average of all samples."},
+    {"stddev",  "1", "Find the standard deviation of all samples."},
+    {"p[p]",    "w", "Find the pth percentile, 0<=p<=100."},
+    {"[f]rhz",  "-", "Sample probe at runtime frequency f."},
+    {"[f]shz",  "-", "Sample probe at simulated frequency f."},
+    {"[n]",     "-", "Sample probe every n samples."},
+    {"[a]+[b]", "-", "Combine probe types a and b."},
+    {NULL, NULL, NULL},
+};
+
+static void help_probes(void) {
+    printf("probe types:\n");
+    for (size_t i = 0; bench_probe_help[i][0]; i++) {
+        printf("  %-18s %.1s  %.80s\n",
+                bench_probe_help[i][0],
+                bench_probe_help[i][1],
+                bench_probe_help[i][2]);
+    }
+}
+
 // bench recording state
 #define BENCH_RECORD_IGNORED    0x80000000
 #define BENCH_RECORD_STARTED    0x40000000
@@ -3053,46 +3077,48 @@ static void run(void) {
 // option handling
 enum opt_flags {
     OPT_HELP                     = 'h',
+    OPT_HELP_PROBES              = 1,
     OPT_SUMMARY                  = 'Y',
     OPT_LIST_SUITES              = 'l',
     OPT_LIST_CASES               = 'L',
-    OPT_LIST_SUITE_PATHS         = 1,
-    OPT_LIST_CASE_PATHS          = 2,
-    OPT_LIST_DEFINES             = 3,
-    OPT_LIST_PERMUTATION_DEFINES = 4,
-    OPT_LIST_IMPLICIT_DEFINES    = 5,
-    OPT_LIST_PROBES              = 6,
-    OPT_LIST_SUITE_PROBES        = 7,
-    OPT_LIST_CASE_PROBES         = 8,
+    OPT_LIST_SUITE_PATHS         = 2,
+    OPT_LIST_CASE_PATHS          = 3,
+    OPT_LIST_DEFINES             = 4,
+    OPT_LIST_PERMUTATION_DEFINES = 5,
+    OPT_LIST_IMPLICIT_DEFINES    = 6,
+    OPT_LIST_PROBES              = 7,
+    OPT_LIST_SUITE_PROBES        = 8,
+    OPT_LIST_CASE_PROBES         = 9,
     OPT_QUERY_DEFINE             = 'Q',
-    OPT_QUERY_PERMUTATION_DEFINE = 9,
-    OPT_QUERY_IMPLICIT_DEFINE    = 10,
+    OPT_QUERY_PERMUTATION_DEFINE = 10,
+    OPT_QUERY_IMPLICIT_DEFINE    = 11,
     OPT_DEFINE                   = 'D',
-    OPT_DEFINE_DEPTH             = 11,
+    OPT_DEFINE_DEPTH             = 12,
     OPT_PROBE                    = 'S',
     OPT_PROBE_STEP               = 'x',
-    OPT_PROBE_RUNFREQ            = 12,
+    OPT_PROBE_RUNFREQ            = 13,
     OPT_PROBE_SIMFREQ            = 'X',
-    OPT_PROBE_WINDOW             = 13,
-    OPT_STEP                     = 14,
-    OPT_FORCE                    = 15,
-    OPT_NO_INTERNAL              = 16,
-    OPT_NO_LITMUS                = 17,
+    OPT_PROBE_WINDOW             = 14,
+    OPT_STEP                     = 15,
+    OPT_FORCE                    = 16,
+    OPT_NO_INTERNAL              = 17,
+    OPT_NO_LITMUS                = 18,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 18,
-    OPT_TRACE_STEP               = 19,
-    OPT_TRACE_RUNFREQ            = 20,
-    OPT_TRACE_SIMFREQ            = 21,
-    OPT_READ_SLEEP               = 22,
-    OPT_PROG_SLEEP               = 23,
-    OPT_ERASE_SLEEP              = 24,
+    OPT_TRACE_BACKTRACE          = 19,
+    OPT_TRACE_STEP               = 20,
+    OPT_TRACE_RUNFREQ            = 21,
+    OPT_TRACE_SIMFREQ            = 22,
+    OPT_READ_SLEEP               = 23,
+    OPT_PROG_SLEEP               = 24,
+    OPT_ERASE_SLEEP              = 25,
 };
 
 const char *short_opts = "hYlLQ:D:S:x:X:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
+    {"help-probes",      no_argument,       NULL, OPT_HELP_PROBES},
     {"summary",          no_argument,       NULL, OPT_SUMMARY},
     {"list-suites",      no_argument,       NULL, OPT_LIST_SUITES},
     {"list-cases",       no_argument,       NULL, OPT_LIST_CASES},
@@ -3137,6 +3163,7 @@ const struct option long_opts[] = {
 
 const char *const help_text[] = {
     "Show this help message.",
+    "Show the available probe types.",
     "Show quick summary.",
     "List bench suites.",
     "List bench cases.",
@@ -3235,6 +3262,11 @@ int main(int argc, char **argv) {
 
             printf("\n");
             exit(0);
+
+        // other help flags
+        case OPT_HELP_PROBES:;
+            op = help_probes;
+            break;
 
         // summary/list flags
         case OPT_SUMMARY:;

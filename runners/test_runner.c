@@ -2273,22 +2273,10 @@ const size_t test_default_powerloss_count
         = sizeof(test_default_powerlosses)
         / sizeof(test_powerloss_t);
 
-static void list_powerlosses(void) {
-    // at least size so that names fit
-    unsigned name_width = 23;
+static void help_powerlosses(void) {
+    printf("powerloss scenarios:\n");
     for (size_t i = 0; test_builtin_powerlosses[i].name; i++) {
-        size_t len = strlen(test_builtin_powerlosses[i].name);
-        if (len > name_width) {
-            name_width = len;
-        }
-    }
-    name_width = 4*((name_width+1+4-1)/4)-1;
-
-    printf("%-*s %s\n", name_width, "scenario", "description");
-    size_t i = 0;
-    for (; test_builtin_powerlosses[i].name; i++) {
-        printf("%-*s %s\n",
-                name_width,
+        printf("  %-21s %.80s\n",
                 test_builtin_powerlosses[i].name,
                 test_builtin_powerlosses_help[i]);
     }
@@ -2368,15 +2356,15 @@ static void run(void) {
 // option handling
 enum opt_flags {
     OPT_HELP                     = 'h',
+    OPT_HELP_POWERLOSSES         = 1,
     OPT_SUMMARY                  = 'Y',
     OPT_LIST_SUITES              = 'l',
     OPT_LIST_CASES               = 'L',
-    OPT_LIST_SUITE_PATHS         = 1,
-    OPT_LIST_CASE_PATHS          = 2,
-    OPT_LIST_DEFINES             = 3,
-    OPT_LIST_PERMUTATION_DEFINES = 4,
-    OPT_LIST_IMPLICIT_DEFINES    = 5,
-    OPT_LIST_POWERLOSSES         = 6,
+    OPT_LIST_SUITE_PATHS         = 2,
+    OPT_LIST_CASE_PATHS          = 3,
+    OPT_LIST_DEFINES             = 4,
+    OPT_LIST_PERMUTATION_DEFINES = 5,
+    OPT_LIST_IMPLICIT_DEFINES    = 6,
     OPT_QUERY_DEFINE             = 'Q',
     OPT_QUERY_PERMUTATION_DEFINE = 7,
     OPT_QUERY_IMPLICIT_DEFINE    = 8,
@@ -2402,6 +2390,7 @@ const char *short_opts = "hYlLQ:D:P:d:t:";
 
 const struct option long_opts[] = {
     {"help",             no_argument,       NULL, OPT_HELP},
+    {"help-powerlosses", no_argument,       NULL, OPT_HELP_POWERLOSSES},
     {"summary",          no_argument,       NULL, OPT_SUMMARY},
     {"list-suites",      no_argument,       NULL, OPT_LIST_SUITES},
     {"list-cases",       no_argument,       NULL, OPT_LIST_CASES},
@@ -2412,7 +2401,6 @@ const struct option long_opts[] = {
                          no_argument,       NULL, OPT_LIST_PERMUTATION_DEFINES},
     {"list-implicit-defines",
                          no_argument,       NULL, OPT_LIST_IMPLICIT_DEFINES},
-    {"list-powerlosses", no_argument,       NULL, OPT_LIST_POWERLOSSES},
     {"query-define",     required_argument, NULL, OPT_QUERY_DEFINE},
     {"query-permutation-define",
                          required_argument, NULL, OPT_QUERY_PERMUTATION_DEFINE},
@@ -2439,6 +2427,7 @@ const struct option long_opts[] = {
 
 const char *const help_text[] = {
     "Show this help message.",
+    "Show the available powerloss scenarios.",
     "Show quick summary.",
     "List test suites.",
     "List test cases.",
@@ -2447,7 +2436,6 @@ const char *const help_text[] = {
     "List all defines in this test-runner.",
     "List explicit defines in this test-runner.",
     "List implicit defines in this test-runner.",
-    "List the available powerloss scenarios.",
     "Query a test define.",
     "Query a permutation test define.",
     "Query an implicit test define.",
@@ -2532,6 +2520,11 @@ int main(int argc, char **argv) {
             printf("\n");
             exit(0);
 
+        // other help flags
+        case OPT_HELP_POWERLOSSES:;
+            op = help_powerlosses;
+            break;
+
         // summary/list flags
         case OPT_SUMMARY:;
             op = summary;
@@ -2563,10 +2556,6 @@ int main(int argc, char **argv) {
 
         case OPT_LIST_IMPLICIT_DEFINES:;
             op = list_implicit_defines;
-            break;
-
-        case OPT_LIST_POWERLOSSES:;
-            op = list_powerlosses;
             break;
 
         case OPT_QUERY_DEFINE:;

@@ -1116,6 +1116,7 @@ def list_(runner, test_ids=[], **args):
     cmd = find_runner(runner, main=False, **args)
     cmd.extend(find_ids(runner, test_ids, **args))
 
+    if args.get('help_powerlosses'): cmd.append('--help-powerlosses')
     if args.get('summary'):          cmd.append('--summary')
     if args.get('list_suites'):      cmd.append('--list-suites')
     if args.get('list_cases'):       cmd.append('--list-cases')
@@ -1126,7 +1127,6 @@ def list_(runner, test_ids=[], **args):
                                      cmd.append('--list-permutation-defines')
     if args.get('list_implicit_defines'):
                                      cmd.append('--list-implicit-defines')
-    if args.get('list_powerlosses'): cmd.append('--list-powerlosses')
     if args.get('query_define'):     cmd.append('-Q%s' % args['query_define'])
     if args.get('query_permutation_define'):
                                      cmd.append('--query-permutation-define=%s'
@@ -1696,7 +1696,8 @@ def main(**args):
 
     if args.get('compile'):
         return compile(**args)
-    elif (args.get('summary')
+    elif (args.get('help_powerlosses')
+            or args.get('summary')
             or args.get('list_suites')
             or args.get('list_cases')
             or args.get('list_suite_paths')
@@ -1704,7 +1705,6 @@ def main(**args):
             or args.get('list_defines')
             or args.get('list_permutation_defines')
             or args.get('list_implicit_defines')
-            or args.get('list_powerlosses')
             or args.get('query_define')
             or args.get('query_permutation_define')
             or args.get('query_implicit_define')):
@@ -1750,6 +1750,10 @@ if __name__ == "__main__":
             help="Test runner to use for testing. Defaults to "
                 "%r." % RUNNER_PATH)
     test_parser.add_argument(
+            '--help-powerlosses',
+            action='store_true',
+            help="Show the available powerloss scenarios.")
+    test_parser.add_argument(
             '-Y', '--summary',
             action='store_true',
             help="Show quick summary.")
@@ -1781,10 +1785,6 @@ if __name__ == "__main__":
             '--list-implicit-defines',
             action='store_true',
             help="List implicit defines in this test-runner.")
-    test_parser.add_argument(
-            '--list-powerlosses',
-            action='store_true',
-            help="List the available powerloss scenarios.")
     test_parser.add_argument(
             '-Q', '--query-define',
             help="Query a test define.")
