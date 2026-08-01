@@ -904,6 +904,7 @@ int __wrap_vprintf(const char *fmt, va_list args) {
 
 // a single bench sample
 typedef struct bench_sample {
+    uint64_t i;
     uintmax_t n;
     union {
         uintmax_t u;
@@ -921,14 +922,23 @@ typedef struct bench_sample {
     bench_io_t erased;
 } bench_sample_t;
 
+static int bench_sample_cmpi(const void *a, const void *b) {
+    const bench_sample_t *a_ = a;
+    const bench_sample_t *b_ = b;
+    // i should be unique
+    return (a_->i < b_->i) ? -1
+            : (a_->i > b_->i) ? +1
+            : 0;
+}
+
 static int bench_sample_cmpu(const void *a, const void *b) {
     const bench_sample_t *a_ = a;
     const bench_sample_t *b_ = b;
     return (a_->t.u < b_->t.u) ? -1
             : (a_->t.u > b_->t.u) ? +1
-            // fallback to n to try to stay somewhat stable
-            : (a_->n < b_->n) ? -1
-            : (a_->n > b_->n) ? +1
+            // fallback to i to try to stay stable, i should be unique
+            : (a_->i < b_->i) ? -1
+            : (a_->i > b_->i) ? +1
             : 0;
 }
 
@@ -937,20 +947,23 @@ static int bench_sample_cmpf(const void *a, const void *b) {
     const bench_sample_t *b_ = b;
     return (a_->t.f < b_->t.f) ? -1
             : (a_->t.f > b_->t.f) ? +1
-            // fallback to n to try to stay somewhat stable
-            : (a_->n < b_->n) ? -1
-            : (a_->n > b_->n) ? +1
+            // fallback to i to try to stay stable, i should be unique
+            : (a_->i < b_->i) ? -1
+            : (a_->i > b_->i) ? +1
             : 0;
 }
 
 // bench probe state
 #define BENCH_PROBE_DIRTY       0x80000000
-#define BENCH_PROBE_TYPE        0x0000001f
-#define BENCH_PROBE_MIN         0x00000001
-#define BENCH_PROBE_MAX         0x00000002
-#define BENCH_PROBE_AVG         0x00000004
-#define BENCH_PROBE_STDDEV      0x00000008
-#define BENCH_PROBE_PERCENTILE  0x00000010
+#define BENCH_PROBE_TYPE        0x000000ff
+#define BENCH_PROBE_DELTA       0x00000001
+#define BENCH_PROBE_MIN         0x00000002
+#define BENCH_PROBE_MAX         0x00000004
+#define BENCH_PROBE_AVG         0x00000008
+#define BENCH_PROBE_STDDEV      0x00000010
+#define BENCH_PROBE_NTH         0x00000020
+#define BENCH_PROBE_TTH         0x00000040
+#define BENCH_PROBE_PERCENTILE  0x00000080
 
 typedef struct bench_probe {
     const char *name;
@@ -958,6 +971,8 @@ typedef struct bench_probe {
     uint64_t step;
     double runfreq;
     double simfreq;
+    uintmax_t nth;
+    double tth;
     double percentile;
 
     // time of last sample
@@ -967,6 +982,7 @@ typedef struct bench_probe {
     // variables for incremental calculations
     union {
         bench_sample_t sum;
+        bench_sample_t delta;
         bench_sample_t min;
         bench_sample_t max;
         struct {
@@ -1007,46 +1023,42 @@ typedef struct bench_probe {
                 double erased;
             } vn;
         } stddev;
+        bench_sample_t nth;
+        bench_sample_t tth;
     } u;
 } bench_probe_t;
 
 const char *const bench_probe_help[][3] = {
     {"sum",         "1",  "Sum all samples (the default)."},
+    {"delta",       "1",  "Only the most recent sample."},
     {"min",         "1",  "Find the minimum of all samples."},
     {"max",         "1",  "Find the maximum of all samples."},
     {"avg",         "1",  "Find the average of all samples."},
     {"stddev",      "1",  "Find the standard deviation of all samples."},
-    {"p[p]",        "w",  "Find the pth percentile, where >= p samples."},
-//  {"n[n]",        "1",  "Find samples where n == n."},
-//  {"p(s)",        "1",  "Find the probability of sample <= s."},
+    {"n[n]",        "1",  "Find the most recent sample where n == n."},
+    {"t[t]",        "1",  "Find the longest sample where t <= t."},
+    {"p[p]",        "w",  "Find the pth percentile sample where t >= p%."},
 //  {"cdf",         "w",  "Build a cumulative distribution."},
 //  {"cdf[n]",      "w",  "Build a cumulative distribution, downsample to n."},
 //  {"loghist",     "1",  "Build a 64-bit log histogram."},
 //  {"loghist[n]",  "1",  "Build an n-bucket log histogram."},
 //  {"hist[n]",     "w",  "Build an n-bucket histogram."},
-//  {"min(probe)",  "w",  "Find samples where n == min of different probe."},
-//  {"max(probe)",  "w",  "Find samples where n == max of different probe."},
-//  {"p[p](probe)", "2w", "Find samples where n == p[p] of different probe."},
-    {"[f]rhz",      NULL, "Sample probe at runtime frequency f."},
-    {"[f]shz",      NULL, "Sample probe at simulated frequency f."},
-    {"[n]",         NULL, "Sample probe every n samples."},
+//  {"min(probe)",  "w",  "Find sample where n == min of different probe."},
+//  {"max(probe)",  "w",  "Find sample where n == max of different probe."},
+//  {"p[p](probe)", "2w", "Find sample where n == p[p] of different probe."},
+    {"[f]rhz",      "-",  "Sample probe at runtime frequency f."},
+    {"[f]shz",      "-",  "Sample probe at simulated frequency f."},
+    {"[n]",         "-",  "Sample probe every n samples."},
+//  {"p",           "w",  "Calculate the probability of t <= t."},
     {NULL, NULL, NULL},
 };
 
 static void help_probes(void) {
     printf("probe types:\n");
-    size_t i = 0;
-    for (; bench_probe_help[i][0] && bench_probe_help[i][1]; i++) {
+    for (size_t i = 0; bench_probe_help[i][0]; i++) {
         printf("  %-17s %2.2s  %.80s\n",
                 bench_probe_help[i][0],
                 bench_probe_help[i][1],
-                bench_probe_help[i][2]);
-    }
-    printf("sample options:\n");
-    for (; bench_probe_help[i][0]; i++) {
-        printf("  %-17s %2.2s  %.80s\n",
-                bench_probe_help[i][0],
-                "-",
                 bench_probe_help[i][2]);
     }
 }
@@ -1055,7 +1067,7 @@ static void help_probes(void) {
 #define BENCH_RECORD_IGNORED    0x80000000
 #define BENCH_RECORD_STARTED    0x40000000
 #define BENCH_RECORD_HISTORY    0x20000000
-#define BENCH_RECORD_SORT       0x10000000
+#define BENCH_RECORD_SORTED     0x10000000
 #define BENCH_RECORD_FLOAT      0x08000000
 #define BENCH_RECORD_TYPE       0x00000007
 #define BENCH_RECORD_RESULT     0x00000001
@@ -1078,9 +1090,6 @@ typedef struct bench_record {
     size_t history_count;
     size_t history_capacity;
     size_t history_off; // this is 0 until history overflows
-
-    // optional sorted history, we only need this if sampling repeatedly
-    bench_sample_t *sorted;
 } bench_record_t;
 
 bench_probe_t *bench_probes = NULL;
@@ -1108,8 +1117,6 @@ void bench_init(const struct lfs3_cfg *cfg) {
         record->history_count = 0;
         record->history_capacity = 0;
         record->history_off = 0;
-        free(record->sorted);
-        record->sorted = NULL;
     }
     // reset records, keep memory
     bench_record_count = 0;
@@ -1224,6 +1231,7 @@ void bench_probe_sample(const bench_record_t *record, bench_probe_t *probe_,
         if (record->hits == 0) {
             memset(&probe_->u.sum, 0, sizeof(probe_->u.sum));;
         }
+        probe_->u.sum.i = sample->i;
         probe_->u.sum.n = sample->n;
         if (!(record->flags & BENCH_RECORD_FLOAT)) {
             probe_->u.sum.t.u += sample->t.u;
@@ -1239,6 +1247,9 @@ void bench_probe_sample(const bench_record_t *record, bench_probe_t *probe_,
         probe_->u.sum.readed  += sample->readed;
         probe_->u.sum.progged += sample->progged;
         probe_->u.sum.erased  += sample->erased;
+    // delta?
+    } else if (probe_->flags & BENCH_PROBE_DELTA) {
+        probe_->u.delta = *sample;
     // min?
     } else if (probe_->flags & BENCH_PROBE_MIN) {
         if (record->hits == 0
@@ -1381,6 +1392,30 @@ void bench_probe_sample(const bench_record_t *record, bench_probe_t *probe_,
                     * ((double)sample->erased - erased_avg));
         probe_->u.stddev.avg.erased = erased_avg;
         probe_->u.stddev.vn.erased = erased_vn;
+    // nth?
+    } else if (probe_->flags & BENCH_PROBE_NTH) {
+        if (record->hits == 0) {
+            probe_->u.nth.i = -1;
+        }
+        if (sample->n == probe_->nth) {
+            probe_->u.nth = *sample;
+        }
+    // tth?
+    } else if (probe_->flags & BENCH_PROBE_TTH) {
+        if (record->hits == 0) {
+            probe_->u.tth.i = -1;
+        }
+        if (((!(record->flags & BENCH_RECORD_FLOAT))
+                    ? sample->t.u <= probe_->tth
+                    : sample->t.f <= probe_->tth)
+                && ((!(record->flags & BENCH_RECORD_FLOAT))
+                    ? sample->t.u > probe_->u.tth.t.u
+                    : sample->t.f > probe_->u.tth.t.f)) {
+            probe_->u.tth = *sample;
+        }
+    // percentile?
+    } else if (probe_->flags & BENCH_PROBE_PERCENTILE) {
+        // do nothing
     }
 }
 
@@ -1428,7 +1463,7 @@ void bench_probe_print(bench_record_t *record,
         if (!bench_probe_window) {
             sum = probe_->u.sum;
         } else {
-            sum = (bench_sample_t){.n = record->n};
+            sum = (bench_sample_t){.i=record->hits-1, .n=record->n};
             for (size_t i = 0; i < record->history_count; i++) {
                 if (!(record->flags & BENCH_RECORD_FLOAT)) {
                     sum.t.u += record->history[i].t.u;
@@ -1448,12 +1483,28 @@ void bench_probe_print(bench_record_t *record,
         }
         bench_sample_print(record, probe_, "",
                 &sum, record->flags);
+    // delta?
+    } else if (probe_->flags & BENCH_PROBE_DELTA) {
+        bench_sample_t delta;
+        if (!bench_probe_window) {
+            delta = probe_->u.delta;
+        } else {
+            for (size_t i = 0; i < record->history_count; i++) {
+                if (i == 0 || record->history[i].i > delta.i) {
+                    delta = record->history[i];
+                }
+            }
+        }
+        bench_sample_print(record, probe_, "+delta",
+                &delta, record->flags);
     // min?
     } else if (probe_->flags & BENCH_PROBE_MIN) {
         bench_sample_t min;
         if (!bench_probe_window) {
             min = probe_->u.min;
         } else {
+            // note because our sort is stable, if t == t, we end up
+            // ordered by i
             for (size_t i = 0; i < record->history_count; i++) {
                 if (i == 0
                         || ((!(record->flags & BENCH_RECORD_FLOAT))
@@ -1471,6 +1522,8 @@ void bench_probe_print(bench_record_t *record,
         if (!bench_probe_window) {
             max = probe_->u.max;
         } else {
+            // note because our sort is stable, if t == t, we end up
+            // ordered by i
             for (size_t i = 0; i < record->history_count; i++) {
                 if (i == 0
                         || ((!(record->flags & BENCH_RECORD_FLOAT))
@@ -1487,6 +1540,7 @@ void bench_probe_print(bench_record_t *record,
         bench_sample_t avg;
         if (!bench_probe_window) {
             avg = (bench_sample_t){
+                .i       = record->hits-1,
                 .n       = record->n,
                 .t.f     = probe_->u.avg.t,
                 .reads   = (bench_io_t)round(probe_->u.avg.reads),
@@ -1535,6 +1589,7 @@ void bench_probe_print(bench_record_t *record,
             progged_avg /= (double)record->history_count;
             erased_avg /= (double)record->history_count;
             avg = (bench_sample_t){
+                .i       = record->hits-1,
                 .n       = record->n,
                 .t.f     = t_avg,
                 .reads   = (bench_io_t)round(reads_avg),
@@ -1555,6 +1610,7 @@ void bench_probe_print(bench_record_t *record,
         bench_sample_t stddev;
         if (!bench_probe_window) {
             stddev = (bench_sample_t){
+                .i       = record->hits-1,
                 .n       = record->n,
                 .t.f     = sqrt(probe_->u.stddev.vn.t
                         / (double)record->hits),
@@ -1689,6 +1745,7 @@ void bench_probe_print(bench_record_t *record,
             erased_stddev = sqrt(erased_stddev
                     / (double)record->history_count);
             stddev = (bench_sample_t){
+                .i       = record->hits-1,
                 .n       = record->n,
                 .t.f     = t_stddev,
                 .reads   = (bench_io_t)round(reads_stddev),
@@ -1704,37 +1761,76 @@ void bench_probe_print(bench_record_t *record,
         }
         bench_sample_print(record, probe_, "+stddev",
                 &stddev, record->flags | BENCH_RECORD_FLOAT);
+    // nth?
+    } else if (probe_->flags & BENCH_PROBE_NTH) {
+        bench_sample_t nth;
+        if (!bench_probe_window) {
+            nth = probe_->u.nth;
+        } else {
+            nth.i = -1;
+            for (size_t i = 0; i < record->history_count; i++) {
+                if (record->history[i].n == probe_->nth
+                        && (i == 0 || record->history[i].i > nth.i)) {
+                    nth = record->history[i];
+                }
+            }
+        }
+        if (nth.i != (uint64_t)-1) {
+            char suffix[64];
+            sprintf(suffix, "+n%jd", probe_->nth);
+            bench_sample_print(record, probe_, suffix,
+                    &nth, record->flags);
+        }
+    // tth?
+    } else if (probe_->flags & BENCH_PROBE_TTH) {
+        bench_sample_t tth;
+        if (!bench_probe_window) {
+            tth = probe_->u.tth;
+        } else {
+            // note because our sort is stable, if t == t, we end up
+            // ordered by i
+            tth.i = -1;
+            for (size_t i = 0; i < record->history_count; i++) {
+                if (((!(record->flags & BENCH_RECORD_FLOAT))
+                            ? record->history[i].t.u <= probe_->tth
+                            : record->history[i].t.f <= probe_->tth)
+                        && ((!(record->flags & BENCH_RECORD_FLOAT))
+                            ? record->history[i].t.u > tth.t.u
+                            : record->history[i].t.f > tth.t.f)) {
+                    tth = record->history[i];
+                }
+            }
+        }
+        if (tth.i != (uint64_t)-1) {
+            char suffix[64];
+            sprintf(suffix, "+t%.12g", probe_->tth);
+            bench_sample_print(record, probe_, suffix,
+                    &tth, record->flags);
+        }
     // percentile?
     } else if (probe_->flags & BENCH_PROBE_PERCENTILE) {
-        // allocate array for sorting? we can do this in-place if we
-        // don't need to preserve order
-        bench_sample_t *history = record->history;
-        if (probe_->step || probe_->runfreq || probe_->simfreq) {
-            record->sorted = realloc(record->sorted,
-                    record->history_capacity*sizeof(bench_sample_t));
-            memcpy(record->sorted, record->history,
-                    record->history_count*sizeof(bench_sample_t));
-            history = record->sorted;
-        }
         // first sort
-        qsort(history,
-                record->history_count,
-                sizeof(bench_sample_t),
-                (!(record->flags & BENCH_RECORD_FLOAT))
-                    ? bench_sample_cmpu
-                    : bench_sample_cmpf);
+        if (!(record->flags & BENCH_RECORD_SORTED)) {
+            qsort(record->history,
+                    record->history_count,
+                    sizeof(bench_sample_t),
+                    (!(record->flags & BENCH_RECORD_FLOAT))
+                        ? bench_sample_cmpu
+                        : bench_sample_cmpf);
+            record->flags |= BENCH_RECORD_SORTED;
+        }
         // then find kth percentile
         ssize_t k = (ssize_t)ceil(
                     (probe_->percentile/100.0)
                         * (double)record->history_count)
                 - 1;
-        bench_sample_t percentile = history[
+        bench_sample_t percentile = record->history[
                 (k < 0)
                         ? 0
                     : (k >= (ssize_t)record->history_count)
                         ? (ssize_t)record->history_count-1
                     : k];
-        char suffix[32];
+        char suffix[64];
         sprintf(suffix, "+p%.12g", probe_->percentile);
         bench_sample_print(record, probe_, suffix,
                 &percentile, record->flags);
@@ -1848,6 +1944,21 @@ void bench_sample(bench_record_t *record, const bench_sample_t *sample) {
 
             // no longer dirty
             probe_->flags &= ~BENCH_PROBE_DIRTY;
+        }
+    }
+
+    // if we sorted as a part of sampling, we need to revert the sort
+    // to get back the correct window order
+    //
+    // note we never need to do this if we're only printing at the end
+    for (size_t i = 0; i < bench_record_count; i++) {
+        bench_record_t *record = &bench_records[i];
+        if (record->flags & BENCH_RECORD_SORTED) {
+            qsort(record->history,
+                    record->history_count,
+                    sizeof(bench_sample_t),
+                    bench_sample_cmpi);
+            record->flags &= ~BENCH_RECORD_SORTED;
         }
     }
 }
@@ -2012,6 +2123,7 @@ void bench_stop(const char *probe, uintmax_t n) {
     record->n = n;
     // calculate sample timing
     record->last = (bench_sample_t){
+        .i       = record->hits,
         .n       = n,
         .reads   = reads   - record->start.reads,
         .progs   = progs   - record->start.progs,
@@ -2079,7 +2191,8 @@ void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
     record->n = n;
     // update last sample
     record->last = (bench_sample_t){
-        .n = n,
+        .i   = record->hits,
+        .n   = n,
         .t.u = result,
         // zero everything else
     };
@@ -2116,7 +2229,8 @@ void bench_fresult(const char *probe, uintmax_t n, double result) {
     record->n = n;
     // update last sample
     record->last = (bench_sample_t){
-        .n = n,
+        .i   = record->hits,
+        .n   = n,
         .t.f = result,
         // zero everything else
     };
@@ -3909,6 +4023,12 @@ int main(int argc, char **argv) {
                         optarg += strlen("sum");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | 0;
+                    // delta?
+                    } else if (strncmp(optarg,
+                            "delta", strlen("delta")) == 0) {
+                        optarg += strlen("delta");
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_DELTA;
                     // min?
                     } else if (strncmp(optarg,
                             "min", strlen("min")) == 0) {
@@ -3933,6 +4053,28 @@ int main(int argc, char **argv) {
                         optarg += strlen("stddev");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_STDDEV;
+                    // nth?
+                    } else if (optarg[0] == 'n') {
+                        optarg += 1;
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_NTH;
+                        parsed = NULL;
+                        probe->nth = strtoumax(optarg, &parsed, 0);
+                        if (parsed == optarg) {
+                            goto invalid_probe;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+                    // tth?
+                    } else if (optarg[0] == 't') {
+                        optarg += 1;
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_TTH;
+                        parsed = NULL;
+                        probe->tth = strtod(optarg, &parsed);
+                        if (parsed == optarg) {
+                            goto invalid_probe;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
                     // percentile?
                     } else if (optarg[0] == 'p') {
                         optarg += 1;
