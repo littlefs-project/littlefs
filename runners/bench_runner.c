@@ -955,7 +955,7 @@ static int bench_sample_cmpf(const void *a, const void *b) {
 
 // bench probe state
 #define BENCH_PROBE_DIRTY       0x80000000
-#define BENCH_PROBE_TYPE        0x01ff0000
+#define BENCH_PROBE_TYPE        0x03ff0000
 #define BENCH_PROBE_SUM         0x00010000
 #define BENCH_PROBE_DELTA       0x00020000
 #define BENCH_PROBE_MIN         0x00040000
@@ -965,6 +965,7 @@ static int bench_sample_cmpf(const void *a, const void *b) {
 #define BENCH_PROBE_NTH         0x00400000
 #define BENCH_PROBE_TTH         0x00800000
 #define BENCH_PROBE_PERCENTILE  0x01000000
+#define BENCH_PROBE_CDF         0x02000000
 #define BENCH_PROBE_FLOAT       0x40000000
 #define BENCH_PROBE_PROBABILITY 0x20000000
 
@@ -977,6 +978,7 @@ typedef struct bench_probe {
     uintmax_t nth;
     double tth;
     double percentile;
+    size_t downsample;
 
     // time of last sample
     bench_ns_t last_runtime;
@@ -1044,8 +1046,8 @@ const char *const bench_probe_help[][3] = {
     {"n[n]",        "1",  "Find the most recent sample where n == n."},
     {"t[t]",        "1",  "Find the longest sample where t <= t."},
     {"p[p]",        "w",  "Find the pth percentile sample where t >= p%."},
-//  {"cdf",         "w",  "Build a cumulative distribution."},
-//  {"cdf[n]",      "w",  "Build a cumulative distribution, downsample to n."},
+    {"cdf",         "w",  "Build a cumulative distribution."},
+    {"cdf[n]",      "w",  "Build a cumulative distribution, downsample to n."},
 //  {"loghist",     "1",  "Build a 64-bit log histogram."},
 //  {"loghist[n]",  "1",  "Build an n-bucket log histogram."},
 //  {"hist[n]",     "w",  "Build an n-bucket histogram."},
@@ -1226,8 +1228,10 @@ bench_record_t *bench_find(const char *probe) {
 
                     // need history?
                     //
-                    // percentile always needs history
-                    if ((probe_->flags & BENCH_PROBE_PERCENTILE)
+                    // percentile, cdf always needs history
+                    if ((probe_->flags & (
+                                BENCH_PROBE_PERCENTILE
+                                    | BENCH_PROBE_CDF))
                             // probability needs history unless
                             // trivially calculatable
                             || ((probe_->flags & BENCH_PROBE_PROBABILITY)
@@ -1236,7 +1240,8 @@ bench_record_t *bench_find(const char *probe) {
                                         | BENCH_PROBE_MIN
                                         | BENCH_PROBE_MAX
                                         | BENCH_PROBE_TTH
-                                        | BENCH_PROBE_PERCENTILE)))
+                                        | BENCH_PROBE_PERCENTILE
+                                        | BENCH_PROBE_CDF)))
                             // other probes don't _need_ history, but we
                             // use history if a window is set to keep
                             // probe behavior consistent
@@ -1446,6 +1451,11 @@ void bench_probe_sample(const bench_record_t *record, bench_probe_t *probe_,
     // percentile?
     } else if (probe_->flags & BENCH_PROBE_PERCENTILE) {
         // do nothing
+    // cdf?
+    } else if (probe_->flags & BENCH_PROBE_CDF) {
+        // do nothing
+    } else {
+        __builtin_unreachable();
     }
 }
 
@@ -1891,21 +1901,60 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
             record->flags |= BENCH_RECORD_SORTED;
         }
         // then find kth percentile
-        ssize_t k = (ssize_t)ceil(
-                    (probe_->percentile/100.0)
-                        * (double)record->history_count)
-                - 1;
+        double k = ceil(
+                (probe_->percentile/100.0)
+                    * (double)record->history_count) - 1;
         bench_sample_t percentile = record->history[
-                (k < 0)
+                (k < 0.0)
                         ? 0
-                    : (k >= (ssize_t)record->history_count)
-                        ? (ssize_t)record->history_count-1
-                    : k];
+                    : (k >= (double)record->history_count)
+                        ? record->history_count-1
+                    : (size_t)k];
         char suffix[64];
         sprintf(suffix, "+p%.12g", probe_->percentile);
         probe_->flags |= BENCH_PROBE_PROBABILITY;
         bench_sample_print(record, probe_, suffix, &percentile,
-                100.0*((double)(k+1) / (double)record->history_count));
+                100.0*((k+1) / (double)record->history_count));
+    // cdf?
+    } else if (probe_->flags & BENCH_PROBE_CDF) {
+        // first sort
+        if (!(record->flags & BENCH_RECORD_SORTED)) {
+            qsort(record->history,
+                    record->history_count,
+                    sizeof(bench_sample_t),
+                    (!(record->flags & BENCH_RECORD_FLOAT))
+                        ? bench_sample_cmpu
+                        : bench_sample_cmpf);
+            record->flags |= BENCH_RECORD_SORTED;
+        }
+        // default to printing all samples
+        if (probe_->downsample == (size_t)-1) {
+            for (size_t i = 0; i < record->history_count; i++) {
+                probe_->flags |= BENCH_PROBE_PROBABILITY;
+                bench_sample_print(record, probe_, "+cdf", &record->history[i],
+                        100.0*((double)(i+1) / (double)record->history_count));
+            }
+        // downsample to n samples
+        } else {
+            for (size_t i = 0; i < probe_->downsample; i++) {
+                double k = ceil(
+                        ((double)(i+1) / (double)probe_->downsample)
+                            * (double)record->history_count) - 1;
+                bench_sample_t percentile = record->history[
+                        (k < 0.0)
+                                ? 0
+                            : (k >= (double)record->history_count)
+                                ? record->history_count-1
+                            : (size_t)k];
+                char suffix[64];
+                sprintf(suffix, "+cdf%zu", probe_->downsample);
+                probe_->flags |= BENCH_PROBE_PROBABILITY;
+                bench_sample_print(record, probe_, suffix, &percentile,
+                        100.0*((double)(i+1) / (double)probe_->downsample));
+            }
+        }
+    } else {
+        __builtin_unreachable();
     }
 }
 
@@ -4095,36 +4144,42 @@ int main(int argc, char **argv) {
                     if (strncmp(optarg,
                             "sum", strlen("sum")) == 0) {
                         optarg += strlen("sum");
+                        optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_SUM;
                     // delta?
                     } else if (strncmp(optarg,
                             "delta", strlen("delta")) == 0) {
                         optarg += strlen("delta");
+                        optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_DELTA;
                     // min?
                     } else if (strncmp(optarg,
                             "min", strlen("min")) == 0) {
                         optarg += strlen("min");
+                        optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_MIN;
                     // max?
                     } else if (strncmp(optarg,
                             "max", strlen("max")) == 0) {
                         optarg += strlen("max");
+                        optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_MAX;
                     // avg?
                     } else if (strncmp(optarg,
                             "avg", strlen("avg")) == 0) {
                         optarg += strlen("avg");
+                        optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_AVG;
                     // stddev?
                     } else if (strncmp(optarg,
                             "stddev", strlen("stddev")) == 0) {
                         optarg += strlen("stddev");
+                        optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_STDDEV;
                     // nth? n?
@@ -4171,6 +4226,18 @@ int main(int argc, char **argv) {
                             probe->flags |= BENCH_PROBE_PROBABILITY;
                         }
                         optarg = parsed + strspn(parsed, " ");
+                    // cdf?
+                    } else if (strncmp(optarg,
+                            "cdf", strlen("cdf")) == 0) {
+                        optarg += strlen("cdf");
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_CDF;
+                        parsed = NULL;
+                        probe->downsample = strtoumax(optarg, &parsed, 0);
+                        if (parsed == optarg) {
+                            probe->downsample = -1;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
                     // try to parse an integer + suffix
                     //
                     // this is kinda awful, but oh well
@@ -4184,9 +4251,8 @@ int main(int argc, char **argv) {
                                         "rhz", strlen("rhz")) != 0) {
                                 goto invalid_probe;
                             }
-                            optarg = parsed
-                                + strlen("rhz")
-                                + strspn(parsed, " ");
+                            optarg = parsed + strlen("rhz");
+                            optarg += strspn(optarg, " ");
                         // simulated sample rate?
                         } else if (strstr(optarg, "shz")) {
                             parsed = NULL;
@@ -4196,9 +4262,8 @@ int main(int argc, char **argv) {
                                         "shz", strlen("shz")) != 0) {
                                 goto invalid_probe;
                             }
-                            optarg = parsed
-                                + strlen("shz")
-                                + strspn(parsed, " ");
+                            optarg = parsed + strlen("shz");
+                            optarg += strspn(optarg, " ");
                         // default to step size
                         } else {
                             parsed = NULL;
