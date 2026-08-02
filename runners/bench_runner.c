@@ -953,9 +953,15 @@ static int bench_sample_cmpf(const void *a, const void *b) {
             : 0;
 }
 
+// histogram entry, hits + last sample
+typedef struct bench_hist {
+    uint64_t hits;
+    bench_sample_t last;
+} bench_bucket_t;
+
 // bench probe state
 #define BENCH_PROBE_DIRTY       0x80000000
-#define BENCH_PROBE_TYPE        0x03ff0000
+#define BENCH_PROBE_TYPE        0x0fff0000
 #define BENCH_PROBE_SUM         0x00010000
 #define BENCH_PROBE_DELTA       0x00020000
 #define BENCH_PROBE_MIN         0x00040000
@@ -966,6 +972,8 @@ static int bench_sample_cmpf(const void *a, const void *b) {
 #define BENCH_PROBE_TTH         0x00800000
 #define BENCH_PROBE_PERCENTILE  0x01000000
 #define BENCH_PROBE_CDF         0x02000000
+#define BENCH_PROBE_LOGHIST     0x04000000
+#define BENCH_PROBE_HIST        0x08000000
 #define BENCH_PROBE_FLOAT       0x40000000
 #define BENCH_PROBE_PROBABILITY 0x20000000
 
@@ -979,6 +987,7 @@ typedef struct bench_probe {
     double tth;
     double percentile;
     size_t downsample;
+    double logbase;
 
     // time of last sample
     bench_ns_t last_runtime;
@@ -1033,6 +1042,8 @@ typedef struct bench_probe {
             bench_sample_t tth;
             uint64_t le;
         } tth;
+        bench_bucket_t *loghist;
+        bench_bucket_t *hist;
     } u;
 } bench_probe_t;
 
@@ -1048,9 +1059,9 @@ const char *const bench_probe_help[][3] = {
     {"p[p]",        "w",  "Find the pth percentile sample where t >= p%."},
     {"cdf",         "w",  "Build a cumulative distribution."},
     {"cdf[n]",      "w",  "Build a cumulative distribution, downsample to n."},
-//  {"loghist",     "1",  "Build a 64-bit log histogram."},
-//  {"loghist[n]",  "1",  "Build an n-bucket log histogram."},
-//  {"hist[n]",     "w",  "Build an n-bucket histogram."},
+    {"loghist",     "1",  "Build a 64-bit log2 histogram."},
+    {"loghist[b]",  "1",  "Build a log histogram with base b."},
+    {"hist[n]",     "w",  "Build a histogram with n buckets."},
 //  {"min(probe)",  "w",  "Find sample where n == min of different probe."},
 //  {"max(probe)",  "w",  "Find sample where n == max of different probe."},
 //  {"p[p](probe)", "2w", "Find sample where n == p[p] of different probe."},
@@ -1228,10 +1239,11 @@ bench_record_t *bench_find(const char *probe) {
 
                     // need history?
                     //
-                    // percentile, cdf always needs history
+                    // percentile, cdf, hist always needs history
                     if ((probe_->flags & (
                                 BENCH_PROBE_PERCENTILE
-                                    | BENCH_PROBE_CDF))
+                                    | BENCH_PROBE_CDF
+                                    | BENCH_PROBE_HIST))
                             // probability needs history unless
                             // trivially calculatable
                             || ((probe_->flags & BENCH_PROBE_PROBABILITY)
@@ -1453,6 +1465,34 @@ void bench_probe_sample(const bench_record_t *record, bench_probe_t *probe_,
         // do nothing
     // cdf?
     } else if (probe_->flags & BENCH_PROBE_CDF) {
+        // do nothing
+    // loghist?
+    } else if (probe_->flags & BENCH_PROBE_LOGHIST) {
+        // allocate loghist array, we never free this
+        //
+        // note 64 buckets works for any base >= 2 because we're
+        // limited to 64-bit integers
+        if (record->hits == 0) {
+            if (!probe_->u.loghist) {
+                probe_->u.loghist = malloc(64*sizeof(bench_bucket_t));
+            }
+            memset(probe_->u.loghist, 0, 64*sizeof(bench_bucket_t));
+        }
+        // map to a bucket
+        double t = (!(record->flags & BENCH_RECORD_FLOAT))
+                ? (double)sample->t.u
+                : sample->t.f;
+        double k = (t < probe_->logbase)
+                ? 0.0
+                : ceil(log2(t) / log2(probe_->logbase)) - 1;
+        bench_bucket_t *bucket = &probe_->u.loghist[
+                (k < 0.0) ? 0
+                    : (k >= 64.0) ? 64-1
+                    : (size_t)k];
+        bucket->hits += 1;
+        bucket->last = *sample;
+    // hist?
+    } else if (probe_->flags & BENCH_PROBE_HIST) {
         // do nothing
     } else {
         __builtin_unreachable();
@@ -1952,6 +1992,132 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 bench_sample_print(record, probe_, suffix, &percentile,
                         100.0*((double)(i+1) / (double)probe_->downsample));
             }
+        }
+    // loghist?
+    } else if (probe_->flags & BENCH_PROBE_LOGHIST) {
+        if (bench_probe_window) {
+            // allocate loghist array, we never free this
+            //
+            // note 64 buckets works for any base >= 2 because we're
+            // limited to 64-bit integers
+            if (!probe_->u.loghist) {
+                probe_->u.loghist = malloc(64*sizeof(bench_bucket_t));
+            }
+            memset(probe_->u.loghist, 0, 64*sizeof(bench_bucket_t));
+            for (size_t i = 0; i < record->history_count; i++) {
+                // map to a bucket
+                double t = (!(record->flags & BENCH_RECORD_FLOAT))
+                        ? (double)record->history[i].t.u
+                        : record->history[i].t.f;
+                double k = (t < probe_->logbase)
+                        ? 0.0
+                        : ceil(log2(t) / log2(probe_->logbase)) - 1;
+                bench_bucket_t *bucket = &probe_->u.loghist[
+                        (k < 0.0) ? 0
+                            : (k >= 64.0) ? 64-1
+                            : (size_t)k];
+                bucket->hits += 1;
+                if (record->history[i].i >= bucket->last.i) {
+                    bucket->last = record->history[i];
+                }
+            }
+        }
+        // find the lower/upper non-zero buckets
+        size_t lower = 0;
+        size_t upper = 0;
+        size_t i = 0;
+        for (; i < 64; i++) {
+            if (probe_->u.loghist[i].hits != 0) {
+                lower = i;
+                break;
+            }
+        }
+        for (; i < 64; i++) {
+            if (probe_->u.loghist[i].hits != 0) {
+                upper = i+1;
+            }
+        }
+        // print the histogram
+        for (i = lower; i < upper; i++) {
+            // before printing, set t to bucket bounds
+            probe_->u.loghist[i].last.t.f
+                    = pow(probe_->logbase, (double)(i+1));
+            char suffix[64];
+            if (probe_->logbase == 2.0) {
+                sprintf(suffix, "+loghist");
+            } else {
+                sprintf(suffix, "+loghist%.12g", probe_->logbase);
+            }
+            probe_->flags |= BENCH_PROBE_FLOAT | BENCH_PROBE_PROBABILITY;
+            bench_sample_print(record, probe_, suffix,
+                    &probe_->u.loghist[i].last,
+                    100.0*((double)probe_->u.loghist[i].hits
+                        / (double)((!bench_probe_window)
+                            ? record->hits
+                            : record->history_count)));
+        }
+    // hist?
+    } else if (probe_->flags & BENCH_PROBE_HIST) {
+        // allocate hist array, we never free this
+        if (!probe_->u.hist) {
+            probe_->u.hist = malloc(probe_->downsample*sizeof(bench_bucket_t));
+        }
+        memset(probe_->u.hist, 0, probe_->downsample*sizeof(bench_bucket_t));
+        // first find min/max
+        double min;
+        double max;
+        for (size_t i = 0; i < record->history_count; i++) {
+            double t = (!(record->flags & BENCH_RECORD_FLOAT))
+                    ? (double)record->history[i].t.u
+                    : record->history[i].t.f;
+            if (i == 0 || t < min) {
+                min = t;
+            }
+            if (i == 0 || t > max) {
+                max = t;
+            }
+        }
+        for (size_t i = 0; i < record->history_count; i++) {
+            // map to a bucket
+            double t = (!(record->flags & BENCH_RECORD_FLOAT))
+                    ? (double)record->history[i].t.u
+                    : record->history[i].t.f;
+            // note this includes 1.0, which we subtract 1 from in the
+            // following index clamp
+            //
+            // feels wrong, but if it's good enough for numpy, it's good
+            // enough for us:
+            // https://github.com/numpy/numpy/blob/
+            //         6910b28fc12f4c3e821f315e24c51a6a2d89ba49/
+            //         numpy/lib/_histograms_impl.py#L849-L854
+            double k = (max - min == 0.0)
+                    ? 0.0
+                    : ((t - min) / (max - min))
+                        * (double)probe_->downsample;
+            bench_bucket_t *bucket = &probe_->u.hist[
+                    (k < 0.0)
+                            ? 0
+                        : (k >= (double)probe_->downsample)
+                            ? probe_->downsample-1
+                        : (size_t)k];
+            bucket->hits += 1;
+            if (record->history[i].i >= bucket->last.i) {
+                bucket->last = record->history[i];
+            }
+        }
+        // print the histogram
+        for (size_t i = 0; i < probe_->downsample; i++) {
+            // before printing, set t to bucket bounds
+            probe_->u.hist[i].last.t.f
+                    = min + (double)(i+1)*(
+                        (max - min) / (double)probe_->downsample);
+            char suffix[64];
+            sprintf(suffix, "+hist%zu", probe_->downsample);
+            probe_->flags |= BENCH_PROBE_FLOAT | BENCH_PROBE_PROBABILITY;
+            bench_sample_print(record, probe_, suffix,
+                    &probe_->u.hist[i].last,
+                    100.0*((double)probe_->u.hist[i].hits
+                        / (double)record->history_count));
         }
     } else {
         __builtin_unreachable();
@@ -4236,6 +4402,30 @@ int main(int argc, char **argv) {
                         probe->downsample = strtoumax(optarg, &parsed, 0);
                         if (parsed == optarg) {
                             probe->downsample = -1;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+                    // loghist?
+                    } else if (strncmp(optarg,
+                            "loghist", strlen("loghist")) == 0) {
+                        optarg += strlen("loghist");
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_LOGHIST;
+                        parsed = NULL;
+                        probe->logbase = strtod(optarg, &parsed);
+                        if (parsed == optarg) {
+                            probe->logbase = 2.0;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+                    // hist?
+                    } else if (strncmp(optarg,
+                            "hist", strlen("hist")) == 0) {
+                        optarg += strlen("hist");
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_HIST;
+                        parsed = NULL;
+                        probe->downsample = strtoumax(optarg, &parsed, 0);
+                        if (parsed == optarg) {
+                            goto invalid_probe;
                         }
                         optarg = parsed + strspn(parsed, " ");
                     // try to parse an integer + suffix
