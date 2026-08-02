@@ -961,7 +961,7 @@ typedef struct bench_hist {
 
 // bench probe state
 #define BENCH_PROBE_DIRTY       0x80000000
-#define BENCH_PROBE_TYPE        0x0fff0000
+#define BENCH_PROBE_TYPE        0x1fff0000
 #define BENCH_PROBE_SUM         0x00010000
 #define BENCH_PROBE_DELTA       0x00020000
 #define BENCH_PROBE_MIN         0x00040000
@@ -976,6 +976,7 @@ typedef struct bench_hist {
 #define BENCH_PROBE_HIST        0x08000000
 #define BENCH_PROBE_FLOAT       0x40000000
 #define BENCH_PROBE_PROBABILITY 0x20000000
+#define BENCH_PROBE_CUMULATIVE  0x10000000
 
 typedef struct bench_probe {
     const char *name;
@@ -1062,6 +1063,9 @@ const char *const bench_probe_help[][3] = {
     {"loghist",     "1",  "Build a 64-bit log2 histogram."},
     {"loghist[b]",  "1",  "Build a log histogram with base b."},
     {"hist[n]",     "w",  "Build a histogram with n buckets."},
+    {"cloghist",    "1",  "Build a cumulative 64-bit log2 histogram."},
+    {"cloghist[b]", "1",  "Build a cumulative log histogram with base b."},
+    {"chist[n]",    "w",  "Build a cumulative histogram with n buckets."},
 //  {"min(probe)",  "w",  "Find sample where n == min of different probe."},
 //  {"max(probe)",  "w",  "Find sample where n == max of different probe."},
 //  {"p[p](probe)", "2w", "Find sample where n == p[p] of different probe."},
@@ -2038,20 +2042,28 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
             }
         }
         // print the histogram
+        uint64_t hits = 0;
         for (i = lower; i < upper; i++) {
             // before printing, set t to bucket bounds
             probe_->u.loghist[i].last.t.f
                     = pow(probe_->logbase, (double)(i+1));
+            // keep track of cumulative
+            hits += probe_->u.loghist[i].hits;
             char suffix[64];
             if (probe_->logbase == 2.0) {
-                sprintf(suffix, "+loghist");
+                sprintf(suffix, "+%sloghist",
+                        (probe_->flags & BENCH_PROBE_CUMULATIVE) ? "c" : "");
             } else {
-                sprintf(suffix, "+loghist%.12g", probe_->logbase);
+                sprintf(suffix, "+%sloghist%.12g",
+                        (probe_->flags & BENCH_PROBE_CUMULATIVE) ? "c" : "",
+                        probe_->logbase);
             }
             probe_->flags |= BENCH_PROBE_FLOAT | BENCH_PROBE_PROBABILITY;
             bench_sample_print(record, probe_, suffix,
                     &probe_->u.loghist[i].last,
-                    100.0*((double)probe_->u.loghist[i].hits
+                    100.0*((double)((probe_->flags & BENCH_PROBE_CUMULATIVE)
+                            ? hits
+                            : probe_->u.loghist[i].hits)
                         / (double)((!bench_probe_window)
                             ? record->hits
                             : record->history_count)));
@@ -2106,17 +2118,24 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
             }
         }
         // print the histogram
+        uint64_t hits = 0;
         for (size_t i = 0; i < probe_->downsample; i++) {
             // before printing, set t to bucket bounds
             probe_->u.hist[i].last.t.f
                     = min + (double)(i+1)*(
                         (max - min) / (double)probe_->downsample);
+            // keep track of cumulative
+            hits += probe_->u.hist[i].hits;
             char suffix[64];
-            sprintf(suffix, "+hist%zu", probe_->downsample);
+            sprintf(suffix, "+%shist%zu",
+                    (probe_->flags & BENCH_PROBE_CUMULATIVE) ? "c" : "",
+                    probe_->downsample);
             probe_->flags |= BENCH_PROBE_FLOAT | BENCH_PROBE_PROBABILITY;
             bench_sample_print(record, probe_, suffix,
                     &probe_->u.hist[i].last,
-                    100.0*((double)probe_->u.hist[i].hits
+                    100.0*((double)((probe_->flags & BENCH_PROBE_CUMULATIVE)
+                            ? hits
+                            : probe_->u.hist[i].hits)
                         / (double)record->history_count));
         }
     } else {
@@ -4422,6 +4441,30 @@ int main(int argc, char **argv) {
                         optarg += strlen("hist");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_HIST;
+                        parsed = NULL;
+                        probe->downsample = strtoumax(optarg, &parsed, 0);
+                        if (parsed == optarg) {
+                            goto invalid_probe;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+                    // cloghist?
+                    } else if (strncmp(optarg,
+                            "cloghist", strlen("cloghist")) == 0) {
+                        optarg += strlen("cloghist");
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_LOGHIST | BENCH_PROBE_CUMULATIVE;
+                        parsed = NULL;
+                        probe->logbase = strtod(optarg, &parsed);
+                        if (parsed == optarg) {
+                            probe->logbase = 2.0;
+                        }
+                        optarg = parsed + strspn(parsed, " ");
+                    // chist?
+                    } else if (strncmp(optarg,
+                            "chist", strlen("chist")) == 0) {
+                        optarg += strlen("chist");
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_HIST | BENCH_PROBE_CUMULATIVE;
                         parsed = NULL;
                         probe->downsample = strtoumax(optarg, &parsed, 0);
                         if (parsed == optarg) {
