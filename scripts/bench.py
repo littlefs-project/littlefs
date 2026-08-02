@@ -1227,8 +1227,9 @@ def run_stage(offset, name, runner, bench_ids,
                 '|' '(?P<op__>benched)'
                     ' (?P<probe>[^:\s]+)(?:'
                         '(?::(?P<hits>\d+))?'
-                        ':(?P<n>\d+)' ')?'
-                    '(?: (?P<simtime>[\d\.]+))?'
+                        ':(?P<n>\d+)'
+                        '(?::(?P<p>[\d\.]+))?' ')?'
+                    '(?: (?P<t>[\d\.]+))?'
                     '(?:'
                         '(?:'
                             ' (?P<reads>[\d\.]+)'
@@ -1345,6 +1346,8 @@ def run_stage(offset, name, runner, bench_ids,
                                 return int(v)
                         hits_    = dat(m.group('hits'))
                         n_       = dat(m.group('n'))
+                        p_       = dat(m.group('p'))
+                        t_       = dat(m.group('t'))
                         reads_   = dat(m.group('reads'))
                         progs_   = dat(m.group('progs'))
                         erases_  = dat(m.group('erases'))
@@ -1354,7 +1357,6 @@ def run_stage(offset, name, runner, bench_ids,
                         readed_  = dat(m.group('readed'))
                         progged_ = dat(m.group('progged'))
                         erased_  = dat(m.group('erased'))
-                        simtime_ = dat(m.group('simtime'))
                         if output_:
                             # fetch defines if needed, only do this at most
                             # once per perm
@@ -1371,8 +1373,10 @@ def run_stage(offset, name, runner, bench_ids,
                                     'case': last_case,
                                     **last_defines,
                                     'probe': probe_,
-                                    'hits': hits_,
-                                    'n': n_,
+                                    'bench_hits': hits_,
+                                    'bench_n': n_,
+                                    'bench_p': p_,
+                                    'bench_t': t_,
                                     'bench_reads': reads_,
                                     'bench_progs': progs_,
                                     'bench_erases': erases_,
@@ -1382,7 +1386,6 @@ def run_stage(offset, name, runner, bench_ids,
                                     'bench_readed': readed_,
                                     'bench_progged': progged_,
                                     'bench_erased': erased_,
-                                    'bench_simtime': simtime_,
                                     'bench_runtime': '%.6f' % (
                                         time.time() - last_runtime)})
                         # keep track of totals for summary
@@ -1564,8 +1567,10 @@ def run(runner, bench_ids=[], **args):
                 ['i', 'suite', 'case'],
                 # defines go here
                 ['probe',
-                    'hits',
-                    'n',
+                    'bench_hits',
+                    'bench_n',
+                    'bench_p',
+                    'bench_t',
                     'bench_reads',
                     'bench_progs',
                     'bench_erases',
@@ -1575,7 +1580,6 @@ def run(runner, bench_ids=[], **args):
                     'bench_readed',
                     'bench_progged',
                     'bench_erased',
-                    'bench_simtime',
                     'bench_runtime'])
 
     # measure runtime
