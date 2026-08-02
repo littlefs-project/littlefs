@@ -612,8 +612,8 @@ bench-marks: $(BENCH_CSV)
 			-Uprobe=stack,heap,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
-			-fn='max(n)' \
-			-ft='max(float(bench_simtime)/1.0e9)' \
+			-fn='max(bench_n)' \
+			-ft='max(float(bench_t)/1.0e9)' \
 			-o-) \
 		-bprobe \
 		-Hprobe=bench+probe \
@@ -634,15 +634,15 @@ bench-marks-diff: $(BENCH_CSV)
 			-Uprobe=stack,heap,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
-			-fn='max(n)' \
-			-ft='max(float(bench_simtime)/1.0e9)' \
+			-fn='max(bench_n)' \
+			-ft='max(float(bench_t)/1.0e9)' \
 			-o-) \
 		-d <(./scripts/csv.py $(BUILDDIR)/lfs3.bench.csv \
 			-Uprobe=stack,heap,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
-			-fn='max(n)' \
-			-ft='max(float(bench_simtime)/1.0e9)' \
+			-fn='max(bench_n)' \
+			-ft='max(float(bench_t)/1.0e9)' \
 			-o-) \
 		-bprobe \
 		-Hprobe=bench+probe \
@@ -658,8 +658,8 @@ bench-bottlenecks: $(BENCH_CSV)
 			-Uprobe=stack,heap,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
-			-fn='max(n)' \
-			-ft='max(float(bench_simtime)/1.0e9)' \
+			-fn='max(bench_n)' \
+			-ft='max(float(bench_t)/1.0e9)' \
 			-fruntime='max(bench_runtime)' \
 			-o-) \
 		-bprobe \
@@ -721,13 +721,13 @@ bench-ram: $(BENCH_CSV)
 			-Dprobe=stack \
 			-Fi='min(i)' \
 			-bcase \
-			-fstack='max(bench_simtime)' \
+			-fstack='max(bench_t)' \
 			-o-) \
 		<(./scripts/csv.py $^ \
 			-Dprobe=heap \
 			-Fi='min(i)' \
 			-bcase \
-			-fheap='max(bench_simtime)' \
+			-fheap='max(bench_t)' \
 			-o-) \
 		-bcase \
 		-fstack \
@@ -744,19 +744,19 @@ bench-usage: $(BENCH_CSV)
 			-Dprobe=mdir \
 			-Fi='min(i)' \
 			-bcase \
-			-fmdir='max(bench_simtime)' \
+			-fmdir='max(bench_t)' \
 			-o-) \
 		<(./scripts/csv.py $^ \
 			-Dprobe=btree \
 			-Fi='min(i)' \
 			-bcase \
-			-fbtree='max(bench_simtime)' \
+			-fbtree='max(bench_t)' \
 			-o-) \
 		<(./scripts/csv.py $^ \
 			-Dprobe=data \
 			-Fi='min(i)' \
 			-bcase \
-			-fdata='max(bench_simtime)' \
+			-fdata='max(bench_t)' \
 			-o-) \
 		-bcase \
 		-fmdir \
