@@ -1079,9 +1079,6 @@ const char *const bench_probe_help[][3] = {
     {"[f]rhz",      "-",  "Sample probe at runtime frequency f."},
     {"[f]shz",      "-",  "Sample probe at simulated frequency f."},
     {"[n]",         "-",  "Sample probe every n samples."},
-    {"n",           "1",  "Include n in samples (implied)."},
-    {"t",           "1",  "Include t in samples (implied)."},
-    {"p",           "w",  "Calculate the probability of t <= t."},
     {NULL, NULL, NULL},
 };
 
@@ -1276,16 +1273,6 @@ bench_record_t *bench_find(const char *probe) {
                         BENCH_PROBE_PERCENTILE
                             | BENCH_PROBE_CDF
                             | BENCH_PROBE_HIST))
-                    // probability needs history unless
-                    // trivially calculatable
-                    || ((probe_->flags & BENCH_PROBE_PROBABILITY)
-                        && !(probe_->flags & (
-                            BENCH_PROBE_SUM
-                                | BENCH_PROBE_MIN
-                                | BENCH_PROBE_MAX
-                                | BENCH_PROBE_TTH
-                                | BENCH_PROBE_PERCENTILE
-                                | BENCH_PROBE_CDF)))
                     // other probes don't _need_ history, but we
                     // use history if a window is set to keep
                     // probe behavior consistent
@@ -1662,9 +1649,8 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 sum.erased  += record->history[i].erased;
             }
         }
-        double p = 100.0;
         bench_sample_print(record, probe_, "",
-                &sum, p);
+                &sum, 100.0);
     // delta?
     } else if (probe_->flags & BENCH_PROBE_DELTA) {
         bench_sample_t delta;
@@ -1677,11 +1663,8 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 }
             }
         }
-        double p = (probe_->flags & BENCH_PROBE_PROBABILITY)
-                ? bench_sample_probability(record, probe_, &delta)
-                : -1.0;
         bench_sample_print(record, probe_, "+delta",
-                &delta, p);
+                &delta, 0.0);
     // min?
     } else if (probe_->flags & BENCH_PROBE_MIN) {
         bench_sample_t min;
@@ -1819,12 +1802,9 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 .erased  = (bench_io_t)round(erased_avg),
             };
         }
-        double p = (probe_->flags & BENCH_PROBE_PROBABILITY)
-                ? bench_sample_probability(record, probe_, &avg)
-                : -1.0;
         probe_->flags |= BENCH_PROBE_FLOAT;
         bench_sample_print(record, probe_, "+avg",
-                &avg, p);
+                &avg, 0.0);
     // stddev?
     } else if (probe_->flags & BENCH_PROBE_STDDEV) {
         bench_sample_t stddev;
@@ -1979,12 +1959,9 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 .erased  = (bench_io_t)round(erased_stddev),
             };
         }
-        double p = (probe_->flags & BENCH_PROBE_PROBABILITY)
-                ? bench_sample_probability(record, probe_, &stddev)
-                : -1.0;
         probe_->flags |= BENCH_PROBE_FLOAT;
         bench_sample_print(record, probe_, "+stddev",
-                &stddev, p);
+                &stddev, 0.0);
     // nth?
     } else if (probe_->flags & BENCH_PROBE_NTH) {
         bench_sample_t nth;
@@ -2000,9 +1977,6 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
             }
         }
         if (nth.i != -1) {
-            double p = (probe_->flags & BENCH_PROBE_PROBABILITY)
-                    ? bench_sample_probability(record, probe_, &nth)
-                    : -1.0;
             if (probe_->flags & BENCH_PROBE_INDIRECT) {
                 // indirect nth? substitute sample last minute
                 bench_sample_t indirect = bench_sample_indirect(
@@ -2012,12 +1986,12 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                             probe_->nth,
                             probe_->predicate);
                     bench_sample_print(record, probe_, suffix_buf,
-                            &indirect, p);
+                            &indirect, 0.0);
                 }
             } else {
                 sprintf(suffix_buf, "+n%jd", probe_->nth);
                 bench_sample_print(record, probe_, suffix_buf,
-                        &nth, p);
+                        &nth, 0.0);
             }
         }
     // tth?
@@ -4578,24 +4552,19 @@ int main(int argc, char **argv) {
                         optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_STDDEV;
-                    // nth? n?
+                    // nth?
                     } else if (optarg[0] == 'n') {
                         optarg += 1;
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_NTH;
                         parsed = NULL;
                         probe->nth = strtoumax(optarg, &parsed, 0);
-                        // nth?
-                        if (parsed != optarg) {
-                            probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
-                                    | BENCH_PROBE_NTH;
-                        // n?
-                        } else {
-                            // accept a single n, but ignore it, we always
-                            // include n in our samples
+                        if (parsed == optarg) {
+                            goto invalid_probe;
                         }
                         optarg = parsed + strspn(parsed, " ");
                         // indirect nth?
-                        if (*optarg == '('
-                                && (probe->flags & BENCH_PROBE_NTH)) {
+                        if (*optarg == '(') {
                             optarg += 1;
                             probe->predicate = optarg;
                             probe->flags |= BENCH_PROBE_INDIRECT;
@@ -4609,21 +4578,16 @@ int main(int argc, char **argv) {
                     // tth? t?
                     } else if (optarg[0] == 't') {
                         optarg += 1;
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_TTH;
                         parsed = NULL;
                         probe->tth = strtod(optarg, &parsed);
-                        // tth?
-                        if (parsed != optarg) {
-                            probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
-                                    | BENCH_PROBE_TTH;
-                        // t?
-                        } else {
-                            // accept a single t, but ignore it, we always
-                            // include t in our samples
+                        if (parsed == optarg) {
+                            goto invalid_probe;
                         }
                         optarg = parsed + strspn(parsed, " ");
                         // indirect tth?
-                        if (*optarg == '('
-                                && (probe->flags & BENCH_PROBE_TTH)) {
+                        if (*optarg == '(') {
                             optarg += 1;
                             probe->predicate = optarg;
                             probe->flags |= BENCH_PROBE_INDIRECT;
@@ -4637,20 +4601,16 @@ int main(int argc, char **argv) {
                     // percentile? probability?
                     } else if (optarg[0] == 'p') {
                         optarg += 1;
+                        probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
+                                | BENCH_PROBE_PERCENTILE;
                         parsed = NULL;
                         probe->percentile = strtod(optarg, &parsed);
-                        // percentile?
-                        if (parsed != optarg) {
-                            probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
-                                    | BENCH_PROBE_PERCENTILE;
-                        // probability?
-                        } else {
-                            probe->flags |= BENCH_PROBE_PROBABILITY;
+                        if (parsed == optarg) {
+                            goto invalid_probe;
                         }
                         optarg = parsed + strspn(parsed, " ");
                         // indirect percentile?
-                        if (*optarg == '('
-                                && (probe->flags & BENCH_PROBE_PERCENTILE)) {
+                        if (*optarg == '(') {
                             optarg += 1;
                             probe->predicate = optarg;
                             probe->flags |= BENCH_PROBE_INDIRECT;
