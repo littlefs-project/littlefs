@@ -904,7 +904,7 @@ int __wrap_vprintf(const char *fmt, va_list args) {
 
 // a single bench sample
 typedef struct bench_sample {
-    uint64_t i;
+    int64_t i;
     uintmax_t n;
     union {
         uintmax_t u;
@@ -961,25 +961,27 @@ typedef struct bench_hist {
 
 // bench probe state
 #define BENCH_PROBE_DIRTY       0x80000000
-#define BENCH_PROBE_TYPE        0x1fff0000
-#define BENCH_PROBE_SUM         0x00010000
-#define BENCH_PROBE_DELTA       0x00020000
-#define BENCH_PROBE_MIN         0x00040000
-#define BENCH_PROBE_MAX         0x00080000
-#define BENCH_PROBE_AVG         0x00100000
-#define BENCH_PROBE_STDDEV      0x00200000
-#define BENCH_PROBE_NTH         0x00400000
-#define BENCH_PROBE_TTH         0x00800000
-#define BENCH_PROBE_PERCENTILE  0x01000000
-#define BENCH_PROBE_CDF         0x02000000
-#define BENCH_PROBE_LOGHIST     0x04000000
-#define BENCH_PROBE_HIST        0x08000000
+#define BENCH_PROBE_TYPE        0x18fff000
+#define BENCH_PROBE_SUM         0x00001000
+#define BENCH_PROBE_DELTA       0x00002000
+#define BENCH_PROBE_MIN         0x00004000
+#define BENCH_PROBE_MAX         0x00008000
+#define BENCH_PROBE_AVG         0x00010000
+#define BENCH_PROBE_STDDEV      0x00020000
+#define BENCH_PROBE_NTH         0x00040000
+#define BENCH_PROBE_TTH         0x00080000
+#define BENCH_PROBE_PERCENTILE  0x00100000
+#define BENCH_PROBE_CDF         0x00200000
+#define BENCH_PROBE_LOGHIST     0x00400000
+#define BENCH_PROBE_HIST        0x00800000
 #define BENCH_PROBE_FLOAT       0x40000000
 #define BENCH_PROBE_PROBABILITY 0x20000000
 #define BENCH_PROBE_CUMULATIVE  0x10000000
+#define BENCH_PROBE_INDIRECT    0x08000000
 
 typedef struct bench_probe {
     const char *name;
+    const char *predicate;
     uint32_t flags;
     uint64_t step;
     double runfreq;
@@ -1066,12 +1068,19 @@ const char *const bench_probe_help[][3] = {
     {"cloghist",    "1",  "Build a cumulative 64-bit log2 histogram."},
     {"cloghist[b]", "1",  "Build a cumulative log histogram with base b."},
     {"chist[n]",    "w",  "Build a cumulative histogram with n buckets."},
-//  {"min(probe)",  "w",  "Find sample where n == min of different probe."},
-//  {"max(probe)",  "w",  "Find sample where n == max of different probe."},
-//  {"p[p](probe)", "2w", "Find sample where n == p[p] of different probe."},
+    {"min(probe)",  "w",  "Find sample where n == min of different probe."},
+    {"max(probe)",  "w",  "Find sample where n == max of different probe."},
+    {"n[n](probe)", "w",  "Find sample where n == n of different probe."},
+    {"t[t](probe)", "w",  "Find sample where n == t<=t of different probe."},
+    {"p[p](probe)", "2w", "Find sample where n == p[p] of different probe."},
+    {"cdf(probe)",  "2w", "Build cdf with distribution from different probe."},
+    {"cdf[n](probe)",
+                    "2w", "Build cdf(probe), downsample to n."},
     {"[f]rhz",      "-",  "Sample probe at runtime frequency f."},
     {"[f]shz",      "-",  "Sample probe at simulated frequency f."},
     {"[n]",         "-",  "Sample probe every n samples."},
+    {"n",           "1",  "Include n in samples (implied)."},
+    {"t",           "1",  "Include t in samples (implied)."},
     {"p",           "w",  "Calculate the probability of t <= t."},
     {NULL, NULL, NULL},
 };
@@ -1098,16 +1107,16 @@ static void help_probes(void) {
 }
 
 // bench recording state
-#define BENCH_RECORD_IGNORED    0x00008000
-#define BENCH_RECORD_STARTED    0x00004000
-#define BENCH_RECORD_HISTORY    0x00002000
-#define BENCH_RECORD_SORTED     0x00001000
+#define BENCH_RECORD_IGNORED    0x00000800
+#define BENCH_RECORD_STARTED    0x00000400
+#define BENCH_RECORD_HISTORY    0x00000200
+#define BENCH_RECORD_SORTED     0x00000100
 #define BENCH_RECORD_TYPE       0x00000007
 #define BENCH_RECORD_RESULT     0x00000001
 #define BENCH_RECORD_FRESULT    0x00000002
 #define BENCH_RECORD_BDRESULT   0x00000004
-#define BENCH_RECORD_FLOAT      0x00000800
-#define BENCH_RECORD_SIMTIME    0x00000400
+#define BENCH_RECORD_FLOAT      0x00000080
+#define BENCH_RECORD_SIMTIME    0x00000040
 
 typedef struct bench_record {
     // this doubles as the default probe if no probe is explicitly set
@@ -1184,9 +1193,15 @@ void bench_deinit(const struct lfs3_cfg *cfg) {
                 j < ((bench_probe_count) ? bench_probe_count : 1);
                 j++) {
             bench_probe_t *probe_;
+            // implicit probe?
             if (!bench_probe_count) {
                 probe_ = &record->probe;
-            } else if (strcmp(record->probe.name, bench_probes[j].name) == 0) {
+            // matching probe?
+            } else if (strcmp(
+                    record->probe.name,
+                    (!(bench_probes[j].flags & BENCH_PROBE_INDIRECT))
+                        ? bench_probes[j].name
+                        : bench_probes[j].predicate) == 0) {
                 probe_ = &bench_probes[j];
             } else {
                 continue;
@@ -1229,43 +1244,75 @@ bench_record_t *bench_find(const char *probe) {
         record->probe.runfreq = bench_probe_runfreq;
         record->probe.simfreq = bench_probe_simfreq;
 
+        // assume ignored unless we find a probe descriptor
+        record->flags |= BENCH_RECORD_IGNORED;
+
         // have probe descriptors?
-        if (bench_probe_count) {
-            // assume ignored unless we find a probe descriptor
-            record->flags |= BENCH_RECORD_IGNORED;
-
-            // are any probe descriptors interested in this probe?
-            for (size_t j = 0; j < bench_probe_count; j++) {
-                if (strcmp(bench_probes[j].name, probe) == 0) {
-                    bench_probe_t *probe_ = &bench_probes[j];
-                    // not ignored
-                    record->flags &= ~BENCH_RECORD_IGNORED;
-
-                    // need history?
-                    //
-                    // percentile, cdf, hist always needs history
-                    if ((probe_->flags & (
-                                BENCH_PROBE_PERCENTILE
-                                    | BENCH_PROBE_CDF
-                                    | BENCH_PROBE_HIST))
-                            // probability needs history unless
-                            // trivially calculatable
-                            || ((probe_->flags & BENCH_PROBE_PROBABILITY)
-                                && !(probe_->flags & (
-                                    BENCH_PROBE_SUM
-                                        | BENCH_PROBE_MIN
-                                        | BENCH_PROBE_MAX
-                                        | BENCH_PROBE_TTH
-                                        | BENCH_PROBE_PERCENTILE
-                                        | BENCH_PROBE_CDF)))
-                            // other probes don't _need_ history, but we
-                            // use history if a window is set to keep
-                            // probe behavior consistent
-                            || bench_probe_window) {
-                        record->flags |= BENCH_RECORD_HISTORY;
-                    }
-                }
+        for (size_t j = 0;
+                j < ((bench_probe_count) ? bench_probe_count : 1);
+                j++) {
+            bench_probe_t *probe_;
+            // implicit probe?
+            if (!bench_probe_count) {
+                probe_ = &record->probe;
+            // matching probe?
+            } else if (strcmp(
+                    record->probe.name,
+                    (!(bench_probes[j].flags & BENCH_PROBE_INDIRECT))
+                        ? bench_probes[j].name
+                        : bench_probes[j].predicate) == 0) {
+                probe_ = &bench_probes[j];
+            } else {
+                continue;
             }
+
+            // not ignored
+            record->flags &= ~BENCH_RECORD_IGNORED;
+
+            // need history?
+            //
+            // percentile, cdf, hist always needs history
+            if ((probe_->flags & (
+                        BENCH_PROBE_PERCENTILE
+                            | BENCH_PROBE_CDF
+                            | BENCH_PROBE_HIST))
+                    // probability needs history unless
+                    // trivially calculatable
+                    || ((probe_->flags & BENCH_PROBE_PROBABILITY)
+                        && !(probe_->flags & (
+                            BENCH_PROBE_SUM
+                                | BENCH_PROBE_MIN
+                                | BENCH_PROBE_MAX
+                                | BENCH_PROBE_TTH
+                                | BENCH_PROBE_PERCENTILE
+                                | BENCH_PROBE_CDF)))
+                    // other probes don't _need_ history, but we
+                    // use history if a window is set to keep
+                    // probe behavior consistent
+                    || bench_probe_window) {
+                record->flags |= BENCH_RECORD_HISTORY;
+            }
+        }
+
+        // have indirect probe descriptors?
+        for (size_t j = 0; j < bench_probe_count; j++) {
+            bench_probe_t *probe_;
+            // matching indirect probe?
+            if ((bench_probes[j].flags & BENCH_PROBE_INDIRECT)
+                    && strcmp(
+                        record->probe.name,
+                        bench_probes[j].name) == 0) {
+                probe_ = &bench_probes[j];
+            } else {
+                continue;
+            }
+            (void)probe_;
+
+            // not ignored
+            record->flags &= ~BENCH_RECORD_IGNORED;
+
+            // indirect probes always need history
+            record->flags |= BENCH_RECORD_HISTORY;
         }
     }
 
@@ -1554,11 +1601,42 @@ double bench_sample_probability(const bench_record_t *record,
     return 100.0*((double)le / (double)record->history_count);
 }
 
+bench_sample_t bench_sample_indirect(const bench_record_t *record,
+        const bench_probe_t *probe_, uintmax_t n) {
+    (void)record;
+    // should only be called on indirect probes
+    assert(probe_->flags & BENCH_PROBE_INDIRECT);
+
+    // first find the non-indirect record
+    bench_sample_t nth = {.i=-1};
+    for (size_t i = 0; i < bench_record_count; i++) {
+        bench_record_t *record = &bench_records[i];
+        if (strcmp(record->probe.name, probe_->name) != 0) {
+            continue;
+        }
+        // should have history enabled
+        assert(record->flags & BENCH_RECORD_HISTORY);
+
+        // find the most recent sample where n == n
+        for (size_t i = 0; i < record->history_count; i++) {
+            if (record->history[i].n == n
+                    && record->history[i].i >= nth.i) {
+                nth = record->history[i];
+            }
+        }
+        break;
+    }
+
+    return nth;
+}
+
 void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
     // probably shouldn't call this if we're not dirty
     assert(probe_->flags & BENCH_PROBE_DIRTY);
     // should only be called when we have at least one hit
     assert(record->hits > 0);
+
+    char suffix_buf[256];
 
     // sum?
     if (probe_->flags & BENCH_PROBE_SUM) {
@@ -1584,7 +1662,9 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 sum.erased  += record->history[i].erased;
             }
         }
-        bench_sample_print(record, probe_, "", &sum, 100.0);
+        double p = 100.0;
+        bench_sample_print(record, probe_, "",
+                &sum, p);
     // delta?
     } else if (probe_->flags & BENCH_PROBE_DELTA) {
         bench_sample_t delta;
@@ -1592,15 +1672,16 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
             delta = probe_->u.delta;
         } else {
             for (size_t i = 0; i < record->history_count; i++) {
-                if (i == 0 || record->history[i].i > delta.i) {
+                if (i == 0 || record->history[i].i >= delta.i) {
                     delta = record->history[i];
                 }
             }
         }
-        bench_sample_print(record, probe_, "+delta", &delta,
-                (probe_->flags & BENCH_PROBE_PROBABILITY)
-                    ? bench_sample_probability(record, probe_, &delta)
-                    : -1.0);
+        double p = (probe_->flags & BENCH_PROBE_PROBABILITY)
+                ? bench_sample_probability(record, probe_, &delta)
+                : -1.0;
+        bench_sample_print(record, probe_, "+delta",
+                &delta, p);
     // min?
     } else if (probe_->flags & BENCH_PROBE_MIN) {
         bench_sample_t min;
@@ -1618,12 +1699,25 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 }
             }
         }
-        probe_->flags |= BENCH_PROBE_PROBABILITY;
-        bench_sample_print(record, probe_, "+min", &min,
-                100.0*(1.0
-                    / (double)((!bench_probe_window)
-                        ? record->hits
-                        : record->history_count)));
+        double p = 100.0*(1.0
+                / (double)((!bench_probe_window)
+                    ? record->hits
+                    : record->history_count));
+        if (probe_->flags & BENCH_PROBE_INDIRECT) {
+            // indirect min? substitute sample last minute
+            bench_sample_t indirect = bench_sample_indirect(
+                    record, probe_, min.n);
+            if (indirect.i != -1) {
+                sprintf(suffix_buf, "+min(%s)", probe_->predicate);
+                probe_->flags |= BENCH_PROBE_PROBABILITY;
+                bench_sample_print(record, probe_, suffix_buf,
+                        &indirect, p);
+            }
+        } else {
+            probe_->flags |= BENCH_PROBE_PROBABILITY;
+            bench_sample_print(record, probe_, "+min",
+                    &min, p);
+        }
     // max?
     } else if (probe_->flags & BENCH_PROBE_MAX) {
         bench_sample_t max;
@@ -1641,8 +1735,22 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 }
             }
         }
-        probe_->flags |= BENCH_PROBE_PROBABILITY;
-        bench_sample_print(record, probe_, "+max", &max, 100.0);
+        double p = 100.0;
+        if (probe_->flags & BENCH_PROBE_INDIRECT) {
+            // indirect max? substitute sample last minute
+            bench_sample_t indirect = bench_sample_indirect(
+                    record, probe_, max.n);
+            if (indirect.i != -1) {
+                sprintf(suffix_buf, "+max(%s)", probe_->predicate);
+                probe_->flags |= BENCH_PROBE_PROBABILITY;
+                bench_sample_print(record, probe_, suffix_buf,
+                        &indirect, p);
+            }
+        } else {
+            probe_->flags |= BENCH_PROBE_PROBABILITY;
+            bench_sample_print(record, probe_, "+max",
+                    &max, p);
+        }
     // avg?
     } else if (probe_->flags & BENCH_PROBE_AVG) {
         bench_sample_t avg;
@@ -1711,11 +1819,12 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 .erased  = (bench_io_t)round(erased_avg),
             };
         }
+        double p = (probe_->flags & BENCH_PROBE_PROBABILITY)
+                ? bench_sample_probability(record, probe_, &avg)
+                : -1.0;
         probe_->flags |= BENCH_PROBE_FLOAT;
-        bench_sample_print(record, probe_, "+avg", &avg,
-                (probe_->flags & BENCH_PROBE_PROBABILITY)
-                    ? bench_sample_probability(record, probe_, &avg)
-                    : -1.0);
+        bench_sample_print(record, probe_, "+avg",
+                &avg, p);
     // stddev?
     } else if (probe_->flags & BENCH_PROBE_STDDEV) {
         bench_sample_t stddev;
@@ -1870,11 +1979,12 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 .erased  = (bench_io_t)round(erased_stddev),
             };
         }
+        double p = (probe_->flags & BENCH_PROBE_PROBABILITY)
+                ? bench_sample_probability(record, probe_, &stddev)
+                : -1.0;
         probe_->flags |= BENCH_PROBE_FLOAT;
-        bench_sample_print(record, probe_, "+stddev", &stddev,
-                (probe_->flags & BENCH_PROBE_PROBABILITY)
-                    ? bench_sample_probability(record, probe_, &stddev)
-                    : -1.0);
+        bench_sample_print(record, probe_, "+stddev",
+                &stddev, p);
     // nth?
     } else if (probe_->flags & BENCH_PROBE_NTH) {
         bench_sample_t nth;
@@ -1884,18 +1994,31 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
             nth.i = -1;
             for (size_t i = 0; i < record->history_count; i++) {
                 if (record->history[i].n == probe_->nth
-                        && (i == 0 || record->history[i].i >= nth.i)) {
+                        && record->history[i].i >= nth.i) {
                     nth = record->history[i];
                 }
             }
         }
-        if (nth.i != (uint64_t)-1) {
-            char suffix[64];
-            sprintf(suffix, "+n%jd", probe_->nth);
-            bench_sample_print(record, probe_, suffix, &nth,
-                    (probe_->flags & BENCH_PROBE_PROBABILITY)
-                        ? bench_sample_probability(record, probe_, &nth)
-                        : -1.0);
+        if (nth.i != -1) {
+            double p = (probe_->flags & BENCH_PROBE_PROBABILITY)
+                    ? bench_sample_probability(record, probe_, &nth)
+                    : -1.0;
+            if (probe_->flags & BENCH_PROBE_INDIRECT) {
+                // indirect nth? substitute sample last minute
+                bench_sample_t indirect = bench_sample_indirect(
+                        record, probe_, nth.n);
+                if (indirect.i != -1) {
+                    sprintf(suffix_buf, "+n%jd(%s)",
+                            probe_->nth,
+                            probe_->predicate);
+                    bench_sample_print(record, probe_, suffix_buf,
+                            &indirect, p);
+                }
+            } else {
+                sprintf(suffix_buf, "+n%jd", probe_->nth);
+                bench_sample_print(record, probe_, suffix_buf,
+                        &nth, p);
+            }
         }
     // tth?
     } else if (probe_->flags & BENCH_PROBE_TTH) {
@@ -1922,15 +2045,29 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 }
             }
         }
-        if (tth.i != (uint64_t)-1) {
-            char suffix[64];
-            sprintf(suffix, "+t%.12g", probe_->tth);
-            probe_->flags |= BENCH_PROBE_PROBABILITY;
-            bench_sample_print(record, probe_, suffix, &tth,
-                    100.0*((double)le
-                        / (double)((!bench_probe_window)
-                            ? record->hits
-                            : record->history_count)));
+        if (tth.i != -1) {
+            double p = 100.0*((double)le
+                    / (double)((!bench_probe_window)
+                        ? record->hits
+                        : record->history_count));
+            if (probe_->flags & BENCH_PROBE_INDIRECT) {
+                // indirect tth? substitute sample last minute
+                bench_sample_t indirect = bench_sample_indirect(
+                        record, probe_, tth.n);
+                if (indirect.i != -1) {
+                    sprintf(suffix_buf, "+t%.12g(%s)",
+                            probe_->tth,
+                            probe_->predicate);
+                    probe_->flags |= BENCH_PROBE_PROBABILITY;
+                    bench_sample_print(record, probe_, suffix_buf,
+                            &indirect, p);
+                }
+            } else {
+                sprintf(suffix_buf, "+t%.12g", probe_->tth);
+                probe_->flags |= BENCH_PROBE_PROBABILITY;
+                bench_sample_print(record, probe_, suffix_buf,
+                        &tth, p);
+            }
         }
     // percentile?
     } else if (probe_->flags & BENCH_PROBE_PERCENTILE) {
@@ -1954,11 +2091,25 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                     : (k >= (double)record->history_count)
                         ? record->history_count-1
                     : (size_t)k];
-        char suffix[64];
-        sprintf(suffix, "+p%.12g", probe_->percentile);
-        probe_->flags |= BENCH_PROBE_PROBABILITY;
-        bench_sample_print(record, probe_, suffix, &percentile,
-                100.0*((k+1) / (double)record->history_count));
+        double p = 100.0*((k+1) / (double)record->history_count);
+        if (probe_->flags & BENCH_PROBE_INDIRECT) {
+            // indirect percentile? substitute sample last minute
+            bench_sample_t indirect = bench_sample_indirect(
+                    record, probe_, percentile.n);
+            if (indirect.i != -1) {
+                sprintf(suffix_buf, "+p%.12g(%s)",
+                        probe_->percentile,
+                        probe_->predicate);
+                probe_->flags |= BENCH_PROBE_PROBABILITY;
+                bench_sample_print(record, probe_, suffix_buf,
+                        &indirect, p);
+            }
+        } else {
+            sprintf(suffix_buf, "+p%.12g", probe_->percentile);
+            probe_->flags |= BENCH_PROBE_PROBABILITY;
+            bench_sample_print(record, probe_, suffix_buf,
+                    &percentile, p);
+        }
     // cdf?
     } else if (probe_->flags & BENCH_PROBE_CDF) {
         // first sort
@@ -1974,9 +2125,24 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
         // default to printing all samples
         if (probe_->downsample == (size_t)-1) {
             for (size_t i = 0; i < record->history_count; i++) {
-                probe_->flags |= BENCH_PROBE_PROBABILITY;
-                bench_sample_print(record, probe_, "+cdf", &record->history[i],
-                        100.0*((double)(i+1) / (double)record->history_count));
+                bench_sample_t percentile = record->history[i];
+                double p = 100.0*((double)(i+1)
+                        / (double)record->history_count);
+                if (probe_->flags & BENCH_PROBE_INDIRECT) {
+                    // indirect cdf? substitute sample last minute
+                    bench_sample_t indirect = bench_sample_indirect(
+                            record, probe_, percentile.n);
+                    if (indirect.i != -1) {
+                        sprintf(suffix_buf, "+cdf(%s)", probe_->predicate);
+                        probe_->flags |= BENCH_PROBE_PROBABILITY;
+                        bench_sample_print(record, probe_, suffix_buf,
+                                &indirect, p);
+                    }
+                } else {
+                    probe_->flags |= BENCH_PROBE_PROBABILITY;
+                    bench_sample_print(record, probe_, "+cdf",
+                            &percentile, p);
+                }
             }
         // downsample to n samples
         } else {
@@ -1990,11 +2156,26 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                             : (k >= (double)record->history_count)
                                 ? record->history_count-1
                             : (size_t)k];
-                char suffix[64];
-                sprintf(suffix, "+cdf%zu", probe_->downsample);
-                probe_->flags |= BENCH_PROBE_PROBABILITY;
-                bench_sample_print(record, probe_, suffix, &percentile,
-                        100.0*((double)(i+1) / (double)probe_->downsample));
+                double p = 100.0*((double)(i+1)
+                        / (double)probe_->downsample);
+                if (probe_->flags & BENCH_PROBE_INDIRECT) {
+                    // indirect cdf? substitute sample last minute
+                    bench_sample_t indirect = bench_sample_indirect(
+                            record, probe_, percentile.n);
+                    if (indirect.i != -1) {
+                        sprintf(suffix_buf, "+cdf%zu(%s)",
+                                probe_->downsample,
+                                probe_->predicate);
+                        probe_->flags |= BENCH_PROBE_PROBABILITY;
+                        bench_sample_print(record, probe_, suffix_buf,
+                                &indirect, p);
+                    }
+                } else {
+                    sprintf(suffix_buf, "+cdf%zu", probe_->downsample);
+                    probe_->flags |= BENCH_PROBE_PROBABILITY;
+                    bench_sample_print(record, probe_, suffix_buf,
+                            &percentile, p);
+                }
             }
         }
     // loghist?
@@ -2049,17 +2230,16 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                     = pow(probe_->logbase, (double)(i+1));
             // keep track of cumulative
             hits += probe_->u.loghist[i].hits;
-            char suffix[64];
             if (probe_->logbase == 2.0) {
-                sprintf(suffix, "+%sloghist",
+                sprintf(suffix_buf, "+%sloghist",
                         (probe_->flags & BENCH_PROBE_CUMULATIVE) ? "c" : "");
             } else {
-                sprintf(suffix, "+%sloghist%.12g",
+                sprintf(suffix_buf, "+%sloghist%.12g",
                         (probe_->flags & BENCH_PROBE_CUMULATIVE) ? "c" : "",
                         probe_->logbase);
             }
             probe_->flags |= BENCH_PROBE_FLOAT | BENCH_PROBE_PROBABILITY;
-            bench_sample_print(record, probe_, suffix,
+            bench_sample_print(record, probe_, suffix_buf,
                     &probe_->u.loghist[i].last,
                     100.0*((double)((probe_->flags & BENCH_PROBE_CUMULATIVE)
                             ? hits
@@ -2126,12 +2306,11 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                         (max - min) / (double)probe_->downsample);
             // keep track of cumulative
             hits += probe_->u.hist[i].hits;
-            char suffix[64];
-            sprintf(suffix, "+%shist%zu",
+            sprintf(suffix_buf, "+%shist%zu",
                     (probe_->flags & BENCH_PROBE_CUMULATIVE) ? "c" : "",
                     probe_->downsample);
             probe_->flags |= BENCH_PROBE_FLOAT | BENCH_PROBE_PROBABILITY;
-            bench_sample_print(record, probe_, suffix,
+            bench_sample_print(record, probe_, suffix_buf,
                     &probe_->u.hist[i].last,
                     100.0*((double)((probe_->flags & BENCH_PROBE_CUMULATIVE)
                             ? hits
@@ -2176,7 +2355,11 @@ void bench_sample(bench_record_t *record, const bench_sample_t *sample) {
         if (!bench_probe_count) {
             probe_ = &record->probe;
         // matching probe?
-        } else if (strcmp(record->probe.name, bench_probes[j].name) == 0) {
+        } else if (strcmp(
+                record->probe.name,
+                (!(bench_probes[j].flags & BENCH_PROBE_INDIRECT))
+                    ? bench_probes[j].name
+                    : bench_probes[j].predicate) == 0) {
             probe_ = &bench_probes[j];
         } else {
             continue;
@@ -2206,7 +2389,11 @@ void bench_sample(bench_record_t *record, const bench_sample_t *sample) {
         if (!bench_probe_count) {
             probe_ = &record->probe;
         // matching probe?
-        } else if (strcmp(record->probe.name, bench_probes[j].name) == 0) {
+        } else if (strcmp(
+                record->probe.name,
+                (!(bench_probes[j].flags & BENCH_PROBE_INDIRECT))
+                    ? bench_probes[j].name
+                    : bench_probes[j].predicate) == 0) {
             probe_ = &bench_probes[j];
         } else {
             continue;
@@ -4346,6 +4533,18 @@ int main(int argc, char **argv) {
                         optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_MIN;
+                        // indirect min?
+                        if (*optarg == '(') {
+                            optarg += 1;
+                            probe->predicate = optarg;
+                            probe->flags |= BENCH_PROBE_INDIRECT;
+                            char *sep_ = strchr(optarg, ')');
+                            if (!sep_) {
+                                goto invalid_probe;
+                            }
+                            *sep_ = '\0';
+                            optarg = sep_ + 1;
+                        }
                     // max?
                     } else if (strncmp(optarg,
                             "max", strlen("max")) == 0) {
@@ -4353,6 +4552,18 @@ int main(int argc, char **argv) {
                         optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_MAX;
+                        // indirect max?
+                        if (*optarg == '(') {
+                            optarg += 1;
+                            probe->predicate = optarg;
+                            probe->flags |= BENCH_PROBE_INDIRECT;
+                            char *sep_ = strchr(optarg, ')');
+                            if (!sep_) {
+                                goto invalid_probe;
+                            }
+                            *sep_ = '\0';
+                            optarg = sep_ + 1;
+                        }
                     // avg?
                     } else if (strncmp(optarg,
                             "avg", strlen("avg")) == 0) {
@@ -4382,6 +4593,19 @@ int main(int argc, char **argv) {
                             // include n in our samples
                         }
                         optarg = parsed + strspn(parsed, " ");
+                        // indirect nth?
+                        if (*optarg == '('
+                                && (probe->flags & BENCH_PROBE_NTH)) {
+                            optarg += 1;
+                            probe->predicate = optarg;
+                            probe->flags |= BENCH_PROBE_INDIRECT;
+                            char *sep_ = strchr(optarg, ')');
+                            if (!sep_) {
+                                goto invalid_probe;
+                            }
+                            *sep_ = '\0';
+                            optarg = sep_ + 1;
+                        }
                     // tth? t?
                     } else if (optarg[0] == 't') {
                         optarg += 1;
@@ -4397,6 +4621,19 @@ int main(int argc, char **argv) {
                             // include t in our samples
                         }
                         optarg = parsed + strspn(parsed, " ");
+                        // indirect tth?
+                        if (*optarg == '('
+                                && (probe->flags & BENCH_PROBE_TTH)) {
+                            optarg += 1;
+                            probe->predicate = optarg;
+                            probe->flags |= BENCH_PROBE_INDIRECT;
+                            char *sep_ = strchr(optarg, ')');
+                            if (!sep_) {
+                                goto invalid_probe;
+                            }
+                            *sep_ = '\0';
+                            optarg = sep_ + 1;
+                        }
                     // percentile? probability?
                     } else if (optarg[0] == 'p') {
                         optarg += 1;
@@ -4411,6 +4648,19 @@ int main(int argc, char **argv) {
                             probe->flags |= BENCH_PROBE_PROBABILITY;
                         }
                         optarg = parsed + strspn(parsed, " ");
+                        // indirect percentile?
+                        if (*optarg == '('
+                                && (probe->flags & BENCH_PROBE_PERCENTILE)) {
+                            optarg += 1;
+                            probe->predicate = optarg;
+                            probe->flags |= BENCH_PROBE_INDIRECT;
+                            char *sep_ = strchr(optarg, ')');
+                            if (!sep_) {
+                                goto invalid_probe;
+                            }
+                            *sep_ = '\0';
+                            optarg = sep_ + 1;
+                        }
                     // cdf?
                     } else if (strncmp(optarg,
                             "cdf", strlen("cdf")) == 0) {
@@ -4423,6 +4673,18 @@ int main(int argc, char **argv) {
                             probe->downsample = -1;
                         }
                         optarg = parsed + strspn(parsed, " ");
+                        // indirect cdf?
+                        if (*optarg == '(') {
+                            optarg += 1;
+                            probe->predicate = optarg;
+                            probe->flags |= BENCH_PROBE_INDIRECT;
+                            char *sep_ = strchr(optarg, ')');
+                            if (!sep_) {
+                                goto invalid_probe;
+                            }
+                            *sep_ = '\0';
+                            optarg = sep_ + 1;
+                        }
                     // loghist?
                     } else if (strncmp(optarg,
                             "loghist", strlen("loghist")) == 0) {
