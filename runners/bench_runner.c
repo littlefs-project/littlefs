@@ -1291,7 +1291,7 @@ void bench_deinit(const struct lfs3_cfg *cfg) {
     }
 }
 
-bench_record_t *bench_find(const char *probe) {
+bench_record_t *bench_record_find(const char *probe) {
     // find our record
     bench_record_t *record = NULL;
     for (size_t i = 0; i < bench_record_count; i++) {
@@ -2416,7 +2416,7 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
     }
 }
 
-void bench_record(bench_record_t *record) {
+void bench_record_split(bench_record_t *record) {
     // reset probe state
     for (size_t j = 0;
             j < ((bench_probe_count) ? bench_probe_count : 1);
@@ -2440,7 +2440,8 @@ void bench_record(bench_record_t *record) {
     }
 }
 
-void bench_sample(bench_record_t *record, const bench_sample_t *sample) {
+void bench_record_sample(bench_record_t *record,
+        const bench_sample_t *sample) {
     // add to history, if we need history
     if (record->flags & BENCH_RECORD_HISTORY) {
         // limit to window?
@@ -2604,7 +2605,7 @@ void bench_start(const char *probe) {
     BENCH_HEAP_PAUSE();
 
     // find our record
-    bench_record_t *record = bench_find(probe);
+    bench_record_t *record = bench_record_find(probe);
     if (record->flags & BENCH_RECORD_IGNORED) {
         goto done;
     }
@@ -2668,11 +2669,11 @@ void bench_start(const char *probe) {
     bench_sns_t simtime = lfs3_kiwibd_simtime(bench_cfg);
     #endif
 
+    // reset stateful probe state
+    bench_record_split(record);
+
     // mark as bdresult result
     record->flags |= BENCH_RECORD_STARTED | BENCH_RECORD_BDRESULT;
-
-    // reset stateful probe state
-    bench_record(record);
 
     // keep track of start time
     record->start.i       = bench_hits;
@@ -2700,7 +2701,7 @@ void bench_stop(const char *probe, uintmax_t n) {
     BENCH_HEAP_PAUSE();
 
     // find our record
-    bench_record_t *record = bench_find(probe);
+    bench_record_t *record = bench_record_find(probe);
     if (record->flags & BENCH_RECORD_IGNORED) {
         goto done;
     }
@@ -2782,7 +2783,7 @@ void bench_stop(const char *probe, uintmax_t n) {
     };
 
     // report probe sample
-    bench_sample(record, &record->last);
+    bench_record_sample(record, &record->last);
 
     record->flags &= ~BENCH_RECORD_STARTED;
 
@@ -2796,7 +2797,7 @@ void bench_abort(const char *probe) {
     BENCH_HEAP_PAUSE();
 
     // find our record
-    bench_record_t *record = bench_find(probe);
+    bench_record_t *record = bench_record_find(probe);
     if (record->flags & BENCH_RECORD_IGNORED) {
         goto done;
     }
@@ -2816,7 +2817,7 @@ void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
     BENCH_HEAP_PAUSE();
 
     // find our record
-    bench_record_t *record = bench_find(probe);
+    bench_record_t *record = bench_record_find(probe);
     if (record->flags & BENCH_RECORD_IGNORED) {
         goto done;
     }
@@ -2828,11 +2829,11 @@ void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
         exit(-1);
     }
 
+    // reset stateful probe state
+    bench_record_split(record);
+
     // mark as result result
     record->flags |= BENCH_RECORD_RESULT;
-
-    // reset stateful probe state
-    bench_record(record);
 
     // keep track of max n
     record->n = (n > record->n) ? n : record->n;
@@ -2846,7 +2847,7 @@ void bench_result(const char *probe, uintmax_t n, uintmax_t result) {
     };
 
     // report probe sample
-    bench_sample(record, &record->last);
+    bench_record_sample(record, &record->last);
 
 done:;
     BENCH_HEAP_RESUME();
@@ -2858,7 +2859,7 @@ void bench_fresult(const char *probe, uintmax_t n, double result) {
     BENCH_HEAP_PAUSE();
 
     // find our record
-    bench_record_t *record = bench_find(probe);
+    bench_record_t *record = bench_record_find(probe);
     if (record->flags & BENCH_RECORD_IGNORED) {
         goto done;
     }
@@ -2870,11 +2871,11 @@ void bench_fresult(const char *probe, uintmax_t n, double result) {
         exit(-1);
     }
 
+    // reset stateful probe state
+    bench_record_split(record);
+
     // mark as fresult result
     record->flags |= BENCH_RECORD_FRESULT | BENCH_RECORD_FLOAT;
-
-    // reset stateful probe state
-    bench_record(record);
 
     // keep track of max n
     record->n = (n > record->n) ? n : record->n;
@@ -2888,7 +2889,7 @@ void bench_fresult(const char *probe, uintmax_t n, double result) {
     };
 
     // report probe sample
-    bench_sample(record, &record->last);
+    bench_record_sample(record, &record->last);
 
 done:;
     BENCH_HEAP_RESUME();
