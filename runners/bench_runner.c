@@ -1055,7 +1055,10 @@ typedef struct bench_probe {
     // variables for incremental calculations
     union {
         bench_sample_t sum;
-        bench_sample_t delta;
+        struct {
+            bench_sample_t delta;
+            bench_sample_t indirect;
+        } delta;
         struct {
             bench_sample_t min;
             bench_sample_t indirect;
@@ -1134,6 +1137,8 @@ const char *const bench_probe_help[][3] = {
     {"cloghist",    "1",  "Build a cumulative 64-bit log2 histogram."},
     {"cloghist[b]", "1",  "Build a cumulative log histogram with base b."},
     {"chist[n]",    "w",  "Build a cumulative histogram with n buckets."},
+    {"delta(probe)",
+                    "1",  "Sum samples during delta of different probe."},
     {"min(probe)",  "1",  "Sum samples during min of different probe."},
     {"max(probe)",  "1",  "Sum samples during max of different probe."},
     {"n[n](probe)", "1",  "Sum samples during n>=n of different probe."},
@@ -1401,7 +1406,8 @@ void bench_probe_sample(const bench_record_t *record, bench_probe_t *probe_,
         }
     // delta?
     } else if (probe_->flags & BENCH_PROBE_DELTA) {
-        probe_->u.delta = *sample;
+        probe_->u.delta.delta = *sample;
+        probe_->u.delta.indirect = probe_->indirect;
     // min?
     } else if (probe_->flags & BENCH_PROBE_MIN) {
         if (record->hits == 0
@@ -1730,7 +1736,7 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
     } else if (probe_->flags & BENCH_PROBE_DELTA) {
         bench_sample_t delta;
         if (!bench_probe_window) {
-            delta = probe_->u.delta;
+            delta = probe_->u.delta.delta;
         } else {
             for (size_t i = 0; i < record->history_count; i++) {
                 if (i == 0 || record->history[i].j >= delta.j) {
@@ -1738,8 +1744,24 @@ void bench_probe_print(bench_record_t *record, bench_probe_t *probe_) {
                 }
             }
         }
-        bench_sample_print(record, probe_, "+delta",
-                &delta, 0.0);
+        if (probe_->flags & BENCH_PROBE_INDIRECT) {
+            // indirect delta? substitute sample last minute
+            bench_sample_t indirect;
+            if (!bench_probe_window) {
+                indirect = probe_->u.delta.indirect;
+            } else {
+                indirect = bench_sample_indirect(
+                        record, probe_, &delta);
+            }
+            if (indirect.i != -1) {
+                sprintf(suffix_buf, "+delta(%s)", probe_->predicate);
+                bench_sample_print(record, probe_, suffix_buf,
+                        &indirect, 0.0);
+            }
+        } else {
+            bench_sample_print(record, probe_, "+delta",
+                    &delta, 0.0);
+        }
     // min?
     } else if (probe_->flags & BENCH_PROBE_MIN) {
         bench_sample_t min;
@@ -4663,6 +4685,18 @@ int main(int argc, char **argv) {
                         optarg += strspn(optarg, " ");
                         probe->flags = (probe->flags & ~BENCH_PROBE_TYPE)
                                 | BENCH_PROBE_DELTA;
+                        // indirect delta?
+                        if (*optarg == '(') {
+                            optarg += 1;
+                            probe->predicate = optarg;
+                            probe->flags |= BENCH_PROBE_INDIRECT;
+                            char *sep_ = strchr(optarg, ')');
+                            if (!sep_) {
+                                goto invalid_probe;
+                            }
+                            *sep_ = '\0';
+                            optarg = sep_ + 1;
+                        }
                     // min?
                     } else if (strncmp(optarg,
                             "min", strlen("min")) == 0) {
