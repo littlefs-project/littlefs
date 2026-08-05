@@ -84,8 +84,8 @@ code = '''
     uint64_t readed = 0;
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
-    while ((!SIM_SIZE || readed < (uint64_t)SIM_SIZE)
-            && (!SIM_TIME || BENCH_SIMTIME() < SIM_TIME)) {
+    while ((SIM_SIZE && readed < (uint64_t)SIM_SIZE)
+            || (SIM_TIME && BENCH_SIMTIME() < SIM_TIME)) {
         // gradually increase the file size, so we at least have somewhat
         // meaningful results if we timeout early
         if (size < SIZE) {
@@ -186,8 +186,8 @@ code = '''
     uint64_t readed = 0;
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
-    while ((!SIM_SIZE || readed < (uint64_t)SIM_SIZE)
-            && (!SIM_TIME || BENCH_SIMTIME() < SIM_TIME)) {
+    while ((SIM_SIZE && readed < (uint64_t)SIM_SIZE)
+            || (SIM_TIME && BENCH_SIMTIME() < SIM_TIME)) {
         // gradually increase the file size, so we at least have somewhat
         // meaningful results if we timeout early
         if (size < SIZE) {
@@ -285,8 +285,8 @@ code = '''
     uint64_t readed = 0;
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
-    while ((!SIM_SIZE || readed < (uint64_t)SIM_SIZE)
-            && (!SIM_TIME || BENCH_SIMTIME() < SIM_TIME)) {
+    while ((SIM_SIZE && readed < (uint64_t)SIM_SIZE)
+            || (SIM_TIME && BENCH_SIMTIME() < SIM_TIME)) {
         // gradually increase the file size, so we at least have somewhat
         // meaningful results if we timeout early
         //
@@ -376,8 +376,8 @@ code = '''
     uint64_t readed = 0;
     // ok, one of these needs to be non-zero
     LFS3_ASSERT(SIM_TIME > 0 || SIM_SIZE > 0);
-    while ((!SIM_SIZE || readed < (uint64_t)SIM_SIZE)
-            && (!SIM_TIME || BENCH_SIMTIME() < SIM_TIME)) {
+    while ((SIM_SIZE && readed < (uint64_t)SIM_SIZE)
+            || (SIM_TIME && BENCH_SIMTIME() < SIM_TIME)) {
         // gradually increase the filesystem size, so we at least have
         // somewhat meaningful results if we timeout early
         if (size < SIZE) {
