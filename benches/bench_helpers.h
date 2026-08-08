@@ -19,7 +19,8 @@ int bench_helpers_warmup(lfs3_t *lfs3);
 //
 // useful for static vs dynamic wear-leveling, metadata pressure, etc
 int bench_helpers_populate(lfs3_t *lfs3,
-        lfs3_off_t static_count, lfs3_off_t static_size);
+        lfs3_off_t static_count, lfs3_off_t static_size,
+        bool static_compact);
 
 
 // interesting usage info

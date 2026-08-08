@@ -21,6 +21,7 @@ defines.SKIP_WARMUP = false
 # optionally create a bunch of static files
 defines.STATIC_COUNT = 0
 defines.STATIC_SIZE = 'BLOCK_SIZE'
+defines.STATIC_COMPACT = false
 
 # include common bench helpers
 code = '''
@@ -50,7 +51,7 @@ code = '''
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_populate(&lfs3,
-                STATIC_COUNT, STATIC_SIZE);
+                STATIC_COUNT, STATIC_SIZE, STATIC_COMPACT);
         if (err) {
             LFS3_ERROR("Bench populate failed: %d", err);
             assert(!err);
@@ -141,7 +142,7 @@ code = '''
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_populate(&lfs3,
-                STATIC_COUNT, STATIC_SIZE);
+                STATIC_COUNT, STATIC_SIZE, STATIC_COMPACT);
         if (err) {
             LFS3_ERROR("Bench populate failed: %d", err);
             assert(!err);
@@ -230,7 +231,7 @@ code = '''
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_populate(&lfs3,
-                STATIC_COUNT, STATIC_SIZE);
+                STATIC_COUNT, STATIC_SIZE, STATIC_COMPACT);
         if (err) {
             LFS3_ERROR("Bench populate failed: %d", err);
             assert(!err);
@@ -330,7 +331,7 @@ code = '''
         BENCH_STACK_PAUSE();
         BENCH_HEAP_PAUSE();
         int err = bench_helpers_populate(&lfs3,
-                STATIC_COUNT, STATIC_SIZE);
+                STATIC_COUNT, STATIC_SIZE, STATIC_COMPACT);
         if (err) {
             LFS3_ERROR("Bench populate failed: %d", err);
             assert(!err);
