@@ -61,6 +61,7 @@ code = '''
         BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
+    uint8_t *wbuf = malloc(CHUNK);
 
     // reset our timer
     BENCH_SIMRESET();
@@ -86,7 +87,6 @@ code = '''
         }
 
         // write to the file
-        uint8_t wbuf[CHUNK];
         for (lfs3_size_t j = 0; j < CHUNK; j++) {
             wbuf[j] = 'a' + (BENCH_PRNG(&prng) % 26);
         }
@@ -101,9 +101,11 @@ code = '''
     // report the total stack/heap usage after the benchmark
     #ifdef BENCH_STACK
     BENCH_RESULT("stack", written, BENCH_STACK_WATERMARK());
+    BENCH_RESULT("ctx", written, BENCH_STACK_CURRENT());
     #endif
     #ifdef BENCH_HEAP
     BENCH_RESULT("heap", written, BENCH_HEAP_WATERMARK());
+    BENCH_RESULT("buf", written, CHUNK + BUF_WATERMARK);
     #endif
 
     // find the total disk usage after the benchmark
@@ -117,6 +119,7 @@ code = '''
     BENCH_RESULT("data", written, usage.data);
 
     lfs3_unmount(&lfs3) => 0;
+    free(wbuf);
 '''
 
 # random write throughput
@@ -152,6 +155,7 @@ code = '''
         BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
+    uint8_t *wbuf = malloc(CHUNK);
 
     // reset our timer
     BENCH_SIMRESET();
@@ -173,7 +177,6 @@ code = '''
         lfs3_file_seek(&lfs3, &file, pos, LFS3_SEEK_SET) => pos;
 
         // write to the file
-        uint8_t wbuf[CHUNK];
         for (lfs3_size_t j = 0; j < CHUNK; j++) {
             wbuf[j] = 'a' + (BENCH_PRNG(&prng) % 26);
         }
@@ -188,9 +191,11 @@ code = '''
     // report the total stack/heap usage after the benchmark
     #ifdef BENCH_STACK
     BENCH_RESULT("stack", written, BENCH_STACK_WATERMARK());
+    BENCH_RESULT("ctx", written, BENCH_STACK_CURRENT());
     #endif
     #ifdef BENCH_HEAP
     BENCH_RESULT("heap", written, BENCH_HEAP_WATERMARK());
+    BENCH_RESULT("buf", written, CHUNK + BUF_WATERMARK);
     #endif
 
     // find the total disk usage after the benchmark
@@ -202,6 +207,7 @@ code = '''
     BENCH_RESULT("data", written, usage.data);
 
     lfs3_unmount(&lfs3) => 0;
+    free(wbuf);
 '''
 
 # logging write throughput
@@ -241,6 +247,7 @@ code = '''
         BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
+    uint8_t *wbuf = malloc(CHUNK);
 
     // reset our timer
     BENCH_SIMRESET();
@@ -256,7 +263,6 @@ code = '''
             || (SIM_TIME && BENCH_SIMTIME() < SIM_TIME)) {
         BENCH_START("write");
         // append to log
-        uint8_t wbuf[CHUNK];
         for (lfs3_size_t j = 0; j < CHUNK; j++) {
             wbuf[j] = 'a' + (BENCH_PRNG(&prng) % 26);
         }
@@ -292,9 +298,11 @@ code = '''
     // report the total stack/heap usage after the benchmark
     #ifdef BENCH_STACK
     BENCH_RESULT("stack", written, BENCH_STACK_WATERMARK());
+    BENCH_RESULT("ctx", written, BENCH_STACK_CURRENT());
     #endif
     #ifdef BENCH_HEAP
     BENCH_RESULT("heap", written, BENCH_HEAP_WATERMARK());
+    BENCH_RESULT("buf", written, CHUNK + BUF_WATERMARK);
     #endif
 
     // find the total disk usage after the benchmark
@@ -306,6 +314,7 @@ code = '''
     BENCH_RESULT("data", written, usage.data);
 
     lfs3_unmount(&lfs3) => 0;
+    free(wbuf);
 '''
 
 # many small file write throughput
@@ -341,6 +350,7 @@ code = '''
         BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
+    uint8_t *wbuf = malloc(CHUNK);
 
     // reset our timer
     BENCH_SIMRESET();
@@ -353,9 +363,8 @@ code = '''
         BENCH_START("write");
         // choose a random filename
         lfs3_off_t pos = BENCH_PRNG(&prng) % ((SIZE+(CHUNK-1))/CHUNK);
-        char name[256];
+        char name[6+8+1];
         sprintf(name, "bench_%08x", pos);
-        uint8_t wbuf[CHUNK];
         memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), CHUNK);
 
         // create the file
@@ -379,9 +388,15 @@ code = '''
     // report the total stack/heap usage after the benchmark
     #ifdef BENCH_STACK
     BENCH_RESULT("stack", written, BENCH_STACK_WATERMARK());
+    BENCH_RESULT("ctx", written, BENCH_STACK_CURRENT());
     #endif
     #ifdef BENCH_HEAP
     BENCH_RESULT("heap", written, BENCH_HEAP_WATERMARK());
+    BENCH_RESULT("buf", written,
+            // bit of a hack, but lfs3_set doesn't need to allocate a
+            // file-cache
+            CHUNK + BUF_WATERMARK
+                - ((SET) ? FCACHE_SIZE : 0));
     #endif
 
     // find the total disk usage after the benchmark
@@ -393,5 +408,6 @@ code = '''
     BENCH_RESULT("data", written, usage.data);
 
     lfs3_unmount(&lfs3) => 0;
+    free(wbuf);
 '''
 

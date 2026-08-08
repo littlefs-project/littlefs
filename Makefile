@@ -609,7 +609,7 @@ bench-marks: SUMMARYFLAGS+=-Si
 bench-marks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Uprobe=stack,heap,usage,mdir,btree,data \
+			-Uprobe=stack,ctx,heap,buf,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
 			-fn='max(bench_n)' \
@@ -631,14 +631,14 @@ bench-marks-csv: $(BUILDDIR)/lfs3.bench.csv
 bench-marks-diff: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Uprobe=stack,heap,usage,mdir,btree,data \
+			-Uprobe=stack,ctx,heap,buf,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
 			-fn='max(bench_n)' \
 			-ft='max(float(bench_t)/1.0e9)' \
 			-o-) \
 		-d <(./scripts/csv.py $(BUILDDIR)/lfs3.bench.csv \
-			-Uprobe=stack,heap,usage,mdir,btree,data \
+			-Uprobe=stack,ctx,heap,buf,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
 			-fn='max(bench_n)' \
@@ -655,7 +655,7 @@ bench-bottlenecks: SUMMARYFLAGS+=-Sruntime
 bench-bottlenecks: $(BENCH_CSV)
 	$(strip ./scripts/csv.py \
 		<(./scripts/csv.py $^ \
-			-Uprobe=stack,heap,usage,mdir,btree,data \
+			-Uprobe=stack,ctx,heap,buf,usage,mdir,btree,data \
 			-Fi='min(i)' \
 			-bprobe='%(case)s+%(probe)s' \
 			-fn='max(bench_n)' \
@@ -674,7 +674,7 @@ bench-bottlenecks: $(BENCH_CSV)
 bench-ops: SUMMARYFLAGS+=-Si
 bench-ops: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-Uprobe=stack,heap,usage,mdir,btree,data \
+		-Uprobe=stack,ctx,heap,buf,usage,mdir,btree,data \
 		-Fi='min(i)' \
 		-bprobe='%(case)s+%(probe)s' \
 		-Hprobe=bench+probe \
@@ -691,7 +691,7 @@ bench-ops: $(BENCH_CSV)
 bench-widths: SUMMARYFLAGS+=-Si
 bench-widths: $(BENCH_CSV)
 	$(strip ./scripts/csv.py $^ \
-		-Uprobe=stack,heap,usage,mdir,btree,data \
+		-Uprobe=stack,ctx,heap,buf,usage,mdir,btree,data \
 		-Fi='min(i)' \
 		-bprobe='%(case)s+%(probe)s' \
 		-Hprobe=bench+probe \
@@ -712,7 +712,7 @@ bench-widths: $(BENCH_CSV)
 					--query-implicit-define=ERASE_SIZE)))))" \
 		$(SUMMARYFLAGS))
 
-## Show heap/stack
+## Show heap/stack/buf/ctx
 .PHONY: bench-ram
 bench-ram: SUMMARYFLAGS+=-Si
 bench-ram: $(BENCH_CSV)
@@ -724,14 +724,28 @@ bench-ram: $(BENCH_CSV)
 			-fstack='max(bench_t)' \
 			-o-) \
 		<(./scripts/csv.py $^ \
+			-Dprobe=ctx \
+			-Fi='min(i)' \
+			-bcase \
+			-fctx='max(bench_t)' \
+			-o-) \
+		<(./scripts/csv.py $^ \
 			-Dprobe=heap \
 			-Fi='min(i)' \
 			-bcase \
 			-fheap='max(bench_t)' \
 			-o-) \
+		<(./scripts/csv.py $^ \
+			-Dprobe=buf \
+			-Fi='min(i)' \
+			-bcase \
+			-fbuf='max(bench_t)' \
+			-o-) \
 		-bcase \
-		-fstack \
-		-fheap \
+		-fctx \
+		-fbuf \
+		-fstack=stack-ctx \
+		-fheap=heap-buf \
 		-ftotal=stack+heap \
 		$(SUMMARYFLAGS))
 

@@ -41,6 +41,15 @@
     BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                  )
     BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
     BENCH_DEFINE(EVICTQUEUE_COUNT,      2                                   )
+    // report estimated buffer usage
+    BENCH_DEFINE(BUF_WATERMARK,         RCACHE_SIZE
+                                            + PCACHE_SIZE
+                                            + FCACHE_SIZE
+                                            + LOOKAHEAD_SIZE
+                                            + LFS3_IFDEF_EVICT(
+                                                EVICTQUEUE_COUNT
+                                                    * sizeof(lfs3_evict_t),
+                                                0)                          )
     BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                          )
     BENCH_DEFINE(GC_STEPS,              0                                   )
     BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   -1                                  )

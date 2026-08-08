@@ -65,6 +65,8 @@ code = '''
         BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
+    uint8_t *wbuf = malloc(CHUNK);
+    uint8_t *rbuf = malloc(CHUNK);
 
     // reset our timer
     BENCH_SIMRESET();
@@ -92,7 +94,6 @@ code = '''
         if (size < SIZE) {
             BENCH_STACK_PAUSE();
             BENCH_HEAP_PAUSE();
-            uint8_t wbuf[CHUNK];
             for (lfs3_size_t j = 0; j < CHUNK; j++) {
                 wbuf[j] = 'a' + (BENCH_PRNG(&prng) % 26);
             }
@@ -112,7 +113,6 @@ code = '''
         }
 
         // read from the file
-        uint8_t rbuf[CHUNK];
         lfs3_file_read(&lfs3, &rfile, rbuf, CHUNK) => CHUNK;
 
         readed_ += CHUNK;
@@ -127,6 +127,8 @@ code = '''
     lfs3_file_close(&lfs3, &rfile) => 0;
 
     lfs3_unmount(&lfs3) => 0;
+    free(wbuf);
+    free(rbuf);
 '''
 
 # random read throughput
@@ -166,6 +168,8 @@ code = '''
         BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
+    uint8_t *wbuf = malloc(CHUNK);
+    uint8_t *rbuf = malloc(CHUNK);
 
     // reset our timer
     BENCH_SIMRESET();
@@ -194,7 +198,6 @@ code = '''
         if (size < SIZE) {
             BENCH_STACK_PAUSE();
             BENCH_HEAP_PAUSE();
-            uint8_t wbuf[CHUNK];
             for (lfs3_size_t j = 0; j < CHUNK; j++) {
                 wbuf[j] = 'a' + (BENCH_PRNG(&prng) % 26);
             }
@@ -212,7 +215,6 @@ code = '''
         lfs3_file_seek(&lfs3, &rfile, pos, LFS3_SEEK_SET) => pos;
 
         // read from the file
-        uint8_t rbuf[CHUNK];
         lfs3_ssize_t d = lfs3_file_read(&lfs3, &rfile, rbuf, CHUNK);
         assert(d <= CHUNK);
 
@@ -227,6 +229,8 @@ code = '''
     lfs3_file_close(&lfs3, &rfile) => 0;
 
     lfs3_unmount(&lfs3) => 0;
+    free(wbuf);
+    free(rbuf);
 '''
 
 # logging read throughput
@@ -267,6 +271,8 @@ code = '''
         BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
+    uint8_t *wbuf = malloc(CHUNK);
+    uint8_t *rbuf = malloc(CHUNK);
 
     // reset our timer
     BENCH_SIMRESET();
@@ -295,7 +301,6 @@ code = '''
         if (size < SIZE) {
             BENCH_STACK_PAUSE();
             BENCH_HEAP_PAUSE();
-            uint8_t wbuf[CHUNK];
             for (lfs3_size_t j_ = 0; j_ < 2; j_++) {
                 for (lfs3_size_t j = 0; j < CHUNK; j++) {
                     wbuf[j] = 'a' + (BENCH_PRNG(&prng) % 26);
@@ -311,7 +316,6 @@ code = '''
 
         BENCH_START("read");
         // read from the file
-        uint8_t rbuf[CHUNK];
         lfs3_file_read(&lfs3, &rfile, rbuf, CHUNK) => CHUNK;
         // fruncate front of file
         lfs3_file_fruncate(&lfs3, &rfile, size-CHUNK) => 0;
@@ -330,6 +334,8 @@ code = '''
     lfs3_file_close(&lfs3, &rfile) => 0;
 
     lfs3_unmount(&lfs3) => 0;
+    free(wbuf);
+    free(rbuf);
 '''
 
 # many small file read throughput
@@ -369,6 +375,8 @@ code = '''
         BENCH_STACK_RESUME();
     }
     uint32_t prng = SEED;
+    uint8_t *wbuf = malloc(CHUNK);
+    uint8_t *rbuf = malloc(CHUNK);
 
     // reset our timer
     BENCH_SIMRESET();
@@ -384,9 +392,8 @@ code = '''
         if (size < SIZE) {
             BENCH_STACK_PAUSE();
             BENCH_HEAP_PAUSE();
-            char name[256];
+            char name[6+8+1];
             sprintf(name, "bench_%08x", (lfs3_off_t)(size/CHUNK));
-            uint8_t wbuf[CHUNK];
             memset(wbuf, 'a'+(BENCH_PRNG(&prng) % 26), CHUNK);
 
             lfs3_file_t wfile;
@@ -403,9 +410,8 @@ code = '''
         BENCH_START("read");
         // choose a random filename
         lfs3_off_t pos = BENCH_PRNG(&prng) % ((size+(CHUNK-1))/CHUNK);
-        char name[256];
+        char name[6+8+1];
         sprintf(name, "bench_%08x", pos);
-        uint8_t rbuf[CHUNK];
 
         // read the file
         //
@@ -425,5 +431,7 @@ code = '''
     }
 
     lfs3_unmount(&lfs3) => 0;
+    free(wbuf);
+    free(rbuf);
 '''
 
