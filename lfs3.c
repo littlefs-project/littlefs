@@ -18448,8 +18448,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 "cksum %08"PRIx32,
             LFS3_DISK_VERSION_MAJOR,
             LFS3_DISK_VERSION_MINOR,
-            lfs3->cfg->block_size,
             lfs3->block_count,
+            lfs3->cfg->block_size,
             lfs3->mroot.r.blocks[0],
             lfs3->mroot.r.blocks[1],
             lfs3_rbyd_trunk(&lfs3->mroot.r),
@@ -18670,8 +18670,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     LFS3_INFO("Formatting littlefs v%"PRId32".%"PRId32" %"PRId32"x%"PRId32,
             LFS3_DISK_VERSION_MAJOR,
             LFS3_DISK_VERSION_MINOR,
-            lfs3->cfg->block_size,
-            lfs3->block_count);
+            lfs3->block_count,
+            lfs3->cfg->block_size);
 
     err = lfs3_formatinited(lfs3);
     if (err) {
@@ -19094,14 +19094,14 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count_, uint32_t flags) {
     if (block_count_ > lfs3->block_count) {
         LFS3_INFO("Growing littlefs %"PRId32"x%"PRId32" "
                     "-> %"PRId32"x%"PRId32,
-                lfs3->cfg->block_size, lfs3->block_count,
-                lfs3->cfg->block_size, block_count_);
+                lfs3->block_count, lfs3->cfg->block_size,
+                block_count_, lfs3->cfg->block_size);
     } else {
         #ifdef LFS3_SHRINK
         LFS3_INFO("Shrinking littlefs %"PRId32"x%"PRId32" "
                     "-> %"PRId32"x%"PRId32,
-                lfs3->cfg->block_size, lfs3->block_count,
-                lfs3->cfg->block_size, block_count_);
+                lfs3->block_count, lfs3->cfg->block_size,
+                block_count_, lfs3->cfg->block_size);
         #endif
     }
 

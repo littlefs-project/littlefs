@@ -15,8 +15,8 @@ except ModuleNotFoundError:
 
 # some ways of block geometry representations
 # 512      -> 512
-# 512x16   -> (512, 16)
-# 0x200x10 -> (512, 16)
+# 16x512   -> (512, 16)
+# 0x10x200 -> (512, 16)
 def bdgeom(s):
     s = s.strip()
     b = 10
@@ -32,7 +32,7 @@ def bdgeom(s):
 
     if 'x' in s:
         s, s_ = s.split('x', 1)
-        return (int(s, b), int(s_, b))
+        return (int(s_, b), int(s, b))
     else:
         return int(s, b)
 

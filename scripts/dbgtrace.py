@@ -110,8 +110,8 @@ def openio(path, mode='r', buffering=-1):
 
 # some ways of block geometry representations
 # 512      -> 512
-# 512x16   -> (512, 16)
-# 0x200x10 -> (512, 16)
+# 16x512   -> (512, 16)
+# 0x10x200 -> (512, 16)
 def bdgeom(s):
     s = s.strip()
     b = 10
@@ -127,7 +127,7 @@ def bdgeom(s):
 
     if 'x' in s:
         s, s_ = s.split('x', 1)
-        return (int(s, b), int(s_, b))
+        return (int(s_, b), int(s, b))
     else:
         return int(s, b)
 
@@ -1394,7 +1394,7 @@ def main(path='-', *,
         # build a title
         if title:
             title_ = punescape(title, {
-                'geometry': '%sx%s' % (block_size_, block_count_),
+                'geometry': '%sx%s' % (block_count_, block_size_),
                 'block_size': block_size_,
                 'block_count': block_count_,
                 'total': total,
@@ -1419,7 +1419,7 @@ def main(path='-', *,
             })
         else:
             title_ = ('bd %dx%d%s%s%s%s' % (
-                    block_size_, block_count_,
+                    block_count_, block_size_,
                     ', %s read' % ('%.1f%%' % (100*readed / max(total, 1)))
                         if reads else '',
                     ', %s prog' % ('%.1f%%' % (100*progged / max(total, 1)))

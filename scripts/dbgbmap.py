@@ -352,8 +352,8 @@ class Tag:
 
 # some ways of block geometry representations
 # 512      -> 512
-# 512x16   -> (512, 16)
-# 0x200x10 -> (512, 16)
+# 16x512   -> (512, 16)
+# 0x10x200 -> (512, 16)
 def bdgeom(s):
     s = s.strip()
     b = 10
@@ -369,7 +369,7 @@ def bdgeom(s):
 
     if 'x' in s:
         s, s_ = s.split('x', 1)
-        return (int(s, b), int(s_, b))
+        return (int(s_, b), int(s, b))
     else:
         return int(s, b)
 
@@ -546,7 +546,7 @@ class Bd:
         return '<%s %s>' % (self.__class__.__name__, self.repr())
 
     def repr(self):
-        return 'bd %sx%s' % (self.block_size, self.block_count)
+        return 'bd %sx%s' % (self.block_count, self.block_size)
 
     def read(self, block, off, size):
         self.f.seek(block*self.block_size + off)
@@ -2636,7 +2636,7 @@ class Config:
             self.block_count = block_count + 1
 
         def repr(self):
-            return 'geometry %sx%s' % (self.block_size, self.block_count)
+            return 'geometry %sx%s' % (self.block_count, self.block_size)
 
     # file name limit
     class NameLimit(Config):
@@ -3038,8 +3038,8 @@ class Lfs3:
         return 'littlefs v%s.%s %sx%s %s w%s.%s' % (
                 self.version.major if self.version is not None else '?',
                 self.version.minor if self.version is not None else '?',
-                self.block_size if self.block_size is not None else '?',
                 self.block_count if self.block_count is not None else '?',
+                self.block_size if self.block_size is not None else '?',
                 self.addr(),
                 self.mbweightrepr(), self.mrweightrepr())
 
@@ -4949,8 +4949,8 @@ def main_(ring, disk, mroots=None, *,
                 'version_minor':
                     lfs.version.minor if lfs.version is not None else '?',
                 'geometry': '%sx%s' % (
-                    lfs.block_size if lfs.block_size is not None else '?',
-                    lfs.block_count if lfs.block_count is not None else '?'),
+                    lfs.block_count if lfs.block_count is not None else '?',
+                    lfs.block_size if lfs.block_size is not None else '?'),
                 'block_size':
                     lfs.block_size if lfs.block_size is not None else '?',
                 'block_count':
@@ -4983,8 +4983,8 @@ def main_(ring, disk, mroots=None, *,
                         '' if lfs.ckmagic() else '?',
                         lfs.version.major if lfs.version is not None else '?',
                         lfs.version.minor if lfs.version is not None else '?',
-                        lfs.block_size if lfs.block_size is not None else '?',
                         lfs.block_count if lfs.block_count is not None else '?',
+                        lfs.block_size if lfs.block_size is not None else '?',
                         lfs.addr(),
                         lfs.mbweightrepr(), lfs.mrweightrepr(),
                         lfs.rev,
@@ -4992,8 +4992,8 @@ def main_(ring, disk, mroots=None, *,
                         '' if lfs.ckgcksum() else '?'))
         else:
             title_ = ('bd %sx%s, %s mdir, %s btree, %s data' % (
-                    lfs.block_size if lfs.block_size is not None else '?',
                     lfs.block_count if lfs.block_count is not None else '?',
+                    lfs.block_size if lfs.block_size is not None else '?',
                     '%.1f%%' % (100*mdir_count / max(len(bmap), 1)),
                     '%.1f%%' % (100*btree_count / max(len(bmap), 1)),
                     '%.1f%%' % (100*data_count / max(len(bmap), 1))))
