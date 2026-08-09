@@ -861,6 +861,11 @@ class Canvas:
     def line(self, x1, y1, x2, y2, *,
             char=True,
             color=''):
+        # align to x/yscale if explicit char, this renders a bit nicer
+        xs = self.xscale if not isinstance(char, bool) else 1
+        ys = self.yscale if not isinstance(char, bool) else 1
+        x1, y1 = x1//xs, y1//ys
+        x2, y2 = x2//xs, y2//ys
         # incremental error line algorithm
         ex = abs(x2 - x1)
         ey = -abs(y2 - y1)
@@ -869,7 +874,7 @@ class Canvas:
         e = ex + ey
 
         while True:
-            self.point(x1, y1, char=char, color=color)
+            self.point(x1*xs, y1*ys, char=char, color=color)
             e2 = 2*e
 
             if x1 == x2 and y1 == y2:
@@ -886,7 +891,7 @@ class Canvas:
                 e += ex
                 y1 += dy
 
-        self.point(x2, y2, char=char, color=color)
+        self.point(x2*xs, y2*ys, char=char, color=color)
 
     def rect(self, x, y, w, h, *,
             char=True,
@@ -1875,7 +1880,7 @@ def main_(ring, csv_paths, *,
                 subwidth,
                 subheight,
                 color=color,
-                dots=dots or not line_chars,
+                dots=dots or True,
                 braille=braille,
                 xlim=xlim_,
                 ylim=ylim_,
