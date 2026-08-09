@@ -992,19 +992,23 @@ class Plot:
             if self.xlog:
                 x = int(self.width * (
                         (symlog(x)-symlog(self.xlim[0]))
-                            / (symlog(self.xlim[1])-symlog(self.xlim[0]))))
+                            / (mt.nextafter(symlog(self.xlim[1]), +mt.inf)
+                                - symlog(self.xlim[0]))))
             else:
                 x = int(self.width * (
                         (x-self.xlim[0])
-                            / (self.xlim[1]-self.xlim[0])))
+                            / (mt.nextafter(self.xlim[1], +mt.inf)
+                                - self.xlim[0])))
             if self.ylog:
                 y = int(self.height * (
                         (symlog(y)-symlog(self.ylim[0]))
-                            / (symlog(self.ylim[1])-symlog(self.ylim[0]))))
+                            / (mt.nextafter(symlog(self.ylim[1]), +mt.inf)
+                                - symlog(self.ylim[0]))))
             else:
                 y = int(self.height * (
                         (y-self.ylim[0])
-                            / (self.ylim[1]-self.ylim[0])))
+                            / (mt.nextafter(self.ylim[1], +mt.inf)
+                                - self.ylim[0])))
         except ZeroDivisionError:
             x = 0
             y = 0
