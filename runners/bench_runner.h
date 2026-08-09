@@ -103,8 +103,8 @@ typedef uint8_t bench_flags_t;
 typedef struct bench_define {
     const char *name;
     intmax_t *define;
-    intmax_t (*cb)(void *data, size_t i);
-    void *data;
+    intmax_t (*cb)(uintmax_t data, size_t i);
+    uintmax_t data;
     size_t permutations;
 } bench_define_t;
 

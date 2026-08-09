@@ -506,7 +506,7 @@ def compile(test_paths, **args):
                     for i, permutation in enumerate(case.permutations):
                         for k, vs in sorted(permutation.items()):
                             f.writeln('intmax_t __test__%s__%s__%d('
-                                    '__attribute__((unused)) void *data, '
+                                    '__attribute__((unused)) uintmax_t ctx, '
                                     'size_t i) {' % (
                                         case.name, k, i))
                             j = 0
@@ -604,7 +604,7 @@ def compile(test_paths, **args):
                         for i, permutation in enumerate(case.permutations):
                             for k, vs in sorted(permutation.items()):
                                 f.writeln('extern intmax_t __test__%s__%s__%d('
-                                        'void *data, size_t i);' % (
+                                        'uintmax_t ctx, size_t i);' % (
                                             case.name, k, i))
                         if suite.if_ or case.if_:
                             f.writeln('extern bool __test__%s__if('
@@ -646,7 +646,7 @@ def compile(test_paths, **args):
                 if suite.defines:
                     f.writeln(4*' '+'.defines = (const test_define_t[]){')
                     for k in sorted(suite.defines):
-                        f.writeln(8*' '+'{"%s", &%s, NULL, NULL, 0},' % (
+                        f.writeln(8*' '+'{"%s", &%s, NULL, 0, 0},' % (
                                 k, k))
                     f.writeln(4*' '+'},')
                     f.writeln(4*' '+'.define_count = %d,' % len(suite.defines))
@@ -690,7 +690,7 @@ def compile(test_paths, **args):
                                     f.writeln(20*' '+'[%d] = {'
                                             '"%s", &%s, '
                                             '__test__%s__%s__%d, '
-                                            'NULL, %d},' % (
+                                            '0, %d},' % (
                                                 sorted(suite.defines).index(k),
                                                 k, k, case.name, k, i,
                                                 sum(len(v)

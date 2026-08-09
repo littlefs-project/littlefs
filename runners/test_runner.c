@@ -138,7 +138,7 @@ typedef struct test_id {
 #undef TEST_DEFINE
 
 #define TEST_DEFINE(k, v) \
-        intmax_t test_define_##k(void *data, size_t i) { \
+        intmax_t test_define_##k(uintmax_t data, size_t i) { \
             (void)data; \
             (void)i; \
             return v; \
@@ -148,7 +148,7 @@ typedef struct test_id {
 
 const test_define_t test_implicit_defines[] = {
     #define TEST_DEFINE(k, v) \
-            {#k, &k, test_define_##k, NULL, 1},
+            {#k, &k, test_define_##k, 0, 1},
         #include TEST_STRINGIFY(TEST_DEFINES)
     #undef TEST_DEFINE
 };
@@ -156,13 +156,13 @@ const size_t test_implicit_define_count
         = sizeof(test_implicit_defines) / sizeof(test_define_t);
 
 // some helpers
-intmax_t test_define_lit(void *data, size_t i) {
+intmax_t test_define_lit(uintmax_t data, size_t i) {
     (void)i;
-    return (intptr_t)data;
+    return (intmax_t)data;
 }
 
-#define TEST_LIT(name, v) ((test_define_t){ \
-    name, NULL, test_define_lit, (void*)(uintptr_t)(v), 1})
+#define TEST_LIT(name, v) \
+    ((test_define_t){name, NULL, test_define_lit, v, 1})
 
 
 // define mapping
@@ -395,8 +395,8 @@ typedef struct test_override_data {
     size_t value_count;
 } test_override_data_t;
 
-intmax_t test_override_cb(void *data, size_t i) {
-    const test_override_data_t *data_ = data;
+intmax_t test_override_cb(uintmax_t data, size_t i) {
+    const test_override_data_t *data_ = (const test_override_data_t*)data;
     for (size_t j = 0; j < data_->value_count; j++) {
         const test_override_value_t *v = &data_->values[j];
         // range?
@@ -2710,7 +2710,8 @@ int main(int argc, char **argv) {
                 // define should be patched in test_define_suite
                 override->define = NULL;
                 override->cb = test_override_cb;
-                override->data = malloc(sizeof(test_override_data_t));
+                override->data = (uintmax_t)malloc(
+                        sizeof(test_override_data_t));
                 *(test_override_data_t*)override->data
                         = (test_override_data_t){
                     .values = override_values,

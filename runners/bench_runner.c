@@ -128,7 +128,7 @@ typedef struct bench_id {
 #undef BENCH_DEFINE
 
 #define BENCH_DEFINE(k, v) \
-        intmax_t bench_define_##k(void *data, size_t i) { \
+        intmax_t bench_define_##k(uintmax_t data, size_t i) { \
             (void)data; \
             (void)i; \
             return v; \
@@ -138,7 +138,7 @@ typedef struct bench_id {
 
 const bench_define_t bench_implicit_defines[] = {
     #define BENCH_DEFINE(k, v) \
-            {#k, &k, bench_define_##k, NULL, 1},
+            {#k, &k, bench_define_##k, 0, 1},
         #include BENCH_STRINGIFY(BENCH_DEFINES)
     #undef BENCH_DEFINE
 };
@@ -146,13 +146,13 @@ const size_t bench_implicit_define_count
         = sizeof(bench_implicit_defines) / sizeof(bench_define_t);
 
 // some helpers
-intmax_t bench_define_lit(void *data, size_t i) {
+intmax_t bench_define_lit(uintmax_t data, size_t i) {
     (void)i;
-    return (intptr_t)data;
+    return (intmax_t)data;
 }
 
-#define BENCH_LIT(name, v) ((bench_define_t){ \
-    name, NULL, bench_define_lit, (void*)(uintptr_t)(v), 1})
+#define BENCH_LIT(name, v) \
+    ((bench_define_t){name, NULL, bench_define_lit, v, 1})
 
 
 // define mapping
@@ -385,8 +385,8 @@ typedef struct bench_override_data {
     size_t value_count;
 } bench_override_data_t;
 
-intmax_t bench_override_cb(void *data, size_t i) {
-    const bench_override_data_t *data_ = data;
+intmax_t bench_override_cb(uintmax_t data, size_t i) {
+    const bench_override_data_t *data_ = (const bench_override_data_t*)data;
     for (size_t j = 0; j < data_->value_count; j++) {
         const bench_override_value_t *v = &data_->values[j];
         // range?
@@ -4577,7 +4577,8 @@ int main(int argc, char **argv) {
                 // define should be patched in bench_define_suite
                 override->define = NULL;
                 override->cb = bench_override_cb;
-                override->data = malloc(sizeof(bench_override_data_t));
+                override->data = (uintmax_t)malloc(
+                        sizeof(bench_override_data_t));
                 *(bench_override_data_t*)override->data
                         = (bench_override_data_t){
                     .values = override_values,
