@@ -5802,7 +5802,7 @@ code = '''
 [cases.test_gc_lookahead_relaxed]
 # relax our lookahead thresh
 defines.GC_LOOKAHEAD_THRESH = [
-    '-1',
+    'BLOCK_COUNT',
     '8*LOOKAHEAD_SIZE - (8*LOOKAHEAD_SIZE/4)',
     '8*LOOKAHEAD_SIZE - (8*LOOKAHEAD_SIZE/2)',
 ]
@@ -6288,7 +6288,7 @@ code = '''
 [cases.test_gc_preerase_relaxed]
 # relax our preerase count
 defines.GC_PREERASE_COUNT = [
-    '-1',
+    'BLOCK_COUNT',
     'BLOCK_COUNT/2',
     'BLOCK_COUNT/4',
     '1',

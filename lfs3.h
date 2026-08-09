@@ -712,12 +712,13 @@ struct lfs3_cfg {
     // overall allocator throughput, at the risk of needing to fallback
     // to the slower lookahead allocator when empty.
     //
-    // Suggested values are ~25% (bs/4). Values >= block_count-1 are
-    // highly discouraged (-1 will assert), as they can result in gbmap
-    // thrashing.
+    // Suggested values are ~25% (bs/4) on large disks, and to consider
+    // disabling (-1) on small disks. Values >= block_count-1 are highly
+    // discouraged as they tend to result in gbmap thrashing.
     //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
-    // repopulations at the risk of large latency spikes.
+    // repopulations at the risk of large latency spikes. Set to -1 to
+    // disable repopulating the gbmap during normal operations.
     #ifdef LFS3_GBMAP
     lfs3_block_t lookgbmap_thresh;
     #endif
@@ -744,7 +745,7 @@ struct lfs3_cfg {
     // operations, but may also introduce more latency.
     //
     // steps=1 or 0 will do the minimum amount of work to make progress,
-    // and steps=-1 will not return until all pending janitorial work
+    // while steps=-1 will not return until all pending janitorial work
     // has been completed. Defaults to steps=1 when zero.
     #ifdef LFS3_GC
     lfs3_sblock_t gc_steps;
@@ -757,13 +758,14 @@ struct lfs3_cfg {
     // Note this only affects explicit gc operations. During normal
     // operations the lookahead buffer is only repopulated when empty.
     //
-    // Suggested values are ~-1. Repopulating the lookahead buffer (not
-    // gbmap) is strictly read-only, though larger values may cost gc
-    // time/power for little progress.
+    // Suggested values are ~100% (bc). Repopulating the lookahead
+    // buffer (not gbmap) is strictly read-only, though larger values
+    // may cost gc time/power for little progress.
     //
-    // 0 only repopulates the lookahead buffer when empty, while -1 or
-    // any value >= 8*lookahead_size-1 repopulates the lookahead buffer
-    // after any block allocation.
+    // 0 only repopulates the lookahead buffer when empty, while any
+    // value >= 8*lookahead_size-1 repopulates the lookahead buffer
+    // after any block allocation. Set to -1 to disable repopulating the
+    // lookahead buffer during gc.
     #ifndef LFS3_RDONLY
     lfs3_block_t gc_lookahead_thresh;
     #endif
@@ -777,11 +779,11 @@ struct lfs3_cfg {
     // lookgbmap_thresh.
     //
     // Suggested values are ~63% (bc-3*(bc/8)). Values >= block_count-1
-    // are highly discouraged (-1 will assert), as they can result in
-    // gbmap thrashing.
+    // are highly discouraged as they tend to result in gbmap thrashing.
     //
     // 0 or any value <= lookgbmap_thresh repopulates the gbmap when
-    // below lookgbmap_thresh.
+    // below lookgbmap_thresh. Set to -1 to disable repopulating the
+    // gbmap during gc.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t gc_lookgbmap_thresh;
     #endif
@@ -791,9 +793,10 @@ struct lfs3_cfg {
     //
     // Requires the gbmap to track pre-erased blocks.
     //
-    // Suggested values are ~-1, unless erase is a noop or volatile.
+    // Suggested values are ~100% (bc), unless erase is a noop or
+    // volatile.
     //
-    // 0 disables pre-erasing, while -1 or any value >= block_count
+    // 0 or -1 disables pre-erasing, while any value >= block_count
     // attempts to pre-erase all known free blocks during gc. When
     // disabled, littlefs erases blocks immediately before the first
     // prog operation.
@@ -2045,9 +2048,9 @@ int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc);
 // progress if interleaved with other filesystem operations, but may
 // also introduce more latency.
 //
-// steps=1 or 0 will do the minimum amount of work to make progress, and
-// steps=-1 will not return until all pending janitorial work has been
-// completed.
+// steps=1 or 0 will do the minimum amount of work to make progress,
+// while steps=-1 will not return until all pending janitorial work has
+// been completed.
 //
 // Returns the number of steps progressed on success, 0 if no work is
 // available, or a negative error code on failure.

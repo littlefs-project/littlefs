@@ -930,7 +930,13 @@ defines.GC_FLAGS = '''
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
 '''
 defines.GC_STEPS = -1
-defines.GC_PREERASE_COUNT = ['0', '4', 'COUNT/2', 'COUNT-4', '-1']
+defines.GC_PREERASE_COUNT = [
+    '0',
+    '4',
+    'COUNT/2',
+    'COUNT-4',
+    'BLOCK_COUNT',
+]
 # note preerasing needs revperturb
 defines.CFG_FLAGS = '''
     ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)

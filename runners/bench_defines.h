@@ -52,9 +52,9 @@
                                                 0)                          )
     BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                          )
     BENCH_DEFINE(GC_STEPS,              0                                   )
-    BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   -1                                  )
+    BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   BLOCK_COUNT                         )
     BENCH_DEFINE(GC_LOOKGBMAP_THRESH,   BLOCK_COUNT - 3*(BLOCK_COUNT/8)     )
-    BENCH_DEFINE(GC_PREERASE_COUNT,     -1                                  )
+    BENCH_DEFINE(GC_PREERASE_COUNT,     BLOCK_COUNT                         )
     BENCH_DEFINE(GC_COMPACTMETA_THRESH, BLOCK_SIZE - BLOCK_SIZE/8           )
     BENCH_DEFINE(GC_COMPACTBTREE_THRESH,
                                         0                                   )

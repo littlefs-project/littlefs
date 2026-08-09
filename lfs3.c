@@ -12749,9 +12749,11 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     // do we need to repopulate the gbmap?
     #ifdef LFS3_GBMAP
     if ((lfs3->flags & LFS3_I_GBMAP)
-            && lfs3->gbmap.known < lfs3_min(
-                lfs3->cfg->lookgbmap_thresh,
-                lfs3->block_count)) {
+            // below lookgbmap_thresh?
+            && (lfs3_sblock_t)lfs3->gbmap.known
+                <= lfs3_smin(
+                    lfs3->cfg->lookgbmap_thresh,
+                    lfs3->block_count-1)) {
         // traverse and repopulate the gbmap
         int err = lfs3_alloc_lookgbmap(lfs3);
         if (err) {
@@ -12771,7 +12773,7 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
 #ifndef LFS3_RDONLY
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3) {
     // below gc_lookahead_thresh?
-    return lfs3_max(
+    return (lfs3_sblock_t)lfs3_max(
                 lfs3->lookahead.known,
                 // don't bother if we have more information in our
                 // gbmap, in theory the lookahead buffer is rarely used
@@ -12781,7 +12783,7 @@ static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3) {
                         ? lfs3->gbmap.known
                         : 0,
                     0))
-            <= lfs3_min(
+            <= lfs3_smin(
                 lfs3->cfg->gc_lookahead_thresh,
                 lfs3_min(
                     8*lfs3->cfg->lookahead_size-1,
@@ -12794,12 +12796,22 @@ static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3) {
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3) {
     // do we even have a gbmap?
     return (lfs3->flags & LFS3_I_GBMAP)
+            // not disabled, are we?
+            && lfs3->cfg->gc_lookgbmap_thresh != (lfs3_block_t)-1
             // below gc_lookgbmap_thresh?
-            && lfs3->gbmap.known
-                <= lfs3_min(
-                    lfs3_max(
-                        lfs3->cfg->gc_lookgbmap_thresh,
-                        lfs3->cfg->lookgbmap_thresh),
+            && (lfs3_sblock_t)lfs3->gbmap.known
+                <= lfs3_smin(
+                    // this logic gets a bit awkward
+                    // - gclgbt=-1, lgbt= * => disabled
+                    // - gclgbt= 0, lgbt=-1 => disabled
+                    // - gclgbt= 1, lgbt=-1 => 1
+                    (lfs3->cfg->gc_lookgbmap_thresh == (lfs3_block_t)-1)
+                            ? -1
+                        : (lfs3->cfg->gc_lookgbmap_thresh == 0)
+                            ? (lfs3_sblock_t)lfs3->cfg->lookgbmap_thresh
+                            : lfs3_smax(
+                                lfs3->cfg->gc_lookgbmap_thresh,
+                                lfs3->cfg->lookgbmap_thresh),
                     lfs3->block_count-1);
 }
 #endif
@@ -12810,8 +12822,8 @@ static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3) {
     // do we even have a gbmap?
     return (lfs3->flags & LFS3_I_GBMAP)
             // have we pre-erased enough blocks?
-            && lfs3->gbmap.preeraser.count
-                < (lfs3_block_t)lfs3->cfg->gc_preerase_count
+            && (lfs3_sblock_t)lfs3->gbmap.preeraser.count
+                < (lfs3_sblock_t)lfs3->cfg->gc_preerase_count
             // are there any more blocks in our known window?
             && lfs3->gbmap.preeraser.known
                 < lfs3->gbmap.known;
@@ -17465,15 +17477,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
-    #endif
-
-    // disallow -1 for lookgbmap_thresh and gc_lookgbmap_thresh, this
-    // almost always leads to gbmap thrashing
-    //
-    // we still allow an explicit block_count-1 if you really want to
-    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-    LFS3_ASSERT(cfg->lookgbmap_thresh != (lfs3_block_t)-1);
-    LFS3_ASSERT(cfg->gc_lookgbmap_thresh != (lfs3_block_t)-1);
     #endif
 
     // check that gc_compactmeta_thresh makes sense
