@@ -10745,7 +10745,7 @@ again:;
 }
 
 // needed in lfs3_mtree_traverse
-static void lfs3_alloc_setmtrvinuse(lfs3_t *lfs3,
+static void lfs3_alloc_setmtrvinuse_(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr);
 
 // high-level immutable traversal, handle extra features here,
@@ -11366,7 +11366,7 @@ static int lfs3_mtree_evictbptr(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 #endif
 
 // needed in lfs3_mtree_condemnevicted
-static void lfs3_alloc_setinuse(lfs3_t *lfs3, lfs3_block_t block);
+static void lfs3_alloc_setinuse_(lfs3_t *lfs3, lfs3_block_t block);
 static int lfs3_gbmap_set(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t block, lfs3_tag_t tag, const lfs3_ecksum_t *ecksum);
 
@@ -11385,7 +11385,7 @@ static int lfs3_mtree_condemnevicted(lfs3_t *lfs3, uint32_t flags) {
                     || (flags & LFS3_evict_DATA))) {
             // make sure there's no lingering bad blocks in our
             // lookahead buffer
-            lfs3_alloc_setinuse(lfs3,
+            lfs3_alloc_setinuse_(lfs3,
                     lfs3_evict_block(&lfs3->evictqueue.queue[i]));
 
             // mark bad in gbmap
@@ -11412,13 +11412,14 @@ static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
 static inline void lfs3_alloc_discard_(lfs3_t *lfs3);
 static inline void lfs3_alloc_discardunknown_(lfs3_t *lfs3);
-static void lfs3_alloc_adopt(lfs3_t *lfs3);
+static void lfs3_alloc_adopt_(lfs3_t *lfs3, lfs3_block_t known);
 static int lfs3_gbmap_discardunknown(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_block_t window, lfs3_block_t known);
 static int lfs3_gbmap_setmtrv(lfs3_t *lfs3, lfs3_btree_t *gbmap,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr,
         lfs3_tag_t tag_, const lfs3_ecksum_t *ecksum_);
-static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3, const lfs3_btree_t *gbmap);
+static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
+        const lfs3_btree_t *gbmap, lfs3_block_t known);
 
 // mid-level mutating traversal, handle extra features that require
 // mutation here
@@ -11441,7 +11442,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             // but only once! since last mutation, otherwise we risk
             // spinning indefinitely
             //
-            // don't ckpoint the gbmap because that could trigger an
+            // don't ckpoint the gbmap because that could trigger
             // immediate repopulation, which is not what we want
             if (!(lfs3->flags & LFS3_i_GCCKPOINTED)) {
                 lfs3_alloc_ckpoint_(lfs3);
@@ -11486,17 +11487,19 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                 }
                 #endif
 
-            // default to repopulating the lookahead buffer
+            // repopulate the lookahead buffer
             } else  {
-                // discard any leftover unknown state
+                // discard any in-use state (known and unknown)
                 //
-                // this is important for cleaning up after failed
-                // lookahead scans, otherwise we risk getting clogged up
-                // with not-really-in-use blocks
-                // TODO cleanup
-                //lfs3_alloc_discardunknown_(lfs3);
-                // TODO cleanup
-                //lfs3_alloc_discard_(lfs3); // TODO why?
+                // this is counterproductive, but important, otherwise
+                // we risk getting clogged up with not-really-in-use
+                // blocks
+                //
+                // consider repeatedly rewriting a file and calling gc
+                // after every write, the lookahead buffer would fill up
+                // with new blocks without noticing the old blocks are
+                // no longer in use
+                lfs3_alloc_discardunknown_(lfs3);
 
                 #ifdef LFS3_GBMAP
                 // use weight=0 to indicate we're repopulating the
@@ -11699,7 +11702,7 @@ again:;
 
         // mark in-use blocks in lookahead buffer?
         } else {
-            lfs3_alloc_setmtrvinuse(lfs3, tag, bptr_);
+            lfs3_alloc_setmtrvinuse_(lfs3, tag, bptr_);
         }
     }
     #endif
@@ -11752,7 +11755,8 @@ eot:;
         // was gbmap scan successful?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
             #ifdef LFS3_GBMAP
-            int err = lfs3_alloc_adoptgbmap(lfs3, &mgc->gbmap_);
+            int err = lfs3_alloc_adoptgbmap(lfs3, &mgc->gbmap_,
+                    lfs3->lookahead.ckpoint);
             if (err) {
                 return err;
             }
@@ -11760,7 +11764,7 @@ eot:;
 
         // was lookahead scan successful?
         } else {
-            lfs3_alloc_adopt(lfs3);
+            lfs3_alloc_adopt_(lfs3, lfs3->lookahead.ckpoint);
         }
     }
     #endif
@@ -12729,16 +12733,6 @@ static void lfs3_trv_ckpoint_(lfs3_t *lfs3, lfs3_trv_t *trv);
 static inline void lfs3_alloc_ckpoint_(lfs3_t *lfs3) {
     // set ckpoint = disk size
     lfs3->lookahead.ckpoint = lfs3->block_count;
-// TODO cleanup
-//    // set ckpoint = 2*disk size
-//    //
-//    // we use 2x here because it's easy for blocks in the lookahead
-//    // buffer to become outdated, we don't know when blocks are freed,
-//    // so we can't clear the in-use bit
-//    //
-//    // worst-case we traverse the disk twice trying to find a free
-//    // block, but only when we're at high risk of LFS3_ERR_NOSPC
-//    lfs3->lookahead.ckpoint = 2*lfs3->block_count;
 
     // clear LFS3_i_GCCKPOINTED since we'll in theory have mutated since
     // last gc ckpoint
@@ -12766,7 +12760,7 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3);
 // checkpoints
 #ifndef LFS3_RDONLY
 static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
-    // checkpoint the allocator
+    // checkpoint the lookahead buffer
     lfs3_alloc_ckpoint_(lfs3);
 
     // do we need to repopulate the gbmap?
@@ -12813,11 +12807,9 @@ static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3) {
                     8*lfs3->cfg->lookahead_size,
                     // limit to gc ckpoint to keep us from spinning
                     // forever
-                    lfs3_min(
-                        (lfs3->flags & LFS3_i_GCCKPOINTED)
-                            ? lfs3->lookahead.ckpoint
-                            : (lfs3_block_t)-1,
-                        lfs3->block_count)));
+                    (lfs3->flags & LFS3_i_GCCKPOINTED)
+                        ? lfs3->lookahead.ckpoint
+                        : lfs3->block_count));
 }
 #endif
 
@@ -12845,11 +12837,9 @@ static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3) {
                         + 1,
                     // limit to gc ckpoint to keep us from spinning
                     // forever
-                    lfs3_min(
-                        (lfs3->flags & LFS3_i_GCCKPOINTED)
-                            ? lfs3->lookahead.ckpoint
-                            : (lfs3_block_t)-1,
-                        lfs3->block_count));
+                    (lfs3->flags & LFS3_i_GCCKPOINTED)
+                        ? lfs3->lookahead.ckpoint
+                        : lfs3->block_count);
 }
 #endif
 
@@ -12892,21 +12882,27 @@ static inline void lfs3_alloc_discard_(lfs3_t *lfs3) {
 }
 #endif
 
-// discard unknown lookahead state, this is mostly for recovering
-// from clobbered lookahead
+// discard unknown lookahead state, this prepares for a new lookahead
+// scan and removes any lingering blocks from old/failed scans
 #ifndef LFS3_RDONLY
 static inline void lfs3_alloc_discardunknown_(lfs3_t *lfs3) {
-    for (lfs3_block_t i = 0;
-            i < 8*lfs3->cfg->lookahead_size - lfs3->lookahead.known;
-            i++) {
-        // note this shouldn't double-overflow because known + i is
-        // always <= 8*lookahead_size <= block_count
+    // how many blocks are known-free? we can at least keep these around
+    //
+    // we _don't_ want to keep known-free blocks around as they may be
+    // outdated and can easily clog up the allocator
+    lfs3_block_t known = 0;
+    for (lfs3_block_t i = 0; i < lfs3->lookahead.known; i++) {
         lfs3_block_t block_
-                = (lfs3->lookahead.off + lfs3->lookahead.known + i)
+                = (lfs3->lookahead.off + i)
                 % (8*lfs3->cfg->lookahead_size);
-        // mark as unknown
-        lfs3->lookahead.buffer[block_ / 8] &= ~(1 << (block_ % 8));
+        if (lfs3->lookahead.buffer[block_ / 8] & (1 << (block_ % 8))) {
+            break;
+        }
+        known += 1;
     }
+
+    lfs3->lookahead.known = known;
+    lfs3_memset(lfs3->lookahead.buffer, 0, lfs3->cfg->lookahead_size);
 }
 #endif
 
@@ -12927,7 +12923,7 @@ static inline void lfs3_alloc_discard(lfs3_t *lfs3) {
 
 // mark a block as in-use
 #ifndef LFS3_RDONLY
-static void lfs3_alloc_setinuse(lfs3_t *lfs3, lfs3_block_t block) {
+static void lfs3_alloc_setinuse_(lfs3_t *lfs3, lfs3_block_t block) {
     // must be in-bounds
     LFS3_ASSERT(block < lfs3->block_count
             || LFS3_IFDEF_SHRINK(lfs3->flags & LFS3_i_SHRINKING, false));
@@ -12955,26 +12951,26 @@ static void lfs3_alloc_setinuse(lfs3_t *lfs3, lfs3_block_t block) {
 
 // mark some filesystem object as in-use
 #ifndef LFS3_RDONLY
-static void lfs3_alloc_setmtrvinuse(lfs3_t *lfs3,
+static void lfs3_alloc_setmtrvinuse_(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr) {
     if (tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
-        lfs3_alloc_setinuse(lfs3, mdir->r.blocks[0]);
-        lfs3_alloc_setinuse(lfs3, mdir->r.blocks[1]);
+        lfs3_alloc_setinuse_(lfs3, mdir->r.blocks[0]);
+        lfs3_alloc_setinuse_(lfs3, mdir->r.blocks[1]);
 
     } else if (tag == LFS3_TAG_BRANCH) {
         lfs3_rbyd_t *rbyd = (lfs3_rbyd_t*)bptr->d.u.buffer;
-        lfs3_alloc_setinuse(lfs3, rbyd->blocks[0]);
+        lfs3_alloc_setinuse_(lfs3, rbyd->blocks[0]);
 
     } else if (tag == LFS3_TAG_BLOCK) {
-        lfs3_alloc_setinuse(lfs3, lfs3_bptr_block(bptr));
+        lfs3_alloc_setinuse_(lfs3, lfs3_bptr_block(bptr));
 
     } else if (LFS3_IFDEF_GBMAP(
             tag == LFS3_TAG_BMBAD,
             false)) {
         #ifdef LFS3_GBMAP
         for (lfs3_block_t i = 0; i < bptr->d.weight; i++) {
-            lfs3_alloc_setinuse(lfs3, lfs3_bptr_block(bptr) + i);
+            lfs3_alloc_setinuse_(lfs3, lfs3_bptr_block(bptr) + i);
         }
         #endif
 
@@ -12984,7 +12980,7 @@ static void lfs3_alloc_setmtrvinuse(lfs3_t *lfs3,
 }
 #endif
 
-// needed in lfs3_alloc_adopt
+// needed in lfs3_alloc_adopt_
 #ifndef LFS3_RDONLY
 static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
         lfs3_ecksum_t *ecksum_);
@@ -12992,13 +12988,11 @@ static lfs3_sblock_t lfs3_alloc_findfree(lfs3_t *lfs3,
 
 // mark any not-in-use blocks as free
 #ifndef LFS3_RDONLY
-static void lfs3_alloc_adopt(lfs3_t *lfs3) {
+static void lfs3_alloc_adopt_(lfs3_t *lfs3, lfs3_block_t known) {
     // make lookahead buffer usable
     lfs3->lookahead.known = lfs3_min(
             8*lfs3->cfg->lookahead_size,
-            lfs3_min(
-                lfs3->lookahead.ckpoint,
-                lfs3->block_count));
+            known);
 
     // eagerly find the next free block so lookahead scans can make
     // the most progress
@@ -13011,9 +13005,10 @@ static void lfs3_alloc_adopt(lfs3_t *lfs3) {
 #endif
 
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3, const lfs3_btree_t *gbmap) {
+static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
+        const lfs3_btree_t *gbmap, lfs3_block_t known) {
     // adopt new gbmap
-    lfs3->gbmap.known = lfs3_min(lfs3->lookahead.ckpoint, lfs3->block_count);
+    lfs3->gbmap.known = known;
     lfs3->gbmap.b = *gbmap;
     // reset preeraser, don't worry this should rediscover any
     // erased ranges in the gbmap
@@ -13036,10 +13031,6 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3, const lfs3_btree_t *gbmap) {
 // increment lookahead buffer
 #ifndef LFS3_RDONLY
 static void lfs3_alloc_inc(lfs3_t *lfs3) {
-    // clear lookahead as we increment
-    lfs3->lookahead.buffer[lfs3->lookahead.off / 8]
-            &= ~(1 << (lfs3->lookahead.off % 8));
-
     // increment window/off
     lfs3->lookahead.window = (lfs3->lookahead.window + 1) % lfs3->block_count;
     lfs3->lookahead.off = (lfs3->lookahead.off + 1)
@@ -13198,16 +13189,9 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
 
         // no known blocks? fallback to scanning the filesystem
 
-        // discard any leftover state in the unknown window
-        //
-        // this is important for cleaning up after failed lookahead
-        // scans, otherwise we risk getting clogged up with
-        // not-really-in-use blocks
-        // TODO cleanup
-        //lfs3_alloc_discardunknown_(lfs3);
-        // TODO we should at least discard fully here, no reason not to
-        // right?
-        lfs3_alloc_discard_(lfs3);
+        // discard any leftover state in the unknown window, this takes
+        // care of both outdated and failed lookahead
+        lfs3_alloc_discardunknown_(lfs3);
 
         // traverse the filesystem, building up knowledge of what blocks are
         // in-use in the next lookahead window
@@ -13225,11 +13209,11 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
             }
 
             // track in-use blocks
-            lfs3_alloc_setmtrvinuse(lfs3, tag, &bptr);
+            lfs3_alloc_setmtrvinuse_(lfs3, tag, &bptr);
         }
 
         // mark anything not seen as free
-        lfs3_alloc_adopt(lfs3);
+        lfs3_alloc_adopt_(lfs3, lfs3->lookahead.ckpoint);
     }
 }
 #endif
@@ -13427,7 +13411,7 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
     // this avoids extra writing at a risk of needing to repopulate the
     // gbmap if we lose power
     //
-    return lfs3_alloc_adoptgbmap(lfs3, &gbmap_);
+    return lfs3_alloc_adoptgbmap(lfs3, &gbmap_, lfs3->lookahead.ckpoint);
 }
 #endif
 
@@ -19507,7 +19491,7 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         // make sure there's no lingering bad blocks in our
         // lookahead buffer
         if (flags & LFS3_EVICT_BAD) {
-            lfs3_alloc_setinuse(lfs3, block);
+            lfs3_alloc_setinuse_(lfs3, block);
         }
 
         // mark good/bad in gbmap
