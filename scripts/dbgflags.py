@@ -194,6 +194,7 @@ I_CONDEMNED     = 0x40000000  # --  Found condemned blocks
 I_EVICTOVERFLOW = 0x80000000  # --  Evict queue overflowed
 
 i_SHRINKING     = 0x04000000  # i-  Filesystem is being shrunk
+i_GCCKPOINTED   = 0x02000000  # i-  Gc has ckpointed allocators
 
 # Traversal flags
 T_MTREEONLY     = 0x00000004  # --  Only traverse the mtree
@@ -216,7 +217,7 @@ t_MDIR          = 0x00000010  # i^  Btype = mdir
 t_BTREE         = 0x00000020  # i^  Btype = btree
 t_DATA          = 0x00000030  # i^  Btype = data
 t_BAD           = 0x00000070  # i^  Btype = bad
-t_CKPOINTED     = 0x08000000  # i-  Filesystem ckpointed during traversal
+t_MUTATED       = 0x08000000  # i-  Filesystem ckpointed during traversal
 t_DIRTY         = 0x04000000  # i-  Filesystem ckpointed outside traversal
 t_STALE         = 0x02000000  # i-  Block queue probably out-of-date
 t_DAMAGED       = 0x01000000  # i-  Filesystem damaged during traversal

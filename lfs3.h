@@ -453,6 +453,8 @@ enum lfs3_type {
 #define LFS3_i_SHRINKING \
                         0x04000000  // Filesystem is being shrunk
 #endif
+#define LFS3_i_GCCKPOINTED \
+                        0x02000000  // Gc has ckpointed allocators
 
 // Block types
 enum lfs3_btype {
@@ -480,8 +482,7 @@ enum lfs3_btype {
 // internally used flags, don't use these
 #define LFS3_t_TYPE     0xf0000000  // The traversal's type
 #define LFS3_t_BTYPE    0x000000f0  // The current block type
-#define LFS3_t_CKPOINTED \
-                        0x08000000  // Filesystem ckpointed during traversal
+#define LFS3_t_MUTATED  0x08000000  // Filesystem ckpointed during traversal
 #define LFS3_t_DIRTY    0x04000000  // Filesystem ckpointed outside traversal
 #define LFS3_t_STALE    0x02000000  // Block queue probably out-of-date
 #define LFS3_t_DAMAGED  0x01000000  // Filesystem damaged during traversal

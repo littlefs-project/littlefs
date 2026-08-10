@@ -4001,7 +4001,6 @@ code = '''
 
     // force a lookgbmap scan, _after_ we truncate
     lfs3.gbmap.known = 0;
-    lfs3.flags |= LFS3_I_LOOKAHEAD;
 
     // rewrite our file to force a lookgbmap scan and hopefully compact
     // the gbmap
@@ -4255,7 +4254,6 @@ code = '''
 
     // force a lookgbmap scan, _after_ we truncate
     lfs3.gbmap.known = 0;
-    lfs3.flags |= LFS3_I_LOOKAHEAD;
 
     // rewrite our file to force a lookgbmap scan and hopefully compact
     // the gbmap
