@@ -12767,10 +12767,10 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
     #ifdef LFS3_GBMAP
     if ((lfs3->flags & LFS3_I_GBMAP)
             // below lookgbmap_thresh?
-            && (lfs3_sblock_t)lfs3->gbmap.known
-                <= lfs3_smin(
-                    lfs3->cfg->lookgbmap_thresh,
-                    lfs3->block_count-1)) {
+            && lfs3->gbmap.known
+                < lfs3_min(
+                    lfs3->cfg->lookgbmap_thresh+1,
+                    lfs3->block_count)) {
         // traverse and repopulate the gbmap
         int err = lfs3_alloc_lookgbmap(lfs3);
         if (err) {
@@ -12790,25 +12790,26 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
 #ifndef LFS3_RDONLY
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3) {
     // below gc_lookahead_thresh?
-    return (lfs3_sblock_t)lfs3_max(
-                    lfs3->lookahead.known,
-                    // don't bother if we have more information in our
-                    // gbmap, in theory the lookahead buffer is rarely used
-                    // if a gbmap is present
-                    LFS3_IFDEF_GBMAP(
-                        (lfs3->flags & LFS3_I_GBMAP)
-                            ? lfs3->gbmap.known
-                            : 0,
-                        0))
-                <= lfs3_smin(
-                    lfs3->cfg->gc_lookahead_thresh,
-                    lfs3_min(
-                        8*lfs3->cfg->lookahead_size-1,
-                        lfs3->block_count-1))
-            // not exhausted are we? we don't want to spin forever
-            // TODO known here? is this right?
-            && (lfs3->lookahead.ckpoint > lfs3->lookahead.known
-                || !(lfs3->flags & LFS3_i_GCCKPOINTED));
+    return lfs3_max(
+                lfs3->lookahead.known,
+                // don't bother if we have more information in our
+                // gbmap, in theory the lookahead buffer is rarely
+                // used if a gbmap is present
+                LFS3_IFDEF_GBMAP(
+                    (lfs3->flags & LFS3_I_GBMAP)
+                        ? lfs3->gbmap.known
+                        : 0,
+                    0))
+            < lfs3_min(
+                lfs3->cfg->gc_lookahead_thresh+1,
+                // limit to lookahead buffer size
+                lfs3_min(
+                    8*lfs3->cfg->lookahead_size,
+                    // limit to gc ckpoint to keep us from spinning
+                    // forever
+                    (lfs3->flags & LFS3_i_GCCKPOINTED)
+                        ? lfs3->lookahead.ckpoint
+                        : lfs3->block_count));
 }
 #endif
 
@@ -12820,24 +12821,25 @@ static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3) {
             // not disabled, are we?
             && lfs3->cfg->gc_lookgbmap_thresh != (lfs3_block_t)-1
             // below gc_lookgbmap_thresh?
-            && (lfs3_sblock_t)lfs3->gbmap.known
-                <= lfs3_smin(
+            && lfs3->gbmap.known
+                < lfs3_min(
                     // this logic gets a bit awkward
                     // - gclgbt=-1, lgbt= * => disabled
                     // - gclgbt= 0, lgbt=-1 => disabled
                     // - gclgbt= 1, lgbt=-1 => 1
-                    (lfs3->cfg->gc_lookgbmap_thresh == (lfs3_block_t)-1)
-                            ? -1
-                        : (lfs3->cfg->gc_lookgbmap_thresh == 0)
-                            ? (lfs3_sblock_t)lfs3->cfg->lookgbmap_thresh
-                            : lfs3_smax(
-                                lfs3->cfg->gc_lookgbmap_thresh,
-                                lfs3->cfg->lookgbmap_thresh),
-                    lfs3->block_count-1)
-            // not exhausted are we? we don't want to spin forever
-            // TODO known here? is this right?
-            && (lfs3->lookahead.ckpoint > lfs3->gbmap.known
-                || !(lfs3->flags & LFS3_i_GCCKPOINTED));
+                    ((lfs3->cfg->gc_lookgbmap_thresh == (lfs3_block_t)-1)
+                                ? -1
+                            : (lfs3->cfg->gc_lookgbmap_thresh == 0)
+                                ? (lfs3_sblock_t)lfs3->cfg->lookgbmap_thresh
+                                : lfs3_smax(
+                                    lfs3->cfg->gc_lookgbmap_thresh,
+                                    lfs3->cfg->lookgbmap_thresh))
+                        + 1,
+                    // limit to gc ckpoint to keep us from spinning
+                    // forever
+                    (lfs3->flags & LFS3_i_GCCKPOINTED)
+                        ? lfs3->lookahead.ckpoint
+                        : lfs3->block_count);
 }
 #endif
 
