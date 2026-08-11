@@ -449,6 +449,8 @@ enum lfs3_type {
 #endif
 
 // internally used flags, don't use these
+#define LFS3_i_MAYBEORPHANS \
+                        0x00010000  // Filesystem may have orphaned stickynotes
 #define LFS3_i_GCCKPOINTED \
                         0x00020000  // Gc has ckpointed allocators
 #if !defined(LFS3_RDONLY) && defined(LFS3_SHRINK)

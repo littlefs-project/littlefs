@@ -11609,7 +11609,7 @@ again:;
     #ifndef LFS3_RDONLY
     if (tag == LFS3_TAG_MDIR
             && (mgc->t.h.flags & LFS3_gc_MKCONSISTENTING)
-            && (lfs3->flags & LFS3_GC_MKCONSISTENT)) {
+            && (lfs3->flags & LFS3_i_MAYBEORPHANS)) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         // grm queue should be flushed before calling lfs3_mtree_gc
         LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
@@ -11735,7 +11735,7 @@ eot:;
     #ifndef LFS3_RDONLY
     if ((mgc->t.h.flags & LFS3_gc_MKCONSISTENTING)
             && !(mgc->t.h.flags & LFS3_t_DIRTY)) {
-        lfs3->flags &= ~LFS3_I_MKCONSISTENT;
+        lfs3->flags &= ~LFS3_i_MAYBEORPHANS;
     }
     #endif
 
@@ -11834,7 +11834,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                 0)))
                     // mask with pending flags
                     & ((lfs3->flags
-                            & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
+                            & (LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
                                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                                 | LFS3_GC_CKMETA
                                 | LFS3_GC_CKDATA
@@ -12244,7 +12244,7 @@ static int lfs3_mtree_mknoorphans(lfs3_t *lfs3) {
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
     // already proven no orphans?
-    if (!(lfs3->flags & LFS3_GC_MKCONSISTENT)) {
+    if (!(lfs3->flags & LFS3_i_MAYBEORPHANS)) {
         return 0;
     }
 
@@ -15091,7 +15091,7 @@ static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
                         2);
             }
 
-            lfs3->flags |= LFS3_I_MKCONSISTENT | LFS3_I_GRMOVERFLOW;
+            lfs3->flags |= LFS3_i_MAYBEORPHANS | LFS3_I_GRMOVERFLOW;
         }
     }
     #endif
@@ -17549,7 +17549,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     // setup flags
     lfs3->flags = flags
             // assume we contain orphans until proven otherwise
-            | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+            | LFS3_IFDEF_RDONLY(0, LFS3_i_MAYBEORPHANS)
             // default to assuming we need compaction somewhere, worst
             // case this just makes lfs3_fs_gc read more than is
             // strictly needed
@@ -18778,9 +18778,9 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, 0)
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(LFS3_I_EVICTOVERFLOW, 0))))
-            // LFS3_I_MKCONSISTENT is a bit of a special case,
-            // internally it strictly indicates untracked orphans, but
-            // externally it also includes any pending grms
+            // internally LFS3_I_MKCONSISTENT shares a bit with
+            // LFS3_i_MAYBEORPHANS and is only used to track untracked
+            // orphans, but externally it also includes any pending grms
             | LFS3_IFDEF_RDONLY(0,
                 (lfs3_grm_count(&lfs3->grm) > 0)
                     ? LFS3_I_MKCONSISTENT

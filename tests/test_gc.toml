@@ -4512,7 +4512,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_i_MAYBEORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -4655,7 +4655,7 @@ code = '''
     }
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
-        assert(lfs3.flags & LFS3_I_MKCONSISTENT);
+        assert(lfs3.flags & LFS3_i_MAYBEORPHANS);
     }
 
     // if we introduced actual orphans, we _must_ be marked as inconsistent
@@ -4808,7 +4808,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_i_MAYBEORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -4953,7 +4953,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_i_MAYBEORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -5099,7 +5099,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_i_MAYBEORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -5245,7 +5245,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_i_MAYBEORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -5414,7 +5414,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKCONSISTENT));
+    assert(!(lfs3.flags & LFS3_i_MAYBEORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -5585,7 +5585,7 @@ code = '''
     }
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
-        assert(lfs3.flags & LFS3_I_MKCONSISTENT);
+        assert(lfs3.flags & LFS3_i_MAYBEORPHANS);
     }
 
     //// mdirs should have been compacted

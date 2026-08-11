@@ -193,6 +193,7 @@ I_DAMAGEDREAD   = 0x20000000  # --  Found damage during read
 I_CONDEMNED     = 0x40000000  # --  Found condemned blocks
 I_EVICTOVERFLOW = 0x80000000  # --  Evict queue overflowed
 
+i_MAYBEORPHANS  = 0x00010000  # i-  Filesystem may have orphaned stickynotes
 i_GCCKPOINTED   = 0x00020000  # i-  Gc has ckpointed allocators
 i_SHRINKING     = 0x04000000  # i-  Filesystem is being shrunk
 
