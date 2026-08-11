@@ -449,12 +449,12 @@ enum lfs3_type {
 #endif
 
 // internally used flags, don't use these
+#define LFS3_i_GCCKPOINTED \
+                        0x00020000  // Gc has ckpointed allocators
 #if !defined(LFS3_RDONLY) && defined(LFS3_SHRINK)
 #define LFS3_i_SHRINKING \
                         0x04000000  // Filesystem is being shrunk
 #endif
-#define LFS3_i_GCCKPOINTED \
-                        0x02000000  // Gc has ckpointed allocators
 
 // Block types
 enum lfs3_btype {

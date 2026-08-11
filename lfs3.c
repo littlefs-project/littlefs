@@ -11793,7 +11793,16 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     lfs3_block_t i = 0;
     for (; steps < 0 || i < lfs3_max(steps, 1); i = lfs3_ssadd(i, 1)) {
         // do we have any pending traversal work?
-        uint32_t t = ((mgc->t.h.flags
+        uint32_t t = (((mgc->t.h.flags
+                            & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
+                                | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+                                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
+                                | LFS3_GC_CKMETA
+                                | LFS3_GC_CKDATA
+                                | LFS3_IFDEF_RDONLY(0,
+                                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
+                                | LFS3_IFDEF_RDONLY(0,
+                                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
                         // mkconsistent implies repairmeta/repairdata if
                         // repairmetadamage/repairdatadamage is set
                         | LFS3_IFDEF_RDONLY(0,
@@ -11824,23 +11833,22 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                     : 0,
                                 0)))
                     // mask with pending flags
-                    & (lfs3->flags
+                    & ((lfs3->flags
+                            & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
+                                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
+                                | LFS3_GC_CKMETA
+                                | LFS3_GC_CKDATA
+                                | LFS3_IFDEF_RDONLY(0,
+                                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
+                                | LFS3_IFDEF_RDONLY(0,
+                                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
                         // including lazily evaluated flags
                         | ((lfs3_alloc_canlookahead(lfs3)
                                 || LFS3_IFDEF_GBMAP(
                                     lfs3_alloc_canlookgbmap(lfs3),
                                     false))
                             ? LFS3_I_LOOKAHEAD
-                            : 0))
-                    & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                        | LFS3_GC_CKMETA
-                        | LFS3_GC_CKDATA
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
+                            : 0)))
                 // this weird shift is to let us temporarily mask out
                 // any flags that change
                 >> 8;
