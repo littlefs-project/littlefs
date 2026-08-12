@@ -17548,8 +17548,6 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     lfs3->cfg = cfg;
     // setup flags
     lfs3->flags = flags
-            // assume we contain orphans until proven otherwise
-            | LFS3_IFDEF_RDONLY(0, LFS3_i_MAYBEORPHANS)
             // default to assuming we need compaction somewhere, worst
             // case this just makes lfs3_fs_gc read more than is
             // strictly needed
@@ -18255,6 +18253,27 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
             int err = lfs3_fs_consumegdelta(lfs3, mdir);
             if (err) {
                 return err;
+            }
+
+            // check for any orphaned stickynotes
+            if (!(lfs3->flags & LFS3_I_RDONLY)
+                    && !(lfs3->flags & LFS3_i_MAYBEORPHANS)) {
+                for (lfs3_srid_t rid = 0;
+                        rid < (lfs3_srid_t)mdir->r.weight;
+                        rid++) {
+                    lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, &mdir->r,
+                            rid, LFS3_TAG_STICKYNOTE,
+                            NULL);
+                    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+                        return tag;
+                    }
+
+                    // found an orphaned stickynote?
+                    if (tag != LFS3_ERR_NOENT) {
+                        lfs3->flags |= LFS3_i_MAYBEORPHANS;
+                        break;
+                    }
+                }
             }
 
         // found an mtree inner-node?
