@@ -2190,7 +2190,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -2242,7 +2242,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -10337,8 +10337,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -10457,8 +10456,7 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!LOOKAHEAD
+            ((!LOOKAHEAD
                         && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
@@ -10536,8 +10534,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -10602,8 +10599,7 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -10619,8 +10615,7 @@ code = '''
     // check that flags were reset
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -10687,8 +10682,7 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -10764,8 +10758,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -10780,8 +10773,7 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_MKCONSISTENT
-                | ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
                     ? LFS3_I_LOOKAHEAD
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)

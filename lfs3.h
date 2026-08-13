@@ -1057,23 +1057,27 @@ struct lfs3_file_cfg {
 // On-disk metadata tags
 enum lfs3_tag {
     // null tag reserved for null tag things
-    LFS3_TAG_NULL           = 0x0000,   /// v--- ---- ++++ ++++
+    LFS3_TAG_NULL           = 0x0000,   /// v--- ---- +--- ----
     // internal tag reserved for in-device use
-    LFS3_TAG_INTERNAL       = 0x0100,   /// v--- ---1 +ttt tttt
+    LFS3_TAG_INTERNAL       = 0x0000,   /// v--- ---- +ttt tttt
 
     // config tags
-    LFS3_TAG_CONFIG         = 0x0200,   /// v--- --1- +ttt tttt
-    LFS3_TAG_MAGIC          = 0x0201,   //  v--- --1- +--- --rr
-    LFS3_TAG_VERSION        = 0x0204,   //  v--- --1- +--- -1++
-    LFS3_TAG_COMPAT         = 0x0208,   //  v--- --1- +--- 1-++
-    LFS3_TAG_GEOMETRY       = 0x020c,   //  v--- --1- +--- 11++
-    LFS3_TAG_NAMELIMIT      = 0x0210,   //  v--- --1- +--1 --++
-    LFS3_TAG_FILELIMIT      = 0x0214,   //  v--- --1- +--1 -1++
+    LFS3_TAG_CONFIG         = 0x0100,   /// v--- ---1 +ttt tttt
+    LFS3_TAG_MAGIC          = 0x0101,   //  v--- ---1 +--- --rr
+    LFS3_TAG_VERSION        = 0x0104,   //  v--- ---1 +--- -1++
+    LFS3_TAG_COMPAT         = 0x0108,   //  v--- ---1 +--- 1-++
+    LFS3_TAG_GEOMETRY       = 0x010c,   //  v--- ---1 +--- 11++
+    LFS3_TAG_NAMELIMIT      = 0x0110,   //  v--- ---1 +--1 --++
+    LFS3_TAG_FILELIMIT      = 0x0114,   //  v--- ---1 +--1 -1++
 
     // global-state tags
-    LFS3_TAG_GDELTA         = 0x0300,   /// v--- --11 +ttt tttt
-    LFS3_TAG_GRMDELTA       = 0x0300,   //  v--- --11 +--- --++
-    LFS3_TAG_GBMAPDELTA     = 0x0304,   //  v--- --11 +--- -1rr
+    LFS3_TAG_GDELTA         = 0x0200,   /// v--- --1- +ttt tttt
+    LFS3_TAG_GRMDELTA       = 0x0200,   //  v--- --1- +--- --++
+    LFS3_TAG_GBMAPDELTA     = 0x0204,   //  v--- --1- +--- -1rr
+
+    // mdir state tags
+    LFS3_TAG_MSTATE         = 0x0300,   //  v--- --11 +ttt tttt
+    LFS3_TAG_STICKYCOUNT    = 0x0300,   //  v--- --11 +--- --++
 
     // name tags
     LFS3_TAG_NAME           = 0x0400,   /// v--- -1-- +ttt tttt
@@ -1132,13 +1136,15 @@ enum lfs3_tag {
     LFS3_TAG_GCKSUMDELTA    = 0x3300,   /// v-11 --11 ++++ ++++
 
     // in-device only tags, these should never get written to disk
-    LFS3_tag_NOOP           = 0x0100,
-    LFS3_tag_RATTRS         = 0x0101,
-    LFS3_tag_SHRUBCOMMIT    = 0x0102,
-    LFS3_tag_GRMPUSH        = 0x0103,
-    LFS3_tag_GRMPOP         = 0x0104,
-    LFS3_tag_MOVE           = 0x0105,
-    LFS3_tag_ATTRS          = 0x0106,
+    LFS3_tag_NOOP           = 0x0001,
+    LFS3_tag_RATTRS         = 0x0002,
+    LFS3_tag_SHRUBCOMMIT    = 0x0003,
+    LFS3_tag_GRMPUSH        = 0x0004,
+    LFS3_tag_GRMPOP         = 0x0005,
+    LFS3_tag_STICKYINC      = 0x0006,
+    LFS3_tag_STICKYDEC      = 0x0007,
+    LFS3_tag_MOVE           = 0x0008,
+    LFS3_tag_ATTRS          = 0x0009,
 
     // some in-device only tag modifiers
     LFS3_tag_RM             = 0x8000,

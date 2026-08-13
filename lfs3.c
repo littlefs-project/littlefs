@@ -1602,6 +1602,11 @@ static inline bool lfs3_tag_perturb(lfs3_tag_t tag) {
     return tag & LFS3_TAG_PERTURB;
 }
 
+static inline bool lfs3_tag_isinternal(lfs3_tag_t tag) {
+    return lfs3_tag_suptype(tag) == LFS3_TAG_INTERNAL
+            && tag != LFS3_TAG_NULL;
+}
+
 static inline bool lfs3_tag_isrm(lfs3_tag_t tag) {
     return tag & LFS3_tag_RM;
 }
@@ -2543,7 +2548,7 @@ static inline lfs3_tag_t lfs3_rattr_tag_(lfs3_rattr_t rattr) {
 
 #ifndef LFS3_RDONLY
 static inline bool lfs3_rattr_isinternal_(lfs3_rattr_t rattr) {
-    return lfs3_tag_suptype(lfs3_rattr_tag_(rattr)) == LFS3_TAG_INTERNAL;
+    return lfs3_tag_isinternal(lfs3_rattr_tag_(rattr));
 }
 #endif
 
@@ -4057,7 +4062,7 @@ static int lfs3_rbyd_appendrev(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 static int lfs3_rbyd_appendtag(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag, lfs3_rid_t weight, lfs3_size_t size) {
     // tag must not be internal at this point
-    LFS3_ASSERT(lfs3_tag_suptype(tag) != LFS3_TAG_INTERNAL);
+    LFS3_ASSERT(!lfs3_tag_isinternal(tag));
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(tag & 0x80));
 
@@ -4112,7 +4117,7 @@ static int lfs3_rbyd_appendrattr_(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
         lfs3_tag_t tag, lfs3_srid_t weight, lfs3_from_t from,
         const lfs3_rattr_t *args) {
     // tag must not be internal at this point
-    LFS3_ASSERT(lfs3_tag_suptype(tag) != LFS3_TAG_INTERNAL);
+    LFS3_ASSERT(!lfs3_tag_isinternal(tag));
     // bit 7 is reserved for future subtype extensions
     LFS3_ASSERT(!(tag & 0x80));
 
@@ -8902,15 +8907,51 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                             : 0)
                         + shestimate_;
 
-            // push a new grm, this tag lets us push grms atomically when
-            // creating new mids
-            } else if (lfs3_rattr_tag(r) == LFS3_tag_GRMPUSH) {
+            // push/pops a new grm
+            } else if (lfs3_rattr_tag(r) == LFS3_tag_GRMPUSH
+                    || lfs3_rattr_tag(r) == LFS3_tag_GRMPOP) {
                 // do nothing here, this is handled up in lfs3_mdir_commit
 
-            // pop a grm, this just lets lfs3_mdir_commit revert things
-            // easily
-            } else if (lfs3_rattr_tag(r) == LFS3_tag_GRMPOP) {
-                // do nothing here, this is handled up in lfs3_mdir_commit
+            // inc/dec the number of stickynotes in the current mdir
+            } else if (lfs3_rattr_tag(r) == LFS3_tag_STICKYINC
+                    || lfs3_rattr_tag(r) == LFS3_tag_STICKYDEC) {
+                // first, how many stickynotes do we have?
+                lfs3_size_t stickynotes = 0;
+                lfs3_data_t data;
+                lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, &mdir_->r,
+                        -1, LFS3_TAG_STICKYCOUNT,
+                        &data);
+                if (tag < 0 && tag != LFS3_ERR_NOENT) {
+                    return tag;
+                }
+                if (tag != LFS3_ERR_NOENT) {
+                    int err = lfs3_data_readleb128(lfs3, &data,
+                            &stickynotes);
+                    if (err) {
+                        return err;
+                    }
+                }
+
+                // inc/dec
+                stickynotes += (lfs3_rattr_tag(r) == LFS3_tag_STICKYINC)
+                        ? +1
+                        : -1;
+                LFS3_ASSERT((lfs3_ssize_t)stickynotes >= 0);
+                LFS3_ASSERT(stickynotes <= mdir_->r.weight);
+
+                // append updated stickycount
+                int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
+                        -1, (const lfs3_rattr_t[]){
+                            (stickynotes == 0)
+                                ? LFS3_RATTR(
+                                    LFS3_tag_RM | LFS3_TAG_STICKYCOUNT, 0, 1)
+                                : LFS3_RATTR(
+                                    LFS3_TAG_STICKYCOUNT, 0, 1,
+                                    LFS3_FROM_LEB128),
+                            LFS3_RATTR_ARG(stickynotes)});
+                if (err) {
+                    return err;
+                }
 
             // move tags copy over any tags associated with the source's rid
             // TODO can this be deduplicated with lfs3_mdir_compact__ more?
@@ -9168,13 +9209,19 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
                 break;
             }
 
+            // special case for stickycounts, we don't compact these,
+            // in theory they should be included in the commit overhead
+            // TODO include in commit overhead
+            if (tag == LFS3_TAG_STICKYCOUNT) {
+                // do nothing
+
             // special handling for shrub trunks, we need to include the
             // compacted cost of the shrub in our estimate
             //
             // this is what would make lfs3_rbyd_estimate recursive, and
             // why we need a second function...
             //
-            if (tag == LFS3_TAG_BSHRUB) {
+            } else if (tag == LFS3_TAG_BSHRUB) {
                 // include the cost of the shrub pointer
                 dsize_ += lfs3->mattr_estimate + LFS3_SHRUB_DSIZE;
 
@@ -9265,6 +9312,8 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3,
     // copy over tags in the rbyd in order
     lfs3_srid_t rid = lfs3_smax(start_rid, -1);
     lfs3_stag_t tag = 0;
+    // recount stickynotes
+    lfs3_size_t stickycount = 0;
     while (true) {
         lfs3_rid_t weight;
         lfs3_data_t data;
@@ -9284,9 +9333,14 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3,
             break;
         }
 
+        // don't append stickycount, we need to recount in case of mdir
+        // split
+        if (tag == LFS3_TAG_STICKYCOUNT) {
+            // do nothing
+
         // found an inlined shrub? we need to compact the shrub as well to
         // bring it along with us
-        if (tag == LFS3_TAG_BSHRUB) {
+        } else if (tag == LFS3_TAG_BSHRUB) {
             lfs3_shrub_t shrub;
             int err = lfs3_data_readshrub(lfs3, mdir, &data,
                     &shrub);
@@ -9314,6 +9368,11 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3,
             }
 
         } else {
+            // found a stickynote?
+            if (tag == LFS3_TAG_STICKYNOTE) {
+                stickycount += 1;
+            }
+
             // write the tag
             int err = lfs3_rbyd_appendcompactrattr(lfs3, &mdir_->r,
                     (const lfs3_rattr_t[]){
@@ -9331,6 +9390,21 @@ static int lfs3_mdir_compact__(lfs3_t *lfs3,
     if (err) {
         LFS3_ASSERT(err != LFS3_ERR_RANGE);
         return err;
+    }
+
+    // bit of a cludge, but append stickycount if we found stickynotes
+    //
+    // in theory, stickynotes are uncommon, so we prefer minimizing
+    // traversals over compacting this rattr here
+    if (stickycount > 0) {
+        err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
+                -1, (const lfs3_rattr_t[]){
+                    LFS3_RATTR(LFS3_TAG_STICKYCOUNT, 0, 1, LFS3_FROM_LEB128),
+                    LFS3_RATTR_ARG(stickycount)});
+        if (err) {
+            LFS3_ASSERT(err != LFS3_ERR_RANGE);
+            return err;
+        }
     }
 
     // we're not quite done! we also need to bring over any unsynced files
@@ -12146,6 +12220,18 @@ static int lfs3_mtree_mknogrm(lfs3_t *lfs3) {
             return err;
         }
 
+        // are we removing a stickynote? we need to update the mdir's
+        // number of stickynotes then
+        //
+        // note this is the same check as in mknoorphans, we don't care
+        // about lfs3_mdir_lookup's internal orphan checks
+        lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, &mdir.r,
+                lfs3_mrid(lfs3, mdir.mid), LFS3_TAG_STICKYNOTE,
+                NULL);
+        if (tag < 0 && tag != LFS3_ERR_NOENT) {
+            return tag;
+        }
+
         // checkpoint the allocator
         err = lfs3_alloc_ckpoint(lfs3);
         if (err) {
@@ -12154,6 +12240,9 @@ static int lfs3_mtree_mknogrm(lfs3_t *lfs3) {
 
         // remove the rid while atomically updating our grm
         err = lfs3_mdir_commit(lfs3, &mdir, (const lfs3_rattr_t[]){
+                (tag != LFS3_ERR_NOENT)
+                    ? LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0)
+                    : LFS3_RATTR_NOOP(0),
                 LFS3_RATTR(LFS3_tag_GRMPOP, 0, 0),
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
                 LFS3_RATTR_NULL});
@@ -12175,6 +12264,22 @@ static int lfs3_mtree_mkmdirnoorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // grm queue should be flushed before calling
     // lfs3_mtree_mkmdirnoorphans
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
+
+    // well first, are there any stickynotes in this mdir? can't have
+    // orphaned stickynotes if we have no stickynotes
+    //
+    // this may seem like a minor optimization, but it saves a lot of
+    // time when blocks are big, (O(b log b) -> O(b), but this doesn't
+    // account for read alignment)
+    lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, &mdir->r,
+            -1, LFS3_TAG_STICKYCOUNT,
+            NULL);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
+    }
+    if (tag == LFS3_ERR_NOENT) {
+        return 0;
+    }
 
     // save the current mid
     lfs3_mid_t mid = mdir->mid;
@@ -12206,18 +12311,16 @@ static int lfs3_mtree_mkmdirnoorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
         }
 
         // we found an orphaned stickynote, remove
-        LFS3_INFO("Found orphaned stickynote %"PRId32".%"PRId32,
-                lfs3_dbgmbid(lfs3, mdir->mid),
-                lfs3_dbgmrid(lfs3, mdir->mid));
 
         // checkpoint the allocator
         err = lfs3_alloc_ckpoint(lfs3);
         if (err) {
-            return err;
+            goto failed;
         }
 
         // remove the orphaned stickynote
         err = lfs3_mdir_commit(lfs3, mdir, (const lfs3_rattr_t[]){
+                LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0),
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
                 LFS3_RATTR_NULL});
         if (err) {
@@ -13675,6 +13778,10 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
             LFS3_RATTR(LFS3_TAG_DID, 0, 1, LFS3_FROM_LEB128),
             LFS3_RATTR_ARG(did_),
             LFS3_RATTR(LFS3_tag_GRMPOP, 0, 0),
+            // update number of stickynotes
+            (tag != LFS3_ERR_NOENT)
+                ? LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0)
+                : LFS3_RATTR_NOOP(0),
             LFS3_RATTR_NULL});
     if (err) {
         return err;
@@ -13830,14 +13937,18 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
     err = lfs3_mdir_commit(lfs3, &mdir, (const lfs3_rattr_t[]){
             // create a stickynote if zombied
             //
-            // we use a create+delete here to also clear any rattrs
-            // and trim the entry size
+            // we use a mask12 here to also clear any rattrs and trim
+            // the entry size
             (zombie)
                 ? LFS3_RATTR(LFS3_tag_MASK12 | LFS3_TAG_STICKYNOTE, 0, 2,
                     LFS3_FROM_NAME)
                 : LFS3_RATTR(LFS3_tag_RM, -1, 2),
             LFS3_RATTR_ARG(did),
             LFS3_RATTR_ARG(path),
+            // update number of stickynotes
+            (zombie && tag != LFS3_TAG_STICKYNOTE)
+                ? LFS3_RATTR(LFS3_tag_STICKYINC, 0, 0)
+                : LFS3_RATTR_NOOP(0),
             LFS3_RATTR_NULL});
     if (err) {
         goto failed;
@@ -13956,7 +14067,8 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
 
         // we allow reg <-> stickynote renaming, but renaming a non-dir
         // to a dir and a dir to a non-dir is an error
-        if (old_tag != LFS3_TAG_DIR && new_tag == LFS3_TAG_DIR) {
+        if (old_tag != LFS3_TAG_DIR
+                && new_tag == LFS3_TAG_DIR) {
             return LFS3_ERR_ISDIR;
         }
         if (old_tag == LFS3_TAG_DIR
@@ -14024,6 +14136,16 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
                 LFS3_FROM_NAME),
             LFS3_RATTR_ARG(new_did),
             LFS3_RATTR_ARG(new_path),
+            // update number of stickynotes
+            (old_tag == LFS3_TAG_STICKYNOTE
+                        && !(new_tag == LFS3_TAG_STICKYNOTE
+                            || new_tag == LFS3_tag_ORPHAN))
+                    ? LFS3_RATTR(LFS3_tag_STICKYINC, 0, 0)
+                : ((new_tag == LFS3_TAG_STICKYNOTE
+                            || new_tag == LFS3_tag_ORPHAN)
+                        && old_tag != LFS3_TAG_STICKYNOTE)
+                    ? LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0)
+                    : LFS3_RATTR_NOOP(0),
             LFS3_RATTR(LFS3_tag_MOVE, 0, 1),
             LFS3_RATTR_ARG(&old_mdir),
             LFS3_RATTR_NULL});
@@ -14947,6 +15069,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
                         LFS3_RATTR(LFS3_TAG_STICKYNOTE, +1, 2, LFS3_FROM_NAME),
                         LFS3_RATTR_ARG(did),
                         LFS3_RATTR_ARG(path),
+                        LFS3_RATTR(LFS3_tag_STICKYINC, 0, 0),
                         LFS3_RATTR_NULL});
             if (err) {
                 goto failed;
@@ -16538,7 +16661,7 @@ LFS3_NOINLINE
 static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_rattr_t *rname) {
     // build a commit of any pending file metadata
-    lfs3_rattr_t rattrs[15];
+    lfs3_rattr_t rattrs[16];
     lfs3_rattr_t shrub_rattrs[5];
 
     // uncreated files must be unsync
@@ -16576,6 +16699,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_FROM_GRAFT);
             *(lfs3_data_t*)r = name_data;
             r += 3;
+            *r++ = LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0);
         }
 
         // pending small file flush?
@@ -16622,22 +16746,19 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         // no bshrub/btree?
         if (lfs3_file_size_(file) == 0) {
             *r++ = LFS3_RATTR(
-                    LFS3_tag_RM | LFS3_tag_MASK8 | LFS3_TAG_STRUCT,
-                    0, 0);
+                    LFS3_tag_RM | LFS3_tag_MASK8 | LFS3_TAG_STRUCT, 0, 0);
         // bshrub?
         } else if (lfs3_bshrub_isbshrub(&file->bshrub)
                 || (file->h.flags & LFS3_o_UNFLUSH)) {
             *r++ = LFS3_RATTR(
-                    LFS3_tag_MASK8 | LFS3_TAG_BSHRUB,
-                    0, 1,
+                    LFS3_tag_MASK8 | LFS3_TAG_BSHRUB, 0, 1,
                     LFS3_FROM_SHRUB);
             // note we use the staged trunk here
             *r++ = LFS3_RATTR_ARG(&file->bshrub_);
         // btree?
         } else if (lfs3_bshrub_isbtree(&file->bshrub)) {
             *r++ = LFS3_RATTR(
-                    LFS3_tag_MASK8 | LFS3_TAG_BTREE,
-                    0, 1,
+                    LFS3_tag_MASK8 | LFS3_TAG_BTREE, 0, 1,
                     LFS3_FROM_BTREE);
             *r++ = LFS3_RATTR_ARG(&file->bshrub);
         } else {
@@ -18256,24 +18377,19 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
             }
 
             // check for any orphaned stickynotes
-            if (!(lfs3->flags & LFS3_I_RDONLY)
-                    && !(lfs3->flags & LFS3_i_MAYBEORPHANS)) {
-                for (lfs3_srid_t rid = 0;
-                        rid < (lfs3_srid_t)mdir->r.weight;
-                        rid++) {
-                    lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, &mdir->r,
-                            rid, LFS3_TAG_STICKYNOTE,
-                            NULL);
-                    if (tag < 0 && tag != LFS3_ERR_NOENT) {
-                        return tag;
-                    }
-
-                    // found an orphaned stickynote?
-                    if (tag != LFS3_ERR_NOENT) {
-                        lfs3->flags |= LFS3_i_MAYBEORPHANS;
-                        break;
-                    }
-                }
+            lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, &mdir->r,
+                    -1, LFS3_TAG_STICKYCOUNT,
+                    NULL);
+            if (tag < 0 && tag != LFS3_ERR_NOENT) {
+                return tag;
+            }
+            // found orphaned stickynotes?
+            if (tag != LFS3_ERR_NOENT) {
+                LFS3_INFO("Found orphaned stickynotes %"PRId32" "
+                            "0x{%"PRIx32",%"PRIx32"}",
+                        lfs3_dbgmbid(lfs3, mdir->mid),
+                        mdir->r.blocks[0], mdir->r.blocks[1]);
+                lfs3->flags |= LFS3_i_MAYBEORPHANS;
             }
 
         // found an mtree inner-node?

@@ -12,18 +12,20 @@ import struct
 import sys
 
 
-TAG_NULL        = 0x0000    ##  v--- ---- ++++ ++++
-TAG_INTERNAL    = 0x0100    ##  v--- ---1 +ttt tttt
-TAG_CONFIG      = 0x0200    ##  v--- --1- +ttt tttt
-TAG_MAGIC       = 0x0201    #   v--- --1- +--- --rr
-TAG_VERSION     = 0x0204    #   v--- --1- +--- -1++
-TAG_COMPAT      = 0x0208    #   v--- --1- +--- 1-++
-TAG_GEOMETRY    = 0x020c    #   v--- --1- +--- 11++
-TAG_NAMELIMIT   = 0x0210    #   v--- --1- +--1 --++
-TAG_FILELIMIT   = 0x0214    #   v--- --1- +--1 -1++
-TAG_GDELTA      = 0x0300    ##  v--- --11 +ttt tttt
-TAG_GRMDELTA    = 0x0300    #   v--- --11 +--- --++
-TAG_GBMAPDELTA  = 0x0304    #   v--- --11 +--- -1rr
+TAG_NULL        = 0x0000    ##  v--- ---- +--- ----
+TAG_INTERNAL    = 0x0000    ##  v--- ---- +ttt tttt
+TAG_CONFIG      = 0x0100    ##  v--- ---1 +ttt tttt
+TAG_MAGIC       = 0x0101    #   v--- ---1 +--- --rr
+TAG_VERSION     = 0x0104    #   v--- ---1 +--- -1++
+TAG_COMPAT      = 0x0108    #   v--- ---1 +--- 1-++
+TAG_GEOMETRY    = 0x010c    #   v--- ---1 +--- 11++
+TAG_NAMELIMIT   = 0x0110    #   v--- ---1 +--1 --++
+TAG_FILELIMIT   = 0x0114    #   v--- ---1 +--1 -1++
+TAG_GDELTA      = 0x0200    ##  v--- --1- +ttt tttt
+TAG_GRMDELTA    = 0x0200    #   v--- --1- +--- --++
+TAG_GBMAPDELTA  = 0x0204    #   v--- --1- +--- -1rr
+TAG_MSTATE      = 0x0300    ##  v--- --11 +ttt tttt
+TAG_STICKYCOUNT = 0x0300    #   v--- --11 +--- --++
 TAG_NAME        = 0x0400    ##  v--- -1-- +ttt tttt
 TAG_BNAME       = 0x0400    #   v--- -1-- +--- ----
 TAG_REG         = 0x0401    #   v--- -1-- +--- ---1
@@ -96,13 +98,15 @@ RATTR_MASK          = 0x00003000    # ---- ---- ---- ---- --11 ---- ---- ----
 RATTR_TAG           = 0x00000fff    # ---- ---- ---- ---- ---- 1111 +111 1111
 
 # internal tags
-tag_NOOP        = 0x0100    #i  ---- ---1 ---- ----
-tag_RATTRS      = 0x0101    #i  ---- ---1 ---- ---1
-tag_SHRUBCOMMIT = 0x0102    #i  ---- ---1 ---- --1-
-tag_GRMPUSH     = 0x0103    #i  ---- ---1 ---- --11
-tag_GRMPOP      = 0x0104    #i  ---- ---1 ---- -1--
-tag_MOVE        = 0x0105    #i  ---- ---1 ---- -1-1
-tag_ATTRS       = 0x0106    #i  ---- ---1 ---- -11-
+tag_NOOP        = 0x0001    #i  ---- ---- ---- ---1
+tag_RATTRS      = 0x0002    #i  ---- ---- ---- --1-
+tag_SHRUBCOMMIT = 0x0003    #i  ---- ---- ---- --11
+tag_GRMPUSH     = 0x0004    #i  ---- ---- ---- -1--
+tag_GRMPOP      = 0x0005    #i  ---- ---- ---- -1-1
+tag_STICKYINC   = 0x0006    #i  ---- ---- ---- -11-
+tag_STICKYDEC   = 0x0007    #i  ---- ---- ---- -111
+tag_MOVE        = 0x0008    #i  ---- ---- ---- 1---
+tag_ATTRS       = 0x0009    #i  ---- ---- ---- 1--1
 
 tag_RM          = 0x8000    #i  1--- ---- ---- ----
 tag_GROW        = 0x4000    #i  -1-- ---- ---- ----
