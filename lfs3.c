@@ -10819,7 +10819,7 @@ again:;
 }
 
 // needed in lfs3_mtree_traverse
-static void lfs3_alloc_setmtrvinuse_(lfs3_t *lfs3,
+static void lfs3_alloc_setinusemtrv_(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr);
 
 // high-level immutable traversal, handle extra features here,
@@ -11481,7 +11481,7 @@ static int lfs3_mtree_condemnevicted(lfs3_t *lfs3, uint32_t flags) {
 
 
 // needed in lfs3_mtree_gc
-static int lfs3_mtree_mkmdirnoorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir);
+static int lfs3_mtree_mknoorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
 static inline void lfs3_alloc_discard_(lfs3_t *lfs3);
@@ -11690,7 +11690,7 @@ again:;
 
         uint32_t dirty = mgc->t.h.flags;
         // fix any orphans in the mdir
-        int err = lfs3_mtree_mkmdirnoorphans(lfs3, mdir);
+        int err = lfs3_mtree_mknoorphansmdir(lfs3, mdir);
         if (err) {
             return err;
         }
@@ -11776,7 +11776,7 @@ again:;
 
         // mark in-use blocks in lookahead buffer?
         } else {
-            lfs3_alloc_setmtrvinuse_(lfs3, tag, bptr_);
+            lfs3_alloc_setinusemtrv_(lfs3, tag, bptr_);
         }
     }
     #endif
@@ -12258,11 +12258,11 @@ static int lfs3_mtree_mknogrm(lfs3_t *lfs3) {
 // avoid renaming this into the lfs3_mdir_ namespace, no other
 // lfs3_mdir_ function ckpoints allocators
 #ifndef LFS3_RDONLY
-static int lfs3_mtree_mkmdirnoorphans(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
+static int lfs3_mtree_mknoorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // grm queue should be flushed before calling
-    // lfs3_mtree_mkmdirnoorphans
+    // lfs3_mtree_mknoorphansmdir
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
     // well first, are there any stickynotes in this mdir? can't have
@@ -13062,7 +13062,7 @@ static void lfs3_alloc_setinuse_(lfs3_t *lfs3, lfs3_block_t block) {
 
 // mark some filesystem object as in-use
 #ifndef LFS3_RDONLY
-static void lfs3_alloc_setmtrvinuse_(lfs3_t *lfs3,
+static void lfs3_alloc_setinusemtrv_(lfs3_t *lfs3,
         lfs3_tag_t tag, const lfs3_bptr_t *bptr) {
     if (tag == LFS3_TAG_MDIR) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr->d.u.buffer;
@@ -13320,7 +13320,7 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
             }
 
             // track in-use blocks
-            lfs3_alloc_setmtrvinuse_(lfs3, tag, &bptr);
+            lfs3_alloc_setinusemtrv_(lfs3, tag, &bptr);
         }
 
         // mark anything not seen as free
