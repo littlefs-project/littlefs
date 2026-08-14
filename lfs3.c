@@ -2461,9 +2461,6 @@ enum lfs3_from {
     LFS3_FROM_BPTR      = 0x328, // 11 --1- 1-++
     LFS3_FROM_COMPAT    = 0x32c, // 11 --1- 11++
     LFS3_FROM_GEOMETRY  = 0x330, // 11 --11 --++
-
-    // these are implied by internal tags
-    LFS3_FROM_STICKYADD = 0x000, // ++ cccc cccc
 };
 
 typedef uint16_t lfs3_from_t;
@@ -8911,49 +8908,45 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                     || lfs3_rattr_tag(r) == LFS3_tag_GRMPOP) {
                 // do nothing here, this is handled up in lfs3_mdir_commit
 
-            // update the number of stickynotes in the current mdir
-            } else if (lfs3_rattr_tag(r) == LFS3_tag_STICKYADD) {
-                // this should be a noop if zero
-                int8_t stickyadd = (int8_t)lfs3_from_fromcount8(
-                        lfs3_rattr_from(r));
-                if (stickyadd != 0) {
-                    // first, how many stickynotes do we have?
-                    lfs3_size_t stickynotes = 0;
-                    lfs3_data_t data;
-                    lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, &mdir_->r,
-                            -1, LFS3_TAG_STICKYCOUNT,
-                            &data);
-                    if (tag < 0 && tag != LFS3_ERR_NOENT) {
-                        return tag;
-                    }
-                    if (tag != LFS3_ERR_NOENT) {
-                        int err = lfs3_data_readleb128(lfs3, &data,
-                                &stickynotes);
-                        if (err) {
-                            return err;
-                        }
-                    }
-
-                    // update stickycount
-                    stickynotes += stickyadd;
-                    LFS3_ASSERT((lfs3_ssize_t)stickynotes >= 0);
-                    LFS3_ASSERT(stickynotes <= mdir_->r.weight);
-
-                    // append updated stickycount
-                    int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
-                            -1, (const lfs3_rattr_t[]){
-                                (stickynotes == 0)
-                                    ? LFS3_RATTR(
-                                        LFS3_tag_RM | LFS3_TAG_STICKYCOUNT,
-                                        0, 1)
-                                    : LFS3_RATTR(
-                                        LFS3_TAG_STICKYCOUNT,
-                                        0, 1,
-                                        LFS3_FROM_LEB128),
-                                LFS3_RATTR_ARG(stickynotes)});
+            // inc/dec the number of stickynotes in the current mdir
+            } else if (lfs3_rattr_tag(r) == LFS3_tag_STICKYINC
+                    || lfs3_rattr_tag(r) == LFS3_tag_STICKYDEC) {
+                // first, how many stickynotes do we have?
+                lfs3_size_t stickynotes = 0;
+                lfs3_data_t data;
+                lfs3_stag_t tag = lfs3_rbyd_lookup(lfs3, &mdir_->r,
+                        -1, LFS3_TAG_STICKYCOUNT,
+                        &data);
+                if (tag < 0 && tag != LFS3_ERR_NOENT) {
+                    return tag;
+                }
+                if (tag != LFS3_ERR_NOENT) {
+                    int err = lfs3_data_readleb128(lfs3, &data,
+                            &stickynotes);
                     if (err) {
                         return err;
                     }
+                }
+
+                // inc/dec
+                stickynotes += (lfs3_rattr_tag(r) == LFS3_tag_STICKYINC)
+                        ? +1
+                        : -1;
+                LFS3_ASSERT((lfs3_ssize_t)stickynotes >= 0);
+                LFS3_ASSERT(stickynotes <= mdir_->r.weight);
+
+                // append updated stickycount
+                int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
+                        -1, (const lfs3_rattr_t[]){
+                            (stickynotes == 0)
+                                ? LFS3_RATTR(
+                                    LFS3_tag_RM | LFS3_TAG_STICKYCOUNT, 0, 1)
+                                : LFS3_RATTR(
+                                    LFS3_TAG_STICKYCOUNT, 0, 1,
+                                    LFS3_FROM_LEB128),
+                            LFS3_RATTR_ARG(stickynotes)});
+                if (err) {
+                    return err;
                 }
 
             // move tags copy over any tags associated with the source's rid
@@ -12243,9 +12236,9 @@ static int lfs3_mtree_mknogrm(lfs3_t *lfs3) {
 
         // remove the rid while atomically updating our grm
         err = lfs3_mdir_commit(lfs3, &mdir, (const lfs3_rattr_t[]){
-                LFS3_RATTR(LFS3_tag_STICKYADD, 0, 0,
-                    LFS3_FROM_STICKYADD, (uint8_t)(
-                        (tag != LFS3_ERR_NOENT) ? -1 : 0)),
+                (tag != LFS3_ERR_NOENT)
+                    ? LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0)
+                    : LFS3_RATTR(LFS3_tag_NOOP, 0, 0),
                 LFS3_RATTR(LFS3_tag_GRMPOP, 0, 0),
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
                 LFS3_RATTR_NULL});
@@ -12323,8 +12316,7 @@ static int lfs3_mtree_mknoorphansmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
 
         // remove the orphaned stickynote
         err = lfs3_mdir_commit(lfs3, mdir, (const lfs3_rattr_t[]){
-                LFS3_RATTR(LFS3_tag_STICKYADD, 0, 0,
-                    LFS3_FROM_STICKYADD, (uint8_t)-1),
+                LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0),
                 LFS3_RATTR(LFS3_tag_RM, -1, 0),
                 LFS3_RATTR_NULL});
         if (err) {
@@ -13783,9 +13775,9 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
             LFS3_RATTR_ARG(did_),
             LFS3_RATTR(LFS3_tag_GRMPOP, 0, 0),
             // update number of stickynotes
-            LFS3_RATTR(LFS3_tag_STICKYADD, 0, 0,
-                LFS3_FROM_STICKYADD, (uint8_t)(
-                    (tag != LFS3_ERR_NOENT) ? -1 : 0)),
+            (tag != LFS3_ERR_NOENT)
+                ? LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0)
+                : LFS3_RATTR(LFS3_tag_NOOP, 0, 0),
             LFS3_RATTR_NULL});
     if (err) {
         return err;
@@ -13950,9 +13942,9 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
             LFS3_RATTR_ARG(did),
             LFS3_RATTR_ARG(path),
             // update number of stickynotes
-            LFS3_RATTR(LFS3_tag_STICKYADD, 0, 0,
-                LFS3_FROM_STICKYADD, (uint8_t)(
-                    (zombie && tag != LFS3_TAG_STICKYNOTE) ? +1 : 0)),
+            (zombie && tag != LFS3_TAG_STICKYNOTE)
+                ? LFS3_RATTR(LFS3_tag_STICKYINC, 0, 0)
+                : LFS3_RATTR(LFS3_tag_NOOP, 0, 0),
             LFS3_RATTR_NULL});
     if (err) {
         goto failed;
@@ -14141,11 +14133,15 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
             LFS3_RATTR_ARG(new_did),
             LFS3_RATTR_ARG(new_path),
             // update number of stickynotes
-            LFS3_RATTR(LFS3_tag_STICKYADD, 0, 0,
-                LFS3_FROM_STICKYADD, (uint8_t)(
-                    ((old_tag == LFS3_TAG_STICKYNOTE) ? +1 : 0)
-                        + ((new_tag == LFS3_TAG_STICKYNOTE) ? -1 : 0)
-                        + ((new_tag == LFS3_tag_ORPHAN) ? -1 : 0))),
+            (old_tag == LFS3_TAG_STICKYNOTE
+                        && !(new_tag == LFS3_TAG_STICKYNOTE
+                            || new_tag == LFS3_tag_ORPHAN))
+                    ? LFS3_RATTR(LFS3_tag_STICKYINC, 0, 0)
+                : ((new_tag == LFS3_TAG_STICKYNOTE
+                            || new_tag == LFS3_tag_ORPHAN)
+                        && old_tag != LFS3_TAG_STICKYNOTE)
+                    ? LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0)
+                    : LFS3_RATTR(LFS3_tag_NOOP, 0, 0),
             LFS3_RATTR(LFS3_tag_MOVE, 0, 1),
             LFS3_RATTR_ARG(&old_mdir),
             LFS3_RATTR_NULL});
@@ -15069,8 +15065,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
                         LFS3_RATTR(LFS3_TAG_STICKYNOTE, +1, 2, LFS3_FROM_NAME),
                         LFS3_RATTR_ARG(did),
                         LFS3_RATTR_ARG(path),
-                        LFS3_RATTR(LFS3_tag_STICKYADD, 0, 0,
-                            LFS3_FROM_STICKYADD, (uint8_t)+1),
+                        LFS3_RATTR(LFS3_tag_STICKYINC, 0, 0),
                         LFS3_RATTR_NULL});
             if (err) {
                 goto failed;
@@ -16700,8 +16695,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                     LFS3_FROM_GRAFT);
             *(lfs3_data_t*)r = name_data;
             r += 3;
-            *r++ = LFS3_RATTR(LFS3_tag_STICKYADD, 0, 0,
-                    LFS3_FROM_STICKYADD, (uint8_t)-1);
+            *r++ = LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0);
         }
 
         // pending small file flush?
