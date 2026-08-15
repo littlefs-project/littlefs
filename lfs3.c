@@ -11906,7 +11906,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                 0)))
                     // mask with pending flags
                     & ((lfs3->flags
-                            & (LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+                            & (LFS3_I_MKCONSISTENT
                                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                                 | LFS3_GC_CKMETA
                                 | LFS3_GC_CKDATA
@@ -18903,7 +18903,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_I_FLUSH
                     | LFS3_I_SYNC
                     | LFS3_I_GRANULAR
-                    | LFS3_IFDEF_RDONLY(0, LFS3_I_MKCONSISTENT)
+                    | LFS3_I_MKCONSISTENT
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
                     | LFS3_I_CKMETA
                     | LFS3_I_CKDATA
@@ -18921,10 +18921,9 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
             // internally LFS3_I_MKCONSISTENT shares a bit with
             // LFS3_i_MAYBEORPHANS and is only used to track untracked
             // orphans, but externally it also includes any pending grms
-            | LFS3_IFDEF_RDONLY(0,
-                (lfs3_grm_count(&lfs3->grm) > 0)
-                    ? LFS3_I_MKCONSISTENT
-                    : 0)
+            | ((lfs3_grm_count(&lfs3->grm) > 0)
+                ? LFS3_I_MKCONSISTENT
+                : 0)
             // LFS3_I_LOOKAHEAD is set if either allocator can be
             // repopulated, or if the gbmap is not-in-sync
             | LFS3_IFDEF_RDONLY(0,

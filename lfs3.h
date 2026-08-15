@@ -402,10 +402,8 @@ enum lfs3_type {
 #define LFS3_I_FLUSH    0x00000040  // Mounted with LFS3_M_FLUSH
 #define LFS3_I_SYNC     0x00000080  // Mounted with LFS3_M_SYNC
 #define LFS3_I_GRANULAR 0x00000100  // Mounted with LFS3_M_GRANULAR
-#ifndef LFS3_RDONLY
 #define LFS3_I_MKCONSISTENT \
                         0x00010000  // Filesystem needs mkconsistent to write
-#endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_LOOKAHEAD \
                         0x00020000  // Lookahead/gbmap is not full
