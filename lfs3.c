@@ -8908,6 +8908,10 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                     || lfs3_rattr_tag(r) == LFS3_tag_GRMPOP) {
                 // do nothing here, this is handled up in lfs3_mdir_commit
 
+            // add zero to the number of stickynotes in the current mdir
+            } else if (lfs3_rattr_tag(r) == LFS3_tag_STICKYZERO) {
+                // do nothing, this just enables sticky math
+
             // inc/dec the number of stickynotes in the current mdir
             } else if (lfs3_rattr_tag(r) == LFS3_tag_STICKYINC
                     || lfs3_rattr_tag(r) == LFS3_tag_STICKYDEC) {
@@ -8929,9 +8933,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                 }
 
                 // inc/dec
-                stickynotes += (lfs3_rattr_tag(r) == LFS3_tag_STICKYINC)
-                        ? +1
-                        : -1;
+                stickynotes += lfs3_rattr_tag(r) - LFS3_tag_STICKYZERO;
                 LFS3_ASSERT((lfs3_ssize_t)stickynotes >= 0);
                 LFS3_ASSERT(stickynotes <= mdir_->r.weight);
 
@@ -13767,7 +13769,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     err = lfs3_mdir_commit(lfs3, &mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(
                 LFS3_tag_MASK12 | LFS3_TAG_DIR,
-                (tag == LFS3_ERR_NOENT) ? +1 : 0, 2,
+                +(tag == LFS3_ERR_NOENT), 2,
                 LFS3_FROM_NAME),
             LFS3_RATTR_ARG(did),
             LFS3_RATTR_ARG(name),
@@ -13936,7 +13938,8 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
             // we use a mask12 here to also clear any rattrs and trim
             // the entry size
             (zombie)
-                ? LFS3_RATTR(LFS3_tag_MASK12 | LFS3_TAG_STICKYNOTE, 0, 2,
+                ? LFS3_RATTR(
+                    LFS3_tag_MASK12 | LFS3_TAG_STICKYNOTE, 0, 2,
                     LFS3_FROM_NAME)
                 : LFS3_RATTR(LFS3_tag_RM, -1, 2),
             LFS3_RATTR_ARG(did),
@@ -14128,20 +14131,17 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     err = lfs3_mdir_commit(lfs3, &new_mdir, (const lfs3_rattr_t[]){
             LFS3_RATTR(
                 LFS3_tag_MASK12 | old_tag,
-                (new_tag == LFS3_ERR_NOENT) ? +1 : 0, 2,
+                +(new_tag == LFS3_ERR_NOENT), 2,
                 LFS3_FROM_NAME),
             LFS3_RATTR_ARG(new_did),
             LFS3_RATTR_ARG(new_path),
             // update number of stickynotes
-            (old_tag == LFS3_TAG_STICKYNOTE
-                        && !(new_tag == LFS3_TAG_STICKYNOTE
-                            || new_tag == LFS3_tag_ORPHAN))
-                    ? LFS3_RATTR(LFS3_tag_STICKYINC, 0, 0)
-                : ((new_tag == LFS3_TAG_STICKYNOTE
-                            || new_tag == LFS3_tag_ORPHAN)
-                        && old_tag != LFS3_TAG_STICKYNOTE)
-                    ? LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0)
-                    : LFS3_RATTR(LFS3_tag_NOOP, 0, 0),
+            LFS3_RATTR(
+                LFS3_tag_STICKYZERO
+                    + (old_tag == LFS3_TAG_STICKYNOTE)
+                    - (new_tag == LFS3_TAG_STICKYNOTE)
+                    - (new_tag == LFS3_tag_ORPHAN),
+                0, 0),
             LFS3_RATTR(LFS3_tag_MOVE, 0, 1),
             LFS3_RATTR_ARG(&old_mdir),
             LFS3_RATTR_NULL});

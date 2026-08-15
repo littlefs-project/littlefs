@@ -104,9 +104,10 @@ tag_SHRUBCOMMIT = 0x0003    #i  ---- ---- ---- --11
 tag_GRMPUSH     = 0x0004    #i  ---- ---- ---- -1--
 tag_GRMPOP      = 0x0005    #i  ---- ---- ---- -1-1
 tag_STICKYINC   = 0x0006    #i  ---- ---- ---- -11-
-tag_STICKYDEC   = 0x0007    #i  ---- ---- ---- -111
-tag_MOVE        = 0x0008    #i  ---- ---- ---- 1---
-tag_ATTRS       = 0x0009    #i  ---- ---- ---- 1--1
+tag_STICKYZERO  = 0x0007    #i  ---- ---- ---- -111
+tag_STICKYDEC   = 0x0008    #i  ---- ---- ---- 1---
+tag_MOVE        = 0x0008    #i  ---- ---- ---- 1--1
+tag_ATTRS       = 0x0009    #i  ---- ---- ---- 1-11
 
 tag_RM          = 0x8000    #i  1--- ---- ---- ----
 tag_GROW        = 0x4000    #i  -1-- ---- ---- ----
