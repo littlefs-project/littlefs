@@ -3213,7 +3213,6 @@ static lfs3_data_t lfs3_data_fromecksum(const lfs3_ecksum_t *ecksum,
 }
 #endif
 
-#ifndef LFS3_RDONLY
 static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
         lfs3_ecksum_t *ecksum_) {
     int err = lfs3_data_readleb128(lfs3, data,
@@ -3229,7 +3228,6 @@ static int lfs3_data_readecksum(lfs3_t *lfs3, lfs3_data_t *data,
 
     return 0;
 }
-#endif
 
 // we sometimes need to read ecksums in weird situations
 #ifndef LFS3_RDONLY
@@ -3818,6 +3816,7 @@ static int lfs3_rbyd_ckfetch(lfs3_t *lfs3, lfs3_rbyd_t *rbyd,
 // 1. nothing, if already fetched
 // 2. ckfetch, if checking fetches (LFS3_CFG_CKFETCHES)
 // 3. quickfetch, so we have enough info to mutate
+#ifndef LFS3_RDONLY
 static int lfs3_rbyd_mkfetched(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
     // why would you try to fetch a shrub?
     LFS3_ASSERT(!lfs3_rbyd_isshrub(rbyd));
@@ -3839,6 +3838,7 @@ static int lfs3_rbyd_mkfetched(lfs3_t *lfs3, lfs3_rbyd_t *rbyd) {
                 rbyd->blocks[0], lfs3_rbyd_trunk(rbyd), rbyd->cksum, 0);
     }
 }
+#endif
 
 
 // our core rbyd lookup algorithm
@@ -7999,12 +7999,10 @@ static inline lfs3_size_t lfs3_grm_count(const lfs3_grm_t *grm) {
     return (grm->queue[0] != 0) + (grm->queue[1] != 0);
 }
 
-#ifndef LFS3_RDONLY
 static inline void lfs3_grm_discard(lfs3_grm_t *grm) {
     grm->queue[0] = 0;
     grm->queue[1] = 0;
 }
-#endif
 
 #ifndef LFS3_RDONLY
 static inline void lfs3_grm_push(lfs3_grm_t *grm, lfs3_mid_t mid) {
@@ -11917,12 +11915,13 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                 | LFS3_IFDEF_RDONLY(0,
                                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
                         // including lazily evaluated flags
-                        | ((lfs3_alloc_canlookahead(lfs3)
-                                || LFS3_IFDEF_GBMAP(
-                                    lfs3_alloc_canlookgbmap(lfs3),
-                                    false))
-                            ? LFS3_I_LOOKAHEAD
-                            : 0)))
+                        | LFS3_IFDEF_RDONLY(0,
+                            (lfs3_alloc_canlookahead(lfs3)
+                                    || LFS3_IFDEF_GBMAP(
+                                        lfs3_alloc_canlookgbmap(lfs3),
+                                        false))
+                                ? LFS3_I_LOOKAHEAD
+                                : 0)))
                 // this weird shift is to let us temporarily mask out
                 // any flags that change
                 >> 8;
@@ -12032,7 +12031,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             // do we really need a full traversal?
             if (!(mgc->t.h.flags
                     & (LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
-                        | LFS3_gc_COMPACTMETAING
+                        | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
                         | LFS3_gc_CKMETAING
                         | LFS3_gc_CKDATAING
                         | LFS3_IFDEF_RDONLY(0,
@@ -12464,7 +12463,9 @@ static int lfs3_data_readgbmap(lfs3_t *lfs3, lfs3_data_t *data,
     }
 
     // we don't save free, so assume zero at first
+    #ifndef LFS3_RDONLY
     gbmap_->next = 0;
+    #endif
     // keep track of the committed gbmap for traversals
     gbmap_->b_p = gbmap_->b;
     return 0;
@@ -17554,7 +17555,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT((flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_M_RDWR)
                 | LFS3_M_RDONLY
-                | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
+                | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0))
                 | LFS3_M_FLUSH
                 | LFS3_M_SYNC
                 | LFS3_M_GRANULAR)) == 0);
@@ -17562,7 +17563,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT((cfg->flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_CFG_RDWR)
                 | LFS3_CFG_RDONLY
-                | LFS3_IFDEF_GBMAP(LFS3_CFG_GBMAP, 0)
+                | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_CFG_GBMAP, 0))
                 | LFS3_CFG_FLUSH
                 | LFS3_CFG_SYNC
                 | LFS3_CFG_GRANULAR
@@ -18538,16 +18539,22 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_M_SYNC
                 | LFS3_M_GRANULAR);
     // these flags require a writable filesystem
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
             || !(flags & LFS3_M_MKCONSISTENT));
+    #endif
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY) 
             || !(flags & LFS3_M_LOOKAHEAD));
+    #endif
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
             || !(flags & LFS3_M_PREERASE));
     #endif
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
             || !(flags & LFS3_M_COMPACTMETA));
+    #endif
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
             || !(flags & LFS3_M_REPAIRMETA));
@@ -19704,6 +19711,7 @@ int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
     }
     #endif
 
+    #ifndef LFS3_RDONLY
     // translate to lookahead relative
     lfs3_block_t block_
             = (block + lfs3->block_count - lfs3->lookahead.window)
@@ -19719,6 +19727,7 @@ int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
         binfo->block = block;
         return 0;
     }
+    #endif
 
     // I guess we known nothing about this block
     binfo->btype = LFS3_BTYPE_UNKNOWN;
@@ -19865,16 +19874,22 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     // these flags require a writable filesystem
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_MKCONSISTENT));
+    #endif
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_LOOKAHEAD));
+    #endif
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_PREERASE));
     #endif
+    #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_COMPACTMETA));
+    #endif
     #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_REPAIRMETA));

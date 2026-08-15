@@ -1370,13 +1370,11 @@ typedef struct lfs3_bptr {
 } lfs3_bptr_t;
 
 // erased-state checksum
-#ifndef LFS3_RDONLY
 typedef struct lfs3_ecksum {
     // cksize=-1 indicates no ecksum
     lfs3_ssize_t cksize;
     uint32_t cksum;
 } lfs3_ecksum_t;
-#endif
 
 // littlefs's core metadata log type
 typedef struct lfs3_rbyd {
