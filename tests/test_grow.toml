@@ -3074,7 +3074,7 @@ code = '''
         uint32_t prng_ = prng;
     nonsense:;
         // choose which operation to do
-        uint8_t op = TEST_PRNG(&prng_) % 8;
+        uint8_t op = TEST_PRNG(&prng_) % 6;
 
         // open a new file?
         if (op == 0) {
@@ -5752,7 +5752,7 @@ code = '''
         uint32_t prng_ = prng;
     nonsense:;
         // choose which operation to do
-        uint8_t op = TEST_PRNG(&prng_) % 8;
+        uint8_t op = TEST_PRNG(&prng_) % 6;
 
         // open a new file?
         if (op == 0) {

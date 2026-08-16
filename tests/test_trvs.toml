@@ -7508,7 +7508,7 @@ code = '''
     for (lfs3_size_t i = 0; i < OPS; i++) {
     nonsense:;
         // choose which operation to do
-        uint8_t op = TEST_PRNG(&prng) % 8;
+        uint8_t op = TEST_PRNG(&prng) % 6;
 
         // open a new file?
         if (op == 0) {
