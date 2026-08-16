@@ -353,7 +353,7 @@ defines.GC_FLAGS = '''
 defines.GC_STEPS = 40
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
-    '0',
+    '1', # avoid 0 here, it messes with op estimates
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -963,7 +963,7 @@ defines.GC_STEPS = 40
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
-    '0',
+    '1', # avoid 0 here, it messes with op estimates
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
@@ -1530,7 +1530,7 @@ defines.GC_STEPS = 40
 defines.FLUSH = true
 defines.N = [1, 2, 4, 8, 16, 32, 64]
 defines.SIZE = [
-    '0',
+    '1', # avoid 0 here, it messes with op estimates
     'FCACHE_SIZE/2',
     '2*FCACHE_SIZE',
     'BLOCK_SIZE/2',
