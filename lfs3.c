@@ -9205,13 +9205,24 @@ static lfs3_ssize_t lfs3_mdir_estimate__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
                 break;
             }
 
+            // skip gdeltas if we're relocating
+            if (lfs3_tag_suptype(tag) == LFS3_TAG_GDELTA
+                    && start_rid > -2) {
+                // do nothing
+
+            // special case for stickycounts, we don't compact these,
+            // in theory they should be included in the commit overhead
+            // TODO include in commit overhead
+            } else if (tag == LFS3_TAG_STICKYCOUNT) {
+                // do nothing
+
             // special handling for shrub trunks, we need to include the
             // compacted cost of the shrub in our estimate
             //
             // this is what would make lfs3_rbyd_estimate recursive, and
             // why we need a second function...
             //
-            if (tag == LFS3_TAG_BSHRUB) {
+            } else if (tag == LFS3_TAG_BSHRUB) {
                 // include the cost of the shrub pointer
                 dsize_ += lfs3->mattr_estimate + LFS3_SHRUB_DSIZE;
 
