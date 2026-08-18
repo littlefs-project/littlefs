@@ -1096,6 +1096,7 @@ def main(csv_paths, output, *,
     if not all_y:
         all_y = [k for k in fields_
                 if k not in all_by
+                    and k not in all_x
                     and not any(k == k_ for k_, _ in all_defines)
                     and not any(k == k_ for k_, _ in all_undefines)]
 
@@ -1171,7 +1172,7 @@ def main(csv_paths, output, *,
     for s in grid:
         # allow subplot params to override global params
         x_ = set((x or []) + s.args.get('x', []))
-        y_ = set((y or []) + s.args.get('y', []))
+        y_ = set((y or []) + s.args.get('y', [])) or set(all_y)
         defines_ = defines + s.args.get('defines', [])
         undefines_ = undefines + s.args.get('undefines', [])
         ignores_ = ignores + s.args.get('ignores', [])

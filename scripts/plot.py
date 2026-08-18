@@ -1551,10 +1551,10 @@ def main_(ring, csv_paths, *,
             undefines=undefines)
 
     # if y not specified, guess it's anything not in by/defines/x
-    all_y_ = all_y
     if not all_y:
-        all_y_ = [k for k in fields_
+        all_y = [k for k in fields_
                 if k not in all_by
+                    and k not in all_x
                     and not any(k == k_ for k_, _ in all_defines)
                     and not any(k == k_ for k_, _ in all_undefines)]
 
@@ -1731,7 +1731,7 @@ def main_(ring, csv_paths, *,
     for s in grid:
         # allow subplot params to override global params
         x_ = set((x or []) + s.args.get('x', []))
-        y_ = set((y or []) + s.args.get('y', []))
+        y_ = set((y or []) + s.args.get('y', [])) or set(all_y)
         defines_ = defines + s.args.get('defines', [])
         undefines_ = undefines + s.args.get('undefines', [])
         ignores_ = ignores + s.args.get('ignores', [])
@@ -1775,7 +1775,7 @@ def main_(ring, csv_paths, *,
         # data can be constrained by subplot-specific defines,
         # so re-extract for each plot
         subdatasets, subdataattrs = fold(
-                results, all_by, all_x, all_y_,
+                results, all_by, all_x, all_y,
                 defines=defines_,
                 undefines=undefines_)
 
@@ -1788,8 +1788,8 @@ def main_(ring, csv_paths, *,
         subdatasets = co.OrderedDict([(name, dataset)
                 for name, dataset in subdatasets.items()
                 if len(all_x) <= 1
-                    or name[-(1 if len(all_y_) <= 1 else 2)] in x_
-                if len(all_y_) <= 1
+                    or name[-(1 if len(all_y) <= 1 else 2)] in x_
+                if len(all_y) <= 1
                     or name[-1] in y_])
         subdataattrs = co.OrderedDict([(name, dataattr)
                 for name, dataattr in subdataattrs.items()
