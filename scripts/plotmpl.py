@@ -258,9 +258,11 @@ def collect(csv_paths, *,
         defines=[],
         undefines=[]):
     # collect results from CSV files
+    groups = []
     fields = []
     results = []
     for path in csv_paths:
+        groups.append(0)
         try:
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
@@ -279,19 +281,30 @@ def collect(csv_paths, *,
                         continue
 
                     results.append(r)
+                    groups[-1] += 1
 
         except FileNotFoundError:
             pass
 
-    return fields, results
+    return groups, fields, results
 
 def fold(results, by=None, x=None, y=None, *,
+        groups=None,
         defines=[],
         undefines=[]):
+    # group by groups
+    def aggregate(groups, results):
+        yield from zip(
+                it.chain.from_iterable(it.repeat(i, n)
+                        for i, n in enumerate(groups))
+                    if groups else it.repeat(0),
+                results)
+
     # filter by matching defines
     if defines or undefines:
+        groups_ = [0 for _ in groups]
         results_ = []
-        for r in results:
+        for g, r in aggregate(groups, results):
             if not all(any(fnmatch.fnmatchcase(r.get(k, ''), v)
                         for v in vs)
                     for k, vs in defines):
@@ -301,34 +314,39 @@ def fold(results, by=None, x=None, y=None, *,
                     for k, vs in undefines):
                 continue
             results_.append(r)
+            groups_[g] += 1
+        groups = groups_
         results = results_
 
-    if by:
+    if by or len(groups) > 1:
         # find all 'by' values
         keys = set()
-        for r in results:
-            keys.add(tuple(r.get(k, '') for k in by))
+        for g, r in aggregate(groups, results):
+            keys.add(tuple(r.get(k, '') if k else str(g)
+                    for k in (by or [''])))
         keys = sorted(keys)
 
     # collect all datasets
     datasets = co.OrderedDict()
     dataattrs = co.OrderedDict()
-    for key in (keys if by else [()]):
-        for x_ in (x if x else [None]):
-            for y_ in y:
+    for key in (keys if by or len(groups) > 1 else [()]):
+        for x_ in (x or ['']):
+            for y_ in (y or ['']):
                 # organize by 'by', x, and y
+                g_ = 0
                 dataset = []
                 dataattr = {}
-                i = 0
-                for r in results:
+                x_i = 0
+                y_i = 0
+                for g, r in aggregate(groups, results):
                     # filter by 'by'
-                    if by and not all(
-                            k in r and r[k] == v
-                                for k, v in zip(by, key)):
+                    if (by or len(groups) > 1) and not all(
+                            (k in r and r[k] == v) if k else str(g) == v
+                                for k, v in zip(by or [''], key)):
                         continue
 
                     # find xs
-                    if x_ is not None:
+                    if x_:
                         if x_ not in r:
                             continue
                         try:
@@ -337,11 +355,11 @@ def fold(results, by=None, x=None, y=None, *,
                             continue
                     else:
                         # fallback to enumeration
-                        x__ = i
-                        i += 1
+                        x__ = x_i
+                        x_i += 1
 
                     # find ys
-                    if y_ is not None:
+                    if y_:
                         if y_ not in r:
                             continue
                         try:
@@ -349,7 +367,9 @@ def fold(results, by=None, x=None, y=None, *,
                         except ValueError:
                             continue
                     else:
-                        y__ = None
+                        # fallback to enumeration
+                        y__ = y_i
+                        y_i += 1
 
                     # do _not_ sum ys here, it's tempting but risks
                     # incorrect and misleading results
@@ -358,6 +378,18 @@ def fold(results, by=None, x=None, y=None, *,
                     # include all fields in dataattrs in case we use
                     # them for % modifiers
                     dataattr.update(r)
+
+                    # keep track of last g
+                    g_ = g
+
+                # include group/x/y in dataattrs, unless they
+                # conflict with an existing field
+                if 'g' not in dataattr:
+                    dataattr['g'] = str(g_)
+                if 'x' not in dataattr:
+                    dataattr['x'] = x_
+                if 'y' not in dataattr:
+                    dataattr['y'] = y_
 
                 # hide x/y if there is only one field
                 key_ = key
@@ -1082,13 +1114,8 @@ def main(csv_paths, output, *,
         all_undefines[k] |= vs
     all_undefines = sorted(all_undefines.items())
 
-    if not all_by and not all_y:
-        print("error: needs --by or -y to figure out fields",
-                file=sys.stderr)
-        sys.exit(-1)
-
     # first collect results from CSV files
-    fields_, results = collect(csv_paths,
+    groups_, fields_, results = collect(csv_paths,
             defines=defines,
             undefines=undefines)
 
@@ -1103,7 +1130,8 @@ def main(csv_paths, output, *,
     # then extract the requested datasets
     #
     # note we don't need to filter by defines again
-    datasets_, dataattrs_ = fold(results, all_by, all_x, all_y)
+    datasets_, dataattrs_ = fold(results, all_by, all_x, all_y,
+            groups=groups_)
 
     # sort datasets
     datasets_ = co.OrderedDict(sorted(
@@ -1228,8 +1256,8 @@ def main(csv_paths, output, *,
 
         # data can be constrained by subplot-specific defines,
         # so re-extract for each plot
-        subdatasets, subdataattrs = fold(
-                results, all_by, all_x, all_y,
+        subdatasets, subdataattrs = fold(results, all_by, all_x, all_y,
+                groups=groups_,
                 defines=defines_,
                 undefines=undefines_)
 
@@ -1616,6 +1644,24 @@ if __name__ == "__main__":
             '-y',
             action='append',
             help="Field to use for the y-axis.")
+    parser.add_argument(
+            '-g', '--aggregate',
+            action='append_const',
+            dest='by',
+            const='',
+            help="Group by input file number.")
+    parser.add_argument(
+            '-i', '--enumerate', '--xenumerate',
+            action='append_const',
+            dest='x',
+            const='',
+            help="Use enumerated row numbers for the x-axis.")
+    parser.add_argument(
+            '--yenumerate',
+            action='append_const',
+            dest='y',
+            const='',
+            help="Use enumerated row numbers for the y-axis.")
     parser.add_argument(
             '-D', '--define',
             dest='defines',
