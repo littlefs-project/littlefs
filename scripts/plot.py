@@ -392,6 +392,7 @@ def collect(csv_paths, *,
 
 def fold(results, by=None, x=None, y=None, *,
         groups=None,
+        fields=None,
         defines=[],
         undefines=[]):
     # group by groups
@@ -420,13 +421,28 @@ def fold(results, by=None, x=None, y=None, *,
         groups = groups_
         results = results_
 
+    # find all 'by' values
     if by or len(groups) > 1:
-        # find all 'by' values
         keys = set()
         for g, r in aggregate(groups, results):
             keys.add(tuple(r.get(k, '') if k else str(g)
                     for k in (by or [''])))
-        keys = sorted(keys)
+        keys = sorted(keys,
+                key=lambda key: tuple(
+                    dat(k_, 0) if k in (fields or []) or not k else k_
+                    for k, k_ in zip(by or [''], key)))
+
+    # sort xs
+    if x:
+        x = sorted(x,
+                key=lambda x: dat(x, 0)
+                    if 'x' in (fields or []) else x)
+
+    # sort ys
+    if y:
+        y = sorted(y,
+                key=lambda y: dat(y, 0)
+                    if 'y' in (fields or []) else y)
 
     # collect all datasets
     datasets = co.OrderedDict()
@@ -1376,6 +1392,7 @@ def main_(ring, csv_paths, *,
         undefines=[],
         ignores=[],
         sort=None,
+        fields=None,
         labels=[],
         chars=[],
         line_chars=[],
@@ -1589,7 +1606,8 @@ def main_(ring, csv_paths, *,
     #
     # note we don't need to filter by defines again
     datasets_, dataattrs_ = fold(results, all_by, all_x, all_y,
-            groups=groups_)
+            groups=groups_,
+            fields=fields)
 
     # sort datasets
     datasets_ = co.OrderedDict(sorted(
@@ -1597,7 +1615,9 @@ def main_(ring, csv_paths, *,
             key=lambda kv: (
                 # sort by explicit sort fields
                 tuple((Rev if reverse else lambda x: x)(
-                        dat(dataattrs_[kv[0]].get(k,''), 0))
+                        ((lambda x: dat(x, 0)) if k in (fields or [])
+                                else (lambda x: x))(
+                            dataattrs_[kv[0]].get(k,'')))
                     for k, reverse in (sort or [])),
                 # order by labels
                 labels_.key(kv[0]))))
@@ -1804,6 +1824,7 @@ def main_(ring, csv_paths, *,
         # so re-extract for each plot
         subdatasets, subdataattrs = fold(results, all_by, all_x, all_y,
                 groups=groups_,
+                fields=fields,
                 defines=defines_,
                 undefines=undefines_)
 
@@ -2248,6 +2269,11 @@ if __name__ == "__main__":
             nargs='?',
             action=AppendSort,
             help="Sort by this field, but backwards.")
+    parser.add_argument(
+            '-F', '--field',
+            dest='fields',
+            action='append',
+            help="Treat this field as a number for sorting purposes.")
     parser.add_argument(
             '-L', '--add-label',
             dest='labels',
