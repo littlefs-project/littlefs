@@ -127,9 +127,11 @@ def collect(csv_paths, *,
         defines=[],
         undefines=[]):
     # collect results from CSV files
+    groups = []
     fields = []
     results = []
     for path in csv_paths:
+        groups.append(0)
         try:
             with openio(path) as f:
                 reader = csv.DictReader(f, restval='')
@@ -148,62 +150,74 @@ def collect(csv_paths, *,
                         continue
 
                     results.append(r)
+                    groups[-1] += 1
 
         except FileNotFoundError:
             pass
 
-    return fields, results
+    return groups, fields, results
 
 def fold(results, by=None, fields=None, *,
+        groups=None,
         defines=[],
         undefines=[]):
+    # group by groups
+    def aggregate(groups, results):
+        yield from zip(
+                it.chain.from_iterable(it.repeat(i, n)
+                        for i, n in enumerate(groups))
+                    if groups else it.repeat(0),
+                results)
+
     # filter by matching defines
     if defines or undefines:
+        groups_ = [0 for _ in groups]
         results_ = []
-        for r in results:
+        for g, r in aggregate(groups, results):
             if not all(any(fnmatch.fnmatchcase(r.get(k, ''), v)
                         for v in vs)
                     for k, vs in defines):
                 continue
             if any(any(fnmatch.fnmatchcase(r.get(k, ''), v)
                         for v in vs)
-                    for k, vs in defines):
+                    for k, vs in undefines):
                 continue
             results_.append(r)
+            groups_[g] += 1
+        groups = groups_
         results = results_
 
-    if by:
+    if by or len(groups) > 1:
         # find all 'by' values
         keys = set()
-        for r in results:
-            keys.add(tuple(r.get(k, '') for k in by))
+        for g, r in aggregate(groups, results):
+            keys.add(tuple(r.get(k, '') if k else str(g)
+                    for k in (by or [''])))
         keys = sorted(keys)
 
     # collect datasets
     datasets = co.OrderedDict()
     dataattrs = co.OrderedDict()
-    for key in (keys if by else [()]):
+    for key in (keys if by or len(groups) > 1 else [()]):
         for field in fields:
             # organize by 'by' and field
+            g_ = 0
             dataset = []
             dataattr = {}
-            for r in results:
+            for g, r in aggregate(groups, results):
                 # filter by 'by'
-                if by and not all(
-                        k in r and r[k] == v
-                            for k, v in zip(by, key)):
+                if (by or len(groups) > 1) and not all(
+                        (k in r and r[k] == v) if k else str(g) == v
+                            for k, v in zip(by or [''], key)):
                     continue
 
                 # find field
-                if field is not None:
-                    if field not in r:
-                        continue
-                    try:
-                        v = dat(r[field])
-                    except ValueError:
-                        continue
-                else:
-                    v = None
+                if field not in r:
+                    continue
+                try:
+                    v = dat(r[field])
+                except ValueError:
+                    continue
 
                 # do _not_ sum v here, it's tempting but risks
                 # incorrect and misleading results
@@ -213,9 +227,19 @@ def fold(results, by=None, fields=None, *,
                 # them for % modifiers
                 dataattr.update(r)
 
+                # keep track of last g
+                g_ = g
+
+            # include group/field in dataattrs, unless they
+            # conflict with an existing field
+            if 'g' not in dataattr:
+                dataattr['g'] = str(g_)
+            if 'f' not in dataattr:
+                dataattr['f'] = field
+
             # hide 'field' if there is only one field
             key_ = key
-            if len(fields or []) > 1 or not key_:
+            if len(fields) > 1 or not key_:
                 key_ += (field,)
             datasets[key_] = dataset
             dataattrs[key_] = dataattr
@@ -822,21 +846,9 @@ def main(csv_paths, output, *,
         height_ = HEIGHT
 
     # first collect results from CSV files
-    fields_, results = collect(csv_paths,
+    groups_, fields_, results = collect(csv_paths,
             defines=defines,
             undefines=undefines)
-
-    if not by and not fields:
-        print("error: needs --by or --fields to figure out fields",
-                file=sys.stderr)
-        sys.exit(-1)
-
-    # if by not specified, guess it's anything not in fields/labels/defines
-    if not by:
-        by = [k for k in fields_
-                if k not in (fields or [])
-                    and not any(k == k_ for k_, _ in defines)
-                    and not any(k == k_ for k_, _ in undefines)]
 
     # if fields not specified, guess it's anything not in by/labels/defines
     if not fields:
@@ -847,8 +859,10 @@ def main(csv_paths, output, *,
 
     # then extract the requested dataset
     datasets, dataattrs = fold(results, by, fields,
+            groups=groups_,
             defines=defines,
             undefines=undefines)
+    key_len = max(len(key) for key in datasets.keys())
 
     # build tile heirarchy
     children = []
@@ -872,7 +886,7 @@ def main(csv_paths, output, *,
             for k in fields:
                 t.attrs[k] = sum(t_.value
                         for t_ in t.leaves()
-                        if len(fields) == 1 or t_.key[len(by)] == k)
+                        if len(fields) == 1 or t_.key[key_len-1] == k)
 
     # assign colors/labels before sorting to keep things reproducible
 
@@ -1093,7 +1107,8 @@ def main(csv_paths, output, *,
                             '0     %(v)f 0     0 0 '
                             '0     0     %(v)f 0 0 '
                             '0     0     0     1 0"/>' % dict(
-                                v=0.5*((t.depth-1)/(len(by)-1))+0.5))
+                                v=0.5*((t.depth-1)/(key_len-1)) + 0.5
+                                    if key_len > 1 else 1.0))
                 f.write('</filter>')
                 filters.add('depth-%d' % t.depth)
             f.write('<rect '
@@ -1173,6 +1188,12 @@ if __name__ == "__main__":
             dest='fields',
             action='append',
             help="Field to use for tile sizes.")
+    parser.add_argument(
+            '-g', '--aggregate',
+            action='append_const',
+            dest='by',
+            const='',
+            help="Group by input file number.")
     parser.add_argument(
             '-D', '--define',
             dest='defines',
