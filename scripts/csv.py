@@ -3220,11 +3220,15 @@ def main(csv_paths, *,
         # note! don't use read_csv here
         #
         # it's tempting now that we have a Result type, but we want to
-        # make sure all the defines/exprs/mods/etc are evaluated in the
-        # same order
+        # make sure all the defines/exprs/mods/folds/etc are evaluated
+        # in the same order
+        #
+        # it's also tempting to avoid this by treating -u/--use and
+        # -d/--diff differently from input .csvs, but I'm not sure how
+        # this would work with late-evaluated fold exprs... treating all
+        # of these the same seems safest without a deeper redesign
         try:
-            _, _, diff_results = collect_csv(
-                    [args.get('diff')],
+            _, _, diff_results = collect_csv([args.get('diff')],
                     depth=depth,
                     children=children,
                     notes=notes,
