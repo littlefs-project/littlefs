@@ -972,6 +972,25 @@ class CsvExpr:
                 return CsvGStddev()([v.eval(fields, state) for v in self])
 
     # enumerate exprs
+    @func('aggregate', '')
+    class Aggregate(Expr):
+        """A number incremented for each input file"""
+        def fields(self):
+            return set()
+
+        def type(self, types={}):
+            return CsvInt
+
+        def fold(self, types={}, default=CsvSum):
+            return default
+
+        def eval(self, fields={}, state=None):
+            if state is None:
+                return CsvInt(0)
+
+            # aggregate
+            return CsvInt(state.get('aggregate') or 0)
+
     @func('enumerate', '[by;]')
     class Enumerate(Expr):
         """A [per by] number incremented for each result"""
@@ -1874,9 +1893,11 @@ def collect_csv(csv_paths, *,
             return k
 
     # collect both results and fields from CSV files
+    groups = []
     fields = co.OrderedDict()
     results = []
     for path in csv_paths:
+        groups.append(0)
         try:
             with openio(path) as f:
                 # csv or json? assume json starts with [
@@ -1898,6 +1919,7 @@ def collect_csv(csv_paths, *,
                                 if k != notes
                                     and v.strip()}
                         results.append(r_)
+                        groups[-1] += 1
 
                 # read json?
                 else:
@@ -1935,12 +1957,15 @@ def collect_csv(csv_paths, *,
                                 r_[notes] = set(r[notes])
                             results_.append(r_)
                         return results_
-                    results.extend(unjsonify(json.load(f), depth))
+                    results_ = unjsonify(json.load(f), depth)
+                    results.extend(results_)
+                    # update groups here to avoid including children
+                    groups[-1] += len(results_)
 
         except FileNotFoundError:
             pass
 
-    return list(fields.keys()), results
+    return groups, list(fields.keys()), results
 
 def compile(fields_, results,
         by=None,
@@ -2109,16 +2134,22 @@ def compile(fields_, results,
                 **{'_notes': notes} if notes is not None else {}))
 
 def homogenize(Result, results, *,
+        groups=None,
+        _group=0,
         defines=[],
         undefines=[],
         depth=1,
-        depth_=0,
+        _depth=0,
         **_):
     # running result state
     state = {}
     # convert all (possibly recursive) results to our result type
     results_ = []
-    for r in results:
+    for g, r in zip(
+            it.chain.from_iterable(it.repeat(i, n)
+                    for i, n in enumerate(groups))
+                if groups else it.repeat(_group),
+            results):
         # filter by matching defines
         #
         # we do this here instead of in fold to be consistent with
@@ -2134,17 +2165,22 @@ def homogenize(Result, results, *,
                 for k, vs in undefines):
             continue
 
+        # make group available for aggregate
+        state['aggregate'] = g
+
         # append a result
         results_.append(Result(
                 **(r
                     # keep track of depth?
-                    | ({Result._z: depth_} if hasattr(Result, '_z') else {})
+                    | ({Result._z: _depth} if hasattr(Result, '_z') else {})
                     # recurse?
                     | ({Result._children: homogenize(
                             Result, r[Result._children],
+                            # hack to repeat the current group for children
+                            _group=g,
                             # only filter defines at the top level!
                             depth=depth-1,
-                            depth_=depth_+1)}
+                            _depth=_depth+1)}
                         if hasattr(Result, '_children')
                             and Result._children in r
                             and r[Result._children] is not None
@@ -2760,11 +2796,11 @@ def list_fields(csv_paths, **args):
             sys.exit(1)
 
         # collect info
-        fields_, results = collect_csv(csv_paths,
+        groups_, fields_, results = collect_csv(csv_paths,
                 **args)
     else:
         # use is just an alias but takes priority
-        fields_, results = collect_csv([args['use']],
+        groups_, fields_, results = collect_csv([args['use']],
                 **args)
 
     # find best type for fields, note this matches compile behavior
@@ -3052,14 +3088,14 @@ def main(csv_paths, *,
             sys.exit(1)
 
         # collect info
-        fields_, results = collect_csv(csv_paths,
+        groups_, fields_, results = collect_csv(csv_paths,
                 depth=depth,
                 children=children,
                 notes=notes,
                 **args)
     else:
         # use is just an alias but takes priority
-        fields_, results = collect_csv([args['use']],
+        groups_, fields_, results = collect_csv([args['use']],
                 depth=depth,
                 children=children,
                 notes=notes,
@@ -3161,6 +3197,7 @@ def main(csv_paths, *,
 
     # homogenize
     results = homogenize(Result, results,
+            groups=groups_,
             defines=defines,
             undefines=undefines,
             depth=depth)
@@ -3186,7 +3223,7 @@ def main(csv_paths, *,
         # make sure all the defines/exprs/mods/etc are evaluated in the
         # same order
         try:
-            _, diff_results = collect_csv(
+            _, _, diff_results = collect_csv(
                     [args.get('diff')],
                     depth=depth,
                     children=children,
@@ -3308,29 +3345,6 @@ if __name__ == "__main__":
             '-C', '--compare',
             type=lambda x: tuple(v.strip() for v in x.split(',')),
             help="Compare results to the row matching this by pattern.")
-    class AppendEnumerate(argparse.Action):
-        def __call__(self, parser, namespace, value, option):
-            if namespace.by is None:
-                namespace.by = []
-            if namespace.fields is None:
-                namespace.fields = []
-            namespace.by.append(((value, None), option in {
-                    '-I', '--hidden-enumerate'}))
-            namespace.fields.append(((value, CsvExpr('enumerate()')), True))
-    parser.add_argument(
-            '-i', '--enumerate',
-            action=AppendEnumerate,
-            nargs='?',
-            const='i',
-            help="Enumerate results with this field, equivalent to "
-                " -bi -Fi=enumerate(). This will prevent result folding.")
-    parser.add_argument(
-            '-I', '--hidden-enumerate',
-            action=AppendEnumerate,
-            nargs='?',
-            const='i',
-            help="Like -i/--enumerate, but hidden from the table renderer, "
-                "and doesn't affect -b/--by defaults.")
     class AppendBy(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.by is None:
@@ -3385,6 +3399,53 @@ if __name__ == "__main__":
                 )(*x.split('=', 1)),
             help="Like -f/--field, but hidden from the table renderer, "
                 "and doesn't affect -f/--field defaults.")
+    class AppendEnumerate(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.by is None:
+                namespace.by = []
+            if namespace.fields is None:
+                namespace.fields = []
+            namespace.by.append(((value, None), option in {
+                    '-I', '--hidden-enumerate'}))
+            namespace.fields.append(((value, CsvExpr('enumerate()')), True))
+    parser.add_argument(
+            '-i', '--enumerate',
+            action=AppendEnumerate,
+            nargs='?',
+            const='i',
+            help="Enumerate results with this field, equivalent to "
+                "-bi -Fi=enumerate(). This will prevent result folding.")
+    parser.add_argument(
+            '-I', '--hidden-enumerate',
+            action=AppendEnumerate,
+            nargs='?',
+            const='i',
+            help="Like -i/--enumerate, but hidden from the table renderer, "
+                "and doesn't affect -b/--by defaults.")
+    class AppendAggregate(argparse.Action):
+        def __call__(self, parser, namespace, value, option):
+            if namespace.by is None:
+                namespace.by = []
+            if namespace.fields is None:
+                namespace.fields = []
+            namespace.by.append(((value, None), option in {
+                    '-G', '--hidden-aggregate'}))
+            namespace.fields.append(((value, CsvExpr('aggregate()')), True))
+    parser.add_argument(
+            '-g', '--aggregate',
+            action=AppendAggregate,
+            nargs='?',
+            const='g',
+            help="Aggregate results with this field, equivalent to "
+                "-bg -Fg=aggregate(). Effectively enumerates by input "
+                "file number.")
+    parser.add_argument(
+            '-G', '--hidden-aggregate',
+            action=AppendAggregate,
+            nargs='?',
+            const='g',
+            help="Like -g/--aggregate, but hidden from the table renderer, "
+                "and doesn't affect -b/--by defaults.")
     class AppendQuery(argparse.Action):
         def __call__(self, parser, namespace, value, option):
             if namespace.fields is None:
