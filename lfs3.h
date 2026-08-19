@@ -1140,7 +1140,7 @@ enum lfs3_tag {
     LFS3_tag_GRMPUSH        = 0x0004,
     LFS3_tag_GRMPOP         = 0x0005,
     LFS3_tag_STICKYDEC      = 0x0006,
-    LFS3_tag_STICKYZERO     = 0x0007,
+    LFS3_tag_STICKYNOOP     = 0x0007,
     LFS3_tag_STICKYINC      = 0x0008,
     LFS3_tag_MOVE           = 0x0009,
     LFS3_tag_ATTRS          = 0x000a,

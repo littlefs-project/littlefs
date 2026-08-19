@@ -8907,7 +8907,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                 // do nothing here, this is handled up in lfs3_mdir_commit
 
             // add zero to the number of stickynotes in the current mdir
-            } else if (lfs3_rattr_tag(r) == LFS3_tag_STICKYZERO) {
+            } else if (lfs3_rattr_tag(r) == LFS3_tag_STICKYNOOP) {
                 // do nothing, this just enables sticky math
 
             // inc/dec the number of stickynotes in the current mdir
@@ -8931,7 +8931,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                 }
 
                 // inc/dec
-                stickynotes += lfs3_rattr_tag(r) - LFS3_tag_STICKYZERO;
+                stickynotes += lfs3_rattr_tag(r) - LFS3_tag_STICKYNOOP;
                 LFS3_ASSERT((lfs3_ssize_t)stickynotes >= 0);
                 LFS3_ASSERT(stickynotes <= mdir_->r.weight);
 
@@ -14151,7 +14151,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
             LFS3_RATTR_ARG(new_path),
             // update number of stickynotes
             LFS3_RATTR(
-                LFS3_tag_STICKYZERO
+                LFS3_tag_STICKYNOOP
                     + (old_tag == LFS3_TAG_STICKYNOTE)
                     - (new_tag == LFS3_TAG_STICKYNOTE)
                     - (new_tag == LFS3_tag_ORPHAN),
