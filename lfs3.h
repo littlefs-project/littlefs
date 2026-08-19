@@ -114,7 +114,7 @@ enum lfs3_type {
 
     // internally used types, don't use these
     LFS3_type_BOOKMARK   = 4,  // Directory bookmark
-    LFS3_type_ORPHAN     = 5,  // An orphaned stickynote
+    LFS3_type_ZOMBIENOTE = 5,  // A zombied/orphaned stickynote
     LFS3_type_TRV        = 6,  // An open traversal object
     LFS3_type_GC         = 7,  // An open gc object
 };
@@ -1085,7 +1085,7 @@ enum lfs3_tag {
     LFS3_TAG_STICKYNOTE     = 0x0403,   //  v--- -1-- +--- --11
     LFS3_TAG_BOOKMARK       = 0x0404,   //  v--- -1-- +--- -1--
     // in-device only name tags, these should never get written to disk
-    LFS3_tag_ORPHAN         = 0x0405,
+    LFS3_tag_ZOMBIENOTE     = 0x0405,
     LFS3_tag_TRV            = 0x0406,
     LFS3_tag_GC             = 0x0407,
     LFS3_tag_UNKNOWN        = 0x0408,

@@ -8578,14 +8578,14 @@ static lfs3_tag_t lfs3_mdir_nametag(const lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     // same semantics, and this makes it easier to manage the implied
     // mid gap in higher-levels
     if (lfs3_grm_needsrm(&lfs3->grm, mid)) {
-        return LFS3_tag_ORPHAN;
+        return LFS3_tag_ZOMBIENOTE;
 
     // if we find a stickynote, check to see if there are any open
     // in-sync file handles to decide if it really exists
     } else if (tag == LFS3_TAG_STICKYNOTE
             && !lfs3_mid_isopen(lfs3, mid,
                 ~(LFS3_o_ZOMBIE | LFS3_O_DESYNC))) {
-        return LFS3_tag_ORPHAN;
+        return LFS3_tag_ZOMBIENOTE;
 
     // map unknown types -> LFS3_tag_UNKNOWN, this simplifies higher
     // levels and prevents collisions with internal types
@@ -10478,7 +10478,7 @@ static lfs3_stag_t lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
 
         // only continue if we hit a directory
         if (tag != LFS3_TAG_DIR) {
-            return (tag == LFS3_tag_ORPHAN)
+            return (tag == LFS3_tag_ZOMBIENOTE)
                     ? LFS3_ERR_NOENT
                     : LFS3_ERR_NOTDIR;
         }
@@ -13649,8 +13649,8 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
                 && lfs3_path_islast(path))) {
         return tag;
     }
-    // already exists? pretend orphans don't exist
-    if (tag != LFS3_ERR_NOENT && tag != LFS3_tag_ORPHAN) {
+    // already exists? pretend zombies/orphans don't exist
+    if (tag != LFS3_ERR_NOENT && tag != LFS3_tag_ZOMBIENOTE) {
         return LFS3_ERR_EXIST;
     }
 
@@ -13901,8 +13901,8 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
     if (tag < 0) {
         return tag;
     }
-    // pretend orphans don't exist
-    if (tag == LFS3_tag_ORPHAN) {
+    // pretend zombies/orphans don't exist
+    if (tag == LFS3_tag_ZOMBIENOTE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -14038,8 +14038,8 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     if (old_tag < 0) {
         return old_tag;
     }
-    // pretend orphans don't exist
-    if (old_tag == LFS3_tag_ORPHAN) {
+    // pretend zombie/orphans don't exist
+    if (old_tag == LFS3_tag_ZOMBIENOTE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -14086,8 +14086,8 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         }
         if (old_tag == LFS3_TAG_DIR
                 && new_tag != LFS3_TAG_DIR
-                // pretend orphans don't exist
-                && new_tag != LFS3_tag_ORPHAN) {
+                // pretend zombies/orphans don't exist
+                && new_tag != LFS3_tag_ZOMBIENOTE) {
             return LFS3_ERR_NOTDIR;
         }
 
@@ -14154,7 +14154,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
                 LFS3_tag_STICKYNOOP
                     + (old_tag == LFS3_TAG_STICKYNOTE)
                     - (new_tag == LFS3_TAG_STICKYNOTE)
-                    - (new_tag == LFS3_tag_ORPHAN),
+                    - (new_tag == LFS3_tag_ZOMBIENOTE),
                 0, 0),
             LFS3_RATTR(LFS3_tag_MOVE, 0, 1),
             LFS3_RATTR_ARG(&old_mdir),
@@ -14279,8 +14279,8 @@ int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info) {
     if (tag < 0) {
         return tag;
     }
-    // pretend orphans don't exist
-    if (tag == LFS3_tag_ORPHAN) {
+    // pretend zombies/orphans don't exist
+    if (tag == LFS3_tag_ZOMBIENOTE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -14315,8 +14315,8 @@ int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
     if (tag < 0) {
         return tag;
     }
-    // pretend orphans don't exist
-    if (tag == LFS3_tag_ORPHAN) {
+    // pretend zombies/orphans don't exist
+    if (tag == LFS3_tag_ZOMBIENOTE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -14418,8 +14418,8 @@ int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
             return LFS3_ERR_NOENT;
         }
 
-        // skip orphans, we pretend these don't exist
-        if (tag == LFS3_tag_ORPHAN) {
+        // skip zombies/orphans, we pretend these don't exist
+        if (tag == LFS3_tag_ZOMBIENOTE) {
             dir->h.mdir.mid += 1;
             continue;
         }
@@ -14530,8 +14530,8 @@ static int lfs3_lookupattr(lfs3_t *lfs3, const char *path, uint8_t type,
     if (tag < 0) {
         return tag;
     }
-    // pretend orphans don't exist
-    if (tag == LFS3_tag_ORPHAN) {
+    // pretend zombies/orphans don't exist
+    if (tag == LFS3_tag_ZOMBIENOTE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -14981,7 +14981,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     // creating a new entry?
     if (LFS3_IFDEF_RDONLY(
             false,
-            (tag == LFS3_ERR_NOENT || tag == LFS3_tag_ORPHAN)
+            (tag == LFS3_ERR_NOENT || tag == LFS3_tag_ZOMBIENOTE)
                 && (file->h.flags & LFS3_O_CREAT))) {
         #ifndef LFS3_RDONLY
         // we'd better not be rdonly
@@ -15006,7 +15006,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         #endif
 
     // existing entry?
-    } else if (!(tag == LFS3_ERR_NOENT || tag == LFS3_tag_ORPHAN)) {
+    } else if (!(tag == LFS3_ERR_NOENT || tag == LFS3_tag_ZOMBIENOTE)) {
         #ifndef LFS3_RDONLY
         // wanted to create a new entry?
         if (file->h.flags & LFS3_O_EXCL) {
