@@ -1054,6 +1054,14 @@ popped:
             end = fromid+1;
             diff = toid-fromid+diff;
         } else if (lfs_tag_type3(tag) == LFS_FROM_USERATTRS) {
+            // LFS_FROM_USERATTRS is a synthetic tag and must never be read
+            // from disk. On-disk tags have the invalid bit set while being
+            // traversed, and their buffer points to a struct lfs_diskoff,
+            // not a struct lfs_attr array.
+            if (!lfs_tag_isvalid(tag)) {
+                return LFS_ERR_CORRUPT;
+            }
+
             for (unsigned i = 0; i < lfs_tag_size(tag); i++) {
                 const struct lfs_attr *a = buffer;
                 res = cb(data, LFS_MKTAG(LFS_TYPE_USERATTR + a[i].type,
@@ -6555,4 +6563,3 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
     return err;
 }
 #endif
-
