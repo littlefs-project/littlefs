@@ -3,6 +3,44 @@
 
 # invalid pointer tests (outside of block_count)
 
+[cases.test_evil_disk_userattrs_tag]
+in = "lfs.c"
+if = "PROG_SIZE < BLOCK_SIZE"
+code = '''
+    // A reserved user-attribute tag written to disk must not be treated as
+    // the caller-owned struct lfs_attr array used by the synthetic path.
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    lfs_init(&lfs, cfg) => 0;
+    lfs_mdir_t mdir;
+    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
+
+    // Bypass the normal commit traversal to put the reserved tag on disk.
+    lfs_off_t old_off = mdir.off;
+    struct lfs_diskoff disk = {mdir.pair[0], sizeof(lfs_tag_t)};
+    struct lfs_commit commit = {
+        .block = mdir.pair[0],
+        .off = mdir.off,
+        .ptag = mdir.etag,
+        .crc = 0xffffffff,
+        .begin = mdir.off,
+        .end = cfg->block_size - 8,
+    };
+    lfs_dir_commitattr(&lfs, &commit,
+            LFS_MKTAG(LFS_FROM_USERATTRS, 0, 1) | 0x80000000,
+            &disk) => 0;
+    lfs_dir_commitcrc(&lfs, &commit) => 0;
+    lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, true) => 0;
+    lfs_dir_fetch(&lfs, &mdir, (lfs_block_t[2]){0, 1}) => 0;
+    assert(mdir.off > old_off);
+
+    lfs_size_t size = 0;
+    lfs_dir_traverse(&lfs, &mdir, 0, 0xffffffff, NULL, 0,
+            0, 0, 0, 0, 0, lfs_dir_commit_size, &size) => LFS_ERR_CORRUPT;
+    lfs_deinit(&lfs) => 0;
+'''
+
 [cases.test_evil_invalid_tail_pointer]
 defines.TAIL_TYPE = ['LFS_TYPE_HARDTAIL', 'LFS_TYPE_SOFTTAIL']
 defines.INVALSET = [0x3, 0x1, 0x2]
