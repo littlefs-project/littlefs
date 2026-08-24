@@ -1270,13 +1270,20 @@ def table(Result, results, diff_results=None, *,
         widths[0] = 0
 
     # print our table
-    for line in lines:
-        print('%-*s  %s' % (
-                widths[0], line[0][0],
-                ' '.join('%*s%-*s' % (
-                        widths[i], x[0],
-                        nwidths[i], ' (%s)' % ', '.join(x[1]) if x[1] else '')
-                    for i, x in enumerate(line[1:], 1))))
+    try:
+        for line in lines:
+            print('%-*s  %s' % (
+                    widths[0], line[0][0],
+                    ' '.join('%*s%-*s' % (
+                            widths[i], x[0],
+                            nwidths[i], ' (%s)' % ', '.join(x[1])
+                                if x[1] else '')
+                        for i, x in enumerate(line[1:], 1))))
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # hack for broken pipes:
+        # https://docs.python.org/3/library/signal.html#note-on-sigpipe
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
 
 def read_csv(path, Result, *,
         depth=1,
