@@ -8,13 +8,15 @@
     // DISK_GEOMETRY controls which simulation we use
     // 0 => NOR flash (the default)
     // 1 => NAND flash
-    // 2 => SD/eMMC
-    // 3 => FRAM
+    // 2 => NAND+FTL
+    // 3 => SD/eMMC
+    // 4 => FRAM
     #define DISK_MAP(define) \
-            ((DISK_GEOMETRY == 0)      ? NOR_##define  \
-                : (DISK_GEOMETRY == 1) ? NAND_##define \
-                : (DISK_GEOMETRY == 2) ? EMMC_##define \
-                : (DISK_GEOMETRY == 3) ? FRAM_##define \
+            ((DISK_GEOMETRY == 0)      ? NOR_##define     \
+                : (DISK_GEOMETRY == 1) ? NAND_##define    \
+                : (DISK_GEOMETRY == 2) ? NANDFTL_##define \
+                : (DISK_GEOMETRY == 3) ? EMMC_##define    \
+                : (DISK_GEOMETRY == 4) ? FRAM_##define    \
                                        : 0)
     #endif
 #endif
@@ -239,7 +241,7 @@
     BENCH_DEFINE(NAND_PROG_UTIMING,     (DISK_SIM == 0) ? 19    : 141       )
     BENCH_DEFINE(NAND_ERASE_UTIMING,    (DISK_SIM == 0) ? 0     : 15        )
 
-    // SD/eMMC (DISK_GEOMETRY=2)
+    // NAND+FTL (DISK_GEOMETRY=2)
     //
     // this just uses the above NAND flash (w25n01gv) and assumes a
     // perfect FTL
@@ -281,18 +283,103 @@
     //       = ~2000608ns
     //
     // simple per-byte sim:
-    // (note we use the sector here because in theory the FTL needs to)
-    // (read a full page behind the scenes                            )
-    // readed = tRD1/sector + bus
-    //        = 25us/512 + ~19ns/B
-    //        = ~68ns/B
-    // progged = tPP/sector + bus + erase/block
-    //         = 250us/512 + ~19ns/B + ~2000608ns/131072
-    //         = ~523ns/B
+    // readed = tRD1/page + bus
+    //        = 25us/2048 + ~19ns/B
+    //        = ~31ns/B
+    // progged = tPP/page + bus + erase/block
+    //         = 250us/2048 + ~19ns/B + ~2000608ns/131072
+    //         = ~156ns/B
     // erased = 0ns/B (noop)
     //
     // less-simple bus+buffer sim:
-    // (we can just use page here, the sim doesn't care if page > block)
+    // read = ~1026ns (read cmd)
+    // prog = ~1064ns (prog cmd)
+    // erase = 0ns (noop)
+    // wread = tRD1/page
+    //       = 25us/2048
+    //       = ~12ns/B
+    // wprog = tPP/page + erase/block
+    //       = 250us/2048 + ~2000608ns/131072
+    //       = ~137ns/B
+    // werase = 0ns/B (noop)
+    // readed = ~19ns/B (bus)
+    // progged = ~19ns/B (bus)
+    // erased = 0ns/B (no bus cost)
+    //
+    BENCH_DEFINE(NANDFTL_READ_SIZE,     1                                   )
+    BENCH_DEFINE(NANDFTL_PROG_SIZE,     512                                 )
+    BENCH_DEFINE(NANDFTL_ERASE_SIZE,    512                                 )
+    BENCH_DEFINE(NANDFTL_READ_WIDTH,    2048                                )
+    BENCH_DEFINE(NANDFTL_PROG_WIDTH,    2048                                )
+    BENCH_DEFINE(NANDFTL_ERASE_WIDTH,   LFS3_MIN(ERASE_SIZE, BLOCK_SIZE)    )
+    BENCH_DEFINE(NANDFTL_READ_TIMING,   (DISK_SIM == 0) ? 1026  : 0         )
+    BENCH_DEFINE(NANDFTL_PROG_TIMING,   (DISK_SIM == 0) ? 1064  : 0         )
+    BENCH_DEFINE(NANDFTL_ERASE_TIMING,  0                                   )
+    BENCH_DEFINE(NANDFTL_READ_WTIMING,  (DISK_SIM == 0)
+                                            ? 12*EMMC_READ_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(NANDFTL_PROG_WTIMING,  (DISK_SIM == 0)
+                                            ? 137*EMMC_PROG_WIDTH
+                                            : 0                             )
+    BENCH_DEFINE(NANDFTL_ERASE_WTIMING, 0                                   )
+    BENCH_DEFINE(NANDFTL_READ_UTIMING,  (DISK_SIM == 0) ? 19    : 31        )
+    BENCH_DEFINE(NANDFTL_PROG_UTIMING,  (DISK_SIM == 0) ? 19    : 156       )
+    BENCH_DEFINE(NANDFTL_ERASE_UTIMING, 0                                   )
+
+    // SD/eMMC (DISK_GEOMETRY=3)
+    //
+    // this just uses the above NAND flash (w25n01gv) and assumes a
+    // perfect FTL
+    //
+    // unlike NAND+FTL, this also limits reads to a single sector (progs
+    // were already limited since we can't prog a sub-sector)
+    //
+    // FR = 104MHz, quad read/prog
+    // block = 131072
+    // tBE = 2ms
+    // page = 2048
+    // sector = 512
+    // tPP = 250us
+    // tRD1 = 25us
+    //
+    // bus = 104MHz * quad read/prog
+    //     = ~9.6ns * 8/4
+    //     = ~19ns/B
+    //
+    // read cmd = read page + read col
+    //            (read page = 8op + 8dummy + 16addr)
+    //            (          = 32 * bus             )
+    //            (read col = 8op + 4addr + 10dummy)
+    //            (         = 22 * bus             )
+    //          = (32 + 22) * bus
+    //          = 54 * ~19ns/B (bus)
+    //          = ~1026ns
+    // prog cmd = prog col + prog page
+    //            (prog col = 8op + 16addr)
+    //            (         = 24 * bus    )
+    //            (prog page = 8op + 8dummy + 16addr)
+    //            (          = 32 * bus             )
+    //          = (24 + 32) * bus
+    //          = 56 * ~19ns/B (bus)
+    //          = ~1064ns
+    // erase cmd = 8op + 8dummy + 16addr
+    //           = 32 * ~19ns/B (bus)
+    //           = ~608ns
+    //
+    // erase = erase cmd + tBE
+    //       = ~608ns + 2ms
+    //       = ~2000608ns
+    //
+    // simple per-byte sim:
+    // readed = tRD1/page + bus
+    //        = 25us/2048 + ~19ns/B
+    //        = ~31ns/B
+    // progged = tPP/page + bus + erase/block
+    //         = 250us/2048 + ~19ns/B + ~2000608ns/131072
+    //         = ~156ns/B
+    // erased = 0ns/B (noop)
+    //
+    // less-simple bus+buffer sim:
     // read = ~1026ns (read cmd)
     // prog = ~1064ns (prog cmd)
     // erase = 0ns (noop)
@@ -323,11 +410,11 @@
                                             ? 137*EMMC_PROG_WIDTH
                                             : 0                             )
     BENCH_DEFINE(EMMC_ERASE_WTIMING,    0                                   )
-    BENCH_DEFINE(EMMC_READ_UTIMING,     (DISK_SIM == 0) ? 19    : 68        )
-    BENCH_DEFINE(EMMC_PROG_UTIMING,     (DISK_SIM == 0) ? 19    : 523       )
+    BENCH_DEFINE(EMMC_READ_UTIMING,     (DISK_SIM == 0) ? 19    : 31        )
+    BENCH_DEFINE(EMMC_PROG_UTIMING,     (DISK_SIM == 0) ? 19    : 156       )
     BENCH_DEFINE(EMMC_ERASE_UTIMING,    0                                   )
 
-    // FRAM (DISK_GEOMETRY=3)
+    // FRAM (DISK_GEOMETRY=4)
     //
     // based on cy15b102qsn:
     // https://www.infineon.com/assets/row/public/documents/10/49/
