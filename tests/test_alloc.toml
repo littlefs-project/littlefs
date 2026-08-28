@@ -753,8 +753,6 @@ code = '''
 
 # here's an interesting one, test that spamming gc calls does not clog
 # up the allocator
-#
-# TODO why?
 [cases.test_alloc_wraparound_gc_spam]
 defines.COUNT = [
     'BLOCK_COUNT',
@@ -779,6 +777,10 @@ code = '''
     // test various block counts
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
+    // need to recompute gc_lookgbmap_thresh if it depends on block_count
+    cfg.gc_lookgbmap_thresh = lfs3_min(
+            GC_LOOKGBMAP_THRESH,
+            COUNT - 3*(COUNT/8));
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
