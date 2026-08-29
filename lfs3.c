@@ -17651,26 +17651,26 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     #endif
-
     // check that gc_compactmeta_thresh makes sense
     //
     // metadata can't be compacted below block_size/2 for balance
     // reasons, metadata can't exceed exceed a block, and 0 is reserved
-    #ifndef LFS3_RDONLY
-    LFS3_ASSERT(cfg->gc_compactmeta_thresh != 0);
-    LFS3_ASSERT(cfg->gc_compactmeta_thresh >= cfg->block_size/2);
-    LFS3_ASSERT(cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
-            || cfg->gc_compactmeta_thresh <= cfg->block_size);
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GC)
+    LFS3_ASSERT(!(cfg->gc_flags & LFS3_GC_COMPACTMETA)
+            || cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
+            || (cfg->gc_compactmeta_thresh != 0
+                && cfg->gc_compactmeta_thresh >= cfg->block_size/2
+                && cfg->gc_compactmeta_thresh <= cfg->block_size));
     #endif
-
     // same for gc_compactbtree_thresh
     //
     // but 0 defaults to gc_compactmeta_thresh
-    #ifndef LFS3_RDONLY
-    LFS3_ASSERT(cfg->gc_compactbtree_thresh == 0
-            || cfg->gc_compactbtree_thresh >= cfg->block_size/2);
-    LFS3_ASSERT(cfg->gc_compactbtree_thresh == (lfs3_size_t)-1
-            || cfg->gc_compactbtree_thresh <= cfg->block_size);
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GC)
+    LFS3_ASSERT(!(cfg->gc_flags & LFS3_GC_COMPACTMETA)
+            || cfg->gc_compactbtree_thresh == 0
+            || cfg->gc_compactbtree_thresh == (lfs3_size_t)-1
+            || (cfg->gc_compactbtree_thresh >= cfg->block_size/2
+                && cfg->gc_compactbtree_thresh <= cfg->block_size));
     #endif
 
     // looks correct? start putting the system together
@@ -18578,6 +18578,27 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(cfg)
             || !(flags & LFS3_M_PREERASE));
     #endif
+    // check that gc_compactmeta_thresh makes sense
+    //
+    // metadata can't be compacted below block_size/2 for balance
+    // reasons, metadata can't exceed exceed a block, and 0 is reserved
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!(flags & LFS3_M_COMPACTMETA)
+            || cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
+            || (cfg->gc_compactmeta_thresh != 0
+                && cfg->gc_compactmeta_thresh >= cfg->block_size/2
+                && cfg->gc_compactmeta_thresh <= cfg->block_size));
+    #endif
+    // same for gc_compactbtree_thresh
+    //
+    // but 0 defaults to gc_compactmeta_thresh
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!(flags & LFS3_M_COMPACTMETA)
+            || cfg->gc_compactbtree_thresh == 0
+            || cfg->gc_compactbtree_thresh == (lfs3_size_t)-1
+            || (cfg->gc_compactbtree_thresh >= cfg->block_size/2
+                && cfg->gc_compactbtree_thresh <= cfg->block_size));
+    #endif
 
     int err = lfs3_init(lfs3,
             flags & (
@@ -18840,6 +18861,27 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(cfg)
             || !(flags & LFS3_GC_PREERASE));
+    #endif
+    // check that gc_compactmeta_thresh makes sense
+    //
+    // metadata can't be compacted below block_size/2 for balance
+    // reasons, metadata can't exceed exceed a block, and 0 is reserved
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!(flags & LFS3_F_COMPACTMETA)
+            || cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
+            || (cfg->gc_compactmeta_thresh != 0
+                && cfg->gc_compactmeta_thresh >= cfg->block_size/2
+                && cfg->gc_compactmeta_thresh <= cfg->block_size));
+    #endif
+    // same for gc_compactbtree_thresh
+    //
+    // but 0 defaults to gc_compactmeta_thresh
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!(flags & LFS3_F_COMPACTMETA)
+            || cfg->gc_compactbtree_thresh == 0
+            || cfg->gc_compactbtree_thresh == (lfs3_size_t)-1
+            || (cfg->gc_compactbtree_thresh >= cfg->block_size/2
+                && cfg->gc_compactbtree_thresh <= cfg->block_size));
     #endif
 
     int err = lfs3_init(lfs3,
@@ -19144,6 +19186,31 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(lfs3->cfg)
             || !(lfs3->cfg->gc_flags & LFS3_GC_PREERASE));
+    #endif
+    // check that gc_compactmeta_thresh makes sense
+    //
+    // metadata can't be compacted below block_size/2 for balance
+    // reasons, metadata can't exceed exceed a block, and 0 is reserved
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!(lfs3->cfg->gc_flags & LFS3_GC_COMPACTMETA)
+            || lfs3->cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
+            || (lfs3->cfg->gc_compactmeta_thresh != 0
+                && lfs3->cfg->gc_compactmeta_thresh
+                    >= lfs3->cfg->block_size/2
+                && lfs3->cfg->gc_compactmeta_thresh
+                    <= lfs3->cfg->block_size));
+    #endif
+    // same for gc_compactbtree_thresh
+    //
+    // but 0 defaults to gc_compactmeta_thresh
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!(lfs3->cfg->gc_flags & LFS3_GC_COMPACTMETA)
+            || lfs3->cfg->gc_compactbtree_thresh == 0
+            || lfs3->cfg->gc_compactbtree_thresh == (lfs3_size_t)-1
+            || (lfs3->cfg->gc_compactbtree_thresh
+                    >= lfs3->cfg->block_size/2
+                && lfs3->cfg->gc_compactbtree_thresh
+                    <= lfs3->cfg->block_size));
     #endif
 
     // run gc a configurable number of steps
@@ -19911,6 +19978,31 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(lfs3->cfg)
             || !(flags & LFS3_GC_PREERASE));
+    #endif
+    // check that gc_compactmeta_thresh makes sense
+    //
+    // metadata can't be compacted below block_size/2 for balance
+    // reasons, metadata can't exceed exceed a block, and 0 is reserved
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!(flags & LFS3_GC_COMPACTMETA)
+            || lfs3->cfg->gc_compactmeta_thresh == (lfs3_size_t)-1
+            || (lfs3->cfg->gc_compactmeta_thresh != 0
+                && lfs3->cfg->gc_compactmeta_thresh
+                    >= lfs3->cfg->block_size/2
+                && lfs3->cfg->gc_compactmeta_thresh
+                    <= lfs3->cfg->block_size));
+    #endif
+    // same for gc_compactbtree_thresh
+    //
+    // but 0 defaults to gc_compactmeta_thresh
+    #ifndef LFS3_RDONLY
+    LFS3_ASSERT(!(flags & LFS3_GC_COMPACTMETA)
+            || lfs3->cfg->gc_compactbtree_thresh == 0
+            || lfs3->cfg->gc_compactbtree_thresh == (lfs3_size_t)-1
+            || (lfs3->cfg->gc_compactbtree_thresh
+                    >= lfs3->cfg->block_size/2
+                && lfs3->cfg->gc_compactbtree_thresh
+                    <= lfs3->cfg->block_size));
     #endif
 
     // setup gc state
