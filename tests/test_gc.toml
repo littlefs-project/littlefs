@@ -3535,6 +3535,9 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SYNC = [false, true]
+# we need lookgbmap_thresh to be slightly higher so we repop/fragment
+# it more quickly
+defines.LOOKGBMAP_THRESH = 'BLOCK_COUNT/4'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
@@ -3706,6 +3709,9 @@ defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SYNC = [false, true]
+# we need lookgbmap_thresh to be slightly higher so we repop/fragment
+# it more quickly
+defines.LOOKGBMAP_THRESH = 'BLOCK_COUNT/4'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
@@ -3926,6 +3932,9 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.CHUNK = 'BLOCK_SIZE'
+# we need lookgbmap_thresh to be slightly higher so we repop/fragment
+# it more quickly
+defines.LOOKGBMAP_THRESH = 'BLOCK_COUNT/4'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so
@@ -4150,6 +4159,9 @@ defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.CHUNK = 'BLOCK_SIZE'
+# we need lookgbmap_thresh to be slightly higher so we repop/fragment
+# it more quickly
+defines.LOOKGBMAP_THRESH = 'BLOCK_COUNT/4'
 # set compact thresh to minimum
 defines.GC_COMPACTMETA_THRESH = 'BLOCK_SIZE/2'
 # LFS3_GC_COMPACTMETA and LFS3_GC_LOOKAHEAD can end up competing, so

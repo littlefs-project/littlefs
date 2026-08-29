@@ -41,7 +41,7 @@
     BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)             )
     BENCH_DEFINE(FCACHE_SIZE,           16                                  )
     BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                  )
-    BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/4                       )
+    BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/8                       )
     BENCH_DEFINE(EVICTQUEUE_COUNT,      2                                   )
     // report estimated buffer usage
     BENCH_DEFINE(BUF_WATERMARK,         RCACHE_SIZE
@@ -55,7 +55,7 @@
     BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                          )
     BENCH_DEFINE(GC_STEPS,              0                                   )
     BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   BLOCK_COUNT                         )
-    BENCH_DEFINE(GC_LOOKGBMAP_THRESH,   BLOCK_COUNT - 3*(BLOCK_COUNT/8)     )
+    BENCH_DEFINE(GC_LOOKGBMAP_THRESH,   BLOCK_COUNT - BLOCK_COUNT/2         )
     BENCH_DEFINE(GC_PREERASE_COUNT,     BLOCK_COUNT                         )
     BENCH_DEFINE(GC_COMPACTMETA_THRESH, BLOCK_SIZE - BLOCK_SIZE/8           )
     BENCH_DEFINE(GC_COMPACTBTREE_THRESH,

@@ -713,7 +713,7 @@ struct lfs3_cfg {
     // overall allocator throughput, at the risk of needing to fallback
     // to the slower lookahead allocator when empty.
     //
-    // Suggested values are ~25% (bs/4) on large disks, and to consider
+    // Suggested values are ~13% (bs/8) on large disks, and to consider
     // disabling (-1) on small disks. Values >= block_count-1 are highly
     // discouraged as they tend to result in gbmap thrashing.
     //
@@ -779,8 +779,8 @@ struct lfs3_cfg {
     // operations gbmap repopulations are controlled by
     // lookgbmap_thresh.
     //
-    // Suggested values are ~63% (bc-3*(bc/8)). Values >= block_count-1
-    // are highly discouraged as they tend to result in gbmap thrashing.
+    // Suggested values are ~50% (bc-bc/2). Values >= block_count-1 are
+    // highly discouraged as they tend to result in gbmap thrashing.
     //
     // 0 or any value <= lookgbmap_thresh repopulates the gbmap when
     // below lookgbmap_thresh. Set to -1 to disable repopulating the
