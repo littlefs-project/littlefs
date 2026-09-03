@@ -52,7 +52,26 @@
                                                 EVICTQUEUE_COUNT
                                                     * sizeof(lfs3_evict_t),
                                                 0)                          )
-    BENCH_DEFINE(GC_FLAGS,              LFS3_GC_GC                          )
+    BENCH_DEFINE(GC_FLAGS,              LFS3_GC_MKCONSISTENT
+                                            | LFS3_GC_LOOKAHEAD
+                                            | LFS3_IFDEF_PREERASE(
+                                                (LFS3_IFYES_REVPERTURB(
+                                                    true,
+                                                    (CFG_FLAGS
+                                                        & LFS3_CFG_REVPERTURB),
+                                                    false))
+                                                    ? LFS3_GC_PREERASE
+                                                    : 0,
+                                                0)
+                                            | LFS3_GC_COMPACTMETA
+                                            | LFS3_GC_CKMETA
+                                            | LFS3_GC_CKDATA
+                                            | LFS3_IFDEF_REPAIR(
+                                                LFS3_M_REPAIRMETA,
+                                                0)
+                                            | LFS3_IFDEF_REPAIR(
+                                                LFS3_M_REPAIRDATA,
+                                                0)                          )
     BENCH_DEFINE(GC_STEPS,              0                                   )
     BENCH_DEFINE(GC_LOOKAHEAD_THRESH,   BLOCK_COUNT                         )
     BENCH_DEFINE(GC_LOOKGBMAP_THRESH,   BLOCK_COUNT - BLOCK_COUNT/2         )

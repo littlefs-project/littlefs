@@ -17640,6 +17640,12 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     #endif
+    // we can't use preerased blocks without revperturb, so this is
+    // likely a mistake
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GC) && defined(LFS3_PREERASE)
+    LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(cfg)
+            || !(cfg->gc_flags & LFS3_GC_PREERASE));
+    #endif
     // check that gc_preerase_count is non-zero, 0 is reserved
     #if !defined(LFS3_RDONLY) && defined(LFS3_GC) && defined(LFS3_PREERASE)
     LFS3_ASSERT(!(cfg->gc_flags & LFS3_GC_PREERASE)
