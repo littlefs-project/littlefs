@@ -1006,7 +1006,9 @@ struct lfs3_file_cfg {
 
     // Size of the file cache in bytes. In addition to filesystem-wide
     // read/prog caches, each file gets its own cache to reduce disk
-    // accesses. Defaults to fcache_size if fcache_buffer is NULL.
+    // accesses.
+    //
+    // Defaults to cfg.fcache_size if fcache_buffer is NULL.
     lfs3_size_t fcache_size;
 
     // Optional list of custom attributes attached to the file. If
