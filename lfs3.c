@@ -17640,6 +17640,11 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))) == 0);
     #endif
+    // check that gc_preerase_count is non-zero, 0 is reserved
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GC) && defined(LFS3_PREERASE)
+    LFS3_ASSERT(!(cfg->gc_flags & LFS3_GC_PREERASE)
+            || cfg->gc_preerase_count != 0);
+    #endif
     // check that gc_compactmeta_thresh makes sense
     //
     // metadata can't be compacted below block_size/2 for balance
@@ -18567,6 +18572,11 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(cfg)
             || !(flags & LFS3_M_PREERASE));
     #endif
+    // check that gc_preerase_count is non-zero, 0 is reserved
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
+    LFS3_ASSERT(!(flags & LFS3_M_PREERASE)
+            || cfg->gc_preerase_count != 0);
+    #endif
     // check that gc_compactmeta_thresh makes sense
     //
     // metadata can't be compacted below block_size/2 for balance
@@ -18850,6 +18860,11 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(cfg)
             || !(flags & LFS3_GC_PREERASE));
+    #endif
+    // check that gc_preerase_count is non-zero, 0 is reserved
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
+    LFS3_ASSERT(!(flags & LFS3_F_PREERASE)
+            || cfg->gc_preerase_count != 0);
     #endif
     // check that gc_compactmeta_thresh makes sense
     //
@@ -19175,6 +19190,11 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(lfs3->cfg)
             || !(lfs3->cfg->gc_flags & LFS3_GC_PREERASE));
+    #endif
+    // check that gc_preerase_count is non-zero, 0 is reserved
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
+    LFS3_ASSERT(!(lfs3->cfg->gc_flags & LFS3_GC_PREERASE)
+            || lfs3->cfg->gc_preerase_count != 0);
     #endif
     // check that gc_compactmeta_thresh makes sense
     //
@@ -19967,6 +19987,11 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     LFS3_ASSERT(LFS3_CFG_ISREVPERTURB(lfs3->cfg)
             || !(flags & LFS3_GC_PREERASE));
+    #endif
+    // check that gc_preerase_count is non-zero, 0 is reserved
+    #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
+    LFS3_ASSERT(!(flags & LFS3_GC_PREERASE)
+            || lfs3->cfg->gc_preerase_count != 0);
     #endif
     // check that gc_compactmeta_thresh makes sense
     //

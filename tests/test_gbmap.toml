@@ -931,7 +931,7 @@ defines.GC_FLAGS = '''
 '''
 defines.GC_STEPS = -1
 defines.GC_PREERASE_COUNT = [
-    '0',
+    '-1',
     '4',
     'COUNT/2',
     'COUNT-4',

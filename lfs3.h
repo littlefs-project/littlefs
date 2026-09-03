@@ -797,10 +797,10 @@ struct lfs3_cfg {
     // Suggested values are ~100% (bc), unless erase is a noop or
     // volatile.
     //
-    // 0 or -1 disables pre-erasing, while any value >= block_count
-    // attempts to pre-erase all known free blocks during gc. When
-    // disabled, littlefs erases blocks immediately before the first
-    // prog operation.
+    // -1 disables pre-erasing, while any value >= block_count attempts
+    // to pre-erase all known free blocks during gc. When disabled,
+    // littlefs erases blocks immediately before the first prog
+    // operation. 0 is reserved.
     #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
     lfs3_block_t gc_preerase_count;
     #endif
