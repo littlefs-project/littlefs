@@ -17,7 +17,7 @@
     TEST_DEFINE(PCACHE_SIZE,            LFS3_MAX(16, PROG_SIZE)             )
     TEST_DEFINE(FCACHE_SIZE,            16                                  )
     TEST_DEFINE(LOOKAHEAD_SIZE,         16                                  )
-    TEST_DEFINE(LOOKGBMAP_THRESH,       BLOCK_COUNT/8                       )
+    TEST_DEFINE(LOOKGBMAP_THRESH,       0                                   )
     TEST_DEFINE(EVICTQUEUE_COUNT,       2                                   )
     TEST_DEFINE(GC_FLAGS,               LFS3_GC_MKCONSISTENT
                                             | LFS3_GC_LOOKAHEAD

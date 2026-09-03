@@ -709,17 +709,18 @@ struct lfs3_cfg {
     //
     // When <= this many blocks have a known state, littlefs will
     // traverse the filesystem and attempt to repopulate the gbmap.
-    // Smaller values decrease repopulation frequency and improves
-    // overall allocator throughput, at the risk of needing to fallback
-    // to the slower lookahead allocator when empty.
+    // This can be set higher than 0 to avoid falling back to the
+    // lookahead buffer, but may hurt overall performance due to more
+    // frequent gbmap repopulations.
     //
-    // Suggested values are ~13% (bs/8) on large disks, and to consider
-    // disabling (-1) on small disks. Values >= block_count-1 are highly
+    // Suggested values are 0 or disabled (-1). Repopulating the gbmap
+    // is costly and writes to disk. Values >= block_count-1 are highly
     // discouraged as they tend to result in gbmap thrashing.
     //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
-    // repopulations at the risk of large latency spikes. Set to -1 to
-    // disable repopulating the gbmap during normal operations.
+    // repopulations but potentially requiring lookahead traversals.
+    // Set to -1 to disable repopulating the gbmap during normal
+    // operations.
     #ifdef LFS3_GBMAP
     lfs3_block_t lookgbmap_thresh;
     #endif
@@ -771,9 +772,7 @@ struct lfs3_cfg {
     lfs3_block_t gc_lookahead_thresh;
     #endif
 
-    // Threshold for repopulating the gbmap during gc. This can be set
-    // lower than the disk size to delay gc work when only a few blocks
-    // have been allocated.
+    // Threshold for repopulating the gbmap during gc.
     //
     // Note this only affects explicit gc operations. During normal
     // operations gbmap repopulations are controlled by
@@ -783,8 +782,8 @@ struct lfs3_cfg {
     // highly discouraged as they tend to result in gbmap thrashing.
     //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
-    // repopulations at the risk of large latency spikes. Set to -1 to
-    // disable repopulating the gbmap during gc.
+    // repopulations but potentially requiring lookahead traversals.
+    // Set to -1 to disable repopulating the gbmap during gc.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t gc_lookgbmap_thresh;
     #endif

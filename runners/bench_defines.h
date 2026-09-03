@@ -41,7 +41,7 @@
     BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)             )
     BENCH_DEFINE(FCACHE_SIZE,           16                                  )
     BENCH_DEFINE(LOOKAHEAD_SIZE,        16                                  )
-    BENCH_DEFINE(LOOKGBMAP_THRESH,      BLOCK_COUNT/8                       )
+    BENCH_DEFINE(LOOKGBMAP_THRESH,      0                                   )
     BENCH_DEFINE(EVICTQUEUE_COUNT,      2                                   )
     // report estimated buffer usage
     BENCH_DEFINE(BUF_WATERMARK,         RCACHE_SIZE

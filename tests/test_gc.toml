@@ -2194,7 +2194,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+            LFS3_I_LOOKAHEAD
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -2246,7 +2246,7 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
