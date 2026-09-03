@@ -12946,18 +12946,7 @@ static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3) {
             // below gc_lookgbmap_thresh?
             && lfs3->gbmap.known
                 < lfs3_min(
-                    // this logic gets a bit awkward
-                    // - gclgbt=-1, lgbt= * => disabled
-                    // - gclgbt= 0, lgbt=-1 => disabled
-                    // - gclgbt= 1, lgbt=-1 => 1
-                    ((lfs3->cfg->gc_lookgbmap_thresh == (lfs3_block_t)-1)
-                                ? -1
-                            : (lfs3->cfg->gc_lookgbmap_thresh == 0)
-                                ? (lfs3_sblock_t)lfs3->cfg->lookgbmap_thresh
-                                : lfs3_smax(
-                                    lfs3->cfg->gc_lookgbmap_thresh,
-                                    lfs3->cfg->lookgbmap_thresh))
-                        + 1,
+                    lfs3->cfg->gc_lookgbmap_thresh+1,
                     // limit to gc ckpoint to keep us from spinning
                     // forever
                     (lfs3->flags & LFS3_i_GCCKPOINTED)

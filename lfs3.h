@@ -782,9 +782,9 @@ struct lfs3_cfg {
     // Suggested values are ~50% (bc-bc/2). Values >= block_count-1 are
     // highly discouraged as they tend to result in gbmap thrashing.
     //
-    // 0 or any value <= lookgbmap_thresh repopulates the gbmap when
-    // below lookgbmap_thresh. Set to -1 to disable repopulating the
-    // gbmap during gc.
+    // 0 only repopulates the gbmap when empty, minimizing gbmap
+    // repopulations at the risk of large latency spikes. Set to -1 to
+    // disable repopulating the gbmap during gc.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t gc_lookgbmap_thresh;
     #endif
