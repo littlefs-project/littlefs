@@ -5198,6 +5198,11 @@ static lfs_ssize_t lfs_fs_size_(lfs_t *lfs) {
 // explicit garbage collection
 #ifndef LFS_READONLY
 static int lfs_fs_gc_(lfs_t *lfs) {
+    // must be mounted, lfs->cfg is dereferenced unconditionally below
+    // (lfs->block_count is zeroed until lfs_mount populates it, same
+    // signal already used elsewhere in this file to detect this)
+    LFS_ASSERT(lfs->block_count != 0);
+
     // force consistency, even if we're not necessarily going to write,
     // because this function is supposed to take care of janitorial work
     // isn't it?
