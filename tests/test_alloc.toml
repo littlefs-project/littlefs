@@ -777,10 +777,12 @@ code = '''
     // test various block counts
     struct lfs3_cfg cfg = *CFG;
     cfg.block_count = COUNT;
+    #ifdef LFS3_GBMAP
     // need to recompute gc_lookgbmap_thresh if it depends on block_count
     cfg.gc_lookgbmap_thresh = lfs3_min(
             GC_LOOKGBMAP_THRESH,
             COUNT - COUNT/2);
+    #endif
     lfs3_t lfs3;
     lfs3_format(&lfs3,
             LFS3_F_RDWR
