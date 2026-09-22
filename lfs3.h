@@ -34,6 +34,8 @@
 typedef uint32_t lfs3_size_t;
 typedef int32_t  lfs3_ssize_t;
 
+typedef uint8_t lfs3_len_t;
+
 typedef uint32_t lfs3_off_t;
 typedef int32_t  lfs3_soff_t;
 
@@ -55,18 +57,25 @@ typedef int32_t  lfs3_smid_t;
 typedef uint32_t lfs3_did_t;
 typedef int32_t  lfs3_sdid_t;
 
+// Maximum size of a file in bytes, may be redefined to limit to support
+// other drivers. Limited to <= (2^31)-1 and <= lfs3_off_t. Stored
+// on-disk and must be respected by other littlefs drivers.
+#ifndef LFS3_FILE_MAX
+#define LFS3_FILE_MAX 2147483647
+#endif
+
 // Maximum name size in bytes, may be redefined to reduce the size of
-// the info struct. Limited to <= block_size/8. Stored on-disk and must
-// be respected by other littlefs drivers.
+// the info struct. Limited to <= block_size/8 and <= lfs3_len_t. Stored
+// on-disk and must be respected by other littlefs drivers.
 #ifndef LFS3_NAME_MAX
 #define LFS3_NAME_MAX 255
 #endif
 
-// Maximum size of a file in bytes, may be redefined to limit to support
-// other drivers. Limited on disk to <= (2^31)-1. Stored on-disk and
-// must be respected by other littlefs drivers.
-#ifndef LFS3_FILE_MAX
-#define LFS3_FILE_MAX 2147483647
+// Maximum size of a custom attribute in bytes, may be redefined to
+// limit to support other drivers. Limited to <= lfs3_len_t. Stored
+// on-disk and must be respected by other littlefs drivers.
+#ifndef LFS3_ATTR_MAX
+#define LFS3_ATTR_MAX 255
 #endif
 
 
@@ -189,7 +198,11 @@ enum lfs3_type {
 #ifndef LFS3_RDONLY
 #define LFS3_A_RDWR              3  // Open an attr as read and write
 #endif
-#define LFS3_A_LAZY           0x04  // Only write attr if file changed
+#define LFS3_A_RM             0x04  // Attr does not exist
+#define LFS3_A_OVERFLOW       0x08  // Attr on-disk is larger than buffer
+#define LFS3_A_DIRTY          0x80  // Write attr on next sync
+// TODO keep?
+// #define LFS3_A_TAIL           0x40  // Points tail recursively to more attrs
 
 // File/filesystem check flags
 #define LFS3_CK_MTREEONLY \
@@ -863,16 +876,6 @@ struct lfs3_cfg {
     struct lfs3_evict *evictqueue_array;
     #endif
 
-    // Optional upper limit on length of file names in bytes. No
-    // downside for larger names except the size of the info struct
-    // which is controlled by LFS3_NAME_MAX.
-    //
-    // Defaults to LFS3_NAME_MAX when zero. Stored on-disk and must be
-    // respected by other littlefs drivers.
-    #ifndef LFS3_RDONLY
-    lfs3_size_t name_limit;
-    #endif
-
     // Optional upper limit on files in bytes. No downside for larger
     // files but must be <= LFS3_FILE_MAX.
     //
@@ -880,6 +883,25 @@ struct lfs3_cfg {
     // respected by other littlefs drivers.
     #ifndef LFS3_RDONLY
     lfs3_off_t file_limit;
+    #endif
+
+    // Optional upper limit on length of file names in bytes. No
+    // downside for larger names except the size of the info struct
+    // which is controlled by LFS3_NAME_MAX.
+    //
+    // Defaults to LFS3_NAME_MAX when zero. Stored on-disk and must be
+    // respected by other littlefs drivers.
+    #ifndef LFS3_RDONLY
+    lfs3_len_t name_limit;
+    #endif
+
+    // Optional upper limit on length of custom attributes in bytes. No
+    // downside for larger attrs but must be <= LFS3_ATTR_MAX.
+    //
+    // Defaults to LFS3_ATTR_MAX when zero. Stored on-disk and must be
+    // respected by other littlefs drivers.
+    #ifndef LFS3_RDONLY
+    lfs3_len_t attr_limit;
     #endif
 
     // Maximum size of inlined B-tree roots (shrubs) in bytes. Shrubs
@@ -949,11 +971,14 @@ struct lfs3_fsinfo {
     // Number of logical blocks in the filesystem.
     lfs3_block_t block_count;
 
-    // Upper limit on the length of file names in bytes.
-    lfs3_size_t name_limit;
-
     // Upper limit on the size of files in bytes.
     lfs3_off_t file_limit;
+
+    // Upper limit on the length of file names in bytes.
+    lfs3_len_t name_limit;
+
+    // Upper limit on the length of custom attributes in bytes.
+    lfs3_len_t attr_limit;
 };
 
 // Traversal info structure
@@ -978,18 +1003,17 @@ struct lfs3_attr {
     // Flags that control how attr is read/written/removed
     uint8_t flags;
 
+    // Size of the attr in bytes
+    //
+    // Updated when read. If attr is missing this is set to 0 and flags
+    // ored with LFS3_A_RM.
+    lfs3_len_t size;
+
+    // Size of the attr buffer in bytes
+    lfs3_len_t buffer_size;
+
     // Pointer the buffer where the attr will be read/written
     void *buffer;
-
-    // Size of the attr buffer in bytes, this can be set to
-    // LFS3_ERR_NOATTR to remove the attr
-    lfs3_ssize_t buffer_size;
-
-    // Optional pointer to a mutable attr size, updated on read/write,
-    // set to LFS3_ERR_NOATTR if attr does not exist
-    //
-    // Defaults to buffer_size if NULL
-    lfs3_ssize_t *size;
 };
 
 // Optional configuration provided during lfs3_file_opencfg
@@ -1010,10 +1034,12 @@ struct lfs3_file_cfg {
     // Defaults to cfg.fcache_size if fcache_buffer is NULL.
     lfs3_size_t fcache_size;
 
-    // Optional list of custom attributes attached to the file. If
-    // readable, these attributes will be kept up to date with the
-    // attributes on-disk. If writeable, these attributes will be
-    // written to disk atomically on every file sync or close.
+    // Optional list of custom attributes attached to the file.
+    //
+    // Unless LFS3_A_WRONLY, these attributes will be kept up to date
+    // with the attributes on-disk. During sync, any attributes marked
+    // as LFS3_A_DIRTY will be atomically committed with file metadata
+    // and the flag cleared.
     struct lfs3_attr *attrs;
 
     // Number of custom attributes in the list
@@ -1066,8 +1092,9 @@ enum lfs3_tag {
     LFS3_TAG_VERSION        = 0x0104,   //  v--- ---1 +--- -1++
     LFS3_TAG_COMPAT         = 0x0108,   //  v--- ---1 +--- 1-++
     LFS3_TAG_GEOMETRY       = 0x010c,   //  v--- ---1 +--- 11++
-    LFS3_TAG_NAMELIMIT      = 0x0110,   //  v--- ---1 +--1 --++
-    LFS3_TAG_FILELIMIT      = 0x0114,   //  v--- ---1 +--1 -1++
+    LFS3_TAG_FILELIMIT      = 0x0110,   //  v--- ---1 +--1 --++
+    LFS3_TAG_NAMELIMIT      = 0x0114,   //  v--- ---1 +--1 -1++
+    LFS3_TAG_ATTRLIMIT      = 0x0118,   //  v--- ---1 +--1 1-++
 
     // global-state tags
     LFS3_TAG_GDELTA         = 0x0200,   /// v--- --1- +ttt tttt
@@ -1132,7 +1159,7 @@ enum lfs3_tag {
 
     // in-device only tags, these should never get written to disk
     LFS3_tag_NOOP           = 0x0001,
-    LFS3_tag_RATTRS         = 0x0002,
+    LFS3_tag_TAIL           = 0x0002,
     LFS3_tag_SHRUBCOMMIT    = 0x0003,
     LFS3_tag_GRMPUSH        = 0x0004,
     LFS3_tag_GRMPOP         = 0x0005,
@@ -1551,8 +1578,9 @@ typedef struct lfs3 {
     uint32_t flags;
     const struct lfs3_cfg *cfg;
     lfs3_block_t block_count;
-    lfs3_size_t name_limit;
     lfs3_off_t file_limit;
+    lfs3_len_t name_limit;
+    lfs3_len_t attr_limit;
 
     uint8_t mbits;
     #ifndef LFS3_RDONLY

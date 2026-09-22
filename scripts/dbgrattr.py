@@ -19,8 +19,9 @@ TAG_MAGIC       = 0x0101    #   v--- ---1 +--- --rr
 TAG_VERSION     = 0x0104    #   v--- ---1 +--- -1++
 TAG_COMPAT      = 0x0108    #   v--- ---1 +--- 1-++
 TAG_GEOMETRY    = 0x010c    #   v--- ---1 +--- 11++
-TAG_NAMELIMIT   = 0x0110    #   v--- ---1 +--1 --++
-TAG_FILELIMIT   = 0x0114    #   v--- ---1 +--1 -1++
+TAG_FILELIMIT   = 0x0110    #   v--- ---1 +--1 --++
+TAG_NAMELIMIT   = 0x0114    #   v--- ---1 +--1 -1++
+TAG_ATTRLIMIT   = 0x0118    #   v--- ---1 +--1 1-++
 TAG_GDELTA      = 0x0200    ##  v--- --1- +ttt tttt
 TAG_GRMDELTA    = 0x0200    #   v--- --1- +--- --++
 TAG_GBMAPDELTA  = 0x0204    #   v--- --1- +--- -1rr
@@ -97,7 +98,7 @@ RATTR_TAG           = 0x00000fff    # ---- ---- ---- ---- ---- 1111 +111 1111
 
 # internal tags
 tag_NOOP        = 0x0001    #i  ---- ---- ---- ---1
-tag_RATTRS      = 0x0002    #i  ---- ---- ---- --1-
+tag_TAIL        = 0x0002    #i  ---- ---- ---- --1-
 tag_SHRUBCOMMIT = 0x0003    #i  ---- ---- ---- --11
 tag_GRMPUSH     = 0x0004    #i  ---- ---- ---- -1--
 tag_GRMPOP      = 0x0005    #i  ---- ---- ---- -1-1

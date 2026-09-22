@@ -2685,40 +2685,6 @@ static inline lfs3_size_t lfs3_from_fromcount2(lfs3_from_t from) {
 #endif
 
 
-// operations on custom attribute lists
-//
-// a slightly different struct because it's user facing
-
-static inline lfs3_ssize_t lfs3_attr_size(const struct lfs3_attr *attr) {
-    // we default to the buffer_size if a mutable size is not provided
-    if (attr->size) {
-        return *attr->size;
-    } else {
-        return attr->buffer_size;
-    }
-}
-
-static inline bool lfs3_attr_isnoattr(const struct lfs3_attr *attr) {
-    return lfs3_attr_size(attr) == LFS3_ERR_NOATTR;
-}
-
-static lfs3_scmp_t lfs3_attr_cmp(lfs3_t *lfs3, const struct lfs3_attr *attr,
-        const lfs3_data_t *data) {
-    // note data=NULL => NOATTR
-    if (!data) {
-        return (lfs3_attr_isnoattr(attr)) ? LFS3_CMP_EQ : LFS3_CMP_GT;
-    } else {
-        if (lfs3_attr_isnoattr(attr)) {
-            return LFS3_CMP_LT;
-        } else {
-            return lfs3_data_cmp(lfs3, data,
-                    attr->buffer,
-                    lfs3_attr_size(attr));
-        }
-    }
-}
-
-
 
 /// Block allocator definitions ///
 
@@ -8870,7 +8836,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
             LFS3_ASSERT(!(r > rattrs && lfs3_rattr_isinsert(r)));
 
             // nested rattr list? we only support simple rattrs here
-            if (lfs3_rattr_tag(r) == LFS3_tag_RATTRS) {
+            if (lfs3_rattr_tag(r) == LFS3_tag_TAIL) {
                 const lfs3_rattr_t *rattrs_
                         = (const lfs3_rattr_t*)lfs3_rattr_arg(r, 0);
 
@@ -9010,38 +8976,23 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                 lfs3_size_t attr_count_ = lfs3_rattr_arg(r, 1);
 
                 for (lfs3_size_t j = 0; j < attr_count_; j++) {
-                    // skip readonly attrs and lazy attrs
-                    if (lfs3_o_isrdonly(attrs_[j].flags)) {
+                    // only write out dirty attrs
+                    if (!(attrs_[j].flags & LFS3_A_DIRTY)) {
                         continue;
                     }
-
-                    // first lets check if the attr changed, we don't want
-                    // to append attrs unless we have to
-                    lfs3_data_t data;
-                    lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, mdir_,
-                            LFS3_TAG_ATTR(attrs_[j].type),
-                            &data);
-                    if (tag < 0 && tag != LFS3_ERR_NOENT) {
-                        return tag;
-                    }
-
-                    // does disk match our attr?
-                    lfs3_scmp_t cmp = lfs3_attr_cmp(lfs3, &attrs_[j],
-                            (tag != LFS3_ERR_NOENT) ? &data : NULL);
-                    if (cmp < 0) {
-                        return cmp;
-                    }
-
-                    if (cmp == LFS3_CMP_EQ) {
-                        continue;
-                    }
+                    // the dirty flag should never be set on rdonly
+                    // attrs
+                    LFS3_ASSERT(!lfs3_o_isrdonly(attrs_[j].flags));
+                    // attr len should really have been checked before
+                    // getting this far
+                    LFS3_ASSERT(attrs_[j].size <= lfs3->attr_limit);
 
                     // append the custom attr
                     int err = lfs3_rbyd_appendrattr(lfs3, &mdir_->r,
                             rid - lfs3_smax(start_rid, 0),
                             (const lfs3_rattr_t[]){
                                 // removing or updating?
-                                (lfs3_attr_isnoattr(&attrs_[j]))
+                                (attrs_[j].flags & LFS3_A_RM)
                                     ? LFS3_RATTR(
                                         LFS3_tag_RM
                                             | LFS3_TAG_ATTR(attrs_[j].type),
@@ -9051,7 +9002,7 @@ static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
                                         0, 2,
                                         LFS3_FROM_BUF),
                                 LFS3_RATTR_ARG(attrs_[j].buffer),
-                                LFS3_RATTR_ARG(lfs3_attr_size(&attrs_[j]))});
+                                LFS3_RATTR_ARG(attrs_[j].size)});
                     if (err) {
                         return err;
                     }
@@ -9968,7 +9919,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
                     LFS3_RATTR_ARG(&mtree_),
                     // were we committing to the mroot? include any -1 rattrs
                     (mdir->mid <= -1)
-                        ? LFS3_RATTR(LFS3_tag_RATTRS, 0, 1)
+                        ? LFS3_RATTR(LFS3_tag_TAIL, 0, 1)
                         : LFS3_RATTR(LFS3_tag_NOOP, 0, 1),
                     LFS3_RATTR_ARG(rattrs),
                     LFS3_RATTR_NULL});
@@ -14500,6 +14451,11 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
         return err;
     }
 
+    // too big?
+    if (size > lfs3->attr_limit) {
+        return LFS3_ERR_RANGE;
+    }
+
     // checkpoint the allocator
     err = lfs3_alloc_ckpoint(lfs3);
     if (err) {
@@ -14518,23 +14474,33 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
 
     // update any opened files tracking custom attrs
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (!(lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                && h->mdir.mid == mdir.mid
-                && !(h->flags & LFS3_O_DESYNC))) {
-            continue;
-        }
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
+                && h->mdir.mid == mdir.mid) {
+            lfs3_file_t *file = (lfs3_file_t*)h;
+            for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
+                if (file->cfg->attrs[i].type != type) {
+                    continue;
+                }
 
-        lfs3_file_t *file = (lfs3_file_t*)h;
-        for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
-            if (!(file->cfg->attrs[i].type == type
-                    && !lfs3_o_iswronly(file->cfg->attrs[i].flags))) {
-                continue;
-            }
+                // if desync or wronly, just mark as dirty
+                if ((file->h.flags & LFS3_O_DESYNC)
+                        || lfs3_o_iswronly(file->cfg->attrs[i].flags)) {
+                    file->cfg->attrs[i].flags |= LFS3_A_DIRTY;
+                    continue;
+                }
 
-            lfs3_size_t d = lfs3_min(size, file->cfg->attrs[i].buffer_size);
-            lfs3_memcpy(file->cfg->attrs[i].buffer, buffer, d);
-            if (file->cfg->attrs[i].size) {
-                *file->cfg->attrs[i].size = d;
+                // mark as not dirty
+                file->cfg->attrs[i].flags &= ~(
+                        LFS3_A_DIRTY | LFS3_A_OVERFLOW | LFS3_A_RM);
+                // update
+                if (file->cfg->attrs[i].buffer_size < size) {
+                    file->cfg->attrs[i].flags |= LFS3_A_OVERFLOW;
+                }
+                lfs3_size_t d = lfs3_min(
+                        size,
+                        file->cfg->attrs[i].buffer_size);
+                lfs3_memcpy(file->cfg->attrs[i].buffer, buffer, d);
+                file->cfg->attrs[i].size = d;
             }
         }
     }
@@ -14584,21 +14550,27 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
 
     // update any opened files tracking custom attrs
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
-        if (!(lfs3_o_type(h->flags) == LFS3_TYPE_REG
-                && h->mdir.mid == mdir.mid
-                && !(h->flags & LFS3_O_DESYNC))) {
-            continue;
-        }
+        if (lfs3_o_type(h->flags) == LFS3_TYPE_REG
+                && h->mdir.mid == mdir.mid) {
+            lfs3_file_t *file = (lfs3_file_t*)h;
+            for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
+                if (file->cfg->attrs[i].type != type) {
+                    continue;
+                }
 
-        lfs3_file_t *file = (lfs3_file_t*)h;
-        for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
-            if (!(file->cfg->attrs[i].type == type
-                    && !lfs3_o_iswronly(file->cfg->attrs[i].flags))) {
-                continue;
-            }
+                // if desync or wronly, just mark as dirty
+                if ((file->h.flags & LFS3_O_DESYNC)
+                        || lfs3_o_iswronly(file->cfg->attrs[i].flags)) {
+                    file->cfg->attrs[i].flags |= LFS3_A_DIRTY;
+                    continue;
+                }
 
-            if (file->cfg->attrs[i].size) {
-                *file->cfg->attrs[i].size = LFS3_ERR_NOATTR;
+                // mark as not dirty
+                file->cfg->attrs[i].flags &= ~(
+                        LFS3_A_DIRTY | LFS3_A_OVERFLOW | LFS3_A_RM);
+                // rm
+                file->cfg->attrs[i].flags |= LFS3_A_RM;
+                file->cfg->attrs[i].size = 0;
             }
         }
     }
@@ -14734,16 +14706,16 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
 
     // try to fetch any custom attributes
     for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
-        // skip writeonly attrs
+        // if wronly, just mark as dirty
         if (lfs3_o_iswronly(file->cfg->attrs[i].flags)) {
+            file->cfg->attrs[i].flags |= LFS3_A_DIRTY;
             continue;
         }
 
         // don't bother reading disk if we're not created yet
         if (flags & LFS3_o_UNCREAT) {
-            if (file->cfg->attrs[i].size) {
-                *file->cfg->attrs[i].size = LFS3_ERR_NOATTR;
-            }
+            file->cfg->attrs[i].flags |= LFS3_A_RM;
+            file->cfg->attrs[i].size = 0;
             continue;
         }
 
@@ -14756,14 +14728,17 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
             return tag;
         }
 
+        // mark as not dirty
+        file->cfg->attrs[i].flags &= ~(
+                LFS3_A_DIRTY | LFS3_A_OVERFLOW | LFS3_A_RM);
         // read the attr, if it exists
-        if (tag == LFS3_ERR_NOENT
-                // awkward case here if buffer_size is LFS3_ERR_NOATTR
-                || file->cfg->attrs[i].buffer_size == LFS3_ERR_NOATTR) {
-            if (file->cfg->attrs[i].size) {
-                *file->cfg->attrs[i].size = LFS3_ERR_NOATTR;
-            }
+        if (tag == LFS3_ERR_NOENT) {
+            file->cfg->attrs[i].flags |= LFS3_A_RM;
+            file->cfg->attrs[i].size = 0;
         } else {
+            if (file->cfg->attrs[i].buffer_size < lfs3_data_size(&data)) {
+                file->cfg->attrs[i].flags |= LFS3_A_OVERFLOW;
+            }
             lfs3_ssize_t d = lfs3_data_read(lfs3, &data,
                     file->cfg->attrs[i].buffer,
                     file->cfg->attrs[i].buffer_size);
@@ -14771,9 +14746,7 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
                 return d;
             }
 
-            if (file->cfg->attrs[i].size) {
-                *file->cfg->attrs[i].size = d;
-            }
+            file->cfg->attrs[i].size = d;
         }
     }
 
@@ -16597,7 +16570,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
     if (file->h.flags & LFS3_o_UNSYNC) {
         // explicit name?
         if (rname) {
-            *r++ = LFS3_RATTR(LFS3_tag_RATTRS, +1, 1);
+            *r++ = LFS3_RATTR(LFS3_tag_TAIL, +1, 1);
             *r++ = LFS3_RATTR_ARG(rname);
 
         // not created yet? need to convert to normal file
@@ -16686,41 +16659,23 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
 
     // pending custom attributes?
     //
-    // this gets real messy, since users can change custom attributes
-    // whenever they want without informing littlefs, the best we can do
-    // is read from disk to manually check if any attributes changed
-    bool attrs = file->h.flags & LFS3_o_UNSYNC;
-    if (!attrs) {
-        for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
-            // skip readonly attrs and lazy attrs
-            if (lfs3_o_isrdonly(file->cfg->attrs[i].flags)
-                    || (file->cfg->attrs[i].flags & LFS3_A_LAZY)) {
-                continue;
+    // this is any custom attr with LFS3_A_DIRTY set, which users can
+    // set whenever they want without informing littlefs
+    bool dirtyattrs = false;
+    for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
+        if (file->cfg->attrs[i].flags & LFS3_A_DIRTY) {
+            // the dirty flag should never be set on rdonly attrs
+            LFS3_ASSERT(!lfs3_o_isrdonly(file->cfg->attrs[i].flags));
+
+            // attr too big?
+            if (file->cfg->attrs[i].size > lfs3->attr_limit) {
+                return LFS3_ERR_RANGE;
             }
 
-            // lookup the attr
-            lfs3_data_t data;
-            lfs3_stag_t tag = lfs3_mdir_lookup(lfs3, &file->h.mdir,
-                    LFS3_TAG_ATTR(file->cfg->attrs[i].type),
-                    &data);
-            if (tag < 0 && tag != LFS3_ERR_NOENT) {
-                return tag;
-            }
-
-            // does disk match our attr?
-            lfs3_scmp_t cmp = lfs3_attr_cmp(lfs3, &file->cfg->attrs[i],
-                    (tag != LFS3_ERR_NOENT) ? &data : NULL);
-            if (cmp < 0) {
-                return cmp;
-            }
-
-            if (cmp != LFS3_CMP_EQ) {
-                attrs = true;
-                break;
-            }
+            dirtyattrs = true;
         }
     }
-    if (attrs) {
+    if (dirtyattrs) {
         // need to append custom attributes
         *r++ = LFS3_RATTR(LFS3_tag_ATTRS, 0, 2);
         *r++ = LFS3_RATTR_ARG(file->cfg->attrs);
@@ -16751,11 +16706,10 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
             // notify all files of creation
             file_->h.flags &= ~LFS3_o_UNCREAT;
 
-            // mark desynced files an unsynced
+            // just mark desynced files an unsynced
             if (file_->h.flags & LFS3_O_DESYNC) {
                 file_->h.flags |= LFS3_o_UNSYNC;
-
-            // update synced files
+            // update in-sync files
             } else {
                 // update flags
                 file_->h.flags &= ~(
@@ -16780,36 +16734,47 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                         file->cache.buffer + d,
                         file->cache.size - d);
                 file_->cache.size = file->cache.size - d;
+            }
 
-                // update any custom attrs
-                for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
-                    if (lfs3_o_isrdonly(file->cfg->attrs[i].flags)) {
+            // update any custom attrs
+            for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
+                if (!(file->cfg->attrs[i].flags & LFS3_A_DIRTY)) {
+                    continue;
+                }
+
+                for (lfs3_size_t j = 0; j < file_->cfg->attr_count; j++) {
+                    if (file_->cfg->attrs[j].type
+                            != file->cfg->attrs[i].type) {
                         continue;
                     }
 
-                    for (lfs3_size_t j = 0; j < file_->cfg->attr_count; j++) {
-                        if (!(file_->cfg->attrs[j].type
-                                    == file->cfg->attrs[i].type
-                                && !lfs3_o_iswronly(
-                                    file_->cfg->attrs[j].flags))) {
-                            continue;
-                        }
+                    // if desync or wronly, just mark as dirty
+                    if ((file_->h.flags & LFS3_O_DESYNC)
+                            || lfs3_o_iswronly(file_->cfg->attrs[j].flags)) {
+                        file_->cfg->attrs[j].flags |= LFS3_A_DIRTY;
+                        continue;
+                    }
 
-                        if (lfs3_attr_isnoattr(&file->cfg->attrs[i])) {
-                            if (file_->cfg->attrs[j].size) {
-                                *file_->cfg->attrs[j].size = LFS3_ERR_NOATTR;
-                            }
-                        } else {
-                            lfs3_size_t d = lfs3_min(
-                                    lfs3_attr_size(&file->cfg->attrs[i]),
-                                    file_->cfg->attrs[j].buffer_size);
-                            lfs3_memcpy(file_->cfg->attrs[j].buffer,
-                                    file->cfg->attrs[i].buffer,
-                                    d);
-                            if (file_->cfg->attrs[j].size) {
-                                *file_->cfg->attrs[j].size = d;
-                            }
+                    // mark as not dirty
+                    file_->cfg->attrs[j].flags &= ~(
+                            LFS3_A_DIRTY | LFS3_A_OVERFLOW | LFS3_A_RM);
+                    // rm?
+                    if (file->cfg->attrs[i].flags & LFS3_A_RM) {
+                        file_->cfg->attrs[j].flags |= LFS3_A_RM;
+                        file_->cfg->attrs[j].size = 0;
+                    // update?
+                    } else {
+                        if (file_->cfg->attrs[j].buffer_size
+                                < file->cfg->attrs[i].size) {
+                            file_->cfg->attrs[j].flags |= LFS3_A_OVERFLOW;
                         }
+                        lfs3_size_t d = lfs3_min(
+                                file->cfg->attrs[i].size,
+                                file_->cfg->attrs[j].buffer_size);
+                        lfs3_memcpy(file_->cfg->attrs[j].buffer,
+                                file->cfg->attrs[i].buffer,
+                                d);
+                        file_->cfg->attrs[j].size = d;
                     }
                 }
             }
@@ -16823,6 +16788,13 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
                 | LFS3_o_UNFLUSH
                 | LFS3_o_UNCRYST
                 | LFS3_o_UNGRAFT);
+    // mark attrs as not dirty
+    for (lfs3_size_t i = 0; i < file->cfg->attr_count; i++) {
+        if (file->cfg->attrs[i].flags & LFS3_A_DIRTY) {
+            file->cfg->attrs[i].flags &= ~(
+                    LFS3_A_DIRTY | LFS3_A_OVERFLOW);
+        }
+    }
     return 0;
 }
 #endif
@@ -17668,16 +17640,22 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     // check that the size limits are sane
     #ifndef LFS3_RDONLY
-    LFS3_ASSERT(lfs3->cfg->name_limit <= LFS3_NAME_MAX);
+    LFS3_ASSERT(lfs3->cfg->file_limit <= LFS3_FILE_MAX);
+    lfs3->file_limit = lfs3->cfg->file_limit;
+    if (!lfs3->file_limit) {
+        lfs3->file_limit = LFS3_FILE_MAX;
+    }
+
+    LFS3_ASSERT(lfs3->cfg->name_limit + 0 <= LFS3_NAME_MAX);
     lfs3->name_limit = lfs3->cfg->name_limit;
     if (!lfs3->name_limit) {
         lfs3->name_limit = LFS3_NAME_MAX;
     }
 
-    LFS3_ASSERT(lfs3->cfg->file_limit <= LFS3_FILE_MAX);
-    lfs3->file_limit = lfs3->cfg->file_limit;
-    if (!lfs3->file_limit) {
-        lfs3->file_limit = LFS3_FILE_MAX;
+    LFS3_ASSERT(lfs3->cfg->attr_limit + 0 <= LFS3_ATTR_MAX);
+    lfs3->attr_limit = lfs3->cfg->attr_limit;
+    if (!lfs3->attr_limit) {
+        lfs3->attr_limit = LFS3_ATTR_MAX;
     }
     #endif
 
@@ -18162,6 +18140,32 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     lfs3->block_count = geometry.block_count;
 
+    // read the file limit
+    lfs3_off_t file_limit = 0x7fffffff;
+    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_FILELIMIT,
+            &data);
+    if (tag < 0 && tag != LFS3_ERR_NOENT) {
+        return tag;
+    }
+    if (tag != LFS3_ERR_NOENT) {
+        err = lfs3_data_readleb128(lfs3, &data, &file_limit);
+        if (err && err != LFS3_ERR_CORRUPT) {
+            return err;
+        }
+        if (err == LFS3_ERR_CORRUPT) {
+            file_limit = -1;
+        }
+    }
+
+    if (file_limit > lfs3->file_limit) {
+        LFS3_ERROR("Incompatible file limit %"PRId32" (> %"PRId32")",
+                file_limit,
+                lfs3->file_limit);
+        return LFS3_ERR_NOTSUP;
+    }
+
+    lfs3->file_limit = file_limit;
+
     // read the name limit
     lfs3_size_t name_limit = 0xff;
     tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_NAMELIMIT,
@@ -18188,31 +18192,31 @@ static int lfs3_mountmroot(lfs3_t *lfs3, const lfs3_mdir_t *mroot) {
 
     lfs3->name_limit = name_limit;
 
-    // read the file limit
-    lfs3_off_t file_limit = 0x7fffffff;
-    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_FILELIMIT,
+    // read the attr limit
+    lfs3_size_t attr_limit = 0xff;
+    tag = lfs3_mdir_lookup(lfs3, mroot, LFS3_TAG_ATTRLIMIT,
             &data);
     if (tag < 0 && tag != LFS3_ERR_NOENT) {
         return tag;
     }
     if (tag != LFS3_ERR_NOENT) {
-        err = lfs3_data_readleb128(lfs3, &data, &file_limit);
+        err = lfs3_data_readleb128(lfs3, &data, &attr_limit);
         if (err && err != LFS3_ERR_CORRUPT) {
             return err;
         }
         if (err == LFS3_ERR_CORRUPT) {
-            file_limit = -1;
+            attr_limit = -1;
         }
     }
 
-    if (file_limit > lfs3->file_limit) {
-        LFS3_ERROR("Incompatible file limit %"PRId32" (> %"PRId32")",
-                file_limit,
-                lfs3->file_limit);
+    if (attr_limit > lfs3->attr_limit) {
+        LFS3_ERROR("Incompatible attr limit %"PRId32" (> %"PRId32")",
+                attr_limit,
+                lfs3->attr_limit);
         return LFS3_ERR_NOTSUP;
     }
 
-    lfs3->file_limit = file_limit;
+    lfs3->attr_limit = attr_limit;
 
     return 0;
 }
@@ -18704,10 +18708,12 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
                     LFS3_RATTR_ARG((&(const lfs3_geometry_t){
                         lfs3->cfg->block_size,
                         lfs3->cfg->block_count})),
-                    LFS3_RATTR(LFS3_TAG_NAMELIMIT, 0, 1, LFS3_FROM_LEB128),
-                    LFS3_RATTR_ARG(lfs3->name_limit),
                     LFS3_RATTR(LFS3_TAG_FILELIMIT, 0, 1, LFS3_FROM_LEB128),
                     LFS3_RATTR_ARG(lfs3->file_limit),
+                    LFS3_RATTR(LFS3_TAG_NAMELIMIT, 0, 1, LFS3_FROM_LEB128),
+                    LFS3_RATTR_ARG(lfs3->name_limit),
+                    LFS3_RATTR(LFS3_TAG_ATTRLIMIT, 0, 1, LFS3_FROM_LEB128),
+                    LFS3_RATTR_ARG(lfs3->attr_limit),
                     // include on-disk gbmap?
                     #ifdef LFS3_GBMAP
                     (lfs3->flags & LFS3_I_GBMAP)
