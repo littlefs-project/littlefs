@@ -86,7 +86,9 @@ A_MODE          =          3  # -m  The attr's access mode
 A_RDONLY        =          1  # -^  Open an attr as read only
 A_WRONLY        =          2  # -^  Open an attr as write only
 A_RDWR          =          3  # -^  Open an attr as read and write
-A_LAZY          =       0x04  # --  Only write attr if file changed
+A_RM            =       0x04  # --  Attr does not exist
+A_OVERFLOW      =       0x08  # --  Attr on-disk is larger than buffer
+A_DIRTY         =       0x80  # --  Write attr on next sync
 
 # File/filesystem check flags
 CK_MTREEONLY    = 0x00000004  # --  Only traverse the mtree

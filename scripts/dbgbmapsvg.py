@@ -137,8 +137,9 @@ TAG_MAGIC       = 0x0101    #   v--- ---1 +--- --rr
 TAG_VERSION     = 0x0104    #   v--- ---1 +--- -1++
 TAG_COMPAT      = 0x0108    #   v--- ---1 +--- 1-++
 TAG_GEOMETRY    = 0x010c    #   v--- ---1 +--- 11++
-TAG_NAMELIMIT   = 0x0110    #   v--- ---1 +--1 --++
-TAG_FILELIMIT   = 0x0114    #   v--- ---1 +--1 -1++
+TAG_FILELIMIT   = 0x0110    #   v--- ---1 +--1 --++
+TAG_NAMELIMIT   = 0x0114    #   v--- ---1 +--1 -1++
+TAG_ATTRLIMIT   = 0x0118    #   v--- ---1 +--1 1-++
 TAG_GDELTA      = 0x0200    ##  v--- --1- +ttt tttt
 TAG_GRMDELTA    = 0x0200    #   v--- --1- +--- --++
 TAG_GBMAPDELTA  = 0x0204    #   v--- --1- +--- -1rr
@@ -2661,6 +2662,20 @@ class Config:
         def repr(self):
             return 'geometry %sx%s' % (self.block_count, self.block_size)
 
+    # file size limit
+    class FileLimit(Config):
+        tag = TAG_FILELIMIT
+
+        def __init__(self, mroot, tag, rattr):
+            super().__init__(mroot, tag, rattr)
+            self.limit, _ = fromleb128(self.data)
+
+        def __int__(self):
+            return self.limit
+
+        def repr(self):
+            return 'filelimit %s' % self.limit
+
     # file name limit
     class NameLimit(Config):
         tag = TAG_NAMELIMIT
@@ -2675,9 +2690,9 @@ class Config:
         def repr(self):
             return 'namelimit %s' % self.limit
 
-    # file size limit
-    class FileLimit(Config):
-        tag = TAG_FILELIMIT
+    # file attr limit
+    class AttrLimit(Config):
+        tag = TAG_ATTRLIMIT
 
         def __init__(self, mroot, tag, rattr):
             super().__init__(mroot, tag, rattr)
@@ -2687,7 +2702,7 @@ class Config:
             return self.limit
 
         def repr(self):
-            return 'filelimit %s' % self.limit
+            return 'attrlimit %s' % self.limit
 
     # keep track of known configs
     _known = [c for c in Config.__subclasses__() if c.tag is not None]

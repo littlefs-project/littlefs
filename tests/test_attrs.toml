@@ -708,10 +708,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that we can set attrs to a size >256
-#
-# this can trip up internal logic that uses uint8_t sizes
-#
+# test that we can set attrs to a size >128
 [cases.test_attrs_setattr_big]
 # type of file to attach attrs to
 # FILETYPE=0 => regular file
@@ -721,7 +718,7 @@ code = '''
 defines.FILETYPE = [0, 1, 2, 3]
 # update based on this mask
 defines.MASK = 'range(0x8)'
-defines.SIZE = [500, 509, 512, 513]
+defines.SIZE = 255
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -805,8 +802,38 @@ code = '''
             lfs3_sizeattr(&lfs3, path, 'c') => strlen(c);
         }
 
-        // try reading attrs
+        // try reading attrs with too small a buffer
         uint8_t rbuf[1024];
+        rbuf[128] = '!';
+        if (MASK & 0x1) {
+            lfs3_getattr(&lfs3, path, 'a', rbuf, 128) => strlen(a_);
+            assert(memcmp(rbuf, a_, strlen(a_)) == 0);
+            assert(rbuf[128] == '!');
+        } else {
+            lfs3_getattr(&lfs3, path, 'a', rbuf, 128) => strlen(a);
+            assert(memcmp(rbuf, a, strlen(a)) == 0);
+            assert(rbuf[128] == '!');
+        }
+        if (MASK & 0x2) {
+            lfs3_getattr(&lfs3, path, 'b', rbuf, 128) => 128;
+            assert(memcmp(rbuf, b_, 128) == 0);
+            assert(rbuf[128] == '!');
+        } else {
+            lfs3_getattr(&lfs3, path, 'b', rbuf, 128) => 128;
+            assert(memcmp(rbuf, b, 128) == 0);
+            assert(rbuf[128] == '!');
+        }
+        if (MASK & 0x4) {
+            lfs3_getattr(&lfs3, path, 'c', rbuf, 128) => strlen(c_);
+            assert(memcmp(rbuf, c_, strlen(c_)) == 0);
+            assert(rbuf[128] == '!');
+        } else {
+            lfs3_getattr(&lfs3, path, 'c', rbuf, 128) => strlen(c);
+            assert(memcmp(rbuf, c, strlen(c)) == 0);
+            assert(rbuf[128] == '!');
+        }
+
+        // try reading attrs
         if (MASK & 0x1) {
             lfs3_getattr(&lfs3, path, 'a', rbuf, sizeof(rbuf)) => strlen(a_);
             assert(memcmp(rbuf, a_, strlen(a_)) == 0);
@@ -2023,7 +2050,6 @@ code = '''
 # test that file-attached attrs are read correctly
 [cases.test_attrs_fattr_get]
 defines.MODE = ['LFS3_A_RDONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2044,33 +2070,30 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with these attrs
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size = -1;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size = -1;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size = -1;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
             .buffer_size = sizeof(a_buf),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
             .buffer_size = sizeof(b_buf),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
             .buffer_size = sizeof(c_buf),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2080,17 +2103,14 @@ code = '''
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
     // did we read the attrs correctly?
-    if (MUTSIZE) {
-        assert(a_size == strlen(a));
-    }
+    assert(attrs[0].flags == MODE);
+    assert(attrs[0].size == strlen(a));
     assert(memcmp(a_buf, a, strlen(a)) == 0);
-    if (MUTSIZE) {
-        assert(b_size == strlen(b));
-    }
+    assert(attrs[1].flags == MODE);
+    assert(attrs[1].size == strlen(b));
     assert(memcmp(b_buf, b, strlen(b)) == 0);
-    if (MUTSIZE) {
-        assert(c_size == strlen(c));
-    }
+    assert(attrs[2].flags == MODE);
+    assert(attrs[2].size == strlen(c));
     assert(memcmp(c_buf, c, strlen(c)) == 0);
 
     lfs3_file_close(&lfs3, &file) => 0;
@@ -2100,7 +2120,6 @@ code = '''
 # test that truncate attrs will work
 [cases.test_attrs_fattr_trunc]
 defines.MODE = ['LFS3_A_RDONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 defines.BUFSIZE = [1, 4, 7]
 code = '''
     lfs3_t lfs3;
@@ -2123,36 +2142,33 @@ code = '''
 
     // try opening a file with these attrs, marking bufs so we can
     // detect overflow
-    uint8_t a_buf[256];
+    uint8_t a_buf[128];
     a_buf[BUFSIZE] = '!';
-    lfs3_ssize_t a_size = -1;
-    uint8_t b_buf[256];
+    uint8_t b_buf[128];
     b_buf[BUFSIZE] = '!';
-    lfs3_ssize_t b_size = -1;
-    uint8_t c_buf[256];
+    uint8_t c_buf[128];
     c_buf[BUFSIZE] = '!';
-    lfs3_ssize_t c_size = -1;
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
             .buffer_size = BUFSIZE,
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
             .buffer_size = BUFSIZE,
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
             .buffer_size = BUFSIZE,
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2162,19 +2178,16 @@ code = '''
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
     // did we read the attrs correctly? no overflow?
-    if (MUTSIZE) {
-        assert(a_size == BUFSIZE);
-    }
+    assert(attrs[0].flags == (MODE | LFS3_A_OVERFLOW));
+    assert(attrs[0].size == BUFSIZE);
     assert(memcmp(a_buf, a, BUFSIZE) == 0);
     assert(a_buf[BUFSIZE] == '!');
-    if (MUTSIZE) {
-        assert(b_size == BUFSIZE);
-    }
+    assert(attrs[1].flags == (MODE | LFS3_A_OVERFLOW));
+    assert(attrs[1].size == BUFSIZE);
     assert(memcmp(b_buf, b, BUFSIZE) == 0);
     assert(a_buf[BUFSIZE] == '!');
-    if (MUTSIZE) {
-        assert(c_size == BUFSIZE);
-    }
+    assert(attrs[2].flags == (MODE | LFS3_A_OVERFLOW));
+    assert(attrs[2].size == BUFSIZE);
     assert(memcmp(c_buf, c, BUFSIZE) == 0);
     assert(a_buf[BUFSIZE] == '!');
 
@@ -2185,7 +2198,6 @@ code = '''
 # test that missing attrs are read correctly
 [cases.test_attrs_fattr_noattr]
 defines.MODE = ['LFS3_A_RDONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2198,33 +2210,30 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // try opening a file with missing attrs
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size = -1;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size = -1;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size = -1;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
             .buffer_size = sizeof(a_buf),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
             .buffer_size = sizeof(b_buf),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
             .buffer_size = sizeof(c_buf),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2234,15 +2243,12 @@ code = '''
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
     // did we read the attrs correctly?
-    if (MUTSIZE) {
-        assert(a_size == LFS3_ERR_NOATTR);
-    }
-    if (MUTSIZE) {
-        assert(b_size == LFS3_ERR_NOATTR);
-    }
-    if (MUTSIZE) {
-        assert(c_size == LFS3_ERR_NOATTR);
-    }
+    assert(attrs[0].flags == (MODE | LFS3_A_RM));
+    assert(attrs[0].size == 0);
+    assert(attrs[1].flags == (MODE | LFS3_A_RM));
+    assert(attrs[1].size == 0);
+    assert(attrs[2].flags == (MODE | LFS3_A_RM));
+    assert(attrs[2].size == 0);
 
     lfs3_file_close(&lfs3, &file) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -2251,7 +2257,6 @@ code = '''
 # catch LFS3_O_TRUNC mistakes, this has created issues before
 [cases.test_attrs_fattr_otrunc]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2272,33 +2277,30 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with these attrs
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size = -1;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size = -1;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size = -1;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
             .buffer_size = sizeof(a_buf),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
             .buffer_size = sizeof(b_buf),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
             .buffer_size = sizeof(c_buf),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2309,17 +2311,14 @@ code = '''
             MODE | LFS3_O_TRUNC, &filecfg) => 0;
 
     // did we read the attrs correctly?
-    if (MUTSIZE) {
-        assert(a_size == strlen(a));
-    }
+    assert(attrs[0].flags == MODE);
+    assert(attrs[0].size == strlen(a));
     assert(memcmp(a_buf, a, strlen(a)) == 0);
-    if (MUTSIZE) {
-        assert(b_size == strlen(b));
-    }
+    assert(attrs[1].flags == MODE);
+    assert(attrs[1].size == strlen(b));
     assert(memcmp(b_buf, b, strlen(b)) == 0);
-    if (MUTSIZE) {
-        assert(c_size == strlen(c));
-    }
+    assert(attrs[2].flags == MODE);
+    assert(attrs[2].size == strlen(c));
     assert(memcmp(c_buf, c, strlen(c)) == 0);
 
     lfs3_file_close(&lfs3, &file) => 0;
@@ -2329,7 +2328,6 @@ code = '''
 # uncreat files should zero attributes
 [cases.test_attrs_fattr_uncreat]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2338,33 +2336,30 @@ code = '''
     // _don't_ create a file
 
     // try opening a file with these attrs
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size = -1;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size = -1;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size = -1;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
             .buffer_size = sizeof(a_buf),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
             .buffer_size = sizeof(b_buf),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
             .buffer_size = sizeof(c_buf),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2376,15 +2371,12 @@ code = '''
             MODE | LFS3_O_CREAT, &filecfg) => 0;
 
     // did we read the attrs correctly?
-    if (MUTSIZE) {
-        assert(a_size == LFS3_ERR_NOATTR);
-    }
-    if (MUTSIZE) {
-        assert(b_size == LFS3_ERR_NOATTR);
-    }
-    if (MUTSIZE) {
-        assert(c_size == LFS3_ERR_NOATTR);
-    }
+    assert(attrs[0].flags == (MODE | LFS3_A_RM));
+    assert(attrs[0].size == 0);
+    assert(attrs[1].flags == (MODE | LFS3_A_RM));
+    assert(attrs[1].size == 0);
+    assert(attrs[2].flags == (MODE | LFS3_A_RM));
+    assert(attrs[2].size == 0);
 
     lfs3_file_close(&lfs3, &file) => 0;
     lfs3_unmount(&lfs3) => 0;
@@ -2393,7 +2385,6 @@ code = '''
 # test that file-attached attrs are written correctly
 [cases.test_attrs_fattr_set]
 defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2411,33 +2402,30 @@ code = '''
     const char *c = "Three slash four cup vegetable oil.";
 
     // try opening a file with attrs
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(a_buf) : strlen(a),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(b_buf) : strlen(b),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(c_buf) : strlen(c),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2450,9 +2438,12 @@ code = '''
     memcpy(a_buf, a, strlen(a));
     memcpy(b_buf, b, strlen(b));
     memcpy(c_buf, c, strlen(c));
-    a_size = strlen(a);
-    b_size = strlen(b);
-    c_size = strlen(c);
+    attrs[0].size = strlen(a);
+    attrs[1].size = strlen(b);
+    attrs[2].size = strlen(c);
+    attrs[0].flags = (attrs[0].flags & ~LFS3_A_RM) | LFS3_A_DIRTY;
+    attrs[1].flags = (attrs[1].flags & ~LFS3_A_RM) | LFS3_A_DIRTY;
+    attrs[2].flags = (attrs[2].flags & ~LFS3_A_RM) | LFS3_A_DIRTY;
 
     // write and close our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file, "miao", strlen("miao")) => strlen("miao");
@@ -2485,7 +2476,6 @@ code = '''
 # test that we can update existing attrs
 [cases.test_attrs_fattr_update]
 defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2509,33 +2499,30 @@ code = '''
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
     const char *b_ = "Three slash four cup butter or margarine.";
     const char *c_ = "One and two third cups granulated sugar.";
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(a_buf) : strlen(a_),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(b_buf) : strlen(b_),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(c_buf) : strlen(c_),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2544,13 +2531,16 @@ code = '''
     };
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
-    if (MODE == LFS3_A_RDWR && MUTSIZE) {
+    if (MODE == LFS3_A_RDWR) {
         // did we read the attrs correctly?
-        assert(a_size == strlen(a));
+        assert(attrs[0].flags == MODE);
+        assert(attrs[0].size == strlen(a));
         assert(memcmp(a_buf, a, strlen(a)) == 0);
-        assert(b_size == strlen(b));
+        assert(attrs[1].flags == MODE);
+        assert(attrs[1].size == strlen(b));
         assert(memcmp(b_buf, b, strlen(b)) == 0);
-        assert(c_size == strlen(c));
+        assert(attrs[2].flags == MODE);
+        assert(attrs[2].size == strlen(c));
         assert(memcmp(c_buf, c, strlen(c)) == 0);
     }
 
@@ -2558,9 +2548,12 @@ code = '''
     memcpy(a_buf, a_, strlen(a_));
     memcpy(b_buf, b_, strlen(b_));
     memcpy(c_buf, c_, strlen(c_));
-    a_size = strlen(a_);
-    b_size = strlen(b_);
-    c_size = strlen(c_);
+    attrs[0].size = strlen(a_);
+    attrs[1].size = strlen(b_);
+    attrs[2].size = strlen(c_);
+    attrs[0].flags |= LFS3_A_DIRTY;
+    attrs[1].flags |= LFS3_A_DIRTY;
+    attrs[2].flags |= LFS3_A_DIRTY;
 
     // write and close our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file, "miao", strlen("miao")) => strlen("miao");
@@ -2593,7 +2586,6 @@ code = '''
 # test that we can remove attrs
 [cases.test_attrs_fattr_remove]
 defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2614,39 +2606,30 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with attrs
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(a_buf)
-                : LFS3_ERR_NOATTR,
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(b_buf)
-                : LFS3_ERR_NOATTR,
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(c_buf)
-                : LFS3_ERR_NOATTR,
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2655,20 +2638,23 @@ code = '''
     };
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
-    if (MODE == LFS3_A_RDWR && MUTSIZE) {
+    if (MODE == LFS3_A_RDWR) {
         // did we read the attrs correctly?
-        assert(a_size == strlen(a));
+        assert(attrs[0].flags == MODE);
+        assert(attrs[0].size == strlen(a));
         assert(memcmp(a_buf, a, strlen(a)) == 0);
-        assert(b_size == strlen(b));
+        assert(attrs[1].flags == MODE);
+        assert(attrs[1].size == strlen(b));
         assert(memcmp(b_buf, b, strlen(b)) == 0);
-        assert(c_size == strlen(c));
+        assert(attrs[2].flags == MODE);
+        assert(attrs[2].size == strlen(c));
         assert(memcmp(c_buf, c, strlen(c)) == 0);
     }
 
     // mark the attrs as removed
-    a_size = LFS3_ERR_NOATTR;
-    b_size = LFS3_ERR_NOATTR;
-    c_size = LFS3_ERR_NOATTR;
+    attrs[0].flags |= LFS3_A_DIRTY | LFS3_A_RM;
+    attrs[1].flags |= LFS3_A_DIRTY | LFS3_A_RM;
+    attrs[2].flags |= LFS3_A_DIRTY | LFS3_A_RM;
 
     // write and close our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file, "miao", strlen("miao")) => strlen("miao");
@@ -2701,7 +2687,6 @@ code = '''
 #
 [cases.test_attrs_fattr_zero]
 defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2722,39 +2707,30 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with attrs
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(a_buf)
-                : 0,
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(b_buf)
-                : 0,
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(c_buf)
-                : 0,
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2763,20 +2739,26 @@ code = '''
     };
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
-    if (MODE == LFS3_A_RDWR && MUTSIZE) {
+    if (MODE == LFS3_A_RDWR) {
         // did we read the attrs correctly?
-        assert(a_size == strlen(a));
+        assert(attrs[0].flags == MODE);
+        assert(attrs[0].size == strlen(a));
         assert(memcmp(a_buf, a, strlen(a)) == 0);
-        assert(b_size == strlen(b));
+        assert(attrs[1].flags == MODE);
+        assert(attrs[1].size == strlen(b));
         assert(memcmp(b_buf, b, strlen(b)) == 0);
-        assert(c_size == strlen(c));
+        assert(attrs[2].flags == MODE);
+        assert(attrs[2].size == strlen(c));
         assert(memcmp(c_buf, c, strlen(c)) == 0);
     }
 
     // mark the attrs as zero
-    a_size = 0;
-    b_size = 0;
-    c_size = 0;
+    attrs[0].size = 0;
+    attrs[1].size = 0;
+    attrs[2].size = 0;
+    attrs[0].flags |= LFS3_A_DIRTY;
+    attrs[1].flags |= LFS3_A_DIRTY;
+    attrs[2].flags |= LFS3_A_DIRTY;
 
     // write and close our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file, "miao", strlen("miao")) => strlen("miao");
@@ -2809,7 +2791,6 @@ code = '''
 #
 [cases.test_attrs_fattr_null]
 defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2830,45 +2811,30 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // try opening a file with attrs
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
-            .buffer = (MUTSIZE)
-                ? a_buf
-                : NULL,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(a_buf)
-                : 0,
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer = a_buf,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
-            .buffer = (MUTSIZE)
-                ? b_buf
-                : NULL,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(b_buf)
-                : 0,
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer = b_buf,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
-            .buffer = (MUTSIZE)
-                ? c_buf
-                : NULL,
-            .buffer_size = (MUTSIZE)
-                ? (lfs3_ssize_t)sizeof(c_buf)
-                : 0,
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer = c_buf,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2877,20 +2843,32 @@ code = '''
     };
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
-    if (MODE == LFS3_A_RDWR && MUTSIZE) {
+    if (MODE == LFS3_A_RDWR) {
         // did we read the attrs correctly?
-        assert(a_size == strlen(a));
+        assert(attrs[0].flags == MODE);
+        assert(attrs[0].size == strlen(a));
         assert(memcmp(a_buf, a, strlen(a)) == 0);
-        assert(b_size == strlen(b));
+        assert(attrs[1].flags == MODE);
+        assert(attrs[1].size == strlen(b));
         assert(memcmp(b_buf, b, strlen(b)) == 0);
-        assert(c_size == strlen(c));
+        assert(attrs[2].flags == MODE);
+        assert(attrs[2].size == strlen(c));
         assert(memcmp(c_buf, c, strlen(c)) == 0);
     }
 
     // mark the attrs as zero
-    a_size = 0;
-    b_size = 0;
-    c_size = 0;
+    attrs[0].buffer = NULL;
+    attrs[1].buffer = NULL;
+    attrs[2].buffer = NULL;
+    attrs[0].buffer_size = 0;
+    attrs[1].buffer_size = 0;
+    attrs[2].buffer_size = 0;
+    attrs[0].size = 0;
+    attrs[1].size = 0;
+    attrs[2].size = 0;
+    attrs[0].flags |= LFS3_A_DIRTY;
+    attrs[1].flags |= LFS3_A_DIRTY;
+    attrs[2].flags |= LFS3_A_DIRTY;
 
     // write and close our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file, "miao", strlen("miao")) => strlen("miao");
@@ -2917,14 +2895,10 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that we can set attrs to a size >256
-#
-# this can trip up internal logic that uses uint8_t sizes
-#
+# test that we can set attrs to a size >128
 [cases.test_attrs_fattr_big]
 defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
-defines.SIZE = [500, 509, 512, 513]
+defines.SIZE = 255
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -2943,7 +2917,7 @@ code = '''
     //
     const char *a = "One 18.25 ounce package chocolate cake mix.";
     lfs3_setattr(&lfs3, "cat", 'a', a, strlen(a)) => 0;
-    uint8_t b[1024];
+    uint8_t b[255];
     memset(b, 'b', SIZE);
     lfs3_setattr(&lfs3, "cat", 'b', b, SIZE) => 0;
     const char *c = "Three slash four cup vegetable oil.";
@@ -2951,36 +2925,33 @@ code = '''
 
     // try opening a file with attrs
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
-    uint8_t b_[1024];
+    uint8_t b_[255];
     memset(b_, 'B', SIZE);
     const char *c_ = "One and two third cups granulated sugar.";
-    uint8_t a_buf[1024];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[1024];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[1024];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[255];
+    uint8_t b_buf[255];
+    uint8_t c_buf[255];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(a_buf) : strlen(a_),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(b_buf) : (lfs3_size_t)SIZE,
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(c_buf) : strlen(c_),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -2989,13 +2960,16 @@ code = '''
     };
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
-    if (MODE == LFS3_A_RDWR && MUTSIZE) {
+    if (MODE == LFS3_A_RDWR) {
         // did we read the attrs correctly?
-        assert(a_size == strlen(a));
+        assert(attrs[0].flags == MODE);
+        assert(attrs[0].size == strlen(a));
         assert(memcmp(a_buf, a, strlen(a)) == 0);
-        assert(b_size == SIZE);
+        assert(attrs[1].flags == MODE);
+        assert(attrs[1].size == SIZE);
         assert(memcmp(b_buf, b, SIZE) == 0);
-        assert(c_size == strlen(c));
+        assert(attrs[2].flags == MODE);
+        assert(attrs[2].size == strlen(c));
         assert(memcmp(c_buf, c, strlen(c)) == 0);
     }
 
@@ -3003,9 +2977,12 @@ code = '''
     memcpy(a_buf, a_, strlen(a_));
     memcpy(b_buf, b_, SIZE);
     memcpy(c_buf, c_, strlen(c_));
-    a_size = strlen(a_);
-    b_size = SIZE;
-    c_size = strlen(c_);
+    attrs[0].size = strlen(a_);
+    attrs[1].size = SIZE;
+    attrs[2].size = strlen(c_);
+    attrs[0].flags |= LFS3_A_DIRTY;
+    attrs[1].flags |= LFS3_A_DIRTY;
+    attrs[2].flags |= LFS3_A_DIRTY;
 
     // write and close our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file, "miao", strlen("miao")) => strlen("miao");
@@ -3038,7 +3015,6 @@ code = '''
 # test that wronly attrs are not read from disk
 [cases.test_attrs_fattr_wronly]
 defines.MODE = ['LFS3_A_WRONLY']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3062,36 +3038,33 @@ code = '''
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
     const char *b_ = "Three slash four cup butter or margarine.";
     const char *c_ = "One and two third cups granulated sugar.";
-    uint8_t a_buf[256];
+    uint8_t a_buf[128];
     memcpy(a_buf, a_, strlen(a_));
-    lfs3_ssize_t a_size = strlen(a_);
-    uint8_t b_buf[256];
+    uint8_t b_buf[128];
     memcpy(b_buf, b_, strlen(b_));
-    lfs3_ssize_t b_size = strlen(b_);
-    uint8_t c_buf[256];
+    uint8_t c_buf[128];
     memcpy(c_buf, c_, strlen(c_));
-    lfs3_ssize_t c_size = strlen(c_);
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(a_buf) : strlen(a_),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = strlen(a_),
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(b_buf) : strlen(b_),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = strlen(b_),
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(c_buf) : strlen(c_),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = strlen(c_),
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -3101,11 +3074,14 @@ code = '''
     lfs3_file_opencfg(&lfs3, &file, "cat", LFS3_O_RDWR, &filecfg) => 0;
 
     // open should have had no effect on our wronly attrs
-    assert(a_size == strlen(a_));
+    assert(attrs[0].flags == (MODE | LFS3_A_DIRTY));
+    assert(attrs[0].size == strlen(a_));
     assert(memcmp(a_buf, a_, strlen(a_)) == 0);
-    assert(b_size == strlen(b_));
+    assert(attrs[1].flags == (MODE | LFS3_A_DIRTY));
+    assert(attrs[1].size == strlen(b_));
     assert(memcmp(b_buf, b_, strlen(b_)) == 0);
-    assert(c_size == strlen(c_));
+    assert(attrs[2].flags == (MODE | LFS3_A_DIRTY));
+    assert(attrs[2].size == strlen(c_));
     assert(memcmp(c_buf, c_, strlen(c_)) == 0);
 
     // write and close our file to write the attrs out to disk
@@ -3139,7 +3115,6 @@ code = '''
 # test that rdonly attrs have no effect on disk
 [cases.test_attrs_fattr_rdonly]
 defines.MODE = ['LFS3_A_RDONLY']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3163,33 +3138,30 @@ code = '''
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
     const char *b_ = "Three slash four cup butter or margarine.";
     const char *c_ = "One and two third cups granulated sugar.";
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(a_buf) : strlen(a_),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(b_buf) : strlen(b_),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(c_buf) : strlen(c_),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -3198,23 +3170,24 @@ code = '''
     };
     lfs3_file_opencfg(&lfs3, &file, "cat", LFS3_O_RDWR, &filecfg) => 0;
 
-    if (MUTSIZE) {
-        // did we read the attrs correctly?
-        assert(a_size == strlen(a));
-        assert(memcmp(a_buf, a, strlen(a)) == 0);
-        assert(b_size == strlen(b));
-        assert(memcmp(b_buf, b, strlen(b)) == 0);
-        assert(c_size == strlen(c));
-        assert(memcmp(c_buf, c, strlen(c)) == 0);
-    }
+    // did we read the attrs correctly?
+    assert(attrs[0].flags == MODE); 
+    assert(attrs[0].size == strlen(a));
+    assert(memcmp(a_buf, a, strlen(a)) == 0);
+    assert(attrs[1].flags == MODE); 
+    assert(attrs[1].size == strlen(b));
+    assert(memcmp(b_buf, b, strlen(b)) == 0);
+    assert(attrs[2].flags == MODE); 
+    assert(attrs[2].size == strlen(c));
+    assert(memcmp(c_buf, c, strlen(c)) == 0);
 
     // update the attrs with new values
     memcpy(a_buf, a_, strlen(a_));
     memcpy(b_buf, b_, strlen(b_));
     memcpy(c_buf, c_, strlen(c_));
-    a_size = strlen(a_);
-    b_size = strlen(b_);
-    c_size = strlen(c_);
+    attrs[0].size = strlen(a_);
+    attrs[1].size = strlen(b_);
+    attrs[2].size = strlen(c_);
 
     // write and close our file, this should have no effect on attrs
     lfs3_file_write(&lfs3, &file, "miao", strlen("miao")) => strlen("miao");
@@ -3247,7 +3220,6 @@ code = '''
 # test that attrs are written correctly even if there are no file changes
 [cases.test_attrs_fattr_noop]
 defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3271,33 +3243,30 @@ code = '''
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
     const char *b_ = "Three slash four cup butter or margarine.";
     const char *c_ = "One and two third cups granulated sugar.";
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
             .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(a_buf) : strlen(a_),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(b_buf) : strlen(b_),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(c_buf) : strlen(c_),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -3306,13 +3275,16 @@ code = '''
     };
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
-    if (MODE == LFS3_A_RDWR && MUTSIZE) {
+    if (MODE == LFS3_A_RDWR) {
         // did we read the attrs correctly?
-        assert(a_size == strlen(a));
+        assert(attrs[0].flags == MODE);
+        assert(attrs[0].size == strlen(a));
         assert(memcmp(a_buf, a, strlen(a)) == 0);
-        assert(b_size == strlen(b));
+        assert(attrs[1].flags == MODE);
+        assert(attrs[1].size == strlen(b));
         assert(memcmp(b_buf, b, strlen(b)) == 0);
-        assert(c_size == strlen(c));
+        assert(attrs[2].flags == MODE);
+        assert(attrs[2].size == strlen(c));
         assert(memcmp(c_buf, c, strlen(c)) == 0);
     }
 
@@ -3320,9 +3292,12 @@ code = '''
     memcpy(a_buf, a_, strlen(a_));
     memcpy(b_buf, b_, strlen(b_));
     memcpy(c_buf, c_, strlen(c_));
-    a_size = strlen(a_);
-    b_size = strlen(b_);
-    c_size = strlen(c_);
+    attrs[0].size = strlen(a_);
+    attrs[1].size = strlen(b_);
+    attrs[2].size = strlen(c_);
+    attrs[0].flags |= LFS3_A_DIRTY;
+    attrs[1].flags |= LFS3_A_DIRTY;
+    attrs[2].flags |= LFS3_A_DIRTY;
 
     // close our file without any data changes, this should still update
     // our attrs!
@@ -3355,7 +3330,6 @@ code = '''
 # test that lazy attrs aren't written _until_ there are file changes
 [cases.test_attrs_fattr_lazy]
 defines.MODE = ['LFS3_A_WRONLY', 'LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3379,33 +3353,30 @@ code = '''
     const char *a_ = "Four large eggs. One cup semi-sweet chocolate chips.";
     const char *b_ = "Three slash four cup butter or margarine.";
     const char *c_ = "One and two third cups granulated sugar.";
-    uint8_t a_buf[256];
-    lfs3_ssize_t a_size;
-    uint8_t b_buf[256];
-    lfs3_ssize_t b_size;
-    uint8_t c_buf[256];
-    lfs3_ssize_t c_size;
+    uint8_t a_buf[128];
+    uint8_t b_buf[128];
+    uint8_t c_buf[128];
     struct lfs3_attr attrs[] = {
         {
             .type = 'a',
-            .flags = MODE | LFS3_A_LAZY,
+            .flags = MODE,
             .buffer = a_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(a_buf) : strlen(a_),
-            .size = (MUTSIZE) ? &a_size : NULL,
+            .buffer_size = sizeof(a_buf),
+            .size = 0,
         },
         {
             .type = 'b',
-            .flags = MODE | LFS3_A_LAZY,
+            .flags = MODE,
             .buffer = b_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(b_buf) : strlen(b_),
-            .size = (MUTSIZE) ? &b_size : NULL,
+            .buffer_size = sizeof(b_buf),
+            .size = 0,
         },
         {
             .type = 'c',
-            .flags = MODE | LFS3_A_LAZY,
+            .flags = MODE,
             .buffer = c_buf,
-            .buffer_size = (MUTSIZE) ? sizeof(c_buf) : strlen(c_),
-            .size = (MUTSIZE) ? &c_size : NULL,
+            .buffer_size = sizeof(c_buf),
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -3414,13 +3385,16 @@ code = '''
     };
     lfs3_file_opencfg(&lfs3, &file, "cat", MODE, &filecfg) => 0;
 
-    if (MODE == LFS3_A_RDWR && MUTSIZE) {
+    if (MODE == LFS3_A_RDWR) {
         // did we read the attrs correctly?
-        assert(a_size == strlen(a));
+        assert(attrs[0].flags == MODE);
+        assert(attrs[0].size == strlen(a));
         assert(memcmp(a_buf, a, strlen(a)) == 0);
-        assert(b_size == strlen(b));
+        assert(attrs[1].flags == MODE);
+        assert(attrs[1].size == strlen(b));
         assert(memcmp(b_buf, b, strlen(b)) == 0);
-        assert(c_size == strlen(c));
+        assert(attrs[2].flags == MODE);
+        assert(attrs[2].size == strlen(c));
         assert(memcmp(c_buf, c, strlen(c)) == 0);
     }
 
@@ -3428,12 +3402,15 @@ code = '''
     memcpy(a_buf, a_, strlen(a_));
     memcpy(b_buf, b_, strlen(b_));
     memcpy(c_buf, c_, strlen(c_));
-    a_size = strlen(a_);
-    b_size = strlen(b_);
-    c_size = strlen(c_);
+    attrs[0].size = strlen(a_);
+    attrs[1].size = strlen(b_);
+    attrs[2].size = strlen(c_);
+    attrs[0].flags &= ~LFS3_A_DIRTY;
+    attrs[1].flags &= ~LFS3_A_DIRTY;
+    attrs[2].flags &= ~LFS3_A_DIRTY;
 
     // sync our file without any data changes, this should have no
-    // effect because our attrs are lazy
+    // effect because our attrs are not marked as dirty
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // try getting the attr sizes
@@ -3448,6 +3425,11 @@ code = '''
     assert(memcmp(rbuf, b, strlen(b)) == 0);
     lfs3_getattr(&lfs3, "cat", 'c', rbuf, sizeof(rbuf)) => strlen(c);
     assert(memcmp(rbuf, c, strlen(c)) == 0);
+
+    // now mark as dirty
+    attrs[0].flags |= LFS3_A_DIRTY;
+    attrs[1].flags |= LFS3_A_DIRTY;
+    attrs[2].flags |= LFS3_A_DIRTY;
 
     // now write some data and close our file, this should update
     // the attrs now
@@ -3482,7 +3464,6 @@ code = '''
 # test that attr updates are broadcast to other file handles
 [cases.test_attrs_fattr_broadcast]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3503,12 +3484,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -3518,21 +3496,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -3541,17 +3519,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -3562,9 +3537,12 @@ code = '''
     memcpy(a_buf[1], a_, strlen(a_));
     memcpy(b_buf[1], b_, strlen(b_));
     memcpy(c_buf[1], c_, strlen(c_));
-    a_size[1] = strlen(a_);
-    b_size[1] = strlen(b_);
-    c_size[1] = strlen(c_);
+    attrs[1][0].size = strlen(a_);
+    attrs[1][1].size = strlen(b_);
+    attrs[1][2].size = strlen(c_);
+    attrs[1][0].flags |= LFS3_A_DIRTY;
+    attrs[1][1].flags |= LFS3_A_DIRTY;
+    attrs[1][2].flags |= LFS3_A_DIRTY;
 
     // write and sync our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file[1], "miao", strlen("miao")) => strlen("miao");
@@ -3573,17 +3551,14 @@ code = '''
     // were attrs broadcasted to the other files?
     for (lfs3_size_t i = 0; i < 3; i++) {
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a_));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a_));
         assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b_));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b_));
         assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c_));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c_));
         assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
     }
 
@@ -3596,7 +3571,6 @@ code = '''
 # test that attr removes are broadcast to other file handles
 [cases.test_attrs_fattr_remove_broadcast]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3617,12 +3591,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -3632,21 +3603,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -3655,24 +3626,24 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
     // remove _one_ file's attrs
-    a_size[1] = LFS3_ERR_NOATTR;
-    b_size[1] = LFS3_ERR_NOATTR;
-    c_size[1] = LFS3_ERR_NOATTR;
+    attrs[1][0].size = 0;
+    attrs[1][1].size = 0;
+    attrs[1][2].size = 0;
+    attrs[1][0].flags |= LFS3_A_RM | LFS3_A_DIRTY;
+    attrs[1][1].flags |= LFS3_A_RM | LFS3_A_DIRTY;
+    attrs[1][2].flags |= LFS3_A_RM | LFS3_A_DIRTY;
 
     // write and sync our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file[1], "miao", strlen("miao")) => strlen("miao");
@@ -3681,15 +3652,12 @@ code = '''
     // were attrs broadcasted to the other files?
     for (lfs3_size_t i = 0; i < 3; i++) {
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == LFS3_ERR_NOATTR);
-        }
-        if (MUTSIZE) {
-            assert(b_size[i] == LFS3_ERR_NOATTR);
-        }
-        if (MUTSIZE) {
-            assert(c_size[i] == LFS3_ERR_NOATTR);
-        }
+        assert(attrs[i][0].flags == (MODE | LFS3_A_RM));
+        assert(attrs[i][0].size == 0);
+        assert(attrs[i][1].flags == (MODE | LFS3_A_RM));
+        assert(attrs[i][1].size == 0);
+        assert(attrs[i][2].flags == (MODE | LFS3_A_RM));
+        assert(attrs[i][2].size == 0);
     }
 
     for (lfs3_size_t i = 0; i < 3; i++) {
@@ -3701,7 +3669,6 @@ code = '''
 # test that setattr can also broadcast
 [cases.test_attrs_fattr_setattr_broadcast]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3722,12 +3689,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -3737,21 +3701,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -3760,17 +3724,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -3785,17 +3746,14 @@ code = '''
     // were attrs broadcasted to the other files?
     for (lfs3_size_t i = 0; i < 3; i++) {
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a_));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a_));
         assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b_));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b_));
         assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c_));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c_));
         assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
     }
 
@@ -3808,7 +3766,6 @@ code = '''
 # test that attr removes are broadcast to other file handles
 [cases.test_attrs_fattr_removeattr_broadcast]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3829,12 +3786,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -3844,21 +3798,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -3867,17 +3821,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -3889,15 +3840,12 @@ code = '''
     // were attrs broadcasted to the other files?
     for (lfs3_size_t i = 0; i < 3; i++) {
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == LFS3_ERR_NOATTR);
-        }
-        if (MUTSIZE) {
-            assert(b_size[i] == LFS3_ERR_NOATTR);
-        }
-        if (MUTSIZE) {
-            assert(c_size[i] == LFS3_ERR_NOATTR);
-        }
+        assert(attrs[i][0].flags == (MODE | LFS3_A_RM));
+        assert(attrs[i][0].size == 0);
+        assert(attrs[i][1].flags == (MODE | LFS3_A_RM));
+        assert(attrs[i][1].size == 0);
+        assert(attrs[i][2].flags == (MODE | LFS3_A_RM));
+        assert(attrs[i][2].size == 0);
     }
 
     for (lfs3_size_t i = 0; i < 3; i++) {
@@ -3909,7 +3857,6 @@ code = '''
 # test that attr broadcasts do _not_ update wronly attrs
 [cases.test_attrs_fattr_wronly_no_receive]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -3930,12 +3877,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -3945,21 +3889,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -3968,17 +3912,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -3994,9 +3935,12 @@ code = '''
     memcpy(a_buf[2], a_, strlen(a_));
     memcpy(b_buf[2], b_, strlen(b_));
     memcpy(c_buf[2], c_, strlen(c_));
-    a_size[2] = strlen(a_);
-    b_size[2] = strlen(b_);
-    c_size[2] = strlen(c_);
+    attrs[2][0].size = strlen(a_);
+    attrs[2][1].size = strlen(b_);
+    attrs[2][2].size = strlen(c_);
+    attrs[2][0].flags |= LFS3_A_DIRTY;
+    attrs[2][1].flags |= LFS3_A_DIRTY;
+    attrs[2][2].flags |= LFS3_A_DIRTY;
 
     // write and sync our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file[2], "miao", strlen("miao")) => strlen("miao");
@@ -4005,30 +3949,24 @@ code = '''
     // were attrs broadcasted to the other files? but not our wronly attrs?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert(attrs[i][0].flags == (LFS3_A_WRONLY | LFS3_A_DIRTY));
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert(attrs[i][1].flags == (LFS3_A_WRONLY | LFS3_A_DIRTY));
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert(attrs[i][2].flags == (LFS3_A_WRONLY | LFS3_A_DIRTY));
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a_));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a_));
             assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b_));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b_));
             assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c_));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c_));
             assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
         }
     }
@@ -4044,30 +3982,24 @@ code = '''
     // were attrs broadcasted to the other files? but not our wronly attrs?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert(attrs[i][0].flags == (LFS3_A_WRONLY | LFS3_A_DIRTY));
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert(attrs[i][1].flags == (LFS3_A_WRONLY | LFS3_A_DIRTY));
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert(attrs[i][2].flags == (LFS3_A_WRONLY | LFS3_A_DIRTY));
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a__));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a__));
             assert(memcmp(a_buf[i], a__, strlen(a__)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b__));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b__));
             assert(memcmp(b_buf[i], b__, strlen(b__)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c__));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c__));
             assert(memcmp(c_buf[i], c__, strlen(c__)) == 0);
         }
     }
@@ -4077,18 +4009,27 @@ code = '''
 
     // were attrs broadcasted to the other files?
     for (lfs3_size_t i = 0; i < 3; i++) {
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
+        if (i == 0) {
+            assert(attrs[i][0].flags == LFS3_A_WRONLY);
+            assert(attrs[i][0].size == strlen(a));
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            assert(attrs[i][1].flags == LFS3_A_WRONLY);
+            assert(attrs[i][1].size == strlen(b));
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            assert(attrs[i][2].flags == LFS3_A_WRONLY);
+            assert(attrs[i][2].size == strlen(c));
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
+        } else {
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a));
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b));
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c));
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         }
-        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
-        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
-        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
     for (lfs3_size_t i = 0; i < 3; i++) {
@@ -4100,7 +4041,6 @@ code = '''
 # test that attr broadcasts do _not_ broadcast rdonly attrs
 [cases.test_attrs_fattr_rdonly_no_broadcast]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -4121,12 +4061,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -4136,21 +4073,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -4159,17 +4096,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -4185,9 +4119,9 @@ code = '''
     memcpy(a_buf[0], a_, strlen(a_));
     memcpy(b_buf[0], b_, strlen(b_));
     memcpy(c_buf[0], c_, strlen(c_));
-    a_size[0] = strlen(a_);
-    b_size[0] = strlen(b_);
-    c_size[0] = strlen(c_);
+    attrs[0][0].size = strlen(a_);
+    attrs[0][1].size = strlen(b_);
+    attrs[0][2].size = strlen(c_);
 
     // write and sync our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file[0], "miao", strlen("miao")) => strlen("miao");
@@ -4196,30 +4130,24 @@ code = '''
     // rdonly attrs should not have been broadcasted
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a_));
-            }
+            assert(attrs[i][0].flags == LFS3_A_RDONLY);
+            assert(attrs[i][0].size == strlen(a_));
             assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b_));
-            }
+            assert(attrs[i][1].flags == LFS3_A_RDONLY);
+            assert(attrs[i][1].size == strlen(b_));
             assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c_));
-            }
+            assert(attrs[i][2].flags == LFS3_A_RDONLY);
+            assert(attrs[i][2].size == strlen(c_));
             assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         }
     }
@@ -4229,18 +4157,27 @@ code = '''
 
     // reset attrs?
     for (lfs3_size_t i = 0; i < 3; i++) {
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
+        if (i == 0) {
+            assert(attrs[i][0].flags == LFS3_A_RDONLY);
+            assert(attrs[i][0].size == strlen(a_));
+            assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
+            assert(attrs[i][1].flags == LFS3_A_RDONLY);
+            assert(attrs[i][1].size == strlen(b_));
+            assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
+            assert(attrs[i][2].flags == LFS3_A_RDONLY);
+            assert(attrs[i][2].size == strlen(c_));
+            assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
+        } else {
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a));
+            assert(memcmp(a_buf[i], a, strlen(a)) == 0);
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b));
+            assert(memcmp(b_buf[i], b, strlen(b)) == 0);
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c));
+            assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         }
-        assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
-        assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
-        assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
     for (lfs3_size_t i = 0; i < 3; i++) {
@@ -4252,7 +4189,6 @@ code = '''
 # test that desync files do _not_ receive attr broadcasts
 [cases.test_attrs_fattr_desync_no_receive]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -4273,12 +4209,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -4288,21 +4221,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -4311,17 +4244,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -4335,9 +4265,12 @@ code = '''
     memcpy(a_buf[2], a_, strlen(a_));
     memcpy(b_buf[2], b_, strlen(b_));
     memcpy(c_buf[2], c_, strlen(c_));
-    a_size[2] = strlen(a_);
-    b_size[2] = strlen(b_);
-    c_size[2] = strlen(c_);
+    attrs[2][0].size = strlen(a_);
+    attrs[2][1].size = strlen(b_);
+    attrs[2][2].size = strlen(c_);
+    attrs[2][0].flags |= LFS3_A_DIRTY;
+    attrs[2][1].flags |= LFS3_A_DIRTY;
+    attrs[2][2].flags |= LFS3_A_DIRTY;
 
     // write and sync our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file[2], "miao", strlen("miao")) => strlen("miao");
@@ -4346,30 +4279,24 @@ code = '''
     // were attrs broadcasted to the other files? but not our desync file?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert(attrs[i][0].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert(attrs[i][1].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert(attrs[i][2].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a_));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a_));
             assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b_));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b_));
             assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c_));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c_));
             assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
         }
     }
@@ -4385,30 +4312,24 @@ code = '''
     // were attrs broadcasted to the other files? but not our desync file?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert(attrs[i][0].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert(attrs[i][1].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert(attrs[i][2].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a__));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a__));
             assert(memcmp(a_buf[i], a__, strlen(a__)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b__));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b__));
             assert(memcmp(b_buf[i], b__, strlen(b__)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c__));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c__));
             assert(memcmp(c_buf[i], c__, strlen(c__)) == 0);
         }
     }
@@ -4418,17 +4339,14 @@ code = '''
 
     // were attrs broadcasted to the other files?
     for (lfs3_size_t i = 0; i < 3; i++) {
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -4441,7 +4359,6 @@ code = '''
 # test that resync files will reread attrs
 [cases.test_attrs_fattr_resync_receive]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -4462,12 +4379,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -4477,21 +4391,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -4500,17 +4414,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -4524,9 +4435,12 @@ code = '''
     memcpy(a_buf[2], a_, strlen(a_));
     memcpy(b_buf[2], b_, strlen(b_));
     memcpy(c_buf[2], c_, strlen(c_));
-    a_size[2] = strlen(a_);
-    b_size[2] = strlen(b_);
-    c_size[2] = strlen(c_);
+    attrs[2][0].size = strlen(a_);
+    attrs[2][1].size = strlen(b_);
+    attrs[2][2].size = strlen(c_);
+    attrs[2][0].flags |= LFS3_A_DIRTY;
+    attrs[2][1].flags |= LFS3_A_DIRTY;
+    attrs[2][2].flags |= LFS3_A_DIRTY;
 
     // write and sync our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file[2], "miao", strlen("miao")) => strlen("miao");
@@ -4535,30 +4449,24 @@ code = '''
     // were attrs broadcasted to the other files? but not our desync file?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert(attrs[i][0].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert(attrs[i][1].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert(attrs[i][2].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a_));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a_));
             assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b_));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b_));
             assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c_));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c_));
             assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
         }
     }
@@ -4568,17 +4476,14 @@ code = '''
 
     // reread attrs?
     for (lfs3_size_t i = 0; i < 3; i++) {
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a_));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a_));
         assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b_));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b_));
         assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c_));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c_));
         assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
     }
 
@@ -4591,7 +4496,6 @@ code = '''
 # test that zombie files do _not_ broadcast attrs
 [cases.test_attrs_fattr_zombie_no_broadcast]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -4612,12 +4516,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -4627,21 +4528,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -4650,17 +4551,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -4674,9 +4572,12 @@ code = '''
     memcpy(a_buf[1], a_, strlen(a_));
     memcpy(b_buf[1], b_, strlen(b_));
     memcpy(c_buf[1], c_, strlen(c_));
-    a_size[1] = strlen(a_);
-    b_size[1] = strlen(b_);
-    c_size[1] = strlen(c_);
+    attrs[1][0].size = strlen(a_);
+    attrs[1][1].size = strlen(b_);
+    attrs[1][2].size = strlen(c_);
+    attrs[1][0].flags |= LFS3_A_DIRTY;
+    attrs[1][1].flags |= LFS3_A_DIRTY;
+    attrs[1][2].flags |= LFS3_A_DIRTY;
 
     // attempting to sync the zombie file is a noop
     lfs3_file_sync(&lfs3, &file[1]) => 0;
@@ -4687,30 +4588,24 @@ code = '''
     // other file unaffected?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 1) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a_));
-            }
+            assert(attrs[i][0].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][0].size == strlen(a_));
             assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b_));
-            }
+            assert(attrs[i][1].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][1].size == strlen(b_));
             assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c_));
-            }
+            assert(attrs[i][2].flags == (MODE | LFS3_A_DIRTY));
+            assert(attrs[i][2].size == strlen(c_));
             assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         }
     }
@@ -4724,7 +4619,6 @@ code = '''
 # test that zombie files do _not_ receive attr broadcasts
 [cases.test_attrs_fattr_zombie_no_receive]
 defines.MODE = ['LFS3_A_RDWR']
-defines.MUTSIZE = [false, true]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
@@ -4745,12 +4639,9 @@ code = '''
     lfs3_setattr(&lfs3, "cat", 'c', c, strlen(c)) => 0;
 
     // open a couple files with these attrs
-    uint8_t a_buf[3][256];
-    lfs3_ssize_t a_size[3];
-    uint8_t b_buf[3][256];
-    lfs3_ssize_t b_size[3];
-    uint8_t c_buf[3][256];
-    lfs3_ssize_t c_size[3];
+    uint8_t a_buf[3][128];
+    uint8_t b_buf[3][128];
+    uint8_t c_buf[3][128];
     struct lfs3_attr attrs[3][3];
     struct lfs3_file_cfg filecfg[3];
     lfs3_file_t file[3];
@@ -4760,21 +4651,21 @@ code = '''
             .flags = MODE,
             .buffer = a_buf[i],
             .buffer_size = sizeof(a_buf[i]),
-            .size = (MUTSIZE) ? &a_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][1] = (struct lfs3_attr){
             .type = 'b',
             .flags = MODE,
             .buffer = b_buf[i],
             .buffer_size = sizeof(b_buf[i]),
-            .size = (MUTSIZE) ? &b_size[i] : NULL,
+            .size = 0,
         };
         attrs[i][2] = (struct lfs3_attr){
             .type = 'c',
             .flags = MODE,
             .buffer = c_buf[i],
             .buffer_size = sizeof(c_buf[i]),
-            .size = (MUTSIZE) ? &c_size[i] : NULL,
+            .size = 0,
         };
         filecfg[i] = (struct lfs3_file_cfg){
             .attrs = attrs[i],
@@ -4783,17 +4674,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -4814,17 +4702,14 @@ code = '''
 
     // make sure no attrs were broadcasted to our zombies
     for (lfs3_size_t i = 0; i < 3; i++) {
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a));
-        }
+        assert((attrs[i][0].flags & ~LFS3_A_DIRTY) == MODE);
+        assert(attrs[i][0].size == strlen(a));
         assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b));
-        }
+        assert((attrs[i][1].flags & ~LFS3_A_DIRTY) == MODE);
+        assert(attrs[i][1].size == strlen(b));
         assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c));
-        }
+        assert((attrs[i][2].flags & ~LFS3_A_DIRTY) == MODE);
+        assert(attrs[i][2].size == strlen(c));
         assert(memcmp(c_buf[i], c, strlen(c)) == 0);
     }
 
@@ -4839,17 +4724,14 @@ code = '''
         lfs3_file_opencfg(&lfs3, &file[i], "cat", MODE, &filecfg[i]) => 0;
 
         // did we read the attrs correctly?
-        if (MUTSIZE) {
-            assert(a_size[i] == strlen(a_));
-        }
+        assert(attrs[i][0].flags == MODE);
+        assert(attrs[i][0].size == strlen(a_));
         assert(memcmp(a_buf[i], a_, strlen(a_)) == 0);
-        if (MUTSIZE) {
-            assert(b_size[i] == strlen(b_));
-        }
+        assert(attrs[i][1].flags == MODE);
+        assert(attrs[i][1].size == strlen(b_));
         assert(memcmp(b_buf[i], b_, strlen(b_)) == 0);
-        if (MUTSIZE) {
-            assert(c_size[i] == strlen(c_));
-        }
+        assert(attrs[i][2].flags == MODE);
+        assert(attrs[i][2].size == strlen(c_));
         assert(memcmp(c_buf[i], c_, strlen(c_)) == 0);
     }
 
@@ -4860,9 +4742,12 @@ code = '''
     memcpy(a_buf[2], a__, strlen(a__));
     memcpy(b_buf[2], b__, strlen(b__));
     memcpy(c_buf[2], c__, strlen(c__));
-    a_size[2] = strlen(a__);
-    b_size[2] = strlen(b__);
-    c_size[2] = strlen(c__);
+    attrs[2][0].size = strlen(a__);
+    attrs[2][1].size = strlen(b__);
+    attrs[2][2].size = strlen(c__);
+    attrs[2][0].flags |= LFS3_A_DIRTY;
+    attrs[2][1].flags |= LFS3_A_DIRTY;
+    attrs[2][2].flags |= LFS3_A_DIRTY;
 
     // write and sync our file to write the attrs out to disk
     lfs3_file_write(&lfs3, &file[2], "nyan", strlen("nyan")) => strlen("nyan");
@@ -4871,30 +4756,24 @@ code = '''
     // were attrs broadcasted to the other files? but not our zombie file?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert((attrs[i][0].flags & ~LFS3_A_DIRTY) == MODE);
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert((attrs[i][1].flags & ~LFS3_A_DIRTY) == MODE);
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert((attrs[i][2].flags & ~LFS3_A_DIRTY) == MODE);
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a__));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a__));
             assert(memcmp(a_buf[i], a__, strlen(a__)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b__));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b__));
             assert(memcmp(b_buf[i], b__, strlen(b__)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c__));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c__));
             assert(memcmp(c_buf[i], c__, strlen(c__)) == 0);
         }
     }
@@ -4910,30 +4789,24 @@ code = '''
     // were attrs broadcasted to the other files? but not our zombie file?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i == 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a));
-            }
+            assert((attrs[i][0].flags & ~LFS3_A_DIRTY) == MODE);
+            assert(attrs[i][0].size == strlen(a));
             assert(memcmp(a_buf[i], a, strlen(a)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b));
-            }
+            assert((attrs[i][1].flags & ~LFS3_A_DIRTY) == MODE);
+            assert(attrs[i][1].size == strlen(b));
             assert(memcmp(b_buf[i], b, strlen(b)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c));
-            }
+            assert((attrs[i][2].flags & ~LFS3_A_DIRTY) == MODE);
+            assert(attrs[i][2].size == strlen(c));
             assert(memcmp(c_buf[i], c, strlen(c)) == 0);
         } else {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a___));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a___));
             assert(memcmp(a_buf[i], a___, strlen(a___)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b___));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b___));
             assert(memcmp(b_buf[i], b___, strlen(b___)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c___));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c___));
             assert(memcmp(c_buf[i], c___, strlen(c___)) == 0);
         }
     }
@@ -4947,17 +4820,14 @@ code = '''
     // other file unaffected?
     for (lfs3_size_t i = 0; i < 3; i++) {
         if (i != 0) {
-            if (MUTSIZE) {
-                assert(a_size[i] == strlen(a___));
-            }
+            assert(attrs[i][0].flags == MODE);
+            assert(attrs[i][0].size == strlen(a___));
             assert(memcmp(a_buf[i], a___, strlen(a___)) == 0);
-            if (MUTSIZE) {
-                assert(b_size[i] == strlen(b___));
-            }
+            assert(attrs[i][1].flags == MODE);
+            assert(attrs[i][1].size == strlen(b___));
             assert(memcmp(b_buf[i], b___, strlen(b___)) == 0);
-            if (MUTSIZE) {
-                assert(c_size[i] == strlen(c___));
-            }
+            assert(attrs[i][2].flags == MODE);
+            assert(attrs[i][2].size == strlen(c___));
             assert(memcmp(c_buf[i], c___, strlen(c___)) == 0);
         }
     }
@@ -4985,13 +4855,12 @@ code = '''
 
     // setup our attr
     uint8_t a_buf[SIZE];
-    lfs3_ssize_t a_size = -1;
     struct lfs3_attr attrs[] = {
         {
             .flags = LFS3_A_RDWR,
             .buffer = a_buf,
             .buffer_size = sizeof(a_buf),
-            .size = &a_size,
+            .size = 0,
         }
     };
     struct lfs3_file_cfg filecfg = {
@@ -5011,7 +4880,8 @@ code = '''
         }
         lfs3_file_opencfg(&lfs3, &file, "cat", LFS3_A_RDWR, &filecfg) => 0;
         memcpy(a_buf, wbuf, SIZE);
-        a_size = SIZE;
+        attrs[0].size = SIZE;
+        attrs[0].flags = (attrs[0].flags & ~LFS3_A_RM) | LFS3_A_DIRTY;
         lfs3_file_close(&lfs3, &file) => 0;
 
         // try getting the attr size
@@ -5024,11 +4894,12 @@ code = '''
         // clobber our in-RAM attr and try reading via open
         memset(a_buf, 0xcc, sizeof(a_buf));
         lfs3_file_opencfg(&lfs3, &file, "cat", LFS3_A_RDWR, &filecfg) => 0;
-        assert(a_size == SIZE);
+        assert(attrs[0].flags == LFS3_A_RDWR);
+        assert(attrs[0].size == SIZE);
         assert(memcmp(a_buf, wbuf, SIZE) == 0);
 
         // remove the attr
-        a_size = LFS3_ERR_NOATTR;
+        attrs[0].flags |= LFS3_A_RM | LFS3_A_DIRTY;
         lfs3_file_close(&lfs3, &file) => 0;
 
         // make sure attr is removed
@@ -5069,6 +4940,7 @@ code = '''
                 .flags = LFS3_A_WRONLY,
                 .buffer = a_buf[j],
                 .buffer_size = SIZE,
+                .size = SIZE,
             };
         }
         struct lfs3_file_cfg filecfg = {
@@ -5137,7 +5009,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint8_t a_buf[N][M][SIZE];
-    lfs3_ssize_t a_size[N][M];
     struct lfs3_attr attrs[N][M];
     struct lfs3_file_cfg filecfg[N];
     lfs3_file_t file[N];
@@ -5152,7 +5023,7 @@ code = '''
                 .flags = LFS3_A_RDWR,
                 .buffer = a_buf[x][a],
                 .buffer_size = SIZE,
-                .size = &a_size[x][a],
+                .size = 0,
             };
         }
         filecfg[x] = (struct lfs3_file_cfg){
@@ -5193,7 +5064,10 @@ code = '''
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
             memcpy(a_buf[x][a], wbuf, SIZE);
-            a_size[x][a] = SIZE;
+            attrs[x][a].size = SIZE;
+            attrs[x][a].flags
+                    = (attrs[x][a].flags & ~LFS3_A_RM)
+                    | LFS3_A_DIRTY;
             lfs3_file_sync(&lfs3, &file[x]) => 0;
 
             // update our sim
@@ -5207,7 +5081,8 @@ code = '''
             uint8_t a = TEST_PRNG(&prng) % M;
 
             // remove the attr
-            a_size[x][a] = LFS3_ERR_NOATTR;
+            attrs[x][a].size = 0;
+            attrs[x][a].flags |= LFS3_A_RM | LFS3_A_DIRTY;
             lfs3_file_sync(&lfs3, &file[x]) => 0;
 
             // update our sim
@@ -5219,7 +5094,8 @@ code = '''
     for (lfs3_size_t x = 0; x < N; x++) {
         for (uint16_t a = 0; a < M; a++) {
             if (sim_prngs[x*M+a]) {
-                assert(a_size[x][a] == SIZE);
+                assert(attrs[x][a].flags == LFS3_A_RDWR);
+                assert(attrs[x][a].size == SIZE);
                 uint32_t wprng_ = sim_prngs[x*M+a];
                 uint8_t wbuf[SIZE];
                 for (lfs3_size_t i = 0; i < SIZE; i++) {
@@ -5227,7 +5103,8 @@ code = '''
                 }
                 assert(memcmp(a_buf[x][a], wbuf, SIZE) == 0);
             } else {
-                assert(a_size[x][a] == LFS3_ERR_NOATTR);
+                assert(attrs[x][a].flags == (LFS3_A_RDWR | LFS3_A_RM));
+                assert(attrs[x][a].size == 0);
             }
         }
     }
@@ -5255,7 +5132,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint8_t a_buf[N][H][M][SIZE];
-    lfs3_ssize_t a_size[N][H][M];
     struct lfs3_attr attrs[N][H][M];
     struct lfs3_file_cfg filecfg[N][H];
     lfs3_file_t file[N][H];
@@ -5271,7 +5147,7 @@ code = '''
                     .flags = LFS3_A_RDWR,
                     .buffer = a_buf[x][y][a],
                     .buffer_size = SIZE,
-                    .size = &a_size[x][y][a],
+                    .size = 0,
                 };
             }
             filecfg[x][y] = (struct lfs3_file_cfg){
@@ -5315,7 +5191,10 @@ code = '''
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
             memcpy(a_buf[x][y][a], wbuf, SIZE);
-            a_size[x][y][a] = SIZE;
+            attrs[x][y][a].size = SIZE;
+            attrs[x][y][a].flags
+                    = (attrs[x][y][a].flags & ~LFS3_A_RM)
+                    | LFS3_A_DIRTY;
             lfs3_file_sync(&lfs3, &file[x][y]) => 0;
 
             // update our sim
@@ -5331,7 +5210,8 @@ code = '''
             uint8_t a = TEST_PRNG(&prng) % M;
 
             // remove the attr
-            a_size[x][y][a] = LFS3_ERR_NOATTR;
+            attrs[x][y][a].size = 0;
+            attrs[x][y][a].flags |= LFS3_A_RM | LFS3_A_DIRTY;
             lfs3_file_sync(&lfs3, &file[x][y]) => 0;
 
             // update our sim
@@ -5344,7 +5224,8 @@ code = '''
         for (lfs3_size_t y = 0; y < H; y++) {
             for (uint16_t a = 0; a < M; a++) {
                 if (sim_prngs[x*M+a]) {
-                    assert(a_size[x][y][a] == SIZE);
+                    assert(attrs[x][y][a].flags == LFS3_A_RDWR);
+                    assert(attrs[x][y][a].size == SIZE);
                     uint32_t wprng_ = sim_prngs[x*M+a];
                     uint8_t wbuf[SIZE];
                     for (lfs3_size_t i = 0; i < SIZE; i++) {
@@ -5352,7 +5233,8 @@ code = '''
                     }
                     assert(memcmp(a_buf[x][y][a], wbuf, SIZE) == 0);
                 } else {
-                    assert(a_size[x][y][a] == LFS3_ERR_NOATTR);
+                    assert(attrs[x][y][a].flags == (LFS3_A_RDWR | LFS3_A_RM));
+                    assert(attrs[x][y][a].size == 0);
                 }
             }
         }
@@ -5382,7 +5264,6 @@ code = '''
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     uint8_t a_buf[N][M][SIZE];
-    lfs3_ssize_t a_size[N][M];
     struct lfs3_attr attrs[N][M];
     struct lfs3_file_cfg filecfg[N];
     lfs3_file_t file[N];
@@ -5397,7 +5278,7 @@ code = '''
                 .flags = LFS3_A_RDWR,
                 .buffer = a_buf[x][a],
                 .buffer_size = SIZE,
-                .size = &a_size[x][a],
+                .size = 0,
             };
         }
         filecfg[x] = (struct lfs3_file_cfg){
@@ -5438,7 +5319,10 @@ code = '''
                 wbuf[j] = 'a' + (TEST_PRNG(&wprng_) % 26);
             }
             memcpy(a_buf[x][a], wbuf, SIZE);
-            a_size[x][a] = SIZE;
+            attrs[x][a].size = SIZE;
+            attrs[x][a].flags
+                    = (attrs[x][a].flags & ~LFS3_A_RM)
+                    | LFS3_A_DIRTY;
             lfs3_file_sync(&lfs3, &file[x]) => 0;
 
             // update our sim
@@ -5452,7 +5336,8 @@ code = '''
             uint8_t a = TEST_PRNG(&prng) % M;
 
             // remove the attr
-            a_size[x][a] = LFS3_ERR_NOATTR;
+            attrs[x][a].size = 0;
+            attrs[x][a].flags |= LFS3_A_RM | LFS3_A_DIRTY;
             lfs3_file_sync(&lfs3, &file[x]) => 0;
 
             // update our sim
@@ -5471,7 +5356,8 @@ code = '''
             // check that remove had no affect on open attrs
             for (uint16_t a = 0; a < M; a++) {
                 if (sim_prngs[x*M+a]) {
-                    assert(a_size[x][a] == SIZE);
+                    assert(attrs[x][a].flags == LFS3_A_RDWR);
+                    assert(attrs[x][a].size == SIZE);
                     uint32_t wprng_ = sim_prngs[x*M+a];
                     uint8_t wbuf[SIZE];
                     for (lfs3_size_t i = 0; i < SIZE; i++) {
@@ -5479,7 +5365,8 @@ code = '''
                     }
                     assert(memcmp(a_buf[x][a], wbuf, SIZE) == 0);
                 } else {
-                    assert(a_size[x][a] == LFS3_ERR_NOATTR);
+                    assert(attrs[x][a].flags == (LFS3_A_RDWR | LFS3_A_RM));
+                    assert(attrs[x][a].size == 0);
                 }
             }
 
@@ -5513,7 +5400,8 @@ code = '''
             // check that rename had no affect on open attrs
             for (uint16_t a = 0; a < M; a++) {
                 if (sim_prngs[x*M+a]) {
-                    assert(a_size[x][a] == SIZE);
+                    assert(attrs[x][a].flags == LFS3_A_RDWR);
+                    assert(attrs[x][a].size == SIZE);
                     uint32_t wprng_ = sim_prngs[x*M+a];
                     uint8_t wbuf[SIZE];
                     for (lfs3_size_t i = 0; i < SIZE; i++) {
@@ -5521,12 +5409,14 @@ code = '''
                     }
                     assert(memcmp(a_buf[x][a], wbuf, SIZE) == 0);
                 } else {
-                    assert(a_size[x][a] == LFS3_ERR_NOATTR);
+                    assert(attrs[x][a].flags == (LFS3_A_RDWR | LFS3_A_RM));
+                    assert(attrs[x][a].size == 0);
                 }
             }
             for (uint16_t a = 0; a < M; a++) {
                 if (sim_prngs[y*M+a]) {
-                    assert(a_size[y][a] == SIZE);
+                    assert(attrs[y][a].flags == LFS3_A_RDWR);
+                    assert(attrs[y][a].size == SIZE);
                     uint32_t wprng_ = sim_prngs[y*M+a];
                     uint8_t wbuf[SIZE];
                     for (lfs3_size_t i = 0; i < SIZE; i++) {
@@ -5534,7 +5424,8 @@ code = '''
                     }
                     assert(memcmp(a_buf[y][a], wbuf, SIZE) == 0);
                 } else {
-                    assert(a_size[y][a] == LFS3_ERR_NOATTR);
+                    assert(attrs[y][a].flags == (LFS3_A_RDWR | LFS3_A_RM));
+                    assert(attrs[y][a].size == 0);
                 }
             }
 
@@ -5566,7 +5457,8 @@ code = '''
     for (lfs3_size_t x = 0; x < N; x++) {
         for (uint16_t a = 0; a < M; a++) {
             if (sim_prngs[x*M+a]) {
-                assert(a_size[x][a] == SIZE);
+                assert(attrs[x][a].flags == LFS3_A_RDWR);
+                assert(attrs[x][a].size == SIZE);
                 uint32_t wprng_ = sim_prngs[x*M+a];
                 uint8_t wbuf[SIZE];
                 for (lfs3_size_t i = 0; i < SIZE; i++) {
@@ -5574,7 +5466,8 @@ code = '''
                 }
                 assert(memcmp(a_buf[x][a], wbuf, SIZE) == 0);
             } else {
-                assert(a_size[x][a] == LFS3_ERR_NOATTR);
+                assert(attrs[x][a].flags == (LFS3_A_RDWR | LFS3_A_RM));
+                assert(attrs[x][a].size == 0);
             }
         }
     }
@@ -5635,7 +5528,6 @@ code = '''
 
         // try to open the file with attrs
         uint8_t a_buf[M][SIZE];
-        lfs3_ssize_t a_size[M];
         struct lfs3_attr attrs[M];
         struct lfs3_file_cfg filecfg;
         lfs3_file_t file;
@@ -5645,7 +5537,7 @@ code = '''
                 .flags = LFS3_A_RDWR,
                 .buffer = a_buf[a],
                 .buffer_size = SIZE,
-                .size = &a_size[a],
+                .size = 0,
             };
         }
         filecfg = (struct lfs3_file_cfg){
@@ -5662,7 +5554,8 @@ code = '''
             lfs3_file_read(&lfs3, &file, wbuf, SIZE) => SIZE;
 
             for (lfs3_size_t a = 0; a < M; a++) {
-                assert(a_size[a] == SIZE);
+                assert((attrs[a].flags & ~LFS3_A_RM) == LFS3_A_RDWR);
+                assert(attrs[a].size == SIZE);
                 for (lfs3_size_t j = 0; j < SIZE; j++) {
                     assert(a_buf[a][j] == 'a' + (((wbuf[j]-'a') + a) % 26));
                 }
@@ -5680,7 +5573,8 @@ code = '''
 
         // and update attrs
         for (lfs3_size_t a = 0; a < M; a++) {
-            a_size[a] = SIZE;
+            attrs[a].flags = (attrs[a].flags & ~LFS3_A_RM) | LFS3_A_DIRTY;
+            attrs[a].size = SIZE;
             for (lfs3_size_t j = 0; j < SIZE; j++) {
                 a_buf[a][j] = 'a' + (((wbuf[j]-'a') + a) % 26);
             }
@@ -5711,7 +5605,6 @@ code = '''
             char path[256];
             sprintf(path, "cat%03x", x);
             uint8_t a_buf[M][SIZE];
-            lfs3_ssize_t a_size[M];
             struct lfs3_attr attrs[M];
             struct lfs3_file_cfg filecfg;
             lfs3_file_t file;
@@ -5721,7 +5614,7 @@ code = '''
                     .flags = LFS3_A_RDWR,
                     .buffer = a_buf[a],
                     .buffer_size = SIZE,
-                    .size = &a_size[a],
+                    .size = 0,
                 };
             }
             filecfg = (struct lfs3_file_cfg){
@@ -5741,7 +5634,8 @@ code = '''
             lfs3_file_read(&lfs3, &file, wbuf, SIZE) => SIZE;
 
             for (lfs3_size_t a = 0; a < M; a++) {
-                assert(a_size[a] == SIZE);
+                assert((attrs[a].flags & ~LFS3_A_RM) == LFS3_A_RDWR);
+                assert(attrs[a].size == SIZE);
                 for (lfs3_size_t j = 0; j < SIZE; j++) {
                     assert(a_buf[a][j] == 'a' + (((wbuf[j]-'a') + a) % 26));
                 }
