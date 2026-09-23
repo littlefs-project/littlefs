@@ -142,8 +142,6 @@ TAG_FILELIMIT   = 0x0114    #   v--- ---1 +--1 -1++
 TAG_GDELTA      = 0x0200    ##  v--- --1- +ttt tttt
 TAG_GRMDELTA    = 0x0200    #   v--- --1- +--- --++
 TAG_GBMAPDELTA  = 0x0204    #   v--- --1- +--- -1rr
-TAG_MSTATE      = 0x0300    ##  v--- --11 +ttt tttt
-TAG_STICKYCOUNT = 0x0300    #   v--- --11 +--- --++
 TAG_NAME        = 0x0400    ##  v--- -1-- +ttt tttt
 TAG_BNAME       = 0x0400    #   v--- -1-- +--- ----
 TAG_REG         = 0x0401    #   v--- -1-- +--- ---1
@@ -2884,8 +2882,9 @@ class Gstate:
 
         def __init__(self, mtree, config, tag, gdeltas):
             super().__init__(mtree, config, tag, gdeltas)
-            queue = []
             d = 0
+            self.stickynotes, d_ = fromleb128(self.data, d); d += d_
+            queue = []
             for _ in range(2):
                 mid, d_ = fromleb128(self.data, d); d += d_
                 # a null mid (mid=0.0) terminates the grm queue
@@ -2900,8 +2899,9 @@ class Gstate:
 
         def repr(self):
             if self:
-                return 'grm [%s]' % ', '.join(
-                        mid.repr() for mid in self.queue)
+                return 'grm %s[%s]' % (
+                        '#%s+' % self.stickynotes if self.stickynotes else '',
+                        ', '.join(mid.repr() for mid in self.queue))
             else:
                 return 'grm (unused)'
 

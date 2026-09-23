@@ -1074,10 +1074,6 @@ enum lfs3_tag {
     LFS3_TAG_GRMDELTA       = 0x0200,   //  v--- --1- +--- --++
     LFS3_TAG_GBMAPDELTA     = 0x0204,   //  v--- --1- +--- -1rr
 
-    // mdir state tags
-    LFS3_TAG_MSTATE         = 0x0300,   //  v--- --11 +ttt tttt
-    LFS3_TAG_STICKYCOUNT    = 0x0300,   //  v--- --11 +--- --++
-
     // name tags
     LFS3_TAG_NAME           = 0x0400,   /// v--- -1-- +ttt tttt
     LFS3_TAG_BNAME          = 0x0400,   //  v--- -1-- +--- ----
@@ -1140,11 +1136,10 @@ enum lfs3_tag {
     LFS3_tag_SHRUBCOMMIT    = 0x0003,
     LFS3_tag_GRMPUSH        = 0x0004,
     LFS3_tag_GRMPOP         = 0x0005,
-    LFS3_tag_STICKYDEC      = 0x0006,
-    LFS3_tag_STICKYNOOP     = 0x0007,
-    LFS3_tag_STICKYINC      = 0x0008,
-    LFS3_tag_MOVE           = 0x0009,
-    LFS3_tag_ATTRS          = 0x000a,
+    LFS3_tag_STICKYINC      = 0x0006,
+    LFS3_tag_STICKYDEC      = 0x0007,
+    LFS3_tag_MOVE           = 0x0008,
+    LFS3_tag_ATTRS          = 0x0009,
 
     // some in-device only tag modifiers
     LFS3_tag_RM             = 0x8000,
@@ -1237,13 +1232,15 @@ enum lfs3_tag {
 // '---+- -+- -+- -+- -'                           .
 #define LFS3_GEOMETRY_DSIZE                        9
 
-// grm encoding:          mids:  2 leb128s  <=2x5 bytes
-// .- -+- -+- -+- -+- -.                        .
-// ' mids              '                        .
-// +                   +                        .
-// '                   '                        .
-// '- -+- -+- -+- -+- -'                        .
-#define LFS3_GRM_DSIZE                         10
+// grm encoding:          stickynotes: 1 leb128     <=5 bytes
+// .---+- -+- -+- -+- -.  mids:        2 leb128s  <=2x5 bytes
+// | stickynotes       |                              .
+// +- -+- -+- -+- -+- -+                              .
+// ' mids              '                              .
+// +                   +                              .
+// '                   '                              .
+// '- -+- -+- -+- -+- -'                              .
+#define LFS3_GRM_DSIZE                               15
 
 // gbmap encoding:        window: 1 leb128  <=5 bytes
 // .---+- -+- -+- -+- -.  known:  1 leb128  <=5 bytes
@@ -1612,6 +1609,7 @@ typedef struct lfs3 {
     uint32_t gcksum_d;
 
     struct lfs3_grm {
+        lfs3_off_t stickynotes;
         lfs3_mid_t queue[2];
     } grm;
     #ifndef LFS3_RDONLY
