@@ -4640,6 +4640,14 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs->gstate.tag += !lfs_tag_isvalid(lfs->gstate.tag);
     lfs->gdisk = lfs->gstate;
 
+    // corrupted images can leave block_count at 0 (cfg allowed 0 to
+    // mean "read from superblock"); do not divide by zero below
+    if (!lfs->block_count) {
+        LFS_ERROR("Invalid block count (%"PRIu32")", lfs->block_count);
+        err = LFS_ERR_CORRUPT;
+        goto cleanup;
+    }
+
     // setup free lookahead, to distribute allocations uniformly across
     // boots, we start the allocator at a random location
     lfs->lookahead.start = lfs->seed % lfs->block_count;
