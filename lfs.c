@@ -1643,20 +1643,23 @@ static int lfs_dir_commitattr(lfs_t *lfs, struct lfs_commit *commit,
     } else {
         // from disk
         const struct lfs_diskoff *disk = buffer;
-        for (lfs_off_t i = 0; i < dsize-sizeof(tag); i++) {
+        for (lfs_off_t i = 0; i < dsize-sizeof(tag);) {
             // rely on caching to make this efficient
-            uint8_t dat;
+            uint8_t dat[32];
+            lfs_size_t chunk = lfs_min(sizeof(dat), dsize-sizeof(tag)-i);
             err = lfs_bd_read(lfs,
                     NULL, &lfs->rcache, dsize-sizeof(tag)-i,
-                    disk->block, disk->off+i, &dat, 1);
+                    disk->block, disk->off+i, dat, chunk);
             if (err) {
                 return err;
             }
 
-            err = lfs_dir_commitprog(lfs, commit, &dat, 1);
+            err = lfs_dir_commitprog(lfs, commit, dat, chunk);
             if (err) {
                 return err;
             }
+
+            i += chunk;
         }
     }
 
@@ -2952,24 +2955,27 @@ static int lfs_ctz_extend(lfs_t *lfs,
 
             // just copy out the last block if it is incomplete
             if (noff != lfs->cfg->block_size) {
-                for (lfs_off_t i = 0; i < noff; i++) {
-                    uint8_t data;
+                for (lfs_off_t i = 0; i < noff;) {
+                    uint8_t data[32];
+                    lfs_size_t chunk = lfs_min(sizeof(data), noff - i);
                     err = lfs_bd_read(lfs,
                             NULL, rcache, noff-i,
-                            head, i, &data, 1);
+                            head, i, data, chunk);
                     if (err) {
                         return err;
                     }
 
                     err = lfs_bd_prog(lfs,
                             pcache, rcache, true,
-                            nblock, i, &data, 1);
+                            nblock, i, data, chunk);
                     if (err) {
                         if (err == LFS_ERR_CORRUPT) {
                             goto relocate;
                         }
                         return err;
                     }
+
+                    i += chunk;
                 }
 
                 *block = nblock;
@@ -3284,22 +3290,23 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
         }
 
         // either read from dirty cache or disk
-        for (lfs_off_t i = 0; i < file->off; i++) {
-            uint8_t data;
+        for (lfs_off_t i = 0; i < file->off;) {
+            uint8_t data[32];
+            lfs_size_t chunk = lfs_min(sizeof(data), file->off - i);
             if (file->flags & LFS_F_INLINE) {
                 err = lfs_dir_getread(lfs, &file->m,
                         // note we evict inline files before they can be dirty
                         NULL, &file->cache, file->off-i,
                         LFS_MKTAG(0xfff, 0x1ff, 0),
                         LFS_MKTAG(LFS_TYPE_INLINESTRUCT, file->id, 0),
-                        i, &data, 1);
+                        i, data, chunk);
                 if (err) {
                     return err;
                 }
             } else {
                 err = lfs_bd_read(lfs,
                         &file->cache, &lfs->rcache, file->off-i,
-                        file->block, i, &data, 1);
+                        file->block, i, data, chunk);
                 if (err) {
                     return err;
                 }
@@ -3307,13 +3314,15 @@ static int lfs_file_relocate(lfs_t *lfs, lfs_file_t *file) {
 
             err = lfs_bd_prog(lfs,
                     &lfs->pcache, &lfs->rcache, true,
-                    nblock, i, &data, 1);
+                    nblock, i, data, chunk);
             if (err) {
                 if (err == LFS_ERR_CORRUPT) {
                     goto relocate;
                 }
                 return err;
             }
+
+            i += chunk;
         }
 
         // copy over new state of file
@@ -3687,8 +3696,10 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
         lfs_off_t pos = file->pos;
         file->pos = file->ctz.size;
 
+        uint8_t zero[32] = {0};
         while (file->pos < pos) {
-            lfs_ssize_t res = lfs_file_flushedwrite(lfs, file, &(uint8_t){0}, 1);
+            lfs_size_t chunk = lfs_min(sizeof(zero), pos - file->pos);
+            lfs_ssize_t res = lfs_file_flushedwrite(lfs, file, zero, chunk);
             if (res < 0) {
                 return res;
             }
@@ -3822,8 +3833,10 @@ static int lfs_file_truncate_(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         }
 
         // fill with zeros
+        uint8_t zero[32] = {0};
         while (file->pos < size) {
-            res = lfs_file_write_(lfs, file, &(uint8_t){0}, 1);
+            lfs_size_t chunk = lfs_min(sizeof(zero), size - file->pos);
+            res = lfs_file_write_(lfs, file, zero, chunk);
             if (res < 0) {
                 return (int)res;
             }

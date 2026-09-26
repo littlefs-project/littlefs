@@ -501,3 +501,47 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[cases.test_truncate_grow_chunks]
+defines.INITIALSIZE = [31, 32, 33]
+defines.GROWSIZE = [1, 31, 32, 33, 64]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "growy", LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+    uint8_t buffer[64];
+    memset(buffer, 'x', INITIALSIZE);
+    lfs_file_write(&lfs, &file, buffer, INITIALSIZE) => INITIALSIZE;
+
+    // grow with zeros across the copy-chunk boundaries
+    lfs_file_truncate(&lfs, &file, INITIALSIZE+GROWSIZE) => 0;
+    lfs_file_size(&lfs, &file) => INITIALSIZE+GROWSIZE;
+
+    lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+    lfs_file_read(&lfs, &file, buffer, INITIALSIZE) => INITIALSIZE;
+    for (lfs_size_t i = 0; i < INITIALSIZE; i++) {
+        buffer[i] => 'x';
+    }
+    lfs_file_read(&lfs, &file, buffer, GROWSIZE) => GROWSIZE;
+    for (lfs_size_t i = 0; i < GROWSIZE; i++) {
+        buffer[i] => 0;
+    }
+
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // still there after reboot?
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "growy", LFS_O_RDWR) => 0;
+    lfs_file_size(&lfs, &file) => INITIALSIZE+GROWSIZE;
+    lfs_file_seek(&lfs, &file, INITIALSIZE, LFS_SEEK_SET) => INITIALSIZE;
+    lfs_file_read(&lfs, &file, buffer, GROWSIZE) => GROWSIZE;
+    for (lfs_size_t i = 0; i < GROWSIZE; i++) {
+        buffer[i] => 0;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
