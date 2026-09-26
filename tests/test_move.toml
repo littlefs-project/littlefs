@@ -1903,3 +1903,270 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[cases.test_move_file_userattrs]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mkdir(&lfs, "a") => 0;
+    lfs_mkdir(&lfs, "b") => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "a/hello",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "hola\n", 5) => 5;
+    lfs_file_close(&lfs, &file) => 0;
+
+    // a range of userattr types, including the edges
+    lfs_setattr(&lfs, "a/hello", 0, "zero", 4) => 0;
+    lfs_setattr(&lfs, "a/hello", 1, "one", 3) => 0;
+    lfs_setattr(&lfs, "a/hello", 'A', "aaaa", 4) => 0;
+    lfs_setattr(&lfs, "a/hello", 255, "wide", 4) => 0;
+
+    lfs_rename(&lfs, "a/hello", "b/hello") => 0;
+
+    // userattrs should move with the file
+    uint8_t buffer[16];
+    lfs_getattr(&lfs, "b/hello", 0, buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "zero", 4) => 0;
+    lfs_getattr(&lfs, "b/hello", 1, buffer, sizeof(buffer)) => 3;
+    memcmp(buffer, "one", 3) => 0;
+    lfs_getattr(&lfs, "b/hello", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "b/hello", 255, buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "wide", 4) => 0;
+
+    // and survive a remount
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_getattr(&lfs, "b/hello", 0, buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "zero", 4) => 0;
+    lfs_getattr(&lfs, "b/hello", 1, buffer, sizeof(buffer)) => 3;
+    memcmp(buffer, "one", 3) => 0;
+    lfs_getattr(&lfs, "b/hello", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "b/hello", 255, buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "wide", 4) => 0;
+    lfs_stat(&lfs, "a/hello", &(struct lfs_info){0}) => LFS_ERR_NOENT;
+
+    lfs_file_open(&lfs, &file, "b/hello", LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file, buffer, 5) => 5;
+    memcmp(buffer, "hola\n", 5) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_move_file_attrs_removed]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mkdir(&lfs, "a") => 0;
+    lfs_mkdir(&lfs, "b") => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "a/hello",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "hola\n", 5) => 5;
+    lfs_file_close(&lfs, &file) => 0;
+
+    // removed attrs must not reappear on the moved entry
+    lfs_setattr(&lfs, "a/hello", 'A', "aaaa", 4) => 0;
+    lfs_setattr(&lfs, "a/hello", 'B', "remove-me", 9) => 0;
+    lfs_removeattr(&lfs, "a/hello", 'B') => 0;
+
+    lfs_rename(&lfs, "a/hello", "b/hello") => 0;
+
+    uint8_t buffer[16];
+    lfs_getattr(&lfs, "b/hello", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "b/hello", 'B', buffer, sizeof(buffer))
+            => LFS_ERR_NOATTR;
+
+    // and survive a remount
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_getattr(&lfs, "b/hello", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "b/hello", 'B', buffer, sizeof(buffer))
+            => LFS_ERR_NOATTR;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_move_file_attrs_churn]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mkdir(&lfs, "a") => 0;
+    lfs_mkdir(&lfs, "b") => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "a/keep",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "hola\n", 5) => 5;
+    lfs_file_close(&lfs, &file) => 0;
+
+    lfs_setattr(&lfs, "a/keep", 'A', "aaaa", 4) => 0;
+    lfs_setattr(&lfs, "a/keep", 'B', "bbbbbb", 6) => 0;
+
+    // create/delete churn around the moved entry, this shifts ids
+    // via splices in the source dir's log
+    lfs_file_open(&lfs, &file, "a/0before",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_file_open(&lfs, &file, "a/1before",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_remove(&lfs, "a/0before") => 0;
+    lfs_file_open(&lfs, &file, "a/2after",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_remove(&lfs, "a/1before") => 0;
+
+    lfs_rename(&lfs, "a/keep", "b/keep") => 0;
+
+    uint8_t buffer[16];
+    lfs_getattr(&lfs, "b/keep", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "b/keep", 'B', buffer, sizeof(buffer)) => 6;
+    memcmp(buffer, "bbbbbb", 6) => 0;
+
+    // remount to force a scan of any leftovers
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_getattr(&lfs, "b/keep", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "b/keep", 'B', buffer, sizeof(buffer)) => 6;
+    memcmp(buffer, "bbbbbb", 6) => 0;
+
+    lfs_file_open(&lfs, &file, "b/keep", LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file, buffer, 5) => 5;
+    memcmp(buffer, "hola\n", 5) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_move_file_attrs_same]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mkdir(&lfs, "a") => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "a/old",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "hola\n", 5) => 5;
+    lfs_file_close(&lfs, &file) => 0;
+
+    lfs_setattr(&lfs, "a/old", 'A', "aaaa", 4) => 0;
+    lfs_setattr(&lfs, "a/old", 'B', "bbbbbb", 6) => 0;
+
+    // rename within the same metadata pair
+    lfs_rename(&lfs, "a/old", "a/new") => 0;
+
+    uint8_t buffer[16];
+    lfs_getattr(&lfs, "a/new", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "a/new", 'B', buffer, sizeof(buffer)) => 6;
+    memcmp(buffer, "bbbbbb", 6) => 0;
+    lfs_stat(&lfs, "a/old", &(struct lfs_info){0}) => LFS_ERR_NOENT;
+
+    // remount to force a scan of any leftovers
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_getattr(&lfs, "a/new", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "a/new", 'B', buffer, sizeof(buffer)) => 6;
+    memcmp(buffer, "bbbbbb", 6) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_move_file_attrs_overwrite]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mkdir(&lfs, "a") => 0;
+    lfs_mkdir(&lfs, "b") => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "a/hello",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "hola\n", 5) => 5;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_file_open(&lfs, &file, "b/hello",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "adios\n", 6) => 6;
+    lfs_file_close(&lfs, &file) => 0;
+
+    lfs_setattr(&lfs, "a/hello", 'A', "aaaa", 4) => 0;
+    lfs_setattr(&lfs, "b/hello", 'A', "stale", 5) => 0;
+    lfs_setattr(&lfs, "b/hello", 'C', "stays", 5) => 0;
+
+    // rename over an existing file with its own attrs
+    lfs_rename(&lfs, "a/hello", "b/hello") => 0;
+
+    uint8_t buffer[16];
+    lfs_getattr(&lfs, "b/hello", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    // the overwritten entry's attrs go with it
+    lfs_getattr(&lfs, "b/hello", 'C', buffer, sizeof(buffer))
+            => LFS_ERR_NOATTR;
+
+    // remount to force a scan of any leftovers
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_getattr(&lfs, "b/hello", 'A', buffer, sizeof(buffer)) => 4;
+    memcmp(buffer, "aaaa", 4) => 0;
+    lfs_getattr(&lfs, "b/hello", 'C', buffer, sizeof(buffer))
+            => LFS_ERR_NOATTR;
+
+    lfs_file_open(&lfs, &file, "b/hello", LFS_O_RDONLY) => 0;
+    lfs_file_read(&lfs, &file, buffer, 5) => 5;
+    memcmp(buffer, "hola\n", 5) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_move_file_attrs_neighbor]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mkdir(&lfs, "a") => 0;
+    lfs_mkdir(&lfs, "b") => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "a/aaa",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "aaa\n", 4) => 4;
+    lfs_file_close(&lfs, &file) => 0;
+
+    // the neighbor's attrs must be written before the moved entry is
+    // created, otherwise the backwards scan sees them first and the
+    // create boundary is never crossed
+    lfs_setattr(&lfs, "a/aaa", 'N', "neighbor", 8) => 0;
+
+    lfs_file_open(&lfs, &file, "a/zzz",
+            LFS_O_CREAT | LFS_O_WRONLY) => 0;
+    lfs_file_write(&lfs, &file, "zzz\n", 4) => 4;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_setattr(&lfs, "a/zzz", 'M', "mover", 5) => 0;
+
+    // moving zzz must not pick up the earlier entry's tags
+    lfs_rename(&lfs, "a/zzz", "b/zzz") => 0;
+
+    uint8_t buffer[16];
+    lfs_getattr(&lfs, "b/zzz", 'M', buffer, sizeof(buffer)) => 5;
+    memcmp(buffer, "mover", 5) => 0;
+    lfs_getattr(&lfs, "b/zzz", 'N', buffer, sizeof(buffer))
+            => LFS_ERR_NOATTR;
+    lfs_getattr(&lfs, "a/aaa", 'N', buffer, sizeof(buffer)) => 8;
+    memcmp(buffer, "neighbor", 8) => 0;
+
+    // remount to force a scan of any leftovers
+    lfs_unmount(&lfs) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_getattr(&lfs, "b/zzz", 'M', buffer, sizeof(buffer)) => 5;
+    memcmp(buffer, "mover", 5) => 0;
+    lfs_getattr(&lfs, "b/zzz", 'N', buffer, sizeof(buffer))
+            => LFS_ERR_NOATTR;
+    lfs_unmount(&lfs) => 0;
+'''

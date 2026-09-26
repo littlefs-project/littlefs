@@ -883,10 +883,9 @@ static int lfs_dir_traverse_filter(void *p,
 // maximum recursive depth of lfs_dir_traverse, the deepest call:
 //
 // traverse with commit
-// '-> traverse with move
-//     '-> traverse with filter
+// '-> traverse with filter
 //
-#define LFS_DIR_TRAVERSE_DEPTH 3
+#define LFS_DIR_TRAVERSE_DEPTH 2
 
 struct lfs_dir_traverse {
     const lfs_mdir_t *dir;
@@ -908,6 +907,87 @@ struct lfs_dir_traverse {
     const void *buffer;
     struct lfs_diskoff disk;
 };
+
+#ifndef LFS_READONLY
+// Copy the live tags of a moved entry to cb.
+//
+// Scans the source dir's log backwards, which sees the newest version of
+// each tag first and avoids the O(n^2) duplicate filtering a forward
+// lfs_dir_traverse would need.
+static int lfs_dir_movecopy(lfs_t *lfs, const lfs_mdir_t *dir,
+        lfs_tag_t gtag, lfs_tag_t newid,
+        int (*cb)(void *data, lfs_tag_t tag, const void *buffer), void *data) {
+    lfs_off_t off = dir->off;
+    lfs_tag_t ntag = dir->etag;
+    lfs_stag_t gdiff = 0;
+    bool seen_struct = false;
+    // one bit per userattr type
+    uint32_t seen_userattr[8] = {0};
+
+    // iterate over dir block backwards (for newer tags first)
+    while (off >= sizeof(lfs_tag_t) + lfs_tag_dsize(ntag)) {
+        off -= lfs_tag_dsize(ntag);
+        lfs_tag_t tag = ntag;
+        int err = lfs_bd_read(lfs,
+                NULL, &lfs->rcache, sizeof(ntag),
+                dir->pair[0], off, &ntag, sizeof(ntag));
+        LFS_ASSERT(err <= 0);
+        if (err) {
+            return err;
+        }
+
+        ntag = (lfs_frombe32(ntag) ^ tag) & 0x7fffffff;
+
+        // move around splices, stop when the entry didn't exist yet
+        if (lfs_tag_type1(tag) == LFS_TYPE_SPLICE &&
+                lfs_tag_id(tag) <= lfs_tag_id(gtag - gdiff)) {
+            if (tag == (LFS_MKTAG(LFS_TYPE_CREATE, 0, 0) |
+                    (LFS_MKTAG(0, 0x3ff, 0) & (gtag - gdiff)))) {
+                // found where we were created
+                break;
+            }
+
+            gdiff += LFS_MKTAG(0, lfs_tag_splice(tag), 0);
+        }
+
+        // is this one of our tags?
+        if (lfs_tag_id(tag) != lfs_tag_id(gtag - gdiff)) {
+            continue;
+        }
+
+        // only structs and userattrs are moved
+        bool seen;
+        if (lfs_tag_type1(tag) == LFS_TYPE_STRUCT) {
+            seen = seen_struct;
+            seen_struct = true;
+        } else if (lfs_tag_type1(tag) == LFS_TYPE_USERATTR) {
+            unsigned t = lfs_tag_type3(tag) - LFS_TYPE_USERATTR;
+            seen = (seen_userattr[t/32] >> (t%32)) & 1;
+            seen_userattr[t/32] |= (uint32_t)1 << (t%32);
+        } else {
+            continue;
+        }
+
+        // redundant or deleted tags are dropped
+        if (seen || lfs_tag_isdelete(tag)) {
+            continue;
+        }
+
+        // move the tag to its new id, note we need to keep the
+        // disk bit set so commits copy the payload from disk
+        int res = cb(data,
+                ((tag | 0x80000000) & ~LFS_MKTAG(0, 0x3ff, 0))
+                    + LFS_MKTAG(0, newid, 0),
+                &(struct lfs_diskoff){
+                    dir->pair[0], off+sizeof(lfs_tag_t)});
+        if (res) {
+            return res;
+        }
+    }
+
+    return 0;
+}
+#endif
 
 static int lfs_dir_traverse(lfs_t *lfs,
         const lfs_mdir_t *dir, lfs_off_t off, lfs_tag_t ptag,
@@ -1003,56 +1083,25 @@ popped:
         if (lfs_tag_type3(tag) == LFS_FROM_NOOP) {
             // do nothing
         } else if (lfs_tag_type3(tag) == LFS_FROM_MOVE) {
-            // Without this condition, lfs_dir_traverse can exhibit an
-            // extremely expensive O(n^3) of nested loops when renaming.
-            // This happens because lfs_dir_traverse tries to filter tags by
-            // the tags in the source directory, triggering a second
-            // lfs_dir_traverse with its own filter operation.
-            //
-            // traverse with commit
-            // '-> traverse with filter
-            //     '-> traverse with move
-            //         '-> traverse with filter
-            //
-            // However we don't actually care about filtering the second set of
-            // tags, since duplicate tags have no effect when filtering.
-            //
-            // This check skips this unnecessary recursive filtering explicitly,
-            // reducing this runtime from O(n^3) to O(n^2).
+            // don't bother expanding moves when scanning for duplicates,
+            // duplicate tags have no effect when filtering
             if (cb == lfs_dir_traverse_filter) {
                 continue;
             }
 
-            // recurse into move
-            stack[sp] = (struct lfs_dir_traverse){
-                .dir        = dir,
-                .off        = off,
-                .ptag       = ptag,
-                .attrs      = attrs,
-                .attrcount  = attrcount,
-                .tmask      = tmask,
-                .ttag       = ttag,
-                .begin      = begin,
-                .end        = end,
-                .diff       = diff,
-                .cb         = cb,
-                .data       = data,
-                .tag        = LFS_MKTAG(LFS_FROM_NOOP, 0, 0),
-            };
-            sp += 1;
-
+            // scan the source dir for the moved entry's tags
             uint16_t fromid = lfs_tag_size(tag);
             uint16_t toid = lfs_tag_id(tag);
-            dir = buffer;
-            off = 0;
-            ptag = 0xffffffff;
-            attrs = NULL;
-            attrcount = 0;
-            tmask = LFS_MKTAG(0x600, 0x3ff, 0);
-            ttag = LFS_MKTAG(LFS_TYPE_STRUCT, 0, 0);
-            begin = fromid;
-            end = fromid+1;
-            diff = toid-fromid+diff;
+            res = lfs_dir_movecopy(lfs, buffer,
+                    LFS_MKTAG(0, fromid, 0), toid+diff,
+                    cb, data);
+            if (res < 0) {
+                return res;
+            }
+
+            if (res) {
+                break;
+            }
         } else if (lfs_tag_type3(tag) == LFS_FROM_USERATTRS) {
             for (unsigned i = 0; i < lfs_tag_size(tag); i++) {
                 const struct lfs_attr *a = buffer;
