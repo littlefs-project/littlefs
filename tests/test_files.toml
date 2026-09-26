@@ -537,3 +537,83 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
+
+[cases.test_files_hole_chunks]
+defines.HOLESIZE = [1, 31, 32, 33, 64]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "holey", LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+    // write a suffix past a hole of HOLESIZE bytes
+    uint8_t buffer[64];
+    memset(buffer, 'y', sizeof(buffer));
+    lfs_file_seek(&lfs, &file, HOLESIZE, LFS_SEEK_SET) => HOLESIZE;
+    lfs_file_write(&lfs, &file, buffer, sizeof(buffer)) => sizeof(buffer);
+    lfs_file_size(&lfs, &file) => HOLESIZE+sizeof(buffer);
+
+    // the hole should read as zeros
+    lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+    lfs_file_read(&lfs, &file, buffer, HOLESIZE) => HOLESIZE;
+    for (lfs_size_t i = 0; i < HOLESIZE; i++) {
+        buffer[i] => 0;
+    }
+    lfs_file_read(&lfs, &file, buffer, sizeof(buffer)) => sizeof(buffer);
+    for (lfs_size_t i = 0; i < sizeof(buffer); i++) {
+        buffer[i] => 'y';
+    }
+
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // still there after reboot?
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "holey", LFS_O_RDWR) => 0;
+    lfs_file_size(&lfs, &file) => HOLESIZE+sizeof(buffer);
+    lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+    lfs_file_read(&lfs, &file, buffer, HOLESIZE) => HOLESIZE;
+    for (lfs_size_t i = 0; i < HOLESIZE; i++) {
+        buffer[i] => 0;
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
+
+[cases.test_files_append_chunks]
+defines.PARTIALSIZE = [1, 31, 32, 33, 63, 64]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "appy", LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+    // write a partial block, then append past it, this copies the
+    // partial block during ctz_extend
+    uint8_t buffer[64];
+    memset(buffer, 'z', sizeof(buffer));
+    lfs_file_write(&lfs, &file, buffer, PARTIALSIZE) => PARTIALSIZE;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_file_open(&lfs, &file, "appy", LFS_O_RDWR | LFS_O_APPEND) => 0;
+    for (int i = 0; i < 8; i++) {
+        lfs_file_write(&lfs, &file, buffer, sizeof(buffer))
+                => sizeof(buffer);
+    }
+    lfs_file_size(&lfs, &file) => PARTIALSIZE+8*sizeof(buffer);
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // still there after reboot?
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_open(&lfs, &file, "appy", LFS_O_RDWR) => 0;
+    lfs_file_size(&lfs, &file) => PARTIALSIZE+8*sizeof(buffer);
+    lfs_file_seek(&lfs, &file, 0, LFS_SEEK_SET) => 0;
+    lfs_file_read(&lfs, &file, buffer, PARTIALSIZE) => PARTIALSIZE;
+    for (lfs_size_t i = 0; i < PARTIALSIZE; i++) {
+        buffer[i] => 'z';
+    }
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
