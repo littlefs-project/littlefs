@@ -54,7 +54,7 @@ O_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
 O_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
 O_REPAIR        = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
 
-o_SET           = 0x00008000  # i-  Atomically write file
+o_SET           = 0x00008000  # i-  Atomically write file data
 o_TYPE          = 0xf0000000  # im  The file's type
 o_REG           = 0x10000000  # i^  Type = regular-file
 o_DIR           = 0x20000000  # i^  Type = directory
@@ -241,15 +241,9 @@ GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data damage
 GC_REPAIR       = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
 GC_GC           = 0x00ff0000  # -a  Alias for all gc work
 
-gc_MKCONSISTENTING \
-                = 0x00000100  # i-  Working on LFS3_GC_MKCONSISTENT
-gc_LOOKAHEADING = 0x00000200  # i-  Working on LFS3_GC_LOOKAHEAD
-gc_COMPACTMETAING \
-                = 0x00000800  # i-  Working on LFS3_GC_COMPACTMETA
-gc_CKMETAING    = 0x00001000  # i-  Working on LFS3_GC_CKMETA
-gc_CKDATAING    = 0x00002000  # i-  Working on LFS3_GC_CKDATA
-gc_EVICTMETAING = 0x00004000  # i-  Working on LFS3_gc_EVICTMETA
-gc_EVICTDATAING = 0x00008000  # i-  Working on LFS3_gc_EVICTDATA
+gc_EVICTMETA    = 0x00400000  # i-  Evict metadata blocks
+gc_EVICTDATA    = 0x00800000  # i-  Evict metadata + data blocks
+gc_EVICT        = 0x00c00000  # ia  Alias for EVICTMETA + EVICTDATA
 gc_TYPE         = 0xf0000000  # im  The gc's type
 gc_REG          = 0x10000000  # i^  Type = regular-file
 gc_DIR          = 0x20000000  # i^  Type = directory

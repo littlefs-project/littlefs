@@ -10834,8 +10834,9 @@ eot:;
 
 /// Mtree-level gc work ///
 
-static void lfs3_mgc_init(lfs3_mgc_t *mgc, uint32_t flags) {
+static void lfs3_mgc_init(lfs3_mgc_t *mgc, uint32_t flags, uint32_t wflags) {
     lfs3_mtrv_init(&mgc->t, LFS3_O(LFS3_type_GC, flags));
+    mgc->wflags = wflags;
 }
 
 // needed in lfs3_mtree_compactmdir
@@ -11416,7 +11417,7 @@ static int lfs3_mtree_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     if (mgc->t.h.mdir.mid == LFS3_MID_MROOTANCHOR) {
         #ifndef LFS3_RDONLY
         // setup lookahead stuff
-        if ((mgc->t.h.flags & LFS3_gc_LOOKAHEADING)
+        if ((mgc->wflags & LFS3_GC_LOOKAHEAD)
                 && !(mgc->t.h.flags & LFS3_T_MTREEONLY)
                 && !(mgc->t.h.flags & LFS3_t_MUTATED)) {
             // ckpoint the lookahead buffer, this tells both allocators
@@ -11520,8 +11521,7 @@ again:;
     // evicting mdirs?
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if (tag == LFS3_TAG_MDIR
-            && (mgc->t.h.flags & (
-                LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
+            && (mgc->wflags & (LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA))
             && lfs3_mdir_needseviction(lfs3,
                 (lfs3_mdir_t*)bptr_->d.u.buffer)) {
         // this takes the same code path as mdir compaction, with
@@ -11543,8 +11543,7 @@ again:;
     // evicting btree nodes?
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if (tag == LFS3_TAG_BRANCH
-            && (mgc->t.h.flags & (
-                LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
+            && (mgc->wflags & (LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA))
             && lfs3_rbyd_needseviction(lfs3,
                 (lfs3_rbyd_t*)bptr_->d.u.buffer)) {
         // this is humorously the same operation btree compaction
@@ -11565,7 +11564,7 @@ again:;
     // evicting data blocks?
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
     if (tag == LFS3_TAG_BLOCK
-            && (mgc->t.h.flags & LFS3_gc_EVICTDATAING)
+            && (mgc->wflags & LFS3_gc_EVICTDATA)
             && lfs3_bptr_needseviction(lfs3, bptr_)
             // if we're shrinking, we need to make sure we can actually
             // evict before evicting, metadata is fine, but data blocks
@@ -11591,7 +11590,7 @@ again:;
     // mkconsistencing mdirs?
     #ifndef LFS3_RDONLY
     if (tag == LFS3_TAG_MDIR
-            && (mgc->t.h.flags & LFS3_gc_MKCONSISTENTING)
+            && (mgc->wflags & LFS3_GC_MKCONSISTENT)
             && (lfs3->flags & LFS3_i_MAYBEORPHANS)) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         // grm queue should be flushed before calling lfs3_mtree_gc
@@ -11622,7 +11621,7 @@ again:;
     // compacting mdirs?
     #ifndef LFS3_RDONLY
     if (tag == LFS3_TAG_MDIR
-            && (mgc->t.h.flags & LFS3_gc_COMPACTMETAING)
+            && (mgc->wflags & LFS3_GC_COMPACTMETA)
             // exceed compaction threshold?
             && lfs3_rbyd_eoff(&((lfs3_mdir_t*)bptr_->d.u.buffer)->r)
                 > lfs3->cfg->gc_compactmeta_thresh) {
@@ -11642,7 +11641,7 @@ again:;
     // compacting btree nodes?
     #ifndef LFS3_RDONLY
     if (tag == LFS3_TAG_BRANCH
-            && (mgc->t.h.flags & LFS3_gc_COMPACTMETAING)) {
+            && (mgc->wflags & LFS3_GC_COMPACTMETA)) {
         // need to fetch
         int err = lfs3_rbyd_mkfetched(lfs3, (lfs3_rbyd_t*)bptr_->d.u.buffer);
         if (err) {
@@ -11671,7 +11670,7 @@ again:;
 
     // mark in-use blocks?
     #ifndef LFS3_RDONLY
-    if ((mgc->t.h.flags & LFS3_gc_LOOKAHEADING)
+    if ((mgc->wflags & LFS3_GC_LOOKAHEAD)
             && !(mgc->t.h.flags & (LFS3_T_MTREEONLY & LFS3_t_MUTATED))) {
         // mark in-use blocks in gbmap?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
@@ -11698,11 +11697,11 @@ eot:;
     // note this needs to go first because it can trigger a lookahead
     // ckpoint
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-    if ((mgc->t.h.flags & (LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING))
+    if ((mgc->wflags & (LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA))
             && !(mgc->t.h.flags & LFS3_IFDEF_REPAIR(LFS3_t_DAMAGED, 0))) {
         uint32_t dirty = mgc->t.h.flags;
         int err = lfs3_mtree_condemnevicted(lfs3,
-                (mgc->t.h.flags & LFS3_gc_EVICTDATAING)
+                (mgc->wflags & LFS3_gc_EVICTDATA)
                     ? LFS3_evict_DATA
                     : 0);
         if (err) {
@@ -11716,7 +11715,7 @@ eot:;
 
     // was mkconsistent successful?
     #ifndef LFS3_RDONLY
-    if ((mgc->t.h.flags & LFS3_gc_MKCONSISTENTING)
+    if ((mgc->wflags & LFS3_GC_MKCONSISTENT)
             && !(mgc->t.h.flags & LFS3_t_DIRTY)) {
         lfs3->flags &= ~LFS3_i_MAYBEORPHANS;
     }
@@ -11725,7 +11724,7 @@ eot:;
     // was compaction successful? note we may need multiple passes if
     // we want to be sure everything is compacted
     #ifndef LFS3_RDONLY
-    if ((mgc->t.h.flags & LFS3_gc_COMPACTMETAING)
+    if ((mgc->wflags & LFS3_GC_COMPACTMETA)
             && !(mgc->t.h.flags & LFS3_t_MUTATED)) {
         lfs3->flags &= ~LFS3_I_COMPACTMETA;
     }
@@ -11733,7 +11732,7 @@ eot:;
 
     // was lookahead scan successful?
     #ifndef LFS3_RDONLY
-    if ((mgc->t.h.flags & LFS3_gc_LOOKAHEADING)
+    if ((mgc->wflags & LFS3_GC_LOOKAHEAD)
             && !(mgc->t.h.flags & (LFS3_T_MTREEONLY | LFS3_t_MUTATED))) {
         // was gbmap scan successful?
         if (LFS3_IFDEF_GBMAP(mgc->gbmap_.weight != 0, false)) {
@@ -11776,81 +11775,76 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     lfs3_block_t i = 0;
     for (; steps < 0 || i < lfs3_max(steps, 1); i = lfs3_ssadd(i, 1)) {
         // do we have any pending traversal work?
-        uint32_t t = (((mgc->t.h.flags
-                            & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
-                                | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                                | LFS3_GC_CKMETA
-                                | LFS3_GC_CKDATA
-                                | LFS3_IFDEF_RDONLY(0,
-                                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
-                                | LFS3_IFDEF_RDONLY(0,
-                                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
-                        // mkconsistent implies repairmeta/repairdata if
-                        // repairmetadamage/repairdatadamage is set
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_REPAIR(
-                                ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
-                                        && LFS3_CFG_ISREPAIRMETADAMAGE(
-                                            lfs3->cfg))
-                                    ? LFS3_GC_REPAIRMETA
-                                    : 0,
-                                0))
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_REPAIR(
-                                ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
-                                        && LFS3_CFG_ISREPAIRDATADAMAGE(
-                                            lfs3->cfg))
-                                    ? LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA
-                                    : 0,
-                                0))
-                        // ckdata implies ckmeta
-                        | ((mgc->t.h.flags & LFS3_GC_CKDATA)
-                            ? LFS3_GC_CKMETA
-                            : 0)
-                        // repairdata implies repairmeta
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_REPAIR(
-                                (mgc->t.h.flags & LFS3_GC_REPAIRDATA)
-                                    ? LFS3_GC_REPAIRMETA
-                                    : 0,
-                                0)))
-                    // mask with pending flags
-                    & ((lfs3->flags
-                            & (LFS3_I_MKCONSISTENT
-                                | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                                | LFS3_GC_CKMETA
-                                | LFS3_GC_CKDATA
-                                | LFS3_IFDEF_RDONLY(0,
-                                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
-                                | LFS3_IFDEF_RDONLY(0,
-                                    LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
-                        // including lazily evaluated flags
-                        | LFS3_IFDEF_RDONLY(0,
-                            (lfs3_alloc_canlookahead(lfs3)
-                                    || LFS3_IFDEF_GBMAP(
-                                        lfs3_alloc_canlookgbmap(lfs3),
-                                        false))
-                                ? LFS3_I_LOOKAHEAD
-                                : 0)))
-                // this weird shift is to let us temporarily mask out
-                // any flags that change
-                >> 8;
+        uint32_t wflags = ((mgc->t.h.flags
+                        & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
+                            | LFS3_GC_CKMETA
+                            | LFS3_GC_CKDATA
+                            | LFS3_IFDEF_RDONLY(0,
+                                LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
+                            | LFS3_IFDEF_RDONLY(0,
+                                LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
+                    // mkconsistent implies repairmeta/repairdata if
+                    // repairmetadamage/repairdatadamage is set
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(
+                            ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
+                                    && LFS3_CFG_ISREPAIRMETADAMAGE(lfs3->cfg))
+                                ? LFS3_GC_REPAIRMETA
+                                : 0,
+                            0))
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(
+                            ((mgc->t.h.flags & LFS3_GC_MKCONSISTENT)
+                                    && LFS3_CFG_ISREPAIRDATADAMAGE(lfs3->cfg))
+                                ? LFS3_GC_REPAIRMETA | LFS3_GC_REPAIRDATA
+                                : 0,
+                            0))
+                    // ckdata implies ckmeta
+                    | ((mgc->t.h.flags & LFS3_GC_CKDATA)
+                        ? LFS3_GC_CKMETA
+                        : 0)
+                    // repairdata implies repairmeta
+                    | LFS3_IFDEF_RDONLY(0,
+                        LFS3_IFDEF_REPAIR(
+                            (mgc->t.h.flags & LFS3_GC_REPAIRDATA)
+                                ? LFS3_GC_REPAIRMETA
+                                : 0,
+                            0)))
+                // mask with pending flags
+                & ((lfs3->flags
+                        & (LFS3_I_MKCONSISTENT
+                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
+                            | LFS3_GC_CKMETA
+                            | LFS3_GC_CKDATA
+                            | LFS3_IFDEF_RDONLY(0,
+                                LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
+                            | LFS3_IFDEF_RDONLY(0,
+                                LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
+                    // including lazily evaluated flags
+                    | LFS3_IFDEF_RDONLY(0,
+                        (lfs3_alloc_canlookahead(lfs3)
+                                || LFS3_IFDEF_GBMAP(
+                                    lfs3_alloc_canlookgbmap(lfs3),
+                                    false))
+                            ? LFS3_I_LOOKAHEAD
+                            : 0));
 
         // prioritize known repair work above anything else
         //
         // we want to trust the filesystem as little as possible in this
         // state
         #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-        if (t & (LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING)) {
-            t &= ~(LFS3_gc_MKCONSISTENTING
-                    | LFS3_gc_LOOKAHEADING
-                    | LFS3_gc_COMPACTMETAING
+        if (wflags & (LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA)) {
+            wflags &= ~(LFS3_GC_MKCONSISTENT
+                    | LFS3_GC_LOOKAHEAD
+                    | LFS3_GC_COMPACTMETA
                     // ckmeta/data is questionable here, but useful for
                     // immediately aborting failed ckmeta/data
                     // traversals when repairs are possible
-                    | LFS3_gc_CKMETAING
-                    | LFS3_gc_CKDATAING);
+                    | LFS3_GC_CKMETA
+                    | LFS3_GC_CKDATA);
         }
         #endif
 
@@ -11858,9 +11852,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // to allocate (except repairs, repairs have the highest
         // priority)
         #ifndef LFS3_RDONLY
-        if (t & LFS3_gc_LOOKAHEADING) {
-            t &= ~(LFS3_gc_MKCONSISTENTING
-                    | LFS3_gc_COMPACTMETAING);
+        if (wflags & LFS3_GC_LOOKAHEAD) {
+            wflags &= ~(LFS3_GC_MKCONSISTENT
+                    | LFS3_GC_COMPACTMETA);
         }
         #endif
 
@@ -11869,58 +11863,47 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // we need to flush the grm queue before other mkconsistency
         // work as orphans can be grmed and we don't support that
         #ifndef LFS3_RDONLY
-        if ((t & LFS3_gc_MKCONSISTENTING)
+        if ((wflags & LFS3_GC_MKCONSISTENT)
                 && lfs3_grm_count(&lfs3->grm) > 0) {
-            t &= ~(LFS3_gc_MKCONSISTENTING
+            wflags &= ~(LFS3_GC_MKCONSISTENT
                     // also compactmeta, because mkconsistent can
                     // uncompact things
-                    | LFS3_gc_COMPACTMETAING);
+                    | LFS3_GC_COMPACTMETA);
         }
         #endif
 
         // pending traversal work?
-        if (t) {
+        if (wflags) {
             // will this traversal still make progress? no? start a new
             // traversal
-            if (!(t
+            if (!(mgc->wflags
                     // mask out any flags that changed
-                    & mgc->t.h.flags
+                    & wflags
                     // don't bother with lookahead/gbmap if we've
                     // mutated
                     & ~LFS3_IFDEF_RDONLY(0,
                         (mgc->t.h.flags & LFS3_t_MUTATED)
-                            ? LFS3_gc_LOOKAHEADING
+                            ? LFS3_GC_LOOKAHEAD
                             : 0)
                     // abort and restart repairs if we were damaged
                     // mid-traversal
                     & ~LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_REPAIR(
                             (mgc->t.h.flags & LFS3_t_DAMAGED)
-                                ? LFS3_gc_EVICTMETAING
-                                    | LFS3_gc_EVICTDATAING
+                                ? LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA
                                 : 0,
                             0))
                     // we let the other flags continue even if dirty,
                     // as they can at least make incremental
                     // improvements to the filesystem state
                     )) {
-                lfs3_mgc_init(mgc, t
-                        | (mgc->t.h.flags
+                lfs3_mgc_init(mgc,
+                        mgc->t.h.flags
                             & ~(LFS3_T_MTREEONLY
                                 | LFS3_t_DIRTY
                                 | LFS3_t_MUTATED
-                                | LFS3_t_DAMAGED
-                                | LFS3_IFDEF_RDONLY(0, LFS3_gc_MKCONSISTENTING)
-                                | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
-                                | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
-                                | LFS3_gc_CKMETAING
-                                | LFS3_gc_CKDATAING
-                                | LFS3_IFDEF_RDONLY(0,
-                                    LFS3_IFDEF_EVICT(
-                                        LFS3_gc_EVICTMETAING, 0))
-                                | LFS3_IFDEF_RDONLY(0,
-                                    LFS3_IFDEF_EVICT(
-                                        LFS3_gc_EVICTDATAING, 0)))));
+                                | LFS3_t_DAMAGED),
+                        wflags);
             }
 
             // mask out any flags that changed
@@ -11928,27 +11911,18 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             // note that even though our current API prevents flags from
             // changing mid-traversal, lfs3->flags can be updated by
             // other filesystem operations
-            mgc->t.h.flags &= t
-                    | ~(LFS3_IFDEF_RDONLY(0, LFS3_gc_MKCONSISTENTING)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
-                        | LFS3_gc_CKMETAING
-                        | LFS3_gc_CKDATAING
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
-                        | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0)));
+            mgc->wflags &= wflags;
 
             // do we really need a full traversal?
-            if (!(mgc->t.h.flags
-                    & (LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
-                        | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
-                        | LFS3_gc_CKMETAING
-                        | LFS3_gc_CKDATAING
+            if (!(mgc->wflags
+                    & (LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
+                        | LFS3_GC_CKMETA
+                        | LFS3_GC_CKDATA
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
+                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETA, 0))
                         | LFS3_IFDEF_RDONLY(0,
-                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0))))) {
+                            LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATA, 0))))) {
                 mgc->t.h.flags |= LFS3_T_MTREEONLY;
             }
 
@@ -11958,31 +11932,13 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                     &bptr);
             if (tag < 0 && tag != LFS3_ERR_NOENT) {
                 // reset traversal if we run into any errors
-                mgc->t.h.flags
-                        &= ~(LFS3_IFDEF_RDONLY(0, LFS3_gc_MKCONSISTENTING)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
-                            | LFS3_gc_CKMETAING
-                            | LFS3_gc_CKDATAING
-                            | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
-                            | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0)));
+                mgc->wflags = 0;
                 return tag;
             }
 
             // end of traversal?
             if (tag == LFS3_ERR_NOENT) {
-                mgc->t.h.flags
-                        &= ~(LFS3_IFDEF_RDONLY(0, LFS3_gc_MKCONSISTENTING)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_gc_LOOKAHEADING)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_gc_COMPACTMETAING)
-                            | LFS3_gc_CKMETAING
-                            | LFS3_gc_CKDATAING
-                            | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_EVICT(LFS3_gc_EVICTMETAING, 0))
-                            | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_EVICT(LFS3_gc_EVICTDATAING, 0)));
+                mgc->wflags = 0;
             }
 
         // check for any grms, note the above logic prioritizes this
@@ -12073,7 +12029,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 static int lfs3_fs_gc_(lfs3_t *lfs3, uint32_t flags) {
     // run lfs3_mgc_gc to completion
     lfs3_mgc_t mgc;
-    lfs3_mgc_init(&mgc, flags);
+    lfs3_mgc_init(&mgc, flags, 0);
     lfs3_handle_open(lfs3, &mgc.t.h);
     lfs3_sblock_t steps = lfs3_mgc_gc(lfs3, &mgc, -1);
     if (steps < 0) {
@@ -13177,7 +13133,7 @@ static lfs3_sblock_t lfs3_alloc__(lfs3_t *lfs3, uint32_t flags,
         // traverse the filesystem, building up knowledge of what blocks are
         // in-use in the next lookahead window
         lfs3_mtrv_t mtrv;
-        lfs3_mtrv_init(&mtrv, LFS3_gc_LOOKAHEADING);
+        lfs3_mtrv_init(&mtrv, 0);
         while (true) {
             lfs3_bptr_t bptr;
             lfs3_stag_t tag = lfs3_mtree_traverse(lfs3, &mtrv,
@@ -17833,7 +17789,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
 
     // setup gc state
     #ifdef LFS3_GC
-    lfs3_mgc_init(&lfs3->gc, lfs3->cfg->gc_flags);
+    lfs3_mgc_init(&lfs3->gc, lfs3->cfg->gc_flags, 0);
     lfs3_handle_open(lfs3, &lfs3->gc.t.h);
     #endif
 
@@ -19009,8 +18965,8 @@ damaged:;
     // lfs3_mtree_traverse does most of the work here
     if (flags & (LFS3_CK_CKMETA | LFS3_CK_CKDATA)) {
         lfs3_mtrv_t mtrv;
-        lfs3_mtrv_init(&mtrv, flags & (
-                LFS3_T_MTREEONLY
+        lfs3_mtrv_init(&mtrv, flags
+                & (LFS3_T_MTREEONLY
                     | LFS3_T_CKMETA
                     | LFS3_T_CKDATA));
         while (true) {
@@ -19331,9 +19287,9 @@ int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count_, uint32_t flags) {
             // try to evict, or at least check there are no blocks in
             // our evict region
             lfs3_mgc_t mgc;
-            lfs3_mgc_init(&mgc,
+            lfs3_mgc_init(&mgc, 0,
                     (flags & LFS3_GROW_EVICT)
-                        ? (LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING)
+                        ? (LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA)
                         : 0);
             lfs3_handle_open(lfs3, &mgc.t.h);
             // assume shrunk unless we find blocks in our shrink region
@@ -19619,7 +19575,7 @@ int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
         // the allocator is also aware of the evict window, so we can
         // always do this in one pass
         lfs3_mgc_t mgc;
-        lfs3_mgc_init(&mgc, LFS3_gc_EVICTMETAING | LFS3_gc_EVICTDATAING);
+        lfs3_mgc_init(&mgc, 0, LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA);
         lfs3_handle_open(lfs3, &mgc.t.h);
         while (true) {
             lfs3_bptr_t bptr;
@@ -19943,7 +19899,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     #endif
 
     // setup gc state
-    lfs3_mgc_init(&gc->gc, flags);
+    lfs3_mgc_init(&gc->gc, flags, 0);
 
     // add to tracked mdirs
     lfs3_handle_open(lfs3, &gc->gc.t.h);
