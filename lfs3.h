@@ -169,7 +169,7 @@ enum lfs3_type {
 #endif
 
 // internally used flags, don't use these
-#define LFS3_o_SET      0x00008000  // Atomically write file
+#define LFS3_o_SET      0x00008000  // Atomically write file data
 #define LFS3_o_TYPE     0xf0000000  // The file's type
 #define LFS3_o_ZOMBIE   0x08000000  // File has been removed
 #define LFS3_o_UNCREAT  0x04000000  // File does not exist yet
@@ -539,29 +539,16 @@ enum lfs3_btype {
 #endif
 
 // internally used flags, don't use these
-#ifndef LFS3_RDONLY
-#define LFS3_gc_MKCONSISTENTING \
-                        0x00000100  // Working on LFS3_GC_MKCONSISTENT
-#endif
-#ifndef LFS3_RDONLY
-#define LFS3_gc_LOOKAHEADING \
-                        0x00000200  // Working on LFS3_GC_LOOKAHEAD
-#endif
-#ifndef LFS3_RDONLY
-#define LFS3_gc_COMPACTMETAING \
-                        0x00000800  // Working on LFS3_GC_COMPACTMETA
-#endif
-#define LFS3_gc_CKMETAING \
-                        0x00001000  // Working on LFS3_GC_CKMETA
-#define LFS3_gc_CKDATAING \
-                        0x00002000  // Working on LFS3_GC_CKDATA
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_gc_EVICTMETAING \
-                        0x00004000  // Working on LFS3_gc_EVICTMETA
+#define LFS3_gc_EVICTMETA \
+                        0x00400000  // Evict metadata blocks
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
-#define LFS3_gc_EVICTDATAING \
-                        0x00008000  // Working on LFS3_gc_EVICTDATA
+#define LFS3_gc_EVICTDATA \
+                        0x00800000  // Evict metadata + data blocks
+#endif
+#if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
+#define LFS3_gc_EVICT   0x00c00000  // Alias for EVICTMETA + EVICTDATA
 #endif
 
 // an alias for all gc work
@@ -1519,6 +1506,8 @@ typedef struct lfs3_mtrv {
 typedef struct lfs3_mgc {
     // core traversal state
     lfs3_mtrv_t t;
+    // gc flags we're currently working on
+    uint32_t wflags;
 
     #ifdef LFS3_GBMAP
     // repopulate gbmap when traversing with lookgbmap
