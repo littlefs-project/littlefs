@@ -2892,7 +2892,7 @@ class Gstate:
         def repr(self):
             if self:
                 return 'grm %s[%s]' % (
-                        '#%s+' % self.stickynotes if self.stickynotes else '',
+                        's%s+' % self.stickynotes if self.stickynotes else '',
                         ', '.join(mid.repr() for mid in self.queue))
             else:
                 return 'grm (unused)'
