@@ -18337,7 +18337,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
 
     // found orphaned stickynotes? this should only happen if we lost power
     if (lfs3->grm.stickynotes > 0) {
-        LFS3_INFO("Found orphaned stickynotes #%"PRId32,
+        LFS3_INFO("Found orphaned stickynotes s%"PRId32,
                 lfs3->grm.stickynotes);
         lfs3->flags |= LFS3_i_MAYBEORPHANS;
     }
