@@ -1554,7 +1554,7 @@ done:;
 defines.BADBLOCK = [0, 1]
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_PROGFLIP'
-defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKPROGS'
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
 ifdef = 'LFS3_CKPROGS'
@@ -1635,7 +1635,7 @@ code = '''
 [cases.test_ck_ckprogs_data]
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_PROGFLIP'
-defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKPROGS'
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
 ifdef = 'LFS3_CKPROGS'
@@ -1744,7 +1744,7 @@ code = '''
 [cases.test_ck_ckprogs_btree]
 defines.BADBIT = -1
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_PROGFLIP'
-defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKPROGS'
 # force the file to create a btree
 defines.SHRUB_SIZE = -1
 defines.CRYSTAL_THRESH = -1
@@ -1863,7 +1863,7 @@ defines.BADBLOCK_ = '(BADBLOCK+1) % 2'
 defines.BADBIT_ = -1
 defines.M = 4000
 defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_PROGFLIP'
-defines.CFG_FLAGS = 'LFS3_CFG_CKPROGS'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKPROGS'
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/64'
 defines.N = 4
@@ -2071,7 +2071,7 @@ code = '''
 [cases.test_ck_ckfetches_mroot]
 defines.BADBLOCK = [0, 1]
 defines.BADBIT = -1
-defines.CFG_FLAGS = 'LFS3_CFG_CKFETCHES'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKFETCHES'
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
 ifdef = 'LFS3_CKFETCHES'
@@ -2148,7 +2148,7 @@ code = '''
 # test every single-bit error in a file's data block
 [cases.test_ck_ckfetches_data]
 defines.BADBIT = -1
-defines.CFG_FLAGS = 'LFS3_CFG_CKFETCHES'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKFETCHES'
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
 ifdef = 'LFS3_CKFETCHES'
@@ -2257,7 +2257,7 @@ code = '''
 # test every single-bit error in a file's btree node
 [cases.test_ck_ckfetches_btree]
 defines.BADBIT = -1
-defines.CFG_FLAGS = 'LFS3_CFG_CKFETCHES'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKFETCHES'
 # force the file to create a btree
 defines.SHRUB_SIZE = -1
 defines.CRYSTAL_THRESH = -1
@@ -2403,7 +2403,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
     'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
-defines.CFG_FLAGS = 'LFS3_CFG_CKMETAPARITY'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKMETAPARITY'
 # this should stay inlined
 defines.SIZE = 'BLOCK_SIZE/16'
 ifdef = 'LFS3_CKMETAPARITY'
@@ -2521,7 +2521,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
     'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
-defines.CFG_FLAGS = 'LFS3_CFG_CKMETAPARITY'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKMETAPARITY'
 # force the file to create a btree
 defines.SHRUB_SIZE = -1
 defines.CRYSTAL_THRESH = -1
@@ -2667,7 +2667,7 @@ defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGFLIP',
     'LFS3_EMUBD_BADBLOCK_READQUASIFLIP',
 ]
-defines.CFG_FLAGS = 'LFS3_CFG_CKDATACKSUMS'
+defines.DAMAGE_FLAGS = 'LFS3_DAMAGE_CKDATACKSUMS'
 # this should create a single block file
 defines.SIZE = 'BLOCK_SIZE'
 ifdef = 'LFS3_CKDATACKSUMS'
@@ -2829,14 +2829,14 @@ defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
-defines.CFG_FLAGS = '''
-    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
-        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+defines.DAMAGE_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_DAMAGE_CKFETCHES, -1) : 0)
         | ((CKMETAPARITY)
-            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_DAMAGE_CKMETAPARITY, -1)
             : 0)
         | ((CKDATACKSUMS)
-            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_DAMAGE_CKDATACKSUMS, -1)
             : 0)
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
@@ -3110,14 +3110,14 @@ defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
-defines.CFG_FLAGS = '''
-    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
-        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+defines.DAMAGE_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_DAMAGE_CKFETCHES, -1) : 0)
         | ((CKMETAPARITY)
-            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_DAMAGE_CKMETAPARITY, -1)
             : 0)
         | ((CKDATACKSUMS)
-            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_DAMAGE_CKDATACKSUMS, -1)
             : 0)
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64]
@@ -3471,14 +3471,14 @@ defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
-defines.CFG_FLAGS = '''
-    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
-        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+defines.DAMAGE_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_DAMAGE_CKFETCHES, -1) : 0)
         | ((CKMETAPARITY)
-            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_DAMAGE_CKMETAPARITY, -1)
             : 0)
         | ((CKDATACKSUMS)
-            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_DAMAGE_CKDATACKSUMS, -1)
             : 0)
 '''
 defines.SIZE = [
@@ -3746,14 +3746,14 @@ defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
-defines.CFG_FLAGS = '''
-    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
-        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+defines.DAMAGE_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_DAMAGE_CKFETCHES, -1) : 0)
         | ((CKMETAPARITY)
-            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_DAMAGE_CKMETAPARITY, -1)
             : 0)
         | ((CKDATACKSUMS)
-            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_DAMAGE_CKDATACKSUMS, -1)
             : 0)
 '''
 # you probably need to flush if you expect errors
@@ -4339,14 +4339,14 @@ defines.CKPROGS       = 'METHOD == 0'
 defines.CKFETCHES     = 'METHOD == 2'
 defines.CKMETAPARITY  = false
 defines.CKDATACKSUMS  = 'METHOD == 3'
-defines.CFG_FLAGS = '''
-    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
-        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+defines.DAMAGE_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_DAMAGE_CKFETCHES, -1) : 0)
         | ((CKMETAPARITY)
-            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_DAMAGE_CKMETAPARITY, -1)
             : 0)
         | ((CKDATACKSUMS)
-            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_DAMAGE_CKDATACKSUMS, -1)
             : 0)
 '''
 # you probably need to flush if you expect errors

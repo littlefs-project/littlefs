@@ -11,14 +11,14 @@ import math as mt
 
 # Flag prefixes
 PREFIX_O       = ['+o', '+open']     # Filter by LFS3_O_* flags
-PREFIX_FILECFG = ['+filecfg']        # Filter by LFS3_FILECFG_* flags
 PREFIX_SEEK    = ['+seek']           # Filter by LFS3_SEEK_* flags
 PREFIX_A       = ['+a', '+attr']     # Filter by LFS3_A_* flags
 PREFIX_CK      = ['+ck']             # Filter by LFS3_CK_* flags
 PREFIX_REPAIR  = ['+repair']         # Filter by LFS3_REPAIR_* flags
 PREFIX_F       = ['+f', '+format']   # Filter by LFS3_F_* flags
 PREFIX_M       = ['+m', '+mount']    # Filter by LFS3_M_* flags
-PREFIX_CFG     = ['+cfg']            # Filter by LFS3_CFG_* flags
+PREFIX_REV     = ['+rev']            # Filter by LFS3_REV_* flags
+PREFIX_DAMAGE  = ['+damage']         # Filter by LFS3_DAMAGE_* flags
 PREFIX_I       = ['+i', '+info']     # Filter by LFS3_I_* flags
 PREFIX_T       = ['+t', '+trv']      # Filter by LFS3_T_* flags
 PREFIX_GC      = ['+gc']             # Filter by LFS3_GC_* flags
@@ -70,10 +70,6 @@ o_UNSYNC        = 0x01000000  # i-  File's metadata does not match disk
 o_UNCRYST       = 0x00040000  # i-  File's leaf not fully crystallized
 o_UNGRAFT       = 0x00020000  # i-  File's leaf does not match disk
 o_UNFLUSH       = 0x00010000  # i-  File's cache does not match disk
-
-# Additional file config flags
-FILECFG_FLUSH   = 0x00000040  # y-  Flush data on every write
-FILECFG_SYNC    = 0x00000080  # y-  Sync metadata on every write
 
 # File seek flags
 SEEK_MODE       = 0xffffffff  # -m  Seek mode
@@ -147,31 +143,21 @@ M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
 M_REPAIR        = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
 M_GC            = 0x00ff0000  # -a  Alias for all gc work
 
-# Additional filesystem config flags
-CFG_MODE        =          1  # -m  Filesystem's access mode
-CFG_RDWR        =          0  # -^  Mount the filesystem as read and write
-CFG_RDONLY      =          1  # -^  Mount the filesystem as read only
-CFG_GBMAP       = 0x00000008  # y-  Use the global on-disk block-map
-CFG_FLUSH       = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
-CFG_SYNC        = 0x00000080  # y-  Open all files with LFS3_O_SYNC
-CFG_GRANULAR    = 0x00000100  # y-  Open all files with LFS3_O_GRANULAR
+# Revision count flags
+REV_REVPERTURB        = 0x01  # y-  Perturb first bit in revision counts
+REV_REVNOISE          = 0x02  # y-  Add noise to revision counts
 
-CFG_REVPERTURB  = 0x00010000  # y-  Perturb first bit in revision counts
-CFG_REVNOISE    = 0x00020000  # y-  Add noise to revision counts
-CFG_CKPROGS     = 0x00100000  # y-  Check progs by reading back progged data
-CFG_CKFETCHES   = 0x00200000  # y-  Check block checksums before first use
-CFG_CKMETAPARITY \
-                = 0x00400000  # y-  Check metadata tag parity bits
-CFG_CKDATACKSUMS \
-                = 0x01000000  # y-  Check data checksums on reads
-CFG_REPAIRMETADAMAGE \
-                = 0x10000000  # y-  Repair metadata damage when found
-CFG_REPAIRDATADAMAGE \
-                = 0x20000000  # y-  Repair metadata + data damage when found
-CFG_REPAIRDAMAGE \
-                = 0x30000000  # ya  Alias for REPAIRMETADAMAGE + DATADAMAGE
-CFG_CONDEMNDAMAGE \
-                = 0x40000000  # y-  Mark any damaged blocks as bad
+# Damage handling flags
+DAMAGE_CKPROGS        = 0x01  # y-  Check progs by reading back progged data
+DAMAGE_CKFETCHES      = 0x02  # y-  Check block checksums before first use
+DAMAGE_CKMETAPARITY   = 0x04  # y-  Check metadata tag parity bits
+DAMAGE_CKDATACKSUMS   = 0x10  # y-  Check data checksums on reads
+DAMAGE_REPAIRMETADAMAGE \
+                      = 0x20  # y-  Repair metadata damage when found
+DAMAGE_REPAIRDATADAMAGE \
+                      = 0x40  # y-  Repair metadata + data damage when found
+DAMAGE_REPAIRDAMAGE   = 0x60  # ya  Alias for REPAIRMETADAMAGE + DATADAMAGE
+DAMAGE_CONDEMNDAMAGE  = 0x80  # y-  Mark any damaged blocks as bad
 
 # Filesystem info flags
 I_RDONLY        = 0x00000001  # --  Mounted read only

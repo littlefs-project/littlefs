@@ -35,8 +35,8 @@ defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false, true]
 defines.REPAIRDATA = [false, true]
 # note preerasing needs revperturb
-defines.CFG_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
+defines.REV_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_REVPERTURB, -1) : 0)
 '''
 if = [
     '!RDONLY || !MKCONSISTENT',
@@ -108,8 +108,8 @@ defines.CKDATA = [false, true]
 defines.REPAIRMETA = [false, true]
 defines.REPAIRDATA = [false, true]
 # note preerasing needs revperturb
-defines.CFG_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
+defines.REV_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_REVPERTURB, -1) : 0)
 '''
 if = [
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
@@ -152,15 +152,54 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that various cfg flags don't assert or anything
+# test that various rev flags don't assert or anything
 #
-# this is a separate test to minimize combinatorial explosion
-[cases.test_mount_cfg_flags]
-defines.RDONLY = [false, true]
-defines.FLUSH = [false, true]
-defines.SYNC = [false, true]
+# these are separate tests to minimize combinatorial explosion
+[cases.test_mount_rev_flags]
 defines.REVPERTURB = [false, true]
 defines.REVNOISE = [false, true]
+defines.REV_FLAGS = '''
+    ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_REV_REVPERTURB, -1) : 0)
+        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_REV_REVNOISE, -1) : 0)
+'''
+if = [
+    'LFS3_IFYES_REVPERTURB(REVPERTURB, true, !REVPERTURB)',
+    'LFS3_IFYES_REVNOISE(REVNOISE, true, !REVNOISE)',
+]
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // lfs3_fs_stat only returns some flags
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            ((RDONLY) ? LFS3_I_RDONLY : 0)
+                | ((FLUSH) ? LFS3_I_FLUSH : 0)
+                | ((SYNC) ? LFS3_I_SYNC : 0)
+                | ((!LOOKAHEAD && (!GBMAP || PREERASE))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | LFS3_IFDEF_PREERASE(
+                    (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
+                    0)
+                | ((!COMPACTMETA) ? LFS3_I_COMPACTMETA : 0)
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that various damage flags don't assert or anything
+#
+# these are separate tests to minimize combinatorial explosion
+[cases.test_mount_damage_flags]
 defines.CKPROGS = [false, true]
 defines.CKFETCHES = [false, true]
 defines.CKMETAPARITY = [false, true]
@@ -168,36 +207,26 @@ defines.CKDATACKSUMS = [false, true]
 defines.REPAIRMETADAMAGE = [false, true]
 defines.REPAIRDATADAMAGE = [false, true]
 defines.CONDEMNDAMAGE = [false, true]
-defines.CFG_FLAGS = '''
-    ((RDONLY) ? LFS3_CFG_RDONLY : 0)
-        | ((FLUSH) ? LFS3_CFG_FLUSH : 0)
-        | ((SYNC) ? LFS3_CFG_SYNC : 0)
-        | ((REVPERTURB) ? LFS3_IFDEF_REVPERTURB(LFS3_CFG_REVPERTURB, -1) : 0)
-        | ((REVNOISE) ? LFS3_IFDEF_REVNOISE(LFS3_CFG_REVNOISE, -1) : 0)
-        | ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_CFG_CKPROGS, -1) : 0)
-        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_CFG_CKFETCHES, -1) : 0)
+defines.DAMAGE_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
+        | ((CKFETCHES) ? LFS3_IFDEF_CKFETCHES(LFS3_DAMAGE_CKFETCHES, -1) : 0)
         | ((CKMETAPARITY)
-            ? LFS3_IFDEF_CKMETAPARITY(LFS3_CFG_CKMETAPARITY, -1)
+            ? LFS3_IFDEF_CKMETAPARITY(LFS3_DAMAGE_CKMETAPARITY, -1)
             : 0)
         | ((CKDATACKSUMS)
-            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_CFG_CKDATACKSUMS, -1)
+            ? LFS3_IFDEF_CKDATACKSUMS(LFS3_DAMAGE_CKDATACKSUMS, -1)
             : 0)
         | ((REPAIRMETADAMAGE)
-            ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRMETADAMAGE, -1)
+            ? LFS3_IFDEF_REPAIR(LFS3_DAMAGE_REPAIRMETADAMAGE, -1)
             : 0)
         | ((REPAIRDATADAMAGE)
-            ? LFS3_IFDEF_REPAIR(LFS3_CFG_REPAIRDATADAMAGE, -1)
+            ? LFS3_IFDEF_REPAIR(LFS3_DAMAGE_REPAIRDATADAMAGE, -1)
             : 0)
         | ((CONDEMNDAMAGE)
-            ? LFS3_IFDEF_CONDEMN(LFS3_CFG_CONDEMNDAMAGE, -1)
-            : 0)
-        | ((GBMAP)
-            ? LFS3_IFDEF_GBMAP(LFS3_CFG_GBMAP, -1)
+            ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
             : 0)
 '''
 if = [
-    'LFS3_IFYES_REVPERTURB(REVPERTURB, true, !REVPERTURB)',
-    'LFS3_IFYES_REVNOISE(REVNOISE, true, !REVNOISE)',
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
     'LFS3_IFDEF_CKFETCHES(true, !CKFETCHES)',
     'LFS3_IFDEF_CKMETAPARITY(true, !CKMETAPARITY)',
@@ -208,9 +237,10 @@ if = [
 ]
 code = '''
     lfs3_t lfs3;
-    // note for this test gbmap is included in cfg flags, so we
-    // shouldn't need it here
-    lfs3_format(&lfs3, LFS3_F_RDWR, CFG) => 0;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
     lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
 
     // lfs3_fs_stat only returns some flags
@@ -369,7 +399,7 @@ defines.SIZE = [
 # REMOUNT=2 => remount without preerase
 defines.REMOUNT = [0, 1, 2]
 # note preerasing needs revperturb
-defines.CFG_FLAGS = 'LFS3_CFG_REVPERTURB'
+defines.REV_FLAGS = 'LFS3_REV_REVPERTURB'
 # test with a number of different erase values
 defines.ERASE_VALUE = [0xff, 0x00, -1]
 ifdef = ['LFS3_GBMAP', 'LFS3_REVPERTURB', 'LFS3_PREERASE']
