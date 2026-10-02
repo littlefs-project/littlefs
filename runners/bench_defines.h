@@ -24,7 +24,6 @@
 // preconfigured defines that control how benches run
 #ifdef BENCH_DEFINE
     //           name                   value (overridable)
-    BENCH_DEFINE(CFG_FLAGS,             0                                   )
     BENCH_DEFINE(DISK_SIZE,             128*1024*1024                       )
     BENCH_DEFINE(DISK_GEOMETRY,         0                                   )
     // simulation mode
@@ -37,6 +36,8 @@
     BENCH_DEFINE(BLOCK_SIZE,            LFS3_MAX(ERASE_SIZE, 512)           )
     BENCH_DEFINE(BLOCK_COUNT,           DISK_SIZE/LFS3_MAX(BLOCK_SIZE, 1)   )
     BENCH_DEFINE(BLOCK_RECYCLES,        100                                 )
+    BENCH_DEFINE(REV_FLAGS,             0                                   )
+    BENCH_DEFINE(DAMAGE_FLAGS,          0                                   )
     BENCH_DEFINE(RCACHE_SIZE,           LFS3_MAX(16, READ_SIZE)             )
     BENCH_DEFINE(PCACHE_SIZE,           LFS3_MAX(16, PROG_SIZE)             )
     BENCH_DEFINE(FCACHE_SIZE,           16                                  )
@@ -57,8 +58,8 @@
                                             | LFS3_IFDEF_PREERASE(
                                                 (LFS3_IFYES_REVPERTURB(
                                                     true,
-                                                    (CFG_FLAGS
-                                                        & LFS3_CFG_REVPERTURB),
+                                                    (REV_FLAGS
+                                                        & LFS3_REV_REVPERTURB),
                                                     false))
                                                     ? LFS3_GC_PREERASE
                                                     : 0,
@@ -539,7 +540,6 @@
 // struct lfs3_cfg definition
 #ifdef BENCH_CFG
     struct lfs3_cfg _cfg = {
-        .flags                          = CFG_FLAGS,
         #ifdef BENCH_CFG_CFG
         BENCH_CFG_CFG
         #endif
@@ -548,6 +548,8 @@
         .block_size                     = BLOCK_SIZE,
         .block_count                    = BLOCK_COUNT,
         .block_recycles                 = BLOCK_RECYCLES,
+        .rev_flags                      = REV_FLAGS,
+        .damage_flags                   = DAMAGE_FLAGS,
         .rcache_size                    = RCACHE_SIZE,
         .pcache_size                    = PCACHE_SIZE,
         .fcache_size                    = FCACHE_SIZE,

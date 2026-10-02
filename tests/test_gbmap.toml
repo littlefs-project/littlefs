@@ -938,8 +938,8 @@ defines.GC_PREERASE_COUNT = [
     'BLOCK_COUNT',
 ]
 # note preerasing needs revperturb
-defines.CFG_FLAGS = '''
-    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_CFG_REVPERTURB, -1) : 0)
+defines.REV_FLAGS = '''
+    ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_REV_REVPERTURB, -1) : 0)
 '''
 # test with a number of different erase values
 defines.ERASE_VALUE = [0xff, 0x00, -1]
