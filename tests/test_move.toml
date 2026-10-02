@@ -1903,3 +1903,120 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+# The source entry of an interrupted cross-pair rename is removed only
+# logically until the first write. Its successor must remain readable.
+[cases.test_move_pending_source]
+in = "lfs.c"
+defines.MOVED = [0, 1, 2]
+defines.SIZE = [8, 513]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mkdir(&lfs, "src") => 0;
+    lfs_mkdir(&lfs, "dst") => 0;
+
+    lfs_file_t file;
+    char path[16];
+    uint8_t buffer[SIZE];
+    for (int i = 0; i < 3; i++) {
+        sprintf(path, "src/%c", 'a'+i);
+        memset(buffer, 'a'+i, SIZE);
+        lfs_file_open(&lfs, &file, path,
+                LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfs_file_write(&lfs, &file, buffer, SIZE) => SIZE;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_setattr(&lfs, path, 0, buffer, 1) => 0;
+    }
+    lfs_ssize_t blocks = lfs_fs_size(&lfs);
+    assert(blocks > 0);
+
+    // Commit only the destination half of the rename, leaving exactly
+    // the pending move that a power loss between its two commits leaves.
+    sprintf(path, "src/%c", 'a'+(int)MOVED);
+    const char *oldpath = path;
+    lfs_mdir_t oldcwd;
+    lfs_stag_t oldtag = lfs_dir_find(&lfs, &oldcwd, &oldpath, NULL);
+    assert(oldtag >= 0);
+    assert(lfs_tag_id(oldtag) == MOVED);
+    const char *newpath = "dst/moved";
+    lfs_mdir_t newcwd;
+    uint16_t newid;
+    lfs_dir_find(&lfs, &newcwd, &newpath, &newid) => LFS_ERR_NOENT;
+    assert(lfs_pair_cmp(oldcwd.pair, newcwd.pair) != 0);
+    lfs_fs_prepmove(&lfs, lfs_tag_id(oldtag), oldcwd.pair);
+    lfs_dir_commit(&lfs, &newcwd, LFS_MKATTRS(
+            {LFS_MKTAG(LFS_TYPE_CREATE, newid, 0), NULL},
+            {LFS_MKTAG(LFS_TYPE_REG, newid, 5), "moved"},
+            {LFS_MKTAG(LFS_FROM_MOVE, newid, lfs_tag_id(oldtag)), &oldcwd}))
+            => 0;
+    lfs_unmount(&lfs) => 0;
+
+    // Repeat the read-only checks across remounts. None may consume
+    // the pending move or need a write to make the other entries visible.
+    for (int remount = 0; remount < 2; remount++) {
+        lfs_mount(&lfs, cfg) => 0;
+        assert(lfs_gstate_hasmove(&lfs.gdisk));
+        lfs_emubd_io_t proged = lfs_emubd_proged(cfg);
+        lfs_emubd_io_t erased = lfs_emubd_erased(cfg);
+
+        struct lfs_info info;
+        for (int i = 0; i < 3; i++) {
+            sprintf(path, "src/%c", 'a'+i);
+            if (i == MOVED) {
+                lfs_stat(&lfs, path, &info) => LFS_ERR_NOENT;
+                lfs_file_open(&lfs, &file, path, LFS_O_RDONLY)
+                        => LFS_ERR_NOENT;
+                strcpy(path, "dst/moved");
+            }
+            lfs_stat(&lfs, path, &info) => 0;
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+            lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
+            lfs_file_read(&lfs, &file, buffer, SIZE) => SIZE;
+            for (int j = 0; j < SIZE; j++) {
+                assert(buffer[j] == 'a'+i);
+            }
+            lfs_file_close(&lfs, &file) => 0;
+            lfs_getattr(&lfs, path, 0, buffer, 1) => 1;
+            assert(buffer[0] == 'a'+i);
+        }
+
+        lfs_dir_t dir;
+        lfs_dir_open(&lfs, &dir, "src") => 0;
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, ".") == 0);
+        lfs_dir_read(&lfs, &dir, &info) => 1;
+        assert(strcmp(info.name, "..") == 0);
+        for (int i = 0; i < 3; i++) {
+            if (i == MOVED) {
+                continue;
+            }
+            lfs_dir_read(&lfs, &dir, &info) => 1;
+            sprintf(path, "%c", 'a'+i);
+            assert(strcmp(info.name, path) == 0);
+            assert(info.type == LFS_TYPE_REG);
+            assert(info.size == SIZE);
+        }
+        lfs_dir_read(&lfs, &dir, &info) => 0;
+        lfs_dir_close(&lfs, &dir) => 0;
+
+        // Filesystem traversal must include all surviving data, even
+        // when the pending source id is zero or the last id in its pair.
+        lfs_fs_size(&lfs) => blocks;
+        lfs_emubd_proged(cfg) => proged;
+        lfs_emubd_erased(cfg) => erased;
+        lfs_unmount(&lfs) => 0;
+    }
+
+    // Explicit recovery should leave the same view and block count.
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_fs_mkconsistent(&lfs) => 0;
+    assert(!lfs_gstate_hasmove(&lfs.gdisk));
+    lfs_fs_size(&lfs) => blocks;
+    sprintf(path, "src/%c", 'a'+(int)MOVED);
+    lfs_stat(&lfs, path, &(struct lfs_info){0}) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "dst/moved", &(struct lfs_info){0}) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
