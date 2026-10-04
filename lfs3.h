@@ -287,6 +287,12 @@ enum lfs3_type {
 #define LFS3_F_REPAIR   0x0c000000  // Alias for REPAIRMETA + REPAIRDATA
 #endif
 
+// an alias for all alloc work
+#define LFS3_F_LOOK ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_F_LOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)))
+
 // an alias for all gc work
 #define LFS3_F_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_F_MKCONSISTENT) \
@@ -344,6 +350,12 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_M_REPAIR   0x0c000000  // Alias for REPAIRMETA + REPAIRDATA
 #endif
+
+// an alias for all alloc work
+#define LFS3_M_LOOK ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0)))
 
 // an alias for all gc work
 #define LFS3_M_GC ( \
@@ -548,6 +560,12 @@ enum lfs3_btype {
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 #define LFS3_gc_EVICT   0x0c000000  // Alias for EVICTMETA + EVICTDATA
 #endif
+
+// an alias for all alloc work
+#define LFS3_GC_LOOK ( \
+        LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)))
 
 // an alias for all gc work
 #define LFS3_GC_GC ( \
