@@ -30,9 +30,11 @@ defines.GC_LOOKGBMAP_THRESH = 'BLOCK_COUNT-1'
 [cases.test_gc_t_simple]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+if = 'GBMAP || !LOOKGBMAP'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -46,6 +48,9 @@ code = '''
     lfs3_gc_open(&lfs3, &gc,
             ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((LOOKGBMAP)
+                    ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1)
+                    : 0)
                 | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -68,9 +73,11 @@ code = '''
 [cases.test_gc_t_idempotent]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
+if = 'GBMAP || !LOOKGBMAP'
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -84,6 +91,9 @@ code = '''
     lfs3_gc_open(&lfs3, &gc,
             ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
                 | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+                | ((LOOKGBMAP)
+                    ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1)
+                    : 0)
                 | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
                 | ((CKMETA) ? LFS3_GC_CKMETA : 0)
                 | ((CKDATA) ? LFS3_GC_CKDATA : 0)) => 0;
@@ -1281,8 +1291,11 @@ code = '''
     // uncompacted flag should have been cleared
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
-                    ? LFS3_I_LOOKAHEAD
+            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 // note ckdata implies ckmeta
@@ -2031,6 +2044,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             LFS3_I_LOOKAHEAD
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -2063,6 +2077,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 // note ckdata implies ckmeta
                 | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
@@ -2340,7 +2355,10 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (!SYNC && !CLOSE)) ? LFS3_I_LOOKAHEAD : 0)
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && !SYNC && !CLOSE)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
+                    : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -2501,7 +2519,10 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (!SYNC && !CLOSE)) ? LFS3_I_LOOKAHEAD : 0)
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && !SYNC && !CLOSE)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
+                    : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -3103,8 +3124,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -3590,7 +3614,10 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!SYNC) ? LFS3_I_LOOKAHEAD : 0)
+            ((!SYNC && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!SYNC && GBMAP)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
+                    : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -3794,7 +3821,10 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!SYNC) ? LFS3_I_LOOKAHEAD : 0)
+            ((!SYNC && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!SYNC && GBMAP)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
+                    : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -3986,7 +4016,8 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4044,7 +4075,8 @@ code = '''
     // we should still be marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4243,7 +4275,10 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4300,7 +4335,10 @@ code = '''
     // we should still be marked as uncompacted
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            LFS3_I_LOOKAHEAD
+            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
+                    ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4498,7 +4536,10 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!GBMAP || ORPHANS >= 100) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && ORPHANS >= 100)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
+                    : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4538,8 +4579,9 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD && (!GBMAP || ORPHANS >= 100))
-                    ? LFS3_I_LOOKAHEAD
+            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && ORPHANS >= 100)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -4682,9 +4724,11 @@ code = '''
                             && ORPHANS > 0))
                     ? LFS3_I_MKCONSISTENT
                     : 0)
-                | (((!LOOKAHEAD || ORPHANS > 0)
-                        && (!GBMAP || ORPHANS >= 100))
+                | (((!LOOKAHEAD || ORPHANS > 0) && !GBMAP)
                     ? LFS3_I_LOOKAHEAD
+                    : 0)
+                | ((GBMAP && ORPHANS >= 100)
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -4794,7 +4838,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4834,7 +4879,8 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -4939,7 +4985,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -4979,7 +5026,8 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -5085,7 +5133,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -5125,7 +5174,8 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -5231,7 +5281,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
-                | LFS3_I_LOOKAHEAD
+                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -5271,7 +5322,8 @@ code = '''
     // and we should be marked as consistent
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // note ckdata implies ckmeta
@@ -5925,10 +5977,12 @@ code = '''
 
 # test that lookgbmap can make progress in isolation
 [cases.test_gc_lookgbmap_progress]
+defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_LOOKAHEAD
+    ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | LFS3_GC_LOOKGBMAP
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -5962,7 +6016,7 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_LOOKGBMAP);
 
     // run GC until we make progress
     for (lfs3_block_t i = 0;; i++) {
@@ -5973,7 +6027,7 @@ code = '''
         assert(steps >= 0);
 
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_LOOKGBMAP)) {
             break;
         }
     }
@@ -5990,10 +6044,12 @@ code = '''
 
 # test that lookgbmap dirtying still works with the GC API
 [cases.test_gc_lookgbmap_mutation]
+defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_LOOKAHEAD
+    ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | LFS3_GC_LOOKGBMAP
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -6031,13 +6087,13 @@ code = '''
     // expect dirty initial state or else our test doesn't work
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_LOOKGBMAP);
     lfs3.gc.wflags = 0;
 
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_LOOKAHEAD);
+    assert(lfs3.gc.wflags & LFS3_GC_LOOKGBMAP);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "spider",
@@ -6049,14 +6105,14 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_GC_LOOKAHEAD) {
+    while (lfs3.gc.wflags & LFS3_GC_LOOKGBMAP) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
 
     // we should _not_ make progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_LOOKGBMAP);
 
     // check the file contents
     lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
@@ -6076,10 +6132,12 @@ defines.GC_LOOKGBMAP_THRESH = [
     'BLOCK_COUNT - (BLOCK_COUNT/4)',
     'BLOCK_COUNT - (BLOCK_COUNT/2)',
 ]
+defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    LFS3_GC_LOOKAHEAD
+    ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | LFS3_GC_LOOKGBMAP
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
 '''
@@ -6115,7 +6173,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_LOOKGBMAP)) {
             break;
         }
     }
@@ -6142,7 +6200,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (fsinfo.flags & LFS3_I_LOOKAHEAD) {
+        if (fsinfo.flags & LFS3_I_LOOKGBMAP) {
             // check that we actually relaxed repopulations
             if ((lfs3_size_t)GC_LOOKGBMAP_THRESH
                     < BLOCK_COUNT-1) {
@@ -6164,7 +6222,7 @@ code = '''
 
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
-        if (!(fsinfo.flags & LFS3_I_LOOKAHEAD)) {
+        if (!(fsinfo.flags & LFS3_I_LOOKGBMAP)) {
             break;
         }
     }
@@ -6183,10 +6241,12 @@ code = '''
 [cases.test_gc_preerase_progress]
 # lookahead can interact with preerase in weird ways
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_GC_LOOKGBMAP : 0)
         | LFS3_GC_PREERASE
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -6268,7 +6328,7 @@ code = '''
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert((fsinfo.flags & LFS3_I_PREERASE)
-                || (fsinfo.flags & LFS3_I_LOOKAHEAD));
+                || (fsinfo.flags & LFS3_I_LOOKGBMAP));
     }
 
     // how much did we erase? we may need to erase more than expected
@@ -6309,10 +6369,12 @@ defines.GC_PREERASE_COUNT = [
 ]
 # lookahead can interact with preerase in weird ways
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
     ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_GC_LOOKGBMAP : 0)
         | LFS3_GC_PREERASE
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -6385,7 +6447,7 @@ code = '''
         struct lfs3_fsinfo fsinfo;
         lfs3_fs_stat(&lfs3, &fsinfo) => 0;
         assert((fsinfo.flags & LFS3_I_PREERASE)
-                || (fsinfo.flags & LFS3_I_LOOKAHEAD));
+                || (fsinfo.flags & LFS3_I_LOOKGBMAP));
     }
 
     // how much did we erase? we may need to erase more than expected
@@ -6420,11 +6482,13 @@ code = '''
 # this is just the starting gc_preerase_count
 defines.GC_PREERASE_COUNT = 1
 defines.GC_PREERASE_STEP = 10
+defines.LOOKAHEAD = [false, true]
 defines.CKMETA = [false, true]
 defines.CKDATA = [false, true]
 defines.GC_FLAGS = '''
-    // note we need lookahead for this test to be reliable
-    LFS3_GC_LOOKAHEAD
+    ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        // note we need lookgbmap for this test to be reliable
+        | LFS3_GC_LOOKGBMAP
         | LFS3_GC_PREERASE
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
         | ((CKDATA) ? LFS3_GC_CKDATA : 0)
@@ -6489,7 +6553,7 @@ code = '''
             struct lfs3_fsinfo fsinfo;
             lfs3_fs_stat(&lfs3, &fsinfo) => 0;
             assert((fsinfo.flags & LFS3_I_PREERASE)
-                    || (fsinfo.flags & LFS3_I_LOOKAHEAD));
+                    || (fsinfo.flags & LFS3_I_LOOKGBMAP));
         }
 
         // check the file contents
@@ -10274,6 +10338,7 @@ done:;
 defines.AFTER = [0, 1, 2, 3]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -10283,6 +10348,7 @@ defines.REPAIRDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -10314,6 +10380,7 @@ defines.SIZE = [
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
     'LFS3_IFDEF_GC(true, AFTER != 0)',
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -10353,8 +10420,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -10394,6 +10464,9 @@ code = '''
             if (!(fsinfo.flags & (
                     ((MKCONSISTENT) ? LFS3_I_MKCONSISTENT : 0)
                         | ((LOOKAHEAD) ? LFS3_I_LOOKAHEAD : 0)
+                        | ((LOOKGBMAP)
+                            ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
+                            : 0)
                         | ((PREERASE)
                             ? LFS3_IFDEF_PREERASE(LFS3_I_PREERASE, -1)
                             : 0)
@@ -10420,6 +10493,16 @@ code = '''
                 assert(steps >= 0);
                 lfs3_gc_close(&lfs3, &gc) => 0;
             }
+
+            #ifdef LFS3_GBMAP
+            if (LOOKGBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP)) {
+                lfs3_gc_t gc;
+                lfs3_gc_open(&lfs3, &gc, LFS3_GC_LOOKGBMAP) => 0;
+                lfs3_sblock_t steps = lfs3_gc_write(&lfs3, &gc, -1);
+                assert(steps >= 0);
+                lfs3_gc_close(&lfs3, &gc) => 0;
+            }
+            #endif
 
             #ifdef LFS3_PREERASE
             if (PREERASE && (fsinfo.flags & LFS3_I_PREERASE)) {
@@ -10472,9 +10555,12 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!LOOKAHEAD
-                        && (!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD)))
-                    ? LFS3_I_LOOKAHEAD
+            ((!LOOKAHEAD && !GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((!LOOKGBMAP
+                        && GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE(
                     (GBMAP && !PREERASE) ? LFS3_I_PREERASE : 0,
@@ -10550,8 +10636,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -10615,8 +10704,11 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -10631,8 +10723,11 @@ code = '''
     // check that flags were reset
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -10698,8 +10793,11 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -10774,8 +10872,11 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -10789,8 +10890,11 @@ code = '''
     // did these clear the right flags?
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP
+                        && (fsinfo.flags
+                            & LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -10809,6 +10913,7 @@ code = '''
 defines.N = 100
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -10818,6 +10923,7 @@ defines.REPAIRDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -10845,6 +10951,7 @@ defines.SIZE = [
     '8*BLOCK_SIZE',
 ]
 if = [
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -10901,6 +11008,7 @@ code = '''
 [cases.test_gc_nospc]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -10910,6 +11018,7 @@ defines.REPAIRDATA = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -10931,6 +11040,7 @@ defines.REV_FLAGS = '''
 '''
 defines.SIZE = 'BLOCK_SIZE'
 if = [
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -11026,6 +11136,7 @@ code = '''
 [cases.test_gc_spam_dir_many]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -11036,6 +11147,7 @@ defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -11056,6 +11168,7 @@ defines.REV_FLAGS = '''
 '''
 defines.N = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 if = [
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -11154,6 +11267,7 @@ code = '''
 [cases.test_gc_spam_dir_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -11164,6 +11278,7 @@ defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -11187,6 +11302,7 @@ defines.OPS = '2*N'
 defines.SEED = 42
 fuzz = 'SEED'
 if = [
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -11353,6 +11469,7 @@ code = '''
 [cases.test_gc_spam_file_many]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -11363,6 +11480,7 @@ defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -11393,6 +11511,7 @@ defines.SIZE = [
 ]
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 32',
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -11475,6 +11594,7 @@ code = '''
 [cases.test_gc_spam_file_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -11485,6 +11605,7 @@ defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -11518,6 +11639,7 @@ defines.SEED = 42
 fuzz = 'SEED'
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 16',
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -11736,6 +11858,7 @@ code = '''
 [cases.test_gc_spam_fwrite_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -11746,6 +11869,7 @@ defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -11786,6 +11910,7 @@ if = [
     'CHUNK <= SIZE',
     # this just saves testing time
     'SIZE <= 4*1024*GRAIN_SIZE',
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -11915,6 +12040,7 @@ code = '''
 [cases.test_gc_spam_uz_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -11925,6 +12051,7 @@ defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -11960,6 +12087,7 @@ defines.SEED = 42
 fuzz = 'SEED'
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 16',
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',
@@ -12387,6 +12515,7 @@ code = '''
 [cases.test_gc_spam_uzd_fuzz]
 defines.MKCONSISTENT = [false, true]
 defines.LOOKAHEAD = [false, true]
+defines.LOOKGBMAP = [false, true]
 defines.PREERASE = [false, true]
 defines.COMPACTMETA = [false, true]
 defines.CKMETA = [false, true]
@@ -12397,6 +12526,7 @@ defines.REQUESTCK = [false, true]
 defines.GC_FLAGS = '''
     ((MKCONSISTENT) ? LFS3_GC_MKCONSISTENT : 0)
         | ((LOOKAHEAD) ? LFS3_GC_LOOKAHEAD : 0)
+        | ((LOOKGBMAP) ? LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, -1) : 0)
         | ((PREERASE) ? LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, -1) : 0)
         | ((COMPACTMETA) ? LFS3_GC_COMPACTMETA : 0)
         | ((CKMETA) ? LFS3_GC_CKMETA : 0)
@@ -12432,6 +12562,7 @@ defines.SEED = 42
 fuzz = 'SEED'
 if = [
     '(SIZE*N)/BLOCK_SIZE <= 16',
+    'LFS3_IFDEF_GBMAP(true, !LOOKGBMAP)',
     'LFS3_IFDEF_PREERASE(true, !PREERASE)',
     'GBMAP || !PREERASE',
     'LFS3_IFDEF_REPAIR(true, !REPAIRMETA)',

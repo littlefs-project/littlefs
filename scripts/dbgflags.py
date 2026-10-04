@@ -45,14 +45,14 @@ O_APPEND        = 0x00000020  # --  Move to end of file on every write
 O_FLUSH         = 0x00000040  # y-  Flush data on every write
 O_SYNC          = 0x00000080  # y-  Sync metadata on every write
 O_GRANULAR      = 0x00000100  # y-  Only write grains
-O_DESYNC        = 0x02000000  # --  Do not sync or recieve file updates
+O_DESYNC        = 0x00100000  # --  Do not sync or recieve file updates
 
-O_CKMETA        = 0x00100000  # --  Check metadata checksums
-O_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-O_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
-O_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
-O_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
-O_REPAIR        = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
+O_CKMETA        = 0x01000000  # --  Check metadata checksums
+O_CKDATA        = 0x02000000  # --  Check metadata + data checksums
+O_CK            = 0x03000000  # -a  Alias for CKMETA + CKDATA
+O_REPAIRMETA    = 0x04000000  # --  Repair metadata damage
+O_REPAIRDATA    = 0x08000000  # --  Repair metadata + data damage
+O_REPAIR        = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
 
 o_SET           = 0x00008000  # i-  Atomically write file data
 o_TYPE          = 0xf0000000  # im  The file's type
@@ -64,9 +64,9 @@ o_ORPHAN        = 0x50000000  # i^  Type = orphan
 o_TRV           = 0x60000000  # i^  Type = traversal
 o_GC            = 0x70000000  # i^  Type = gc
 o_UNKNOWN       = 0x80000000  # i^  Type = unknown
-o_ZOMBIE        = 0x08000000  # i-  File has been removed
-o_UNCREAT       = 0x04000000  # i-  File does not exist yet
-o_UNSYNC        = 0x01000000  # i-  File's metadata does not match disk
+o_ZOMBIE        = 0x00400000  # i-  File has been removed
+o_UNCREAT       = 0x00200000  # i-  File does not exist yet
+o_UNSYNC        = 0x00080000  # i-  File's metadata does not match disk
 o_UNCRYST       = 0x00040000  # i-  File's leaf not fully crystallized
 o_UNGRAFT       = 0x00020000  # i-  File's leaf does not match disk
 o_UNFLUSH       = 0x00010000  # i-  File's cache does not match disk
@@ -88,21 +88,21 @@ A_DIRTY         =       0x80  # --  Write attr on next sync
 
 # File/filesystem check flags
 CK_MTREEONLY    = 0x00000004  # --  Only traverse the mtree
-CK_CKMETA       = 0x00100000  # --  Check metadata checksums
-CK_CKDATA       = 0x00200000  # --  Check metadata + data checksums
-CK_CK           = 0x00300000  # -a  Alias for CKMETA + CKDATA
+CK_CKMETA       = 0x01000000  # --  Check metadata checksums
+CK_CKDATA       = 0x02000000  # --  Check metadata + data checksums
+CK_CK           = 0x03000000  # -a  Alias for CKMETA + CKDATA
 
 # File/filesystem repair flags
 REPAIR_MTREEONLY \
                 = 0x00000004  # --  Only traverse the mtree
-REPAIR_CKMETA   = 0x00100000  # --  Check metadata checksums
-REPAIR_CKDATA   = 0x00200000  # --  Check metadata + data checksums
-REPAIR_CK       = 0x00300000  # -a  Alias for CKMETA + CKDATA
+REPAIR_CKMETA   = 0x01000000  # --  Check metadata checksums
+REPAIR_CKDATA   = 0x02000000  # --  Check metadata + data checksums
+REPAIR_CK       = 0x03000000  # -a  Alias for CKMETA + CKDATA
 REPAIR_REPAIRMETA \
-                = 0x00400000  # --  Repair metadata damage
+                = 0x04000000  # --  Repair metadata damage
 REPAIR_REPAIRDATA \
-                = 0x00800000  # --  Repair metadata + data damage
-REPAIR_REPAIR   = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
+                = 0x08000000  # --  Repair metadata + data damage
+REPAIR_REPAIR   = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
 
 # Filesystem format flags
 F_MODE          =          1  # -m  Format's access mode
@@ -110,17 +110,18 @@ F_RDWR          =          0  # -^  Format the filesystem as read and write
 F_GBMAP         = 0x00000008  # y-  Use the global on-disk block-map
 
 F_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
-F_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
-F_PREERASE      = 0x00040000  # --  Try to pre-erase free blocks
-F_COMPACTMETA   = 0x00080000  # --  Compact metadata logs
-F_COMPACT       = 0x00080000  # -a  Alias for COMPACTMETA
-F_CKMETA        = 0x00100000  # --  Check metadata checksums
-F_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-F_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
-F_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
-F_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
-F_REPAIR        = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
-F_GC            = 0x00ff0000  # -a  Alias for all gc work
+F_LOOKAHEAD     = 0x00100000  # --  Repopulate lookahead buffer
+F_LOOKGBMAP     = 0x00200000  # --  Repopulate the gbmap
+F_PREERASE      = 0x00400000  # --  Try to pre-erase free blocks
+F_COMPACTMETA   = 0x00800000  # --  Compact metadata logs
+F_COMPACT       = 0x00800000  # -a  Alias for COMPACTMETA
+F_CKMETA        = 0x01000000  # --  Check metadata checksums
+F_CKDATA        = 0x02000000  # --  Check metadata + data checksums
+F_CK            = 0x03000000  # -a  Alias for CKMETA + CKDATA
+F_REPAIRMETA    = 0x04000000  # --  Repair metadata damage
+F_REPAIRDATA    = 0x08000000  # --  Repair metadata + data damage
+F_REPAIR        = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
+F_GC            = 0x0ff10000  # -a  Alias for all gc work
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -131,17 +132,18 @@ M_SYNC          = 0x00000080  # y-  Open all files with LFS3_O_SYNC
 M_GRANULAR      = 0x00000100  # y-  Open all files with LFS3_O_GRANULAR
 
 M_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
-M_LOOKAHEAD     = 0x00020000  # --  Repopulate lookahead buffer
-M_PREERASE      = 0x00040000  # --  Try to pre-erase free blocks
-M_COMPACTMETA   = 0x00080000  # --  Compact metadata logs
-M_COMPACT       = 0x00080000  # -a  Alias for COMPACTMETA
-M_CKMETA        = 0x00100000  # --  Check metadata checksums
-M_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-M_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
-M_REPAIRMETA    = 0x00400000  # --  Repair metadata damage
-M_REPAIRDATA    = 0x00800000  # --  Repair metadata + data damage
-M_REPAIR        = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
-M_GC            = 0x00ff0000  # -a  Alias for all gc work
+M_LOOKAHEAD     = 0x00100000  # --  Repopulate lookahead buffer
+M_LOOKGBMAP     = 0x00200000  # --  Repopulate the gbmap
+M_PREERASE      = 0x00400000  # --  Try to pre-erase free blocks
+M_COMPACTMETA   = 0x00800000  # --  Compact metadata logs
+M_COMPACT       = 0x00800000  # -a  Alias for COMPACTMETA
+M_CKMETA        = 0x01000000  # --  Check metadata checksums
+M_CKDATA        = 0x02000000  # --  Check metadata + data checksums
+M_CK            = 0x03000000  # -a  Alias for CKMETA + CKDATA
+M_REPAIRMETA    = 0x04000000  # --  Repair metadata damage
+M_REPAIRDATA    = 0x08000000  # --  Repair metadata + data damage
+M_REPAIR        = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
+M_GC            = 0x0ff10000  # -a  Alias for all gc work
 
 # Revision count flags
 REV_REVPERTURB        = 0x01  # y-  Perturb first bit in revision counts
@@ -167,30 +169,31 @@ I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
 I_GRANULAR      = 0x00000100  # --  Mounted with LFS3_M_GRANULAR
 
 I_MKCONSISTENT  = 0x00010000  # --  Filesystem needs mkconsistent to write
-I_LOOKAHEAD     = 0x00020000  # --  Lookahead buffer is not full
-I_PREERASE      = 0x00040000  # --  Blocks can be pre-erased
-I_COMPACTMETA   = 0x00080000  # --  Filesystem may have uncompacted metadata
-I_CKMETA        = 0x00100000  # --  Metadata checksums not checked recently
-I_CKDATA        = 0x00200000  # --  Data checksums not checked recently
-I_REPAIRMETA    = 0x00400000  # --  Metadata blocks need repair
-I_REPAIRDATA    = 0x00800000  # --  Data blocks need repair
+I_LOOKAHEAD     = 0x00100000  # --  Lookahead buffer is not full
+I_LOOKGBMAP     = 0x00200000  # --  The gbmap is not full
+I_PREERASE      = 0x00400000  # --  Blocks can be pre-erased
+I_COMPACTMETA   = 0x00800000  # --  Filesystem may have uncompacted metadata
+I_CKMETA        = 0x01000000  # --  Metadata checksums not checked recently
+I_CKDATA        = 0x02000000  # --  Data checksums not checked recently
+I_REPAIRMETA    = 0x04000000  # --  Metadata blocks need repair
+I_REPAIRDATA    = 0x08000000  # --  Data blocks need repair
 
-I_GRMOVERFLOW   = 0x08000000  # --  Global remove queue overflowed
+I_GRMOVERFLOW   = 0x00020000  # --  Global remove queue overflowed
 I_DAMAGEDPROG   = 0x10000000  # --  Found damage during prog
 I_DAMAGEDREAD   = 0x20000000  # --  Found damage during read
 I_CONDEMNED     = 0x40000000  # --  Found condemned blocks
 I_EVICTOVERFLOW = 0x80000000  # --  Evict queue overflowed
 
 i_MAYBEORPHANS  = 0x00010000  # i-  Filesystem may have orphaned stickynotes
-i_GCCKPOINTED   = 0x00020000  # i-  Gc has ckpointed allocators
-i_SHRINKING     = 0x04000000  # i-  Filesystem is being shrunk
+i_GCCKPOINTED   = 0x00100000  # i-  Gc has ckpointed allocators
+i_SHRINKING     = 0x00040000  # i-  Filesystem is being shrunk
 
 # Traversal flags
 T_MTREEONLY     = 0x00000004  # --  Only traverse the mtree
 T_EXCL          = 0x00000008  # --  Error if filesystem modified
-T_CKMETA        = 0x00100000  # --  Check metadata checksums
-T_CKDATA        = 0x00200000  # --  Check metadata + data checksums
-T_CK            = 0x00300000  # -a  Alias for CKMETA + CKDATA
+T_CKMETA        = 0x01000000  # --  Check metadata checksums
+T_CKDATA        = 0x02000000  # --  Check metadata + data checksums
+T_CK            = 0x03000000  # -a  Alias for CKMETA + CKDATA
 
 t_TYPE          = 0xf0000000  # im  The traversal's type
 t_REG           = 0x10000000  # i^  Type = regular-file
@@ -201,35 +204,36 @@ t_ORPHAN        = 0x50000000  # i^  Type = orphan
 t_TRV           = 0x60000000  # i^  Type = traversal
 t_GC            = 0x70000000  # i^  Type = gc
 t_UNKNOWN       = 0x80000000  # i^  Type = unknown
-t_BTYPE         = 0x000000f0  # im  The current block type
-t_MDIR          = 0x00000010  # i^  Btype = mdir
-t_BTREE         = 0x00000020  # i^  Btype = btree
-t_DATA          = 0x00000030  # i^  Btype = data
-t_BAD           = 0x00000070  # i^  Btype = bad
-t_MUTATED       = 0x08000000  # i-  Filesystem ckpointed during traversal
-t_DIRTY         = 0x04000000  # i-  Filesystem ckpointed outside traversal
-t_STALE         = 0x02000000  # i-  Block queue probably out-of-date
-t_DAMAGED       = 0x01000000  # i-  Filesystem damaged during traversal
+t_BTYPE         = 0x00000f00  # im  The current block type
+t_MDIR          = 0x00000100  # i^  Btype = mdir
+t_BTREE         = 0x00000200  # i^  Btype = btree
+t_DATA          = 0x00000300  # i^  Btype = data
+t_BAD           = 0x00000700  # i^  Btype = bad
+t_MUTATED       = 0x00008000  # i-  Filesystem ckpointed during traversal
+t_DIRTY         = 0x00004000  # i-  Filesystem ckpointed outside traversal
+t_STALE         = 0x00002000  # i-  Block queue probably out-of-date
+t_DAMAGED       = 0x00001000  # i-  Filesystem damaged during traversal
 
 # GC flags
 GC_EXCL         = 0x00000008  # --  Error if filesystem modified
 
 GC_MKCONSISTENT = 0x00010000  # --  Make the filesystem consistent
-GC_LOOKAHEAD    = 0x00020000  # --  Repopulate lookahead buffer
-GC_PREERASE     = 0x00040000  # --  Try to pre-erase free blocks
-GC_COMPACTMETA  = 0x00080000  # --  Compact metadata logs
-GC_COMPACT      = 0x00080000  # -a  Alias for COMPACTMETA
-GC_CKMETA       = 0x00100000  # --  Check metadata checksums
-GC_CKDATA       = 0x00200000  # --  Check metadata + data checksums
-GC_CK           = 0x00300000  # -a  Alias for CKMETA + CKDATA
-GC_REPAIRMETA   = 0x00400000  # --  Repair metadata damage
-GC_REPAIRDATA   = 0x00800000  # --  Repair metadata + data damage
-GC_REPAIR       = 0x00c00000  # -a  Alias for REPAIRMETA + REPAIRDATA
-GC_GC           = 0x00ff0000  # -a  Alias for all gc work
+GC_LOOKAHEAD    = 0x00100000  # --  Repopulate lookahead buffer
+GC_LOOKGBMAP    = 0x00200000  # --  Repopulate the gbmap
+GC_PREERASE     = 0x00400000  # --  Try to pre-erase free blocks
+GC_COMPACTMETA  = 0x00800000  # --  Compact metadata logs
+GC_COMPACT      = 0x00800000  # -a  Alias for COMPACTMETA
+GC_CKMETA       = 0x01000000  # --  Check metadata checksums
+GC_CKDATA       = 0x02000000  # --  Check metadata + data checksums
+GC_CK           = 0x03000000  # -a  Alias for CKMETA + CKDATA
+GC_REPAIRMETA   = 0x04000000  # --  Repair metadata damage
+GC_REPAIRDATA   = 0x08000000  # --  Repair metadata + data damage
+GC_REPAIR       = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
+GC_GC           = 0x0ff10000  # -a  Alias for all gc work
 
-gc_EVICTMETA    = 0x00400000  # i-  Evict metadata blocks
-gc_EVICTDATA    = 0x00800000  # i-  Evict metadata + data blocks
-gc_EVICT        = 0x00c00000  # ia  Alias for EVICTMETA + EVICTDATA
+gc_EVICTMETA    = 0x04000000  # i-  Evict metadata blocks
+gc_EVICTDATA    = 0x08000000  # i-  Evict metadata + data blocks
+gc_EVICT        = 0x0c000000  # ia  Alias for EVICTMETA + EVICTDATA
 gc_TYPE         = 0xf0000000  # im  The gc's type
 gc_REG          = 0x10000000  # i^  Type = regular-file
 gc_DIR          = 0x20000000  # i^  Type = directory
