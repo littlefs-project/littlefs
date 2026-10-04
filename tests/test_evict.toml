@@ -17958,8 +17958,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -17994,8 +17995,9 @@ code = '''
     // DAMAGED sticks around (and maybe CONDEMNED)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18132,8 +18134,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18167,8 +18170,9 @@ code = '''
     // DAMAGED sticks around (and maybe CONDEMNED)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18309,8 +18313,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18347,8 +18352,9 @@ code = '''
     // DAMAGED sticks around (and maybe CONDEMNED)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18487,8 +18493,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18524,8 +18531,9 @@ code = '''
     // DAMAGED sticks around (and maybe CONDEMNED)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18662,8 +18670,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18699,8 +18708,9 @@ code = '''
     // DAMAGED sticks around (and maybe CONDEMNED)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18826,8 +18836,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18863,8 +18874,9 @@ code = '''
     // DAMAGED sticks around (and maybe CONDEMNED)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -18995,8 +19007,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19034,8 +19047,9 @@ code = '''
     // DAMAGED sticks around (and maybe CONDEMNED)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19163,8 +19177,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19202,8 +19217,9 @@ code = '''
     // DAMAGED sticks around (and maybe CONDEMNED)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19325,8 +19341,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19447,8 +19464,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19569,8 +19587,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19691,8 +19710,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19836,8 +19856,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -19865,8 +19886,9 @@ code = '''
     // LFS3_I_REPAIRMETA should be cleared (but not fixed)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -20007,8 +20029,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -20035,8 +20058,9 @@ code = '''
     // LFS3_I_REPAIRDATA should be cleared (but not fixed)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -20181,8 +20205,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -20213,8 +20238,9 @@ code = '''
     // LFS3_I_REPAIRMETA should be cleared (but not fixed)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -20357,8 +20383,9 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -20388,8 +20415,9 @@ code = '''
     // LFS3_I_REPAIRDATA should be cleared (but not fixed)
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((!GBMAP || (fsinfo.flags & LFS3_I_LOOKAHEAD))
-                    ? LFS3_I_LOOKAHEAD
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
                     : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
