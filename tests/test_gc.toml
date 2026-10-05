@@ -5831,12 +5831,12 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
-    lfs3.gc.wflags = 0;
+    lfs3.gc.tflags = 0;
 
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_LOOKAHEAD);
+    assert(lfs3.gc.tflags & LFS3_GC_LOOKAHEAD);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "spider",
@@ -5848,7 +5848,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_GC_LOOKAHEAD) {
+    while (lfs3.gc.tflags & LFS3_GC_LOOKAHEAD) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -6092,12 +6092,12 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_LOOKGBMAP);
-    lfs3.gc.wflags = 0;
+    lfs3.gc.tflags = 0;
 
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_LOOKGBMAP);
+    assert(lfs3.gc.tflags & LFS3_GC_LOOKGBMAP);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "spider",
@@ -6109,7 +6109,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_GC_LOOKGBMAP) {
+    while (lfs3.gc.tflags & LFS3_GC_LOOKGBMAP) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -6780,14 +6780,14 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_COMPACTMETA);
-    lfs3.gc.wflags = 0;
+    lfs3.gc.tflags = 0;
 
     // run GC one traversal + until compacting
     while (true) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        if (!(lfs3.gc.wflags & LFS3_GC_COMPACTMETA)) {
+        if (!(lfs3.gc.tflags & LFS3_GC_COMPACTMETA)) {
             break;
         }
     }
@@ -6795,7 +6795,7 @@ code = '''
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        if (lfs3.gc.wflags & LFS3_GC_COMPACTMETA) {
+        if (lfs3.gc.tflags & LFS3_GC_COMPACTMETA) {
             break;
         }
     }
@@ -6809,7 +6809,7 @@ code = '''
     lfs3_file_sync(&lfs3, &file) => 0;
 
     // run GC until our traversal is done (twice for compact)
-    while (lfs3.gc.wflags & LFS3_GC_COMPACTMETA) {
+    while (lfs3.gc.tflags & LFS3_GC_COMPACTMETA) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -7122,12 +7122,12 @@ code = '''
     }
 
     // run GC until mkconsistencing
-    lfs3.gc.wflags = 0;
+    lfs3.gc.tflags = 0;
     while (true) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
 
-        if (lfs3.gc.wflags & LFS3_GC_MKCONSISTENT) {
+        if (lfs3.gc.tflags & LFS3_GC_MKCONSISTENT) {
             break;
         }
     }
@@ -7152,7 +7152,7 @@ code = '''
     assert(fsinfo.flags & LFS3_I_MKCONSISTENT);
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_GC_MKCONSISTENT) {
+    while (lfs3.gc.tflags & LFS3_GC_MKCONSISTENT) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -7352,12 +7352,12 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_CKMETA);
-    lfs3.gc.wflags = 0;
+    lfs3.gc.tflags = 0;
 
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_CKMETA);
+    assert(lfs3.gc.tflags & LFS3_GC_CKMETA);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "squid",
@@ -7369,7 +7369,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_GC_CKMETA) {
+    while (lfs3.gc.tflags & LFS3_GC_CKMETA) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -7425,12 +7425,12 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_CKDATA);
-    lfs3.gc.wflags = 0;
+    lfs3.gc.tflags = 0;
 
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_CKDATA);
+    assert(lfs3.gc.tflags & LFS3_GC_CKDATA);
 
     // mutate the filesystem
     lfs3_file_open(&lfs3, &file, "squid",
@@ -7442,7 +7442,7 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_GC_CKDATA) {
+    while (lfs3.gc.tflags & LFS3_GC_CKDATA) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -8704,7 +8704,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_gc_EVICTMETA);
+    assert(lfs3.gc.tflags & LFS3_gc_EVICTMETA);
 
     // mutate the filesystem
     //
@@ -8718,7 +8718,7 @@ code = '''
     lfs3_file_write(&lfs3, &file_, wbuf_, SIZE) => SIZE;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_gc_EVICTMETA) {
+    while (lfs3.gc.tflags & LFS3_gc_EVICTMETA) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -8821,7 +8821,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_gc_EVICTDATA);
+    assert(lfs3.gc.tflags & LFS3_gc_EVICTDATA);
 
     // mutate the filesystem
     //
@@ -8835,7 +8835,7 @@ code = '''
     lfs3_file_write(&lfs3, &file_, wbuf_, SIZE) => SIZE;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_gc_EVICTDATA) {
+    while (lfs3.gc.tflags & LFS3_gc_EVICTDATA) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -8938,7 +8938,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_gc_EVICTMETA);
+    assert(lfs3.gc.tflags & LFS3_gc_EVICTMETA);
 
     // damage a block that's unlikely to be in use
     lfs3_block_t victim_ = BLOCK_COUNT-1;
@@ -8959,13 +8959,13 @@ code = '''
     // run GC one step
     steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_gc_EVICTMETA);
+    assert(lfs3.gc.tflags & LFS3_gc_EVICTMETA);
 
     // restarted at mrootanchor?
     assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_gc_EVICTMETA) {
+    while (lfs3.gc.tflags & LFS3_gc_EVICTMETA) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9065,7 +9065,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_gc_EVICTDATA);
+    assert(lfs3.gc.tflags & LFS3_gc_EVICTDATA);
 
     // damage a block that's unlikely to be in use
     lfs3_block_t victim_ = BLOCK_COUNT-1;
@@ -9086,13 +9086,13 @@ code = '''
     // run GC one step
     steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_gc_EVICTDATA);
+    assert(lfs3.gc.tflags & LFS3_gc_EVICTDATA);
 
     // restarted at mrootanchor?
     assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & LFS3_gc_EVICTDATA) {
+    while (lfs3.gc.tflags & LFS3_gc_EVICTDATA) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9380,7 +9380,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_CKMETA);
+    assert(lfs3.gc.tflags & LFS3_GC_CKMETA);
 
     // mutate the filesystem
     //
@@ -9394,7 +9394,7 @@ code = '''
     lfs3_file_write(&lfs3, &file_, wbuf_, SIZE) => SIZE;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & (LFS3_GC_CKMETA | LFS3_gc_EVICTMETA)) {
+    while (lfs3.gc.tflags & (LFS3_GC_CKMETA | LFS3_gc_EVICTMETA)) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9490,7 +9490,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_CKDATA);
+    assert(lfs3.gc.tflags & LFS3_GC_CKDATA);
 
     // mutate the filesystem
     //
@@ -9504,7 +9504,7 @@ code = '''
     lfs3_file_write(&lfs3, &file_, wbuf_, SIZE) => SIZE;
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & (LFS3_GC_CKDATA | LFS3_gc_EVICTDATA)) {
+    while (lfs3.gc.tflags & (LFS3_GC_CKDATA | LFS3_gc_EVICTDATA)) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9602,7 +9602,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_CKMETA);
+    assert(lfs3.gc.tflags & LFS3_GC_CKMETA);
 
     // damage a block that's unlikely to be in use
     lfs3_block_t victim_ = BLOCK_COUNT-1;
@@ -9623,13 +9623,13 @@ code = '''
     // run GC one step
     steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_gc_EVICTMETA);
+    assert(lfs3.gc.tflags & LFS3_gc_EVICTMETA);
 
     // restarted at mrootanchor?
     assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & (LFS3_GC_CKMETA | LFS3_gc_EVICTMETA)) {
+    while (lfs3.gc.tflags & (LFS3_GC_CKMETA | LFS3_gc_EVICTMETA)) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
@@ -9724,7 +9724,7 @@ code = '''
     // run GC one step
     lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_GC_CKDATA);
+    assert(lfs3.gc.tflags & LFS3_GC_CKDATA);
 
     // damage a block that's unlikely to be in use
     lfs3_block_t victim_ = BLOCK_COUNT-1;
@@ -9745,13 +9745,13 @@ code = '''
     // run GC one step
     steps = lfs3_fs_gc(&lfs3);
     assert(steps >= 0);
-    assert(lfs3.gc.wflags & LFS3_gc_EVICTDATA);
+    assert(lfs3.gc.tflags & LFS3_gc_EVICTDATA);
 
     // restarted at mrootanchor?
     assert(lfs3_mdir_ismrootanchor(&lfs3.gc.t.h.mdir));
 
     // run GC until our traversal is done
-    while (lfs3.gc.wflags & (LFS3_GC_CKDATA | LFS3_gc_EVICTDATA)) {
+    while (lfs3.gc.tflags & (LFS3_GC_CKDATA | LFS3_gc_EVICTDATA)) {
         lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
         assert(steps >= 0);
     }
