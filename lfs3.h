@@ -116,16 +116,16 @@ enum lfs3_err {
 //
 enum lfs3_type {
     // file types
-    LFS3_TYPE_REG        = 1,  // A regular file
-    LFS3_TYPE_DIR        = 2,  // A directory file
-    LFS3_TYPE_STICKYNOTE = 3,  // An uncommitted file
-    LFS3_TYPE_UNKNOWN    = 8,  // Unknown file type
+    LFS3_TYPE_REG          = 1,  // A regular file
+    LFS3_TYPE_DIR          = 2,  // A directory file
+    LFS3_TYPE_STICKYNOTE   = 3,  // An uncommitted file
+    LFS3_TYPE_UNKNOWN      = 8,  // Unknown file type
 
     // internally used types, don't use these
-    LFS3_type_BOOKMARK   = 4,  // Directory bookmark
-    LFS3_type_ZOMBIENOTE = 5,  // A zombied/orphaned stickynote
-    LFS3_type_TRV        = 6,  // An open traversal object
-    LFS3_type_GC         = 7,  // An open gc object
+    LFS3_type_BOOKMARK     = 4,  // Directory bookmark
+    LFS3_type_STICKYZOMBIE = 5,  // A zombied/orphaned stickynote
+    LFS3_type_TRV          = 6,  // An open traversal object
+    LFS3_type_GC           = 7,  // An open gc object
 };
 
 // File open flags
@@ -248,7 +248,7 @@ enum lfs3_type {
 #define LFS3_F_MKNOGRM  0x00010000  // Flush the grm queue
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_F_MKNOORPHANNOTES \
+#define LFS3_F_MKNOSTICKYORPHANS \
                         0x00020000  // Clean up orphaned stickynotes
 #endif
 #ifndef LFS3_RDONLY
@@ -303,7 +303,7 @@ enum lfs3_type {
                                     // Alias for all gc work
 #define LFS3_F_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_F_MKNOGRM) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_F_MKNOORPHANNOTES) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_F_MKNOSTICKYORPHANS) \
             | LFS3_IFDEF_RDONLY(0, LFS3_F_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)) \
@@ -326,7 +326,7 @@ enum lfs3_type {
 #define LFS3_M_MKNOGRM  0x00010000  // Flush the grm queue
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_M_MKNOORPHANNOTES \
+#define LFS3_M_MKNOSTICKYORPHANS \
                         0x00020000  // Clean up orphaned stickynotes
 #endif
 #ifndef LFS3_RDONLY
@@ -375,7 +375,7 @@ enum lfs3_type {
                                     // Alias for all gc work
 #define LFS3_M_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOGRM) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOORPHANNOTES) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOSTICKYORPHANS) \
             | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0)) \
@@ -437,7 +437,7 @@ enum lfs3_type {
 #define LFS3_I_MKNOGRM  0x00010000  // The grm queue is not empty
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_I_MKNOORPHANNOTES \
+#define LFS3_I_MKNOSTICKYORPHANS \
                         0x00020000  // Filesystem may have orphaned stickynotes
 #endif
 #ifndef LFS3_RDONLY
@@ -537,7 +537,7 @@ enum lfs3_btype {
 #define LFS3_GC_MKNOGRM 0x00010000  // Flush the grm queue
 #endif
 #ifndef LFS3_RDONLY
-#define LFS3_GC_MKNOORPHANNOTES \
+#define LFS3_GC_MKNOSTICKYORPHANS \
                         0x00020000  // Clean up orphaned stickynotes
 #endif
 #ifndef LFS3_RDONLY
@@ -600,7 +600,7 @@ enum lfs3_btype {
                                     // Alias for all gc work
 #define LFS3_GC_GC ( \
         LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOGRM) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOORPHANNOTES) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOSTICKYORPHANS) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)) \
@@ -1142,7 +1142,7 @@ enum lfs3_tag {
     LFS3_TAG_STICKYNOTE     = 0x0403,   //  v--- -1-- +--- --11
     LFS3_TAG_BOOKMARK       = 0x0404,   //  v--- -1-- +--- -1--
     // in-device only name tags, these should never get written to disk
-    LFS3_tag_ZOMBIENOTE     = 0x0405,
+    LFS3_tag_STICKYZOMBIE   = 0x0405,
     LFS3_tag_TRV            = 0x0406,
     LFS3_tag_GC             = 0x0407,
     LFS3_tag_UNKNOWN        = 0x0408,
