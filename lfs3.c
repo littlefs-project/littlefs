@@ -8557,14 +8557,14 @@ static lfs3_tag_t lfs3_mdir_nametag(const lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     // same semantics, and this makes it easier to manage the implied
     // mid gap in higher-levels
     if (lfs3_grm_needsrm(&lfs3->grm, mid)) {
-        return LFS3_tag_ZOMBIENOTE;
+        return LFS3_tag_STICKYZOMBIE;
 
     // if we find a stickynote, check to see if there are any open
     // in-sync file handles to decide if it really exists
     } else if (tag == LFS3_TAG_STICKYNOTE
             && !lfs3_mid_isopen(lfs3, mid,
                 ~(LFS3_o_ZOMBIE | LFS3_O_DESYNC))) {
-        return LFS3_tag_ZOMBIENOTE;
+        return LFS3_tag_STICKYZOMBIE;
 
     // map unknown types -> LFS3_tag_UNKNOWN, this simplifies higher
     // levels and prevents collisions with internal types
@@ -10378,7 +10378,7 @@ static lfs3_stag_t lfs3_mtree_pathlookup(lfs3_t *lfs3, const char **path,
 
         // only continue if we hit a directory
         if (tag != LFS3_TAG_DIR) {
-            return (tag == LFS3_tag_ZOMBIENOTE)
+            return (tag == LFS3_tag_STICKYZOMBIE)
                     ? LFS3_ERR_NOENT
                     : LFS3_ERR_NOTDIR;
         }
@@ -11391,7 +11391,8 @@ static int lfs3_mtree_condemnevicted(lfs3_t *lfs3, uint32_t flags) {
 
 
 // needed in lfs3_mtree_gc
-static int lfs3_mtree_mknoorphannotesmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir);
+static int lfs3_mtree_mknostickyorphansmdir(lfs3_t *lfs3,
+        lfs3_mdir_t *mdir);
 static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3);
 static inline void lfs3_alloc_discard_(lfs3_t *lfs3);
@@ -11576,18 +11577,18 @@ again:;
     }
     #endif
 
-    // mknoorphannoting mdirs?
+    // mknostickyorphaning mdirs?
     #ifndef LFS3_RDONLY
     if (tag == LFS3_TAG_MDIR
-            && (mgc->tflags & LFS3_GC_MKNOORPHANNOTES)
-            && (lfs3->flags & LFS3_I_MKNOORPHANNOTES)) {
+            && (mgc->tflags & LFS3_GC_MKNOSTICKYORPHANS)
+            && (lfs3->flags & LFS3_I_MKNOSTICKYORPHANS)) {
         lfs3_mdir_t *mdir = (lfs3_mdir_t*)bptr_->d.u.buffer;
         // grm queue should be flushed before calling lfs3_mtree_gc
         LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
         uint32_t dirty = mgc->t.h.flags;
         // fix any orphans in the mdir
-        int err = lfs3_mtree_mknoorphannotesmdir(lfs3, mdir);
+        int err = lfs3_mtree_mknostickyorphansmdir(lfs3, mdir);
         if (err) {
             return err;
         }
@@ -11704,11 +11705,11 @@ eot:;
     }
     #endif
 
-    // was mknoorphannotes successful?
+    // was mknostickyorphans successful?
     #ifndef LFS3_RDONLY
-    if ((mgc->tflags & LFS3_GC_MKNOORPHANNOTES)
+    if ((mgc->tflags & LFS3_GC_MKNOSTICKYORPHANS)
             && !(mgc->t.h.flags & LFS3_t_DIRTY)) {
-        lfs3->flags &= ~LFS3_I_MKNOORPHANNOTES;
+        lfs3->flags &= ~LFS3_I_MKNOSTICKYORPHANS;
     }
     #endif
 
@@ -11769,7 +11770,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     for (; steps < 0 || i < lfs3_max(steps, 1); i = lfs3_ssadd(i, 1)) {
         // do we have any pending traversal work?
         uint32_t tflags = ((mgc->t.h.flags
-                        & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOORPHANNOTES)
+                        & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOSTICKYORPHANS)
                             | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                             | LFS3_IFDEF_RDONLY(0,
                                 LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0))
@@ -11786,7 +11787,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                         LFS3_IFDEF_REPAIR(
                             (mgc->t.h.flags
                                     & (LFS3_GC_MKNOGRM
-                                        | LFS3_GC_MKNOORPHANNOTES
+                                        | LFS3_GC_MKNOSTICKYORPHANS
                                         | LFS3_IFDEF_GBMAP(
                                             LFS3_GC_LOOKGBMAP,
                                             0)
@@ -11816,7 +11817,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                             0)))
                 // mask with pending flags
                 & ((lfs3->flags
-                        & (LFS3_I_MKNOORPHANNOTES
+                        & (LFS3_I_MKNOSTICKYORPHANS
                             | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
                             | LFS3_GC_CKMETA
                             | LFS3_GC_CKDATA
@@ -11842,7 +11843,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // state
         #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
         if (tflags & (LFS3_gc_EVICTMETA | LFS3_gc_EVICTDATA)) {
-            tflags &= ~(LFS3_GC_MKNOORPHANNOTES
+            tflags &= ~(LFS3_GC_MKNOSTICKYORPHANS
                     | LFS3_GC_LOOKAHEAD
                     | LFS3_GC_COMPACTMETA
                     // ckmeta/data is questionable here, but useful for
@@ -11860,7 +11861,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         if (tflags
                 & (LFS3_GC_LOOKAHEAD
                     | LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0))) {
-            tflags &= ~(LFS3_GC_MKNOORPHANNOTES
+            tflags &= ~(LFS3_GC_MKNOSTICKYORPHANS
                     | LFS3_GC_COMPACTMETA);
         }
         #endif
@@ -11879,9 +11880,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         // we need to flush the grm queue before other mkconsistency
         // work as orphans can be grmed and we don't support that
         #ifndef LFS3_RDONLY
-        if ((tflags & (LFS3_GC_MKNOGRM | LFS3_GC_MKNOORPHANNOTES))
+        if ((tflags & (LFS3_GC_MKNOGRM | LFS3_GC_MKNOSTICKYORPHANS))
                 && lfs3_grm_count(&lfs3->grm) > 0) {
-            tflags &= ~(LFS3_GC_MKNOORPHANNOTES
+            tflags &= ~(LFS3_GC_MKNOSTICKYORPHANS
                     // also compactmeta, because mkconsistent can
                     // uncompact things
                     | LFS3_GC_COMPACTMETA);
@@ -11965,9 +11966,9 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
         } else if (LFS3_IFDEF_RDONLY(false,
                 (mgc->t.h.flags
                         & (LFS3_GC_MKNOGRM
-                            // mknoorphannotes implies mknogrm,
+                            // mknostickyorphans implies mknogrm,
                             // otherwise we risk outdating the grm
-                            | LFS3_GC_MKNOORPHANNOTES))
+                            | LFS3_GC_MKNOSTICKYORPHANS))
                     && lfs3_grm_count(&lfs3->grm) > 0)) {
             #ifndef LFS3_RDONLY
             // fix pending grms
@@ -12132,11 +12133,12 @@ static int lfs3_mtree_mknogrm(lfs3_t *lfs3) {
 // avoid renaming this into the lfs3_mdir_ namespace, no other
 // lfs3_mdir_ function ckpoints allocators
 #ifndef LFS3_RDONLY
-static int lfs3_mtree_mknoorphannotesmdir(lfs3_t *lfs3, lfs3_mdir_t *mdir) {
+static int lfs3_mtree_mknostickyorphansmdir(lfs3_t *lfs3,
+        lfs3_mdir_t *mdir) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // grm queue should be flushed before calling
-    // lfs3_mtree_mknoorphannotesmdir
+    // lfs3_mtree_mknostickyorphansmdir
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
     // save the current mid
@@ -12198,20 +12200,20 @@ failed:;
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_mtree_mknoorphannotes(lfs3_t *lfs3) {
+static int lfs3_mtree_mknostickyorphans(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
     // grm queue should be flushed before calling
-    // lfs3_mtree_mknoorphannotes
+    // lfs3_mtree_mknostickyorphans
     LFS3_ASSERT(lfs3_grm_count(&lfs3->grm) == 0);
 
     // already proven no orphans?
-    if (!(lfs3->flags & LFS3_I_MKNOORPHANNOTES)) {
+    if (!(lfs3->flags & LFS3_I_MKNOSTICKYORPHANS)) {
         return 0;
     }
 
     // run gc to clean up orphans
-    return lfs3_fs_gc_(lfs3, LFS3_GC_MKNOORPHANNOTES);
+    return lfs3_fs_gc_(lfs3, LFS3_GC_MKNOSTICKYORPHANS);
 }
 #endif
 
@@ -12241,7 +12243,7 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     // this must happen after mknogrm, since removing orphaned
     // stickynotes risks outdating the grm
     //
-    err = lfs3_mtree_mknoorphannotes(lfs3);
+    err = lfs3_mtree_mknostickyorphans(lfs3);
     if (err) {
         return err;
     }
@@ -13488,7 +13490,7 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
         return tag;
     }
     // already exists? pretend zombies/orphans don't exist
-    if (tag != LFS3_ERR_NOENT && tag != LFS3_tag_ZOMBIENOTE) {
+    if (tag != LFS3_ERR_NOENT && tag != LFS3_tag_STICKYZOMBIE) {
         return LFS3_ERR_EXIST;
     }
 
@@ -13740,7 +13742,7 @@ int lfs3_remove(lfs3_t *lfs3, const char *path) {
         return tag;
     }
     // pretend zombies/orphans don't exist
-    if (tag == LFS3_tag_ZOMBIENOTE) {
+    if (tag == LFS3_tag_STICKYZOMBIE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -13877,7 +13879,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         return old_tag;
     }
     // pretend zombie/orphans don't exist
-    if (old_tag == LFS3_tag_ZOMBIENOTE) {
+    if (old_tag == LFS3_tag_STICKYZOMBIE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -13925,7 +13927,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
         if (old_tag == LFS3_TAG_DIR
                 && new_tag != LFS3_TAG_DIR
                 // pretend zombies/orphans don't exist
-                && new_tag != LFS3_tag_ZOMBIENOTE) {
+                && new_tag != LFS3_tag_STICKYZOMBIE) {
             return LFS3_ERR_NOTDIR;
         }
 
@@ -13989,7 +13991,7 @@ int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
             LFS3_RATTR_ARG(new_path),
             // update number of stickynotes
             (new_tag == LFS3_TAG_STICKYNOTE
-                    || new_tag == LFS3_tag_ZOMBIENOTE)
+                    || new_tag == LFS3_tag_STICKYZOMBIE)
                 ? LFS3_RATTR(LFS3_tag_STICKYDEC, 0, 0)
                 : LFS3_RATTR(LFS3_tag_NOOP, 0, 0),
             LFS3_RATTR(LFS3_tag_MOVE, 0, 1),
@@ -14116,7 +14118,7 @@ int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info) {
         return tag;
     }
     // pretend zombies/orphans don't exist
-    if (tag == LFS3_tag_ZOMBIENOTE) {
+    if (tag == LFS3_tag_STICKYZOMBIE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -14152,7 +14154,7 @@ int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
         return tag;
     }
     // pretend zombies/orphans don't exist
-    if (tag == LFS3_tag_ZOMBIENOTE) {
+    if (tag == LFS3_tag_STICKYZOMBIE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -14255,7 +14257,7 @@ int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
         }
 
         // skip zombies/orphans, we pretend these don't exist
-        if (tag == LFS3_tag_ZOMBIENOTE) {
+        if (tag == LFS3_tag_STICKYZOMBIE) {
             dir->h.mdir.mid += 1;
             continue;
         }
@@ -14367,7 +14369,7 @@ static int lfs3_lookupattr(lfs3_t *lfs3, const char *path, uint8_t type,
         return tag;
     }
     // pretend zombies/orphans don't exist
-    if (tag == LFS3_tag_ZOMBIENOTE) {
+    if (tag == LFS3_tag_STICKYZOMBIE) {
         return LFS3_ERR_NOENT;
     }
 
@@ -14834,7 +14836,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     // creating a new entry?
     if (LFS3_IFDEF_RDONLY(
             false,
-            (tag == LFS3_ERR_NOENT || tag == LFS3_tag_ZOMBIENOTE)
+            (tag == LFS3_ERR_NOENT || tag == LFS3_tag_STICKYZOMBIE)
                 && (file->h.flags & LFS3_O_CREAT))) {
         #ifndef LFS3_RDONLY
         // we'd better not be rdonly
@@ -14859,7 +14861,8 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         #endif
 
     // existing entry?
-    } else if (!(tag == LFS3_ERR_NOENT || tag == LFS3_tag_ZOMBIENOTE)) {
+    } else if (!(tag == LFS3_ERR_NOENT
+            || tag == LFS3_tag_STICKYZOMBIE)) {
         #ifndef LFS3_RDONLY
         // wanted to create a new entry?
         if (file->h.flags & LFS3_O_EXCL) {
@@ -15080,7 +15083,7 @@ static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
                         2);
             }
 
-            lfs3->flags |= LFS3_I_MKNOORPHANNOTES | LFS3_I_GRMOVERFLOW;
+            lfs3->flags |= LFS3_I_MKNOSTICKYORPHANS | LFS3_I_GRMOVERFLOW;
         }
     }
     #endif
@@ -17491,7 +17494,7 @@ static int lfs3_init(lfs3_t *lfs3, uint32_t flags,
     #ifdef LFS3_GC
     LFS3_ASSERT((cfg->gc_flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOGRM)
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOORPHANNOTES)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOSTICKYORPHANS)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0))
@@ -18357,7 +18360,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     if (lfs3->grm.stickynotes > 0) {
         LFS3_INFO("Found orphaned stickynotes s%"PRId32,
                 lfs3->grm.stickynotes);
-        lfs3->flags |= LFS3_I_MKNOORPHANNOTES;
+        lfs3->flags |= LFS3_I_MKNOSTICKYORPHANS;
     }
 
     // found pending grms? this should only happen if we lost power
@@ -18417,7 +18420,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_M_SYNC
                 | LFS3_M_GRANULAR
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOGRM)
-                | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOORPHANNOTES)
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOSTICKYORPHANS)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0))
@@ -18440,7 +18443,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
             || !(flags & LFS3_M_MKNOGRM));
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY)
-            || !(flags & LFS3_M_MKNOORPHANNOTES));
+            || !(flags & LFS3_M_MKNOSTICKYORPHANS));
     #endif
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(flags & LFS3_M_RDONLY) 
@@ -18517,7 +18520,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
     // run gc if requested
     if (flags & (
             LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOGRM)
-                | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOORPHANNOTES)
+                | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOSTICKYORPHANS)
                 | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0))
@@ -18532,7 +18535,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))) {
         err = lfs3_fs_gc_(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOGRM)
-                    | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOORPHANNOTES)
+                    | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOSTICKYORPHANS)
                     | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
                     | LFS3_IFDEF_RDONLY(0,
                         LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0))
@@ -18749,7 +18752,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
             LFS3_F_RDWR
                 | LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, 0)
                 | LFS3_F_MKNOGRM
-                | LFS3_F_MKNOORPHANNOTES
+                | LFS3_F_MKNOSTICKYORPHANS
                 | LFS3_F_LOOKAHEAD
                 | LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)
                 | LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)
@@ -18822,7 +18825,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
     // run gc if requested
     if (flags & (
             LFS3_F_MKNOGRM
-                | LFS3_F_MKNOORPHANNOTES
+                | LFS3_F_MKNOSTICKYORPHANS
                 | LFS3_F_LOOKAHEAD
                 | LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)
                 | LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)
@@ -18833,7 +18836,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0))) {
         err = lfs3_fs_gc_(lfs3, flags & (
                 LFS3_F_MKNOGRM
-                    | LFS3_F_MKNOORPHANNOTES
+                    | LFS3_F_MKNOSTICKYORPHANS
                     | LFS3_F_LOOKAHEAD
                     | LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)
                     | LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)
@@ -18869,7 +18872,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
                     | LFS3_I_FLUSH
                     | LFS3_I_SYNC
                     | LFS3_I_GRANULAR
-                    | LFS3_I_MKNOORPHANNOTES
+                    | LFS3_I_MKNOSTICKYORPHANS
                     | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
                     | LFS3_I_CKMETA
                     | LFS3_I_CKDATA
@@ -19065,7 +19068,7 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     // unknown gc flags?
     LFS3_ASSERT((lfs3->cfg->gc_flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOGRM)
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOORPHANNOTES)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOSTICKYORPHANS)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0))
@@ -19086,7 +19089,7 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(lfs3->cfg->gc_flags & LFS3_GC_MKNOGRM));
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
-            || !(lfs3->cfg->gc_flags & LFS3_GC_MKNOORPHANNOTES));
+            || !(lfs3->cfg->gc_flags & LFS3_GC_MKNOSTICKYORPHANS));
     #endif
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
@@ -19874,7 +19877,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     LFS3_ASSERT((flags & ~(
             LFS3_GC_EXCL
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOGRM)
-                | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOORPHANNOTES)
+                | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOSTICKYORPHANS)
                 | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0))
@@ -19892,7 +19895,7 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
             || !(flags & LFS3_GC_MKNOGRM));
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)
-            || !(flags & LFS3_GC_MKNOORPHANNOTES));
+            || !(flags & LFS3_GC_MKNOSTICKYORPHANS));
     #endif
     #ifndef LFS3_RDONLY
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY)

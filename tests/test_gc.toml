@@ -4536,7 +4536,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKNOGRM : 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKNOORPHANNOTES : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKNOSTICKYORPHANS : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
@@ -4570,7 +4570,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKNOORPHANNOTES));
+    assert(!(lfs3.flags & LFS3_I_MKNOSTICKYORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -4714,7 +4714,7 @@ code = '''
     }
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
-        assert(lfs3.flags & LFS3_I_MKNOORPHANNOTES);
+        assert(lfs3.flags & LFS3_I_MKNOSTICKYORPHANS);
     }
 
     // if we introduced actual orphans, we _must_ be marked as inconsistent
@@ -4723,7 +4723,7 @@ code = '''
             ((((LOOKAHEAD && !GBMAP) || CKMETA || CKDATA) && ORPHANS > 0)
                     ? LFS3_I_MKNOGRM
                     : 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKNOORPHANNOTES : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKNOSTICKYORPHANS : 0)
                 | (((!LOOKAHEAD || ORPHANS > 0) && !GBMAP)
                     ? LFS3_I_LOOKAHEAD
                     : 0)
@@ -4838,7 +4838,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKNOGRM : 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKNOORPHANNOTES : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKNOSTICKYORPHANS : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -4870,7 +4870,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKNOORPHANNOTES));
+    assert(!(lfs3.flags & LFS3_I_MKNOSTICKYORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -4986,7 +4986,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKNOGRM : 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKNOORPHANNOTES : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKNOSTICKYORPHANS : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -5018,7 +5018,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKNOORPHANNOTES));
+    assert(!(lfs3.flags & LFS3_I_MKNOSTICKYORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -5135,7 +5135,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKNOGRM : 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKNOORPHANNOTES : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKNOSTICKYORPHANS : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -5167,7 +5167,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKNOORPHANNOTES));
+    assert(!(lfs3.flags & LFS3_I_MKNOSTICKYORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -5284,7 +5284,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKNOGRM : 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKNOORPHANNOTES : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKNOSTICKYORPHANS : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -5316,7 +5316,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKNOORPHANNOTES));
+    assert(!(lfs3.flags & LFS3_I_MKNOSTICKYORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -5455,7 +5455,7 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((ORPHANS > 0) ? LFS3_I_MKNOGRM : 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKNOORPHANNOTES : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKNOSTICKYORPHANS : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -5487,7 +5487,7 @@ code = '''
     // we should have cleaned up all grms/orphans
     assert(lfs3.grm.queue[0] == 0);
     assert(lfs3.grm.queue[1] == 0);
-    assert(!(lfs3.flags & LFS3_I_MKNOORPHANNOTES));
+    assert(!(lfs3.flags & LFS3_I_MKNOSTICKYORPHANS));
 
     // which means there shouldn't be that many files left
     assert(lfs3.mtree.weight <= (2 << lfs3.mbits));
@@ -5658,7 +5658,7 @@ code = '''
     }
     // if we introduce actual orphans, me _must not_ clear the orphan flag
     if (ORPHANS >= 3) {
-        assert(lfs3.flags & LFS3_I_MKNOORPHANNOTES);
+        assert(lfs3.flags & LFS3_I_MKNOSTICKYORPHANS);
     }
 
     //// mdirs should have been compacted
@@ -5671,7 +5671,7 @@ code = '''
             ((((LOOKAHEAD && !GBMAP) || CKMETA || CKDATA) && ORPHANS > 0)
                     ? LFS3_I_MKNOGRM
                     : 0)
-                | ((ORPHANS >= 3) ? LFS3_I_MKNOORPHANNOTES : 0)
+                | ((ORPHANS >= 3) ? LFS3_I_MKNOSTICKYORPHANS : 0)
                 | (((!LOOKAHEAD || ORPHANS > 0) && (!GBMAP))
                     ? LFS3_I_LOOKAHEAD
                     : 0)

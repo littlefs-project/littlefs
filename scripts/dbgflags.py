@@ -56,11 +56,11 @@ O_REPAIR        = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
 
 o_SET           = 0x00008000  # i-  Atomically write file data
 o_TYPE          = 0xf0000000  # im  The file's type
-o_REG           = 0x10000000  # i^  Type = regular-file
+o_REG           = 0x10000000  # i^  Type = regular file
 o_DIR           = 0x20000000  # i^  Type = directory
 o_STICKYNOTE    = 0x30000000  # i^  Type = stickynote
 o_BOOKMARK      = 0x40000000  # i^  Type = bookmark
-o_ORPHAN        = 0x50000000  # i^  Type = orphan
+o_STICKYZOMBIE  = 0x50000000  # i^  Type = zombied/orphaned stickynote
 o_TRV           = 0x60000000  # i^  Type = traversal
 o_GC            = 0x70000000  # i^  Type = gc
 o_UNKNOWN       = 0x80000000  # i^  Type = unknown
@@ -110,7 +110,7 @@ F_RDWR          =          0  # -^  Format the filesystem as read and write
 F_GBMAP         = 0x00000008  # y-  Use the global on-disk block-map
 
 F_MKNOGRM       = 0x00010000  # --  Flush the grm queue
-F_MKNOORPHANNOTES \
+F_MKNOSTICKYORPHANS \
                 = 0x00020000  # --  Clean up orphaned stickynotes
 F_MKCONSISTENT  = 0x00030000  # --  Alias for all mkconsistent work
 F_LOOKAHEAD     = 0x00100000  # --  Repopulate lookahead buffer
@@ -136,7 +136,7 @@ M_SYNC          = 0x00000080  # y-  Open all files with LFS3_O_SYNC
 M_GRANULAR      = 0x00000100  # y-  Open all files with LFS3_O_GRANULAR
 
 M_MKNOGRM       = 0x00010000  # --  Flush the grm queue
-M_MKNOORPHANNOTES \
+M_MKNOSTICKYORPHANS \
                 = 0x00020000  # --  Clean up orphaned stickynotes
 M_MKCONSISTENT  = 0x00030000  # --  Alias for all mkconsistent work
 M_LOOKAHEAD     = 0x00100000  # --  Repopulate lookahead buffer
@@ -177,7 +177,7 @@ I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
 I_GRANULAR      = 0x00000100  # --  Mounted with LFS3_M_GRANULAR
 
 I_MKNOGRM       = 0x00010000  # --  The grm queue is not empty
-I_MKNOORPHANNOTES \
+I_MKNOSTICKYORPHANS \
                 = 0x00020000  # --  Filesystem may have orphaned stickynotes
 I_MKCONSISTENT  = 0x00030000  # -a  Alias for all mkconsistent work
 I_LOOKAHEAD     = 0x00100000  # --  Lookahead buffer is not full
@@ -211,11 +211,11 @@ T_CKDATA        = 0x02000000  # --  Check metadata + data checksums
 T_CK            = 0x03000000  # -a  Alias for CKMETA + CKDATA
 
 t_TYPE          = 0xf0000000  # im  The traversal's type
-t_REG           = 0x10000000  # i^  Type = regular-file
+t_REG           = 0x10000000  # i^  Type = regular file
 t_DIR           = 0x20000000  # i^  Type = directory
 t_STICKYNOTE    = 0x30000000  # i^  Type = stickynote
 t_BOOKMARK      = 0x40000000  # i^  Type = bookmark
-t_ORPHAN        = 0x50000000  # i^  Type = orphan
+t_STICKYZOMBIE  = 0x50000000  # i^  Type = zombied/orphaned stickynote
 t_TRV           = 0x60000000  # i^  Type = traversal
 t_GC            = 0x70000000  # i^  Type = gc
 t_UNKNOWN       = 0x80000000  # i^  Type = unknown
@@ -233,7 +233,7 @@ t_DAMAGED       = 0x00001000  # i-  Filesystem damaged during traversal
 GC_EXCL         = 0x00000008  # --  Error if filesystem modified
 
 GC_MKNOGRM      = 0x00010000  # --  Flush the grm queue
-GC_MKNOORPHANNOTES \
+GC_MKNOSTICKYORPHANS \
                 = 0x00020000  # --  Clean up orphaned stickynotes
 GC_MKCONSISTENT = 0x00030000  # --  Alias for all mkconsistent work
 GC_LOOKAHEAD    = 0x00100000  # --  Repopulate lookahead buffer
@@ -254,11 +254,11 @@ gc_EVICTMETA    = 0x04000000  # i-  Evict metadata blocks
 gc_EVICTDATA    = 0x08000000  # i-  Evict metadata + data blocks
 gc_EVICT        = 0x0c000000  # ia  Alias for EVICTMETA + EVICTDATA
 gc_TYPE         = 0xf0000000  # im  The gc's type
-gc_REG          = 0x10000000  # i^  Type = regular-file
+gc_REG          = 0x10000000  # i^  Type = regular file
 gc_DIR          = 0x20000000  # i^  Type = directory
 gc_STICKYNOTE   = 0x30000000  # i^  Type = stickynote
 gc_BOOKMARK     = 0x40000000  # i^  Type = bookmark
-gc_ORPHAN       = 0x50000000  # i^  Type = orphan
+gc_STICKYZOMBIE = 0x50000000  # i^  Type = zombied/orphaned stickynote
 gc_TRV          = 0x60000000  # i^  Type = traversal
 gc_GC           = 0x70000000  # i^  Type = gc
 gc_UNKNOWN      = 0x80000000  # i^  Type = unknown
