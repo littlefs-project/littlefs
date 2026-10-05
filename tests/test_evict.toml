@@ -14075,11 +14075,11 @@ code = '''
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
         // request ck flags
-        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CK) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CK | LFS3_GC_REPAIR) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -14319,11 +14319,11 @@ code = '''
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
         // request ck flags
-        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CK) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CK | LFS3_GC_REPAIR) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -14488,11 +14488,11 @@ code = '''
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
         // request ck flags
-        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CK) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CK | LFS3_GC_REPAIR) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -14753,11 +14753,11 @@ code = '''
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
         // request ck flags
-        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CK) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CK | LFS3_GC_REPAIR) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -14983,11 +14983,11 @@ code = '''
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
         // request ck flags
-        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CK) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CK | LFS3_GC_REPAIR) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -15447,11 +15447,11 @@ code = '''
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
         // request ck flags
-        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CK) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CK | LFS3_GC_REPAIR) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);
@@ -16032,11 +16032,11 @@ code = '''
         // make bad
         lfs3_emubd_mkbad(CFG, victim) => 0;
         // request ck flags
-        lfs3_fs_requestck(&lfs3, LFS3_GC_CKDATA) => 0;
+        lfs3_fs_requestck(&lfs3, LFS3_GC_CK) => 0;
 
         // run gc to repair bad blocks
         lfs3_gc_t gc;
-        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CKDATA | LFS3_GC_REPAIRDATA) => 0;
+        lfs3_gc_open(&lfs3, &gc, LFS3_GC_CK | LFS3_GC_REPAIR) => 0;
         for (lfs3_block_t i = 0;; i++) {
             // a bit hacky, but this catches infinite loops
             assert(i < 2*BLOCK_COUNT);

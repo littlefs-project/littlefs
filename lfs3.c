@@ -11769,62 +11769,28 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
     lfs3_block_t i = 0;
     for (; steps < 0 || i < lfs3_max(steps, 1); i = lfs3_ssadd(i, 1)) {
         // do we have any pending traversal work?
-        uint32_t tflags = ((mgc->t.h.flags
-                        & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOSTICKYORPHANS)
-                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
-                            | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0))
-                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                            | LFS3_GC_CKMETA
-                            | LFS3_GC_CKDATA
-                            | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
-                            | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
-                    // if repairmetadamage/repairdatadamage is set, any
-                    // mutation implies repairmeta/repairdata
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(
-                            (mgc->t.h.flags
-                                    & (LFS3_GC_MKNOGRM
-                                        | LFS3_GC_MKNOSTICKYORPHANS
-                                        | LFS3_IFDEF_GBMAP(
-                                            LFS3_GC_LOOKGBMAP,
-                                            0)
-                                        | LFS3_IFDEF_PREERASE(
-                                            LFS3_GC_PREERASE,
-                                            0)
-                                        | LFS3_GC_COMPACTMETA))
-                                ? (LFS3_CFG_ISREPAIRMETADAMAGE(lfs3->cfg)
-                                        ? LFS3_GC_REPAIRMETA
-                                        : 0)
-                                    | (LFS3_CFG_ISREPAIRDATADAMAGE(lfs3->cfg)
-                                        ? LFS3_GC_REPAIRMETA
-                                            | LFS3_GC_REPAIRDATA
-                                        : 0)
-                                : 0,
-                            0))
-                    // ckdata implies ckmeta
-                    | ((mgc->t.h.flags & LFS3_GC_CKDATA)
-                        ? LFS3_GC_CKMETA
-                        : 0)
-                    // repairdata implies repairmeta
-                    | LFS3_IFDEF_RDONLY(0,
-                        LFS3_IFDEF_REPAIR(
-                            (mgc->t.h.flags & LFS3_GC_REPAIRDATA)
-                                ? LFS3_GC_REPAIRMETA
-                                : 0,
-                            0)))
+        uint32_t tflags = (mgc->t.h.flags
+                    & (LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOSTICKYORPHANS)
+                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD)
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0))
+                        | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
+                        | LFS3_GC_CKMETA
+                        | LFS3_GC_CKDATA
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
+                        | LFS3_IFDEF_RDONLY(0,
+                            LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
                 // mask with pending flags
                 & ((lfs3->flags
-                        & (LFS3_I_MKNOSTICKYORPHANS
-                            | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA)
-                            | LFS3_GC_CKMETA
-                            | LFS3_GC_CKDATA
+                        & (LFS3_IFDEF_RDONLY(0, LFS3_I_MKNOSTICKYORPHANS)
+                            | LFS3_IFDEF_RDONLY(0, LFS3_I_COMPACTMETA)
+                            | LFS3_I_CKMETA
+                            | LFS3_I_CKDATA
                             | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0))
+                                LFS3_IFDEF_REPAIR(LFS3_I_REPAIRMETA, 0))
                             | LFS3_IFDEF_RDONLY(0,
-                                LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0))))
+                                LFS3_IFDEF_REPAIR(LFS3_I_REPAIRDATA, 0))))
                     // including lazily evaluated flags
                     | LFS3_IFDEF_RDONLY(0,
                         (lfs3_alloc_canlookahead(lfs3))
@@ -11836,6 +11802,24 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
                                 ? LFS3_I_LOOKGBMAP
                                 : 0,
                             0)));
+
+        // if repairmetadamage/repairdatadamage is set, any mutation
+        // implies repairmeta/repairdata
+        #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
+        if (tflags
+                & (LFS3_GC_MKNOGRM
+                    | LFS3_GC_MKNOSTICKYORPHANS
+                    | LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0)
+                    | LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)
+                    | LFS3_GC_COMPACTMETA)) {
+            tflags |= (LFS3_CFG_ISREPAIRMETADAMAGE(lfs3->cfg)
+                        ? lfs3->flags & LFS3_I_REPAIRMETA
+                        : 0)
+                    | (LFS3_CFG_ISREPAIRDATADAMAGE(lfs3->cfg)
+                        ? lfs3->flags & LFS3_I_REPAIRDATA
+                        : 0);
+        }
+        #endif
 
         // prioritize known repair work above anything else
         //
