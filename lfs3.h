@@ -1552,8 +1552,8 @@ typedef struct lfs3_mtrv {
 typedef struct lfs3_mgc {
     // core traversal state
     lfs3_mtrv_t t;
-    // gc flags we're currently working on
-    uint32_t wflags;
+    // traversal flags we're currently working on
+    uint32_t tflags;
 
     #ifdef LFS3_GBMAP
     // repopulate gbmap when traversing with lookgbmap
