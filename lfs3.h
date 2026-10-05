@@ -245,8 +245,15 @@ enum lfs3_type {
 #define LFS3_F_GBMAP    0x00000008  // Use the global on-disk block-map
 #endif
 #ifndef LFS3_RDONLY
+#define LFS3_F_MKNOGRM  0x00010000  // Flush the grm queue
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_F_MKNOORPHANNOTES \
+                        0x00020000  // Clean up orphaned stickynotes
+#endif
+#ifndef LFS3_RDONLY
 #define LFS3_F_MKCONSISTENT \
-                        0x00010000  // Make the filesystem consistent
+                        0x00030000  // Alias for all mkconsistent work
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_F_LOOKAHEAD \
@@ -255,6 +262,13 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 #define LFS3_F_LOOKGBMAP \
                         0x00200000  // Repopulate the gbmap
+#endif
+#ifndef LFS3_RDONLY
+                                    // Alias for all alloc work
+#define LFS3_F_LOOK ( \
+        LFS3_F_LOOKAHEAD \
+            | LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0) \
+            | LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0))
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_F_PREERASE 0x00400000  // Try to pre-erase free blocks
@@ -286,16 +300,10 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_F_REPAIR   0x0c000000  // Alias for REPAIRMETA + REPAIRDATA
 #endif
-
-// an alias for all alloc work
-#define LFS3_F_LOOK ( \
-        LFS3_IFDEF_RDONLY(0, LFS3_F_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)))
-
-// an alias for all gc work
+                                    // Alias for all gc work
 #define LFS3_F_GC ( \
-        LFS3_IFDEF_RDONLY(0, LFS3_F_MKCONSISTENT) \
+        LFS3_IFDEF_RDONLY(0, LFS3_F_MKNOGRM) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_F_MKNOORPHANNOTES) \
             | LFS3_IFDEF_RDONLY(0, LFS3_F_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_F_LOOKGBMAP, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_F_PREERASE, 0)) \
@@ -315,8 +323,15 @@ enum lfs3_type {
 #define LFS3_M_SYNC     0x00000080  // Open all files with LFS3_O_SYNC
 #define LFS3_M_GRANULAR 0x00000100  // Open all files with LFS3_O_GRANULAR
 #ifndef LFS3_RDONLY
+#define LFS3_M_MKNOGRM  0x00010000  // Flush the grm queue
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_M_MKNOORPHANNOTES \
+                        0x00020000  // Clean up orphaned stickynotes
+#endif
+#ifndef LFS3_RDONLY
 #define LFS3_M_MKCONSISTENT \
-                        0x00010000  // Make the filesystem consistent
+                        0x00030000  // Alias for all mkconsistent work
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_LOOKAHEAD \
@@ -328,6 +343,13 @@ enum lfs3_type {
 #endif
 #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_M_PREERASE 0x00400000  // Try to pre-erase free blocks
+#endif
+#ifndef LFS3_RDONLY
+                                    // Alias for all alloc work
+#define LFS3_M_LOOK ( \
+        LFS3_M_LOOKAHEAD \
+            | LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0) \
+            | LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0))
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_M_COMPACTMETA \
@@ -350,16 +372,10 @@ enum lfs3_type {
 #if !defined(LFS3_RDONLY) && defined(LFS3_REPAIR)
 #define LFS3_M_REPAIR   0x0c000000  // Alias for REPAIRMETA + REPAIRDATA
 #endif
-
-// an alias for all alloc work
-#define LFS3_M_LOOK ( \
-        LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0)))
-
-// an alias for all gc work
+                                    // Alias for all gc work
 #define LFS3_M_GC ( \
-        LFS3_IFDEF_RDONLY(0, LFS3_M_MKCONSISTENT) \
+        LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOGRM) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOORPHANNOTES) \
             | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_M_LOOKGBMAP, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_M_PREERASE, 0)) \
@@ -417,8 +433,17 @@ enum lfs3_type {
 #define LFS3_I_FLUSH    0x00000040  // Mounted with LFS3_M_FLUSH
 #define LFS3_I_SYNC     0x00000080  // Mounted with LFS3_M_SYNC
 #define LFS3_I_GRANULAR 0x00000100  // Mounted with LFS3_M_GRANULAR
+#ifndef LFS3_RDONLY
+#define LFS3_I_MKNOGRM  0x00010000  // The grm queue is not empty
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_I_MKNOORPHANNOTES \
+                        0x00020000  // Filesystem may have orphaned stickynotes
+#endif
+#ifndef LFS3_RDONLY
 #define LFS3_I_MKCONSISTENT \
-                        0x00010000  // Filesystem needs mkconsistent to write
+                        0x00030000  // Alias for all mkconsistent work
+#endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_LOOKAHEAD \
                         0x00100000  // Lookahead buffer is not full
@@ -446,7 +471,7 @@ enum lfs3_type {
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_GRMOVERFLOW \
-                        0x00020000  // Global remove queue overflowed
+                        0x00040000  // Global remove queue overflowed
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_I_DAMAGEDPROG \
@@ -466,13 +491,11 @@ enum lfs3_type {
 #endif
 
 // internally used flags, don't use these
-#define LFS3_i_MAYBEORPHANS \
-                        0x00010000  // Filesystem may have orphaned stickynotes
 #define LFS3_i_GCCKPOINTED \
                         0x00100000  // Gc has ckpointed allocators
 #if !defined(LFS3_RDONLY) && defined(LFS3_SHRINK)
 #define LFS3_i_SHRINKING \
-                        0x00040000  // Filesystem is being shrunk
+                        0x00080000  // Filesystem is being shrunk
 #endif
 
 // Block types
@@ -511,8 +534,15 @@ enum lfs3_btype {
 
 // GC flags
 #ifndef LFS3_RDONLY
+#define LFS3_GC_MKNOGRM 0x00010000  // Flush the grm queue
+#endif
+#ifndef LFS3_RDONLY
+#define LFS3_GC_MKNOORPHANNOTES \
+                        0x00020000  // Clean up orphaned stickynotes
+#endif
+#ifndef LFS3_RDONLY
 #define LFS3_GC_MKCONSISTENT \
-                        0x00010000  // Make the filesystem consistent
+                        0x00030000  // Alias for all mkconsistent work
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_GC_LOOKAHEAD \
@@ -525,6 +555,13 @@ enum lfs3_btype {
 #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 #define LFS3_GC_PREERASE \
                         0x00400000  // Try to pre-erase free blocks
+#endif
+#ifndef LFS3_RDONLY
+                                    // Alias for all alloc work
+#define LFS3_GC_LOOK ( \
+        LFS3_GC_LOOKAHEAD \
+            | LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0) \
+            | LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0))
 #endif
 #ifndef LFS3_RDONLY
 #define LFS3_GC_COMPACTMETA \
@@ -560,24 +597,18 @@ enum lfs3_btype {
 #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
 #define LFS3_gc_EVICT   0x0c000000  // Alias for EVICTMETA + EVICTDATA
 #endif
-
-// an alias for all alloc work
-#define LFS3_GC_LOOK ( \
-        LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)))
-
-// an alias for all gc work
+                                    // Alias for all gc work
 #define LFS3_GC_GC ( \
-        LFS3_IFDEF_RDONLY(0, LFS3_GC_MKCONSISTENT) \
+        LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOGRM) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOORPHANNOTES) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_LOOKAHEAD) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_GBMAP(LFS3_GC_LOOKGBMAP, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_PREERASE(LFS3_GC_PREERASE, 0)) \
             | LFS3_IFDEF_RDONLY(0, LFS3_GC_COMPACTMETA) \
             | LFS3_GC_CKMETA \
             | LFS3_GC_CKDATA \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0)) \
-            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRMETA, 0)) \
+            | LFS3_IFDEF_RDONLY(0, LFS3_IFDEF_REPAIR(LFS3_GC_REPAIRDATA, 0)))
 
 // Filesystem grow flags
 #ifndef LFS3_RDONLY

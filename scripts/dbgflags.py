@@ -109,7 +109,10 @@ F_MODE          =          1  # -m  Format's access mode
 F_RDWR          =          0  # -^  Format the filesystem as read and write
 F_GBMAP         = 0x00000008  # y-  Use the global on-disk block-map
 
-F_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
+F_MKNOGRM       = 0x00010000  # --  Flush the grm queue
+F_MKNOORPHANNOTES \
+                = 0x00020000  # --  Clean up orphaned stickynotes
+F_MKCONSISTENT  = 0x00030000  # --  Alias for all mkconsistent work
 F_LOOKAHEAD     = 0x00100000  # --  Repopulate lookahead buffer
 F_LOOKGBMAP     = 0x00200000  # --  Repopulate the gbmap
 F_PREERASE      = 0x00400000  # --  Try to pre-erase free blocks
@@ -122,7 +125,7 @@ F_CK            = 0x03000000  # -a  Alias for CKMETA + CKDATA
 F_REPAIRMETA    = 0x04000000  # --  Repair metadata damage
 F_REPAIRDATA    = 0x08000000  # --  Repair metadata + data damage
 F_REPAIR        = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
-F_GC            = 0x0ff10000  # -a  Alias for all gc work
+F_GC            = 0x0ff30000  # -a  Alias for all gc work
 
 # Filesystem mount flags
 M_MODE          =          1  # -m  Mount's access mode
@@ -132,7 +135,10 @@ M_FLUSH         = 0x00000040  # y-  Open all files with LFS3_O_FLUSH
 M_SYNC          = 0x00000080  # y-  Open all files with LFS3_O_SYNC
 M_GRANULAR      = 0x00000100  # y-  Open all files with LFS3_O_GRANULAR
 
-M_MKCONSISTENT  = 0x00010000  # --  Make the filesystem consistent
+M_MKNOGRM       = 0x00010000  # --  Flush the grm queue
+M_MKNOORPHANNOTES \
+                = 0x00020000  # --  Clean up orphaned stickynotes
+M_MKCONSISTENT  = 0x00030000  # --  Alias for all mkconsistent work
 M_LOOKAHEAD     = 0x00100000  # --  Repopulate lookahead buffer
 M_LOOKGBMAP     = 0x00200000  # --  Repopulate the gbmap
 M_PREERASE      = 0x00400000  # --  Try to pre-erase free blocks
@@ -145,7 +151,7 @@ M_CK            = 0x03000000  # -a  Alias for CKMETA + CKDATA
 M_REPAIRMETA    = 0x04000000  # --  Repair metadata damage
 M_REPAIRDATA    = 0x08000000  # --  Repair metadata + data damage
 M_REPAIR        = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
-M_GC            = 0x0ff10000  # -a  Alias for all gc work
+M_GC            = 0x0ff30000  # -a  Alias for all gc work
 
 # Revision count flags
 REV_REVPERTURB        = 0x01  # y-  Perturb first bit in revision counts
@@ -170,25 +176,32 @@ I_FLUSH         = 0x00000040  # --  Mounted with LFS3_M_FLUSH
 I_SYNC          = 0x00000080  # --  Mounted with LFS3_M_SYNC
 I_GRANULAR      = 0x00000100  # --  Mounted with LFS3_M_GRANULAR
 
-I_MKCONSISTENT  = 0x00010000  # --  Filesystem needs mkconsistent to write
+I_MKNOGRM       = 0x00010000  # --  The grm queue is not empty
+I_MKNOORPHANNOTES \
+                = 0x00020000  # --  Filesystem may have orphaned stickynotes
+I_MKCONSISTENT  = 0x00030000  # -a  Alias for all mkconsistent work
 I_LOOKAHEAD     = 0x00100000  # --  Lookahead buffer is not full
 I_LOOKGBMAP     = 0x00200000  # --  The gbmap is not full
 I_PREERASE      = 0x00400000  # --  Blocks can be pre-erased
+I_LOOK          = 0x00700000  # -a  Alias for all alloc work
 I_COMPACTMETA   = 0x00800000  # --  Filesystem may have uncompacted metadata
+I_COMPACT       = 0x00800000  # -a  Alias for COMPACTMETA
 I_CKMETA        = 0x01000000  # --  Metadata checksums not checked recently
 I_CKDATA        = 0x02000000  # --  Data checksums not checked recently
+I_CK            = 0x03000000  # -a  Alias for CKMETA + CKDATA
 I_REPAIRMETA    = 0x04000000  # --  Metadata blocks need repair
 I_REPAIRDATA    = 0x08000000  # --  Data blocks need repair
+I_REPAIR        = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
+I_GC            = 0x0ff30000  # -a  Alias for all gc work
 
-I_GRMOVERFLOW   = 0x00020000  # --  Global remove queue overflowed
+I_GRMOVERFLOW   = 0x00040000  # --  Global remove queue overflowed
 I_DAMAGEDPROG   = 0x10000000  # --  Found damage during prog
 I_DAMAGEDREAD   = 0x20000000  # --  Found damage during read
 I_CONDEMNED     = 0x40000000  # --  Found condemned blocks
 I_EVICTOVERFLOW = 0x80000000  # --  Evict queue overflowed
 
-i_MAYBEORPHANS  = 0x00010000  # i-  Filesystem may have orphaned stickynotes
 i_GCCKPOINTED   = 0x00100000  # i-  Gc has ckpointed allocators
-i_SHRINKING     = 0x00040000  # i-  Filesystem is being shrunk
+i_SHRINKING     = 0x00080000  # i-  Filesystem is being shrunk
 
 # Traversal flags
 T_MTREEONLY     = 0x00000004  # --  Only traverse the mtree
@@ -219,7 +232,10 @@ t_DAMAGED       = 0x00001000  # i-  Filesystem damaged during traversal
 # GC flags
 GC_EXCL         = 0x00000008  # --  Error if filesystem modified
 
-GC_MKCONSISTENT = 0x00010000  # --  Make the filesystem consistent
+GC_MKNOGRM      = 0x00010000  # --  Flush the grm queue
+GC_MKNOORPHANNOTES \
+                = 0x00020000  # --  Clean up orphaned stickynotes
+GC_MKCONSISTENT = 0x00030000  # --  Alias for all mkconsistent work
 GC_LOOKAHEAD    = 0x00100000  # --  Repopulate lookahead buffer
 GC_LOOKGBMAP    = 0x00200000  # --  Repopulate the gbmap
 GC_PREERASE     = 0x00400000  # --  Try to pre-erase free blocks
@@ -232,7 +248,7 @@ GC_CK           = 0x03000000  # -a  Alias for CKMETA + CKDATA
 GC_REPAIRMETA   = 0x04000000  # --  Repair metadata damage
 GC_REPAIRDATA   = 0x08000000  # --  Repair metadata + data damage
 GC_REPAIR       = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
-GC_GC           = 0x0ff10000  # -a  Alias for all gc work
+GC_GC           = 0x0ff30000  # -a  Alias for all gc work
 
 gc_EVICTMETA    = 0x04000000  # i-  Evict metadata blocks
 gc_EVICTDATA    = 0x08000000  # i-  Evict metadata + data blocks

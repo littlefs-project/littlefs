@@ -651,7 +651,7 @@ code = '''
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((ORPHANS > 0) ? LFS3_I_MKCONSISTENT : 0)
+            ((ORPHANS > 0) ? LFS3_I_MKNOORPHANNOTES : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP && ORPHANS >= 100)
                     ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)

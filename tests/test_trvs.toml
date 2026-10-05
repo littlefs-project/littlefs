@@ -3263,7 +3263,7 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
+            ((DESYNC) ? LFS3_I_MKNOGRM : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
@@ -3404,7 +3404,7 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
+            ((DESYNC) ? LFS3_I_MKNOGRM : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -3536,7 +3536,7 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
+            ((DESYNC) ? LFS3_I_MKNOGRM : 0)
                 | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
@@ -3654,16 +3654,12 @@ done:;
     struct lfs3_fsinfo fsinfo;
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
-            ((DESYNC) ? LFS3_I_MKCONSISTENT : 0)
-                | ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
+            ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1) : 0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
-                // note ckdata implies ckmeta
-                | ((!(CKMETA && DESYNC) && !(CKDATA && DESYNC))
-                    ? LFS3_I_CKMETA
-                    : 0)
-                | ((!(CKDATA && DESYNC)) ? LFS3_I_CKDATA : 0)
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
 
     // check the file contents
