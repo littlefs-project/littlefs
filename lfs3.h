@@ -760,8 +760,8 @@ struct lfs3_cfg {
     // Size of the optional evict queue in lfs3_evict_t structs. A
     // larger evict queue can track more evicted/damaged blocks during
     // evictions/repairs/read-only operations. If the evict queue
-    // overflows, damaged blocks are quietly forgotten until a
-    // successful repair.
+    // overflows, LFS3_I_EVICTOVERFLOW is set, and damaged blocks are
+    // quietly forgotten until a successful repair.
     //
     // A suggested value is 2. Finding damage is normally a rare event.
     #if !defined(LFS3_RDONLY) && defined(LFS3_EVICT)
