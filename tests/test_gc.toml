@@ -8433,7 +8433,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that the explicit lfs3_fs_repair also works
+# test that the explicit lfs3_fs_ck also works
 [cases.test_gc_repairmeta_explicit]
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -8511,8 +8511,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_REPAIRMETA);
 
-    // call lfs3_fs_repair
-    lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+    // call lfs3_fs_ck
+    lfs3_fs_ck(&lfs3, LFS3_CK_REPAIRMETA) => 0;
 
     // we should have made progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -8527,7 +8527,7 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
-# test that the explicit lfs3_fs_repair also works
+# test that the explicit lfs3_fs_ck also works
 [cases.test_gc_repairdata_explicit]
 defines.SIZE = [
     'FCACHE_SIZE/2',
@@ -8604,8 +8604,8 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags & LFS3_I_REPAIRDATA);
 
-    // call lfs3_fs_repair
-    lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA) => 0;
+    // call lfs3_fs_ck
+    lfs3_fs_ck(&lfs3, LFS3_CK_REPAIRDATA) => 0;
 
     // we should have made progress
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
@@ -10061,7 +10061,7 @@ code = '''
 done:;
 '''
 
-# test that our explicit functions (lfs3_fs_repair) work as well,
+# test that our explicit functions (lfs3_fs_ck) work as well,
 # these call the same logic internally
 #
 # these are tested more thoroughly in test_evict/test_badblocks/
@@ -10150,9 +10150,9 @@ code = '''
         }
 
     damaged:;
-        // lfs3_fs_repair should find and repair the clobbered block
-        lfs3_fs_repair(&lfs3,
-                LFS3_REPAIR_CKMETA | LFS3_REPAIR_REPAIRMETA) => 0;
+        // lfs3_fs_ck should find and repair the clobbered block
+        lfs3_fs_ck(&lfs3,
+                LFS3_CK_CKMETA | LFS3_CK_REPAIRMETA) => 0;
 
         // the ck/repair flags should been clear
         struct lfs3_fsinfo fsinfo;
@@ -10282,9 +10282,9 @@ code = '''
         }
 
     damaged:;
-        // lfs3_fs_repair should find and repair the clobbered block
-        lfs3_fs_repair(&lfs3,
-                LFS3_REPAIR_CKDATA | LFS3_REPAIR_REPAIRDATA) => 0;
+        // lfs3_fs_ck should find and repair the clobbered block
+        lfs3_fs_ck(&lfs3,
+                LFS3_CK_CKDATA | LFS3_CK_REPAIRDATA) => 0;
 
         // the ck/repair flags should been clear
         struct lfs3_fsinfo fsinfo;
@@ -10536,13 +10536,13 @@ code = '''
 
             #ifdef LFS3_REPAIR
             if (REPAIRMETA && (fsinfo.flags & LFS3_I_REPAIRMETA)) {
-                lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRMETA) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_REPAIRMETA) => 0;
             }
             #endif
 
             #ifdef LFS3_REPAIR
             if (REPAIRDATA && (fsinfo.flags & LFS3_I_REPAIRDATA)) {
-                lfs3_fs_repair(&lfs3, LFS3_REPAIR_REPAIRDATA) => 0;
+                lfs3_fs_ck(&lfs3, LFS3_CK_REPAIRDATA) => 0;
             }
             #endif
         }
