@@ -14,7 +14,6 @@ PREFIX_O       = ['+o', '+open']     # Filter by LFS3_O_* flags
 PREFIX_SEEK    = ['+seek']           # Filter by LFS3_SEEK_* flags
 PREFIX_A       = ['+a', '+attr']     # Filter by LFS3_A_* flags
 PREFIX_CK      = ['+ck']             # Filter by LFS3_CK_* flags
-PREFIX_REPAIR  = ['+repair']         # Filter by LFS3_REPAIR_* flags
 PREFIX_F       = ['+f', '+format']   # Filter by LFS3_F_* flags
 PREFIX_M       = ['+m', '+mount']    # Filter by LFS3_M_* flags
 PREFIX_REV     = ['+rev']            # Filter by LFS3_REV_* flags
@@ -91,18 +90,9 @@ CK_MTREEONLY    = 0x00000004  # --  Only traverse the mtree
 CK_CKMETA       = 0x01000000  # --  Check metadata checksums
 CK_CKDATA       = 0x02000000  # --  Check metadata + data checksums
 CK_CK           = 0x03000000  # -a  Alias for CKMETA + CKDATA
-
-# File/filesystem repair flags
-REPAIR_MTREEONLY \
-                = 0x00000004  # --  Only traverse the mtree
-REPAIR_CKMETA   = 0x01000000  # --  Check metadata checksums
-REPAIR_CKDATA   = 0x02000000  # --  Check metadata + data checksums
-REPAIR_CK       = 0x03000000  # -a  Alias for CKMETA + CKDATA
-REPAIR_REPAIRMETA \
-                = 0x04000000  # --  Repair metadata damage
-REPAIR_REPAIRDATA \
-                = 0x08000000  # --  Repair metadata + data damage
-REPAIR_REPAIR   = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
+CK_REPAIRMETA   = 0x04000000  # --  Repair metadata damage
+CK_REPAIRDATA   = 0x08000000  # --  Repair metadata + data damage
+CK_REPAIR       = 0x0c000000  # -a  Alias for REPAIRMETA + REPAIRDATA
 
 # Filesystem format flags
 F_MODE          =          1  # -m  Format's access mode
