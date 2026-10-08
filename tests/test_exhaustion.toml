@@ -11,7 +11,12 @@ after = [
 
 # Test both with and without the gbmap if available
 defines.GBMAP = [false, true]
-if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
+# and with both repop gbmap and persist lookahead
+defines.LOOKGBMAP_THRESH = ['0', '-2']
+if = [
+    'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)',
+    'GBMAP || LOOKGBMAP_THRESH == -1',
+]
 
 
 # High-level wear-leveling litmus tests

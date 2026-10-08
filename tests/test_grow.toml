@@ -11,8 +11,13 @@ after = [
 
 # Test both with and without the gbmap if available
 defines.GBMAP = [false, true]
-if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
 defines.FORMAT_BLOCK_COUNT = '(GBMAP) ? 3 : 2'
+# and with both repop gbmap and persist lookahead
+defines.LOOKGBMAP_THRESH = ['0', '-2']
+if = [
+    'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)',
+    'GBMAP || LOOKGBMAP_THRESH == -1',
+]
 
 
 # test we can mount a filesystem with fewer blocks
