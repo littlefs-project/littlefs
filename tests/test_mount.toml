@@ -395,6 +395,93 @@ code = '''
     lfs3_unmount(&lfs3) => 0;
 '''
 
+[cases.test_mount_t_persistlookahead]
+defines.LOOKAHEAD = [false, true]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.SIZE = [
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+ifdef = 'LFS3_GBMAP'
+if = 'GBMAP'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // gbmap is persistent, so by default we _don't_ need a gbmap scan
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+    // scrub format state
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        // create a small file
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, "jelly",
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+        uint8_t wbuf[BLOCK_SIZE];
+        for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, BLOCK_SIZE) => BLOCK_SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // cleared format state?
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (fsinfo.flags & LFS3_I_LOOKGBMAP) {
+            break;
+        }
+    }
+    lfs3_unmount(&lfs3) => 0;
+
+    // if we scrub format state our gbmap will be inexhaustive
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_I_LOOKGBMAP
+                | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                | LFS3_I_CKMETA
+                | LFS3_I_CKDATA
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+    lfs3_unmount(&lfs3) => 0;
+
+    // with LFS3_M_LOOKGBMAP, mount persists lookahead
+    lfs3_mount(&lfs3,
+            LFS3_M_RDWR
+                | ((LOOKAHEAD) ? LFS3_M_LOOKAHEAD : 0)
+                | LFS3_M_LOOKGBMAP
+                | ((CKMETA) ? LFS3_M_CKMETA : 0)
+                | ((CKDATA) ? LFS3_M_CKDATA : 0),
+            CFG) => 0;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags == (
+            LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
+                | LFS3_I_COMPACTMETA
+                // note ckdata implies ckmeta
+                | ((!CKMETA && !CKDATA) ? LFS3_I_CKMETA : 0)
+                | ((!CKDATA) ? LFS3_I_CKDATA : 0)
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)));
+    lfs3_unmount(&lfs3) => 0;
+'''
+
 [cases.test_mount_t_preerase]
 defines.LOOKAHEAD = [false, true]
 defines.LOOKGBMAP = [false, true]

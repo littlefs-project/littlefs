@@ -745,15 +745,22 @@ struct lfs3_cfg {
     // lookahead buffer, but may hurt overall performance due to more
     // frequent gbmap repopulations.
     //
-    // Suggested values are 0 or disabled (-1). Repopulating the gbmap
-    // is costly and writes to disk. Values >= block_count-1 are highly
-    // discouraged as they tend to result in gbmap thrashing.
+    // Alternatively, -2 limits the gbmap to only persisting the
+    // lookahead buffer. This requires significantly fewer gbmap writes,
+    // but limits repopulation progress to lookahead_size.
+    //
+    // Suggested values are persist lookahead (-2) or 0, preferring
+    // persist lookahead (-2) unless allocator pressure is a measurable
+    // concern. Values >= block_count-1 are highly discouraged as they
+    // tend to result in gbmap thrashing.
     //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
     // repopulations but potentially requiring lookahead traversals.
-    // Set to -1 to disable repopulating the gbmap during normal
-    // operations.
-    #ifdef LFS3_GBMAP
+    // -1 disables repopulating the gbmap during normal operations.
+    // Alternatively, -2 switches to persisting the lookahead buffer,
+    // which significantly reduces gbmap writes but limits repopulation
+    // progress to lookahead_size.
+    #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t lookgbmap_thresh;
     #endif
 
@@ -810,12 +817,16 @@ struct lfs3_cfg {
     // operations gbmap repopulations are controlled by
     // lookgbmap_thresh.
     //
-    // Suggested values are ~50% (bc-bc/2). Values >= block_count-1 are
-    // highly discouraged as they tend to result in gbmap thrashing.
+    // Suggested values are ~50% (bc-bc/2) or presist lookahead (-2).
+    // Values >= block_count-1 are highly discouraged as they tend to
+    // result in gbmap thrashing.
     //
     // 0 only repopulates the gbmap when empty, minimizing gbmap
     // repopulations but potentially requiring lookahead traversals.
-    // Set to -1 to disable repopulating the gbmap during gc.
+    // -1 disables repopulating the gbmap during gc. Alternatively,
+    // -2 switches to persisting the lookahead buffer, which
+    // significantly reduces gbmap writes but limits repopulation
+    // progress to lookahead_size.
     #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
     lfs3_block_t gc_lookgbmap_thresh;
     #endif
