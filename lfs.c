@@ -937,6 +937,12 @@ static int lfs_dir_traverse(lfs_t *lfs,
                 }
 
                 tag = (lfs_frombe32(tag) ^ ptag) | 0x80000000;
+                // FROM tags are synthetic sources and must never be read
+                // from disk, where buffer is a struct lfs_diskoff.
+                if (lfs_tag_type1(tag) == LFS_TYPE_FROM) {
+                    return LFS_ERR_CORRUPT;
+                }
+
                 disk.block = dir->pair[0];
                 disk.off = off+sizeof(lfs_tag_t);
                 buffer = &disk;
@@ -6555,4 +6561,3 @@ int lfs_migrate(lfs_t *lfs, const struct lfs_config *cfg) {
     return err;
 }
 #endif
-
