@@ -100,9 +100,9 @@
 
     // NOR flash (DISK_GEOMETRY=0)
     //
-    // based on w25q64jv:
+    // based on w25q128jv:
     // https://www.winbond.com/resource-files/
-    //         W25Q64JV%20RevM%2012242024%20Plus.pdf
+    //         W25Q128JV%20RevM%2012242024%20Plus.pdf
     //
     // note one thing unique to NOR flash is the extreme erase cost
     //
