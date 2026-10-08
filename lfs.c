@@ -937,6 +937,12 @@ static int lfs_dir_traverse(lfs_t *lfs,
                 }
 
                 tag = (lfs_frombe32(tag) ^ ptag) | 0x80000000;
+                // FROM tags are synthetic sources and must never be read
+                // from disk, where buffer is a struct lfs_diskoff.
+                if (lfs_tag_type1(tag) == LFS_TYPE_FROM) {
+                    return LFS_ERR_CORRUPT;
+                }
+
                 disk.block = dir->pair[0];
                 disk.off = off+sizeof(lfs_tag_t);
                 buffer = &disk;
@@ -1054,14 +1060,6 @@ popped:
             end = fromid+1;
             diff = toid-fromid+diff;
         } else if (lfs_tag_type3(tag) == LFS_FROM_USERATTRS) {
-            // LFS_FROM_USERATTRS is a synthetic tag and must never be read
-            // from disk. On-disk tags have the invalid bit set while being
-            // traversed, and their buffer points to a struct lfs_diskoff,
-            // not a struct lfs_attr array.
-            if (!lfs_tag_isvalid(tag)) {
-                return LFS_ERR_CORRUPT;
-            }
-
             for (unsigned i = 0; i < lfs_tag_size(tag); i++) {
                 const struct lfs_attr *a = buffer;
                 res = cb(data, LFS_MKTAG(LFS_TYPE_USERATTR + a[i].type,

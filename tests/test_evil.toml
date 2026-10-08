@@ -3,12 +3,14 @@
 
 # invalid pointer tests (outside of block_count)
 
-[cases.test_evil_disk_userattrs_tag]
+[cases.test_evil_disk_from_tag]
+defines.FROM_TYPE = ['LFS_TYPE_FROM', 'LFS_FROM_MOVE', 'LFS_FROM_USERATTRS', 'LFS_TYPE_FROM + 0xff']
+defines.FILTER_MASK = ['0', 'LFS_MKTAG(0x700, 0, 0)', 'LFS_MKTAG(0, 0x3ff, 0)']
 in = "lfs.c"
 if = "PROG_SIZE < BLOCK_SIZE"
 code = '''
-    // A reserved user-attribute tag written to disk must not be treated as
-    // the caller-owned struct lfs_attr array used by the synthetic path.
+    // Internal source tags on disk must be rejected before filtering or
+    // interpreting their disk offsets as caller-owned structures.
     lfs_t lfs;
     lfs_format(&lfs, cfg) => 0;
 
@@ -28,7 +30,7 @@ code = '''
         .end = cfg->block_size - 8,
     };
     lfs_dir_commitattr(&lfs, &commit,
-            LFS_MKTAG(LFS_FROM_USERATTRS, 0, 1) | 0x80000000,
+            LFS_MKTAG(FROM_TYPE, 0, 1) | 0x80000000,
             &disk) => 0;
     lfs_dir_commitcrc(&lfs, &commit) => 0;
     lfs_bd_flush(&lfs, &lfs.pcache, &lfs.rcache, true) => 0;
@@ -37,7 +39,8 @@ code = '''
 
     lfs_size_t size = 0;
     lfs_dir_traverse(&lfs, &mdir, 0, 0xffffffff, NULL, 0,
-            0, 0, 0, 0, 0, lfs_dir_commit_size, &size) => LFS_ERR_CORRUPT;
+            FILTER_MASK, LFS_MKTAG(LFS_TYPE_STRUCT, 0, 0),
+            0, 0x3ff, 0, lfs_dir_commit_size, &size) => LFS_ERR_CORRUPT;
     lfs_deinit(&lfs) => 0;
 '''
 
