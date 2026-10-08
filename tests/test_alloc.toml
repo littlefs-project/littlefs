@@ -11,8 +11,13 @@ after = ['test_mtree', 'test_gbmap', 'test_dirs', 'test_files']
 
 # Test both with and without the gbmap if available
 defines.GBMAP = [false, true]
-if = 'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)'
 defines.FORMAT_BLOCK_COUNT = '(GBMAP) ? 3 : 2'
+# and with various lookgbmap_threshes
+defines.LOOKGBMAP_THRESH = ['0', 'BLOCK_COUNT/2', '-1', '-2']
+if = [
+    'LFS3_IFYES_GBMAP(GBMAP, true, !GBMAP)',
+    'GBMAP || LOOKGBMAP_THRESH == -1',
+]
 
 
 # test that we can alloc
@@ -769,9 +774,12 @@ defines.SIZE = [
 ]
 defines.N = ['5', 'BLOCK_COUNT/2']
 defines.WRAPAROUND = 3
+# and with various gc_lookgbmap_threshes
+defines.GC_LOOKGBMAP_THRESH = ['0', 'BLOCK_COUNT/2', '-1', '-2']
 if = [
     'COUNT >= FORMAT_BLOCK_COUNT',
     'COUNT >= 2*N*SIZE/BLOCK_SIZE',
+    'GBMAP || GC_LOOKGBMAP_THRESH == -1',
 ]
 code = '''
     // test various block counts
@@ -779,6 +787,9 @@ code = '''
     cfg.block_count = COUNT;
     #ifdef LFS3_GBMAP
     // need to recompute gc_lookgbmap_thresh if it depends on block_count
+    cfg.lookgbmap_thresh = lfs3_min(
+            LOOKGBMAP_THRESH,
+            COUNT - COUNT/2);
     cfg.gc_lookgbmap_thresh = lfs3_min(
             GC_LOOKGBMAP_THRESH,
             COUNT - COUNT/2);

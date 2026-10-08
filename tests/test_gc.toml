@@ -6241,6 +6241,359 @@ code = '''
 '''
 
 
+# test that persistlookahead can make progress in isolation
+[cases.test_gc_persistlookahead_progress]
+defines.LOOKGBMAP_THRESH = -1
+defines.GC_LOOKGBMAP_THRESH = -2
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS3_GC_LOOKAHEAD
+        | LFS3_GC_LOOKGBMAP
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.SIZE = [
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+if = 'GBMAP'
+ifdef = ['LFS3_GC', 'LFS3_GBMAP']
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // scrub format state
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        // create a small file
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, "ant",
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+        uint8_t wbuf[BLOCK_SIZE];
+        for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, BLOCK_SIZE) => BLOCK_SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // cleared format state?
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (fsinfo.flags & LFS3_I_LOOKGBMAP) {
+            break;
+        }
+    }
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_LOOKGBMAP);
+
+    // run GC until we make progress
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
+
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (!(fsinfo.flags & LFS3_I_LOOKGBMAP)) {
+            break;
+        }
+    }
+
+    // since we're persisting we should be able to remount here
+    lfs3_unmount(&lfs3) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // and still have made progress
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(!(fsinfo.flags & LFS3_I_LOOKGBMAP));
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that persistlookahead dirtying still works with the GC API
+[cases.test_gc_persistlookahead_mutation]
+defines.LOOKGBMAP_THRESH = -1
+defines.GC_LOOKGBMAP_THRESH = -2
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS3_GC_LOOKAHEAD
+        | LFS3_GC_LOOKGBMAP
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
+'''
+defines.SIZE = [
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '8*BLOCK_SIZE',
+]
+if = [
+    # we need something to keep the traversal running
+    'CKMETA || CKDATA',
+    'GBMAP',
+]
+ifdef = ['LFS3_GC', 'LFS3_GBMAP']
+in = 'lfs3.c'
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // scrub format state
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        // create a small file
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, "ant",
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+        uint8_t wbuf[BLOCK_SIZE];
+        for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, BLOCK_SIZE) => BLOCK_SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // cleared format state?
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (fsinfo.flags & LFS3_I_LOOKGBMAP) {
+            break;
+        }
+    }
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // expect dirty initial state or else our test doesn't work
+    struct lfs3_fsinfo fsinfo;
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_LOOKGBMAP);
+    lfs3.gc.tflags = 0;
+
+    // run GC one step
+    lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+    assert(steps >= 0);
+    assert(lfs3.gc.tflags & LFS3_GC_LOOKAHEAD);
+
+    // mutate the filesystem
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // run GC until our traversal is done
+    while (lfs3.gc.tflags & LFS3_GC_LOOKAHEAD) {
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
+    }
+
+    // we should _not_ make progress
+    lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+    assert(fsinfo.flags & LFS3_I_LOOKAHEAD);
+    assert(fsinfo.flags & LFS3_I_LOOKGBMAP);
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+# test that we can relax lookahead scanning with
+# gc_lookahead_thresh
+[cases.test_gc_persistlookahead_relaxed]
+defines.LOOKGBMAP_THRESH = -1
+defines.GC_LOOKGBMAP_THRESH = -2
+# relax our lookahead thresh
+defines.GC_LOOKAHEAD_THRESH = [
+    'BLOCK_COUNT',
+    '8*LOOKAHEAD_SIZE - (8*LOOKAHEAD_SIZE/4)',
+    '8*LOOKAHEAD_SIZE - (8*LOOKAHEAD_SIZE/2)',
+]
+defines.CKMETA = [false, true]
+defines.CKDATA = [false, true]
+defines.GC_FLAGS = '''
+    LFS3_GC_LOOKAHEAD
+        | LFS3_GC_LOOKGBMAP
+        | ((CKMETA) ? LFS3_GC_CKMETA : 0)
+        | ((CKDATA) ? LFS3_GC_CKDATA : 0)
+'''
+defines.GC_STEPS = [-1, 1, 2, 10, 100, 1000]
+defines.SIZE = 'BLOCK_SIZE'
+if = 'GBMAP'
+ifdef = ['LFS3_GC', 'LFS3_GBMAP']
+code = '''
+    lfs3_t lfs3;
+    lfs3_format(&lfs3, LFS3_F_RDWR | LFS3_F_GBMAP, CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    uint32_t prng = 42;
+
+    // scrub format state
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        // create a small file
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, "ant",
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC) => 0;
+        uint8_t wbuf[BLOCK_SIZE];
+        for (lfs3_size_t j = 0; j < BLOCK_SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, BLOCK_SIZE) => BLOCK_SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // cleared format state?
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (fsinfo.flags & LFS3_I_LOOKGBMAP) {
+            break;
+        }
+    }
+
+    // create a file
+    lfs3_file_t file;
+    lfs3_file_open(&lfs3, &file, "spider",
+            LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+    uint8_t wbuf[SIZE];
+    for (lfs3_size_t j = 0; j < SIZE; j++) {
+        wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+    }
+    lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // run GC until we make progress
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
+
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (!(fsinfo.flags & (LFS3_I_LOOKAHEAD | LFS3_I_LOOKGBMAP))) {
+            break;
+        }
+    }
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
+    uint8_t rbuf[SIZE];
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    // rewrite file until we need to repopulate
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        lfs3_file_open(&lfs3, &file, "spider",
+                LFS3_O_WRONLY | LFS3_O_TRUNC) => 0;
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (fsinfo.flags & LFS3_I_LOOKAHEAD) {
+            // check that we actually relaxed repopulations
+            if ((lfs3_size_t)GC_LOOKAHEAD_THRESH
+                    < (lfs3_size_t)(8*LOOKAHEAD_SIZE-1)) {
+                assert(i > 0);
+            } else {
+                assert(i == 0);
+            }
+            break;
+        }
+    }
+
+    // run GC until we make progress
+    for (lfs3_block_t i = 0;; i++) {
+        // a bit hacky, but this catches infinite loops
+        LFS3_ASSERT(i < 2*BLOCK_COUNT);
+
+        lfs3_sblock_t steps = lfs3_fs_gc(&lfs3);
+        assert(steps >= 0);
+
+        struct lfs3_fsinfo fsinfo;
+        lfs3_fs_stat(&lfs3, &fsinfo) => 0;
+        if (!(fsinfo.flags & (LFS3_I_LOOKAHEAD | LFS3_I_LOOKGBMAP))) {
+            break;
+        }
+    }
+
+    // check the file contents
+    lfs3_file_open(&lfs3, &file, "spider", LFS3_O_RDONLY) => 0;
+    lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+    assert(memcmp(rbuf, wbuf, SIZE) == 0);
+    lfs3_file_close(&lfs3, &file) => 0;
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+
 # test that preerase can make progress in isolation
 [cases.test_gc_preerase_progress]
 # lookahead can interact with preerase in weird ways

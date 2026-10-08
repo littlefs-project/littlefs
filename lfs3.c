@@ -8815,6 +8815,9 @@ static int lfs3_mdir_swap__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
 }
 #endif
 
+// needed in lfs3_mdir_commit__
+static int lfs3_alloc_persistlookahead(lfs3_t *lfs3);
+
 // low-level mdir commit, does not handle mtree/mlist/compaction/etc
 #ifndef LFS3_RDONLY
 static int lfs3_mdir_commit__(lfs3_t *lfs3, lfs3_mdir_t *mdir_,
@@ -9612,11 +9615,29 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
         }
     }
 
-    // flush gdeltas
-    lfs3_fs_discardgdelta(lfs3);
+    // try to persist lookahead buffer as late as possible, but before
+    // commit machinery takes over the pcache
+    int err;
+    #ifdef LFS3_GBMAP
+    if ((lfs3->flags & LFS3_I_GBMAP)
+            && lfs3->cfg->lookgbmap_thresh == (lfs3_block_t)-2
+            // don't if we're shrinking! state would get too weird
+            && LFS3_IFDEF_SHRINK(
+                !(lfs3->flags & LFS3_i_SHRINKING),
+                true)) {
+        // noop if gbmap up-to-date
+        err = lfs3_alloc_persistlookahead(lfs3);
+        if (err) {
+            goto failed;
+        }
+    }
+    #endif
 
     // xor our old cksum
     lfs3->gcksum ^= mdir->r.cksum;
+
+    // flush gdeltas
+    lfs3_fs_discardgdelta(lfs3);
 
     // stage any shrubs
     for (lfs3_handle_t *h = lfs3->handles; h; h = h->next) {
@@ -9633,7 +9654,7 @@ static int lfs3_mdir_commit(lfs3_t *lfs3, lfs3_mdir_t *mdir,
     // attempt to commit/compact the mdir normally
     lfs3_mdir_t mdir_[2];
     lfs3_srid_t split_rid;
-    int err = lfs3_mdir_commit_(lfs3, &mdir_[0], mdir, -2, -2,
+    err = lfs3_mdir_commit_(lfs3, &mdir_[0], mdir, -2, -2,
             &split_rid,
             mdir->mid, rattrs);
     if (err && err != LFS3_ERR_RANGE
@@ -10998,6 +11019,10 @@ static int lfs3_mtree_compactbtree(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             return err;
         }
 
+        // keep mgc in-sync with any last-minute gbmap changes,
+        // persist lookahead mostly
+        mgc->t.btree = lfs3->gbmap.b;
+
         // if we succeed, resume btrv at the current bid
         //
         // we may need to rewalk the current btree trunk, but this at
@@ -11750,6 +11775,7 @@ eot:;
 
 // needed in lfs3_mgc_gc
 static int lfs3_mtree_mknogrm(lfs3_t *lfs3);
+static inline bool lfs3_alloc_canpersistlookahead(const lfs3_t *lfs3);
 static inline bool lfs3_alloc_canpreerase(const lfs3_t *lfs3);
 static int lfs3_alloc_preerase(lfs3_t *lfs3);
 
@@ -11961,6 +11987,29 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
             if (err) {
                 return err;
             }
+            // reset dirty flag
+            mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
+            #endif
+
+        // lower priority, but can we persist lookahead?
+        } else if (LFS3_IFDEF_RDONLY(false,
+                LFS3_IFDEF_GBMAP(
+                    (mgc->t.h.flags & LFS3_GC_LOOKGBMAP)
+                        && lfs3_alloc_canpersistlookahead(lfs3),
+                    false))) {
+            #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+            // checkpoint the lookahead buffer, we need to signal that
+            // we're mutating, but try not to mess with the gbmap more
+            // than is necessary
+            uint32_t dirty = mgc->t.h.flags;
+            lfs3_alloc_ckpoint_(lfs3);
+
+            // persist lookahead
+            int err = lfs3_alloc_persistlookahead(lfs3);
+            if (err && err != LFS3_ERR_NOENT) {
+                return err;
+            }
+
             // reset dirty flag
             mgc->t.h.flags &= ~LFS3_t_DIRTY | dirty;
             #endif
@@ -12727,7 +12776,7 @@ static inline int lfs3_alloc_ckpoint(lfs3_t *lfs3) {
             // below lookgbmap_thresh?
             && lfs3->gbmap.known
                 < lfs3_min(
-                    lfs3->cfg->lookgbmap_thresh+1,
+                    lfs3_smax(lfs3->cfg->lookgbmap_thresh+1, 0),
                     lfs3->block_count)) {
         // traverse and repopulate the gbmap
         int err = lfs3_alloc_lookgbmap(lfs3);
@@ -12776,17 +12825,26 @@ static inline bool lfs3_alloc_canlookahead(const lfs3_t *lfs3) {
 static inline bool lfs3_alloc_canlookgbmap(const lfs3_t *lfs3) {
     // do we even have a gbmap?
     return (lfs3->flags & LFS3_I_GBMAP)
-            // not disabled, are we?
-            && lfs3->cfg->gc_lookgbmap_thresh != (lfs3_block_t)-1
             // below gc_lookgbmap_thresh?
             && lfs3->gbmap.known
                 < lfs3_min(
-                    lfs3->cfg->gc_lookgbmap_thresh+1,
+                    lfs3_smax(lfs3->cfg->gc_lookgbmap_thresh+1, 0),
                     // limit to gc ckpoint to keep us from spinning
                     // forever
                     (lfs3->flags & LFS3_i_GCCKPOINTED)
                         ? lfs3->lookahead.ckpoint
                         : lfs3->block_count);
+}
+#endif
+
+// can we persist lookahead?
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static inline bool lfs3_alloc_canpersistlookahead(const lfs3_t *lfs3) {
+    // do we even have a gbmap?
+    return (lfs3->flags & LFS3_I_GBMAP)
+            // in persist lookahead mode and can persist lookahead?
+            && lfs3->cfg->gc_lookgbmap_thresh == (lfs3_block_t)-2
+            && lfs3->lookahead.known > lfs3->gbmap.known;
 }
 #endif
 
@@ -12812,7 +12870,7 @@ static inline bool lfs3_alloc_cansyncgbmap(const lfs3_t *lfs3) {
         return false;
     }
 
-    // just compare the on-disk encoding
+    // otherwise just compare the on-disk encoding
     uint8_t gbmap_[LFS3_GBMAP_DSIZE];
     lfs3_data_fromgbmap(&lfs3->gbmap, gbmap_);
     return memcmp(gbmap_, lfs3->gbmap_p, LFS3_GBMAP_DSIZE) != 0;
@@ -12954,6 +13012,7 @@ static void lfs3_alloc_adopt_(lfs3_t *lfs3, lfs3_block_t known) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
         const lfs3_btree_t *gbmap, lfs3_block_t known) {
+    LFS3_ASSERT(lfs3->flags & LFS3_I_GBMAP);
     // adopt new gbmap
     lfs3->gbmap.known = known;
     lfs3->gbmap.b = *gbmap;
@@ -12979,8 +13038,11 @@ static int lfs3_alloc_adoptgbmap(lfs3_t *lfs3,
 #ifndef LFS3_RDONLY
 static void lfs3_alloc_inc(lfs3_t *lfs3) {
     // increment window/off
-    lfs3->lookahead.window = (lfs3->lookahead.window + 1) % lfs3->block_count;
-    lfs3->lookahead.off = (lfs3->lookahead.off + 1)
+    lfs3->lookahead.window
+            = (lfs3->lookahead.window + 1)
+            % lfs3->block_count;
+    lfs3->lookahead.off
+            = (lfs3->lookahead.off + 1)
             % (8*lfs3->cfg->lookahead_size);
     // decrement size
     lfs3->lookahead.known -= lfs3_min(1, lfs3->lookahead.known);
@@ -12990,7 +13052,9 @@ static void lfs3_alloc_inc(lfs3_t *lfs3) {
     // decrement gbmap known window
     #ifdef LFS3_GBMAP
     if (lfs3->flags & LFS3_I_GBMAP) {
-        lfs3->gbmap.window = (lfs3->gbmap.window + 1) % lfs3->block_count;
+        lfs3->gbmap.window
+                = (lfs3->gbmap.window + 1)
+                % lfs3->block_count;
         lfs3->gbmap.known -= lfs3_min(1, lfs3->gbmap.known);
         #ifdef LFS3_PREERASE
         lfs3->gbmap.preeraser.known
@@ -13309,6 +13373,7 @@ static lfs3_sblock_t lfs3_allocwith(lfs3_t *lfs3, lfs3_mdir_t *mdir,
 // rebuild the gbmap
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
+    LFS3_ASSERT(lfs3->flags & LFS3_I_GBMAP);
     LFS3_INFO("Repopulating gbmap (gbmap %"PRId32"/%"PRId32")",
             lfs3->gbmap.known,
             lfs3->block_count);
@@ -13362,9 +13427,74 @@ static int lfs3_alloc_lookgbmap(lfs3_t *lfs3) {
 }
 #endif
 
+// write the current lookahead state into the gbmap
+//
+// should only call if persisting lookahead
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+static int lfs3_alloc_persistlookahead(lfs3_t *lfs3) {
+    LFS3_ASSERT(lfs3->flags & LFS3_I_GBMAP);
+    // do nothing if gbmap is more known than lookahead
+    if (lfs3->gbmap.known >= lfs3->lookahead.known) {
+        return 0;
+    }
+    LFS3_ASSERT(lfs3->lookahead.known <= lfs3->block_count);
+    LFS3_ASSERT(lfs3->lookahead.known <= 8*lfs3->cfg->lookahead_size);
+
+    // things get tricky here because the gbmap can allocate
+    //
+    // for one, iterate backwards to try to avoid immediately allocating
+    // each new block
+    //
+    // note any allocation should decrement _both_ lookahead and gbmap
+    // known windows, saturating at zero
+    for (lfs3_size_t i = 0;
+            i < lfs3->lookahead.known - lfs3->gbmap.known;
+            i++) {
+        // map to disk and lookahead buffer
+        lfs3_block_t window
+                = (lfs3->lookahead.window + lfs3->lookahead.known-1 - i)
+                % lfs3->block_count;
+        lfs3_size_t off
+                = (lfs3->lookahead.off + lfs3->lookahead.known-1 - i)
+                % (8*lfs3->cfg->lookahead_size);
+
+        // make sure we don't overwrite bad blocks
+        //
+        // best I could figure out how to do this is just another lookup
+        lfs3_stag_t tag = lfs3_gbmap_lookupnext(lfs3, &lfs3->gbmap.b,
+                window,
+                NULL, NULL, NULL);
+        if (tag < 0) {
+            LFS3_ASSERT(tag != LFS3_ERR_NOENT);
+            return tag;
+        }
+        if (tag == LFS3_TAG_BMBAD) {
+            continue;
+        }
+
+        // persist a block
+        int err = lfs3_gbmap_set(lfs3, &lfs3->gbmap.b,
+                window,
+                (lfs3->lookahead.buffer[off / 8] & (1 << (off % 8)))
+                    ? LFS3_TAG_BMINUSE
+                    : LFS3_TAG_BMFREE,
+                NULL);
+        if (err) {
+            return err;
+        }
+    }
+
+    // update the known window
+    return lfs3_alloc_adoptgbmap(lfs3, &lfs3->gbmap.b,
+            lfs3->lookahead.known);
+}
+#endif
+
 // try to pre-erase _one_ block
 #if !defined(LFS3_RDONLY) && defined(LFS3_PREERASE)
 static int lfs3_alloc_preerase(lfs3_t *lfs3) {
+    LFS3_ASSERT(lfs3->flags & LFS3_I_GBMAP);
+
     while (lfs3->gbmap.preeraser.known < lfs3->gbmap.known) {
         // lookup next known block
         lfs3_block_t block = (lfs3->gbmap.window + lfs3->gbmap.preeraser.known)
@@ -13439,6 +13569,7 @@ static int lfs3_alloc_preerase(lfs3_t *lfs3) {
 // commit gbmap to disk
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 static int lfs3_alloc_syncgbmap(lfs3_t *lfs3) {
+    LFS3_ASSERT(lfs3->flags & LFS3_I_GBMAP);
     // noop if already in sync
     if (!lfs3_alloc_cansyncgbmap(lfs3)) {
         return 0;
@@ -18862,6 +18993,7 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
             | LFS3_IFDEF_RDONLY(0,
                 LFS3_IFDEF_GBMAP(
                     (lfs3_alloc_canlookgbmap(lfs3)
+                            || lfs3_alloc_canpersistlookahead(lfs3)
                             || lfs3_alloc_cansyncgbmap(lfs3))
                         ? LFS3_I_LOOKGBMAP
                         : 0,
