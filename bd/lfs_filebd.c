@@ -82,16 +82,16 @@ int lfs_filebd_read(const struct lfs_config *cfg, lfs_block_t block,
     off_t res1 = lseek(bd->fd,
             (off_t)block*bd->cfg->erase_size + (off_t)off, SEEK_SET);
     if (res1 < 0) {
-        int err = -errno;
-        LFS_FILEBD_TRACE("lfs_filebd_read -> %d", err);
-        return err;
+        LFS_FILEBD_TRACE("lfs_filebd_read -> %d (os error %d)",
+                LFS_ERR_IO, -errno);
+        return LFS_ERR_IO;
     }
 
     ssize_t res2 = read(bd->fd, buffer, size);
     if (res2 < 0) {
-        int err = -errno;
-        LFS_FILEBD_TRACE("lfs_filebd_read -> %d", err);
-        return err;
+        LFS_FILEBD_TRACE("lfs_filebd_read -> %d (os error %d)",
+                LFS_ERR_IO, -errno);
+        return LFS_ERR_IO;
     }
 
     LFS_FILEBD_TRACE("lfs_filebd_read -> %d", 0);
@@ -115,16 +115,16 @@ int lfs_filebd_prog(const struct lfs_config *cfg, lfs_block_t block,
     off_t res1 = lseek(bd->fd,
             (off_t)block*bd->cfg->erase_size + (off_t)off, SEEK_SET);
     if (res1 < 0) {
-        int err = -errno;
-        LFS_FILEBD_TRACE("lfs_filebd_prog -> %d", err);
-        return err;
+        LFS_FILEBD_TRACE("lfs_filebd_prog -> %d (os error %d)",
+                LFS_ERR_IO, -errno);
+        return LFS_ERR_IO;
     }
 
     ssize_t res2 = write(bd->fd, buffer, size);
     if (res2 < 0) {
-        int err = -errno;
-        LFS_FILEBD_TRACE("lfs_filebd_prog -> %d", err);
-        return err;
+        LFS_FILEBD_TRACE("lfs_filebd_prog -> %d (os error %d)",
+                LFS_ERR_IO, -errno);
+        return LFS_ERR_IO;
     }
 
     LFS_FILEBD_TRACE("lfs_filebd_prog -> %d", 0);
@@ -157,9 +157,9 @@ int lfs_filebd_sync(const struct lfs_config *cfg) {
     int err = fsync(bd->fd);
     #endif
     if (err) {
-        err = -errno;
-        LFS_FILEBD_TRACE("lfs_filebd_sync -> %d", 0);
-        return err;
+        LFS_FILEBD_TRACE("lfs_filebd_sync -> %d (os error %d)",
+                LFS_ERR_IO, -errno);
+        return LFS_ERR_IO;
     }
 
     LFS_FILEBD_TRACE("lfs_filebd_sync -> %d", 0);
