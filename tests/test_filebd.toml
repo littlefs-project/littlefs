@@ -1,0 +1,27 @@
+# Tests for the file-backed block device.
+
+code = '''
+#include "bd/lfs_filebd.h"
+'''
+
+[cases.test_filebd_io_errors]
+code = '''
+    struct lfs_filebd_config bdcfg = {
+        .read_size = 1,
+        .prog_size = 1,
+        .erase_size = 1,
+        .erase_count = 1,
+    };
+    lfs_filebd_t bd = {
+        .fd = -1,
+        .cfg = &bdcfg,
+    };
+    struct lfs_config filecfg = {
+        .context = &bd,
+    };
+    uint8_t buffer = 0;
+
+    lfs_filebd_read(&filecfg, 0, 0, &buffer, 1) => LFS_ERR_IO;
+    lfs_filebd_prog(&filecfg, 0, 0, &buffer, 1) => LFS_ERR_IO;
+    lfs_filebd_sync(&filecfg) => LFS_ERR_IO;
+'''
