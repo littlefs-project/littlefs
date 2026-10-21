@@ -92,7 +92,9 @@ enum lfs3_err {
 
     // bd errors
     LFS3_ERR_IO          = -5,   // Error during device operation
+    #ifdef LFS3_REPAIR
     LFS3_ERR_DAMAGED     = -82,  // Data is ok, but needs repair
+    #endif
     #ifdef LFS3_CONDEMN
     LFS3_ERR_CONDEMNED   = -83,  // Data is ok, but block is bad
     #endif

@@ -33,7 +33,9 @@
 //
 // Note these are ordered roughly by difficulty
 typedef enum lfs3_emubd_badblockbehavior {
+    #ifdef LFS3_REPAIR
     LFS3_EMUBD_BADBLOCK_ERASEDAMAGED    = 0,  // Erase returns DAMAGED
+    #endif
     #ifdef LFS3_CONDEMN
     LFS3_EMUBD_BADBLOCK_ERASECONDEMNED  = 1,  // Erase returns CONDEMNED
     #endif
@@ -43,7 +45,9 @@ typedef enum lfs3_emubd_badblockbehavior {
     #endif
     LFS3_EMUBD_BADBLOCK_ERASENOOP       = 4,  // Erase does nothing silently
 
+    #ifdef LFS3_REPAIR
     LFS3_EMUBD_BADBLOCK_PROGDAMAGED     = 5,  // Prog returns DAMAGED
+    #endif
     #ifdef LFS3_CONDEMN
     LFS3_EMUBD_BADBLOCK_PROGCONDEMNED   = 6,  // Prog returns CONDEMNED
     #endif
@@ -54,7 +58,9 @@ typedef enum lfs3_emubd_badblockbehavior {
     LFS3_EMUBD_BADBLOCK_PROGNOOP        = 9,  // Prog does nothing silently
     LFS3_EMUBD_BADBLOCK_PROGFLIP        = 10, // Prog flips a bit
 
+    #ifdef LFS3_REPAIR
     LFS3_EMUBD_BADBLOCK_READDAMAGED     = 11, // Read returns DAMAGED
+    #endif
     #ifdef LFS3_CONDEMN
     LFS3_EMUBD_BADBLOCK_READCONDEMNED   = 12, // Read returns CONDEMNED
     #endif
