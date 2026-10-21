@@ -362,8 +362,8 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     // read from disk
     int err = lfs3_bd_read___(lfs3, block, off, buffer, size);
     if (err && (
-            (err != LFS3_ERR_DAMAGED
-                    && LFS3_IFDEF_CONDEMN(err != LFS3_ERR_CONDEMNED, true))
+            !(LFS3_IFDEF_REPAIR(err == LFS3_ERR_DAMAGED, false)
+                    || LFS3_IFDEF_CONDEMN(err == LFS3_ERR_CONDEMNED, false))
                 || LFS3_IFDEF_CKPROGS(flags & LFS3_BD_CAREFUL, false))) {
         LFS3_INFO("Bad read 0x%"PRIx32".%"PRIx32" %"PRIu32" (%d)",
                 block, off, size, err);
@@ -371,12 +371,10 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         //
         // if we're careful, treat damaged vs corrupt the same
         #ifdef LFS3_REPAIR
-        if (err == LFS3_ERR_DAMAGED
-                || err == LFS3_ERR_CORRUPT
-                || LFS3_IFDEF_CONDEMN(
-                    err == LFS3_ERR_CONDEMNED
-                        || err == LFS3_ERR_BAD,
-                    false)) {
+        if (err == LFS3_ERR_CORRUPT
+                || err == LFS3_ERR_DAMAGED
+                || LFS3_IFDEF_CONDEMN(err == LFS3_ERR_CONDEMNED, false)
+                || LFS3_IFDEF_CONDEMN(err == LFS3_ERR_BAD, false)) {
             // _don't_ push onto our evictqueue if we're fully corrupt,
             // we can no longer read the data, so we can't fix it
             //
@@ -476,12 +474,10 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
         // situations (for damaged/condemned the prog succeeded), but
         // either way we don't trust the prog at this point so we treat
         // them the same
-        if (err == LFS3_ERR_DAMAGED
-                || err == LFS3_ERR_CORRUPT
-                || LFS3_IFDEF_CONDEMN(
-                    err == LFS3_ERR_CONDEMNED
-                        || err == LFS3_ERR_BAD,
-                    false)) {
+        if (err == LFS3_ERR_CORRUPT
+                || LFS3_IFDEF_REPAIR(err == LFS3_ERR_DAMAGED, false)
+                || LFS3_IFDEF_CONDEMN(err == LFS3_ERR_CONDEMNED, false)
+                || LFS3_IFDEF_CONDEMN(err == LFS3_ERR_BAD, false)) {
             // condemned? push onto our evictqueue as a block to avoid
             //
             // we don't push damaged blocks as most progs are not in use
@@ -528,13 +524,11 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
                 // reads, we want to detect damage, but not set the
                 // damagedread flag
                 LFS3_BD_RELAX | LFS3_BD_CAREFUL);
-        if (cmp < 0
-                && cmp != LFS3_ERR_DAMAGED
-                && cmp != LFS3_ERR_CORRUPT
-                && LFS3_IFDEF_CONDEMN(
-                    cmp != LFS3_ERR_CONDEMNED
-                        && cmp != LFS3_ERR_BAD,
-                    true)) {
+        if (cmp < 0 && !(
+                cmp == LFS3_ERR_CORRUPT
+                    || LFS3_IFDEF_REPAIR(cmp == LFS3_ERR_DAMAGED, false)
+                    || LFS3_IFDEF_CONDEMN(cmp == LFS3_ERR_CONDEMNED, false)
+                    || LFS3_IFDEF_CONDEMN(cmp == LFS3_ERR_BAD, false))) {
             return cmp;
         }
 
@@ -592,12 +586,10 @@ static int lfs3_bd_erase__(lfs3_t *lfs3, lfs3_block_t block,
         // situations (for damaged/condemned the prog succeeded), but
         // either way we don't trust the prog at this point so we treat
         // them the same
-        if (err == LFS3_ERR_DAMAGED
-                || err == LFS3_ERR_CORRUPT
-                || LFS3_IFDEF_CONDEMN(
-                    err == LFS3_ERR_CONDEMNED
-                        || err == LFS3_ERR_BAD,
-                    false)) {
+        if (err == LFS3_ERR_CORRUPT
+                || LFS3_IFDEF_REPAIR(err == LFS3_ERR_DAMAGED, false)
+                || LFS3_IFDEF_CONDEMN(err == LFS3_ERR_CONDEMNED, false)
+                || LFS3_IFDEF_CONDEMN(err == LFS3_ERR_BAD, false)) {
             // condemned? push onto our evictqueue as a block to avoid
             //
             // we don't push damaged blocks as most progs are not in use

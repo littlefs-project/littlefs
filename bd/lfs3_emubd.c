@@ -479,13 +479,17 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     // block bad?
     if (b && b->wear > bd->cfg->erase_cycles) {
         // warninging reads? error
-        if (bd->cfg->badblock_behavior
-                    == LFS3_EMUBD_BADBLOCK_READDAMAGED
-                || (bd->cfg->badblock_behavior
-                        == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
-                    && (lfs3_emubd_prng_(&bd->prng) & 1))) {
+        if (LFS3_IFDEF_REPAIR(
+                bd->cfg->badblock_behavior
+                        == LFS3_EMUBD_BADBLOCK_READDAMAGED
+                    || (bd->cfg->badblock_behavior
+                            == LFS3_EMUBD_BADBLOCK_READQUASIDAMAGED
+                        && (lfs3_emubd_prng_(&bd->prng) & 1)),
+                false)) {
+            #ifdef LFS3_REPAIR
             LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
+            #endif
         } else if (LFS3_IFDEF_CONDEMN(
                 bd->cfg->badblock_behavior
                         == LFS3_EMUBD_BADBLOCK_READCONDEMNED
@@ -830,13 +834,17 @@ progged:;
     // block bad?
     if (b && b->wear > bd->cfg->erase_cycles) {
         // warninging progs? error
-        if (bd->cfg->badblock_behavior
-                == LFS3_EMUBD_BADBLOCK_PROGDAMAGED) {
+        if (LFS3_IFDEF_REPAIR(
+                bd->cfg->badblock_behavior
+                    == LFS3_EMUBD_BADBLOCK_PROGDAMAGED,
+                false)) {
+            #ifdef LFS3_REPAIR
             LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
+            #endif
         } else if (LFS3_IFDEF_CONDEMN(
                 bd->cfg->badblock_behavior
-                        == LFS3_EMUBD_BADBLOCK_PROGCONDEMNED,
+                    == LFS3_EMUBD_BADBLOCK_PROGCONDEMNED,
                 false)) {
             #ifdef LFS3_CONDEMN
             LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_CONDEMNED);
@@ -1157,10 +1165,14 @@ erased:;
     // block bad?
     if (b && b->wear > bd->cfg->erase_cycles) {
         // warninging erases? error
-        if (bd->cfg->badblock_behavior
-                == LFS3_EMUBD_BADBLOCK_ERASEDAMAGED) {
+        if (LFS3_IFDEF_REPAIR(
+                bd->cfg->badblock_behavior
+                    == LFS3_EMUBD_BADBLOCK_ERASEDAMAGED,
+                false)) {
+            #ifdef LFS3_REPAIR
             LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
+            #endif
         } else if (LFS3_IFDEF_CONDEMN(
                 bd->cfg->badblock_behavior
                         == LFS3_EMUBD_BADBLOCK_ERASECONDEMNED,
