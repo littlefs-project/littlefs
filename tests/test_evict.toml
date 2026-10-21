@@ -7005,11 +7005,20 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0]
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -7118,11 +7127,20 @@ code = '''
 [cases.test_evict_repair_t_mrootanchor]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -7199,11 +7217,20 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -7329,11 +7356,20 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -7499,11 +7535,20 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -7665,11 +7710,20 @@ code = '''
 [cases.test_evict_repair_t_mdir_mtree]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -7839,11 +7893,20 @@ code = '''
 [cases.test_evict_repair_t_mdir_mtree_split]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4, 6]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -8036,11 +8099,20 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -8177,11 +8249,20 @@ defines.SMACK = 20
 defines.SIBLING = [0, 1, 2]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -8356,11 +8437,20 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -8495,11 +8585,20 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -8672,11 +8771,20 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -8848,11 +8956,20 @@ defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -9068,11 +9185,20 @@ defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -9327,11 +9453,20 @@ defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -9584,11 +9719,20 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 defines.SYNC = [false, true]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 if = [
@@ -9762,11 +9906,20 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SYNC = [false, true]
 defines.SIBLING = [0, 1, 2]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 if = [
@@ -9984,11 +10137,20 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 if = [
@@ -10208,11 +10370,20 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SIBLING = [0, 1, 2]
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 if = [
@@ -10476,11 +10647,20 @@ code = '''
 [cases.test_evict_repair_t_bptr]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -10624,11 +10804,20 @@ defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # encourage a btree
 defines.SHRUB_SIZE = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -10798,11 +10987,20 @@ code = '''
 [cases.test_evict_repair_t_bptr_bshrub]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -10973,11 +11171,20 @@ code = '''
 [cases.test_evict_repair_t_bptr_dag]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -11154,11 +11361,20 @@ code = '''
 #
 [cases.test_evict_repair_t_bptr_erased]
 defines.SYNC = [false, true]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
@@ -11315,11 +11531,20 @@ defines.SIZE = [
 ]
 defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2, 3]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
@@ -11562,11 +11787,20 @@ defines.DELTA = [
 ]
 defines.DESYNC = [false, true]
 defines.SIBLING = [0, 1, 2, 3]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
@@ -11825,11 +12059,20 @@ defines.N = 4
 defines.DELTA = ['+2*CHUNK', '+1*CHUNK', '-1*CHUNK', '-2*CHUNK']
 defines.DESYNC = [false, true]
 defines.SIBLING = [0]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
@@ -12094,11 +12337,20 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0]
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -12353,11 +12605,20 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -12592,11 +12853,20 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -12835,11 +13105,20 @@ code = '''
 defines.CALLS = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -13105,11 +13384,20 @@ defines.SYNC = [false, true]
 defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
@@ -13296,11 +13584,20 @@ defines.SYNC = [false, true]
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
@@ -13518,11 +13815,20 @@ code = '''
 # CALLS=2 => lfs3_file_ck + lfs3_file_ck
 defines.CALLS = [0, 1, 2]
 defines.SYNC = [false, true]
+# CONDEMN=0 => don't condemn
+# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
+# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
+defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
-defines.CONDEMN = [false, true]
+defines.BADBLOCK_BEHAVIOR = '''
+    ((CONDEMN == 2)
+        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
+        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+'''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+    ((CONDEMN == 1)
+        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
+        : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
