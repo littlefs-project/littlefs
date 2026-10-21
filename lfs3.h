@@ -92,8 +92,14 @@ enum lfs3_err {
 
     // bd errors
     LFS3_ERR_IO          = -5,   // Error during device operation
-    LFS3_ERR_DAMAGED     = -83,  // Data is ok, but needs repair
+    LFS3_ERR_DAMAGED     = -82,  // Data is ok, but needs repair
+    #ifdef LFS3_CONDEMN
+    LFS3_ERR_CONDEMNED   = -83,  // Data is ok, but block is bad
+    #endif
     LFS3_ERR_CORRUPT     = -84,  // Data is corrupt
+    #ifdef LFS3_CONDEMN
+    LFS3_ERR_BAD         = -85,  // Data is corrupt, block is bad
+    #endif
 
     // filesystem errors
     LFS3_ERR_NOENT       = -2,   // No directory entry
@@ -489,7 +495,7 @@ enum lfs3_btype {
     LFS3_BTYPE_FREE    = 4, // Known free, safe to alloc
     LFS3_BTYPE_INUSE   = 5, // Known in-use, type unknown
     #ifdef LFS3_GBMAP
-    LFS3_BTYPE_ERASED  = 6, // Known erased, probably (requires ecksum proof)
+    LFS3_BTYPE_ERASED  = 6, // Known erased, probably (needs ecksum proof)
     LFS3_BTYPE_BAD     = 7, // Known bad, do not alloc
     #endif
     LFS3_BTYPE_UNKNOWN = 8, // Unknown block status
